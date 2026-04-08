@@ -1,0 +1,24 @@
+{
+  "name": "my-ai-tools",
+  "version": "0.1.0",
+  "description": "A personal collection of AI development tools",
+  "type": "module",
+  "bin": {
+    "ai-env-diagram": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc && node dist/index.js"
+  },
+  "keywords": ["ai", "claude", "mcp", "diagram", "tools"],
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "@types/node": "^20.11.0"
+  },
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "commander": "^12.1.0"
+  }
+}
