@@ -1,7 +1,18 @@
-import { existsSync, statSync, readdirSync } from "node:fs";
+import { existsSync, statSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
 import { homedir } from "node:os";
 import type { ContextFile } from "../types.js";
+
+function estimateTokens(filePath: string): number {
+  try {
+    const content = readFileSync(filePath, "utf-8");
+    // Heuristic: ~4 characters per token for English text.
+    // Claude tokenizer is close to this for typical markdown content.
+    return Math.ceil(content.length / 4);
+  } catch {
+    return 0;
+  }
+}
 
 function checkFile(
   filePath: string,
@@ -12,6 +23,7 @@ function checkFile(
     path: filePath,
     exists,
     sizeBytes: exists ? statSync(filePath).size : 0,
+    estimatedTokens: exists ? estimateTokens(filePath) : 0,
     scope,
   };
 }
@@ -38,6 +50,7 @@ export function scanContextFiles(projectPath: string): ContextFile[] {
             path: entryPath,
             exists: true,
             sizeBytes: statSync(entryPath).size,
+            estimatedTokens: estimateTokens(entryPath),
             scope: "project",
           });
         }

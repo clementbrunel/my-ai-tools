@@ -23,6 +23,7 @@ export interface ContextFile {
   path: string;
   exists: boolean;
   sizeBytes: number;
+  estimatedTokens: number;
   scope: "project" | "user" | "parent";
 }
 
@@ -37,11 +38,30 @@ export interface Hook {
   diagnostics: string[];
 }
 
+export interface ModelInfo {
+  configured: string | null;
+  source: string | null;
+  isSonnet: boolean;
+  status: Status;
+  diagnostics: string[];
+}
+
+export interface Integration {
+  name: string;
+  description: string;
+  detected: boolean;
+  status: Status;
+  source?: string;
+  diagnostics: string[];
+}
+
 export interface ScanResult {
   projectPath: string;
+  model: ModelInfo;
   mcpServers: McpServer[];
   contextFiles: ContextFile[];
   hooks: Hook[];
+  integrations: Integration[];
   envVarSummary: {
     total: number;
     set: number;

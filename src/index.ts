@@ -7,6 +7,8 @@ import { resolve } from "node:path";
 import { scanMcpServers } from "./scanner/mcp.js";
 import { scanContextFiles } from "./scanner/context.js";
 import { scanHooks } from "./scanner/hooks.js";
+import { scanModel } from "./scanner/model.js";
+import { scanIntegrations } from "./scanner/integrations.js";
 import { summarizeEnvVars } from "./scanner/env.js";
 import { generateMermaid, generateSummary } from "./diagram/mermaid.js";
 import type { ScanResult } from "./types.js";
@@ -34,23 +36,60 @@ program
     );
 
     // Run all scanners
+    const model = scanModel(projectPath);
     const mcpServers = scanMcpServers(projectPath);
     const contextFiles = scanContextFiles(projectPath);
     const hooks = scanHooks(projectPath);
+    const integrations = scanIntegrations(projectPath, mcpServers, hooks);
     const envVarSummary = summarizeEnvVars(mcpServers);
 
     const result: ScanResult = {
       projectPath,
+      model,
       mcpServers,
       contextFiles,
       hooks,
+      integrations,
       envVarSummary,
     };
 
     // Print scan stats
+    const modelLabel = model.configured ?? "default (unset)";
+    const modelColor =
+      model.status === "ok"
+        ? chalk.green
+        : model.status === "warning"
+          ? chalk.yellow
+          : chalk.red;
+    console.log(modelColor(`  Model:         ${modelLabel}`));
     console.log(chalk.gray(`  MCP Servers:   ${mcpServers.length} found`));
-    console.log(chalk.gray(`  Context Files: ${contextFiles.length} found`));
+
+    const totalTokens = contextFiles.reduce(
+      (sum, f) => sum + f.estimatedTokens,
+      0
+    );
+    console.log(
+      chalk.gray(
+        `  Context Files: ${contextFiles.length} found (~${totalTokens.toLocaleString()} tokens)`
+      )
+    );
     console.log(chalk.gray(`  Hooks:         ${hooks.length} found`));
+    console.log(
+      chalk.gray(
+        `  Integrations:  ${integrations.filter((i) => i.detected).length}/${integrations.length} detected`
+      )
+    );
+    for (const integ of integrations) {
+      const icon =
+        integ.status === "ok" ? "✅" : integ.status === "warning" ? "⚠️" : "❌";
+      const color =
+        integ.status === "ok"
+          ? chalk.green
+          : integ.status === "warning"
+            ? chalk.yellow
+            : chalk.red;
+      console.log(color(`     ${icon} ${integ.name}`));
+    }
     console.log(
       chalk.gray(
         `  Env Vars:      ${envVarSummary.set}/${envVarSummary.total} set`

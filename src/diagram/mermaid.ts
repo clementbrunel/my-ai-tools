@@ -14,13 +14,25 @@ function escapeLabel(text: string): string {
   return text.replace(/"/g, "#quot;");
 }
 
+function formatTokens(tokens: number): string {
+  if (tokens < 1000) return `${tokens}t`;
+  return `${(tokens / 1000).toFixed(1)}kt`;
+}
+
 export function generateMermaid(result: ScanResult): string {
   const lines: string[] = [];
 
   lines.push("```mermaid");
   lines.push("graph LR");
   lines.push("");
-  lines.push('  Claude["🤖 Claude Code"]');
+
+  // --- Claude Code node with model info ---
+  const model = result.model;
+  const modelIcon = STATUS_ICON[model.status];
+  const modelLabel = model.configured
+    ? `${model.configured} ${modelIcon}`
+    : `default (unset) ${modelIcon}`;
+  lines.push(`  Claude["🤖 Claude Code<br/><small>model: ${escapeLabel(modelLabel)}</small>"]:::${model.status}`);
   lines.push("");
 
   // --- MCP Servers ---
@@ -64,7 +76,8 @@ export function generateMermaid(result: ScanResult): string {
       const id = `ctx_${sanitizeId(ctx.path)}`;
       const shortPath = ctx.path.replace(/^.*\//, "");
       const sizeKb = (ctx.sizeBytes / 1024).toFixed(1);
-      const label = `${shortPath} ✅<br/><small>${ctx.scope} · ${sizeKb}KB</small>`;
+      const tokens = formatTokens(ctx.estimatedTokens);
+      const label = `${shortPath} ✅<br/><small>${ctx.scope} · ${sizeKb}KB · ~${tokens}</small>`;
       lines.push(`    ${id}["${label}"]:::ok`);
     }
 
@@ -95,6 +108,35 @@ export function generateMermaid(result: ScanResult): string {
       }
 
       lines.push(`    ${id}["${label}"]:::${hook.status}`);
+    }
+
+    lines.push("  end");
+    lines.push("");
+  }
+
+  // --- Integrations (MemPalace, Caveman, RTK, ...) ---
+  if (result.integrations.length > 0) {
+    lines.push("  subgraph Integrations[Integrations]");
+
+    for (let i = 0; i < result.integrations.length; i++) {
+      const integration = result.integrations[i];
+      const id = `integ_${i}_${sanitizeId(integration.name)}`;
+      const icon = STATUS_ICON[integration.status];
+      let label = `${integration.name} ${icon}`;
+
+      if (!integration.detected) {
+        label += `<br/><i>not detected</i>`;
+      } else if (integration.diagnostics.length > 0) {
+        const diag = integration.diagnostics
+          .slice(0, 2)
+          .map((d) => escapeLabel(d))
+          .join("<br/>");
+        label += `<br/><i>${diag}</i>`;
+      }
+
+      label += `<br/><small>${escapeLabel(integration.description)}</small>`;
+
+      lines.push(`    ${id}["${label}"]:::${integration.status}`);
     }
 
     lines.push("  end");
@@ -135,6 +177,11 @@ export function generateMermaid(result: ScanResult): string {
     const id = `hook_${i}_${sanitizeId(hook.event)}`;
     lines.push(`  Claude --> ${id}`);
   }
+  for (let i = 0; i < result.integrations.length; i++) {
+    const integration = result.integrations[i];
+    const id = `integ_${i}_${sanitizeId(integration.name)}`;
+    lines.push(`  Claude --> ${id}`);
+  }
   if (result.envVarSummary.total > 0) {
     lines.push("  Claude --> env_summary");
   }
@@ -156,24 +203,37 @@ export function generateSummary(result: ScanResult): string {
   const total =
     result.mcpServers.length +
     result.contextFiles.length +
-    result.hooks.length;
+    result.hooks.length +
+    result.integrations.length;
 
   const errors = [
+    ...(result.model.status === "error" ? [{ name: "Model", diagnostics: result.model.diagnostics }] : []),
     ...result.mcpServers.filter((s) => s.status === "error"),
     ...result.hooks.filter((h) => h.status === "error"),
+    ...result.integrations.filter((i) => i.status === "error"),
   ];
   const warnings = [
+    ...(result.model.status === "warning" ? [{ name: "Model", diagnostics: result.model.diagnostics }] : []),
     ...result.mcpServers.filter((s) => s.status === "warning"),
     ...result.hooks.filter((h) => h.status === "warning"),
+    ...result.integrations.filter((i) => i.status === "warning"),
   ];
+
+  const totalContextTokens = result.contextFiles.reduce(
+    (sum, f) => sum + f.estimatedTokens,
+    0
+  );
+  const modelLabel = result.model.configured ?? "default (unset)";
 
   lines.push(`## AI Environment Summary`);
   lines.push("");
-  lines.push(`| Category | Count |`);
+  lines.push(`| Category | Value |`);
   lines.push(`|----------|-------|`);
+  lines.push(`| Model | ${modelLabel} ${STATUS_ICON[result.model.status]} |`);
   lines.push(`| MCP Servers | ${result.mcpServers.length} |`);
-  lines.push(`| Context Files | ${result.contextFiles.length} |`);
+  lines.push(`| Context Files | ${result.contextFiles.length} (~${formatTokens(totalContextTokens)}) |`);
   lines.push(`| Hooks | ${result.hooks.length} |`);
+  lines.push(`| Integrations | ${result.integrations.filter((i) => i.detected).length}/${result.integrations.length} detected |`);
   lines.push(`| Env Vars | ${result.envVarSummary.set}/${result.envVarSummary.total} set |`);
   lines.push("");
 

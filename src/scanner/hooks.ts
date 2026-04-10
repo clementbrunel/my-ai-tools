@@ -1,4 +1,5 @@
 import { readFileSync, existsSync, accessSync, constants } from "node:fs";
+import { execSync } from "node:child_process";
 import { join, resolve } from "node:path";
 import { homedir } from "node:os";
 import type { Hook, Status } from "../types.js";
@@ -27,15 +28,31 @@ function parseJsonFile<T>(filePath: string): T | null {
   }
 }
 
-function isScriptExecutable(scriptPath: string): boolean | null {
-  try {
-    // Expand ~ to home directory
-    const resolved = scriptPath.startsWith("~")
-      ? join(homedir(), scriptPath.slice(1))
-      : scriptPath;
+function isScriptExecutable(command: string): boolean {
+  // The hook command may be a path to a script, or an inline shell command.
+  // Strategy: if it looks like a path (starts with /, ~, ./), validate it as a
+  // file. Otherwise, extract the first token and check it against PATH.
+  const trimmed = command.trim();
+  const looksLikePath = /^(\/|~|\.\/)/.test(trimmed);
 
-    if (!existsSync(resolved)) return false;
-    accessSync(resolved, constants.X_OK);
+  if (looksLikePath) {
+    try {
+      const resolved = trimmed.startsWith("~")
+        ? join(homedir(), trimmed.slice(1).split(/\s+/)[0])
+        : trimmed.split(/\s+/)[0];
+      if (!existsSync(resolved)) return false;
+      accessSync(resolved, constants.X_OK);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // Shell command: check if the first token resolves in PATH
+  const firstToken = trimmed.split(/\s+/)[0];
+  if (!firstToken) return false;
+  try {
+    execSync(`which ${firstToken} 2>/dev/null`, { stdio: "pipe" });
     return true;
   } catch {
     return false;
