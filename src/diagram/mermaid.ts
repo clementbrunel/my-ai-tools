@@ -61,13 +61,12 @@ export function generateMermaid(result: ScanResult): string {
       label += `<br/><small>${escapeLabel(typeLabel)}</small>`;
 
       if (server.subServers && server.subServers.length > 0) {
-        // Render as a nested subgraph with each sub-server as a child node
-        lines.push(`    subgraph ${id}["${label}"]`);
+        // Gateway node + sub-servers as siblings (Mermaid subgraph titles don't support HTML)
+        lines.push(`    ${id}["${label}"]:::${server.status}`);
         for (const sub of server.subServers) {
           const subId = `mcp_${sanitizeId(server.name)}_${sanitizeId(sub)}`;
-          lines.push(`      ${subId}["${sub}"]:::ok`);
+          lines.push(`    ${subId}["${sub}"]:::ok`);
         }
-        lines.push(`    end`);
       } else {
         lines.push(`    ${id}["${label}"]:::${server.status}`);
       }
@@ -177,6 +176,12 @@ export function generateMermaid(result: ScanResult): string {
   for (const server of result.mcpServers) {
     const id = `mcp_${sanitizeId(server.name)}`;
     lines.push(`  Claude --> ${id}`);
+    if (server.subServers && server.subServers.length > 0) {
+      for (const sub of server.subServers) {
+        const subId = `mcp_${sanitizeId(server.name)}_${sanitizeId(sub)}`;
+        lines.push(`  ${id} --> ${subId}`);
+      }
+    }
   }
   for (const ctx of existingContextFiles) {
     const id = `ctx_${sanitizeId(ctx.path)}`;
