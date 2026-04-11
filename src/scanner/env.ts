@@ -10,11 +10,13 @@ export function summarizeEnvVars(
   const unique = [...uniqueMap.values()];
 
   const missing = unique.filter((e) => !e.isSet);
+  const set = unique.filter((e) => e.isSet);
 
   return {
     total: unique.length,
-    set: unique.filter((e) => e.isSet).length,
+    set: set.length,
     missing: missing.length,
     missingList: missing.map((e) => e.name),
+    setList: set.map((e) => e.name),
   };
 }

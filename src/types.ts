@@ -68,5 +68,6 @@ export interface ScanResult {
     set: number;
     missing: number;
     missingList: string[];
+    setList: string[];
   };
 }

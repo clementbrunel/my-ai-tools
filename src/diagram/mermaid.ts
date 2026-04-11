@@ -159,6 +159,15 @@ export function generateMermaid(result: ScanResult): string {
     const icon = STATUS_ICON[envStatus];
     let label = `Env Vars ${icon}<br/><small>${env.set}/${env.total} set</small>`;
 
+    if (env.setList.length > 0) {
+      const setVars = env.setList.slice(0, 3).join(", ");
+      label += `<br/><small>Set: ${escapeLabel(setVars)}`;
+      if (env.setList.length > 3) {
+        label += ` +${env.setList.length - 3} more`;
+      }
+      label += `</small>`;
+    }
+
     if (env.missingList.length > 0) {
       const missing = env.missingList.slice(0, 3).join(", ");
       label += `<br/><i>Missing: ${escapeLabel(missing)}</i>`;
