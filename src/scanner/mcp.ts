@@ -128,6 +128,21 @@ function parseServersFromConfig(
   });
 }
 
+function getClaudeDesktopConfigPath(): string | null {
+  const p = process.platform;
+  const home = homedir();
+  if (p === "win32") {
+    const appData = process.env.APPDATA ?? join(home, "AppData", "Roaming");
+    return join(appData, "Claude", "claude_desktop_config.json");
+  }
+  if (p === "darwin") {
+    return join(home, "Library", "Application Support", "Claude", "claude_desktop_config.json");
+  }
+  // Linux
+  const configHome = process.env.XDG_CONFIG_HOME ?? join(home, ".config");
+  return join(configHome, "Claude", "claude_desktop_config.json");
+}
+
 export function scanMcpServers(projectPath: string): McpServer[] {
   const results: McpServer[] = [];
   const absPath = resolve(projectPath);
@@ -163,6 +178,20 @@ export function scanMcpServers(projectPath: string): McpServer[] {
         `~/.claude/settings.json`
       )
     );
+  }
+
+  // 4. Claude Desktop config (shared by Desktop app and VSCode extension)
+  const desktopConfigPath = getClaudeDesktopConfigPath();
+  if (desktopConfigPath) {
+    const desktopConfig = parseJsonFile<McpJsonFile>(desktopConfigPath);
+    if (desktopConfig?.mcpServers) {
+      results.push(
+        ...parseServersFromConfig(
+          desktopConfig.mcpServers,
+          `claude_desktop_config.json`
+        )
+      );
+    }
   }
 
   return results;
