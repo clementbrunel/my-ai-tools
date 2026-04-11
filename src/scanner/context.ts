@@ -1,7 +1,16 @@
 import { existsSync, statSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
 import { homedir } from "node:os";
-import type { ContextFile } from "../types.js";
+import type { ContextFile, Status } from "../types.js";
+
+const TOKEN_WARNING = 500;
+const TOKEN_ERROR = 1000;
+
+function tokenStatus(tokens: number): Status {
+  if (tokens >= TOKEN_ERROR) return "error";
+  if (tokens >= TOKEN_WARNING) return "warning";
+  return "ok";
+}
 
 function estimateTokens(filePath: string): number {
   try {
@@ -19,12 +28,14 @@ function checkFile(
   scope: ContextFile["scope"]
 ): ContextFile | null {
   const exists = existsSync(filePath);
+  const tokens = exists ? estimateTokens(filePath) : 0;
   return {
     path: filePath,
     exists,
     sizeBytes: exists ? statSync(filePath).size : 0,
-    estimatedTokens: exists ? estimateTokens(filePath) : 0,
+    estimatedTokens: tokens,
     scope,
+    status: tokenStatus(tokens),
   };
 }
 
@@ -46,12 +57,14 @@ export function scanContextFiles(projectPath: string): ContextFile[] {
         if (entry === "settings.json") continue; // handled by MCP scanner
         const entryPath = join(claudeDir, entry);
         if (statSync(entryPath).isFile()) {
+          const tokens = estimateTokens(entryPath);
           results.push({
             path: entryPath,
             exists: true,
             sizeBytes: statSync(entryPath).size,
-            estimatedTokens: estimateTokens(entryPath),
+            estimatedTokens: tokens,
             scope: "project",
+            status: tokenStatus(tokens),
           });
         }
       }

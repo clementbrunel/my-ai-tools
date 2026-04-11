@@ -68,8 +68,15 @@ program
       (sum, f) => sum + f.estimatedTokens,
       0
     );
+    let worstCtxStatus: "ok" | "warning" | "error" = "ok";
+    if (contextFiles.some((f) => f.status === "error")) worstCtxStatus = "error";
+    else if (contextFiles.some((f) => f.status === "warning")) worstCtxStatus = "warning";
+
+    let ctxColor = chalk.gray;
+    if (worstCtxStatus === "error") ctxColor = chalk.red;
+    else if (worstCtxStatus === "warning") ctxColor = chalk.yellow;
     console.log(
-      chalk.gray(
+      ctxColor(
         `  Context Files: ${contextFiles.length} found (~${totalTokens.toLocaleString()} tokens)`
       )
     );

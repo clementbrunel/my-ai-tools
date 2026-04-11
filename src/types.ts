@@ -26,6 +26,7 @@ export interface ContextFile {
   sizeBytes: number;
   estimatedTokens: number;
   scope: "project" | "user" | "parent";
+  status: Status;
 }
 
 export interface Hook {
