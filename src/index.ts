@@ -95,7 +95,8 @@ program
           : integ.status === "warning"
             ? chalk.yellow
             : chalk.red;
-      console.log(color(`     ${icon} ${integ.name}`));
+      const detailSuffix = integ.detail ? chalk.dim(` [${integ.detail}]`) : "";
+      console.log(color(`     ${icon} ${integ.name}`) + detailSuffix);
     }
     console.log(
       chalk.gray(

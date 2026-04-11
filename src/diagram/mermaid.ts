@@ -134,6 +134,10 @@ export function generateMermaid(result: ScanResult): string {
       const icon = STATUS_ICON[integration.status];
       let label = `${integration.name} ${icon}`;
 
+      if (integration.detail) {
+        label += ` <small>[${escapeLabel(integration.detail)}]</small>`;
+      }
+
       if (!integration.detected) {
         label += `<br/><i>not detected</i>`;
       } else if (integration.diagnostics.length > 0) {
@@ -258,7 +262,12 @@ export function generateSummary(result: ScanResult): string {
   lines.push(`| MCP Servers | ${result.mcpServers.length} |`);
   lines.push(`| Context Files | ${result.contextFiles.length} (~${formatTokens(totalContextTokens)}) |`);
   lines.push(`| Hooks | ${result.hooks.length} |`);
-  lines.push(`| Integrations | ${result.integrations.filter((i) => i.detected).length}/${result.integrations.length} detected |`);
+  const integrationLabels = result.integrations.map((i) => {
+    const icon = i.detected ? STATUS_ICON[i.status] : "➖";
+    const detail = i.detail ? ` \`${i.detail}\`` : "";
+    return `${i.name}${detail} ${icon}`;
+  });
+  lines.push(`| Integrations | ${integrationLabels.join(" · ")} |`);
   lines.push(`| Env Vars | ${result.envVarSummary.set}/${result.envVarSummary.total} set |`);
   lines.push("");
 

@@ -55,6 +55,7 @@ export interface Integration {
   status: Status;
   source?: string;
   diagnostics: string[];
+  detail?: string; // optional active config/mode info (e.g. caveman level)
 }
 
 export interface ScanResult {

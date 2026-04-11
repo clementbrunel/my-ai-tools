@@ -87,46 +87,87 @@ function detectMemPalace(mcpServers: McpServer[]): Integration {
   };
 }
 
-function detectCaveman(projectPath: string): Integration {
-  const skillDir = findSkillDir(projectPath, "caveman");
-  const diagnostics: string[] = [];
-
-  if (!skillDir) {
-    // Also check case-insensitive match among installed skills
-    const skills = listSkills(projectPath);
-    const match = skills.find((s) => s.includes("caveman"));
-    if (!match) {
-      return {
-        name: "Caveman",
-        description: "Token-reduction skill (concise output)",
-        detected: false,
-        status: "warning",
-        diagnostics: ["Caveman skill not found in ~/.claude/skills or .claude/skills"],
-      };
+function detectCavemanPlugin(): { detected: boolean; source?: string } {
+  const settingsPath = join(homedir(), ".claude", "settings.json");
+  if (!existsSync(settingsPath)) return { detected: false };
+  try {
+    const settings = JSON.parse(readFileSync(settingsPath, "utf-8"));
+    const enabled = settings.enabledPlugins ?? {};
+    const pluginKey = Object.keys(enabled).find((k) => /caveman/i.test(k));
+    if (pluginKey && enabled[pluginKey]) {
+      // Resolve marketplace install dir
+      const marketplaceDir = join(homedir(), ".claude", "plugins", "marketplaces", "caveman");
+      const source = existsSync(marketplaceDir) ? marketplaceDir : pluginKey;
+      return { detected: true, source };
     }
+  } catch {
+    // ignore parse errors
   }
+  return { detected: false };
+}
 
-  // Check for SKILL.md or skill.md inside
-  let hasSkillFile = false;
-  if (skillDir) {
-    for (const entry of readdirSync(skillDir)) {
-      if (/^skill\.md$/i.test(entry)) {
-        hasSkillFile = true;
-        break;
-      }
-    }
-    if (!hasSkillFile) {
-      diagnostics.push("Skill directory found but no SKILL.md file inside");
-    }
+function hasSkillMd(dir: string): boolean {
+  return readdirSync(dir).some((e: string) => /^skill\.md$/i.test(e));
+}
+
+function readCavemanLevel(): string | undefined {
+  const flagPath = join(homedir(), ".claude", ".caveman-active");
+  if (!existsSync(flagPath)) return undefined;
+  try {
+    const level = readFileSync(flagPath, "utf-8").trim();
+    return level || undefined;
+  } catch {
+    return undefined;
   }
+}
 
+function detectCavemanViaPlugin(): Integration | null {
+  const pluginResult = detectCavemanPlugin();
+  if (!pluginResult.detected) return null;
+
+  const marketplaceDir = pluginResult.source ?? "";
+  const skillsDir = join(marketplaceDir, "skills", "caveman");
+  const ok = existsSync(skillsDir) && hasSkillMd(skillsDir);
   return {
     name: "Caveman",
     description: "Token-reduction skill (concise output)",
     detected: true,
-    source: skillDir ?? undefined,
-    status: hasSkillFile ? "ok" : "warning",
-    diagnostics,
+    source: `plugin: ${pluginResult.source}`,
+    status: ok ? "ok" : "warning",
+    diagnostics: ok ? [] : ["Plugin installed but SKILL.md not found in skills/caveman/"],
+    detail: readCavemanLevel(),
+  };
+}
+
+function detectCavemanViaSkillDir(skillDir: string): Integration {
+  const ok = hasSkillMd(skillDir);
+  return {
+    name: "Caveman",
+    description: "Token-reduction skill (concise output)",
+    detected: true,
+    source: skillDir,
+    status: ok ? "ok" : "warning",
+    diagnostics: ok ? [] : ["Skill directory found but no SKILL.md file inside"],
+    detail: readCavemanLevel(),
+  };
+}
+
+function detectCaveman(projectPath: string): Integration {
+  const fromPlugin = detectCavemanViaPlugin();
+  if (fromPlugin) return fromPlugin;
+
+  const skillDir = findSkillDir(projectPath, "caveman");
+  if (skillDir) return detectCavemanViaSkillDir(skillDir);
+
+  const match = listSkills(projectPath).find((s) => s.includes("caveman"));
+  if (match) return detectCavemanViaSkillDir(match);
+
+  return {
+    name: "Caveman",
+    description: "Token-reduction skill (concise output)",
+    detected: false,
+    status: "warning",
+    diagnostics: ["Caveman skill not found in ~/.claude/skills, .claude/skills, or enabledPlugins"],
   };
 }
 
