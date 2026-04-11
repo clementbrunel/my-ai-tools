@@ -86,8 +86,9 @@ export function generateMermaid(result: ScanResult): string {
       const shortPath = ctx.path.replace(/^.*\//, "");
       const sizeKb = (ctx.sizeBytes / 1024).toFixed(1);
       const tokens = formatTokens(ctx.estimatedTokens);
-      const label = `${shortPath} ✅<br/><small>${ctx.scope} · ${sizeKb}KB · ~${tokens}</small>`;
-      lines.push(`    ${id}["${label}"]:::ok`);
+      const icon = STATUS_ICON[ctx.status];
+      const label = `${shortPath} ${icon}<br/><small>${ctx.scope} · ${sizeKb}KB · ~${tokens}</small>`;
+      lines.push(`    ${id}["${label}"]:::${ctx.status}`);
     }
 
     lines.push("  end");
