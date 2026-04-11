@@ -130,15 +130,14 @@ function detectCaveman(projectPath: string): Integration {
   };
 }
 
-function detectRtk(projectPath: string, hooks: Hook[]): Integration {
-  const diagnostics: string[] = [];
+function collectRtkSignals(
+  projectPath: string,
+  hooks: Hook[]
+): { signals: string[]; rtkHook: Hook | undefined; claudeMdConfigured: boolean } {
   const signals: string[] = [];
 
-  // 1. rtk binary in PATH
-  const binaryOk = isCommandAvailable("rtk");
-  if (binaryOk) signals.push("binary in PATH");
+  if (isCommandAvailable("rtk")) signals.push("binary in PATH");
 
-  // 2. RTK.md file (project or user level)
   const rtkMdCandidates = [
     join(projectPath, "RTK.md"),
     join(homedir(), ".claude", "RTK.md"),
@@ -147,48 +146,69 @@ function detectRtk(projectPath: string, hooks: Hook[]): Integration {
   const rtkMd = rtkMdCandidates.find((p) => existsSync(p));
   if (rtkMd) signals.push(`RTK.md at ${rtkMd}`);
 
-  // 3. Hook with rtk in command
   const rtkHook = hooks.find((h) => /\brtk\b/i.test(h.command));
   if (rtkHook) signals.push(`hook: ${rtkHook.event}`);
 
-  // 4. Mention in settings files (fallback)
-  const projectSettingsPath = join(projectPath, ".claude", "settings.json");
-  if (existsSync(projectSettingsPath)) {
-    try {
-      const raw = readFileSync(projectSettingsPath, "utf-8");
-      if (/\brtk\b/i.test(raw) && !rtkHook) {
-        signals.push("referenced in .claude/settings.json");
-      }
-    } catch {
-      // ignore
+  const claudeMdCandidates = [
+    join(projectPath, "CLAUDE.md"),
+    join(homedir(), ".claude", "CLAUDE.md"),
+  ];
+  let claudeMdConfigured = false;
+  for (const p of claudeMdCandidates) {
+    if (existsSync(p) && fileContainsRtk(p)) {
+      signals.push(`referenced in ${p}`);
+      claudeMdConfigured = true;
     }
   }
 
+  const settingsPath = join(projectPath, ".claude", "settings.json");
+  if (!rtkHook && existsSync(settingsPath) && fileContainsRtk(settingsPath)) {
+    signals.push("referenced in .claude/settings.json");
+  }
+
+  return { signals, rtkHook, claudeMdConfigured };
+}
+
+function fileContainsRtk(filePath: string): boolean {
+  try {
+    return /\brtk\b/i.test(readFileSync(filePath, "utf-8"));
+  } catch {
+    return false;
+  }
+}
+
+function detectRtk(projectPath: string, hooks: Hook[]): Integration {
+  const base = {
+    name: "RTK (Rust Token Killer)",
+    description: "CLI proxy that compresses command output to save tokens",
+  };
+
+  const { signals, rtkHook, claudeMdConfigured } = collectRtkSignals(projectPath, hooks);
+
   if (signals.length === 0) {
     return {
-      name: "RTK (Rust Token Killer)",
-      description: "CLI proxy that compresses command output to save tokens",
+      ...base,
       detected: false,
       status: "warning",
-      diagnostics: [
-        "Not detected: no rtk binary, no RTK.md, no rtk hook",
-      ],
+      diagnostics: ["Not detected: no rtk binary, no RTK.md, no rtk hook"],
     };
   }
 
+  const diagnostics: string[] = [];
   let status: Status = "ok";
-  if (!binaryOk) {
+
+  if (!isCommandAvailable("rtk")) {
     diagnostics.push("'rtk' binary not found in PATH");
     status = "error";
   }
-  if (!rtkHook) {
+  // A hook is optional when RTK is configured via CLAUDE.md (the standard approach)
+  if (!rtkHook && !claudeMdConfigured) {
     diagnostics.push("No RTK hook configured — integration may be incomplete");
     if (status === "ok") status = "warning";
   }
 
   return {
-    name: "RTK (Rust Token Killer)",
-    description: "CLI proxy that compresses command output to save tokens",
+    ...base,
     detected: true,
     source: signals.join(", "),
     status,
