@@ -60,7 +60,17 @@ export function generateMermaid(result: ScanResult): string {
             : "unknown";
       label += `<br/><small>${escapeLabel(typeLabel)}</small>`;
 
-      lines.push(`    ${id}["${label}"]:::${server.status}`);
+      if (server.subServers && server.subServers.length > 0) {
+        // Render as a nested subgraph with each sub-server as a child node
+        lines.push(`    subgraph ${id}["${label}"]`);
+        for (const sub of server.subServers) {
+          const subId = `mcp_${sanitizeId(server.name)}_${sanitizeId(sub)}`;
+          lines.push(`      ${subId}["${sub}"]:::ok`);
+        }
+        lines.push(`    end`);
+      } else {
+        lines.push(`    ${id}["${label}"]:::${server.status}`);
+      }
     }
 
     lines.push("  end");

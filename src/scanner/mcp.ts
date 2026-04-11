@@ -32,10 +32,37 @@ function parseJsonFile<T>(filePath: string): T | null {
 
 function isCommandAvailable(command: string): boolean {
   try {
-    execSync(`which ${command} 2>/dev/null`, { stdio: "pipe" });
+    execSync(`which ${command} 2>/dev/null || where ${command} 2>/dev/null`, { stdio: "pipe" });
     return true;
   } catch {
     return false;
+  }
+}
+
+function isDockerMcpGateway(config: McpServerConfig): boolean {
+  return (
+    config.command === "docker" &&
+    Array.isArray(config.args) &&
+    config.args[0] === "mcp" &&
+    config.args[1] === "gateway" &&
+    config.args[2] === "run"
+  );
+}
+
+function getDockerMcpSubServers(): string[] {
+  try {
+    const output = execSync("docker mcp server list 2>/dev/null", { stdio: "pipe" }).toString();
+    const results: string[] = [];
+    for (const line of output.split("\n")) {
+      // Lines look like: "context7  -  -  -  Description..."
+      // Skip header, separator, tip lines
+      if (!line.trim() || line.startsWith("MCP Servers") || line.startsWith("---") || line.startsWith("NAME") || line.startsWith("Tip:")) continue;
+      const name = line.trim().split(/\s{2,}/)[0];
+      if (name) results.push(name);
+    }
+    return results;
+  } catch {
+    return [];
   }
 }
 
@@ -111,6 +138,8 @@ function parseServersFromConfig(
         : null;
     const envVars = checkEnvVars(config.env);
 
+    const subServers = isDockerMcpGateway(config) ? getDockerMcpSubServers() : undefined;
+
     const partial = {
       name,
       source,
@@ -120,6 +149,7 @@ function parseServersFromConfig(
       url: config.url,
       envVars,
       commandAvailable,
+      subServers,
     };
 
     const { status, diagnostics } = determineStatus(partial);

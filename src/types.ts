@@ -11,6 +11,7 @@ export interface McpServer {
   commandAvailable: boolean | null; // null if not applicable (e.g. SSE)
   status: Status;
   diagnostics: string[];
+  subServers?: string[]; // for Docker MCP gateway: list of enabled sub-servers
 }
 
 export interface EnvVarCheck {
