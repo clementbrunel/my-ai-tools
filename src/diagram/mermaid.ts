@@ -31,7 +31,8 @@ export function generateMermaid(result: ScanResult): string {
   const modelIcon = STATUS_ICON[model.status];
   const modelLabel = model.configured
     ? `${model.configured} ${modelIcon}`
-    : `default (unset) ${modelIcon}`;
+    : `default (unset)`;
+
   lines.push(`  Claude["🤖 Claude Code<br/><small>model: ${escapeLabel(modelLabel)}</small>"]:::${model.status}`);
   lines.push("");
 
@@ -252,15 +253,19 @@ export function generateSummary(result: ScanResult): string {
     (sum, f) => sum + f.estimatedTokens,
     0
   );
+  let contextStatus: Status = "ok";
+  if (result.contextFiles.some((f) => f.status === "error")) contextStatus = "error";
+  else if (result.contextFiles.some((f) => f.status === "warning")) contextStatus = "warning";
   const modelLabel = result.model.configured ?? "default (unset)";
 
   lines.push(`## AI Environment Summary`);
   lines.push("");
   lines.push(`| Category | Value |`);
   lines.push(`|----------|-------|`);
-  lines.push(`| Model | ${modelLabel} ${STATUS_ICON[result.model.status]} |`);
+  const modelSuffix = result.model.configured ? ` ${STATUS_ICON[result.model.status]}` : "";
+  lines.push(`| Model | ${modelLabel}${modelSuffix} |`);
   lines.push(`| MCP Servers | ${result.mcpServers.length} |`);
-  lines.push(`| Context Files | ${result.contextFiles.length} (~${formatTokens(totalContextTokens)}) |`);
+  lines.push(`| Context Files | ${result.contextFiles.length} (~${formatTokens(totalContextTokens)}) ${STATUS_ICON[contextStatus]} |`);
   lines.push(`| Hooks | ${result.hooks.length} |`);
   const integrationLabels = result.integrations.map((i) => {
     const icon = i.detected ? STATUS_ICON[i.status] : "➖";

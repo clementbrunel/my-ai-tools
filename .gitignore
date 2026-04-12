@@ -3,3 +3,7 @@ dist/
 *.tsbuildinfo
 .env
 .env.local
+mempalace.yaml
+entities.json
+
+output/

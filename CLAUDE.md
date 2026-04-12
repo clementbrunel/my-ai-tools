@@ -1,59 +1,47 @@
 # CLAUDE.md
 
-Guidance for Claude Code when working in this repository.
-
-## Project Overview
-
-`my-ai-tools` is a personal CLI toolbox for inspecting and diagnosing Claude Code / AI environments. The only tool so far is `ai-env-diagram`, which scans a project and generates a Mermaid diagram of its AI setup (model, MCP servers, context files, hooks, integrations, env vars).
+CLI toolbox for Claude Code / AI env inspection. Tool: `ai-env-diagram` — scans project, generates Mermaid diagram of AI setup.
 
 ## Commands
-
 ```bash
-npm run build   # Compile TypeScript → dist/
-npm run dev     # Build + run immediately
-npm start       # Run compiled dist/index.js
+npm run build   # TS → dist/
+npm run dev     # build + run
+npm start       # run dist/index.js
 ```
-
-No tests yet. No linter configured.
+No tests, no linter.
 
 ## Architecture
-
 ```
 src/
-  index.ts              — CLI entrypoint (commander), orchestrates scanners
-  types.ts              — Shared types: McpServer, Hook, ContextFile, ModelInfo, Integration, ScanResult
+  index.ts          — CLI entrypoint, orchestrates scanners
+  types.ts          — McpServer, Hook, ContextFile, ModelInfo, Integration, ScanResult
   scanner/
-    model.ts            — Reads model from settings.json or ANTHROPIC_MODEL env var
-    mcp.ts              — Detects MCP servers from .mcp.json / settings.json, validates commands & env vars
-    context.ts          — Finds CLAUDE.md files (project, parent dirs, ~/.claude), estimates token count
-    hooks.ts            — Reads PreToolUse / PostToolUse / Stop hooks, verifies script existence
-    integrations.ts     — Detects MemPalace, Caveman, RTK by checking paths, binaries, and hooks
-    env.ts              — Aggregates env var status across all MCP servers
+    model.ts        — reads model from settings.json or ANTHROPIC_MODEL
+    mcp.ts          — detects MCP servers, validates commands & env vars
+    context.ts      — finds CLAUDE.md files, estimates token count
+    hooks.ts        — reads Pre/PostToolUse/Stop hooks, verifies scripts
+    integrations.ts — detects MemPalace, Caveman, RTK
+    env.ts          — aggregates env var status across MCP servers
   diagram/
-    mermaid.ts          — Renders ScanResult → Mermaid graph + optional summary table
+    mermaid.ts      — ScanResult → Mermaid graph + optional summary table
 ```
-
-**Data flow**: each scanner returns a typed result → `ScanResult` is assembled in `index.ts` → passed to `generateMermaid()`.
+Data flow: scanners → `ScanResult` in `index.ts` → `generateMermaid()`.
 
 ## Key Patterns
+- Every component: `status: "ok"|"warning"|"error"` + `diagnostics: string[]`
+- No external runtime deps beyond chalk + commander
+- ESM only (`"type": "module"`) — use `.js` extensions in imports
 
-- **Status model**: every component carries `status: "ok" | "warning" | "error"` + a `diagnostics: string[]` array for human-readable messages.
-- **No external runtime deps beyond chalk + commander** — keep it that way unless there is a strong reason.
-- **ESM only** (`"type": "module"` in package.json) — use `.js` extensions in all imports, even for `.ts` source files.
-- When adding a new scanner, add its return type to `types.ts`, wire it in `index.ts`, and add a node group in `diagram/mermaid.ts`.
+## Adding a Scanner
+1. `src/scanner/<name>.ts` → `scan<Name>(projectPath): <ResultType>`
+2. Add type to `types.ts` + `ScanResult`
+3. Wire in `index.ts`
+4. Add rendering block in `diagram/mermaid.ts`
 
-## Adding a New Scanner
-
-1. Create `src/scanner/<name>.ts` with a `scan<Name>(projectPath: string): <ResultType>` function.
-2. Add the result type to [src/types.ts](src/types.ts) and to the `ScanResult` interface.
-3. Call it in [src/index.ts](src/index.ts) and include its output in the `result` object.
-4. Add a rendering block in [src/diagram/mermaid.ts](src/diagram/mermaid.ts).
-
-## CLI Usage
-
+## CLI
 ```bash
-npx ai-env-diagram                    # Scan current directory
-npx ai-env-diagram --path /some/proj  # Scan another project
-npx ai-env-diagram --output out.md    # Write to file
-npx ai-env-diagram --summary          # Include error/warning table
+npx ai-env-diagram                    # scan current dir
+npx ai-env-diagram --path /some/proj  # scan other project
+npx ai-env-diagram --output out.md    # write to file
+npx ai-env-diagram --summary          # include error/warning table
 ```

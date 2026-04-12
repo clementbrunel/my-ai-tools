@@ -72,7 +72,7 @@ program
     if (contextFiles.some((f) => f.status === "error")) worstCtxStatus = "error";
     else if (contextFiles.some((f) => f.status === "warning")) worstCtxStatus = "warning";
 
-    let ctxColor = chalk.gray;
+    let ctxColor = chalk.green;
     if (worstCtxStatus === "error") ctxColor = chalk.red;
     else if (worstCtxStatus === "warning") ctxColor = chalk.yellow;
     console.log(

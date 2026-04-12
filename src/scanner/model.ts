@@ -53,7 +53,7 @@ export function scanModel(projectPath: string): ModelInfo {
   let status: Status;
 
   if (configured === null) {
-    status = "warning";
+    status = "ok";
     diagnostics.push(
       "No model explicitly configured (will use Claude Code default)"
     );
