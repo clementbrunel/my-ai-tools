@@ -6,9 +6,10 @@ Monorepo of small CLI tools for Claude Code / AI environment inspection.
 
 Each tool lives in its own subdirectory with its own `package.json`, `src/`, and `README.md`.
 
-| Directory          | Tool             | Description                                          |
-|--------------------|------------------|------------------------------------------------------|
-| `ai-env-diagram/`  | `ai-env-diagram` | Scans project, generates Mermaid diagram of AI setup |
+| Directory         | Tool             | Description                                                     |
+|-------------------|------------------|-----------------------------------------------------------------|
+| `ai-env-diagram/` | `ai-env-diagram` | Scans project, generates Mermaid diagram of AI setup            |
+| `mistral-chat/`   | `mistral-chat`   | Interactive CLI REPL for enterprise Mistral via browser cookies |
 
 ## Adding a new tool
 

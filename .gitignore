@@ -5,5 +5,3 @@ dist/
 .env.local
 mempalace.yaml
 entities.json
-
-output/

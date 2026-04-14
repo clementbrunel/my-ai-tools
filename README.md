@@ -4,9 +4,10 @@ A personal collection of AI development tools for inspecting, diagnosing, and op
 
 ## Tools
 
-| Tool                                  | Description                                                                                                               |
-|---------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
+| Tool                                  | Description                                                                                                                |
+|---------------------------------------|----------------------------------------------------------------------------------------------------------------------------|
 | [`ai-env-diagram`](./ai-env-diagram/) | Scans your Claude Code / AI environment and generates a Mermaid diagram of all connected components and their health status |
+| [`mistral-chat`](./mistral-chat/)     | Interactive CLI REPL to chat with an enterprise Mistral instance, authenticating via Chrome/Edge browser session cookies   |
 
 ## Roadmap
 
