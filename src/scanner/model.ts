@@ -1,20 +1,10 @@
-import { readFileSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { homedir } from "node:os";
 import type { ModelInfo, Status } from "../types.js";
+import { parseJsonFile } from "../utils.js";
 
 interface SettingsFile {
   model?: string;
-}
-
-function parseJsonFile<T>(filePath: string): T | null {
-  try {
-    if (!existsSync(filePath)) return null;
-    const content = readFileSync(filePath, "utf-8");
-    return JSON.parse(content) as T;
-  } catch {
-    return null;
-  }
 }
 
 export function scanModel(projectPath: string): ModelInfo {

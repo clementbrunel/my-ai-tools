@@ -1,8 +1,8 @@
-import { readFileSync, existsSync, accessSync, constants } from "node:fs";
-import { execSync } from "node:child_process";
+import { existsSync, accessSync, constants } from "node:fs";
 import { join, resolve } from "node:path";
 import { homedir } from "node:os";
 import type { Hook, Status } from "../types.js";
+import { parseJsonFile, isCommandAvailable } from "../utils.js";
 
 interface HookEntry {
   type: string;
@@ -16,16 +16,6 @@ interface HookMatcher {
 
 interface SettingsFile {
   hooks?: Record<string, HookMatcher[]>;
-}
-
-function parseJsonFile<T>(filePath: string): T | null {
-  try {
-    if (!existsSync(filePath)) return null;
-    const content = readFileSync(filePath, "utf-8");
-    return JSON.parse(content) as T;
-  } catch {
-    return null;
-  }
 }
 
 function isScriptExecutable(command: string): boolean {
@@ -51,12 +41,7 @@ function isScriptExecutable(command: string): boolean {
   // Shell command: check if the first token resolves in PATH
   const firstToken = trimmed.split(/\s+/)[0];
   if (!firstToken) return false;
-  try {
-    execSync(`which ${firstToken} 2>/dev/null`, { stdio: "pipe" });
-    return true;
-  } catch {
-    return false;
-  }
+  return isCommandAvailable(firstToken);
 }
 
 function extractHooks(settings: SettingsFile, source: string): Hook[] {

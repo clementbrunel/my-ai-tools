@@ -1,8 +1,8 @@
-import { readFileSync, existsSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { join, resolve } from "node:path";
 import { homedir } from "node:os";
 import type { McpServer, EnvVarCheck, Status } from "../types.js";
+import { parseJsonFile, isCommandAvailable, isApiKeyPattern } from "../utils.js";
 
 interface McpServerConfig {
   command?: string;
@@ -20,25 +20,6 @@ interface ClaudeSettingsFile {
   mcpServers?: Record<string, McpServerConfig>;
 }
 
-function parseJsonFile<T>(filePath: string): T | null {
-  try {
-    if (!existsSync(filePath)) return null;
-    const content = readFileSync(filePath, "utf-8");
-    return JSON.parse(content) as T;
-  } catch {
-    return null;
-  }
-}
-
-function isCommandAvailable(command: string): boolean {
-  try {
-    execSync(`which ${command} 2>/dev/null || where ${command} 2>/dev/null`, { stdio: "pipe" });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 function isDockerMcpGateway(config: McpServerConfig): boolean {
   return (
     config.command === "docker" &&
@@ -49,34 +30,34 @@ function isDockerMcpGateway(config: McpServerConfig): boolean {
   );
 }
 
+function parseDockerMcpTableNames(output: string): string[] {
+  const results: string[] = [];
+  let pastHeader = false;
+  for (const line of output.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    // The NAME header row marks the start of data rows
+    if (/^NAME\b/.test(trimmed)) {
+      pastHeader = true;
+      continue;
+    }
+    if (!pastHeader) continue;
+    // Stop at footer lines (tips, blank separators)
+    if (/^Tip:/i.test(trimmed)) break;
+    // First whitespace-delimited token is the server name
+    const name = trimmed.split(/\s+/)[0];
+    if (name) results.push(name);
+  }
+  return results;
+}
+
 function getDockerMcpSubServers(): string[] {
   try {
     const output = execSync("docker mcp server list 2>/dev/null", { stdio: "pipe" }).toString();
-    const results: string[] = [];
-    for (const line of output.split("\n")) {
-      // Lines look like: "context7  -  -  -  Description..."
-      // Skip header, separator, tip lines
-      if (!line.trim() || line.startsWith("MCP Servers") || line.startsWith("---") || line.startsWith("NAME") || line.startsWith("Tip:")) continue;
-      const name = line.trim().split(/\s{2,}/)[0];
-      if (name) results.push(name);
-    }
-    return results;
+    return parseDockerMcpTableNames(output);
   } catch {
     return [];
   }
-}
-
-function isApiKeyPattern(name: string): boolean {
-  const upper = name.toUpperCase();
-  return (
-    upper.endsWith("_API_KEY") ||
-    upper.endsWith("_TOKEN") ||
-    upper.endsWith("_SECRET") ||
-    upper.endsWith("_KEY") ||
-    upper.endsWith("_PASSWORD") ||
-    upper.includes("API_KEY") ||
-    upper.includes("AUTH")
-  );
 }
 
 function checkEnvVars(

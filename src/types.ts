@@ -58,6 +58,13 @@ export interface Integration {
   detail?: string; // optional active config/mode info (e.g. caveman level)
 }
 
+/** A component that carries a status + diagnostics + a display name. */
+export type Diagnosable = (McpServer | Hook | Integration | ModelInfo) & { diagnostics: string[] };
+
+export function getComponentName(item: McpServer | Hook | Integration | { name: string }): string {
+  return "name" in item ? item.name : item.event;
+}
+
 export interface ScanResult {
   projectPath: string;
   model: ModelInfo;

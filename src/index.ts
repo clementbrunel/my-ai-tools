@@ -8,10 +8,79 @@ import { scanMcpServers } from "./scanner/mcp.js";
 import { scanContextFiles } from "./scanner/context.js";
 import { scanHooks } from "./scanner/hooks.js";
 import { scanModel } from "./scanner/model.js";
-import { scanIntegrations } from "./scanner/integrations.js";
+import { scanIntegrations } from "./scanner/integrations/index.js";
 import { summarizeEnvVars } from "./scanner/env.js";
 import { generateMermaid, generateSummary } from "./diagram/mermaid.js";
-import type { ScanResult } from "./types.js";
+import type { ScanResult, Status } from "./types.js";
+import { getComponentName } from "./types.js";
+
+type ChalkColor = typeof chalk.green;
+
+function statusChalkColor(status: Status): ChalkColor {
+  if (status === "ok") return chalk.green;
+  if (status === "warning") return chalk.yellow;
+  return chalk.red;
+}
+
+function statusIcon(status: Status): string {
+  if (status === "ok") return "✅";
+  if (status === "warning") return "⚠️";
+  return "❌";
+}
+
+function printScanStats(result: ScanResult): void {
+  const { model, mcpServers, contextFiles, hooks, integrations, envVarSummary } = result;
+
+  const modelLabel = model.configured ?? "default (unset)";
+  console.log(statusChalkColor(model.status)(`  Model:         ${modelLabel}`));
+  console.log(chalk.gray(`  MCP Servers:   ${mcpServers.length} found`));
+
+  const totalTokens = contextFiles.reduce((sum, f) => sum + f.estimatedTokens, 0);
+  let worstCtxStatus: Status = "ok";
+  if (contextFiles.some((f) => f.status === "error")) worstCtxStatus = "error";
+  else if (contextFiles.some((f) => f.status === "warning")) worstCtxStatus = "warning";
+  console.log(
+    statusChalkColor(worstCtxStatus)(
+      `  Context Files: ${contextFiles.length} found (~${totalTokens.toLocaleString()} tokens)`
+    )
+  );
+
+  console.log(chalk.gray(`  Hooks:         ${hooks.length} found`));
+  console.log(
+    chalk.gray(`  Integrations:  ${integrations.filter((i) => i.detected).length}/${integrations.length} detected`)
+  );
+  for (const integ of integrations) {
+    const detailSuffix = integ.detail ? chalk.dim(` [${integ.detail}]`) : "";
+    console.log(statusChalkColor(integ.status)(`     ${statusIcon(integ.status)} ${integ.name}`) + detailSuffix);
+  }
+  console.log(chalk.gray(`  Env Vars:      ${envVarSummary.set}/${envVarSummary.total} set`));
+}
+
+function printDiagnostics(result: ScanResult): void {
+  const { mcpServers, hooks } = result;
+
+  const errors = [
+    ...mcpServers.filter((s) => s.status === "error"),
+    ...hooks.filter((h) => h.status === "error"),
+  ];
+  if (errors.length > 0) {
+    console.log(chalk.red(`\n  ❌ ${errors.length} error(s) detected:`));
+    for (const err of errors) {
+      console.log(chalk.red(`     - ${getComponentName(err)}: ${err.diagnostics[0]}`));
+    }
+  }
+
+  const warnings = [
+    ...mcpServers.filter((s) => s.status === "warning"),
+    ...hooks.filter((h) => h.status === "warning"),
+  ];
+  if (warnings.length > 0) {
+    console.log(chalk.yellow(`\n  ⚠️  ${warnings.length} warning(s):`));
+    for (const warn of warnings) {
+      console.log(chalk.yellow(`     - ${getComponentName(warn)}: ${warn.diagnostics[0]}`));
+    }
+  }
+}
 
 const program = new Command();
 
@@ -23,19 +92,12 @@ program
   .version("0.1.0")
   .option("-p, --path <dir>", "project directory to scan", ".")
   .option("-o, --output <file>", "write diagram to a file instead of stdout")
-  .option(
-    "--summary",
-    "include a summary table with errors and warnings",
-    false
-  )
+  .option("--summary", "include a summary table with errors and warnings", false)
   .action((options: { path: string; output?: string; summary: boolean }) => {
     const projectPath = resolve(options.path);
 
-    console.log(
-      chalk.blue(`\n🔍 Scanning AI environment in: ${projectPath}\n`)
-    );
+    console.log(chalk.blue(`\n🔍 Scanning AI environment in: ${projectPath}\n`));
 
-    // Run all scanners
     const model = scanModel(projectPath);
     const mcpServers = scanMcpServers(projectPath);
     const contextFiles = scanContextFiles(projectPath);
@@ -43,97 +105,11 @@ program
     const integrations = scanIntegrations(projectPath, mcpServers, hooks);
     const envVarSummary = summarizeEnvVars(mcpServers);
 
-    const result: ScanResult = {
-      projectPath,
-      model,
-      mcpServers,
-      contextFiles,
-      hooks,
-      integrations,
-      envVarSummary,
-    };
+    const result: ScanResult = { projectPath, model, mcpServers, contextFiles, hooks, integrations, envVarSummary };
 
-    // Print scan stats
-    const modelLabel = model.configured ?? "default (unset)";
-    const modelColor =
-      model.status === "ok"
-        ? chalk.green
-        : model.status === "warning"
-          ? chalk.yellow
-          : chalk.red;
-    console.log(modelColor(`  Model:         ${modelLabel}`));
-    console.log(chalk.gray(`  MCP Servers:   ${mcpServers.length} found`));
+    printScanStats(result);
+    printDiagnostics(result);
 
-    const totalTokens = contextFiles.reduce(
-      (sum, f) => sum + f.estimatedTokens,
-      0
-    );
-    let worstCtxStatus: "ok" | "warning" | "error" = "ok";
-    if (contextFiles.some((f) => f.status === "error")) worstCtxStatus = "error";
-    else if (contextFiles.some((f) => f.status === "warning")) worstCtxStatus = "warning";
-
-    let ctxColor = chalk.green;
-    if (worstCtxStatus === "error") ctxColor = chalk.red;
-    else if (worstCtxStatus === "warning") ctxColor = chalk.yellow;
-    console.log(
-      ctxColor(
-        `  Context Files: ${contextFiles.length} found (~${totalTokens.toLocaleString()} tokens)`
-      )
-    );
-    console.log(chalk.gray(`  Hooks:         ${hooks.length} found`));
-    console.log(
-      chalk.gray(
-        `  Integrations:  ${integrations.filter((i) => i.detected).length}/${integrations.length} detected`
-      )
-    );
-    for (const integ of integrations) {
-      const icon =
-        integ.status === "ok" ? "✅" : integ.status === "warning" ? "⚠️" : "❌";
-      const color =
-        integ.status === "ok"
-          ? chalk.green
-          : integ.status === "warning"
-            ? chalk.yellow
-            : chalk.red;
-      const detailSuffix = integ.detail ? chalk.dim(` [${integ.detail}]`) : "";
-      console.log(color(`     ${icon} ${integ.name}`) + detailSuffix);
-    }
-    console.log(
-      chalk.gray(
-        `  Env Vars:      ${envVarSummary.set}/${envVarSummary.total} set`
-      )
-    );
-
-    // Report errors
-    const errors = [
-      ...mcpServers.filter((s) => s.status === "error"),
-      ...hooks.filter((h) => h.status === "error"),
-    ];
-    if (errors.length > 0) {
-      console.log(chalk.red(`\n  ❌ ${errors.length} error(s) detected:`));
-      for (const err of errors) {
-        const name = "name" in err ? err.name : err.event;
-        console.log(chalk.red(`     - ${name}: ${err.diagnostics[0]}`));
-      }
-    }
-
-    const warnings = [
-      ...mcpServers.filter((s) => s.status === "warning"),
-      ...hooks.filter((h) => h.status === "warning"),
-    ];
-    if (warnings.length > 0) {
-      console.log(
-        chalk.yellow(`\n  ⚠️  ${warnings.length} warning(s):`)
-      );
-      for (const warn of warnings) {
-        const name = "name" in warn ? warn.name : warn.event;
-        console.log(
-          chalk.yellow(`     - ${name}: ${warn.diagnostics[0]}`)
-        );
-      }
-    }
-
-    // Generate output
     let output = generateMermaid(result);
     if (options.summary) {
       output = generateSummary(result) + "\n" + output;
@@ -141,9 +117,7 @@ program
 
     if (options.output) {
       writeFileSync(options.output, output, "utf-8");
-      console.log(
-        chalk.green(`\n✅ Diagram written to: ${options.output}\n`)
-      );
+      console.log(chalk.green(`\n✅ Diagram written to: ${options.output}\n`));
     } else {
       console.log(chalk.blue("\n--- Mermaid Diagram ---\n"));
       console.log(output);

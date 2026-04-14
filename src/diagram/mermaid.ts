@@ -1,4 +1,5 @@
 import type { ScanResult, Status } from "../types.js";
+import { getComponentName } from "../types.js";
 
 const STATUS_ICON: Record<Status, string> = {
   ok: "✅",
@@ -280,7 +281,7 @@ export function generateSummary(result: ScanResult): string {
     lines.push(`### ❌ Errors (${errors.length})`);
     lines.push("");
     for (const item of errors) {
-      const name = "name" in item ? item.name : item.event;
+      const name = getComponentName(item);
       const diags =
         "diagnostics" in item ? item.diagnostics.join("; ") : "";
       lines.push(`- **${name}**: ${diags}`);
@@ -292,7 +293,7 @@ export function generateSummary(result: ScanResult): string {
     lines.push(`### ⚠️ Warnings (${warnings.length})`);
     lines.push("");
     for (const item of warnings) {
-      const name = "name" in item ? item.name : item.event;
+      const name = getComponentName(item);
       const diags =
         "diagnostics" in item ? item.diagnostics.join("; ") : "";
       lines.push(`- **${name}**: ${diags}`);
