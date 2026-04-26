@@ -3,5 +3,6 @@ dist/
 *.tsbuildinfo
 .env
 .env.local
+# Mempalace config files
 mempalace.yaml
 entities.json
