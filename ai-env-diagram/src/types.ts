@@ -1,4 +1,4 @@
-export type Status = "ok" | "warning" | "error";
+export type Status = "ok" | "warning" | "error" | "outdated";
 
 export interface McpServer {
   name: string;
@@ -12,6 +12,7 @@ export interface McpServer {
   status: Status;
   diagnostics: string[];
   subServers?: string[]; // for Docker MCP gateway: list of enabled sub-servers
+  npmPackage?: string; // detected npm package name (for npx-based servers)
 }
 
 export interface EnvVarCheck {
@@ -56,6 +57,7 @@ export interface Integration {
   source?: string;
   diagnostics: string[];
   detail?: string; // optional active config/mode info (e.g. caveman level)
+  pipPackage?: string; // pip package name (for pip-based integrations)
 }
 
 /** A component that carries a status + diagnostics + a display name. */

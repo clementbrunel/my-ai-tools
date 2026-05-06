@@ -61,6 +61,7 @@ export function detectMemPalace(mcpServers: McpServer[], projectPath: string): I
         status: commandOk ? "ok" : "warning",
         diagnostics,
         detail: wingStats ?? undefined,
+        pipPackage: "mempalace",
       };
     }
     return {
@@ -90,5 +91,6 @@ export function detectMemPalace(mcpServers: McpServer[], projectPath: string): I
     status,
     diagnostics,
     detail: wingStats ?? undefined,
+    pipPackage: "mempalace",
   };
 }
