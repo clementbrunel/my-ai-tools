@@ -44,7 +44,7 @@ function isScriptExecutable(command: string): boolean {
   return isCommandAvailable(firstToken);
 }
 
-function parseMcpMatcher(matcher: string): { mcpServer?: string; mcpTool?: string } {
+export function parseMcpMatcher(matcher: string): { mcpServer?: string; mcpTool?: string } {
   if (!matcher.startsWith("mcp__")) return {};
   const parts = matcher.split("__");
   if (parts.length >= 3) {

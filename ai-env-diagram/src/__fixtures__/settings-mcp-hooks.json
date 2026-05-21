@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "mcp__github__search_repositories",
+        "hooks": [{ "type": "command", "command": "echo before-github-search" }]
+      },
+      {
+        "matcher": "mcp__MCP_DOCKER__browser_navigate",
+        "hooks": [{ "type": "command", "command": "echo before-docker-nav" }]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [{ "type": "command", "command": "echo after-any" }]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [{ "type": "command", "command": "echo session-start" }]
+      }
+    ]
+  }
+}
