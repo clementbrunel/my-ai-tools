@@ -11,6 +11,7 @@ import { scanModel } from "./scanner/model.js";
 import { scanIntegrations } from "./scanner/integrations/index.js";
 import { summarizeEnvVars } from "./scanner/env.js";
 import { generateMermaid, generateSummary } from "./diagram/mermaid.js";
+import { checkAndMarkUpdates, runUpdates } from "./updater/index.js";
 import type { ScanResult, Status } from "./types.js";
 import { getComponentName } from "./types.js";
 
@@ -19,12 +20,14 @@ type ChalkColor = typeof chalk.green;
 function statusChalkColor(status: Status): ChalkColor {
   if (status === "ok") return chalk.green;
   if (status === "warning") return chalk.yellow;
+  if (status === "outdated") return chalk.blue;
   return chalk.red;
 }
 
 function statusIcon(status: Status): string {
   if (status === "ok") return "✅";
   if (status === "warning") return "⚠️";
+  if (status === "outdated") return "🔄";
   return "❌";
 }
 
@@ -57,7 +60,7 @@ function printScanStats(result: ScanResult): void {
 }
 
 function printDiagnostics(result: ScanResult): void {
-  const { mcpServers, hooks } = result;
+  const { mcpServers, hooks, integrations } = result;
 
   const errors = [
     ...mcpServers.filter((s) => s.status === "error"),
@@ -78,6 +81,17 @@ function printDiagnostics(result: ScanResult): void {
     console.log(chalk.yellow(`\n  ⚠️  ${warnings.length} warning(s):`));
     for (const warn of warnings) {
       console.log(chalk.yellow(`     - ${getComponentName(warn)}: ${warn.diagnostics[0]}`));
+    }
+  }
+
+  const outdatedItems = [
+    ...mcpServers.filter((s) => s.status === "outdated"),
+    ...integrations.filter((i) => i.status === "outdated"),
+  ];
+  if (outdatedItems.length > 0) {
+    console.log(chalk.blue(`\n  🔄 ${outdatedItems.length} outdated tool(s):`));
+    for (const item of outdatedItems) {
+      console.log(chalk.blue(`     - ${getComponentName(item)}: ${item.diagnostics[0]}`));
     }
   }
 }
@@ -123,6 +137,45 @@ program
       console.log(output);
       console.log("");
     }
+  });
+
+program
+  .command("update")
+  .description(
+    "Check for updates on all detected AI tools and apply them"
+  )
+  .option("-p, --path <dir>", "project directory to scan", ".")
+  .option("--summary", "include a summary table in the diagram", false)
+  .action((options: { path: string; summary: boolean }) => {
+    const projectPath = resolve(options.path);
+
+    console.log(chalk.blue(`\n🔍 Scanning AI environment in: ${projectPath}\n`));
+
+    const model = scanModel(projectPath);
+    const mcpServers = scanMcpServers(projectPath);
+    const contextFiles = scanContextFiles(projectPath);
+    const hooks = scanHooks(projectPath);
+    const integrations = scanIntegrations(projectPath, mcpServers, hooks);
+    const envVarSummary = summarizeEnvVars(mcpServers);
+
+    const result: ScanResult = { projectPath, model, mcpServers, contextFiles, hooks, integrations, envVarSummary };
+
+    printScanStats(result);
+
+    console.log(chalk.blue("\n🔎 Checking for updates...\n"));
+    const targets = checkAndMarkUpdates(result);
+
+    printDiagnostics(result);
+
+    let output = generateMermaid(result);
+    if (options.summary) {
+      output = generateSummary(result) + "\n" + output;
+    }
+    console.log(chalk.blue("\n--- Mermaid Diagram ---\n"));
+    console.log(output);
+    console.log("");
+
+    runUpdates(targets);
   });
 
 program.parse();

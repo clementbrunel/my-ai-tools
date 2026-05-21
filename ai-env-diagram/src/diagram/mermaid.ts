@@ -5,6 +5,7 @@ const STATUS_ICON: Record<Status, string> = {
   ok: "✅",
   warning: "⚠️",
   error: "❌",
+  outdated: "🔄",
 };
 
 function sanitizeId(name: string): string {
@@ -223,6 +224,7 @@ export function generateMermaid(result: ScanResult): string {
   lines.push("  classDef ok fill:#2ea043,stroke:#2ea043,color:#fff");
   lines.push("  classDef warning fill:#d29922,stroke:#d29922,color:#fff");
   lines.push("  classDef error fill:#cf222e,stroke:#cf222e,color:#fff");
+  lines.push("  classDef outdated fill:#0969da,stroke:#0969da,color:#fff");
 
   lines.push("```");
 
@@ -248,6 +250,10 @@ export function generateSummary(result: ScanResult): string {
     ...result.mcpServers.filter((s) => s.status === "warning"),
     ...result.hooks.filter((h) => h.status === "warning"),
     ...result.integrations.filter((i) => i.status === "warning"),
+  ];
+  const outdated = [
+    ...result.mcpServers.filter((s) => s.status === "outdated"),
+    ...result.integrations.filter((i) => i.status === "outdated"),
   ];
 
   const totalContextTokens = result.contextFiles.reduce(
@@ -301,7 +307,18 @@ export function generateSummary(result: ScanResult): string {
     lines.push("");
   }
 
-  if (errors.length === 0 && warnings.length === 0) {
+  if (outdated.length > 0) {
+    lines.push(`### 🔄 Outdated (${outdated.length})`);
+    lines.push("");
+    for (const item of outdated) {
+      const name = getComponentName(item);
+      const diags = "diagnostics" in item ? item.diagnostics.join("; ") : "";
+      lines.push(`- **${name}**: ${diags}`);
+    }
+    lines.push("");
+  }
+
+  if (errors.length === 0 && warnings.length === 0 && outdated.length === 0) {
     lines.push(
       `> All ${total} components are properly configured. ✅`
     );

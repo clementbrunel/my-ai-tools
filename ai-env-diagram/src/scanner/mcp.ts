@@ -20,6 +20,21 @@ interface ClaudeSettingsFile {
   mcpServers?: Record<string, McpServerConfig>;
 }
 
+function extractNpmPackage(config: McpServerConfig): string | undefined {
+  if (config.command !== "npx") return undefined;
+  const args = config.args ?? [];
+  // Skip npx flags (-y, --yes, --no-install, etc.)
+  const pkg = args.find((a) => !a.startsWith("-"));
+  if (!pkg) return undefined;
+  // Strip version pin: @scope/name@1.2.3 → @scope/name | name@1.2.3 → name
+  if (pkg.startsWith("@")) {
+    const rest = pkg.slice(1); // "scope/name[@version]"
+    const atIdx = rest.indexOf("@");
+    return atIdx === -1 ? pkg : `@${rest.slice(0, atIdx)}`;
+  }
+  return pkg.split("@")[0];
+}
+
 function isDockerMcpGateway(config: McpServerConfig): boolean {
   return (
     config.command === "docker" &&
@@ -121,6 +136,8 @@ function parseServersFromConfig(
 
     const subServers = isDockerMcpGateway(config) ? getDockerMcpSubServers() : undefined;
 
+    const npmPackage = extractNpmPackage(config);
+
     const partial = {
       name,
       source,
@@ -131,6 +148,7 @@ function parseServersFromConfig(
       envVars,
       commandAvailable,
       subServers,
+      npmPackage,
     };
 
     const { status, diagnostics } = determineStatus(partial);
