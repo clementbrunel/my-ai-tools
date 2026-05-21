@@ -44,6 +44,18 @@ function isScriptExecutable(command: string): boolean {
   return isCommandAvailable(firstToken);
 }
 
+function parseMcpMatcher(matcher: string): { mcpServer?: string; mcpTool?: string } {
+  if (!matcher.startsWith("mcp__")) return {};
+  const parts = matcher.split("__");
+  if (parts.length >= 3) {
+    return { mcpServer: parts[1], mcpTool: parts.slice(2).join("__") };
+  }
+  if (parts.length === 2 && parts[1]) {
+    return { mcpServer: parts[1] };
+  }
+  return {};
+}
+
 function extractHooks(settings: SettingsFile, source: string): Hook[] {
   if (!settings.hooks) return [];
   const results: Hook[] = [];
@@ -64,9 +76,14 @@ function extractHooks(settings: SettingsFile, source: string): Hook[] {
           status = "error";
         }
 
+        const matcherStr = matcher.matcher || "*";
+        const { mcpServer, mcpTool } = parseMcpMatcher(matcherStr);
+
         results.push({
           event,
-          matcher: matcher.matcher || "*",
+          matcher: matcherStr,
+          mcpServer,
+          mcpTool,
           type: hook.type,
           command: hook.command,
           source,

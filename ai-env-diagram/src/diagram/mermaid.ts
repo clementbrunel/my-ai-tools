@@ -100,26 +100,56 @@ export function generateMermaid(result: ScanResult): string {
 
   // --- Hooks ---
   if (result.hooks.length > 0) {
+    // Group by MCP server; hooks without a server go into the generic list
+    const mcpGroups = new Map<string, { hook: (typeof result.hooks)[0]; idx: number }[]>();
+    const genericHooks: { hook: (typeof result.hooks)[0]; idx: number }[] = [];
+
+    result.hooks.forEach((hook, i) => {
+      if (hook.mcpServer) {
+        const group = mcpGroups.get(hook.mcpServer) ?? [];
+        group.push({ hook, idx: i });
+        mcpGroups.set(hook.mcpServer, group);
+      } else {
+        genericHooks.push({ hook, idx: i });
+      }
+    });
+
     lines.push("  subgraph Hooks[Hooks]");
 
-    for (let i = 0; i < result.hooks.length; i++) {
-      const hook = result.hooks[i];
-      const id = `hook_${i}_${sanitizeId(hook.event)}`;
+    // One nested subgraph per MCP server
+    for (const [server, entries] of mcpGroups) {
+      const subId = sanitizeId(server);
+      lines.push(`    subgraph HooksMcp_${subId}[🔌 ${server}]`);
+      for (const { hook, idx } of entries) {
+        const id = `hook_${idx}_${sanitizeId(hook.event)}`;
+        const icon = STATUS_ICON[hook.status];
+        let label = `${hook.event} ${icon}`;
+        if (hook.mcpTool && hook.mcpTool !== "*") {
+          label += `<br/><small>tool: ${escapeLabel(hook.mcpTool)}</small>`;
+        } else if (hook.mcpTool === "*") {
+          label += `<br/><small>all tools</small>`;
+        }
+        if (hook.diagnostics.length > 0) {
+          const diag = hook.diagnostics.slice(0, 1).map((d) => escapeLabel(d)).join("<br/>");
+          label += `<br/><i>${diag}</i>`;
+        }
+        lines.push(`      ${id}["${label}"]:::${hook.status}`);
+      }
+      lines.push(`    end`);
+    }
+
+    // Generic (non-MCP) hooks
+    for (const { hook, idx } of genericHooks) {
+      const id = `hook_${idx}_${sanitizeId(hook.event)}`;
       const icon = STATUS_ICON[hook.status];
       let label = `${hook.event} ${icon}`;
-
       if (hook.matcher && hook.matcher !== "*") {
         label += `<br/><small>matcher: ${escapeLabel(hook.matcher)}</small>`;
       }
-
       if (hook.diagnostics.length > 0) {
-        const diag = hook.diagnostics
-          .slice(0, 1)
-          .map((d) => escapeLabel(d))
-          .join("<br/>");
+        const diag = hook.diagnostics.slice(0, 1).map((d) => escapeLabel(d)).join("<br/>");
         label += `<br/><i>${diag}</i>`;
       }
-
       lines.push(`    ${id}["${label}"]:::${hook.status}`);
     }
 
@@ -208,6 +238,9 @@ export function generateMermaid(result: ScanResult): string {
     const hook = result.hooks[i];
     const id = `hook_${i}_${sanitizeId(hook.event)}`;
     lines.push(`  Claude --> ${id}`);
+    if (hook.mcpServer && result.mcpServers.some((s) => s.name === hook.mcpServer)) {
+      lines.push(`  ${id} --> mcp_${sanitizeId(hook.mcpServer)}`);
+    }
   }
   for (let i = 0; i < result.integrations.length; i++) {
     const integration = result.integrations[i];

@@ -33,6 +33,8 @@ export interface ContextFile {
 export interface Hook {
   event: string;
   matcher: string;
+  mcpServer?: string; // set when matcher targets an MCP tool (mcp__<server>__<tool>)
+  mcpTool?: string;   // tool name or "*" when all tools of a server are targeted
   type: string;
   command: string;
   source: string;
