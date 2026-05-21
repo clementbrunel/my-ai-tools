@@ -13,12 +13,19 @@ function sanitizeId(name: string): string {
 }
 
 function escapeLabel(text: string): string {
-  return text.replace(/"/g, "#quot;");
+  return text.replace(/\\/g, "/").replace(/"/g, "#quot;");
 }
 
 function formatTokens(tokens: number): string {
   if (tokens < 1000) return `${tokens}t`;
   return `${(tokens / 1000).toFixed(1)}kt`;
+}
+
+function extractProvider(command: string): string {
+  const unquoted = command.replace(/\\/g, "/").trim().replace(/^"/, "");
+  const exe = unquoted.split(/\s+/)[0];
+  const base = exe.split("/").pop() ?? exe;
+  return base.replace(/\.[^.]+$/, "");
 }
 
 export function generateMermaid(result: ScanResult): string {
@@ -86,11 +93,12 @@ export function generateMermaid(result: ScanResult): string {
 
     for (const ctx of existingContextFiles) {
       const id = `ctx_${sanitizeId(ctx.path)}`;
-      const shortPath = ctx.path.replace(/^.*\//, "");
+      const normalizedPath = ctx.path.replace(/\\/g, "/");
+      const shortPath = normalizedPath.replace(/^.*\//, "");
       const sizeKb = (ctx.sizeBytes / 1024).toFixed(1);
       const tokens = formatTokens(ctx.estimatedTokens);
       const icon = STATUS_ICON[ctx.status];
-      const label = `${shortPath} ${icon}<br/><small>${ctx.scope} · ${sizeKb}KB · ~${tokens}</small>`;
+      const label = `${escapeLabel(shortPath)} ${icon}<br/><small>${ctx.scope} · ${sizeKb}KB · ~${tokens}</small>`;
       lines.push(`    ${id}["${label}"]:::${ctx.status}`);
     }
 
@@ -98,61 +106,35 @@ export function generateMermaid(result: ScanResult): string {
     lines.push("");
   }
 
-  // --- Hooks ---
+  // --- Hooks grouped by provider ---
   if (result.hooks.length > 0) {
-    // Group by MCP server; hooks without a server go into the generic list
-    const mcpGroups = new Map<string, { hook: (typeof result.hooks)[0]; idx: number }[]>();
-    const genericHooks: { hook: (typeof result.hooks)[0]; idx: number }[] = [];
+    type HookStatus = (typeof result.hooks)[0]["status"];
+    const statusRank: Record<string, number> = { ok: 0, outdated: 1, warning: 2, error: 3 };
+    const providerMap = new Map<string, { hooks: (typeof result.hooks); worstStatus: HookStatus }>();
 
-    result.hooks.forEach((hook, i) => {
-      if (hook.mcpServer) {
-        const group = mcpGroups.get(hook.mcpServer) ?? [];
-        group.push({ hook, idx: i });
-        mcpGroups.set(hook.mcpServer, group);
+    for (const hook of result.hooks) {
+      const key = extractProvider(hook.command);
+      const entry = providerMap.get(key);
+      if (entry) {
+        entry.hooks.push(hook);
+        if ((statusRank[hook.status] ?? 0) > (statusRank[entry.worstStatus] ?? 0)) {
+          entry.worstStatus = hook.status;
+        }
       } else {
-        genericHooks.push({ hook, idx: i });
+        providerMap.set(key, { hooks: [hook], worstStatus: hook.status });
       }
-    });
+    }
 
     lines.push("  subgraph Hooks[Hooks]");
-
-    // One nested subgraph per MCP server
-    for (const [server, entries] of mcpGroups) {
-      const subId = sanitizeId(server);
-      lines.push(`    subgraph HooksMcp_${subId}[🔌 ${server}]`);
-      for (const { hook, idx } of entries) {
-        const id = `hook_${idx}_${sanitizeId(hook.event)}`;
-        const icon = STATUS_ICON[hook.status];
-        let label = `${hook.event} ${icon}`;
-        if (hook.mcpTool && hook.mcpTool !== "*") {
-          label += `<br/><small>tool: ${escapeLabel(hook.mcpTool)}</small>`;
-        } else if (hook.mcpTool === "*") {
-          label += `<br/><small>all tools</small>`;
-        }
-        if (hook.diagnostics.length > 0) {
-          const diag = hook.diagnostics.slice(0, 1).map((d) => escapeLabel(d)).join("<br/>");
-          label += `<br/><i>${diag}</i>`;
-        }
-        lines.push(`      ${id}["${label}"]:::${hook.status}`);
-      }
-      lines.push(`    end`);
+    for (const [key, { hooks: phooks, worstStatus }] of providerMap) {
+      const id = `hookprov_${sanitizeId(key)}`;
+      const icon = STATUS_ICON[worstStatus];
+      const events = [...new Set(phooks.map((h) => h.event))];
+      const eventsStr = events.length <= 4
+        ? escapeLabel(events.join(", "))
+        : `${escapeLabel(events.slice(0, 3).join(", "))} +${events.length - 3}`;
+      lines.push(`    ${id}["${escapeLabel(key)} ${icon}<br/><small>${phooks.length} hooks · ${eventsStr}</small>"]:::${worstStatus}`);
     }
-
-    // Generic (non-MCP) hooks
-    for (const { hook, idx } of genericHooks) {
-      const id = `hook_${idx}_${sanitizeId(hook.event)}`;
-      const icon = STATUS_ICON[hook.status];
-      let label = `${hook.event} ${icon}`;
-      if (hook.matcher && hook.matcher !== "*") {
-        label += `<br/><small>matcher: ${escapeLabel(hook.matcher)}</small>`;
-      }
-      if (hook.diagnostics.length > 0) {
-        const diag = hook.diagnostics.slice(0, 1).map((d) => escapeLabel(d)).join("<br/>");
-        label += `<br/><i>${diag}</i>`;
-      }
-      lines.push(`    ${id}["${label}"]:::${hook.status}`);
-    }
-
     lines.push("  end");
     lines.push("");
   }
@@ -234,12 +216,14 @@ export function generateMermaid(result: ScanResult): string {
     const id = `ctx_${sanitizeId(ctx.path)}`;
     lines.push(`  Claude --> ${id}`);
   }
-  for (let i = 0; i < result.hooks.length; i++) {
-    const hook = result.hooks[i];
-    const id = `hook_${i}_${sanitizeId(hook.event)}`;
-    lines.push(`  Claude --> ${id}`);
-    if (hook.mcpServer && result.mcpServers.some((s) => s.name === hook.mcpServer)) {
-      lines.push(`  ${id} --> mcp_${sanitizeId(hook.mcpServer)}`);
+  if (result.hooks.length > 0) {
+    const seenProviders = new Set<string>();
+    for (const hook of result.hooks) {
+      const key = hook.command.replace(/\\/g, "/").trim().replace(/^"/, "").split(/\s+/)[0].split("/").pop()?.replace(/\.[^.]+$/, "") ?? "unknown";
+      if (!seenProviders.has(key)) {
+        seenProviders.add(key);
+        lines.push(`  Claude --> hookprov_${sanitizeId(key)}`);
+      }
     }
   }
   for (let i = 0; i < result.integrations.length; i++) {

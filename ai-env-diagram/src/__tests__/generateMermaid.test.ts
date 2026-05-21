@@ -83,10 +83,9 @@ describe("generateMermaid", () => {
         ],
       })
     );
-    expect(out).toContain("HooksMcp_github");
-    expect(out).toContain("subgraph HooksMcp_github");
-    // Edge from hook to mcp server
-    expect(out).toMatch(/hook_\d+_PreToolUse.*-->.*mcp_github/s);
+    // Provider node for "echo" command
+    expect(out).toContain("hookprov_echo");
+    expect(out).toContain("subgraph Hooks");
   });
 
   it("renders generic hooks without MCP subgraph", () => {
@@ -108,8 +107,9 @@ describe("generateMermaid", () => {
         ],
       })
     );
-    expect(out).toContain("hook_0_SessionStart");
-    expect(out).not.toContain("HooksMcp_");
+    // Provider node for "echo" command
+    expect(out).toContain("hookprov_echo");
+    expect(out).toContain("1 hooks");
   });
 
   it("shows warning status on context file node", () => {
