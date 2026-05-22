@@ -89,6 +89,12 @@ export function scanContextFiles(projectPath: string): ContextFile[] {
     results.push(checkFile(homeClaudeMd, "user")!);
   }
 
+  // 5. Global CLAUDE.md in ~/.claude/ (Claude Code global config)
+  const globalClaudeMd = join(home, ".claude", "CLAUDE.md");
+  if (absPath !== join(home, ".claude")) {
+    results.push(checkFile(globalClaudeMd, "user")!);
+  }
+
   // 5. .clauderc
   const claudeRc = join(absPath, ".clauderc");
   if (existsSync(claudeRc)) {
