@@ -10,91 +10,11 @@ import { scanHooks } from "./scanner/hooks.js";
 import { scanModel } from "./scanner/model.js";
 import { scanIntegrations } from "./scanner/integrations/index.js";
 import { summarizeEnvVars } from "./scanner/env.js";
-import { generateMermaid, generateSummary } from "./diagram/mermaid.js";
+import { renderConsole } from "./diagram/console.js";
+import { renderMarkdown } from "./diagram/markdown.js";
 import { checkAndMarkUpdates, runUpdates } from "./updater/index.js";
-import type { ScanResult, Status } from "./types.js";
-import { getComponentName } from "./types.js";
+import type { ScanResult } from "./types.js";
 
-type ChalkColor = typeof chalk.green;
-
-function statusChalkColor(status: Status): ChalkColor {
-  if (status === "ok") return chalk.green;
-  if (status === "warning") return chalk.yellow;
-  if (status === "outdated") return chalk.blue;
-  return chalk.red;
-}
-
-function statusIcon(status: Status): string {
-  if (status === "ok") return "✅";
-  if (status === "warning") return "⚠️";
-  if (status === "outdated") return "🔄";
-  return "❌";
-}
-
-function printScanStats(result: ScanResult): void {
-  const { model, mcpServers, contextFiles, hooks, integrations, envVarSummary } = result;
-
-  const modelLabel = model.configured ?? "default (unset)";
-  console.log(statusChalkColor(model.status)(`  Model:         ${modelLabel}`));
-  console.log(chalk.gray(`  MCP Servers:   ${mcpServers.length} found`));
-
-  const totalTokens = contextFiles.reduce((sum, f) => sum + f.estimatedTokens, 0);
-  let worstCtxStatus: Status = "ok";
-  if (contextFiles.some((f) => f.status === "error")) worstCtxStatus = "error";
-  else if (contextFiles.some((f) => f.status === "warning")) worstCtxStatus = "warning";
-  console.log(
-    statusChalkColor(worstCtxStatus)(
-      `  Context Files: ${contextFiles.length} found (~${totalTokens.toLocaleString()} tokens)`
-    )
-  );
-
-  console.log(chalk.gray(`  Hooks:         ${hooks.length} found`));
-  console.log(
-    chalk.gray(`  Integrations:  ${integrations.filter((i) => i.detected).length}/${integrations.length} detected`)
-  );
-  for (const integ of integrations) {
-    const detailSuffix = integ.detail ? chalk.dim(` [${integ.detail}]`) : "";
-    console.log(statusChalkColor(integ.status)(`     ${statusIcon(integ.status)} ${integ.name}`) + detailSuffix);
-  }
-  console.log(chalk.gray(`  Env Vars:      ${envVarSummary.set}/${envVarSummary.total} set`));
-}
-
-function printDiagnostics(result: ScanResult): void {
-  const { mcpServers, hooks, integrations } = result;
-
-  const errors = [
-    ...mcpServers.filter((s) => s.status === "error"),
-    ...hooks.filter((h) => h.status === "error"),
-  ];
-  if (errors.length > 0) {
-    console.log(chalk.red(`\n  ❌ ${errors.length} error(s) detected:`));
-    for (const err of errors) {
-      console.log(chalk.red(`     - ${getComponentName(err)}: ${err.diagnostics[0]}`));
-    }
-  }
-
-  const warnings = [
-    ...mcpServers.filter((s) => s.status === "warning"),
-    ...hooks.filter((h) => h.status === "warning"),
-  ];
-  if (warnings.length > 0) {
-    console.log(chalk.yellow(`\n  ⚠️  ${warnings.length} warning(s):`));
-    for (const warn of warnings) {
-      console.log(chalk.yellow(`     - ${getComponentName(warn)}: ${warn.diagnostics[0]}`));
-    }
-  }
-
-  const outdatedItems = [
-    ...mcpServers.filter((s) => s.status === "outdated"),
-    ...integrations.filter((i) => i.status === "outdated"),
-  ];
-  if (outdatedItems.length > 0) {
-    console.log(chalk.blue(`\n  🔄 ${outdatedItems.length} outdated tool(s):`));
-    for (const item of outdatedItems) {
-      console.log(chalk.blue(`     - ${getComponentName(item)}: ${item.diagnostics[0]}`));
-    }
-  }
-}
 
 const program = new Command();
 
@@ -105,9 +25,8 @@ program
   )
   .version("0.1.0")
   .option("-p, --path <dir>", "project directory to scan", ".")
-  .option("-o, --output <file>", "write diagram to a file instead of stdout")
-  .option("--summary", "include a summary table with errors and warnings", false)
-  .action((options: { path: string; output?: string; summary: boolean }) => {
+  .option("-o, --output <file>", "write markdown report to a file")
+  .action((options: { path: string; output?: string }) => {
     const projectPath = resolve(options.path);
 
     console.log(chalk.blue(`\n🔍 Scanning AI environment in: ${projectPath}\n`));
@@ -121,21 +40,11 @@ program
 
     const result: ScanResult = { projectPath, model, mcpServers, contextFiles, hooks, integrations, envVarSummary };
 
-    printScanStats(result);
-    printDiagnostics(result);
-
-    let output = generateMermaid(result);
-    if (options.summary) {
-      output = generateSummary(result) + "\n" + output;
-    }
+    process.stdout.write(renderConsole(result));
 
     if (options.output) {
-      writeFileSync(options.output, output, "utf-8");
-      console.log(chalk.green(`\n✅ Diagram written to: ${options.output}\n`));
-    } else {
-      console.log(chalk.blue("\n--- Mermaid Diagram ---\n"));
-      console.log(output);
-      console.log("");
+      writeFileSync(options.output, renderMarkdown(result), "utf-8");
+      console.log(chalk.green(`\n✅ Report written to: ${options.output}\n`));
     }
   });
 
@@ -145,8 +54,7 @@ program
     "Check for updates on all detected AI tools and apply them"
   )
   .option("-p, --path <dir>", "project directory to scan", ".")
-  .option("--summary", "include a summary table in the diagram", false)
-  .action((options: { path: string; summary: boolean }) => {
+  .action((options: { path: string }) => {
     const projectPath = resolve(options.path);
 
     console.log(chalk.blue(`\n🔍 Scanning AI environment in: ${projectPath}\n`));
@@ -160,20 +68,10 @@ program
 
     const result: ScanResult = { projectPath, model, mcpServers, contextFiles, hooks, integrations, envVarSummary };
 
-    printScanStats(result);
-
     console.log(chalk.blue("\n🔎 Checking for updates...\n"));
     const targets = checkAndMarkUpdates(result);
 
-    printDiagnostics(result);
-
-    let output = generateMermaid(result);
-    if (options.summary) {
-      output = generateSummary(result) + "\n" + output;
-    }
-    console.log(chalk.blue("\n--- Mermaid Diagram ---\n"));
-    console.log(output);
-    console.log("");
+    process.stdout.write(renderConsole(result));
 
     runUpdates(targets);
   });
