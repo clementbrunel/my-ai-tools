@@ -1,5 +1,6 @@
 import type { ScanResult, Status } from "../types.js";
 import { getComponentName } from "../types.js";
+import { getProviderInfo } from "../scanner/hook-providers.js";
 
 const STATUS_ICON: Record<Status, string> = {
   ok: "✅",
@@ -129,11 +130,17 @@ export function generateMermaid(result: ScanResult): string {
     for (const [key, { hooks: phooks, worstStatus }] of providerMap) {
       const id = `hookprov_${sanitizeId(key)}`;
       const icon = STATUS_ICON[worstStatus];
+      const info = getProviderInfo(key);
+      const displayName = info ? escapeLabel(info.name) : escapeLabel(key);
       const events = [...new Set(phooks.map((h) => h.event))];
       const eventsStr = events.length <= 4
         ? escapeLabel(events.join(", "))
         : `${escapeLabel(events.slice(0, 3).join(", "))} +${events.length - 3}`;
-      lines.push(`    ${id}["${escapeLabel(key)} ${icon}<br/><small>${phooks.length} hooks · ${eventsStr}</small>"]:::${worstStatus}`);
+      let nodeLabel = `${displayName} ${icon}<br/><small>${phooks.length} hooks · ${eventsStr}</small>`;
+      if (info?.description) {
+        nodeLabel += `<br/><i>${escapeLabel(info.description)}</i>`;
+      }
+      lines.push(`    ${id}["${nodeLabel}"]:::${worstStatus}`);
     }
     lines.push("  end");
     lines.push("");
