@@ -173,55 +173,18 @@ function getClaudeDesktopConfigPath(): string | null {
 }
 
 export function scanMcpServers(projectPath: string): McpServer[] {
-  const results: McpServer[] = [];
   const absPath = resolve(projectPath);
-
-  // 1. Project-level .mcp.json
-  const mcpJsonPath = join(absPath, ".mcp.json");
-  const mcpJson = parseJsonFile<McpJsonFile>(mcpJsonPath);
-  if (mcpJson?.mcpServers) {
-    results.push(
-      ...parseServersFromConfig(mcpJson.mcpServers, `.mcp.json`)
-    );
-  }
-
-  // 2. Project-level .claude/settings.json
-  const projectSettingsPath = join(absPath, ".claude", "settings.json");
-  const projectSettings = parseJsonFile<ClaudeSettingsFile>(projectSettingsPath);
-  if (projectSettings?.mcpServers) {
-    results.push(
-      ...parseServersFromConfig(
-        projectSettings.mcpServers,
-        `.claude/settings.json`
-      )
-    );
-  }
-
-  // 3. User-level ~/.claude/settings.json
-  const userSettingsPath = join(homedir(), ".claude", "settings.json");
-  const userSettings = parseJsonFile<ClaudeSettingsFile>(userSettingsPath);
-  if (userSettings?.mcpServers) {
-    results.push(
-      ...parseServersFromConfig(
-        userSettings.mcpServers,
-        `~/.claude/settings.json`
-      )
-    );
-  }
-
-  // 4. Claude Desktop config (shared by Desktop app and VSCode extension)
   const desktopConfigPath = getClaudeDesktopConfigPath();
-  if (desktopConfigPath) {
-    const desktopConfig = parseJsonFile<McpJsonFile>(desktopConfigPath);
-    if (desktopConfig?.mcpServers) {
-      results.push(
-        ...parseServersFromConfig(
-          desktopConfig.mcpServers,
-          `claude_desktop_config.json`
-        )
-      );
-    }
-  }
 
-  return results;
+  const sources: [string, string][] = [
+    [join(absPath, ".mcp.json"),                    ".mcp.json"],
+    [join(absPath, ".claude", "settings.json"),     ".claude/settings.json"],
+    [join(homedir(), ".claude", "settings.json"),   "~/.claude/settings.json"],
+    ...(desktopConfigPath ? [[desktopConfigPath, "claude_desktop_config.json"] as [string, string]] : []),
+  ];
+
+  return sources.flatMap(([path, label]) => {
+    const cfg = parseJsonFile<McpJsonFile & ClaudeSettingsFile>(path);
+    return cfg?.mcpServers ? parseServersFromConfig(cfg.mcpServers, label) : [];
+  });
 }

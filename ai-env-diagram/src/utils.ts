@@ -1,4 +1,4 @@
-import { readFileSync, existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { join } from "node:path";
 import { homedir } from "node:os";
@@ -40,18 +40,13 @@ export function detectPlugin(
   marketplaceDirName: string
 ): { detected: boolean; source?: string } {
   const settingsPath = join(homedir(), ".claude", "settings.json");
-  if (!existsSync(settingsPath)) return { detected: false };
-  try {
-    const settings = JSON.parse(readFileSync(settingsPath, "utf-8"));
-    const enabled = settings.enabledPlugins ?? {};
-    const pluginKey = Object.keys(enabled).find((k) => namePattern.test(k));
-    if (pluginKey && enabled[pluginKey]) {
-      const marketplaceDir = join(homedir(), ".claude", "plugins", "marketplaces", marketplaceDirName);
-      const source = existsSync(marketplaceDir) ? marketplaceDir : pluginKey;
-      return { detected: true, source };
-    }
-  } catch {
-    // ignore parse errors
+  const settings = parseJsonFile<{ enabledPlugins?: Record<string, boolean> }>(settingsPath);
+  if (!settings) return { detected: false };
+  const enabled = settings.enabledPlugins ?? {};
+  const pluginKey = Object.keys(enabled).find((k) => namePattern.test(k));
+  if (pluginKey && enabled[pluginKey]) {
+    const marketplaceDir = join(homedir(), ".claude", "plugins", "marketplaces", marketplaceDirName);
+    return { detected: true, source: existsSync(marketplaceDir) ? marketplaceDir : pluginKey };
   }
   return { detected: false };
 }

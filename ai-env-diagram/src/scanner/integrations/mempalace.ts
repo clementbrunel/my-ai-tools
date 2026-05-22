@@ -37,60 +37,36 @@ function getMemPalaceWingStats(projectPath: string): string | null {
   }
 }
 
+const MEMPALACE_BASE = {
+  name: "MemPalace",
+  description: "Long-term memory MCP server",
+  pipPackage: "mempalace",
+} as const;
+
 export function detectMemPalace(mcpServers: McpServer[], projectPath: string): Integration {
   const diagnostics: string[] = [];
-  const match = mcpServers.find((s) =>
+  const isMemPalaceServer = (s: McpServer) =>
     /mem.?palace/i.test(s.name) ||
     (s.command ? /mem.?palace/i.test(s.command) : false) ||
-    (s.args ? s.args.some((a) => /mem.?palace/i.test(a)) : false)
-  );
+    (s.args?.some((a) => /mem.?palace/i.test(a)) ?? false);
 
-  const wingStats = getMemPalaceWingStats(projectPath);
+  const match = mcpServers.find(isMemPalaceServer);
+  const wingStats = getMemPalaceWingStats(projectPath) ?? undefined;
 
   if (!match) {
-    // Fallback: check enabledPlugins (marketplace-installed MemPalace)
     const pluginResult = detectPlugin(/mem.?palace/i, "mempalace");
     if (pluginResult.detected) {
       const commandOk = isMemPalaceAvailable();
       if (!commandOk) diagnostics.push("'mempalace' binary not found in PATH");
-      return {
-        name: "MemPalace",
-        description: "Long-term memory MCP server",
-        detected: true,
-        source: `plugin: ${pluginResult.source}`,
-        status: commandOk ? "ok" : "warning",
-        diagnostics,
-        detail: wingStats ?? undefined,
-        pipPackage: "mempalace",
-      };
+      return { ...MEMPALACE_BASE, detected: true, source: `plugin: ${pluginResult.source}`, status: commandOk ? "ok" : "warning", diagnostics, detail: wingStats };
     }
-    return {
-      name: "MemPalace",
-      description: "Long-term memory MCP server",
-      detected: false,
-      status: "warning",
-      diagnostics: ["Not configured as an MCP server or plugin in this project"],
-    };
+    return { ...MEMPALACE_BASE, detected: false, status: "warning", diagnostics: ["Not configured as an MCP server or plugin in this project"] };
   }
 
   const commandOk = isMemPalaceAvailable();
   let status: Status = match.status;
-  if (!commandOk) {
-    diagnostics.push("'mempalace' binary not found in PATH");
-    status = "error";
-  }
-  if (match.status !== "ok") {
-    diagnostics.push(...match.diagnostics);
-  }
+  if (!commandOk) { diagnostics.push("'mempalace' binary not found in PATH"); status = "error"; }
+  if (match.status !== "ok") diagnostics.push(...match.diagnostics);
 
-  return {
-    name: "MemPalace",
-    description: "Long-term memory MCP server",
-    detected: true,
-    source: match.source,
-    status,
-    diagnostics,
-    detail: wingStats ?? undefined,
-    pipPackage: "mempalace",
-  };
+  return { ...MEMPALACE_BASE, detected: true, source: match.source, status, diagnostics, detail: wingStats };
 }

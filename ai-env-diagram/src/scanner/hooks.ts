@@ -99,22 +99,15 @@ function extractHooks(settings: SettingsFile, source: string): Hook[] {
 }
 
 export function scanHooks(projectPath: string): Hook[] {
-  const results: Hook[] = [];
   const absPath = resolve(projectPath);
 
-  // 1. Project-level .claude/settings.json
-  const projectSettingsPath = join(absPath, ".claude", "settings.json");
-  const projectSettings = parseJsonFile<SettingsFile>(projectSettingsPath);
-  if (projectSettings) {
-    results.push(...extractHooks(projectSettings, ".claude/settings.json"));
-  }
+  const sources: [string, string][] = [
+    [join(absPath, ".claude", "settings.json"), ".claude/settings.json"],
+    [join(homedir(), ".claude", "settings.json"), "~/.claude/settings.json"],
+  ];
 
-  // 2. User-level ~/.claude/settings.json
-  const userSettingsPath = join(homedir(), ".claude", "settings.json");
-  const userSettings = parseJsonFile<SettingsFile>(userSettingsPath);
-  if (userSettings) {
-    results.push(...extractHooks(userSettings, "~/.claude/settings.json"));
-  }
-
-  return results;
+  return sources.flatMap(([path, label]) => {
+    const settings = parseJsonFile<SettingsFile>(path);
+    return settings ? extractHooks(settings, label) : [];
+  });
 }

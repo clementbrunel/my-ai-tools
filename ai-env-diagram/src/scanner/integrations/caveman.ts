@@ -56,16 +56,19 @@ function readCavemanLevel(): string | undefined {
   }
 }
 
+const CAVEMAN_BASE = {
+  name: "Caveman",
+  description: "Token-reduction skill (concise output)",
+} as const;
+
 function detectCavemanViaPlugin(): Integration | null {
   const pluginResult = detectPlugin(/caveman/i, "caveman");
   if (!pluginResult.detected) return null;
 
-  const marketplaceDir = pluginResult.source ?? "";
-  const skillsDir = join(marketplaceDir, "skills", "caveman");
+  const skillsDir = join(pluginResult.source ?? "", "skills", "caveman");
   const ok = existsSync(skillsDir) && hasSkillMd(skillsDir);
   return {
-    name: "Caveman",
-    description: "Token-reduction skill (concise output)",
+    ...CAVEMAN_BASE,
     detected: true,
     source: `plugin: ${pluginResult.source}`,
     status: ok ? "ok" : "warning",
@@ -77,8 +80,7 @@ function detectCavemanViaPlugin(): Integration | null {
 function detectCavemanViaSkillDir(skillDir: string): Integration {
   const ok = hasSkillMd(skillDir);
   return {
-    name: "Caveman",
-    description: "Token-reduction skill (concise output)",
+    ...CAVEMAN_BASE,
     detected: true,
     source: skillDir,
     status: ok ? "ok" : "warning",
@@ -91,15 +93,11 @@ export function detectCaveman(projectPath: string): Integration {
   const fromPlugin = detectCavemanViaPlugin();
   if (fromPlugin) return fromPlugin;
 
-  const skillDir = findSkillDir(projectPath, "caveman");
+  const skillDir = findSkillDir(projectPath, "caveman") ?? listSkills(projectPath).find((s) => s.includes("caveman"));
   if (skillDir) return detectCavemanViaSkillDir(skillDir);
 
-  const match = listSkills(projectPath).find((s) => s.includes("caveman"));
-  if (match) return detectCavemanViaSkillDir(match);
-
   return {
-    name: "Caveman",
-    description: "Token-reduction skill (concise output)",
+    ...CAVEMAN_BASE,
     detected: false,
     status: "warning",
     diagnostics: ["Caveman skill not found in ~/.claude/skills, .claude/skills, or enabledPlugins"],
