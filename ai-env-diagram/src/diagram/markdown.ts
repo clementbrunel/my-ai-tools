@@ -54,6 +54,20 @@ function renderContextMarkdown(files: ContextFile[]): string {
     formatTokens(f.estimatedTokens),
     mdStatus(f.status),
   ]);
+
+  const totalBytes = files.reduce((s, f) => s + f.sizeBytes, 0);
+  const totalTokens = files.reduce((s, f) => s + f.estimatedTokens, 0);
+  let totalStatus: Status = "ok";
+  if (files.some((f) => f.status === "error")) totalStatus = "error";
+  else if (files.some((f) => f.status === "warning")) totalStatus = "warning";
+  rows.push([
+    "**TOTAL**",
+    "",
+    `**${(totalBytes / 1024).toFixed(1)} KB**`,
+    `**${formatTokens(totalTokens)}**`,
+    mdStatus(totalStatus),
+  ]);
+
   lines.push(mdTable(["Path", "Scope", "Size", "Tokens", "Status"], rows), "");
   return lines.join("\n");
 }

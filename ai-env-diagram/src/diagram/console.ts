@@ -131,6 +131,19 @@ function renderContextConsole(files: ContextFile[]): string {
     consoleStatus(f.status),
   ]);
 
+  const totalBytes = files.reduce((s, f) => s + f.sizeBytes, 0);
+  const totalTokens = files.reduce((s, f) => s + f.estimatedTokens, 0);
+  let totalStatus: Status = "ok";
+  if (files.some((f) => f.status === "error")) totalStatus = "error";
+  else if (files.some((f) => f.status === "warning")) totalStatus = "warning";
+  rows.push([
+    chalk.bold("TOTAL"),
+    "",
+    chalk.bold(`${(totalBytes / 1024).toFixed(1)} KB`),
+    chalk.bold(formatTokens(totalTokens)),
+    consoleStatus(totalStatus),
+  ]);
+
   return sectionHeader("CONTEXT FILES") + "\n" +
     renderAsciiTable(["Path", "Scope", "Size", "Tokens", "Status"], rows);
 }
