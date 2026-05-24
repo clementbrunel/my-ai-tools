@@ -1,0 +1,42 @@
+name: 🏔️ Surveillance Méribel Mottaret – Juillet
+
+on:
+  schedule:
+    # Toutes les 6 heures : 0h, 6h, 12h, 18h (UTC = heure française - 2h en été)
+    - cron: "0 4,10,16,22 * * *"   # → 6h, 12h, 18h, 0h heure Paris
+  workflow_dispatch:                # Déclenchement manuel possible
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # Pour committer le cache last_results.json
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🐍 Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 📦 Installer les dépendances
+        run: pip install requests beautifulsoup4
+
+      - name: 🔍 Vérifier les disponibilités
+        env:
+          SMTP_HOST:     ${{ secrets.SMTP_HOST }}
+          SMTP_PORT:     ${{ secrets.SMTP_PORT }}
+          SMTP_USER:     ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          NOTIFY_EMAIL:  ${{ secrets.NOTIFY_EMAIL }}
+        run: python check_availability.py
+
+      - name: 💾 Sauvegarder le cache des résultats
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add last_results.json || true
+          git diff --cached --quiet || git commit -m "chore: mise à jour cache disponibilités $(date +'%Y-%m-%d %H:%M')"
+          git push || true
