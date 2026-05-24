@@ -25,6 +25,7 @@ jobs:
         run: pip install requests beautifulsoup4
 
       - name: 🔍 Vérifier les disponibilités
+        working-directory: mottaret-watch
         env:
           SMTP_HOST:     ${{ secrets.SMTP_HOST }}
           SMTP_PORT:     ${{ secrets.SMTP_PORT }}
@@ -34,6 +35,7 @@ jobs:
         run: python check_availability.py
 
       - name: 💾 Sauvegarder le cache des résultats
+        working-directory: mottaret-watch
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
