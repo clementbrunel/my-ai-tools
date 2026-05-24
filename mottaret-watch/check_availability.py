@@ -6,9 +6,6 @@ Période ciblée : 16/07 - 31/07
 
 import requests
 from bs4 import BeautifulSoup
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 import json
 import os
 from datetime import datetime, date
@@ -19,11 +16,8 @@ TARGET_START = date(2026, 7, 16)
 TARGET_END   = date(2026, 7, 31)
 
 # Variables d'environnement (à définir dans GitHub Actions Secrets)
-SMTP_HOST     = os.getenv("SMTP_HOST", "smtp.gmail.com")
-SMTP_PORT     = int(os.getenv("SMTP_PORT") or "587")
-SMTP_USER     = os.getenv("SMTP_USER", "")          # votre email expéditeur
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")      # mot de passe app Gmail
-NOTIFY_EMAIL  = os.getenv("NOTIFY_EMAIL", "hasto88@gmail.com")
+RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
+NOTIFY_EMAIL   = os.getenv("NOTIFY_EMAIL", "hasto88@gmail.com")
 
 CACHE_FILE = "last_results.json"
 # ─────────────────────────────────────────────────────────────────────────────
@@ -124,28 +118,28 @@ def extract_listings(soup: BeautifulSoup) -> list[dict]:
 
 
 def send_email(subject: str, body_html: str, body_text: str):
-    if not SMTP_USER or not SMTP_PASSWORD:
-        print("⚠️  SMTP non configuré — email non envoyé.")
-        print("   Définissez SMTP_USER et SMTP_PASSWORD dans les secrets GitHub.")
+    if not RESEND_API_KEY:
+        print("⚠️  RESEND_API_KEY non configurée — email non envoyé.")
         return
 
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"]    = SMTP_USER
-    msg["To"]      = NOTIFY_EMAIL
-
-    msg.attach(MIMEText(body_text, "plain"))
-    msg.attach(MIMEText(body_html, "html"))
-
-    host = SMTP_HOST or "smtp.gmail.com"
-    port = SMTP_PORT or 587
-    with smtplib.SMTP(host, port) as server:
-        server.ehlo()
-        server.starttls()
-        server.ehlo()
-        server.login(SMTP_USER, SMTP_PASSWORD)
-        server.sendmail(SMTP_USER, NOTIFY_EMAIL, msg.as_string())
-    print(f"✅ Email envoyé à {NOTIFY_EMAIL}")
+    resp = requests.post(
+        "https://api.resend.com/emails",
+        headers={
+            "Authorization": f"Bearer {RESEND_API_KEY}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "from": "Mottaret Watch <onboarding@resend.dev>",
+            "to": [NOTIFY_EMAIL],
+            "subject": subject,
+            "html": body_html,
+            "text": body_text,
+        },
+    )
+    if resp.status_code == 200 or resp.status_code == 201:
+        print(f"✅ Email envoyé à {NOTIFY_EMAIL}")
+    else:
+        print(f"❌ Erreur Resend {resp.status_code}: {resp.text}")
 
 
 def load_cache() -> list:
