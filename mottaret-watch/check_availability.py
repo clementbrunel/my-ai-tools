@@ -137,8 +137,12 @@ def send_email(subject: str, body_html: str, body_text: str):
     msg.attach(MIMEText(body_text, "plain"))
     msg.attach(MIMEText(body_html, "html"))
 
-    with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+    host = SMTP_HOST or "smtp.gmail.com"
+    port = SMTP_PORT or 587
+    with smtplib.SMTP(host, port) as server:
+        server.ehlo()
         server.starttls()
+        server.ehlo()
         server.login(SMTP_USER, SMTP_PASSWORD)
         server.sendmail(SMTP_USER, NOTIFY_EMAIL, msg.as_string())
     print(f"✅ Email envoyé à {NOTIFY_EMAIL}")
