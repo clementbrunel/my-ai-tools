@@ -21,7 +21,7 @@ TARGET_END   = date(2026, 7, 31)
 
 # Variables d'environnement (à définir dans GitHub Actions Secrets)
 SMTP_HOST     = os.getenv("SMTP_HOST", "smtp.gmail.com")
-SMTP_PORT     = int(os.getenv("SMTP_PORT", "587"))
+SMTP_PORT     = int(os.getenv("SMTP_PORT") or "587")
 SMTP_USER     = os.getenv("SMTP_USER", "")          # votre email expéditeur
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")      # mot de passe app Gmail
 NOTIFY_EMAIL  = os.getenv("NOTIFY_EMAIL", "hasto88@gmail.com")
