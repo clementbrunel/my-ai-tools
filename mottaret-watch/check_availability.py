@@ -11,7 +11,6 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import json
 import os
-import re
 from datetime import datetime, date
 
 # ── Configuration ────────────────────────────────────────────────────────────
@@ -63,78 +62,63 @@ def overlaps(start: date | None, end: date | None) -> bool:
     return start <= TARGET_END and end >= TARGET_START
 
 
+def resolve_link(cell) -> str:
+    """Retourne l'URL absolue depuis la première cellule d'une ligne."""
+    link_el = cell.find("a", href=True)
+    if not link_el:
+        return URL
+    href = link_el["href"]
+    if href.startswith("http"):
+        return href
+    return "https://meribel-mottaret-lesbleuets.fr" + href
+
+
 def extract_listings(soup: BeautifulSoup) -> list[dict]:
     """
-    Extrait les logements disponibles depuis la page.
-    Adapte les sélecteurs CSS si le site change de structure.
+    Parse le tableau .table__list du site Les Bleuets.
+    Colonnes : Voir(0) | Réf(1) | Période(2) | Arrivée(3) | Départ(4) |
+               Appartement(5) | Exposition(6) | Etage(7) | Bâtiment(8) | Prix(9)
     """
     listings = []
 
-    # ── Tentative 1 : cartes / articles classiques ────────────────────────
-    cards = soup.select(
-        "article, .location, .logement, .appartement, "
-        ".listing, .card, [class*='location'], [class*='logement']"
-    )
+    table = soup.select_one("table.table__list, table.tablesorter")
+    if not table:
+        # Fallback : premier tableau trouvé
+        table = soup.find("table")
+    if not table:
+        return listings
 
-    for card in cards:
-        text = card.get_text(separator=" ", strip=True)
+    for row in table.select("tbody tr"):
+        cells = row.find_all("td")
+        if len(cells) < 10:
+            continue
 
-        # Cherche toutes les dates dans le texte de la carte
-        dates_found = re.findall(
-            r"\b(\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4})\b", text
-        )
-        parsed_dates = [parse_date_fr(d) for d in dates_found]
-        parsed_dates = [d for d in parsed_dates if d is not None]
+        ref        = cells[1].get_text(strip=True)
+        arrival    = cells[3].get_text(strip=True)
+        departure  = cells[4].get_text(strip=True)
+        appt       = cells[5].get_text(strip=True)
+        batiment   = cells[8].get_text(strip=True)
+        prix_raw   = cells[9].get_text(strip=True)
 
-        # Détermine start/end si au moins 2 dates trouvées
-        start = min(parsed_dates) if parsed_dates else None
-        end   = max(parsed_dates) if len(parsed_dates) >= 2 else None
+        start = parse_date_fr(arrival)
+        end   = parse_date_fr(departure)
+        if not start or not end:
+            continue
 
-        # Titre / nom du logement
-        title_el = card.select_one("h1, h2, h3, h4, .title, .name, .titre")
-        title = title_el.get_text(strip=True) if title_el else text[:80]
+        price = f"{prix_raw} €" if prix_raw else "–"
+        title = f"Réf. {ref} – {appt} – {batiment}"
 
-        # URL du logement
-        link_el = card.select_one("a[href]")
-        link = link_el["href"] if link_el else ""
-        if link and not link.startswith("http"):
-            link = "https://meribel-mottaret-lesbleuets.fr" + link
-
-        # Prix
-        price_match = re.search(r"(\d[\d\s]*[€$]|\d+\s*euros?)", text, re.I)
-        price = price_match.group(0).strip() if price_match else "–"
+        link = resolve_link(cells[0])
 
         listings.append({
             "title": title,
-            "start": start.isoformat() if start else None,
-            "end":   end.isoformat()   if end   else None,
+            "start": start.isoformat(),
+            "end":   end.isoformat(),
             "price": price,
-            "url":   link,
+            "url":   link or URL,
             "overlaps_target": overlaps(start, end),
-            "raw_dates": dates_found,
+            "raw_dates": [arrival, departure],
         })
-
-    # ── Tentative 2 : si aucune carte trouvée, analyse globale du texte ──
-    if not listings:
-        full_text = soup.get_text(separator="\n", strip=True)
-        # Cherche des blocs "disponible du … au …"
-        pattern = re.compile(
-            r"disponible[^\n]*?du\s+(\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4})"
-            r"\s+au\s+(\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4})",
-            re.I,
-        )
-        for m in pattern.finditer(full_text):
-            start = parse_date_fr(m.group(1))
-            end   = parse_date_fr(m.group(2))
-            listings.append({
-                "title": m.group(0)[:80],
-                "start": start.isoformat() if start else None,
-                "end":   end.isoformat()   if end   else None,
-                "price": "–",
-                "url":   URL,
-                "overlaps_target": overlaps(start, end),
-                "raw_dates": [m.group(1), m.group(2)],
-            })
 
     return listings
 
