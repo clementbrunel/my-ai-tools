@@ -457,11 +457,11 @@ def detect_changes(
     prev_bleuets_refs = {l["title"] for l in previous.get("bleuets", [])}
     new_bleuets = [l for l in bleuets_available if l["title"] not in prev_bleuets_refs]
 
-    prev_maeva = {l["title"]: l for l in previous.get("maeva", [])}
+    prev_maeva = {(l["title"], l.get("start")): l for l in previous.get("maeva", [])}
     maeva_changes: list[dict] = []
     for l in maeva_listings:
-        title = l["title"]
-        if title not in prev_maeva:
+        key = (l["title"], l.get("start"))
+        if key not in prev_maeva:
             maeva_changes.append({
                 "listing":       l,
                 "prev_price":    None,
@@ -471,7 +471,7 @@ def detect_changes(
                 "is_new":        True,
             })
         else:
-            prev          = prev_maeva[title]
+            prev          = prev_maeva[key]
             price_changed = prev.get("price") != l.get("price")
             dispo_changed = prev.get("dispo")  != l.get("dispo")
             if price_changed or dispo_changed:
