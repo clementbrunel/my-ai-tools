@@ -13,8 +13,10 @@ jobs:
       contents: write   # Pour committer le cache last_results.json
 
     steps:
-      - name: 📥 Checkout
+      - name: 📥 Checkout (main – pour récupérer le script)
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # Nécessaire pour switcher de branche ensuite
 
       - name: 🐍 Python 3.11
         uses: actions/setup-python@v5
@@ -31,11 +33,23 @@ jobs:
           NOTIFY_EMAIL:   ${{ secrets.NOTIFY_EMAIL }}
         run: python check_availability.py
 
-      - name: 💾 Sauvegarder le cache des résultats
-        working-directory: mottaret-watch
+      - name: 💾 Sauvegarder le cache des résultats sur la branche watch
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add last_results.json || true
+
+          # Sauvegarder le last_results.json produit par le script
+          cp mottaret-watch/last_results.json /tmp/last_results.json
+
+          # Basculer sur la branche watch (la créer si elle n'existe pas encore)
+          git fetch origin watch 2>/dev/null && \
+            git checkout watch || \
+            git checkout -b watch
+
+          # Restaurer le fichier mis à jour
+          mkdir -p mottaret-watch
+          cp /tmp/last_results.json mottaret-watch/last_results.json
+
+          git add mottaret-watch/last_results.json
           git diff --cached --quiet || git commit -m "chore: mise à jour cache disponibilités $(date +'%Y-%m-%d %H:%M')"
-          git push || true
+          git push -u origin watch || true
