@@ -337,8 +337,11 @@ def build_email(
 
 def load_cache() -> dict:
     if os.path.exists(CACHE_FILE):
-        with open(CACHE_FILE, encoding="utf-8") as f:
-            return json.load(f)
+        try:
+            with open(CACHE_FILE, encoding="utf-8") as f:
+                return json.load(f)
+        except json.JSONDecodeError:
+            print("  ⚠️  Cache corrompu — ignoré.")
     return {}
 
 
