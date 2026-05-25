@@ -140,6 +140,37 @@ def extract_listings(soup: BeautifulSoup) -> list[dict]:
 
 # ── Maeva (API JSON) ──────────────────────────────────────────────────────────
 
+def _parse_maeva_products(produits) -> list[dict] | None:
+    """Normalise la structure produit Maeva en liste de dicts."""
+    if isinstance(produits, list):
+        return produits
+    if isinstance(produits, dict):
+        result = []
+        for v in produits.values():
+            if isinstance(v, list):
+                result.extend(v)
+            elif isinstance(v, dict):
+                result.append(v)
+        return result
+    return None
+
+
+def _maeva_product_to_dict(p: dict, date_debut: str, date_fin: str, booking_url: str) -> dict | None:
+    """Convertit un produit Maeva brut en dict logement. Retourne None si indisponible."""
+    dispo = p.get("libre")
+    if dispo is not None and str(dispo) == "0":
+        return None
+    price = p.get("prix") or "–"
+    return {
+        "title": p.get("produit_libe") or p.get("nom") or "Logement",
+        "start": p.get("debut", date_debut),
+        "end":   p.get("fin",   date_fin),
+        "price": f"{price} €" if price and price != "–" else "–",
+        "dispo": str(dispo) if dispo is not None else "?",
+        "url":   booking_url,
+    }
+
+
 def fetch_maeva_week(date_debut: str, date_fin: str) -> list[dict]:
     """Interroge l'API Maeva pour une semaine et retourne les logements dispo."""
     params = {**MAEVA_PARAMS_COMMON, "dateDebut": date_debut, "dateFin": date_fin}
@@ -151,32 +182,18 @@ def fetch_maeva_week(date_debut: str, date_fin: str) -> list[dict]:
         print(f"  ⚠️  Maeva {date_debut}→{date_fin} : erreur {e}")
         return []
 
-    products = data if isinstance(data, list) else data.get("produits", data.get("products", []))
-    if not isinstance(products, list):
+    produits = data.get("content", {}).get("produit", {})
+    products = _parse_maeva_products(produits)
+    if products is None:
         print(f"  ⚠️  Maeva : structure JSON inattendue pour {date_debut}→{date_fin}")
         return []
 
     booking_url = MAEVA_URL_TEMPLATE.format(debut=date_debut, fin=date_fin)
     results = []
     for p in products:
-        name  = p.get("nom") or p.get("name") or p.get("libelle") or "Logement"
-        price = p.get("prix") or p.get("price") or p.get("prixBase") or "–"
-        dispo = p.get("nbDispo") or p.get("disponibilites") or p.get("stock")
-
-        # Ignore si explicitement indisponible (0 unités)
-        if dispo is not None and str(dispo) == "0":
-            continue
-
-        price_str = f"{price} €" if price and price != "–" else "–"
-        results.append({
-            "title": name,
-            "start": date_debut,
-            "end":   date_fin,
-            "price": price_str,
-            "dispo": str(dispo) if dispo is not None else "?",
-            "url":   booking_url,
-        })
-
+        entry = _maeva_product_to_dict(p, date_debut, date_fin, booking_url)
+        if entry:
+            results.append(entry)
     return results
 
 
@@ -186,6 +203,8 @@ def fetch_maeva_all() -> list[dict]:
     for week in MAEVA_WEEKS:
         listings = fetch_maeva_week(week["dateDebut"], week["dateFin"])
         print(f"  Maeva {week['dateDebut']}→{week['dateFin']} : {len(listings)} logement(s)")
+        for l in listings:
+            print(f"    🌐 {l['title']} | {l['start']} → {l['end']} | {l['price']} | {l.get('dispo','?')} unité(s)")
         all_results.extend(listings)
     return all_results
 
@@ -218,19 +237,20 @@ def send_email(subject: str, body_html: str, body_text: str):
 
 
 def _listing_rows(listings: list[dict], show_dispo: bool = False) -> str:
+    TD = "padding:8px;border:1px solid #ddd;"
     rows = ""
-    for l in listings:
-        dispo_cell = f"<td style='padding:8px;border:1px solid #ddd;'>{l.get('dispo','')}</td>" if show_dispo else ""
-        rows += f"""
-        <tr>
-          <td style="padding:8px;border:1px solid #ddd;">{l['title']}</td>
-          <td style="padding:8px;border:1px solid #ddd;">{l.get('start','?')} → {l.get('end','?')}</td>
-          <td style="padding:8px;border:1px solid #ddd;">{l['price']}</td>
-          {dispo_cell}
-          <td style="padding:8px;border:1px solid #ddd;">
-            {"<a href='" + l['url'] + "'>Voir</a>" if l.get('url') else '–'}
-          </td>
-        </tr>"""
+    for item in listings:
+        dispo_cell = f"<td style='{TD}'>{item.get('dispo','')}</td>" if show_dispo else ""
+        link = f"<a href='{item['url']}'>Voir</a>" if item.get("url") else "–"
+        rows += (
+            f"<tr>"
+            f"<td style='{TD}'>{item['title']}</td>"
+            f"<td style='{TD}'>{item.get('start','?')} → {item.get('end','?')}</td>"
+            f"<td style='{TD}'>{item['price']}</td>"
+            f"{dispo_cell}"
+            f"<td style='{TD}'>{link}</td>"
+            f"</tr>"
+        )
     return rows
 
 
@@ -256,7 +276,7 @@ def build_email(
     maeva_listings: list[dict],
 ) -> tuple[str, str]:
     now    = datetime.now().strftime("%d/%m/%Y à %H:%M")
-    period = "16/07/2026 – 31/07/2026"
+    period = f"{TARGET_START:%d/%m/%Y} – {TARGET_END:%d/%m/%Y}"
 
     # ── HTML ──────────────────────────────────────────────────────────────────
     bleuets_section = ""
@@ -290,18 +310,25 @@ def build_email(
     </body></html>"""
 
     # ── Texte brut ────────────────────────────────────────────────────────────
+    def text_section(title: str, items: list[dict], show_dispo: bool = False) -> list[str]:
+        out = [title]
+        for item in items:
+            dispo = f" | {item.get('dispo','?')} unité(s)" if show_dispo else ""
+            out += [
+                f"- {item['title']}",
+                f"  {item.get('start','?')} → {item.get('end','?')} | {item['price']}{dispo}",
+                f"  {item.get('url','')}",
+                "",
+            ]
+        return out
+
     lines = [
         f"Méribel Mottaret – Les Bleuets | {now}",
         f"Période : {period}",
         "",
-        f"=== Site officiel : {len(bleuets_available)} logement(s) ===",
+        *text_section(f"=== Site officiel : {len(bleuets_available)} logement(s) ===", bleuets_available),
+        *text_section(f"=== Maeva : {len(maeva_listings)} logement(s) ===", maeva_listings, show_dispo=True),
     ]
-    for l in bleuets_available:
-        lines += [f"- {l['title']}", f"  {l['start']} → {l['end']} | {l['price']}", f"  {l['url']}", ""]
-
-    lines += [f"=== Maeva : {len(maeva_listings)} logement(s) ==="]
-    for l in maeva_listings:
-        lines += [f"- {l['title']}", f"  {l['start']} → {l['end']} | {l['price']} | {l.get('dispo','?')} unité(s)", f"  {l['url']}", ""]
 
     return html, "\n".join(lines)
 
@@ -310,14 +337,65 @@ def build_email(
 
 def load_cache() -> dict:
     if os.path.exists(CACHE_FILE):
-        with open(CACHE_FILE) as f:
+        with open(CACHE_FILE, encoding="utf-8") as f:
             return json.load(f)
     return {}
 
 
 def save_cache(data: dict):
-    with open(CACHE_FILE, "w") as f:
+    with open(CACHE_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def detect_changes(
+    previous: dict,
+    bleuets_available: list[dict],
+    maeva_listings: list[dict],
+) -> tuple[list[dict], list[dict]]:
+    """Retourne (new_bleuets, changed_maeva) par rapport au cache précédent."""
+    prev_bleuets_refs = {l["title"] for l in previous.get("bleuets", [])}
+    new_bleuets = [l for l in bleuets_available if l["title"] not in prev_bleuets_refs]
+
+    prev_maeva_dispo = {l["title"]: l.get("dispo") for l in previous.get("maeva", [])}
+    changed_maeva = [
+        l for l in maeva_listings
+        if l["title"] not in prev_maeva_dispo
+        or prev_maeva_dispo[l["title"]] != l.get("dispo")
+    ]
+    return new_bleuets, changed_maeva
+
+
+def notify_if_needed(
+    previous: dict,
+    bleuets_available: list[dict],
+    bleuets_all: list[dict],
+    maeva_listings: list[dict],
+    new_bleuets: list[dict],
+    changed_maeva: list[dict],
+):
+    has_anything = bleuets_available or maeva_listings
+    has_changes  = new_bleuets or changed_maeva
+    is_first_run = not previous
+
+    if not has_anything:
+        print("  Aucune disponibilité trouvée.")
+        return
+    if not (is_first_run or has_changes):
+        print("  (Aucun changement depuis la dernière vérification — pas de nouvel email)")
+        return
+
+    total = len(bleuets_available) + len(maeva_listings)
+    reasons = []
+    if new_bleuets:
+        reasons.append(f"{len(new_bleuets)} nouveau(x) sur site officiel")
+    if changed_maeva:
+        reasons.append(f"{len(changed_maeva)} changement(s) Maeva")
+    reason_str = " · ".join(reasons) if reasons else f"{total} logement(s) dispo"
+    subject = f"🏔️ Méribel Mottaret – {reason_str}"
+
+    print(f"  → Envoi email : {reason_str}")
+    html, text = build_email(bleuets_available, bleuets_all, maeva_listings)
+    send_email(subject, html, text)
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -341,33 +419,12 @@ def main():
 
     # ── Maeva ─────────────────────────────────────────────────────────────────
     maeva_listings = fetch_maeva_all()
-    for l in maeva_listings:
-        print(f"    🌐 {l['title']} | {l['start']} → {l['end']} | {l['price']} | {l.get('dispo','?')} unité(s)")
 
-    # ── Cache & envoi ─────────────────────────────────────────────────────────
-    previous      = load_cache()
-    prev_bleuets  = {l["title"] for l in previous.get("bleuets", [])}
-    new_bleuets   = [l for l in bleuets_available if l["title"] not in prev_bleuets]
-
+    # ── Cache & envoi ────────────────────────────────────────────────────────
+    previous = load_cache()
+    new_bleuets, changed_maeva = detect_changes(previous, bleuets_available, maeva_listings)
     save_cache({"bleuets": bleuets_available, "maeva": maeva_listings})
-
-    has_anything   = bleuets_available or maeva_listings
-    is_first_run   = not previous
-    has_new        = new_bleuets
-
-    if has_anything and (is_first_run or has_new):
-        total = len(bleuets_available) + len(maeva_listings)
-        subject = (
-            "🆕 Nouveaux logements à Méribel Mottaret (16-31 juillet) !"
-            if has_new else
-            f"🏔️ {total} logement(s) dispo à Méribel Mottaret (16-31 juillet)"
-        )
-        html, text = build_email(bleuets_available, bleuets_all, maeva_listings)
-        send_email(subject, html, text)
-    elif has_anything:
-        print("  (Mêmes logements qu'à la dernière vérification — pas de nouvel email)")
-    else:
-        print("  Aucune disponibilité trouvée.")
+    notify_if_needed(previous, bleuets_available, bleuets_all, maeva_listings, new_bleuets, changed_maeva)
 
 
 if __name__ == "__main__":
