@@ -6,3 +6,7 @@ dist/
 # Mempalace config files
 mempalace.yaml
 entities.json
+# Python
+__pycache__/
+*.pyc
+*.pyo
