@@ -26,6 +26,16 @@ jobs:
       - name: 📦 Installer les dépendances
         run: pip install requests beautifulsoup4
 
+      - name: 📂 Restaurer le cache depuis la branche watch
+        run: |
+          git fetch origin watch 2>/dev/null || true
+          if git show origin/watch:mottaret-watch/last_results.json \
+               > mottaret-watch/last_results.json 2>/dev/null; then
+            echo "✅ Cache restauré depuis origin/watch"
+          else
+            echo "ℹ️  Pas encore de branche watch ou de cache — première exécution"
+          fi
+
       - name: 🔍 Vérifier les disponibilités
         working-directory: mottaret-watch
         env:
