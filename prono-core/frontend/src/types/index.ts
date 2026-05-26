@@ -20,6 +20,9 @@ export interface Match {
   status: 'UPCOMING' | 'ONGOING' | 'FINISHED';
   competition: string;
   round: string;
+  forfeitId?: number;
+  forfeitTitle?: string;
+  bettorBonus?: number;
 }
 
 export interface Bet {
@@ -82,10 +85,9 @@ export interface RegisterRequest {
 export interface CreateBetRequest {
   title: string;
   description?: string;
-  matchId?: number;
-  betType: 'SCORE' | 'EVENT' | 'FORFEIT' | 'FREE';
+  matchId: number;
+  betType: 'SCORE';
   points: number;
-  deadline: string;
 }
 
 export interface CreateMatchRequest {
