@@ -24,39 +24,33 @@ UPDATE matches SET forfeit_id = 3, bettor_bonus = 5 WHERE team_a = 'Argentine'  
 -- forfeit_id=1 croissants  2=photo ridicule  3=hymne  4=photo de profil
 
 -- ============================================================
--- BETS (SCORE type, no forfeit_id on bets anymore)
+-- BETS (deadline = match kick-off time, copied from matches.match_date)
 -- ============================================================
-INSERT INTO bets (title, description, match_id, creator_id, bet_type, points, deadline, status) VALUES
-(
-  '🇧🇷 Prono Brésil vs Maroc — J1',
-  'Votre pronostic pour le score exact du match Brésil vs Maroc. Photo ridicule pour le plus gros parieur qui se plante !',
-  6, 14, 'SCORE', 20, '2026-06-13 23:00:00', 'OPEN'
-),
-(
-  '🇩🇪 Prono Allemagne vs Curaçao — J1',
-  'Quel score pour l''Allemagne face à Curaçao ? Le plus gros parieur perdant change sa photo de profil.',
-  9, 14, 'SCORE', 15, '2026-06-14 18:00:00', 'OPEN'
-),
-(
-  '🇪🇸 Prono Espagne vs Cap-Vert — J1',
-  'L''Espagne dominera-t-elle ? Donnez votre pronostic exact. Pas de gage sur ce match.',
-  13, 14, 'SCORE', 15, '2026-06-15 17:00:00', 'OPEN'
-),
-(
-  '🇫🇷 Prono France vs Sénégal — J1',
-  'Le match des Bleus ! Le plus gros parieur qui se trompe ramène les croissants 🥐',
-  17, 14, 'SCORE', 25, '2026-06-16 20:00:00', 'OPEN'
-),
-(
-  '🇦🇷 Prono Argentine vs Algérie — J1',
-  'L''Albiceleste face aux Fennecs. Le plus gros parieur perdant chante l''hymne adverse en vidéo !',
-  19, 14, 'SCORE', 20, '2026-06-17 02:00:00', 'OPEN'
-),
-(
-  '🏴󠁧󠁢󠁥󠁮󠁧󠁿 Prono Angleterre vs Croatie — J1',
-  'Revanche de 2018 ? Pronostique le score exact. Juste la fierté en jeu.',
-  22, 14, 'SCORE', 20, '2026-06-17 21:00:00', 'OPEN'
-);
+INSERT INTO bets (title, description, match_id, creator_id, bet_type, points, deadline, status)
+SELECT
+  title, description, match_id, 14, 'SCORE', points,
+  (SELECT match_date FROM matches WHERE id = match_id),
+  'OPEN'
+FROM (VALUES
+  ('🇧🇷 Prono Brésil vs Maroc — J1',
+   'Votre pronostic pour le score exact. Photo ridicule pour le plus gros parieur qui se plante !',
+   6, 20),
+  ('🇩🇪 Prono Allemagne vs Curaçao — J1',
+   'Quel score pour l''Allemagne face à Curaçao ? Le plus gros parieur perdant change sa photo de profil.',
+   9, 15),
+  ('🇪🇸 Prono Espagne vs Cap-Vert — J1',
+   'L''Espagne dominera-t-elle ? Pronostique le score exact. Pas de gage sur ce match.',
+   13, 15),
+  ('🇫🇷 Prono France vs Sénégal — J1',
+   'Le match des Bleus ! Le plus gros parieur qui se trompe ramène les croissants 🥐',
+   17, 25),
+  ('🇦🇷 Prono Argentine vs Algérie — J1',
+   'L''Albiceleste face aux Fennecs. Le plus gros parieur perdant chante l''hymne adverse en vidéo !',
+   19, 20),
+  ('🏴󠁧󠁢󠁥󠁮󠁧󠁿 Prono Angleterre vs Croatie — J1',
+   'Revanche de 2018 ? Pronostique le score exact. Juste la fierté en jeu.',
+   22, 20)
+) AS t(title, description, match_id, points);
 -- Bet IDs: 1=Brésil-Maroc  2=All-Cur  3=Esp-Cap  4=France-Sén  5=Arg-Alg  6=Ang-Cro
 
 -- ============================================================

@@ -52,21 +52,19 @@ public class BetService {
         User creator = userRepository.findByUsername(username)
             .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
 
+        Match match = matchRepository.findById(request.getMatchId())
+            .orElseThrow(() -> new EntityNotFoundException("Match not found: " + request.getMatchId()));
+
         Bet bet = Bet.builder()
             .title(request.getTitle())
             .description(request.getDescription())
             .betType(request.getBetType())
             .points(request.getPoints())
-            .deadline(request.getDeadline())
+            .deadline(match.getMatchDate())   // deadline = kick-off time
             .status(Bet.Status.OPEN)
             .creator(creator)
+            .match(match)
             .build();
-
-        if (request.getMatchId() != null) {
-            Match match = matchRepository.findById(request.getMatchId())
-                .orElseThrow(() -> new EntityNotFoundException("Match not found: " + request.getMatchId()));
-            bet.setMatch(match);
-        }
 
         return toBetResponseWithCount(betRepository.save(bet));
     }
@@ -78,6 +76,9 @@ public class BetService {
 
         if (bet.getStatus() != Bet.Status.OPEN) {
             throw new IllegalStateException("Bet is not open for participation");
+        }
+        if (bet.getDeadline() != null && java.time.LocalDateTime.now().isAfter(bet.getDeadline())) {
+            throw new IllegalStateException("Le match a déjà commencé, les paris sont fermés");
         }
 
         User user = userRepository.findByUsername(username)

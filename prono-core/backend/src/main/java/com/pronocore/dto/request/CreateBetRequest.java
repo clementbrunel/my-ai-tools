@@ -6,8 +6,6 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
-import java.time.LocalDateTime;
-
 @Data
 public class CreateBetRequest {
 
@@ -24,7 +22,4 @@ public class CreateBetRequest {
 
     @Min(value = 1, message = "Points must be at least 1")
     private int points = 10;
-
-    @NotNull(message = "Deadline is required")
-    private LocalDateTime deadline;
 }

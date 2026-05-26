@@ -14,17 +14,15 @@ const CreateBet: React.FC = () => {
   const [matchId, setMatchId] = useState(preselectedMatchId || '');
   const betType = 'SCORE' as const;
   const [points, setPoints] = useState(10);
-  const [deadline, setDeadline] = useState('');
   const [matches, setMatches] = useState<Match[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     getMatches().then(setMatches).catch(console.error);
-    // Set default deadline to 2 hours from now
-    const defaultDeadline = new Date(Date.now() + 2 * 60 * 60 * 1000);
-    setDeadline(defaultDeadline.toISOString().slice(0, 16));
   }, []);
+
+  const selectedMatch = matches.find((m) => String(m.id) === matchId);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,10 +40,9 @@ const CreateBet: React.FC = () => {
       await createBet({
         title,
         description: description || undefined,
-        matchId: matchId ? parseInt(matchId) : undefined,
-        betType: betType as 'SCORE' | 'EVENT' | 'FORFEIT' | 'FREE',
+        matchId: parseInt(matchId),
+        betType,
         points,
-        deadline: new Date(deadline).toISOString(),
       });
       navigate('/bets');
     } catch (err: unknown) {
@@ -105,35 +102,33 @@ const CreateBet: React.FC = () => {
               <option value="">-- Sélectionne un match --</option>
               {matches.map((m) => (
                 <option key={m.id} value={m.id}>
-                  {m.teamA} vs {m.teamB} — {new Date(m.matchDate).toLocaleDateString('fr-FR')}
+                  {m.teamA} vs {m.teamB} — {new Date(m.matchDate).toLocaleDateString('fr-FR', {
+                    weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+                  })}
                 </option>
               ))}
             </select>
+            {selectedMatch && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                ⏰ Les paris ferment au coup d'envoi —{' '}
+                {new Date(selectedMatch.matchDate).toLocaleString('fr-FR', {
+                  weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit'
+                })}
+              </p>
+            )}
           </div>
 
-          {/* Points & Deadline */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="label">Points 🏅</label>
-              <input
-                type="number"
-                value={points}
-                onChange={(e) => setPoints(parseInt(e.target.value))}
-                className="input-field"
-                min={1}
-                max={100}
-              />
-            </div>
-            <div>
-              <label className="label">Date limite ⏰</label>
-              <input
-                type="datetime-local"
-                value={deadline}
-                onChange={(e) => setDeadline(e.target.value)}
-                className="input-field"
-                required
-              />
-            </div>
+          {/* Points */}
+          <div className="w-1/2">
+            <label className="label">Points 🏅</label>
+            <input
+              type="number"
+              value={points}
+              onChange={(e) => setPoints(parseInt(e.target.value))}
+              className="input-field"
+              min={1}
+              max={100}
+            />
           </div>
 
           {error && (
