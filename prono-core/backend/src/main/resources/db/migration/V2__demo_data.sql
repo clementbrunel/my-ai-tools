@@ -7,20 +7,20 @@
 -- USERS
 -- ============================================================
 INSERT INTO users (username, email, password, role, global_score, bets_won, forfeits_received) VALUES
-('adrien',     'adrien@pronocore.com',     '$2b$10$SRysqXHa16OSafKhETdOgOpGDK16yWxJPd9bjixgThLLimR6sLk22', 'USER',  0, 0, 0),
-('baptiste',   'baptiste@pronocore.com',   '$2b$10$SRysqXHa16OSafKhETdOgOpGDK16yWxJPd9bjixgThLLimR6sLk22', 'USER',  0, 0, 0),
-('christophe', 'christophe@pronocore.com', '$2b$10$SRysqXHa16OSafKhETdOgOpGDK16yWxJPd9bjixgThLLimR6sLk22', 'USER',  0, 0, 0),
-('damien',     'damien@pronocore.com',     '$2b$10$SRysqXHa16OSafKhETdOgOpGDK16yWxJPd9bjixgThLLimR6sLk22', 'USER',  0, 0, 0),
-('geoffrey',   'geoffrey@pronocore.com',   '$2b$10$SRysqXHa16OSafKhETdOgOpGDK16yWxJPd9bjixgThLLimR6sLk22', 'USER',  0, 0, 0),
-('jeffrey',    'jeffrey@pronocore.com',    '$2b$10$SRysqXHa16OSafKhETdOgOpGDK16yWxJPd9bjixgThLLimR6sLk22', 'USER',  0, 0, 0),
-('matheo',     'matheo@pronocore.com',     '$2b$10$SRysqXHa16OSafKhETdOgOpGDK16yWxJPd9bjixgThLLimR6sLk22', 'USER',  0, 0, 0),
-('mickael',    'mickael@pronocore.com',    '$2b$10$SRysqXHa16OSafKhETdOgOpGDK16yWxJPd9bjixgThLLimR6sLk22', 'USER',  0, 0, 0),
-('nicolasd',   'nicolasd@pronocore.com',   '$2b$10$SRysqXHa16OSafKhETdOgOpGDK16yWxJPd9bjixgThLLimR6sLk22', 'USER',  0, 0, 0),
-('nicolasr',   'nicolasr@pronocore.com',   '$2b$10$SRysqXHa16OSafKhETdOgOpGDK16yWxJPd9bjixgThLLimR6sLk22', 'USER',  0, 0, 0),
-('pierre',     'pierre@pronocore.com',     '$2b$10$SRysqXHa16OSafKhETdOgOpGDK16yWxJPd9bjixgThLLimR6sLk22', 'USER',  0, 0, 0),
-('thomas',     'thomas@pronocore.com',     '$2b$10$SRysqXHa16OSafKhETdOgOpGDK16yWxJPd9bjixgThLLimR6sLk22', 'USER',  0, 0, 0),
-('zacharie',   'zacharie@pronocore.com',   '$2b$10$SRysqXHa16OSafKhETdOgOpGDK16yWxJPd9bjixgThLLimR6sLk22', 'USER',  0, 0, 0),
-('clement',    'clement@pronocore.com',    '$2b$10$SRysqXHa16OSafKhETdOgOpGDK16yWxJPd9bjixgThLLimR6sLk22', 'ADMIN', 0, 0, 0);
+('adrien',     'adrien@pronocore.com',     '$2b$10$SRysqXHa16OSafKhETdOgOpGDK16yWxJPd9bjixgThLLimR6sLk22', 'USER',  10, 0, 0),
+('baptiste',   'baptiste@pronocore.com',   '$2b$10$SRysqXHa16OSafKhETdOgOpGDK16yWxJPd9bjixgThLLimR6sLk22', 'USER',  10, 0, 0),
+('christophe', 'christophe@pronocore.com', '$2b$10$SRysqXHa16OSafKhETdOgOpGDK16yWxJPd9bjixgThLLimR6sLk22', 'USER',  10, 0, 0),
+('damien',     'damien@pronocore.com',     '$2b$10$SRysqXHa16OSafKhETdOgOpGDK16yWxJPd9bjixgThLLimR6sLk22', 'USER',  10, 0, 0),
+('geoffrey',   'geoffrey@pronocore.com',   '$2b$10$SRysqXHa16OSafKhETdOgOpGDK16yWxJPd9bjixgThLLimR6sLk22', 'USER',  10, 0, 0),
+('jeffrey',    'jeffrey@pronocore.com',    '$2b$10$SRysqXHa16OSafKhETdOgOpGDK16yWxJPd9bjixgThLLimR6sLk22', 'USER',  10, 0, 0),
+('matheo',     'matheo@pronocore.com',     '$2b$10$SRysqXHa16OSafKhETdOgOpGDK16yWxJPd9bjixgThLLimR6sLk22', 'USER',  10, 0, 0),
+('mickael',    'mickael@pronocore.com',    '$2b$10$SRysqXHa16OSafKhETdOgOpGDK16yWxJPd9bjixgThLLimR6sLk22', 'USER',  10, 0, 0),
+('nicolasd',   'nicolasd@pronocore.com',   '$2b$10$SRysqXHa16OSafKhETdOgOpGDK16yWxJPd9bjixgThLLimR6sLk22', 'USER',  10, 0, 0),
+('nicolasr',   'nicolasr@pronocore.com',   '$2b$10$SRysqXHa16OSafKhETdOgOpGDK16yWxJPd9bjixgThLLimR6sLk22', 'USER',  10, 0, 0),
+('pierre',     'pierre@pronocore.com',     '$2b$10$SRysqXHa16OSafKhETdOgOpGDK16yWxJPd9bjixgThLLimR6sLk22', 'USER',  10, 0, 0),
+('thomas',     'thomas@pronocore.com',     '$2b$10$SRysqXHa16OSafKhETdOgOpGDK16yWxJPd9bjixgThLLimR6sLk22', 'USER',  10, 0, 0),
+('zacharie',   'zacharie@pronocore.com',   '$2b$10$SRysqXHa16OSafKhETdOgOpGDK16yWxJPd9bjixgThLLimR6sLk22', 'USER',  10, 0, 0),
+('clement',    'clement@pronocore.com',    '$2b$10$SRysqXHa16OSafKhETdOgOpGDK16yWxJPd9bjixgThLLimR6sLk22', 'ADMIN', 10, 0, 0);
 -- IDs: adrien=1, baptiste=2, christophe=3, damien=4, geoffrey=5, jeffrey=6,
 --      matheo=7, mickael=8, nicolasd=9, nicolasr=10, pierre=11, thomas=12,
 --      zacharie=13, clement=14

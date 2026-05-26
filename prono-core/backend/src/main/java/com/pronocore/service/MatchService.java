@@ -153,13 +153,14 @@ public class MatchService {
                 userCache.put(user.getId(), user);
                 countByUser.merge(user.getId(), 1L, Long::sum);
 
-                boolean correct = p.getChosenOption().trim().equals(winningOption);
-                if (!correct) {
+                int earned = computeEarnedPoints(p.getChosenOption().trim(), winningOption);
+                if (earned == 0) {
                     hasWrongByUser.put(user.getId(), true);
                 } else {
-                    user.setGlobalScore(user.getGlobalScore() + bet.getPoints());
-                    user.setBetsWon(user.getBetsWon() + 1);
+                    user.setGlobalScore(user.getGlobalScore() + earned);
+                    if (earned == POINTS_EXACT_SCORE) user.setBetsWon(user.getBetsWon() + 1);
                     userRepository.save(user);
+                    log.info("  +{} pts → {} ({})", earned, user.getUsername(), p.getChosenOption());
                 }
             }
 
@@ -210,6 +211,48 @@ public class MatchService {
             log.info("🃏 Forfeit '{}' assigned to {} for match {}",
                     match.getForfeit().getTitle(), biggestBettor.getUsername(), match.getId());
         }
+    }
+
+    // ---------------------------------------------------------------
+    // Scoring constants
+    // ---------------------------------------------------------------
+
+    /** Correct result (right winner or right draw), wrong score. */
+    static final int POINTS_CORRECT_RESULT = 3;
+
+    /** Exact score (implies correct result). */
+    static final int POINTS_EXACT_SCORE    = 5;
+
+    /** Starting wallet every user begins with. */
+    public static final int STARTING_SCORE = 10;
+
+    /**
+     * Points earned for a single participation:
+     * <ul>
+     *   <li>5 pts — exact score</li>
+     *   <li>3 pts — correct result (right winner / right draw) but wrong score</li>
+     *   <li>0 pts — wrong result</li>
+     * </ul>
+     */
+    int computeEarnedPoints(String chosenOption, String winningOption) {
+        if (chosenOption.equals(winningOption)) return POINTS_EXACT_SCORE;
+        if (extractResult(chosenOption).equals(extractResult(winningOption))) return POINTS_CORRECT_RESULT;
+        return 0;
+    }
+
+    /**
+     * Extracts the result token from an option string:
+     * "Victoire France 2-1" → "Victoire France"
+     * "Match nul 1-1"       → "Match nul"
+     */
+    private String extractResult(String option) {
+        if (option.startsWith("Match nul")) return "Match nul";
+        if (option.startsWith("Victoire ")) {
+            // Remove the trailing "score" word (e.g. "2-1")
+            int lastSpace = option.lastIndexOf(' ');
+            if (lastSpace > 0) return option.substring(0, lastSpace);
+        }
+        return option;
     }
 
     /**
