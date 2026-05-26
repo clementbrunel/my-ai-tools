@@ -29,8 +29,12 @@ jobs:
       - name: 📂 Restaurer le cache depuis la branche watch
         run: |
           git fetch origin watch 2>/dev/null || true
-          if git show origin/watch:mottaret-watch/last_results.json \
-               > mottaret-watch/last_results.json 2>/dev/null; then
+          # NB : on capture d'abord dans une variable pour ne PAS tronquer le
+          # fichier si git show échoue (le redirect > crée un fichier vide
+          # AVANT l'exécution de la commande).
+          CACHE=$(git show origin/watch:mottaret-watch/last_results.json 2>/dev/null)
+          if [ -n "$CACHE" ]; then
+            printf '%s' "$CACHE" > mottaret-watch/last_results.json
             echo "✅ Cache restauré depuis origin/watch"
           else
             echo "ℹ️  Pas encore de branche watch ou de cache — première exécution"
@@ -51,15 +55,23 @@ jobs:
           # Sauvegarder le last_results.json produit par le script
           cp mottaret-watch/last_results.json /tmp/last_results.json
 
-          # Basculer sur la branche watch (la créer si elle n'existe pas encore)
-          git fetch origin watch 2>/dev/null && \
-            git checkout watch || \
+          # Basculer sur la branche watch :
+          #   - Si elle existe sur origin : on repart EXACTEMENT de origin/watch
+          #     (git checkout -B = create or reset, évite tout problème de
+          #     divergence avec le DWIM classique).
+          #   - Sinon : on la crée depuis le HEAD courant (main).
+          if git fetch origin watch 2>/dev/null; then
+            git checkout -B watch origin/watch
+          else
             git checkout -b watch
+          fi
 
           # Restaurer le fichier mis à jour
           mkdir -p mottaret-watch
           cp /tmp/last_results.json mottaret-watch/last_results.json
 
-          git add mottaret-watch/last_results.json
+          # -f au cas où last_results.json serait dans un .gitignore local
+          git add -f mottaret-watch/last_results.json
           git diff --cached --quiet || git commit -m "chore: mise à jour cache disponibilités $(date +'%Y-%m-%d %H:%M')"
-          git push -u origin watch || true
+          # Pas de || true : on veut voir les erreurs de push dans les logs
+          git push origin watch
