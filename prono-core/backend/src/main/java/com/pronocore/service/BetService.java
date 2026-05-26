@@ -156,6 +156,41 @@ public class BetService {
     }
 
     @Transactional
+    public BetParticipationResponse upsertParticipate(Long betId, ParticipateRequest request, String username) {
+        Bet bet = betRepository.findById(betId)
+            .orElseThrow(() -> new EntityNotFoundException("Bet not found: " + betId));
+
+        if (bet.getStatus() != Bet.Status.OPEN) {
+            throw new IllegalStateException("Bet is not open for participation");
+        }
+        if (bet.getDeadline() != null && java.time.LocalDateTime.now().isAfter(bet.getDeadline())) {
+            throw new IllegalStateException("Le match a déjà commencé, les paris sont fermés");
+        }
+
+        User user = userRepository.findByUsername(username)
+            .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
+
+        java.util.Optional<BetParticipation> existing =
+            participationRepository.findByBetIdAndUserId(betId, user.getId());
+
+        BetParticipation participation;
+        if (existing.isPresent()) {
+            participation = existing.get();
+            participation.setChosenOption(request.getChosenOption());
+            participation.setComment(request.getComment());
+        } else {
+            participation = BetParticipation.builder()
+                .bet(bet)
+                .user(user)
+                .chosenOption(request.getChosenOption())
+                .comment(request.getComment())
+                .build();
+        }
+
+        return betMapper.toParticipationResponse(participationRepository.save(participation));
+    }
+
+    @Transactional
     public BetResponse cancelBet(Long betId) {
         Bet bet = betRepository.findById(betId)
             .orElseThrow(() -> new EntityNotFoundException("Bet not found: " + betId));

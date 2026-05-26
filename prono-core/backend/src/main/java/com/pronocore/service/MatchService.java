@@ -13,9 +13,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -30,21 +29,28 @@ public class MatchService {
     private final UserForfeitRepository      userForfeitRepository;
 
     // ---------------------------------------------------------------
+    // Scoring constants
+    // ---------------------------------------------------------------
+
+    /** Exact score. */
+    static final int POINTS_EXACT_SCORE    = 5;
+    /** Correct result (right winner or right draw), wrong score. */
+    static final int POINTS_CORRECT_RESULT = 3;
+
+    // ---------------------------------------------------------------
     // Queries
     // ---------------------------------------------------------------
 
     @Transactional(readOnly = true)
     public List<MatchResponse> getAllMatches() {
         return matchRepository.findAllByOrderByMatchDateAsc().stream()
-                .map(matchMapper::toResponse)
-                .toList();
+                .map(matchMapper::toResponse).toList();
     }
 
     @Transactional(readOnly = true)
     public List<MatchResponse> getMatchesByStatus(Match.Status status) {
         return matchRepository.findByStatusOrderByMatchDateAsc(status).stream()
-                .map(matchMapper::toResponse)
-                .toList();
+                .map(matchMapper::toResponse).toList();
     }
 
     @Transactional(readOnly = true)
@@ -66,7 +72,9 @@ public class MatchService {
                 .round(request.getRound() != null ? request.getRound() : "Group Stage")
                 .status(Match.Status.UPCOMING)
                 .build();
-        return matchMapper.toResponse(matchRepository.save(match));
+        match = matchRepository.save(match);
+        autoCreateBet(match);
+        return matchMapper.toResponse(match);
     }
 
     @Transactional
@@ -82,10 +90,7 @@ public class MatchService {
         match.setStatus(request.getStatus());
         match = matchRepository.save(match);
 
-        // Auto-settle all open bets when match becomes FINISHED
-        if (transitionsToFinished
-                && request.getScoreA() != null
-                && request.getScoreB() != null) {
+        if (transitionsToFinished && request.getScoreA() != null && request.getScoreB() != null) {
             settleBetsForMatch(match);
         }
 
@@ -98,9 +103,31 @@ public class MatchService {
         matchRepository.deleteById(id);
     }
 
-    /** Used internally by BetService. */
-    public Match findById(Long id) {
-        return requireMatch(id);
+    public Match findById(Long id) { return requireMatch(id); }
+
+    // ---------------------------------------------------------------
+    // Auto-create bet
+    // ---------------------------------------------------------------
+
+    private void autoCreateBet(Match match) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        User creator = userRepository.findByUsername(username)
+                .orElseGet(() -> userRepository.findAll().stream()
+                        .filter(u -> u.getRole() == User.Role.ADMIN)
+                        .findFirst()
+                        .orElseThrow(() -> new IllegalStateException("No admin user found")));
+
+        Bet bet = Bet.builder()
+                .title(match.getTeamA() + " vs " + match.getTeamB())
+                .match(match)
+                .creator(creator)
+                .betType(Bet.BetType.SCORE)
+                .points(10)
+                .deadline(match.getMatchDate())
+                .status(Bet.Status.OPEN)
+                .build();
+        betRepository.save(bet);
+        log.info("✅ Auto-created bet for match {} ({} vs {})", match.getId(), match.getTeamA(), match.getTeamB());
     }
 
     // ---------------------------------------------------------------
@@ -108,24 +135,15 @@ public class MatchService {
     // ---------------------------------------------------------------
 
     /**
-     * When an admin marks a match as FINISHED:
-     * <ol>
-     *   <li>Compute the winning option string from the actual score.</li>
-     *   <li>For each OPEN bet on this match: mark it VALIDATED, award points to
-     *       participants whose {@code chosenOption} equals the winning option.</li>
-     *   <li>Find the <em>biggest bettor</em>: user with the most participations
-     *       across all bets on this match.</li>
-     *   <li>Award {@code match.bettorBonus} extra points to that user (tie-breaker).</li>
-     *   <li>If the match has a forfeit AND the biggest bettor has at least one wrong
-     *       prediction → assign the forfeit automatically.</li>
-     * </ol>
+     * When admin marks match as FINISHED:
+     * 1. Compute winning option string.
+     * 2. Award +5 (exact score) or +3 (correct result) to each participant.
+     * 3. If match has a forfeit: random draw among 0-pt scorers gets it.
      *
-     * <p>Winning-option format (winner's score always first):
-     * <ul>
-     *   <li>teamA wins 2-1  → {@code "Victoire France 2-1"}</li>
-     *   <li>teamB wins 1-0  → {@code "Victoire Sénégal 1-0"}</li>
-     *   <li>draw 0-0        → {@code "Match nul 0-0"}</li>
-     * </ul>
+     * Winning-option format (winner's score always first):
+     *   teamA wins 2-1  → "Victoire France 2-1"
+     *   teamB wins 1-0  → "Victoire Sénégal 1-0"
+     *   draw 0-0        → "Match nul 0-0"
      */
     private void settleBetsForMatch(Match match) {
         String winningOption = computeWinningOption(match);
@@ -134,33 +152,23 @@ public class MatchService {
 
         List<Bet> openBets = betRepository
                 .findByMatchIdAndStatusOrderByCreatedAtDesc(match.getId(), Bet.Status.OPEN);
-        if (openBets.isEmpty()) {
-            log.info("No open bets for match {}", match.getId());
-            return;
-        }
+        if (openBets.isEmpty()) { log.info("No open bets for match {}", match.getId()); return; }
 
-        // Per-user: participation count + whether they have ≥1 wrong prediction
-        Map<Long, Long>    countByUser    = new HashMap<>();
-        Map<Long, User>    userCache      = new HashMap<>();
-        Map<Long, Boolean> hasWrongByUser = new HashMap<>();
+        List<User> losers = new ArrayList<>();
 
         for (Bet bet : openBets) {
-            List<BetParticipation> participations =
-                    betParticipationRepository.findByBetId(bet.getId());
+            List<BetParticipation> participations = betParticipationRepository.findByBetId(bet.getId());
 
             for (BetParticipation p : participations) {
                 User user = p.getUser();
-                userCache.put(user.getId(), user);
-                countByUser.merge(user.getId(), 1L, Long::sum);
-
                 int earned = computeEarnedPoints(p.getChosenOption().trim(), winningOption);
-                if (earned == 0) {
-                    hasWrongByUser.put(user.getId(), true);
-                } else {
+                if (earned > 0) {
                     user.setGlobalScore(user.getGlobalScore() + earned);
                     if (earned == POINTS_EXACT_SCORE) user.setBetsWon(user.getBetsWon() + 1);
                     userRepository.save(user);
                     log.info("  +{} pts → {} ({})", earned, user.getUsername(), p.getChosenOption());
+                } else {
+                    losers.add(user);
                 }
             }
 
@@ -169,70 +177,31 @@ public class MatchService {
             betRepository.save(bet);
         }
 
-        if (countByUser.isEmpty()) return;
+        // Gage: random draw among 0-pt scorers (if match has a forfeit)
+        if (match.getForfeit() != null && !losers.isEmpty()) {
+            List<User> distinctLosers = losers.stream().distinct().collect(Collectors.toList());
+            User unlucky = distinctLosers.get(new Random().nextInt(distinctLosers.size()));
 
-        // Biggest bettor = user with the most participations on this match
-        Long biggestBettorId = countByUser.entrySet().stream()
-                .max(Map.Entry.comparingByValue())
-                .map(Map.Entry::getKey)
-                .orElse(null);
-        if (biggestBettorId == null) return;
-
-        User biggestBettor = userCache.get(biggestBettorId);
-
-        // Bonus points for the biggest bettor (always, win or lose)
-        if (match.getBettorBonus() > 0) {
-            biggestBettor.setGlobalScore(biggestBettor.getGlobalScore() + match.getBettorBonus());
-            userRepository.save(biggestBettor);
-            log.info("🏅 +{} bonus pts → {} ({} participations on this match)",
-                    match.getBettorBonus(), biggestBettor.getUsername(),
-                    countByUser.get(biggestBettorId));
-        }
-
-        // Forfeit: biggest bettor who has at least one wrong prediction gets the match gage
-        if (match.getForfeit() != null
-                && Boolean.TRUE.equals(hasWrongByUser.get(biggestBettorId))) {
-
-            String adminUsername = SecurityContextHolder.getContext()
-                    .getAuthentication().getName();
-            User admin = userRepository.findByUsername(adminUsername)
-                    .orElse(biggestBettor);
+            String adminUsername = SecurityContextHolder.getContext().getAuthentication().getName();
+            User admin = userRepository.findByUsername(adminUsername).orElse(unlucky);
 
             UserForfeit uf = UserForfeit.builder()
-                    .user(biggestBettor)
+                    .user(unlucky)
                     .forfeit(match.getForfeit())
                     .assignedBy(admin)
                     .completed(false)
                     .build();
             userForfeitRepository.save(uf);
-
-            biggestBettor.setForfeitsReceived(biggestBettor.getForfeitsReceived() + 1);
-            userRepository.save(biggestBettor);
-            log.info("🃏 Forfeit '{}' assigned to {} for match {}",
-                    match.getForfeit().getTitle(), biggestBettor.getUsername(), match.getId());
+            unlucky.setForfeitsReceived(unlucky.getForfeitsReceived() + 1);
+            userRepository.save(unlucky);
+            log.info("🃏 Forfeit '{}' randomly assigned to {} (drawn from {} losers)",
+                    match.getForfeit().getTitle(), unlucky.getUsername(), distinctLosers.size());
         }
     }
 
-    // ---------------------------------------------------------------
-    // Scoring constants
-    // ---------------------------------------------------------------
-
-    /** Correct result (right winner or right draw), wrong score. */
-    static final int POINTS_CORRECT_RESULT = 3;
-
-    /** Exact score (implies correct result). */
-    static final int POINTS_EXACT_SCORE    = 5;
-
-    /** Starting wallet every user begins with. */
-    public static final int STARTING_SCORE = 10;
-
     /**
-     * Points earned for a single participation:
-     * <ul>
-     *   <li>5 pts — exact score</li>
-     *   <li>3 pts — correct result (right winner / right draw) but wrong score</li>
-     *   <li>0 pts — wrong result</li>
-     * </ul>
+     * Points for a single participation:
+     * +5 exact score | +3 correct result | 0 wrong
      */
     int computeEarnedPoints(String chosenOption, String winningOption) {
         if (chosenOption.equals(winningOption)) return POINTS_EXACT_SCORE;
@@ -240,25 +209,17 @@ public class MatchService {
         return 0;
     }
 
-    /**
-     * Extracts the result token from an option string:
-     * "Victoire France 2-1" → "Victoire France"
-     * "Match nul 1-1"       → "Match nul"
-     */
+    /** "Victoire France 2-1" → "Victoire France" | "Match nul 1-1" → "Match nul" */
     private String extractResult(String option) {
         if (option.startsWith("Match nul")) return "Match nul";
         if (option.startsWith("Victoire ")) {
-            // Remove the trailing "score" word (e.g. "2-1")
             int lastSpace = option.lastIndexOf(' ');
             if (lastSpace > 0) return option.substring(0, lastSpace);
         }
         return option;
     }
 
-    /**
-     * Winner's score is always written first.
-     * e.g. France (team_a) 0 – 1 Sénégal (team_b) → "Victoire Sénégal 1-0"
-     */
+    /** Winner's score always first. France 0–1 Sénégal → "Victoire Sénégal 1-0" */
     private String computeWinningOption(Match match) {
         int sA = match.getScoreA(), sB = match.getScoreB();
         if (sA > sB) return "Victoire " + match.getTeamA() + " " + sA + "-" + sB;
