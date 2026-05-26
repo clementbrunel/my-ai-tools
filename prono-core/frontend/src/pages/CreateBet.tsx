@@ -4,13 +4,6 @@ import { getMatches } from '../api/matches';
 import { createBet } from '../api/bets';
 import type { Match } from '../types';
 
-const betTypes = [
-  { value: 'SCORE', label: '⚽ Score exact', desc: 'Prédire le score final' },
-  { value: 'EVENT', label: '🎯 Événement', desc: 'Ex: premier buteur, nb de buts' },
-  { value: 'FORFEIT', label: '🃏 Gage', desc: 'Le perdant fait un gage !' },
-  { value: 'FREE', label: '💬 Libre', desc: 'Question ouverte libre' },
-];
-
 const CreateBet: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -19,7 +12,7 @@ const CreateBet: React.FC = () => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [matchId, setMatchId] = useState(preselectedMatchId || '');
-  const [betType, setBetType] = useState('FREE');
+  const betType = 'SCORE' as const;
   const [points, setPoints] = useState(10);
   const [deadline, setDeadline] = useState('');
   const [matches, setMatches] = useState<Match[]>([]);
@@ -67,7 +60,7 @@ const CreateBet: React.FC = () => {
 
       <div className="card">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
-          🎯 Créer un pari
+          ⚽ Créer un pari — Score exact
         </h1>
 
         <form onSubmit={handleSubmit} className="space-y-5">
@@ -94,28 +87,6 @@ const CreateBet: React.FC = () => {
               rows={3}
               placeholder="Détails supplémentaires..."
             />
-          </div>
-
-          {/* Bet Type */}
-          <div>
-            <label className="label">Type de pari *</label>
-            <div className="grid grid-cols-2 gap-2">
-              {betTypes.map((type) => (
-                <button
-                  key={type.value}
-                  type="button"
-                  onClick={() => setBetType(type.value)}
-                  className={`p-3 rounded-lg border-2 text-left transition-all ${
-                    betType === type.value
-                      ? 'border-wc-green bg-green-50 dark:bg-green-900/20'
-                      : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                  }`}
-                >
-                  <div className="font-medium text-sm text-gray-900 dark:text-white">{type.label}</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{type.desc}</div>
-                </button>
-              ))}
-            </div>
           </div>
 
           {/* Match (optional) */}
