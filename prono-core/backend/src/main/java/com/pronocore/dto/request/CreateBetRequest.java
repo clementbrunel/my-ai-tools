@@ -16,6 +16,7 @@ public class CreateBetRequest {
 
     private String description;
 
+    @NotNull(message = "A match must be associated with a bet")
     private Long matchId;
 
     @NotNull(message = "Bet type is required")

@@ -32,6 +32,10 @@ const CreateBet: React.FC = () => {
       setError('Le titre est obligatoire');
       return;
     }
+    if (!matchId) {
+      setError('Un match doit être associé au pari');
+      return;
+    }
     setIsLoading(true);
     setError('');
     try {
@@ -89,15 +93,16 @@ const CreateBet: React.FC = () => {
             />
           </div>
 
-          {/* Match (optional) */}
+          {/* Match (required) */}
           <div>
-            <label className="label">Match associé (optionnel)</label>
+            <label className="label">Match *</label>
             <select
               value={matchId}
               onChange={(e) => setMatchId(e.target.value)}
               className="input-field"
+              required
             >
-              <option value="">-- Aucun match --</option>
+              <option value="">-- Sélectionne un match --</option>
               {matches.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.teamA} vs {m.teamB} — {new Date(m.matchDate).toLocaleDateString('fr-FR')}
