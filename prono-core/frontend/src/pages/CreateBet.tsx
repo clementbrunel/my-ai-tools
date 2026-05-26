@@ -60,9 +60,52 @@ const CreateBet: React.FC = () => {
       </Link>
 
       <div className="card">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
           ⚽ Créer un pari — Score exact
         </h1>
+
+        {/* ── Aide mécanique ── */}
+        <div className="rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 p-4 mb-6 space-y-3 text-sm">
+          <p className="font-semibold text-blue-800 dark:text-blue-300">📖 Comment ça marche ?</p>
+
+          {/* Scoring */}
+          <div>
+            <p className="font-medium text-gray-700 dark:text-gray-200 mb-1">🏅 Points par pronostic</p>
+            <ul className="space-y-1 text-gray-600 dark:text-gray-400">
+              <li className="flex items-center gap-2">
+                <span className="inline-block w-6 text-center font-bold text-green-600 dark:text-green-400">+5</span>
+                <span>Score exact — ex. <em>"Victoire France 2-1"</em></span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="inline-block w-6 text-center font-bold text-yellow-600 dark:text-yellow-400">+3</span>
+                <span>Bon vainqueur ou bon nul, mauvais score — ex. <em>"Victoire France 3-0"</em></span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="inline-block w-6 text-center font-bold text-red-500">0</span>
+                <span>Mauvais résultat</span>
+              </li>
+            </ul>
+          </div>
+
+          <hr className="border-blue-200 dark:border-blue-700" />
+
+          {/* Biggest bettor */}
+          <div>
+            <p className="font-medium text-gray-700 dark:text-gray-200 mb-1">🎲 Le plus gros parieur du match</p>
+            <p className="text-gray-600 dark:text-gray-400">
+              Celui qui a participé au <strong>plus grand nombre de paris sur un même match</strong> reçoit
+              un <strong className="text-green-600 dark:text-green-400">bonus de points</strong> automatique
+              à la fin du match — pour casser les égalités au classement.
+            </p>
+            <p className="text-gray-600 dark:text-gray-400 mt-1">
+              ⚠️ Mais si ce même plus gros parieur s'est <strong>trompé sur au moins un pari</strong> du match,
+              il hérite du <strong className="text-red-500">gage associé au match</strong> 🃏
+            </p>
+            <p className="text-gray-500 dark:text-gray-500 mt-1 italic text-xs">
+              Pariez beaucoup = bonus garanti + risque de gage. Pariez peu = tranquille mais sans filet.
+            </p>
+          </div>
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* Title */}
