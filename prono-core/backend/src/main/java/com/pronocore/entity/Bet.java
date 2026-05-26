@@ -53,6 +53,11 @@ public class Bet {
     @Column(name = "winning_option", length = 200)
     private String winningOption;
 
+    /** Optional forfeit applied to users who lose this bet. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "forfeit_id")
+    private Forfeit forfeit;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
