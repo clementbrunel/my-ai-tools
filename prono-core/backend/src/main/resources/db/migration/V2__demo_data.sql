@@ -1,20 +1,22 @@
 -- V2__demo_data.sql - Demo data for World Cup 2026
 
 -- Admin user (password: admin123)
+-- Hash generated: bcrypt(admin123, rounds=10)
 INSERT INTO users (username, email, password, role, global_score, bets_won, forfeits_received) VALUES
-('admin', 'admin@pronocore.com', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt9g0xa', 'ADMIN', 250, 12, 0);
+('admin', 'admin@pronocore.com', '$2b$10$zCQrNboNF5xNcR/Ia1Dliu895Bk5C00NuEvtD6jJNZitXMXKdJUHq', 'ADMIN', 250, 12, 0);
 
 -- Regular users (password: demo123)
+-- Hash generated: bcrypt(demo123, rounds=10)
 INSERT INTO users (username, email, password, role, global_score, bets_won, forfeits_received) VALUES
-('demo', 'demo@pronocore.com', '$2a$10$eACCYoNOHEqXve8aIWT8Nu3PkMXWBaOxJ9aORUYzfMQCbVBIhZ3G2', 'USER', 180, 8, 2),
-('lucas', 'lucas@pronocore.com', '$2a$10$eACCYoNOHEqXve8aIWT8Nu3PkMXWBaOxJ9aORUYzfMQCbVBIhZ3G2', 'USER', 220, 11, 1),
-('marie', 'marie@pronocore.com', '$2a$10$eACCYoNOHEqXve8aIWT8Nu3PkMXWBaOxJ9aORUYzfMQCbVBIhZ3G2', 'USER', 95, 4, 5),
-('thomas', 'thomas@pronocore.com', '$2a$10$eACCYoNOHEqXve8aIWT8Nu3PkMXWBaOxJ9aORUYzfMQCbVBIhZ3G2', 'USER', 310, 15, 0),
-('sophie', 'sophie@pronocore.com', '$2a$10$eACCYoNOHEqXve8aIWT8Nu3PkMXWBaOxJ9aORUYzfMQCbVBIhZ3G2', 'USER', 140, 6, 3),
-('pierre', 'pierre@pronocore.com', '$2a$10$eACCYoNOHEqXve8aIWT8Nu3PkMXWBaOxJ9aORUYzfMQCbVBIhZ3G2', 'USER', 75, 3, 7),
-('julie', 'julie@pronocore.com', '$2a$10$eACCYoNOHEqXve8aIWT8Nu3PkMXWBaOxJ9aORUYzfMQCbVBIhZ3G2', 'USER', 195, 9, 1),
-('maxime', 'maxime@pronocore.com', '$2a$10$eACCYoNOHEqXve8aIWT8Nu3PkMXWBaOxJ9aORUYzfMQCbVBIhZ3G2', 'USER', 160, 7, 2),
-('camille', 'camille@pronocore.com', '$2a$10$eACCYoNOHEqXve8aIWT8Nu3PkMXWBaOxJ9aORUYzfMQCbVBIhZ3G2', 'USER', 50, 2, 8);
+('demo', 'demo@pronocore.com', '$2b$10$lozahdpOr09r44mKYxf3weqOaTcnzq2ETyliM.2kpIw0Qym.eNzIS', 'USER', 180, 8, 2),
+('lucas', 'lucas@pronocore.com', '$2b$10$lozahdpOr09r44mKYxf3weqOaTcnzq2ETyliM.2kpIw0Qym.eNzIS', 'USER', 220, 11, 1),
+('marie', 'marie@pronocore.com', '$2b$10$lozahdpOr09r44mKYxf3weqOaTcnzq2ETyliM.2kpIw0Qym.eNzIS', 'USER', 95, 4, 5),
+('thomas', 'thomas@pronocore.com', '$2b$10$lozahdpOr09r44mKYxf3weqOaTcnzq2ETyliM.2kpIw0Qym.eNzIS', 'USER', 310, 15, 0),
+('sophie', 'sophie@pronocore.com', '$2b$10$lozahdpOr09r44mKYxf3weqOaTcnzq2ETyliM.2kpIw0Qym.eNzIS', 'USER', 140, 6, 3),
+('pierre', 'pierre@pronocore.com', '$2b$10$lozahdpOr09r44mKYxf3weqOaTcnzq2ETyliM.2kpIw0Qym.eNzIS', 'USER', 75, 3, 7),
+('julie', 'julie@pronocore.com', '$2b$10$lozahdpOr09r44mKYxf3weqOaTcnzq2ETyliM.2kpIw0Qym.eNzIS', 'USER', 195, 9, 1),
+('maxime', 'maxime@pronocore.com', '$2b$10$lozahdpOr09r44mKYxf3weqOaTcnzq2ETyliM.2kpIw0Qym.eNzIS', 'USER', 160, 7, 2),
+('camille', 'camille@pronocore.com', '$2b$10$lozahdpOr09r44mKYxf3weqOaTcnzq2ETyliM.2kpIw0Qym.eNzIS', 'USER', 50, 2, 8);
 
 -- World Cup 2026 matches
 INSERT INTO matches (team_a, team_b, match_date, score_a, score_b, status, competition, round) VALUES
