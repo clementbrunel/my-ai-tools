@@ -72,12 +72,20 @@ class BetServiceTest {
 
     @Test
     void createBet_shouldCreateBetSuccessfully() {
+        Match testMatch = Match.builder()
+            .id(1L)
+            .teamA("France")
+            .teamB("Brésil")
+            .matchDate(LocalDateTime.now().plusHours(2))
+            .status(Match.Status.UPCOMING)
+            .build();
+
         CreateBetRequest request = new CreateBetRequest();
         request.setTitle("Test Bet");
         request.setDescription("Test description");
-        request.setBetType(Bet.BetType.FREE);
+        request.setMatchId(1L);
+        request.setBetType(Bet.BetType.SCORE);
         request.setPoints(10);
-        request.setDeadline(LocalDateTime.now().plusHours(2));
 
         BetResponse expectedResponse = BetResponse.builder()
             .id(1L)
@@ -86,6 +94,7 @@ class BetServiceTest {
             .build();
 
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+        when(matchRepository.findById(1L)).thenReturn(Optional.of(testMatch));
         when(betRepository.save(any(Bet.class))).thenReturn(testBet);
         when(betMapper.toResponse(any(Bet.class))).thenReturn(expectedResponse);
         when(betRepository.countParticipationsByBetId(any())).thenReturn(0L);
