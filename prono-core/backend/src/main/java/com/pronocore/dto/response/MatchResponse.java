@@ -23,4 +23,14 @@ public class MatchResponse {
     private Match.Status status;
     private String competition;
     private String round;
+
+    /** Gage optionnel associé au match. */
+    private Long   forfeitId;
+    private String forfeitTitle;
+
+    /**
+     * Bonus de points attribué au plus gros parieur du match
+     * (celui qui a participé au plus grand nombre de paris sur ce match).
+     */
+    private int bettorBonus;
 }

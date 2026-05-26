@@ -13,6 +13,8 @@ public interface BetRepository extends JpaRepository<Bet, Long> {
 
     List<Bet> findByMatchIdOrderByCreatedAtDesc(Long matchId);
 
+    List<Bet> findByMatchIdAndStatusOrderByCreatedAtDesc(Long matchId, Bet.Status status);
+
     List<Bet> findByStatusOrderByCreatedAtDesc(Bet.Status status);
 
     List<Bet> findAllByOrderByCreatedAtDesc();
