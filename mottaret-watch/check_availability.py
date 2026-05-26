@@ -270,13 +270,99 @@ def _table_html(rows: str, extra_header: str = "") -> str:
       </table>"""
 
 
+def _changes_section_html(new_bleuets: list[dict], maeva_changes: list[dict]) -> str:
+    """Génère la section HTML 'Ce qui a changé' (vide si rien à signaler)."""
+    new_maeva    = [c for c in maeva_changes if c["is_new"]]
+    price_chg    = [c for c in maeva_changes if not c["is_new"] and c["price_changed"]]
+    dispo_chg    = [c for c in maeva_changes if not c["is_new"] and c["dispo_changed"]]
+
+    if not (new_bleuets or new_maeva or price_chg or dispo_chg):
+        return ""
+
+    LI = "margin:6px 0"
+    items_html = ""
+
+    for l in new_bleuets:
+        items_html += (
+            f"<li style='{LI}'>🆕 <strong>Nouveau – site officiel :</strong> "
+            f"{l['title']} | {l.get('start','?')} → {l.get('end','?')} | {l['price']}</li>"
+        )
+    for c in new_maeva:
+        l = c["listing"]
+        items_html += (
+            f"<li style='{LI}'>🆕 <strong>Nouveau – Maeva :</strong> "
+            f"{l['title']} | {l.get('start','?')} → {l.get('end','?')} "
+            f"| {l['price']} | {l.get('dispo','?')} unité(s)</li>"
+        )
+    for c in price_chg:
+        l = c["listing"]
+        items_html += (
+            f"<li style='{LI}'>💰 <strong>Prix modifié – Maeva :</strong> "
+            f"{l['title']} – "
+            f"<span style='color:#c00;text-decoration:line-through'>{c['prev_price']}</span> "
+            f"→ <span style='color:#090;font-weight:bold'>{l['price']}</span></li>"
+        )
+    for c in dispo_chg:
+        l = c["listing"]
+        items_html += (
+            f"<li style='{LI}'>📦 <strong>Stock modifié – Maeva :</strong> "
+            f"{l['title']} – "
+            f"{c['prev_dispo']} unité(s) → <strong>{l.get('dispo','?')} unité(s)</strong></li>"
+        )
+
+    return f"""
+      <div style="background:#fff8e1;border-left:4px solid #f9a825;padding:12px 16px;margin-bottom:20px;border-radius:4px">
+        <h3 style="margin:0 0 8px;color:#c17900">🔔 Ce qui a changé</h3>
+        <ul style="margin:0;padding-left:20px">{items_html}</ul>
+      </div>"""
+
+
+def _changes_section_text(new_bleuets: list[dict], maeva_changes: list[dict]) -> list[str]:
+    """Génère les lignes texte brut de la section 'Ce qui a changé'."""
+    new_maeva = [c for c in maeva_changes if c["is_new"]]
+    price_chg = [c for c in maeva_changes if not c["is_new"] and c["price_changed"]]
+    dispo_chg = [c for c in maeva_changes if not c["is_new"] and c["dispo_changed"]]
+
+    if not (new_bleuets or new_maeva or price_chg or dispo_chg):
+        return []
+
+    lines = ["=== CE QUI A CHANGÉ ==="]
+    for l in new_bleuets:
+        lines.append(f"[NOUVEAU – site officiel] {l['title']} | {l.get('start','?')} → {l.get('end','?')} | {l['price']}")
+    for c in new_maeva:
+        l = c["listing"]
+        lines.append(f"[NOUVEAU – Maeva] {l['title']} | {l.get('start','?')} → {l.get('end','?')} | {l['price']} | {l.get('dispo','?')} unité(s)")
+    for c in price_chg:
+        l = c["listing"]
+        lines.append(f"[PRIX MODIFIÉ – Maeva] {l['title']} : {c['prev_price']} → {l['price']}")
+    for c in dispo_chg:
+        l = c["listing"]
+        lines.append(f"[STOCK MODIFIÉ – Maeva] {l['title']} : {c['prev_dispo']} unité(s) → {l.get('dispo','?')} unité(s)")
+    lines.append("")
+    return lines
+
+
 def build_email(
     bleuets_available: list[dict],
     bleuets_all: list[dict],
     maeva_listings: list[dict],
+    new_bleuets: list[dict] | None = None,
+    maeva_changes: list[dict] | None = None,
 ) -> tuple[str, str]:
+    """
+    Construit l'email HTML + texte brut.
+
+    new_bleuets / maeva_changes : passés uniquement lors de runs non-initiaux
+    pour afficher la section 'Ce qui a changé'. Laisser à None sur première exécution.
+    """
     now    = datetime.now().strftime("%d/%m/%Y à %H:%M")
     period = f"{TARGET_START:%d/%m/%Y} – {TARGET_END:%d/%m/%Y}"
+
+    # ── Section changements ───────────────────────────────────────────────────
+    nb = new_bleuets or []
+    mc = maeva_changes or []
+    changes_html = _changes_section_html(nb, mc)
+    changes_text = _changes_section_text(nb, mc)
 
     # ── HTML ──────────────────────────────────────────────────────────────────
     bleuets_section = ""
@@ -301,6 +387,7 @@ def build_email(
       <h2 style="color:#2c7be5">🏔️ Méribel Mottaret – Les Bleuets</h2>
       <p>Vérification du <strong>{now}</strong><br>
          Période recherchée : <strong>{period}</strong></p>
+      {changes_html}
       {bleuets_section}
       {maeva_section}
       <p style="margin-top:20px;font-size:12px;color:#888">
@@ -326,6 +413,7 @@ def build_email(
         f"Méribel Mottaret – Les Bleuets | {now}",
         f"Période : {period}",
         "",
+        *changes_text,
         *text_section(f"=== Site officiel : {len(bleuets_available)} logement(s) ===", bleuets_available),
         *text_section(f"=== Maeva : {len(maeva_listings)} logement(s) ===", maeva_listings, show_dispo=True),
     ]
@@ -337,8 +425,11 @@ def build_email(
 
 def load_cache() -> dict:
     if os.path.exists(CACHE_FILE):
-        with open(CACHE_FILE, encoding="utf-8") as f:
-            return json.load(f)
+        try:
+            with open(CACHE_FILE, encoding="utf-8") as f:
+                return json.load(f)
+        except json.JSONDecodeError:
+            print("  ⚠️  Cache corrompu — ignoré.")
     return {}
 
 
@@ -352,17 +443,48 @@ def detect_changes(
     bleuets_available: list[dict],
     maeva_listings: list[dict],
 ) -> tuple[list[dict], list[dict]]:
-    """Retourne (new_bleuets, changed_maeva) par rapport au cache précédent."""
+    """
+    Retourne (new_bleuets, maeva_changes) par rapport au cache précédent.
+
+    maeva_changes : liste de dicts décrivant chaque changement Maeva :
+      - listing      : dict du logement actuel
+      - prev_price   : ancien prix (str) ou None si nouveau
+      - prev_dispo   : ancien stock (str) ou None si nouveau
+      - price_changed: bool
+      - dispo_changed: bool
+      - is_new       : bool (True = logement absent du cache précédent)
+    """
     prev_bleuets_refs = {l["title"] for l in previous.get("bleuets", [])}
     new_bleuets = [l for l in bleuets_available if l["title"] not in prev_bleuets_refs]
 
-    prev_maeva_dispo = {l["title"]: l.get("dispo") for l in previous.get("maeva", [])}
-    changed_maeva = [
-        l for l in maeva_listings
-        if l["title"] not in prev_maeva_dispo
-        or prev_maeva_dispo[l["title"]] != l.get("dispo")
-    ]
-    return new_bleuets, changed_maeva
+    prev_maeva = {(l["title"], l.get("start")): l for l in previous.get("maeva", [])}
+    maeva_changes: list[dict] = []
+    for l in maeva_listings:
+        key = (l["title"], l.get("start"))
+        if key not in prev_maeva:
+            maeva_changes.append({
+                "listing":       l,
+                "prev_price":    None,
+                "prev_dispo":    None,
+                "price_changed": False,
+                "dispo_changed": False,
+                "is_new":        True,
+            })
+        else:
+            prev          = prev_maeva[key]
+            price_changed = prev.get("price") != l.get("price")
+            dispo_changed = prev.get("dispo")  != l.get("dispo")
+            if price_changed or dispo_changed:
+                maeva_changes.append({
+                    "listing":       l,
+                    "prev_price":    prev.get("price"),
+                    "prev_dispo":    prev.get("dispo"),
+                    "price_changed": price_changed,
+                    "dispo_changed": dispo_changed,
+                    "is_new":        False,
+                })
+
+    return new_bleuets, maeva_changes
 
 
 def notify_if_needed(
@@ -371,10 +493,10 @@ def notify_if_needed(
     bleuets_all: list[dict],
     maeva_listings: list[dict],
     new_bleuets: list[dict],
-    changed_maeva: list[dict],
+    maeva_changes: list[dict],
 ):
     has_anything = bleuets_available or maeva_listings
-    has_changes  = new_bleuets or changed_maeva
+    has_changes  = new_bleuets or maeva_changes
     is_first_run = not previous
 
     if not has_anything:
@@ -384,17 +506,33 @@ def notify_if_needed(
         print("  (Aucun changement depuis la dernière vérification — pas de nouvel email)")
         return
 
-    total = len(bleuets_available) + len(maeva_listings)
+    # ── Construction du sujet ────────────────────────────────────────────────
+    new_maeva   = [c for c in maeva_changes if c["is_new"]]
+    price_chg   = [c for c in maeva_changes if not c["is_new"] and c["price_changed"]]
+    dispo_chg   = [c for c in maeva_changes if not c["is_new"] and c["dispo_changed"]]
+
     reasons = []
     if new_bleuets:
-        reasons.append(f"{len(new_bleuets)} nouveau(x) sur site officiel")
-    if changed_maeva:
-        reasons.append(f"{len(changed_maeva)} changement(s) Maeva")
-    reason_str = " · ".join(reasons) if reasons else f"{total} logement(s) dispo"
-    subject = f"🏔️ Méribel Mottaret – {reason_str}"
+        reasons.append(f"{len(new_bleuets)} nouveau(x) site officiel")
+    if new_maeva:
+        reasons.append(f"{len(new_maeva)} nouveau(x) Maeva")
+    if price_chg:
+        reasons.append(f"{len(price_chg)} changement(s) de prix Maeva")
+    if dispo_chg:
+        reasons.append(f"{len(dispo_chg)} changement(s) de stock Maeva")
 
+    total      = len(bleuets_available) + len(maeva_listings)
+    reason_str = " · ".join(reasons) if reasons else f"{total} logement(s) dispo"
+    subject    = f"🏔️ Méribel Mottaret – {reason_str}"
+
+    # ── Envoi ────────────────────────────────────────────────────────────────
     print(f"  → Envoi email : {reason_str}")
-    html, text = build_email(bleuets_available, bleuets_all, maeva_listings)
+    # Sur la première exécution on n'a pas de 'avant' à comparer : pas de section changements
+    html, text = build_email(
+        bleuets_available, bleuets_all, maeva_listings,
+        new_bleuets=new_bleuets if not is_first_run else None,
+        maeva_changes=maeva_changes if not is_first_run else None,
+    )
     send_email(subject, html, text)
 
 
@@ -422,9 +560,9 @@ def main():
 
     # ── Cache & envoi ────────────────────────────────────────────────────────
     previous = load_cache()
-    new_bleuets, changed_maeva = detect_changes(previous, bleuets_available, maeva_listings)
+    new_bleuets, maeva_changes = detect_changes(previous, bleuets_available, maeva_listings)
     save_cache({"bleuets": bleuets_available, "maeva": maeva_listings})
-    notify_if_needed(previous, bleuets_available, bleuets_all, maeva_listings, new_bleuets, changed_maeva)
+    notify_if_needed(previous, bleuets_available, bleuets_all, maeva_listings, new_bleuets, maeva_changes)
 
 
 if __name__ == "__main__":
