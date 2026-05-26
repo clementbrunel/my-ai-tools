@@ -54,6 +54,9 @@ jobs:
 
           # Sauvegarder le last_results.json produit par le script
           cp mottaret-watch/last_results.json /tmp/last_results.json
+          # Supprimer le fichier non-suivi avant le checkout : sinon git refuse
+          # de basculer sur 'watch' (qui possède ce fichier en version suivie).
+          rm -f mottaret-watch/last_results.json
 
           # Basculer sur la branche watch :
           #   - Si elle existe sur origin : on repart EXACTEMENT de origin/watch
