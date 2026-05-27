@@ -2,8 +2,9 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getMatch } from '../api/matches';
 import { getBetsByMatch, getParticipations, upsertParticipate } from '../api/bets';
+import { getDailyGageByDate, voteOnCandidate } from '../api/dailyGages';
 import { useAuth } from '../context/AuthContext';
-import type { Match, Bet, BetParticipation } from '../types';
+import type { Match, Bet, BetParticipation, DailyGage } from '../types';
 import { formatDate, formatDateTime } from '../utils/dates';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -53,6 +54,7 @@ const MatchDetail: React.FC = () => {
   const [match, setMatch] = useState<Match | null>(null);
   const [bet, setBet] = useState<Bet | null>(null);
   const [participations, setParticipations] = useState<BetParticipation[]>([]);
+  const [dayGage, setDayGage] = useState<DailyGage | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -80,6 +82,15 @@ const MatchDetail: React.FC = () => {
           getBetsByMatch(parseInt(id)),
         ]);
         setMatch(matchData);
+
+        // Load daily gage for this match's calendar day (may 404 if not configured)
+        try {
+          const gage = await getDailyGageByDate(matchData.matchDate.slice(0, 10));
+          setDayGage(gage);
+        } catch {
+          // No gage for this day — that's fine
+        }
+
         if (betsData.length > 0) {
           const theBet = betsData[0];
           setBet(theBet);
@@ -101,6 +112,18 @@ const MatchDetail: React.FC = () => {
     };
     fetchData();
   }, [id, user?.username, refreshParticipations]);
+
+  // ── gage vote handler ─────────────────────────────────────────────────────
+
+  const handleVoteGage = async (forfeitId: number, vote: number) => {
+    if (!dayGage) return;
+    try {
+      const updated = await voteOnCandidate(dayGage.id, forfeitId, vote);
+      setDayGage(updated);
+    } catch {
+      alert('Erreur lors du vote');
+    }
+  };
 
   // ── derived ────────────────────────────────────────────────────────────────
 
@@ -229,8 +252,93 @@ const MatchDetail: React.FC = () => {
           </div>
         </div>
 
-        {/* Gage du jour reminder is shown on Dashboard */}
       </div>
+
+      {/* ── Daily gage for this match day ── */}
+      {dayGage && (
+        <div className="card">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-3">🃏 Gage du jour</h2>
+
+          {dayGage.status === 'SETTLED' ? (
+            /* Already attributed */
+            <div className="flex items-start gap-3 p-3 bg-red-50 dark:bg-red-900/10 rounded-lg border border-red-200 dark:border-red-800">
+              <div className="text-3xl">😬</div>
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Gage attribué</p>
+                <p className="font-bold text-wc-red">{dayGage.forfeit?.title}</p>
+                {dayGage.forfeit?.description && (
+                  <p className="text-xs text-gray-500 mt-0.5">{dayGage.forfeit.description}</p>
+                )}
+                <p className="text-sm mt-1">
+                  👎 <span className="text-wc-red font-medium">{dayGage.assignedToUsername}</span> devra l'effectuer
+                </p>
+              </div>
+            </div>
+          ) : dayGage.mode === 'DIRECT' && dayGage.forfeit ? (
+            /* Direct mode — gage already chosen by admin */
+            <div className="flex items-start gap-3 p-3 bg-green-50 dark:bg-green-900/10 rounded-lg border border-green-200 dark:border-green-800">
+              <div className="text-3xl">🃏</div>
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Le moins bon joueur du jour l'écopera !</p>
+                <p className="font-bold text-gray-900 dark:text-white">{dayGage.forfeit.title}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{dayGage.forfeit.description}</p>
+              </div>
+            </div>
+          ) : dayGage.mode === 'VOTE' && dayGage.candidates.length > 0 ? (
+            /* Vote mode — let users pick their favourite */
+            <div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                🗳️ Vote pour le gage — le moins bon joueur de la journée écopera du gagnant !
+              </p>
+              <div className="space-y-2">
+                {dayGage.candidates.map((c) => {
+                  const isLiked = c.userVote === 1;
+                  const isDisliked = c.userVote === -1;
+                  return (
+                    <div
+                      key={c.id}
+                      className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
+                    >
+                      <div className="min-w-0">
+                        <div className="font-medium text-sm text-gray-900 dark:text-white">{c.forfeit.title}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{c.forfeit.description}</div>
+                      </div>
+                      <div className="flex items-center gap-2 ml-3 flex-shrink-0">
+                        <span
+                          className={`text-sm font-semibold tabular-nums ${
+                            c.voteScore > 0 ? 'text-green-500' : c.voteScore < 0 ? 'text-red-500' : 'text-gray-400'
+                          }`}
+                        >
+                          {c.voteScore > 0 ? '+' : ''}{c.voteScore}
+                        </span>
+                        <button
+                          onClick={() => handleVoteGage(c.forfeit.id, isLiked ? 0 : 1)}
+                          className={`text-xl transition-transform hover:scale-125 ${isLiked ? 'opacity-100' : 'opacity-40 hover:opacity-80'}`}
+                          title="Pour"
+                        >
+                          👍
+                        </button>
+                        <button
+                          onClick={() => handleVoteGage(c.forfeit.id, isDisliked ? 0 : -1)}
+                          className={`text-xl transition-transform hover:scale-125 ${isDisliked ? 'opacity-100' : 'opacity-40 hover:opacity-80'}`}
+                          title="Contre"
+                        >
+                          👎
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            /* Configured but no forfeit yet (PENDING / VOTE with no candidates) */
+            <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-2">
+              🃏 Gage en attente de configuration par l'admin
+            </p>
+          )}
+        </div>
+      )}
 
       {/* ── My prediction ── */}
       {bet && (
