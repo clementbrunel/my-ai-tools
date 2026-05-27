@@ -1,5 +1,6 @@
 package com.pronocore.repository;
 
+import com.pronocore.entity.Bet;
 import com.pronocore.entity.BetParticipation;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -33,8 +34,9 @@ public interface BetParticipationRepository extends JpaRepository<BetParticipati
             SELECT bp FROM BetParticipation bp
             WHERE bp.bet.match.matchDate >= :startOfDay
               AND bp.bet.match.matchDate <  :endOfDay
-              AND bp.bet.status = com.pronocore.entity.Bet.Status.VALIDATED
+              AND bp.bet.status = :validatedStatus
             """)
-    List<BetParticipation> findSettledByMatchDay(@Param("startOfDay") LocalDateTime startOfDay,
-                                                  @Param("endOfDay")   LocalDateTime endOfDay);
+    List<BetParticipation> findSettledByMatchDay(@Param("startOfDay")      LocalDateTime startOfDay,
+                                                  @Param("endOfDay")        LocalDateTime endOfDay,
+                                                  @Param("validatedStatus") Bet.Status    validatedStatus);
 }

@@ -25,8 +25,9 @@ public interface MatchRepository extends JpaRepository<Match, Long> {
     @Query("""
             SELECT COUNT(m) FROM Match m
             WHERE m.matchDate >= :startOfDay AND m.matchDate < :endOfDay
-              AND m.status <> com.pronocore.entity.Match.Status.FINISHED
+              AND m.status <> :finishedStatus
             """)
-    long countUnfinishedMatchesOnDay(@Param("startOfDay") LocalDateTime startOfDay,
-                                     @Param("endOfDay")   LocalDateTime endOfDay);
+    long countUnfinishedMatchesOnDay(@Param("startOfDay")     LocalDateTime startOfDay,
+                                     @Param("endOfDay")       LocalDateTime endOfDay,
+                                     @Param("finishedStatus") Match.Status  finishedStatus);
 }

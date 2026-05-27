@@ -188,7 +188,7 @@ public class DailyGageService {
         LocalDateTime startOfDay = matchDay.atStartOfDay();
         LocalDateTime endOfDay   = matchDay.plusDays(1).atStartOfDay();
 
-        long unfinished = matchRepository.countUnfinishedMatchesOnDay(startOfDay, endOfDay);
+        long unfinished = matchRepository.countUnfinishedMatchesOnDay(startOfDay, endOfDay, Match.Status.FINISHED);
         if (unfinished > 0) {
             log.debug("⏳ {} match(es) still unfinished on {} — gage deferred", unfinished, matchDay);
             return;
@@ -220,7 +220,7 @@ public class DailyGageService {
 
         // Compute per-player daily points from settled participations
         List<BetParticipation> participations =
-                betParticipationRepository.findSettledByMatchDay(startOfDay, endOfDay);
+                betParticipationRepository.findSettledByMatchDay(startOfDay, endOfDay, Bet.Status.VALIDATED);
 
         if (participations.isEmpty()) {
             log.warn("⚠️ No settled participations on {} — cannot assign daily gage", matchDay);
