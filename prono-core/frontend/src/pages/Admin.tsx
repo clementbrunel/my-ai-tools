@@ -388,6 +388,12 @@ const Admin: React.FC = () => {
                     className="input-field"
                     required
                   />
+                  {/* Always show the selected date in DD/MM/YYYY regardless of browser locale */}
+                  {dgDate && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      📅 {formatDate(dgDate)}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="label">Mode</label>

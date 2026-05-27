@@ -69,13 +69,23 @@ public class DailyGageService {
         if (dailyGageRepository.findByMatchDate(req.getMatchDate()).isPresent()) {
             throw new IllegalStateException("A daily gage already exists for " + req.getMatchDate());
         }
+        // Guard: at least one match must be scheduled on that calendar day
+        LocalDateTime startOfDay = req.getMatchDate().atStartOfDay();
+        LocalDateTime endOfDay   = req.getMatchDate().plusDays(1).atStartOfDay();
+        List<Match> matchesOnDay = matchRepository.findByMatchDay(startOfDay, endOfDay);
+        if (matchesOnDay.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Aucun match prévu le " + req.getMatchDate()
+                    + " — configurez d'abord les matchs de cette journée.");
+        }
         DailyGage dg = DailyGage.builder()
                 .matchDate(req.getMatchDate())
                 .mode(req.getMode())
                 .status(DailyGage.Status.PENDING)
                 .build();
         dg = dailyGageRepository.save(dg);
-        log.info("📅 Daily gage created for {} [{}]", req.getMatchDate(), req.getMode());
+        log.info("📅 Daily gage created for {} [{}] ({} match(es) that day)",
+                req.getMatchDate(), req.getMode(), matchesOnDay.size());
         return toResponse(dg, currentUsername());
     }
 
