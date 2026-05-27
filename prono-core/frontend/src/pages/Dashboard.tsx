@@ -2,17 +2,14 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getMatches } from '../api/matches';
-import { getBets } from '../api/bets';
 import { getLeaderboard } from '../api/leaderboard';
 import { getDailyGageByDate, voteOnCandidate } from '../api/dailyGages';
-import type { Match, Bet, LeaderboardEntry, DailyGage } from '../types';
+import type { Match, LeaderboardEntry, DailyGage } from '../types';
 import MatchCard from '../components/MatchCard';
-import BetCard from '../components/BetCard';
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
   const [matches, setMatches] = useState<Match[]>([]);
-  const [bets, setBets] = useState<Bet[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [todayGage, setTodayGage] = useState<DailyGage | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -22,13 +19,11 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [matchesData, betsData, leaderboardData] = await Promise.all([
+        const [matchesData, leaderboardData] = await Promise.all([
           getMatches(),
-          getBets(),
           getLeaderboard(),
         ]);
         setMatches(matchesData);
-        setBets(betsData);
         setLeaderboard(leaderboardData);
 
         // Attempt to load today's gage (may 404 if not configured)
@@ -58,7 +53,6 @@ const Dashboard: React.FC = () => {
   };
 
   const upcomingMatches = matches.filter((m) => m.status === 'UPCOMING');
-  const openBets = bets.filter((b) => b.status === 'OPEN');
   const userRank = leaderboard.find((e) => e.user.username === user?.username);
 
   if (isLoading) {
@@ -86,14 +80,10 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-3 gap-4">
         <div className="stat-card">
           <div className="stat-value">{upcomingMatches.length}</div>
           <div className="stat-label">⚽ Matchs à venir</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-value">{openBets.length}</div>
-          <div className="stat-label">🎯 Paris ouverts</div>
         </div>
         <div className="stat-card">
           <div className="stat-value text-wc-gold">{userRank ? `#${userRank.rank}` : '-'}</div>
@@ -187,7 +177,7 @@ const Dashboard: React.FC = () => {
         </section>
       )}
 
-      {/* Recent Matches */}
+      {/* Upcoming Matches */}
       <section>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-gray-900 dark:text-white">⚽ Prochains matchs</h2>
@@ -204,31 +194,6 @@ const Dashboard: React.FC = () => {
         ) : (
           <div className="card text-center text-gray-500 dark:text-gray-400 py-8">
             Pas de match à venir pour le moment
-          </div>
-        )}
-      </section>
-
-      {/* Recent Bets */}
-      <section>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">🎯 Paris ouverts</h2>
-          <Link to="/bets" className="text-sm text-wc-green dark:text-green-400 hover:underline">
-            Voir tous →
-          </Link>
-        </div>
-        {openBets.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {openBets.slice(0, 3).map((bet) => (
-              <BetCard
-                key={bet.id}
-                bet={bet}
-                onParticipated={() => getBets().then(setBets)}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="card text-center text-gray-500 dark:text-gray-400 py-8">
-            Aucun pari ouvert pour le moment
           </div>
         )}
       </section>

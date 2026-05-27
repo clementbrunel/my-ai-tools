@@ -4,6 +4,7 @@ import { getMatches } from '../api/matches';
 import type { Match } from '../types';
 import MatchCard from '../components/MatchCard';
 import { useAuth } from '../context/AuthContext';
+import { formatDate } from '../utils/dates';
 
 type FilterStatus = 'ALL' | 'UPCOMING' | 'ONGOING' | 'FINISHED';
 
@@ -12,6 +13,8 @@ const Matches: React.FC = () => {
   const [matches, setMatches] = useState<Match[]>([]);
   const [filter, setFilter] = useState<FilterStatus>('ALL');
   const [isLoading, setIsLoading] = useState(true);
+
+  const today = new Date().toISOString().slice(0, 10); // "2026-06-11"
 
   useEffect(() => {
     const fetchMatches = async () => {
@@ -34,6 +37,16 @@ const Matches: React.FC = () => {
     { label: '🔴 En cours', value: 'ONGOING' },
     { label: '✅ Terminés', value: 'FINISHED' },
   ];
+
+  // Group matches by calendar day (YYYY-MM-DD), preserving API sort order within each day
+  const matchesByDay = matches.reduce<Record<string, Match[]>>((acc, match) => {
+    const day = match.matchDate.slice(0, 10);
+    if (!acc[day]) acc[day] = [];
+    acc[day].push(match);
+    return acc;
+  }, {});
+
+  const sortedDays = Object.keys(matchesByDay).sort();
 
   return (
     <div>
@@ -63,17 +76,48 @@ const Matches: React.FC = () => {
         ))}
       </div>
 
-      {/* Matches Grid */}
+      {/* Matches grouped by day */}
       {isLoading ? (
         <div className="text-center py-12">
           <div className="text-5xl animate-bounce-slow">⚽</div>
           <p className="text-gray-500 mt-3">Chargement...</p>
         </div>
-      ) : matches.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {matches.map((match) => (
-            <MatchCard key={match.id} match={match} />
-          ))}
+      ) : sortedDays.length > 0 ? (
+        <div className="space-y-8">
+          {sortedDays.map((day) => {
+            const isToday = day === today;
+            return (
+              <section key={day}>
+                {/* Day header */}
+                <div className="flex items-center gap-3 mb-4">
+                  <h2
+                    className={`text-lg font-bold ${
+                      isToday
+                        ? 'text-wc-green dark:text-green-400'
+                        : 'text-gray-700 dark:text-gray-300'
+                    }`}
+                  >
+                    📅 {formatDate(day)}
+                  </h2>
+                  {isToday && (
+                    <span className="text-xs font-semibold bg-wc-green text-white px-2 py-0.5 rounded-full">
+                      Aujourd'hui
+                    </span>
+                  )}
+                  <span className="text-xs text-gray-400 dark:text-gray-500">
+                    {matchesByDay[day].length} match{matchesByDay[day].length > 1 ? 's' : ''}
+                  </span>
+                </div>
+
+                {/* Cards for this day */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {matchesByDay[day].map((match) => (
+                    <MatchCard key={match.id} match={match} />
+                  ))}
+                </div>
+              </section>
+            );
+          })}
         </div>
       ) : (
         <div className="card text-center py-12 text-gray-500 dark:text-gray-400">

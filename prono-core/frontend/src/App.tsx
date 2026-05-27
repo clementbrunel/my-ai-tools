@@ -7,7 +7,6 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Matches from './pages/Matches';
 import MatchDetail from './pages/MatchDetail';
-import Bets from './pages/Bets';
 import Leaderboard from './pages/Leaderboard';
 import Profile from './pages/Profile';
 import Admin from './pages/Admin';
@@ -33,7 +32,6 @@ function App() {
                         <Route path="/dashboard" element={<Dashboard />} />
                         <Route path="/matches" element={<Matches />} />
                         <Route path="/matches/:id" element={<MatchDetail />} />
-                        <Route path="/bets" element={<Bets />} />
                         <Route path="/leaderboard" element={<Leaderboard />} />
                         <Route path="/gages" element={<Gages />} />
                         <Route path="/profile" element={<Profile />} />
