@@ -26,7 +26,7 @@ public class MatchService {
     private final BetRepository              betRepository;
     private final BetParticipationRepository betParticipationRepository;
     private final UserRepository             userRepository;
-    private final UserForfeitRepository      userForfeitRepository;
+    private final DailyGageService           dailyGageService;
 
     // ---------------------------------------------------------------
     // Scoring constants
@@ -92,6 +92,8 @@ public class MatchService {
 
         if (transitionsToFinished && request.getScoreA() != null && request.getScoreB() != null) {
             settleBetsForMatch(match);
+            // After settling, check if the whole day is done → assign daily gage
+            dailyGageService.onMatchSettled(match.getMatchDate().toLocalDate());
         }
 
         return matchMapper.toResponse(match);
@@ -135,10 +137,14 @@ public class MatchService {
     // ---------------------------------------------------------------
 
     /**
-     * When admin marks match as FINISHED:
-     * 1. Compute winning option string.
+     * When admin marks a match as FINISHED:
+     * 1. Compute the winning option string.
      * 2. Award +5 (exact score) or +3 (correct result) to each participant.
-     * 3. If match has a forfeit: random draw among 0-pt scorers gets it.
+     *    Both +5 and +3 count as a "won bet" (betsWon++).
+     * 3. Store pointsEarned on each participation (used by daily gage loser logic).
+     *
+     * Note: per-match forfeit assignment has been removed.
+     * Gages are now assigned per day via DailyGageService.onMatchSettled().
      *
      * Winning-option format (winner's score always first):
      *   teamA wins 2-1  → "Victoire France 2-1"
@@ -154,48 +160,29 @@ public class MatchService {
                 .findByMatchIdAndStatusOrderByCreatedAtDesc(match.getId(), Bet.Status.OPEN);
         if (openBets.isEmpty()) { log.info("No open bets for match {}", match.getId()); return; }
 
-        List<User> losers = new ArrayList<>();
-
         for (Bet bet : openBets) {
             List<BetParticipation> participations = betParticipationRepository.findByBetId(bet.getId());
 
             for (BetParticipation p : participations) {
                 User user = p.getUser();
                 int earned = computeEarnedPoints(p.getChosenOption().trim(), winningOption);
+                p.setPointsEarned(earned);
+                betParticipationRepository.save(p);
+
                 if (earned > 0) {
                     user.setGlobalScore(user.getGlobalScore() + earned);
-                    if (earned == POINTS_EXACT_SCORE) user.setBetsWon(user.getBetsWon() + 1);
+                    // Both +3 (correct result) and +5 (exact score) count as a won bet
+                    user.setBetsWon(user.getBetsWon() + 1);
                     userRepository.save(user);
                     log.info("  +{} pts → {} ({})", earned, user.getUsername(), p.getChosenOption());
                 } else {
-                    losers.add(user);
+                    log.debug("  +0 pts → {} ({})", user.getUsername(), p.getChosenOption());
                 }
             }
 
             bet.setStatus(Bet.Status.VALIDATED);
             bet.setWinningOption(winningOption);
             betRepository.save(bet);
-        }
-
-        // Gage: random draw among 0-pt scorers (if match has a forfeit)
-        if (match.getForfeit() != null && !losers.isEmpty()) {
-            List<User> distinctLosers = losers.stream().distinct().collect(Collectors.toList());
-            User unlucky = distinctLosers.get(new Random().nextInt(distinctLosers.size()));
-
-            String adminUsername = SecurityContextHolder.getContext().getAuthentication().getName();
-            User admin = userRepository.findByUsername(adminUsername).orElse(unlucky);
-
-            UserForfeit uf = UserForfeit.builder()
-                    .user(unlucky)
-                    .forfeit(match.getForfeit())
-                    .assignedBy(admin)
-                    .completed(false)
-                    .build();
-            userForfeitRepository.save(uf);
-            unlucky.setForfeitsReceived(unlucky.getForfeitsReceived() + 1);
-            userRepository.save(unlucky);
-            log.info("🃏 Forfeit '{}' randomly assigned to {} (drawn from {} losers)",
-                    match.getForfeit().getTitle(), unlucky.getUsername(), distinctLosers.size());
         }
     }
 

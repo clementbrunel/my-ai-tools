@@ -232,23 +232,7 @@ const MatchDetail: React.FC = () => {
           </div>
         </div>
 
-        {/* Gage badge (only if a forfeit is attached) */}
-        {match.forfeitId && (
-          <div className="flex items-start gap-3 mt-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700">
-            <span className="text-xl mt-0.5">🃏</span>
-            <div>
-              <span className="text-sm font-semibold text-amber-800 dark:text-amber-300">
-                Gage actif :{' '}
-              </span>
-              <span className="text-sm font-bold text-amber-700 dark:text-amber-400">
-                {match.forfeitTitle}
-              </span>
-              <p className="text-xs text-amber-600 dark:text-amber-500 mt-0.5">
-                Tirage aléatoire parmi les perdants — bon courage ! 😬
-              </p>
-            </div>
-          </div>
-        )}
+        {/* Gage du jour reminder is shown on Dashboard */}
       </div>
 
       {/* ── My prediction ── */}

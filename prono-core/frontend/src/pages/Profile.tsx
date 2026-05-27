@@ -2,25 +2,30 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getBets } from '../api/bets';
 import { getLeaderboard } from '../api/leaderboard';
-import type { Bet, LeaderboardEntry } from '../types';
+import { getMyForfeits, completeForfeit } from '../api/forfeits';
+import type { Bet, LeaderboardEntry, UserForfeitEntry } from '../types';
 
 const Profile: React.FC = () => {
   const { user } = useAuth();
   const [myBets, setMyBets] = useState<Bet[]>([]);
   const [leaderboardEntry, setLeaderboardEntry] = useState<LeaderboardEntry | null>(null);
+  const [myForfeits, setMyForfeits] = useState<UserForfeitEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [completingId, setCompletingId] = useState<number | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [betsData, leaderboardData] = await Promise.all([
+        const [betsData, leaderboardData, forfeitsData] = await Promise.all([
           getBets(),
           getLeaderboard(),
+          getMyForfeits(),
         ]);
         const createdBets = betsData.filter((b) => b.creator.username === user?.username);
         setMyBets(createdBets);
         const entry = leaderboardData.find((e) => e.user.username === user?.username);
         setLeaderboardEntry(entry || null);
+        setMyForfeits(forfeitsData);
       } catch (err) {
         console.error('Error loading profile:', err);
       } finally {
@@ -30,6 +35,24 @@ const Profile: React.FC = () => {
     fetchData();
   }, [user]);
 
+  const handleComplete = async (userForfeitId: number) => {
+    setCompletingId(userForfeitId);
+    try {
+      await completeForfeit(userForfeitId);
+      setMyForfeits((prev) =>
+        prev.map((uf) =>
+          uf.id === userForfeitId
+            ? { ...uf, completed: true, completedAt: new Date().toISOString() }
+            : uf
+        )
+      );
+    } catch {
+      alert('Erreur lors de la mise à jour du gage');
+    } finally {
+      setCompletingId(null);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="text-center py-12">
@@ -38,6 +61,9 @@ const Profile: React.FC = () => {
       </div>
     );
   }
+
+  const pendingForfeits = myForfeits.filter((f) => !f.completed);
+  const doneForfeits = myForfeits.filter((f) => f.completed);
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -83,6 +109,75 @@ const Profile: React.FC = () => {
           <div className="stat-label">🃏 Gages reçus</div>
         </div>
       </div>
+
+      {/* Pending Forfeits */}
+      {pendingForfeits.length > 0 && (
+        <div className="card border-2 border-wc-red">
+          <h3 className="font-bold text-wc-red mb-4">
+            🔴 Mes gages à effectuer ({pendingForfeits.length})
+          </h3>
+          <div className="space-y-3">
+            {pendingForfeits.map((uf) => (
+              <div
+                key={uf.id}
+                className="flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800"
+              >
+                <div>
+                  <div className="font-semibold text-gray-900 dark:text-white">{uf.forfeit.title}</div>
+                  <div className="text-xs text-gray-500 mt-0.5">{uf.forfeit.description}</div>
+                  <div className="text-xs text-gray-400 mt-1">
+                    Assigné par {uf.assignedByUsername} •{' '}
+                    {new Date(uf.assignedAt).toLocaleDateString('fr-FR')}
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleComplete(uf.id)}
+                  disabled={completingId === uf.id}
+                  className="btn-primary text-sm ml-4 flex-shrink-0 disabled:opacity-50"
+                >
+                  {completingId === uf.id ? '...' : '✅ Fait !'}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Completed Forfeits */}
+      {doneForfeits.length > 0 && (
+        <div className="card">
+          <h3 className="font-bold text-gray-900 dark:text-white mb-4">
+            ✅ Gages effectués ({doneForfeits.length})
+          </h3>
+          <div className="space-y-2">
+            {doneForfeits.map((uf) => (
+              <div
+                key={uf.id}
+                className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg opacity-70"
+              >
+                <div>
+                  <div className="text-sm font-medium text-gray-700 dark:text-gray-300 line-through">
+                    {uf.forfeit.title}
+                  </div>
+                  {uf.completedAt && (
+                    <div className="text-xs text-gray-400">
+                      Effectué le {new Date(uf.completedAt).toLocaleDateString('fr-FR')}
+                    </div>
+                  )}
+                </div>
+                <span className="text-green-500 text-lg">✅</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {myForfeits.length === 0 && (
+        <div className="card text-center py-6">
+          <div className="text-3xl mb-2">🏅</div>
+          <p className="text-gray-500 dark:text-gray-400 text-sm">Aucun gage reçu — tu t'en sors bien !</p>
+        </div>
+      )}
 
       {/* My bets */}
       <div className="card">

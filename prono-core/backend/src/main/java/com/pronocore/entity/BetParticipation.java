@@ -34,6 +34,14 @@ public class BetParticipation {
     @Column(columnDefinition = "TEXT")
     private String comment;
 
+    /**
+     * Points earned on this participation (populated when the bet is settled).
+     * Used to identify the daily gage loser.
+     */
+    @Column(name = "points_earned", nullable = false)
+    @Builder.Default
+    private int pointsEarned = 0;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

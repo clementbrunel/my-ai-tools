@@ -29,4 +29,14 @@ public class Forfeit {
     @Column(name = "is_active", nullable = false)
     @Builder.Default
     private boolean active = true;
+
+    /** How many times this gage has been marked as completed across all users. */
+    @Column(name = "times_completed", nullable = false)
+    @Builder.Default
+    private int timesCompleted = 0;
+
+    /** Null = admin-created. Non-null = proposed by a player (visible immediately). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "proposed_by_id")
+    private User proposedBy;
 }

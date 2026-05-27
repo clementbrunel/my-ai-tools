@@ -1,8 +1,17 @@
 import apiClient from './axios';
-import type { Forfeit } from '../types';
+import type { Forfeit, UserForfeitEntry } from '../types';
+
+// -----------------------------------------------------------------------
+// Forfeit library
+// -----------------------------------------------------------------------
 
 export const getForfeits = async (): Promise<Forfeit[]> => {
   const response = await apiClient.get<Forfeit[]>('/forfeits');
+  return response.data;
+};
+
+export const getAllForfeitsAdmin = async (): Promise<Forfeit[]> => {
+  const response = await apiClient.get<Forfeit[]>('/forfeits/all');
   return response.data;
 };
 
@@ -17,6 +26,27 @@ export const createForfeit = async (
   return response.data;
 };
 
+export const proposeForfeit = async (
+  title: string,
+  description: string,
+  category: string
+): Promise<Forfeit> => {
+  const response = await apiClient.post<Forfeit>('/forfeits/propose', {
+    title,
+    description,
+    category,
+  });
+  return response.data;
+};
+
+export const deleteForfeit = async (forfeitId: number): Promise<void> => {
+  await apiClient.delete(`/forfeits/${forfeitId}`);
+};
+
+// -----------------------------------------------------------------------
+// Assignment & completion
+// -----------------------------------------------------------------------
+
 export const assignForfeit = async (
   userId: number,
   forfeitId: number,
@@ -29,4 +59,18 @@ export const assignForfeit = async (
 
 export const completeForfeit = async (userForfeitId: number): Promise<void> => {
   await apiClient.patch(`/forfeits/${userForfeitId}/complete`);
+};
+
+// -----------------------------------------------------------------------
+// User gage history
+// -----------------------------------------------------------------------
+
+export const getMyForfeits = async (): Promise<UserForfeitEntry[]> => {
+  const response = await apiClient.get<UserForfeitEntry[]>('/forfeits/my');
+  return response.data;
+};
+
+export const getUserForfeits = async (userId: number): Promise<UserForfeitEntry[]> => {
+  const response = await apiClient.get<UserForfeitEntry[]>(`/forfeits/user/${userId}`);
+  return response.data;
 };

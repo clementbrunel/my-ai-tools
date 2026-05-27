@@ -20,8 +20,6 @@ export interface Match {
   status: 'UPCOMING' | 'ONGOING' | 'FINISHED';
   competition: string;
   round: string;
-  forfeitId?: number;
-  forfeitTitle?: string;
   bettorBonus?: number;
 }
 
@@ -55,6 +53,37 @@ export interface Forfeit {
   description: string;
   category: string;
   isActive: boolean;
+  timesCompleted: number;
+  proposedByUsername?: string;
+}
+
+export interface UserForfeitEntry {
+  id: number;
+  forfeit: Forfeit;
+  assignedByUsername: string;
+  completed: boolean;
+  completedAt?: string;
+  assignedAt: string;
+}
+
+export interface DailyGageCandidate {
+  id: number;
+  forfeit: Forfeit;
+  voteScore: number;
+  /** Current user's vote: -1, 0, or +1 */
+  userVote: number;
+}
+
+export interface DailyGage {
+  id: number;
+  matchDate: string;   // "2026-06-11"
+  forfeit?: Forfeit;
+  mode: 'DIRECT' | 'VOTE';
+  status: 'PENDING' | 'ACTIVE' | 'SETTLED';
+  assignedToUsername?: string;
+  assignedAt?: string;
+  candidates: DailyGageCandidate[];
+  createdAt: string;
 }
 
 export interface LeaderboardEntry {

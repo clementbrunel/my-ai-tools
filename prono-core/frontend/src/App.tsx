@@ -11,6 +11,7 @@ import Bets from './pages/Bets';
 import Leaderboard from './pages/Leaderboard';
 import Profile from './pages/Profile';
 import Admin from './pages/Admin';
+import Gages from './pages/Gages';
 
 function App() {
   return (
@@ -34,6 +35,7 @@ function App() {
                         <Route path="/matches/:id" element={<MatchDetail />} />
                         <Route path="/bets" element={<Bets />} />
                         <Route path="/leaderboard" element={<Leaderboard />} />
+                        <Route path="/gages" element={<Gages />} />
                         <Route path="/profile" element={<Profile />} />
                         <Route path="/admin" element={<Admin />} />
                       </Routes>

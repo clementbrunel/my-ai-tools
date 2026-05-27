@@ -47,15 +47,6 @@ public class Match {
     private String round = "Group Stage";
 
     /**
-     * Optional forfeit for this match.
-     * Automatically assigned to the user with the most participations on this match
-     * who also has at least one wrong prediction when the match is settled.
-     */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "forfeit_id")
-    private Forfeit forfeit;
-
-    /**
      * Bonus points awarded to the biggest bettor on this match (most participations),
      * regardless of result — used to break leaderboard ties.
      */

@@ -39,6 +39,10 @@ public class UserForfeit {
     @Builder.Default
     private boolean completed = false;
 
+    /** Set when the sanctioned player marks the gage as done. */
+    @Column(name = "completed_at")
+    private LocalDateTime completedAt;
+
     @CreationTimestamp
     @Column(name = "assigned_at", nullable = false, updatable = false)
     private LocalDateTime assignedAt;
