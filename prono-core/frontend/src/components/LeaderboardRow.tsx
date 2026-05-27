@@ -21,10 +21,11 @@ const LeaderboardRow: React.FC<LeaderboardRowProps> = ({ entry, isCurrentUser })
       ${rank === 1 ? 'bg-yellow-50 dark:bg-yellow-900/10' : ''}
     `}>
       <td className="py-3 px-4">
-        <span className="text-xl">
-          {rankEmoji[rank] || <span className="text-gray-600 dark:text-gray-400 font-bold text-sm">#{rank}</span>}
-        </span>
-        {!rankEmoji[rank] && <span className="text-gray-600 dark:text-gray-400 font-bold text-sm ml-1">#{rank}</span>}
+        {rankEmoji[rank] ? (
+          <span className="text-xl">{rankEmoji[rank]}</span>
+        ) : (
+          <span className="text-gray-600 dark:text-gray-400 font-bold text-sm">#{rank}</span>
+        )}
       </td>
       <td className="py-3 px-4">
         <div className="flex items-center gap-2">
