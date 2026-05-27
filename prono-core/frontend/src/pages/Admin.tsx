@@ -56,7 +56,8 @@ const Admin: React.FC = () => {
   const [forfeitSuccess, setForfeitSuccess] = useState('');
 
   // Daily gage creation
-  const [dgDate, setDgDate] = useState('');
+  const [dgDate, setDgDate] = useState('');         // internal YYYY-MM-DD value sent to API
+  const [dgDateDisplay, setDgDateDisplay] = useState(''); // DD/MM/YYYY shown in the text input
   const [dgMode, setDgMode] = useState<'DIRECT' | 'VOTE'>('DIRECT');
   const [dgError, setDgError] = useState('');
   const [dgSuccess, setDgSuccess] = useState('');
@@ -162,11 +163,20 @@ const Admin: React.FC = () => {
   const handleCreateDailyGage = async (e: React.FormEvent) => {
     e.preventDefault();
     setDgError(''); setDgSuccess('');
+    if (!dgDate) {
+      setDgError('Date invalide — utilisez le format JJ/MM/AAAA.');
+      return;
+    }
     try {
       const created = await createDailyGage(dgDate, dgMode);
       setDailyGages([created, ...dailyGages]);
-      setDgDate(''); setDgSuccess('Gage du jour créé !');
-    } catch { setDgError('Erreur — peut-être un gage existe déjà pour cette date ?'); }
+      setDgDate('');
+      setDgDateDisplay('');
+      setDgSuccess('Gage du jour créé !');
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setDgError(msg ?? 'Erreur — peut-être un gage existe déjà pour cette date ?');
+    }
   };
 
   const handleSelectDirectly = async (dgId: number) => {
@@ -202,6 +212,12 @@ const Admin: React.FC = () => {
       </div>
     );
   }
+
+  /** Parse a "DD/MM/YYYY" string to "YYYY-MM-DD". Returns '' if invalid. */
+  const parseDDMMYYYY = (s: string): string => {
+    const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    return m ? `${m[3]}-${m[2]}-${m[1]}` : '';
+  };
 
   // Match days (YYYY-MM-DD) that have no DailyGage configured yet
   const configuredDates = new Set(dailyGages.map((dg) => dg.matchDate));
@@ -380,20 +396,20 @@ const Admin: React.FC = () => {
               <h3 className="font-semibold text-gray-900 dark:text-white mb-3">+ Créer un gage du jour</h3>
               <form onSubmit={handleCreateDailyGage} className="flex flex-wrap gap-3 items-end">
                 <div>
-                  <label className="label">Date</label>
+                  <label className="label">Date (JJ/MM/AAAA)</label>
                   <input
-                    type="date"
-                    value={dgDate}
-                    onChange={(e) => setDgDate(e.target.value)}
-                    className="input-field"
+                    type="text"
+                    value={dgDateDisplay}
+                    onChange={(e) => {
+                      const display = e.target.value;
+                      setDgDateDisplay(display);
+                      setDgDate(parseDDMMYYYY(display));
+                    }}
+                    className="input-field w-36"
+                    placeholder="JJ/MM/AAAA"
+                    maxLength={10}
                     required
                   />
-                  {/* Always show the selected date in DD/MM/YYYY regardless of browser locale */}
-                  {dgDate && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      📅 {formatDate(dgDate)}
-                    </p>
-                  )}
                 </div>
                 <div>
                   <label className="label">Mode</label>
@@ -424,10 +440,10 @@ const Admin: React.FC = () => {
                       key={date}
                       onClick={() => {
                         setDgDate(date);
+                        setDgDateDisplay(formatDate(date)); // "11/06/2026"
                         setDgMode('DIRECT');
                         setDgError('');
                         setDgSuccess('');
-                        // Scroll up to the create form
                         window.scrollTo({ top: 0, behavior: 'smooth' });
                       }}
                       className="btn-gold text-sm py-1 px-3"

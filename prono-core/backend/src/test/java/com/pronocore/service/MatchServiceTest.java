@@ -33,6 +33,7 @@ class MatchServiceTest {
     @Mock private BetParticipationRepository betParticipationRepository;
     @Mock private UserRepository             userRepository;
     @Mock private UserForfeitRepository      userForfeitRepository;
+    @Mock private DailyGageService           dailyGageService;
 
     @InjectMocks
     private MatchService matchService;
@@ -154,9 +155,9 @@ class MatchServiceTest {
         assertThat(correctUser.getGlobalScore()).isEqualTo(13); // 10 + 3
         assertThat(wrongUser.getGlobalScore()).isEqualTo(10);   // no change
 
-        // betsWon only incremented for exact score (+5)
+        // betsWon incremented for any positive result (+3 or +5)
         assertThat(exactUser.getBetsWon()).isEqualTo(1);
-        assertThat(correctUser.getBetsWon()).isEqualTo(0);
+        assertThat(correctUser.getBetsWon()).isEqualTo(1);
         assertThat(wrongUser.getBetsWon()).isEqualTo(0);
 
         // Winning option recorded on the bet
