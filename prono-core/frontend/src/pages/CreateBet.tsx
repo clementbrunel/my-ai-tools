@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { getMatches } from '../api/matches';
 import { createBet } from '../api/bets';
 import type { Match } from '../types';
+import { formatDateTime } from '../utils/dates';
 
 const CreateBet: React.FC = () => {
   const navigate = useNavigate();
@@ -145,18 +146,13 @@ const CreateBet: React.FC = () => {
               <option value="">-- Sélectionne un match --</option>
               {matches.map((m) => (
                 <option key={m.id} value={m.id}>
-                  {m.teamA} vs {m.teamB} — {new Date(m.matchDate).toLocaleDateString('fr-FR', {
-                    weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
-                  })}
+                  {m.teamA} vs {m.teamB} — {formatDateTime(m.matchDate)}
                 </option>
               ))}
             </select>
             {selectedMatch && (
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                ⏰ Les paris ferment au coup d'envoi —{' '}
-                {new Date(selectedMatch.matchDate).toLocaleString('fr-FR', {
-                  weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit'
-                })}
+                ⏰ Les paris ferment au coup d'envoi — {formatDateTime(selectedMatch.matchDate)}
               </p>
             )}
           </div>

@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import type { Match } from '../types';
+import { formatDate } from '../utils/dates';
 
 interface MatchCardProps {
   match: Match;
@@ -44,7 +45,7 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, betCount = 0 }) => {
               <div className="text-center">
                 <div className="text-gray-400 dark:text-gray-500 font-bold text-lg">VS</div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">
-                  {matchDate.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
+                  {formatDate(matchDate)}
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">
                   {matchDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}

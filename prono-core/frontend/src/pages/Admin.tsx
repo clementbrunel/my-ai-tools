@@ -16,6 +16,7 @@ import {
   removeCandidate,
 } from '../api/dailyGages';
 import type { Match, Bet, Forfeit, DailyGage } from '../types';
+import { formatDate } from '../utils/dates';
 
 type AdminTab = 'matches' | 'bets' | 'forfeits';
 
@@ -298,7 +299,7 @@ const Admin: React.FC = () => {
                         {match.teamA} vs {match.teamB}
                       </td>
                       <td className="py-3 px-4 text-center text-xs text-gray-500">
-                        {new Date(match.matchDate).toLocaleDateString('fr-FR')}
+                        {formatDate(match.matchDate)}
                       </td>
                       <td className="py-3 px-4 text-center text-sm font-bold text-wc-gold">
                         {match.scoreA !== null && match.scoreA !== undefined ? `${match.scoreA}-${match.scoreB}` : '-'}
@@ -410,7 +411,7 @@ const Admin: React.FC = () => {
                     >
                       <div className="flex items-center gap-3">
                         <span className="font-semibold text-gray-900 dark:text-white">
-                          {dg.matchDate}
+                          {formatDate(dg.matchDate)}
                         </span>
                         <span className="text-xs text-gray-500">
                           {dg.mode === 'DIRECT' ? '🎯 Direct' : '🗳️ Vote'}
@@ -496,7 +497,7 @@ const Admin: React.FC = () => {
                           <strong className="text-wc-red">{dg.assignedToUsername}</strong>
                           {dg.assignedAt && (
                             <span className="ml-2 text-xs text-gray-400">
-                              le {new Date(dg.assignedAt).toLocaleDateString('fr-FR')}
+                              le {formatDate(dg.assignedAt)}
                             </span>
                           )}
                         </p>

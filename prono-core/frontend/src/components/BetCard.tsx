@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Bet, BetParticipation } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { participate } from '../api/bets';
+import { formatDate } from '../utils/dates';
 
 interface BetCardProps {
   bet: Bet;
@@ -77,7 +78,7 @@ const BetCard: React.FC<BetCardProps> = ({ bet, onParticipated, showMatch = true
         <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 my-3">
           <span>🏅 {bet.points} points</span>
           <span>👥 {bet.participationsCount} participant{bet.participationsCount !== 1 ? 's' : ''}</span>
-          <span>⏰ {deadline.toLocaleDateString('fr-FR')}</span>
+          <span>⏰ {formatDate(deadline)}</span>
         </div>
 
         {/* Winning option */}

@@ -4,6 +4,7 @@ import { getBets } from '../api/bets';
 import { getLeaderboard } from '../api/leaderboard';
 import { getMyForfeits, completeForfeit } from '../api/forfeits';
 import type { Bet, LeaderboardEntry, UserForfeitEntry } from '../types';
+import { formatDate } from '../utils/dates';
 
 const Profile: React.FC = () => {
   const { user } = useAuth();
@@ -127,7 +128,7 @@ const Profile: React.FC = () => {
                   <div className="text-xs text-gray-500 mt-0.5">{uf.forfeit.description}</div>
                   <div className="text-xs text-gray-400 mt-1">
                     Assigné par {uf.assignedByUsername} •{' '}
-                    {new Date(uf.assignedAt).toLocaleDateString('fr-FR')}
+                    {formatDate(uf.assignedAt)}
                   </div>
                 </div>
                 <button
@@ -161,7 +162,7 @@ const Profile: React.FC = () => {
                   </div>
                   {uf.completedAt && (
                     <div className="text-xs text-gray-400">
-                      Effectué le {new Date(uf.completedAt).toLocaleDateString('fr-FR')}
+                      Effectué le {formatDate(uf.completedAt)}
                     </div>
                   )}
                 </div>
@@ -211,9 +212,7 @@ const Profile: React.FC = () => {
       {/* Member since */}
       {user?.createdAt && (
         <div className="text-center text-sm text-gray-400 dark:text-gray-500">
-          Membre depuis le {new Date(user.createdAt).toLocaleDateString('fr-FR', {
-            day: 'numeric', month: 'long', year: 'numeric'
-          })}
+          Membre depuis le {formatDate(user.createdAt)}
         </div>
       )}
     </div>

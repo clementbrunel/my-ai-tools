@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getBets } from '../api/bets';
 import type { Bet } from '../types';
+import { formatDateTime } from '../utils/dates';
 
 type FilterStatus = 'ALL' | 'OPEN' | 'VALIDATED' | 'CANCELLED';
 
@@ -26,14 +27,7 @@ const Bets: React.FC = () => {
     { label: '❌ Annulés', value: 'CANCELLED' },
   ];
 
-  const formatDate = (dateStr: string) =>
-    new Date(dateStr).toLocaleDateString('fr-FR', {
-      weekday: 'short',
-      day: 'numeric',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+  const formatDate = (dateStr: string) => formatDateTime(dateStr);
 
   return (
     <div>

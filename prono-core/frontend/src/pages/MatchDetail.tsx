@@ -4,6 +4,7 @@ import { getMatch } from '../api/matches';
 import { getBetsByMatch, getParticipations, upsertParticipate } from '../api/bets';
 import { useAuth } from '../context/AuthContext';
 import type { Match, Bet, BetParticipation } from '../types';
+import { formatDate, formatDateTime } from '../utils/dates';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -213,11 +214,7 @@ const MatchDetail: React.FC = () => {
               <div>
                 <div className="text-2xl font-bold text-gray-400 dark:text-gray-500">VS</div>
                 <div className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                  {matchDate.toLocaleDateString('fr-FR', {
-                    weekday: 'long',
-                    day: 'numeric',
-                    month: 'long',
-                  })}
+                  {formatDate(matchDate)}
                 </div>
                 <div className="text-lg font-bold text-gray-700 dark:text-gray-300">
                   {matchDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
@@ -250,14 +247,7 @@ const MatchDetail: React.FC = () => {
           {canBet ? (
             <form onSubmit={handleSubmit} className="space-y-4">
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                ⏰ Paris ouverts jusqu'au coup d'envoi —{' '}
-                {matchDate.toLocaleString('fr-FR', {
-                  weekday: 'long',
-                  day: 'numeric',
-                  month: 'long',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
+                ⏰ Paris ouverts jusqu'au coup d'envoi — {formatDateTime(matchDate)}
               </p>
 
               {/* Score inputs */}

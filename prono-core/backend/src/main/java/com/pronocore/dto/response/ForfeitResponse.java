@@ -1,5 +1,6 @@
 package com.pronocore.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -15,6 +16,9 @@ public class ForfeitResponse {
     private String title;
     private String description;
     private String category;
+    // Force "isActive" as JSON key — without this Jackson strips the "is" prefix
+    // from the getter isActive() and serialises the field as "active".
+    @JsonProperty("isActive")
     private boolean isActive;
 
     /** Number of times any player has marked this gage as completed. */
