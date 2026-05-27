@@ -203,6 +203,14 @@ const Admin: React.FC = () => {
     );
   }
 
+  // Match days (YYYY-MM-DD) that have no DailyGage configured yet
+  const configuredDates = new Set(dailyGages.map((dg) => dg.matchDate));
+  const unconfiguredMatchDays = [
+    ...new Set(matches.map((m) => m.matchDate.slice(0, 10))),
+  ]
+    .filter((d) => !configuredDates.has(d))
+    .sort();
+
   const tabs: { id: AdminTab; label: string }[] = [
     { id: 'matches', label: '⚽ Matchs' },
     { id: 'bets', label: '🎯 Paris' },
@@ -397,6 +405,37 @@ const Admin: React.FC = () => {
               {dgError && <p className="text-red-500 text-sm mt-2">{dgError}</p>}
               {dgSuccess && <p className="text-green-500 text-sm mt-2">✅ {dgSuccess}</p>}
             </div>
+
+            {/* Unconfigured match days alert */}
+            {unconfiguredMatchDays.length > 0 && (
+              <div className="card border-2 border-amber-400 dark:border-amber-600">
+                <h3 className="font-semibold text-amber-700 dark:text-amber-400 mb-3">
+                  ⚠️ Jours de match sans gage configuré ({unconfiguredMatchDays.length})
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {unconfiguredMatchDays.map((date) => (
+                    <button
+                      key={date}
+                      onClick={() => {
+                        setDgDate(date);
+                        setDgMode('DIRECT');
+                        setDgError('');
+                        setDgSuccess('');
+                        // Scroll up to the create form
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      className="btn-gold text-sm py-1 px-3"
+                      title="Pré-remplir le formulaire de création pour cette date"
+                    >
+                      📅 {formatDate(date)}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
+                  Cliquez sur une date pour pré-remplir le formulaire ci-dessus.
+                </p>
+              </div>
+            )}
 
             {/* Daily gages list */}
             {dailyGages.length === 0 ? (
