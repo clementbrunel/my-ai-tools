@@ -21,6 +21,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.http.HttpMethod;
 
 import java.util.List;
 
@@ -41,6 +42,11 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**", "/swagger-ui/**", "/swagger-ui.html",
                                  "/v3/api-docs/**", "/v3/api-docs").permitAll()
+                // Daily gage READ endpoints are public — gage info is not sensitive and
+                // these are called on every page load (Dashboard, MatchDetail).
+                // Making them public avoids spurious 401s when the JWT hasn't loaded yet.
+                .requestMatchers(HttpMethod.GET,
+                                 "/api/daily-gages", "/api/daily-gages/**").permitAll()
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .anyRequest().authenticated())
             // Return 401 (not 403) for requests that are missing/have an invalid JWT.
