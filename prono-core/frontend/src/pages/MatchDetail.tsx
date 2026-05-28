@@ -6,6 +6,7 @@ import { getDailyGageByDate, voteOnCandidate } from '../api/dailyGages';
 import { useAuth } from '../context/AuthContext';
 import type { Match, Bet, BetParticipation, DailyGage } from '../types';
 import { formatDate, formatDateTime } from '../utils/dates';
+import { getFlag } from '../utils/countryFlags';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -217,7 +218,7 @@ const MatchDetail: React.FC = () => {
         {/* Teams & Score */}
         <div className="flex items-center justify-between gap-4 py-6">
           <div className="flex-1 text-center">
-            <div className="text-5xl mb-3">🏳️</div>
+            <div className="text-5xl mb-3">{getFlag(match.teamA)}</div>
             <div className="text-2xl font-black text-gray-900 dark:text-white">{match.teamA}</div>
           </div>
 
@@ -247,7 +248,7 @@ const MatchDetail: React.FC = () => {
           </div>
 
           <div className="flex-1 text-center">
-            <div className="text-5xl mb-3">🏳️</div>
+            <div className="text-5xl mb-3">{getFlag(match.teamB)}</div>
             <div className="text-2xl font-black text-gray-900 dark:text-white">{match.teamB}</div>
           </div>
         </div>

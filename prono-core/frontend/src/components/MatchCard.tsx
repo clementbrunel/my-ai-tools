@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import type { Match } from '../types';
 import { formatDate } from '../utils/dates';
+import { getFlag } from '../utils/countryFlags';
 
 interface MatchCardProps {
   match: Match;
@@ -30,7 +31,7 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, betCount = 0 }) => {
         {/* Teams and Score */}
         <div className="flex items-center justify-between gap-2 my-4">
           <div className="flex-1 text-center">
-            <div className="text-2xl mb-1">🏳️</div>
+            <div className="text-2xl mb-1">{getFlag(match.teamA)}</div>
             <div className="font-bold text-gray-900 dark:text-white text-sm">{match.teamA}</div>
           </div>
 
@@ -55,7 +56,7 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, betCount = 0 }) => {
           </div>
 
           <div className="flex-1 text-center">
-            <div className="text-2xl mb-1">🏳️</div>
+            <div className="text-2xl mb-1">{getFlag(match.teamB)}</div>
             <div className="font-bold text-gray-900 dark:text-white text-sm">{match.teamB}</div>
           </div>
         </div>
