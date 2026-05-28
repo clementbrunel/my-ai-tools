@@ -43,6 +43,15 @@ public class BetService {
     }
 
     @Transactional(readOnly = true)
+    public List<BetResponse> getParticipatedBets(String username) {
+        User user = userRepository.findByUsername(username)
+            .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
+        return betRepository.findParticipatedBetsByUserId(user.getId()).stream()
+            .map(this::toBetResponseWithCount)
+            .toList();
+    }
+
+    @Transactional(readOnly = true)
     public List<BetResponse> getBetsByMatch(Long matchId) {
         return betRepository.findByMatchIdOrderByCreatedAtDesc(matchId).stream()
             .map(this::toBetResponseWithCount)

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getMyBets } from '../api/bets';
+import { getParticipatedBets } from '../api/bets';
 import { getLeaderboard } from '../api/leaderboard';
 import { getMyForfeits, completeForfeit } from '../api/forfeits';
 import type { Bet, LeaderboardEntry, UserForfeitEntry } from '../types';
@@ -18,7 +18,7 @@ const Profile: React.FC = () => {
     const fetchData = async () => {
       try {
         const [betsData, leaderboardData, forfeitsData] = await Promise.all([
-          getMyBets(),
+          getParticipatedBets(),
           getLeaderboard(),
           getMyForfeits(),
         ]);
@@ -182,7 +182,7 @@ const Profile: React.FC = () => {
       {/* My bets */}
       <div className="card">
         <h3 className="font-bold text-gray-900 dark:text-white mb-4">
-          🎯 Mes paris créés ({myBets.length})
+          🎯 Mes pronostics ({myBets.length})
         </h3>
         {myBets.length > 0 ? (
           <div className="space-y-2">
@@ -204,7 +204,7 @@ const Profile: React.FC = () => {
             ))}
           </div>
         ) : (
-          <p className="text-gray-500 dark:text-gray-400 text-sm">Vous n'avez encore créé aucun pari</p>
+          <p className="text-gray-500 dark:text-gray-400 text-sm">Vous n'avez encore participé à aucun pari</p>
         )}
       </div>
 
