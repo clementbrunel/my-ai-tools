@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getBets } from '../api/bets';
+import { getMyBets } from '../api/bets';
 import { getLeaderboard } from '../api/leaderboard';
 import { getMyForfeits, completeForfeit } from '../api/forfeits';
 import type { Bet, LeaderboardEntry, UserForfeitEntry } from '../types';
@@ -18,12 +18,11 @@ const Profile: React.FC = () => {
     const fetchData = async () => {
       try {
         const [betsData, leaderboardData, forfeitsData] = await Promise.all([
-          getBets(),
+          getMyBets(),
           getLeaderboard(),
           getMyForfeits(),
         ]);
-        const createdBets = betsData.filter((b) => b.creator.username === user?.username);
-        setMyBets(createdBets);
+        setMyBets(betsData);
         const entry = leaderboardData.find((e) => e.user.username === user?.username);
         setLeaderboardEntry(entry || null);
         setMyForfeits(forfeitsData);

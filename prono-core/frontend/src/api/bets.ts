@@ -6,6 +6,11 @@ export const getBets = async (): Promise<Bet[]> => {
   return response.data;
 };
 
+export const getMyBets = async (): Promise<Bet[]> => {
+  const response = await apiClient.get<Bet[]>('/bets/mine');
+  return response.data;
+};
+
 export const getBet = async (id: number): Promise<Bet> => {
   const response = await apiClient.get<Bet>(`/bets/${id}`);
   return response.data;
