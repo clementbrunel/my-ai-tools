@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import type { Match } from '../types';
 import { formatDate } from '../utils/dates';
-import { getFlag } from '../utils/countryFlags';
+import { getFlagUrl } from '../utils/countryFlags';
 
 interface MatchCardProps {
   match: Match;
@@ -11,6 +11,13 @@ const statusEmoji: Record<string, string> = {
   UPCOMING: '📅',
   ONGOING: '🔴',
   FINISHED: '✅',
+};
+
+const TeamFlag: React.FC<{ name: string; size?: string }> = ({ name, size = 'w-8 h-6' }) => {
+  const url = getFlagUrl(name);
+  return url
+    ? <img src={url} alt={name} className={`${size} object-cover rounded-sm shadow-sm`} />
+    : <span className="text-2xl">🏳️</span>;
 };
 
 const MatchCard: React.FC<MatchCardProps> = ({ match }) => {
@@ -30,7 +37,9 @@ const MatchCard: React.FC<MatchCardProps> = ({ match }) => {
         {/* Teams and Score */}
         <div className="flex items-center justify-between gap-2 my-4">
           <div className="flex-1 text-center">
-            <div className="text-2xl mb-1">{getFlag(match.teamA)}</div>
+            <div className="flex justify-center mb-1">
+              <TeamFlag name={match.teamA} />
+            </div>
             <div className="font-bold text-gray-900 dark:text-white text-sm">{match.teamA}</div>
           </div>
 
@@ -55,7 +64,9 @@ const MatchCard: React.FC<MatchCardProps> = ({ match }) => {
           </div>
 
           <div className="flex-1 text-center">
-            <div className="text-2xl mb-1">{getFlag(match.teamB)}</div>
+            <div className="flex justify-center mb-1">
+              <TeamFlag name={match.teamB} />
+            </div>
             <div className="font-bold text-gray-900 dark:text-white text-sm">{match.teamB}</div>
           </div>
         </div>
