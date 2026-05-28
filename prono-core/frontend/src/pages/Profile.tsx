@@ -98,15 +98,15 @@ const Profile: React.FC = () => {
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4">
         <div className="stat-card">
-          <div className="stat-value">{user?.globalScore ?? 0}</div>
+          <div className="stat-value">{leaderboardEntry?.totalPoints ?? user?.globalScore ?? 0}</div>
           <div className="stat-label">⭐ Points</div>
         </div>
         <div className="stat-card">
-          <div className="stat-value">{user?.betsWon ?? 0}</div>
+          <div className="stat-value">{leaderboardEntry?.betsWon ?? user?.betsWon ?? 0}</div>
           <div className="stat-label">🏆 Paris gagnés</div>
         </div>
         <div className="stat-card">
-          <div className="stat-value text-wc-red">{user?.forfeitsReceived ?? 0}</div>
+          <div className="stat-value text-wc-red">{leaderboardEntry?.forfeitsReceived ?? user?.forfeitsReceived ?? 0}</div>
           <div className="stat-label">🃏 Gages reçus</div>
         </div>
       </div>

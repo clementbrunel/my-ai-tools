@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getMatches, createMatch, updateMatchScore } from '../api/matches';
-import { getBets, validateBet, cancelBet } from '../api/bets';
 import {
   getAllForfeitsAdmin,
   createForfeit,
@@ -15,17 +14,16 @@ import {
   addCandidate,
   removeCandidate,
 } from '../api/dailyGages';
-import type { Match, Bet, Forfeit, DailyGage } from '../types';
+import type { Match, Forfeit, DailyGage } from '../types';
 import { formatDate } from '../utils/dates';
 
-type AdminTab = 'matches' | 'bets' | 'forfeits';
+type AdminTab = 'matches' | 'forfeits';
 
 const Admin: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<AdminTab>('matches');
   const [matches, setMatches] = useState<Match[]>([]);
-  const [bets, setBets] = useState<Bet[]>([]);
   const [forfeits, setForfeits] = useState<Forfeit[]>([]);
   const [dailyGages, setDailyGages] = useState<DailyGage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -42,11 +40,6 @@ const Admin: React.FC = () => {
   const [editingMatch, setEditingMatch] = useState<Match | null>(null);
   const [scoreA, setScoreA] = useState('');
   const [scoreB, setScoreB] = useState('');
-  const [newStatus, setNewStatus] = useState<'UPCOMING' | 'ONGOING' | 'FINISHED'>('FINISHED');
-
-  // Bet validation
-  const [editingBet, setEditingBet] = useState<Bet | null>(null);
-  const [winningOption, setWinningOption] = useState('');
 
   // Forfeit library creation
   const [newForfeitTitle, setNewForfeitTitle] = useState('');
@@ -73,9 +66,8 @@ const Admin: React.FC = () => {
     }
     const fetchData = async () => {
       try {
-        const [matchesData, betsData] = await Promise.all([getMatches(), getBets()]);
+        const matchesData = await getMatches();
         setMatches(matchesData);
-        setBets(betsData);
       } catch (err) {
         console.error('Error loading admin data:', err);
       } finally {
@@ -114,29 +106,11 @@ const Admin: React.FC = () => {
     if (!editingMatch) return;
     try {
       const updated = await updateMatchScore(editingMatch.id, {
-        scoreA: parseInt(scoreA), scoreB: parseInt(scoreB), status: newStatus,
+        scoreA: parseInt(scoreA), scoreB: parseInt(scoreB), status: 'FINISHED',
       });
       setMatches(matches.map((m) => (m.id === updated.id ? updated : m)));
       setEditingMatch(null);
     } catch { alert('Erreur lors de la mise à jour du score'); }
-  };
-
-  // ---- Bet handlers ----
-  const handleValidateBet = async () => {
-    if (!editingBet || !winningOption) return;
-    try {
-      const updated = await validateBet(editingBet.id, winningOption);
-      setBets(bets.map((b) => (b.id === updated.id ? updated : b)));
-      setEditingBet(null); setWinningOption('');
-    } catch { alert('Erreur lors de la validation du pari'); }
-  };
-
-  const handleCancelBet = async (betId: number) => {
-    if (!confirm('Annuler ce pari ?')) return;
-    try {
-      const updated = await cancelBet(betId);
-      setBets(bets.map((b) => (b.id === updated.id ? updated : b)));
-    } catch { alert('Erreur lors de l\'annulation'); }
   };
 
   // ---- Forfeit library handlers ----
@@ -229,7 +203,6 @@ const Admin: React.FC = () => {
 
   const tabs: { id: AdminTab; label: string }[] = [
     { id: 'matches', label: '⚽ Matchs' },
-    { id: 'bets', label: '🎯 Paris' },
     { id: 'forfeits', label: '🃏 Gages' },
   ];
 
@@ -337,7 +310,6 @@ const Admin: React.FC = () => {
                             setEditingMatch(match);
                             setScoreA(match.scoreA?.toString() ?? '0');
                             setScoreB(match.scoreB?.toString() ?? '0');
-                            setNewStatus(match.status);
                           }}
                           className="text-xs btn-secondary py-1 px-2"
                         >
@@ -350,36 +322,6 @@ const Admin: React.FC = () => {
               </table>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* ===== BETS TAB ===== */}
-      {activeTab === 'bets' && (
-        <div className="space-y-4">
-          {bets.filter((b) => b.status === 'OPEN').map((bet) => (
-            <div key={bet.id} className="card">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h3 className="font-bold text-gray-900 dark:text-white">{bet.title}</h3>
-                  <p className="text-sm text-gray-500 mt-1">
-                    {bet.participationsCount} participants • {bet.points} pts •{' '}
-                    {bet.match ? `${bet.match.teamA} vs ${bet.match.teamB}` : 'Sans match'}
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <button onClick={() => setEditingBet(bet)} className="btn-primary text-xs py-1 px-3">
-                    ✅ Valider
-                  </button>
-                  <button onClick={() => handleCancelBet(bet.id)} className="btn-danger text-xs py-1 px-3">
-                    ❌ Annuler
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-          {bets.filter((b) => b.status === 'OPEN').length === 0 && (
-            <div className="card text-center py-8 text-gray-500">Aucun pari ouvert à gérer</div>
-          )}
         </div>
       )}
 
@@ -696,14 +638,6 @@ const Admin: React.FC = () => {
                   className="input-field w-20 text-center text-xl font-bold" min={0} />
               </div>
             </div>
-            <div className="mb-4">
-              <label className="label">Statut</label>
-              <select value={newStatus} onChange={(e) => setNewStatus(e.target.value as 'UPCOMING' | 'ONGOING' | 'FINISHED')} className="input-field">
-                <option value="UPCOMING">UPCOMING</option>
-                <option value="ONGOING">ONGOING</option>
-                <option value="FINISHED">FINISHED</option>
-              </select>
-            </div>
             <div className="flex gap-3">
               <button onClick={() => setEditingMatch(null)} className="btn-secondary flex-1">Annuler</button>
               <button onClick={handleUpdateScore} className="btn-primary flex-1">Sauvegarder</button>
@@ -712,35 +646,6 @@ const Admin: React.FC = () => {
         </div>
       )}
 
-      {/* Bet Validation Modal */}
-      {editingBet && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-wc-dark-secondary rounded-xl p-6 w-full max-w-sm">
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2">✅ Valider le pari</h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">{editingBet.title}</p>
-            <div className="mb-4">
-              <label className="label">Réponse gagnante *</label>
-              <input
-                type="text"
-                value={winningOption}
-                onChange={(e) => setWinningOption(e.target.value)}
-                className="input-field"
-                placeholder="Ex: 2-1 ou Mbappé"
-              />
-            </div>
-            <div className="flex gap-3">
-              <button onClick={() => setEditingBet(null)} className="btn-secondary flex-1">Annuler</button>
-              <button
-                onClick={handleValidateBet}
-                disabled={!winningOption.trim()}
-                className="btn-primary flex-1"
-              >
-                ✅ Valider
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
