@@ -6,7 +6,7 @@ import MatchCard from '../components/MatchCard';
 import { useAuth } from '../context/AuthContext';
 import { formatDate } from '../utils/dates';
 
-type FilterStatus = 'ALL' | 'UPCOMING' | 'ONGOING' | 'FINISHED';
+type FilterStatus = 'ALL' | 'UPCOMING' | 'FINISHED';
 
 const Matches: React.FC = () => {
   const { user } = useAuth();
@@ -34,7 +34,6 @@ const Matches: React.FC = () => {
   const filters: { label: string; value: FilterStatus }[] = [
     { label: '🌍 Tous', value: 'ALL' },
     { label: '📅 À venir', value: 'UPCOMING' },
-    { label: '🔴 En cours', value: 'ONGOING' },
     { label: '✅ Terminés', value: 'FINISHED' },
   ];
 

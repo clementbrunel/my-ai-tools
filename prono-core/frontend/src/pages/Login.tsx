@@ -55,7 +55,7 @@ const Login: React.FC = () => {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className="input-field"
-                placeholder="admin ou demo"
+                placeholder="Nom d'utilisateur"
                 required
               />
             </div>
@@ -95,11 +95,6 @@ const Login: React.FC = () => {
             </p>
           </div>
 
-          <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg text-center">
-            <p className="text-xs text-yellow-700 dark:text-yellow-300">
-              🧪 <strong>Démo:</strong> admin/admin123 ou demo/demo123
-            </p>
-          </div>
         </div>
       </div>
     </div>

@@ -5,7 +5,6 @@ import { getFlag } from '../utils/countryFlags';
 
 interface MatchCardProps {
   match: Match;
-  betCount?: number;
 }
 
 const statusEmoji: Record<string, string> = {
@@ -14,7 +13,7 @@ const statusEmoji: Record<string, string> = {
   FINISHED: '✅',
 };
 
-const MatchCard: React.FC<MatchCardProps> = ({ match, betCount = 0 }) => {
+const MatchCard: React.FC<MatchCardProps> = ({ match }) => {
   const matchDate = new Date(match.matchDate);
 
   return (
@@ -62,13 +61,8 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, betCount = 0 }) => {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+        <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
           <span className="text-xs text-gray-500 dark:text-gray-400">{match.competition}</span>
-          {betCount > 0 && (
-            <span className="text-xs text-wc-green dark:text-green-400 font-medium">
-              🎯 {betCount} pari{betCount > 1 ? 's' : ''}
-            </span>
-          )}
         </div>
       </div>
     </Link>
