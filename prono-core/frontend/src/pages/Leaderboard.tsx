@@ -1,17 +1,22 @@
 import { useEffect, useState } from 'react';
 import { getLeaderboard } from '../api/leaderboard';
-import type { LeaderboardEntry } from '../types';
+import { getMyGroups } from '../api/groups';
+import type { LeaderboardEntry, Group } from '../types';
 import LeaderboardRow from '../components/LeaderboardRow';
 import { useAuth } from '../context/AuthContext';
 
 const Leaderboard: React.FC = () => {
   const { user } = useAuth();
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
+  const [group, setGroup] = useState<Group | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    getLeaderboard()
-      .then(setEntries)
+    Promise.all([getLeaderboard(), getMyGroups()])
+      .then(([leaderboard, groups]) => {
+        setEntries(leaderboard);
+        if (groups.length > 0) setGroup(groups[0]);
+      })
       .catch(console.error)
       .finally(() => setIsLoading(false));
   }, []);
@@ -37,7 +42,14 @@ const Leaderboard: React.FC = () => {
 
   return (
     <div className="space-y-8">
-      <h1 className="page-title">🏆 Classement</h1>
+      <div>
+        <h1 className="page-title mb-0">🏆 Classement</h1>
+        {group && (
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            Groupe : <span className="font-semibold text-gray-700 dark:text-gray-200">{group.name}</span>
+          </p>
+        )}
+      </div>
 
       {/* Special Badges */}
       {entries.length > 0 && (

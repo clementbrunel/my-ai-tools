@@ -11,6 +11,7 @@ import Leaderboard from './pages/Leaderboard';
 import Profile from './pages/Profile';
 import Admin from './pages/Admin';
 import Gages from './pages/Gages';
+import GroupPage from './pages/GroupPage';
 
 function App() {
   return (
@@ -35,6 +36,7 @@ function App() {
                         <Route path="/leaderboard" element={<Leaderboard />} />
                         <Route path="/gages" element={<Gages />} />
                         <Route path="/profile" element={<Profile />} />
+                        <Route path="/group" element={<GroupPage />} />
                         <Route path="/admin" element={<Admin />} />
                       </Routes>
                     </main>
