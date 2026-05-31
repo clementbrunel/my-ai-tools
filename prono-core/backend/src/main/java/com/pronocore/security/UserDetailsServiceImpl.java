@@ -10,6 +10,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -24,9 +25,12 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
 
-        List<SimpleGrantedAuthority> authorities = List.of(
-            new SimpleGrantedAuthority("ROLE_" + user.getRole().name())
-        );
+        List<SimpleGrantedAuthority> authorities = new ArrayList<>();
+        authorities.add(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
+        // PLATFORM_ADMIN inherits ADMIN privileges
+        if (user.getRole() == User.Role.PLATFORM_ADMIN) {
+            authorities.add(new SimpleGrantedAuthority("ROLE_ADMIN"));
+        }
 
         return new org.springframework.security.core.userdetails.User(
             user.getUsername(),

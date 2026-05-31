@@ -4,6 +4,7 @@ import { getParticipatedBets } from '../api/bets';
 import { getLeaderboard } from '../api/leaderboard';
 import { getMyForfeits, completeForfeit } from '../api/forfeits';
 import type { Bet, LeaderboardEntry, UserForfeitEntry } from '../types';
+import { isAdmin } from '../types';
 import { formatDate } from '../utils/dates';
 
 const Profile: React.FC = () => {
@@ -83,7 +84,7 @@ const Profile: React.FC = () => {
             <h2 className="text-2xl font-black text-gray-900 dark:text-white">{user?.username}</h2>
             <p className="text-gray-500 dark:text-gray-400 text-sm">{user?.email}</p>
             <div className="flex items-center gap-2 mt-2">
-              {user?.role === 'ADMIN' && <span className="badge-admin">Admin</span>}
+              {isAdmin(user) && <span className="badge-admin">Admin</span>}
               {leaderboardEntry && (
                 <span className="text-sm text-wc-green dark:text-green-400 font-semibold">
                   #{leaderboardEntry.rank} au classement

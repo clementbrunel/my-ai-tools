@@ -2,12 +2,47 @@ export interface User {
   id: number;
   username: string;
   email: string;
-  role: 'ADMIN' | 'USER';
+  role: 'PLATFORM_ADMIN' | 'ADMIN' | 'USER';
   avatarUrl?: string;
   globalScore: number;
   betsWon: number;
   forfeitsReceived: number;
   createdAt?: string;
+}
+
+export const isAdmin = (user: User | null | undefined): boolean =>
+  user?.role === 'ADMIN' || user?.role === 'PLATFORM_ADMIN';
+
+export type GroupRole = 'GROUP_ADMIN' | 'MEMBER';
+
+export interface GroupMember {
+  id: number;
+  userId: number;
+  username: string;
+  avatarUrl?: string;
+  role: GroupRole;
+  joinedAt: string;
+}
+
+export interface Group {
+  id: number;
+  name: string;
+  description?: string;
+  inviteCode: string;
+  createdByUsername: string;
+  memberCount: number;
+  members: GroupMember[];
+  createdAt: string;
+  currentUserRole: GroupRole | null;
+}
+
+export interface CreateGroupRequest {
+  name: string;
+  description?: string;
+}
+
+export interface JoinGroupRequest {
+  inviteCode: string;
 }
 
 export interface Match {

@@ -30,6 +30,10 @@ public class DailyGage {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "group_id")
+    private Group group;
+
     /** The calendar day this gage belongs to. */
     @Column(name = "match_date", nullable = false, unique = true)
     private LocalDate matchDate;

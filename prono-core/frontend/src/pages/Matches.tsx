@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getMatches } from '../api/matches';
 import type { Match } from '../types';
+import { isAdmin } from '../types';
 import MatchCard from '../components/MatchCard';
 import { useAuth } from '../context/AuthContext';
+
 import { formatDate } from '../utils/dates';
 
 type FilterStatus = 'ALL' | 'UPCOMING' | 'FINISHED';
@@ -51,7 +53,7 @@ const Matches: React.FC = () => {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="page-title mb-0">⚽ Matchs</h1>
-        {user?.role === 'ADMIN' && (
+        {isAdmin(user) && (
           <Link to="/admin" className="btn-primary text-sm">
             + Nouveau match
           </Link>

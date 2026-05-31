@@ -15,6 +15,7 @@ import {
   removeCandidate,
 } from '../api/dailyGages';
 import type { Match, Forfeit, DailyGage } from '../types';
+import { isAdmin } from '../types';
 import { formatDate } from '../utils/dates';
 
 type AdminTab = 'matches' | 'forfeits';
@@ -60,7 +61,7 @@ const Admin: React.FC = () => {
   const [selectedForfeitForDg, setSelectedForfeitForDg] = useState<number | ''>('');
 
   useEffect(() => {
-    if (user?.role !== 'ADMIN') {
+    if (!isAdmin(user)) {
       navigate('/dashboard');
       return;
     }

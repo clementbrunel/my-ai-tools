@@ -1,4 +1,5 @@
 import type { LeaderboardEntry } from '../types';
+import { isAdmin } from '../types';
 
 interface LeaderboardRowProps {
   entry: LeaderboardEntry;
@@ -43,7 +44,7 @@ const LeaderboardRow: React.FC<LeaderboardRowProps> = ({ entry, isCurrentUser })
             {isCurrentUser && (
               <span className="ml-2 text-xs text-wc-green dark:text-green-400">(vous)</span>
             )}
-            {user.role === 'ADMIN' && (
+            {isAdmin(user) && (
               <span className="ml-2 badge-admin text-xs">Admin</span>
             )}
           </div>

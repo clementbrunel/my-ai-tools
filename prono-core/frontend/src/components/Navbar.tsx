@@ -1,5 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { isAdmin } from '../types';
 import { useState } from 'react';
 
 const Navbar: React.FC = () => {
@@ -23,6 +24,7 @@ const Navbar: React.FC = () => {
     { to: '/matches', label: '⚽ Matchs' },
     { to: '/gages', label: '🃏 Gages' },
     { to: '/leaderboard', label: '🏆 Classement' },
+    { to: '/group', label: '👥 Groupe' },
   ];
 
   return (
@@ -42,7 +44,7 @@ const Navbar: React.FC = () => {
                 {link.label}
               </Link>
             ))}
-            {user?.role === 'ADMIN' && (
+            {isAdmin(user) && (
               <Link to="/admin" className={`text-sm ${isActive('/admin')}`}>
                 ⚙️ Admin
               </Link>
@@ -65,7 +67,7 @@ const Navbar: React.FC = () => {
                     )}
                   </div>
                   <span className="text-sm font-medium">{user.username}</span>
-                  {user.role === 'ADMIN' && <span className="badge-admin">Admin</span>}
+                  {isAdmin(user) && <span className="badge-admin">Admin</span>}
                 </Link>
                 <button
                   onClick={handleLogout}
@@ -100,7 +102,7 @@ const Navbar: React.FC = () => {
                   {link.label}
                 </Link>
               ))}
-              {user?.role === 'ADMIN' && (
+              {isAdmin(user) && (
                 <Link
                   to="/admin"
                   className={`text-sm px-2 py-1 ${isActive('/admin')}`}

@@ -26,6 +26,10 @@ public class Bet {
     private String description;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "group_id")
+    private Group group;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "match_id")
     private Match match;
 
