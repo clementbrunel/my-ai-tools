@@ -7,9 +7,11 @@ import { updateAvatar, updatePassword } from '../api/users';
 import type { Bet, LeaderboardEntry, UserForfeitEntry } from '../types';
 import { isAdmin } from '../types';
 import { formatDate } from '../utils/dates';
+import { useToast } from '../components/Toast';
 
 const Profile: React.FC = () => {
   const { user, updateUser } = useAuth();
+  const { showToast } = useToast();
   const [myBets, setMyBets] = useState<Bet[]>([]);
   const [leaderboardEntry, setLeaderboardEntry] = useState<LeaderboardEntry | null>(null);
   const [myForfeits, setMyForfeits] = useState<UserForfeitEntry[]>([]);
@@ -60,7 +62,7 @@ const Profile: React.FC = () => {
         )
       );
     } catch {
-      alert('Erreur lors de la mise à jour du gage');
+      showToast('Erreur lors de la mise à jour du gage');
     } finally {
       setCompletingId(null);
     }

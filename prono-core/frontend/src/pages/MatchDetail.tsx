@@ -6,6 +6,7 @@ import { getDailyGagesByDate, voteOnCandidate } from '../api/dailyGages';
 import { useAuth } from '../context/AuthContext';
 import type { Match, Bet, BetParticipation, DailyGage } from '../types';
 import { formatDate, formatDateTime } from '../utils/dates';
+import { useToast } from '../components/Toast';
 import { getFlagUrl } from '../utils/countryFlags';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -51,6 +52,7 @@ const parseOption = (option: string, teamA: string, teamB: string): [string, str
 const MatchDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
+  const { showToast } = useToast();
 
   const [match, setMatch] = useState<Match | null>(null);
   const [bet, setBet] = useState<Bet | null>(null);
@@ -120,7 +122,7 @@ const MatchDetail: React.FC = () => {
       const updated = await voteOnCandidate(gageId, forfeitId, vote);
       setDayGages((prev) => prev.map((g) => (g.id === updated.id ? updated : g)));
     } catch {
-      alert('Erreur lors du vote');
+      showToast('Erreur lors du vote');
     }
   };
 

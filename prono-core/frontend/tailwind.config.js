@@ -20,6 +20,13 @@ export default {
       animation: {
         'bounce-slow': 'bounce 2s infinite',
         'pulse-gold': 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'toast-in': 'toast-in 0.2s ease-out',
+      },
+      keyframes: {
+        'toast-in': {
+          from: { opacity: '0', transform: 'translateY(8px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
       }
     },
   },
