@@ -1,3 +1,5 @@
+---
 ignore:
   paths:
-    - "prono-core/backend/src/main/resources/db/migration/"
+    - "prono-core/backend/src/main/resources/db/migration/V2__demo_data.sql"
+    - "prono-core/backend/src/main/resources/db/migration/V3__fix_passwords.sql"
