@@ -12,6 +12,13 @@ const categoryEmoji: Record<string, string> = {
   General: '🃏',
 };
 
+const GAGE_EMOJIS = [
+  '🎯','🃏','🤪','😬','🙈','🤡','🥵','🥴','😤','🤢',
+  '🫣','🫡','🤓','😈','👀','🫠','🤸','💃','🎤','🍕',
+  '🍺','🌶️','🎭','📸','🎬','🧃','🚀','🪄','🎲','🏆',
+];
+const DEFAULT_GAGE_EMOJI = '🎯';
+
 const Gages: React.FC = () => {
   const [forfeits, setForfeits] = useState<Forfeit[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
@@ -19,6 +26,7 @@ const Gages: React.FC = () => {
 
   // Propose form
   const [showPropose, setShowPropose] = useState(false);
+  const [propEmoji, setPropEmoji] = useState(DEFAULT_GAGE_EMOJI);
   const [propTitle, setPropTitle] = useState('');
   const [propDesc, setPropDesc] = useState('');
   const [propCategory, setPropCategory] = useState('General');
@@ -46,8 +54,10 @@ const Gages: React.FC = () => {
       return;
     }
     try {
-      const created = await proposeForfeit(propGroupId, propTitle, propDesc, propCategory);
+      const emoji = propEmoji || DEFAULT_GAGE_EMOJI;
+      const created = await proposeForfeit(propGroupId, `${emoji} ${propTitle}`, propDesc, propCategory);
       setForfeits((prev) => [...prev, created]);
+      setPropEmoji(DEFAULT_GAGE_EMOJI);
       setPropTitle('');
       setPropDesc('');
       setPropCategory('General');
@@ -93,15 +103,37 @@ const Gages: React.FC = () => {
           <h3 className="font-bold text-gray-900 dark:text-white mb-4">💡 Proposer un nouveau gage</h3>
           <form onSubmit={handlePropose} className="space-y-3">
             <div>
+              <label className="label">Icône</label>
+              <div className="flex flex-wrap gap-1.5 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                {GAGE_EMOJIS.map((e) => (
+                  <button
+                    key={e}
+                    type="button"
+                    onClick={() => setPropEmoji(e)}
+                    className={`text-xl w-9 h-9 flex items-center justify-center rounded-md transition-colors ${
+                      propEmoji === e
+                        ? 'bg-wc-green text-white shadow-sm'
+                        : 'hover:bg-gray-200 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    {e}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
               <label className="label">Titre *</label>
-              <input
-                type="text"
-                value={propTitle}
-                onChange={(e) => setPropTitle(e.target.value)}
-                className="input-field"
-                placeholder="Ex: Chanter une chanson en public"
-                required
-              />
+              <div className="flex items-center gap-2">
+                <span className="text-2xl w-9 text-center flex-shrink-0">{propEmoji}</span>
+                <input
+                  type="text"
+                  value={propTitle}
+                  onChange={(e) => setPropTitle(e.target.value)}
+                  className="input-field flex-1"
+                  placeholder="Ex: Chanter une chanson en public"
+                  required
+                />
+              </div>
             </div>
             <div>
               <label className="label">Description *</label>
