@@ -28,20 +28,24 @@ INSERT INTO users (username, email, password, role, global_score, bets_won, forf
 -- FORFEITS (bibliothèque de gages)
 -- ============================================================
 INSERT INTO forfeits (title, description, category, is_active) VALUES
-('🥐 Ramener les croissants',       'Le perdant apporte les croissants pour tout le groupe lors de la prochaine soirée.',                        'Nourriture',      TRUE),
-('📸 Photo ridicule imposée',        'Porter le maillot de l''équipe adverse et poster une photo sur le groupe WhatsApp.',                         'Humiliation',     TRUE),
-('🎤 Chanter l''hymne adverse',      'Enregistrer une vidéo en chantant l''hymne de l''équipe adverse et l''envoyer dans le groupe.',              'Spectacle',       TRUE),
-('🖼️ Changer sa photo de profil',   'Mettre une photo honteuse en photo de profil pendant 48h. Pas d''excuses.',                                  'Réseaux sociaux', TRUE),
-('👕 Porter un maillot honteux',     'Porter le maillot d''une équipe adverse pendant une journée entière, y compris au travail.',                 'Humiliation',     TRUE),
-('🎬 Vidéo gênante',                 'Se filmer en train de célébrer un but adverse et envoyer la vidéo dans le groupe.',                          'Spectacle',       TRUE),
-('🍺 Payer la tournée',              'Le perdant offre une tournée de boissons (soft ou alcool, au choix de chacun).',                             'Boissons',        TRUE),
-('💬 Message honteux',               'Envoyer un message de soutien à l''équipe adverse dans le groupe famille ou collègues.',                     'Réseaux sociaux', TRUE),
-('🕺 La danse de la victoire',       'Faire la danse de la victoire de l''équipe gagnante en vidéo et l''envoyer dans le groupe.',                 'Spectacle',       TRUE),
-('🗣️ Blague nulle obligatoire',      'Raconter une blague nulle sur le foot lors de la prochaine réunion ou apéro avec le groupe.',               'Humiliation',     TRUE),
-('🤳 Selfie avec un inconnu',        'Se prendre en photo avec un inconnu en portant des couleurs de l''équipe adverse.',                          'Humiliation',     TRUE),
-('📢 Cri de victoire en public',     'Pousser un cri de victoire pour l''équipe adverse dans un lieu public (centre commercial, etc.).',          'Spectacle',       TRUE);
--- IDs: 1=croissants, 2=photo ridicule, 3=hymne, 4=photo profil, 5=maillot,
---      6=vidéo, 7=tournée, 8=message, 9=danse, 10=blague, 11=selfie, 12=cri
+('🥐 Ramener les croissants',       'Le perdant apporte les croissants pour tout le groupe lors de la prochaine soirée.',                                                'Nourriture',      TRUE),
+('📸 Photo ridicule imposée',        'Porter le maillot de l''équipe adverse et poster une photo sur le groupe WhatsApp.',                                               'Humiliation',     TRUE),
+('🎤 Chanter l''hymne adverse',      'Enregistrer une vidéo en chantant l''hymne de l''équipe adverse et l''envoyer dans le groupe.',                                    'Spectacle',       TRUE),
+('🖼️ Changer sa photo de profil',   'Mettre une photo honteuse en photo de profil pendant 48h. Pas d''excuses.',                                                        'Réseaux sociaux', TRUE),
+('🎬 Vidéo gênante',                 'Se filmer en train de célébrer un but adverse et envoyer la vidéo dans le groupe.',                                                'Spectacle',       TRUE),
+('🍺 Payer la tournée',              'Le perdant offre une tournée de boissons (soft ou alcool, au choix de chacun).',                                                   'Boissons',        TRUE),
+('🗣️ Blague nulle obligatoire',      'Raconter une blague nulle sur le foot lors de la prochaine réunion ou apéro avec le groupe.',                                     'Humiliation',     TRUE),
+('☕ Payer le café du bureau',        'Le perdant offre le café (ou thé, jus) à toute l''équipe au bureau le lendemain matin.',                                          'Nourriture',      TRUE),
+('🖥️ Fond d''écran honteux',         'Mettre une photo de l''équipe adverse en fond d''écran de son ordinateur au bureau pendant 1 journée entière.',                   'Humiliation',     TRUE),
+('📝 Signature mail honteuse',        'Ajouter "Supporter honteux de [équipe adverse]" dans sa signature email professionnelle pendant 24h.',                            'Réseaux sociaux', TRUE),
+('🎙️ Discours de défaite',           'Enregistrer un message vocal de 30 secondes faisant l''éloge de l''équipe gagnante et l''envoyer dans le groupe.',                'Spectacle',       TRUE),
+('🗳️ Compliment forcé',              'Envoyer un message dans le groupe listant 3 raisons pour lesquelles l''équipe adverse méritait de gagner.',                       'Humiliation',     TRUE),
+('📊 Slide de la honte',             'Créer une diapositive "Les 3 qualités de l''équipe adverse" et la partager dans le groupe.',                                      'Spectacle',       TRUE),
+('🏅 Photo de profil adverse',        'Mettre en photo de profil WhatsApp (ou autre réseau) le logo de l''équipe gagnante pendant 48h.',                                 'Réseaux sociaux', TRUE),
+('🧠 Quiz foot raté',                 'Répondre à 5 questions sur l''histoire de l''équipe adverse posées par les autres membres, en direct dans le groupe.',            'Humiliation',     TRUE);
+-- IDs: 1=croissants, 2=photo ridicule, 3=hymne, 4=photo profil, 5=vidéo,
+--      6=tournée, 7=blague, 8=café bureau, 9=fond écran, 10=signature mail,
+--      11=discours défaite, 12=compliment forcé, 13=slide honte, 14=photo profil adverse, 15=quiz
 
 -- ============================================================
 -- MATCHES — Phase de Groupes FIFA World Cup 2026
