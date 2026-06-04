@@ -38,7 +38,7 @@ const Navbar: React.FC = () => {
     { to: '/matches', label: '⚽ Matchs' },
     { to: '/gages', label: '🃏 Gages' },
     { to: '/leaderboard', label: '🏆 Classement' },
-    { to: '/group', label: '👥 Groupe' },
+    { to: '/groups', label: '👥 Groupe' },
   ];
 
   return (
