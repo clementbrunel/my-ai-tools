@@ -17,6 +17,10 @@ spring:
     locations: classpath:db/migration
     repair-on-migrate: true   # auto-repair checksum mismatches (safe for dev; migrations were edited after apply)
 
+app:
+  demo:
+    password: ${DEMO_PASSWORD:prono2026}
+
 jwt:
   secret: ${JWT_SECRET:mySecretKey1234567890123456789012345678901234}
   expiration: 86400000
