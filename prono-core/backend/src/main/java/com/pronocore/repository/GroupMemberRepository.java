@@ -2,6 +2,8 @@ package com.pronocore.repository;
 
 import com.pronocore.entity.GroupMember;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -23,4 +25,7 @@ public interface GroupMemberRepository extends JpaRepository<GroupMember, Long> 
     List<GroupMember> findByUserIdAndStatus(Long userId, GroupMember.MemberStatus status);
 
     long countByGroupIdAndStatus(Long groupId, GroupMember.MemberStatus status);
+
+    @Query("SELECT gm FROM GroupMember gm JOIN FETCH gm.group WHERE gm.group.id IN :groupIds")
+    List<GroupMember> findByGroupIdIn(@Param("groupIds") List<Long> groupIds);
 }
