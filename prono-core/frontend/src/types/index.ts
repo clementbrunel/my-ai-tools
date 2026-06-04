@@ -177,6 +177,11 @@ export interface OpenBettingRequest {
   matchId: number;
 }
 
+export interface OpenCompetitionRequest {
+  groupId: number;
+  competition: string;
+}
+
 export interface CreateMatchRequest {
   teamA: string;
   teamB: string;

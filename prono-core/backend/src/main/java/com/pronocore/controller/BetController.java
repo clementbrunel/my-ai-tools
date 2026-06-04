@@ -2,6 +2,7 @@ package com.pronocore.controller;
 
 import com.pronocore.dto.request.CreateBetRequest;
 import com.pronocore.dto.request.OpenBettingRequest;
+import com.pronocore.dto.request.OpenCompetitionRequest;
 import com.pronocore.dto.request.ParticipateRequest;
 import com.pronocore.dto.response.BetParticipationResponse;
 import com.pronocore.dto.response.BetResponse;
@@ -58,6 +59,16 @@ public class BetController {
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(betService.openMatchForBetting(request.getGroupId(), request.getMatchId(),
                                                  authentication.getName()));
+    }
+
+    @PostMapping("/open-competition")
+    @Operation(summary = "Open every match of a competition for betting in a group (group admin only)")
+    public ResponseEntity<List<BetResponse>> openCompetitionForBetting(
+            @Valid @RequestBody OpenCompetitionRequest request,
+            Authentication authentication) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(betService.openCompetitionForBetting(request.getGroupId(), request.getCompetition(),
+                                                       authentication.getName()));
     }
 
     @PostMapping

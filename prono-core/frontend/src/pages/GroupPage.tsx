@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   getMyGroups, getPublicGroups, createGroup, joinGroup, applyToGroup,
   approveApplication, rejectApplication, updateGroupPrivacy,
@@ -380,6 +381,17 @@ const GroupPage: React.FC = () => {
                             }`}
                           />
                         </button>
+                      </div>
+                      <div className="flex items-center justify-between pt-1">
+                        <div>
+                          <p className="text-sm text-gray-700 dark:text-gray-300 font-medium">Paris du groupe</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            Ouvrez des matchs aux paris (par compétition)
+                          </p>
+                        </div>
+                        <Link to="/open-betting" className="btn-primary text-xs whitespace-nowrap">
+                          🎲 Ouvrir aux paris
+                        </Link>
                       </div>
                     </div>
                   )}

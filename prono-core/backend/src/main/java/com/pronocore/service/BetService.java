@@ -95,18 +95,39 @@ public class BetService {
             throw new IllegalStateException("This match is already open for betting in this group");
         }
 
-        Bet bet = Bet.builder()
+        return toBetResponseWithCount(betRepository.save(buildScoreBet(match, group, requester)));
+    }
+
+    /**
+     * Open every match of a competition for betting in the group, in one action.
+     * Matches already open in the group are skipped (idempotent), so the admin can
+     * re-run it after new matches are added. Returns only the newly created bets.
+     */
+    @Transactional
+    public List<BetResponse> openCompetitionForBetting(Long groupId, String competition, String username) {
+        User requester = requireUser(username);
+        requireGroupAdmin(groupId, requester.getId());
+
+        Group group = groupRepository.findById(groupId)
+            .orElseThrow(() -> new EntityNotFoundException("Group not found: " + groupId));
+
+        return matchRepository.findByCompetitionOrderByMatchDateAsc(competition).stream()
+            .filter(match -> !betRepository.existsByMatchIdAndGroupId(match.getId(), groupId))
+            .map(match -> toBetResponseWithCount(betRepository.save(buildScoreBet(match, group, requester))))
+            .toList();
+    }
+
+    private Bet buildScoreBet(Match match, Group group, User creator) {
+        return Bet.builder()
             .title(match.getTeamA() + " vs " + match.getTeamB())
             .betType(Bet.BetType.SCORE)
             .points(10)
             .deadline(match.getMatchDate())   // deadline = kick-off time
             .status(Bet.Status.OPEN)
-            .creator(requester)
+            .creator(creator)
             .group(group)
             .match(match)
             .build();
-
-        return toBetResponseWithCount(betRepository.save(bet));
     }
 
     /**

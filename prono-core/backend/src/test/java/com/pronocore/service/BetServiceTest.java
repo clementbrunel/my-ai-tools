@@ -126,6 +126,41 @@ class BetServiceTest {
         verify(betRepository, never()).save(any());
     }
 
+    @Test
+    void openCompetitionForBetting_opensOnlyMatchesNotYetOpenInGroup() {
+        Match m1 = Match.builder().id(10L).teamA("France").teamB("Brésil")
+            .matchDate(LocalDateTime.now().plusHours(2)).competition("World Cup").build();
+        Match m2 = Match.builder().id(11L).teamA("Italie").teamB("Espagne")
+            .matchDate(LocalDateTime.now().plusHours(4)).competition("World Cup").build();
+
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+        stubActiveMember(GroupMember.GroupRole.GROUP_ADMIN);
+        when(groupRepository.findById(7L)).thenReturn(Optional.of(testGroup));
+        when(matchRepository.findByCompetitionOrderByMatchDateAsc("World Cup")).thenReturn(List.of(m1, m2));
+        // m1 already open in the group → skipped; m2 is created
+        when(betRepository.existsByMatchIdAndGroupId(10L, 7L)).thenReturn(true);
+        when(betRepository.existsByMatchIdAndGroupId(11L, 7L)).thenReturn(false);
+        when(betRepository.save(any(Bet.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(betMapper.toResponse(any(Bet.class))).thenReturn(BetResponse.builder().id(99L).build());
+        when(betRepository.countParticipationsByBetId(any())).thenReturn(0L);
+
+        List<BetResponse> created = betService.openCompetitionForBetting(7L, "World Cup", "testuser");
+
+        assertThat(created).hasSize(1);
+        verify(betRepository, times(1)).save(argThat(b -> b.getMatch() == m2 && b.getGroup() == testGroup));
+        verify(betRepository, never()).save(argThat(b -> b.getMatch() == m1));
+    }
+
+    @Test
+    void openCompetitionForBetting_forbiddenWhenNotGroupAdmin() {
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+        stubActiveMember(GroupMember.GroupRole.MEMBER);
+
+        assertThatThrownBy(() -> betService.openCompetitionForBetting(7L, "World Cup", "testuser"))
+            .isInstanceOf(AccessDeniedException.class);
+        verify(betRepository, never()).save(any());
+    }
+
     // ── createBet ───────────────────────────────────────────────────────────────
 
     @Test
