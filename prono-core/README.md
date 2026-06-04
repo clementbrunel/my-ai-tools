@@ -123,6 +123,7 @@ prono-core/
 
 ### Gages
 - Catalogue de gages fun (maillot adverse, chanson, photo ridicule...)
+- **Gages partagés** (créés par l'admin, visibles par tous les groupes) + **gages de groupe** (ajouts des joueurs, privés à leur groupe)
 - Attribution manuelle (Admin) ou automatique à la validation
 - Suivi de completion
 

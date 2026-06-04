@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { useAuth } from '../context/AuthContext';
 import { getForfeits, proposeForfeit } from '../api/forfeits';
-import type { Forfeit } from '../types';
+import { getMyGroups } from '../api/groups';
+import type { Forfeit, Group } from '../types';
 
 const categoryEmoji: Record<string, string> = {
   Nourriture: '🥐',
@@ -13,8 +13,8 @@ const categoryEmoji: Record<string, string> = {
 };
 
 const Gages: React.FC = () => {
-  const { user } = useAuth();
   const [forfeits, setForfeits] = useState<Forfeit[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Propose form
@@ -22,12 +22,17 @@ const Gages: React.FC = () => {
   const [propTitle, setPropTitle] = useState('');
   const [propDesc, setPropDesc] = useState('');
   const [propCategory, setPropCategory] = useState('General');
+  const [propGroupId, setPropGroupId] = useState<number | ''>('');
   const [propError, setPropError] = useState('');
   const [propSuccess, setPropSuccess] = useState('');
 
   useEffect(() => {
-    getForfeits()
-      .then(setForfeits)
+    Promise.all([getForfeits(), getMyGroups()])
+      .then(([f, g]) => {
+        setForfeits(f);
+        setGroups(g);
+        if (g.length > 0) setPropGroupId(g[0].id);
+      })
       .catch(console.error)
       .finally(() => setIsLoading(false));
   }, []);
@@ -36,13 +41,17 @@ const Gages: React.FC = () => {
     e.preventDefault();
     setPropError('');
     setPropSuccess('');
+    if (propGroupId === '') {
+      setPropError('Choisissez un groupe pour ce gage.');
+      return;
+    }
     try {
-      const created = await proposeForfeit(propTitle, propDesc, propCategory);
+      const created = await proposeForfeit(propGroupId, propTitle, propDesc, propCategory);
       setForfeits((prev) => [...prev, created]);
       setPropTitle('');
       setPropDesc('');
       setPropCategory('General');
-      setPropSuccess('✅ Gage proposé avec succès !');
+      setPropSuccess('✅ Gage ajouté à votre groupe !');
       setShowPropose(false);
     } catch {
       setPropError('Erreur lors de la proposition du gage');
@@ -116,6 +125,29 @@ const Gages: React.FC = () => {
                 ))}
               </select>
             </div>
+            <div>
+              <label className="label">Groupe</label>
+              {groups.length === 0 ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Rejoignez un groupe pour pouvoir ajouter un gage.
+                </p>
+              ) : (
+                <>
+                  <select
+                    value={propGroupId}
+                    onChange={(e) => setPropGroupId(Number(e.target.value))}
+                    className="input-field"
+                  >
+                    {groups.map((g) => (
+                      <option key={g.id} value={g.id}>{g.name}</option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Ce gage restera privé à ce groupe.
+                  </p>
+                </>
+              )}
+            </div>
             {propError && <p className="text-red-500 text-sm">{propError}</p>}
             <div className="flex gap-3 pt-2">
               <button type="button" onClick={() => setShowPropose(false)} className="btn-secondary flex-1">
@@ -154,6 +186,15 @@ const Gages: React.FC = () => {
                       </span>
                     )}
                   </div>
+                  <span
+                    className={`self-start text-xs px-2 py-0.5 rounded-full font-medium ${
+                      forfeit.groupId
+                        ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                    }`}
+                  >
+                    {forfeit.groupId ? `🔒 ${forfeit.groupName}` : '🌍 Partagé'}
+                  </span>
                   <p className="text-sm text-gray-600 dark:text-gray-400">{forfeit.description}</p>
                   {forfeit.proposedByUsername && (
                     <p className="text-xs text-gray-400 dark:text-gray-500 mt-auto">

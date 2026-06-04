@@ -107,6 +107,9 @@ export interface Forfeit {
   isActive: boolean;
   timesCompleted: number;
   proposedByUsername?: string;
+  /** null = shared gage (visible to all groups); set = belongs to that group only */
+  groupId?: number | null;
+  groupName?: string | null;
 }
 
 export interface UserForfeitEntry {

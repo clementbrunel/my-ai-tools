@@ -26,4 +26,8 @@ public class ForfeitResponse {
 
     /** Username of the player who proposed this gage (null = admin-created). */
     private String proposedByUsername;
+
+    /** Null = shared gage (visible to all groups). Non-null = belongs to that group only. */
+    private Long groupId;
+    private String groupName;
 }

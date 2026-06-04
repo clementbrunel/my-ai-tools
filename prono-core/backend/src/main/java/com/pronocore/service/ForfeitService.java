@@ -3,9 +3,12 @@ package com.pronocore.service;
 import com.pronocore.dto.response.ForfeitResponse;
 import com.pronocore.dto.response.UserForfeitResponse;
 import com.pronocore.entity.Forfeit;
+import com.pronocore.entity.Group;
+import com.pronocore.entity.GroupMember;
 import com.pronocore.entity.User;
 import com.pronocore.entity.UserForfeit;
 import com.pronocore.repository.ForfeitRepository;
+import com.pronocore.repository.GroupMemberRepository;
 import com.pronocore.repository.UserForfeitRepository;
 import com.pronocore.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -25,16 +28,31 @@ public class ForfeitService {
     private final ForfeitRepository    forfeitRepository;
     private final UserForfeitRepository userForfeitRepository;
     private final UserRepository       userRepository;
+    private final GroupMemberRepository groupMemberRepository;
 
     // ---------------------------------------------------------------
     // Forfeit library queries
     // ---------------------------------------------------------------
 
+    /**
+     * Library visible to the caller: shared gages (group=null) plus the gages
+     * owned by the groups the caller is an ACTIVE member of.
+     */
     @Transactional(readOnly = true)
-    public List<ForfeitResponse> getAllForfeits() {
-        return forfeitRepository.findByActiveTrue().stream()
-                .map(this::toForfeitResponse)
+    public List<ForfeitResponse> getForfeitsForUser(String username) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
+
+        List<Long> groupIds = groupMemberRepository
+                .findByUserIdAndStatus(user.getId(), GroupMember.MemberStatus.ACTIVE).stream()
+                .map(m -> m.getGroup().getId())
                 .toList();
+
+        List<Forfeit> visible = groupIds.isEmpty()
+                ? forfeitRepository.findByActiveTrueAndGroupIsNullOrderById()
+                : forfeitRepository.findActiveVisibleToGroups(groupIds);
+
+        return visible.stream().map(this::toForfeitResponse).toList();
     }
 
     @Transactional(readOnly = true)
@@ -61,14 +79,17 @@ public class ForfeitService {
     }
 
     /**
-     * Any authenticated player proposes a new gage.
-     * It is immediately visible to everyone (active=true, proposedBy=user).
+     * A player proposes a new gage inside one of their groups.
+     * It is kept private to that group (group=groupId) and immediately visible
+     * to the group's members.
      */
     @Transactional
-    public ForfeitResponse proposeForfeit(String title, String description, String category) {
+    public ForfeitResponse proposeForfeit(Long groupId, String title, String description, String category) {
         String username = currentUsername();
         User proposer = userRepository.findByUsername(username)
                 .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
+
+        Group group = requireActiveMembership(groupId, proposer.getId()).getGroup();
 
         Forfeit forfeit = Forfeit.builder()
                 .title(title)
@@ -76,6 +97,7 @@ public class ForfeitService {
                 .category(category != null ? category : "General")
                 .active(true)
                 .proposedBy(proposer)
+                .group(group)
                 .build();
         return toForfeitResponse(forfeitRepository.save(forfeit));
     }
@@ -192,7 +214,18 @@ public class ForfeitService {
                 .isActive(f.isActive())
                 .timesCompleted(f.getTimesCompleted())
                 .proposedByUsername(f.getProposedBy() != null ? f.getProposedBy().getUsername() : null)
+                .groupId(f.getGroup() != null ? f.getGroup().getId() : null)
+                .groupName(f.getGroup() != null ? f.getGroup().getName() : null)
                 .build();
+    }
+
+    private GroupMember requireActiveMembership(Long groupId, Long userId) {
+        GroupMember member = groupMemberRepository.findByGroupIdAndUserId(groupId, userId)
+                .orElseThrow(() -> new AccessDeniedException("You are not a member of this group"));
+        if (member.getStatus() != GroupMember.MemberStatus.ACTIVE) {
+            throw new AccessDeniedException("Your membership in this group is pending approval");
+        }
+        return member;
     }
 
     private UserForfeitResponse toUserForfeitResponse(UserForfeit uf) {
