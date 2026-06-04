@@ -16,6 +16,28 @@ public interface BetRepository extends JpaRepository<Bet, Long> {
 
     List<Bet> findByMatchIdAndStatusOrderByCreatedAtDesc(Long matchId, Bet.Status status);
 
+    boolean existsByMatchIdAndGroupId(Long matchId, Long groupId);
+
+    /** Bets belonging to any group the user is an ACTIVE member of. */
+    @Query("""
+            SELECT b FROM Bet b
+            JOIN GroupMember gm ON gm.group = b.group
+            WHERE gm.user.id = :userId AND gm.status = com.pronocore.entity.GroupMember.MemberStatus.ACTIVE
+            ORDER BY b.createdAt DESC
+            """)
+    List<Bet> findAllInUserActiveGroups(@Param("userId") Long userId);
+
+    /** Bets for a given match, restricted to the user's ACTIVE groups. */
+    @Query("""
+            SELECT b FROM Bet b
+            JOIN GroupMember gm ON gm.group = b.group
+            WHERE b.match.id = :matchId
+              AND gm.user.id = :userId
+              AND gm.status = com.pronocore.entity.GroupMember.MemberStatus.ACTIVE
+            ORDER BY b.createdAt DESC
+            """)
+    List<Bet> findByMatchIdInUserActiveGroups(@Param("matchId") Long matchId, @Param("userId") Long userId);
+
     List<Bet> findByStatusOrderByCreatedAtDesc(Bet.Status status);
 
     List<Bet> findAllByOrderByCreatedAtDesc();

@@ -77,6 +77,8 @@ export interface Bet {
   id: number;
   title: string;
   description?: string;
+  groupId: number;
+  groupName: string;
   match?: Match;
   creator: User;
   betType: 'SCORE' | 'EVENT' | 'FORFEIT' | 'FREE';
@@ -165,8 +167,14 @@ export interface CreateBetRequest {
   title: string;
   description?: string;
   matchId: number;
+  groupId: number;
   betType: 'SCORE';
   points: number;
+}
+
+export interface OpenBettingRequest {
+  groupId: number;
+  matchId: number;
 }
 
 export interface CreateMatchRequest {

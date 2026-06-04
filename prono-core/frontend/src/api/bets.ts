@@ -1,5 +1,5 @@
 import apiClient from './axios';
-import type { Bet, BetParticipation, CreateBetRequest } from '../types';
+import type { Bet, BetParticipation, CreateBetRequest, OpenBettingRequest } from '../types';
 
 export const getBets = async (): Promise<Bet[]> => {
   const response = await apiClient.get<Bet[]>('/bets');
@@ -23,6 +23,12 @@ export const getBetsByMatch = async (matchId: number): Promise<Bet[]> => {
 
 export const createBet = async (data: CreateBetRequest): Promise<Bet> => {
   const response = await apiClient.post<Bet>('/bets', data);
+  return response.data;
+};
+
+/** Group admin opens a (global) match for betting in their group. */
+export const openMatchForBetting = async (data: OpenBettingRequest): Promise<Bet> => {
+  const response = await apiClient.post<Bet>('/bets/open', data);
   return response.data;
 };
 

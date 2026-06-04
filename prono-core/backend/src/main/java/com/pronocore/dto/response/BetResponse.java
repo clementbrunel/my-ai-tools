@@ -17,6 +17,8 @@ public class BetResponse {
     private Long id;
     private String title;
     private String description;
+    private Long groupId;
+    private String groupName;
     private MatchResponse match;
     private UserResponse creator;
     private Bet.BetType betType;
