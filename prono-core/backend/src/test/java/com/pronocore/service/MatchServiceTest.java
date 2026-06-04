@@ -1,14 +1,17 @@
 package com.pronocore.service;
 
+import com.pronocore.dto.request.CreateMatchRequest;
 import com.pronocore.dto.request.UpdateMatchScoreRequest;
 import com.pronocore.dto.response.MatchResponse;
 import com.pronocore.entity.*;
 import com.pronocore.mapper.MatchMapper;
 import com.pronocore.repository.*;
+import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -218,6 +221,56 @@ class MatchServiceTest {
 
         // Settlement repositories must never be touched
         verifyNoInteractions(betRepository, betParticipationRepository);
+    }
+
+    // ── createMatch ───────────────────────────────────────────────────────────
+
+    /**
+     * createMatch auto-creates a SCORE bet tied to the new match.
+     * The bet title must be "TeamA vs TeamB", deadline = matchDate,
+     * points = 10, type = SCORE, status = OPEN.
+     */
+    @Test
+    void createMatch_shouldAutoCreateBetWithCorrectDefaults() {
+        LocalDateTime matchDate = LocalDateTime.of(2026, 6, 14, 20, 0);
+
+        CreateMatchRequest req = new CreateMatchRequest();
+        req.setTeamA("France");
+        req.setTeamB("Brésil");
+        req.setMatchDate(matchDate);
+
+        User adminUser = user(1L, "admin", 0);
+        Match savedMatch = Match.builder()
+                .id(1L).teamA("France").teamB("Brésil").matchDate(matchDate)
+                .competition("FIFA World Cup 2026").round("Group Stage")
+                .status(Match.Status.UPCOMING).build();
+
+        when(userRepository.findByUsername("admin")).thenReturn(Optional.of(adminUser));
+        when(matchRepository.save(any(Match.class))).thenReturn(savedMatch);
+        when(betRepository.save(any(Bet.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(matchMapper.toResponse(any(Match.class))).thenReturn(MatchResponse.builder().build());
+
+        matchService.createMatch(req);
+
+        ArgumentCaptor<Bet> betCaptor = ArgumentCaptor.forClass(Bet.class);
+        verify(betRepository).save(betCaptor.capture());
+        Bet createdBet = betCaptor.getValue();
+        assertThat(createdBet.getTitle()).isEqualTo("France vs Brésil");
+        assertThat(createdBet.getBetType()).isEqualTo(Bet.BetType.SCORE);
+        assertThat(createdBet.getPoints()).isEqualTo(10);
+        assertThat(createdBet.getStatus()).isEqualTo(Bet.Status.OPEN);
+        assertThat(createdBet.getDeadline()).isEqualTo(matchDate);
+    }
+
+    // ── deleteMatch ───────────────────────────────────────────────────────────
+
+    @Test
+    void deleteMatch_shouldThrowWhenMatchNotFound() {
+        when(matchRepository.existsById(99L)).thenReturn(false);
+
+        assertThatThrownBy(() -> matchService.deleteMatch(99L))
+                .isInstanceOf(EntityNotFoundException.class)
+                .hasMessageContaining("99");
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────
