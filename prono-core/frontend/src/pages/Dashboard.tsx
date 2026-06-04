@@ -8,9 +8,11 @@ import type { GroupRankEntry } from '../api/dashboard';
 import { getDailyGagesByDate, voteOnCandidate } from '../api/dailyGages';
 import type { Match, LeaderboardEntry, DailyGage } from '../types';
 import MatchCard from '../components/MatchCard';
+import { useToast } from '../components/Toast';
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
+  const { showToast } = useToast();
   const [matches, setMatches] = useState<Match[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [todayGages, setTodayGages] = useState<DailyGage[]>([]);
@@ -53,7 +55,7 @@ const Dashboard: React.FC = () => {
       const updated = await voteOnCandidate(gageId, forfeitId, vote);
       setTodayGages((prev) => prev.map((g) => (g.id === updated.id ? updated : g)));
     } catch {
-      alert('Erreur lors du vote');
+      showToast('Erreur lors du vote');
     }
   };
 

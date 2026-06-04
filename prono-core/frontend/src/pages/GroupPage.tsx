@@ -12,6 +12,7 @@ import {
 import DailyGagePanel from '../components/DailyGagePanel';
 import type { Group, PublicGroup, Forfeit } from '../types';
 import { useAuth } from '../context/AuthContext';
+import ConfirmModal from '../components/ConfirmModal';
 
 type Tab = 'mine' | 'discover';
 type AdminSection = 'forfeits' | 'daily-gages';
@@ -24,6 +25,13 @@ const GroupPage: React.FC = () => {
   const [publicGroups, setPublicGroups] = useState<PublicGroup[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    title: string;
+    message: string;
+    confirmLabel?: string;
+    variant?: 'danger' | 'default';
+    onConfirm: () => void;
+  } | null>(null);
 
   // Create group form
   const [showCreate, setShowCreate] = useState(false);
@@ -163,17 +171,25 @@ const GroupPage: React.FC = () => {
     }
   };
 
-  const handleLeave = async (groupId: number) => {
-    if (!confirm('Quitter ce groupe ?')) return;
-    try {
-      await leaveGroup(groupId);
-      setGroups((prev) => prev.filter((g) => g.id !== groupId));
-      setPublicGroups((prev) =>
-        prev.map((pg) => pg.id === groupId ? { ...pg, currentUserStatus: null } : pg)
-      );
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Erreur lors de la sortie du groupe');
-    }
+  const handleLeave = (groupId: number) => {
+    setConfirmDialog({
+      title: 'Quitter le groupe',
+      message: 'Êtes-vous sûr de vouloir quitter ce groupe ?',
+      confirmLabel: 'Quitter',
+      variant: 'danger',
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        try {
+          await leaveGroup(groupId);
+          setGroups((prev) => prev.filter((g) => g.id !== groupId));
+          setPublicGroups((prev) =>
+            prev.map((pg) => pg.id === groupId ? { ...pg, currentUserStatus: null } : pg)
+          );
+        } catch (err: unknown) {
+          setError(err instanceof Error ? err.message : 'Erreur lors de la sortie du groupe');
+        }
+      },
+    });
   };
 
   const handleApprove = async (groupId: number, userId: number) => {
@@ -256,20 +272,28 @@ const GroupPage: React.FC = () => {
     }
   };
 
-  const handleRemove = async (groupId: number, userId: number, username: string) => {
-    if (!confirm(`Exclure ${username} du groupe ?`)) return;
-    try {
-      await removeMember(groupId, userId);
-      setGroups((prev) =>
-        prev.map((g) =>
-          g.id !== groupId
-            ? g
-            : { ...g, members: g.members.filter((m) => m.userId !== userId), memberCount: g.memberCount - 1 }
-        )
-      );
-    } catch {
-      setError("Erreur lors de l'exclusion");
-    }
+  const handleRemove = (groupId: number, userId: number, username: string) => {
+    setConfirmDialog({
+      title: 'Exclure un membre',
+      message: `Êtes-vous sûr de vouloir exclure ${username} du groupe ?`,
+      confirmLabel: 'Exclure',
+      variant: 'danger',
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        try {
+          await removeMember(groupId, userId);
+          setGroups((prev) =>
+            prev.map((g) =>
+              g.id !== groupId
+                ? g
+                : { ...g, members: g.members.filter((m) => m.userId !== userId), memberCount: g.memberCount - 1 }
+            )
+          );
+        } catch {
+          setError("Erreur lors de l'exclusion");
+        }
+      },
+    });
   };
 
   const copyCode = (code: string) => {
@@ -753,6 +777,15 @@ const GroupPage: React.FC = () => {
           )}
         </>
       )}
+      <ConfirmModal
+        isOpen={confirmDialog !== null}
+        title={confirmDialog?.title ?? ''}
+        message={confirmDialog?.message ?? ''}
+        confirmLabel={confirmDialog?.confirmLabel}
+        variant={confirmDialog?.variant}
+        onConfirm={() => confirmDialog?.onConfirm()}
+        onCancel={() => setConfirmDialog(null)}
+      />
     </div>
   );
 };

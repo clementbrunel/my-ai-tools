@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import ConfirmModal from '../components/ConfirmModal';
+import { useToast } from '../components/Toast';
 import { useAuth } from '../context/AuthContext';
 import { getMatches, createMatch, updateMatchScore, getCompetitions } from '../api/matches';
 import { getAllForfeitsAdmin, createForfeit, deleteForfeit } from '../api/forfeits';
@@ -14,6 +16,14 @@ type AdminTab = 'matches' | 'forfeits';
 const Admin: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { showToast } = useToast();
+  const [confirmDialog, setConfirmDialog] = useState<{
+    title: string;
+    message: string;
+    confirmLabel?: string;
+    variant?: 'danger' | 'default';
+    onConfirm: () => void;
+  } | null>(null);
   const [activeTab, setActiveTab] = useState<AdminTab>('matches');
   const [matches, setMatches] = useState<Match[]>([]);
   const [forfeits, setForfeits] = useState<Forfeit[]>([]);
@@ -112,7 +122,7 @@ const Admin: React.FC = () => {
       });
       setMatches(matches.map((m) => (m.id === updated.id ? updated : m)));
       setEditingMatch(null);
-    } catch { alert('Erreur lors de la mise à jour du score'); }
+    } catch { showToast('Erreur lors de la mise à jour du score'); }
   };
 
   // ---- Forfeit library handlers ----
@@ -127,12 +137,20 @@ const Admin: React.FC = () => {
     } catch { setForfeitError('Erreur lors de la création'); }
   };
 
-  const handleDeleteForfeit = async (id: number) => {
-    if (!confirm('Désactiver ce gage ?')) return;
-    try {
-      await deleteForfeit(id);
-      setForfeits(forfeits.map((f) => f.id === id ? { ...f, isActive: false } : f));
-    } catch { alert('Erreur'); }
+  const handleDeleteForfeit = (id: number) => {
+    setConfirmDialog({
+      title: 'Désactiver le gage',
+      message: 'Êtes-vous sûr de vouloir désactiver ce gage ?',
+      confirmLabel: 'Désactiver',
+      variant: 'danger',
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        try {
+          await deleteForfeit(id);
+          setForfeits(forfeits.map((f) => f.id === id ? { ...f, isActive: false } : f));
+        } catch { showToast('Erreur'); }
+      },
+    });
   };
 
   if (isLoading) {
@@ -430,6 +448,16 @@ const Admin: React.FC = () => {
           </section>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={confirmDialog !== null}
+        title={confirmDialog?.title ?? ''}
+        message={confirmDialog?.message ?? ''}
+        confirmLabel={confirmDialog?.confirmLabel}
+        variant={confirmDialog?.variant}
+        onConfirm={() => confirmDialog?.onConfirm()}
+        onCancel={() => setConfirmDialog(null)}
+      />
 
       {/* Score Update Modal */}
       {editingMatch && (
