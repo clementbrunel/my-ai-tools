@@ -507,7 +507,9 @@ const Admin: React.FC = () => {
                             className="input-field flex-1 min-w-[180px]"
                           >
                             <option value="">— Choisir un gage —</option>
-                            {forfeits.filter((f) => f.isActive).map((f) => (
+                            {forfeits
+                              .filter((f) => f.isActive && (!f.groupId || f.groupId === Number(dgGroupId)))
+                              .map((f) => (
                               <option key={f.id} value={f.id}>{f.title}</option>
                             ))}
                           </select>
@@ -575,9 +577,12 @@ const Admin: React.FC = () => {
             )}
           </section>
 
-          {/* --- Section 2: Bibliotheque de gages --- */}
+          {/* --- Section 2: Bibliotheque de gages (gages partagés uniquement) --- */}
           <section className="space-y-4">
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">📚 Bibliothèque de gages</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Ces gages sont partagés entre tous les groupes. Les gages proposés par les joueurs sont gérés par l'admin de leur groupe.
+            </p>
 
             {/* Create forfeit form */}
             <div className="card">
@@ -636,7 +641,7 @@ const Admin: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {forfeits.map((f) => (
+                    {forfeits.filter((f) => !f.groupId).map((f) => (
                       <tr
                         key={f.id}
                         className={`border-b border-gray-100 dark:border-gray-700 ${

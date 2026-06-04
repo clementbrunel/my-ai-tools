@@ -25,4 +25,10 @@ public interface ForfeitRepository extends JpaRepository<Forfeit, Long> {
             ORDER BY f.id
             """)
     List<Forfeit> findActiveVisibleToGroups(@Param("groupIds") List<Long> groupIds);
+
+    /** Active group-specific forfeits for a single group. */
+    List<Forfeit> findByActiveTrueAndGroupIdOrderById(Long groupId);
+
+    /** Pending (inactive, awaiting group admin approval) forfeits proposed for a group. */
+    List<Forfeit> findByActiveFalseAndGroupIdOrderById(Long groupId);
 }
