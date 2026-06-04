@@ -181,14 +181,23 @@ public class GroupService {
         GroupMember member = groupMemberRepository.findByGroupIdAndUserId(groupId, user.getId())
             .orElseThrow(() -> new IllegalArgumentException("Not a member of this group"));
 
-        if (member.getStatus() == GroupMember.MemberStatus.ACTIVE
-                && member.getRole() == GroupMember.GroupRole.GROUP_ADMIN) {
-            long adminCount = groupMemberRepository
-                .findByGroupIdAndStatus(groupId, GroupMember.MemberStatus.ACTIVE).stream()
-                .filter(m -> m.getRole() == GroupMember.GroupRole.GROUP_ADMIN)
-                .count();
-            if (adminCount == 1) {
-                throw new IllegalStateException("Cannot leave: you are the only admin. Promote another member first.");
+        if (member.getStatus() == GroupMember.MemberStatus.ACTIVE) {
+            List<GroupMember> activeMembers = groupMemberRepository
+                .findByGroupIdAndStatus(groupId, GroupMember.MemberStatus.ACTIVE);
+
+            if (activeMembers.size() == 1) {
+                // Last active member: delete the group (cascade handles bets, forfeits, etc.)
+                groupRepository.deleteById(groupId);
+                return;
+            }
+
+            if (member.getRole() == GroupMember.GroupRole.GROUP_ADMIN) {
+                long adminCount = activeMembers.stream()
+                    .filter(m -> m.getRole() == GroupMember.GroupRole.GROUP_ADMIN)
+                    .count();
+                if (adminCount == 1) {
+                    throw new IllegalStateException("Cannot leave: you are the only admin. Promote another member first.");
+                }
             }
         }
 

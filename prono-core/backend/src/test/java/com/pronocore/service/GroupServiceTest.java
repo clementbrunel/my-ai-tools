@@ -292,14 +292,29 @@ class GroupServiceTest {
     }
 
     @Test
-    void leaveGroup_shouldThrowWhenLastActiveAdminTriesToLeave() {
+    void leaveGroup_shouldDeleteGroupWhenLastActiveMember() {
         GroupMember adminMembership = activeAdmin(creator);
 
         when(userRepository.findByUsername("creator")).thenReturn(Optional.of(creator));
         when(groupMemberRepository.findByGroupIdAndUserId(10L, 1L)).thenReturn(Optional.of(adminMembership));
-        // Only one ACTIVE member in the group → only one admin
         when(groupMemberRepository.findByGroupIdAndStatus(10L, MemberStatus.ACTIVE))
                 .thenReturn(List.of(adminMembership));
+
+        groupService.leaveGroup(10L, "creator");
+
+        verify(groupRepository).deleteById(10L);
+        verify(groupMemberRepository, never()).delete(adminMembership);
+    }
+
+    @Test
+    void leaveGroup_shouldThrowWhenOnlyAdminWithOtherActiveMembers() {
+        GroupMember adminMembership  = activeAdmin(creator);
+        GroupMember memberMembership = activeMember(member);
+
+        when(userRepository.findByUsername("creator")).thenReturn(Optional.of(creator));
+        when(groupMemberRepository.findByGroupIdAndUserId(10L, 1L)).thenReturn(Optional.of(adminMembership));
+        when(groupMemberRepository.findByGroupIdAndStatus(10L, MemberStatus.ACTIVE))
+                .thenReturn(List.of(adminMembership, memberMembership));
 
         assertThatThrownBy(() -> groupService.leaveGroup(10L, "creator"))
                 .isInstanceOf(IllegalStateException.class)
