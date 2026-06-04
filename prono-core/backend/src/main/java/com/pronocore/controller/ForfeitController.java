@@ -69,6 +69,37 @@ public class ForfeitController {
     }
 
     // ---------------------------------------------------------------
+    // Group-admin gage management
+    // ---------------------------------------------------------------
+
+    @GetMapping("/group/{groupId}")
+    @Operation(summary = "Get active group-specific forfeits (group member)")
+    public ResponseEntity<List<ForfeitResponse>> getGroupForfeits(@PathVariable Long groupId) {
+        return ResponseEntity.ok(forfeitService.getGroupForfeits(groupId));
+    }
+
+    @GetMapping("/group/{groupId}/pending")
+    @Operation(summary = "Get pending proposed forfeits awaiting approval (group admin)")
+    public ResponseEntity<List<ForfeitResponse>> getGroupPendingForfeits(@PathVariable Long groupId) {
+        return ResponseEntity.ok(forfeitService.getGroupPendingForfeits(groupId));
+    }
+
+    @PatchMapping("/group/{groupId}/{forfeitId}/approve")
+    @Operation(summary = "Approve a player-proposed forfeit (group admin)")
+    public ResponseEntity<ForfeitResponse> approveGroupForfeit(
+            @PathVariable Long groupId, @PathVariable Long forfeitId) {
+        return ResponseEntity.ok(forfeitService.approveGroupForfeit(groupId, forfeitId));
+    }
+
+    @DeleteMapping("/group/{groupId}/{forfeitId}")
+    @Operation(summary = "Reject or delete a group forfeit (group admin)")
+    public ResponseEntity<Void> deleteGroupForfeit(
+            @PathVariable Long groupId, @PathVariable Long forfeitId) {
+        forfeitService.deleteGroupForfeit(groupId, forfeitId);
+        return ResponseEntity.noContent().build();
+    }
+
+    // ---------------------------------------------------------------
     // Manual assignment (admin)
     // ---------------------------------------------------------------
 

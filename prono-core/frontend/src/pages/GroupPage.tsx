@@ -5,10 +5,16 @@ import {
   approveApplication, rejectApplication, updateGroupPrivacy,
   leaveGroup, promoteMember, demoteMember, removeMember,
 } from '../api/groups';
-import type { Group, PublicGroup } from '../types';
+import {
+  getGroupPendingForfeits, getGroupForfeits,
+  approveGroupForfeit, deleteGroupForfeit,
+} from '../api/forfeits';
+import DailyGagePanel from '../components/DailyGagePanel';
+import type { Group, PublicGroup, Forfeit } from '../types';
 import { useAuth } from '../context/AuthContext';
 
 type Tab = 'mine' | 'discover';
+type AdminSection = 'forfeits' | 'daily-gages';
 
 const GroupPage: React.FC = () => {
   const { user } = useAuth();
@@ -31,6 +37,14 @@ const GroupPage: React.FC = () => {
   // Copy feedback
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
+  // ---- Group admin state ----
+  const [openAdminSection, setOpenAdminSection] = useState<Record<number, AdminSection | null>>({});
+
+  // Pending proposed forfeits per group
+  const [groupPendingForfeits, setGroupPendingForfeits] = useState<Record<number, Forfeit[]>>({});
+  // Active group-specific forfeits per group
+  const [groupActiveForfeits, setGroupActiveForfeits] = useState<Record<number, Forfeit[]>>({});
+
   const loadData = async () => {
     setIsLoading(true);
     try {
@@ -46,6 +60,69 @@ const GroupPage: React.FC = () => {
 
   useEffect(() => { loadData(); }, []);
 
+  // ---- Admin section toggle — loads data lazily ----
+  const toggleAdminSection = async (groupId: number, section: AdminSection) => {
+    const next = openAdminSection[groupId] === section ? null : section;
+    setOpenAdminSection((prev) => ({ ...prev, [groupId]: next }));
+
+    if (next === 'forfeits') {
+      try {
+        const [pending, active] = await Promise.all([
+          getGroupPendingForfeits(groupId),
+          getGroupForfeits(groupId),
+        ]);
+        setGroupPendingForfeits((prev) => ({ ...prev, [groupId]: pending }));
+        setGroupActiveForfeits((prev) => ({ ...prev, [groupId]: active }));
+      } catch {
+        setError('Erreur lors du chargement des gages');
+      }
+    }
+    // 'daily-gages' — DailyGagePanel loads its own data on mount
+  };
+
+  // ---- Forfeit handlers ----
+  const handleApproveForfeits = async (groupId: number, forfeitId: number) => {
+    try {
+      const approved = await approveGroupForfeit(groupId, forfeitId);
+      setGroupPendingForfeits((prev) => ({
+        ...prev,
+        [groupId]: (prev[groupId] ?? []).filter((f) => f.id !== forfeitId),
+      }));
+      setGroupActiveForfeits((prev) => ({
+        ...prev,
+        [groupId]: [...(prev[groupId] ?? []), approved],
+      }));
+    } catch {
+      setError('Erreur lors de la validation du gage');
+    }
+  };
+
+  const handleRejectGroupForfeit = async (groupId: number, forfeitId: number) => {
+    try {
+      await deleteGroupForfeit(groupId, forfeitId);
+      setGroupPendingForfeits((prev) => ({
+        ...prev,
+        [groupId]: (prev[groupId] ?? []).filter((f) => f.id !== forfeitId),
+      }));
+    } catch {
+      setError('Erreur lors du refus du gage');
+    }
+  };
+
+  const handleDeleteGroupForfeit = async (groupId: number, forfeitId: number) => {
+    if (!confirm('Supprimer ce gage du groupe ?')) return;
+    try {
+      await deleteGroupForfeit(groupId, forfeitId);
+      setGroupActiveForfeits((prev) => ({
+        ...prev,
+        [groupId]: (prev[groupId] ?? []).filter((f) => f.id !== forfeitId),
+      }));
+    } catch {
+      setError('Erreur lors de la suppression');
+    }
+  };
+
+  // ---- Group membership handlers ----
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -328,6 +405,10 @@ const GroupPage: React.FC = () => {
             groups.map((group) => {
               const isGroupAdmin = group.currentUserRole === 'GROUP_ADMIN';
               const pendingCount = group.pendingApplications?.length ?? 0;
+              const activeSection = openAdminSection[group.id] ?? null;
+              const pendingForfeits = groupPendingForfeits[group.id] ?? [];
+              const activeForfeits = groupActiveForfeits[group.id] ?? [];
+
               return (
                 <div key={group.id} className="card space-y-4">
                   {/* Header */}
@@ -393,6 +474,125 @@ const GroupPage: React.FC = () => {
                           🎲 Ouvrir aux paris
                         </Link>
                       </div>
+
+                      {/* Admin section toggle buttons */}
+                      <div className="flex gap-2 pt-2 border-t border-yellow-200 dark:border-yellow-800/40">
+                        <button
+                          onClick={() => toggleAdminSection(group.id, 'forfeits')}
+                          className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${
+                            activeSection === 'forfeits'
+                              ? 'bg-yellow-500 text-white'
+                              : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-200'
+                          }`}
+                        >
+                          🃏 Gages du groupe
+                        </button>
+                        <button
+                          onClick={() => toggleAdminSection(group.id, 'daily-gages')}
+                          className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${
+                            activeSection === 'daily-gages'
+                              ? 'bg-yellow-500 text-white'
+                              : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-200'
+                          }`}
+                        >
+                          📅 Gage du Jour
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ===== SECTION: GAGES DU GROUPE ===== */}
+                  {isGroupAdmin && activeSection === 'forfeits' && (
+                    <div className="space-y-4">
+                      {/* Pending proposed forfeits */}
+                      <div>
+                        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                          ⏳ Gages proposés en attente ({pendingForfeits.length})
+                        </h3>
+                        {pendingForfeits.length === 0 ? (
+                          <p className="text-xs text-gray-400 italic">Aucun gage en attente de validation.</p>
+                        ) : (
+                          <div className="space-y-2">
+                            {pendingForfeits.map((f) => (
+                              <div
+                                key={f.id}
+                                className="flex items-start justify-between bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/40 rounded-lg px-3 py-2"
+                              >
+                                <div className="flex-1 min-w-0 mr-3">
+                                  <p className="text-sm font-medium text-gray-900 dark:text-white">{f.title}</p>
+                                  {f.description && (
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{f.description}</p>
+                                  )}
+                                  <p className="text-xs text-gray-400 mt-0.5">
+                                    {f.category} · proposé par{' '}
+                                    <span className="font-medium">{f.proposedByUsername ?? '—'}</span>
+                                  </p>
+                                </div>
+                                <div className="flex gap-1 shrink-0">
+                                  <button
+                                    onClick={() => handleApproveForfeits(group.id, f.id)}
+                                    className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-0.5 rounded hover:bg-green-200 transition-colors"
+                                  >
+                                    ✓ Valider
+                                  </button>
+                                  <button
+                                    onClick={() => handleRejectGroupForfeit(group.id, f.id)}
+                                    className="text-xs bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-2 py-0.5 rounded hover:bg-red-200 transition-colors"
+                                  >
+                                    ✕ Refuser
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Active group forfeits */}
+                      <div>
+                        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                          ✅ Gages actifs du groupe ({activeForfeits.length})
+                        </h3>
+                        {activeForfeits.length === 0 ? (
+                          <p className="text-xs text-gray-400 italic">Aucun gage actif dans ce groupe.</p>
+                        ) : (
+                          <div className="space-y-2">
+                            {activeForfeits.map((f) => (
+                              <div
+                                key={f.id}
+                                className="flex items-start justify-between bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2"
+                              >
+                                <div className="flex-1 min-w-0 mr-3">
+                                  <p className="text-sm font-medium text-gray-900 dark:text-white">{f.title}</p>
+                                  {f.description && (
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{f.description}</p>
+                                  )}
+                                  <p className="text-xs text-gray-400 mt-0.5">
+                                    {f.category}
+                                    {f.proposedByUsername && (
+                                      <> · proposé par <span className="font-medium">{f.proposedByUsername}</span></>
+                                    )}
+                                  </p>
+                                </div>
+                                <button
+                                  onClick={() => handleDeleteGroupForfeit(group.id, f.id)}
+                                  className="text-xs text-red-500 hover:text-red-700 shrink-0"
+                                >
+                                  🗑️
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ===== SECTION: GAGE DU JOUR ===== */}
+                  {isGroupAdmin && activeSection === 'daily-gages' && (
+                    <div className="space-y-2">
+                      <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">📅 Gage du Jour</h3>
+                      <DailyGagePanel groupId={group.id} />
                     </div>
                   )}
 

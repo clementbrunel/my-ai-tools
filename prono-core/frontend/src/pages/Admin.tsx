@@ -2,20 +2,10 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getMatches, createMatch, updateMatchScore, getCompetitions } from '../api/matches';
-import {
-  getAllForfeitsAdmin,
-  createForfeit,
-  deleteForfeit,
-} from '../api/forfeits';
-import {
-  getAllDailyGages,
-  createDailyGage,
-  selectForfeitDirectly,
-  addCandidate,
-  removeCandidate,
-} from '../api/dailyGages';
+import { getAllForfeitsAdmin, createForfeit, deleteForfeit } from '../api/forfeits';
 import { getMyGroups } from '../api/groups';
-import type { Match, Forfeit, DailyGage, Group } from '../types';
+import DailyGagePanel from '../components/DailyGagePanel';
+import type { Match, Forfeit, Group } from '../types';
 import { isAdmin } from '../types';
 import { formatDate } from '../utils/dates';
 
@@ -27,7 +17,6 @@ const Admin: React.FC = () => {
   const [activeTab, setActiveTab] = useState<AdminTab>('matches');
   const [matches, setMatches] = useState<Match[]>([]);
   const [forfeits, setForfeits] = useState<Forfeit[]>([]);
-  const [dailyGages, setDailyGages] = useState<DailyGage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Match creation
@@ -46,25 +35,15 @@ const Admin: React.FC = () => {
   const [scoreA, setScoreA] = useState('');
   const [scoreB, setScoreB] = useState('');
 
-  // Forfeit library creation
+  // Forfeit library
   const [newForfeitTitle, setNewForfeitTitle] = useState('');
   const [newForfeitDesc, setNewForfeitDesc] = useState('');
   const [newForfeitCategory, setNewForfeitCategory] = useState('General');
   const [forfeitError, setForfeitError] = useState('');
   const [forfeitSuccess, setForfeitSuccess] = useState('');
 
-  // Daily gage creation
+  // Groups the platform admin manages
   const [adminGroups, setAdminGroups] = useState<Group[]>([]);
-  const [dgGroupId, setDgGroupId] = useState<number | ''>('');
-  const [dgDate, setDgDate] = useState('');         // internal YYYY-MM-DD value sent to API
-  const [dgDateDisplay, setDgDateDisplay] = useState(''); // DD/MM/YYYY shown in the text input
-  const [dgMode, setDgMode] = useState<'DIRECT' | 'VOTE'>('DIRECT');
-  const [dgError, setDgError] = useState('');
-  const [dgSuccess, setDgSuccess] = useState('');
-
-  // Daily gage management (expanded row)
-  const [expandedDg, setExpandedDg] = useState<number | null>(null);
-  const [selectedForfeitForDg, setSelectedForfeitForDg] = useState<number | ''>('');
 
   useEffect(() => {
     if (!isAdmin(user)) {
@@ -95,13 +74,10 @@ const Admin: React.FC = () => {
   // Lazy-load gages tab data
   useEffect(() => {
     if (activeTab === 'forfeits') {
-      Promise.all([getAllForfeitsAdmin(), getAllDailyGages(), getMyGroups()])
-        .then(([f, dg, groups]) => {
+      Promise.all([getAllForfeitsAdmin(), getMyGroups()])
+        .then(([f, groups]) => {
           setForfeits(f);
-          setDailyGages(dg);
-          const admin = groups.filter((g) => g.currentUserRole === 'GROUP_ADMIN');
-          setAdminGroups(admin);
-          if (admin.length > 0) setDgGroupId((prev) => (prev === '' ? admin[0].id : prev));
+          setAdminGroups(groups.filter((g) => g.currentUserRole === 'GROUP_ADMIN'));
         })
         .catch(console.error);
     }
@@ -159,55 +135,6 @@ const Admin: React.FC = () => {
     } catch { alert('Erreur'); }
   };
 
-  // ---- Daily gage handlers ----
-  const handleCreateDailyGage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setDgError(''); setDgSuccess('');
-    if (dgGroupId === '') {
-      setDgError('Choisissez un groupe que vous administrez.');
-      return;
-    }
-    if (!dgDate) {
-      setDgError('Date invalide — utilisez le format JJ/MM/AAAA.');
-      return;
-    }
-    try {
-      const created = await createDailyGage(dgGroupId, dgDate, dgMode);
-      setDailyGages([created, ...dailyGages]);
-      setDgDate('');
-      setDgDateDisplay('');
-      setDgSuccess('Gage du jour créé !');
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setDgError(msg ?? 'Erreur — peut-être un gage existe déjà pour cette date ?');
-    }
-  };
-
-  const handleSelectDirectly = async (dgId: number) => {
-    if (!selectedForfeitForDg) return;
-    try {
-      const updated = await selectForfeitDirectly(dgId, Number(selectedForfeitForDg));
-      setDailyGages(dailyGages.map((dg) => dg.id === updated.id ? updated : dg));
-      setSelectedForfeitForDg('');
-    } catch { alert('Erreur'); }
-  };
-
-  const handleAddCandidate = async (dgId: number) => {
-    if (!selectedForfeitForDg) return;
-    try {
-      const updated = await addCandidate(dgId, Number(selectedForfeitForDg));
-      setDailyGages(dailyGages.map((dg) => dg.id === updated.id ? updated : dg));
-      setSelectedForfeitForDg('');
-    } catch { alert('Erreur — ce gage est peut-être déjà candidat ?'); }
-  };
-
-  const handleRemoveCandidate = async (dgId: number, forfeitId: number) => {
-    try {
-      const updated = await removeCandidate(dgId, forfeitId);
-      setDailyGages(dailyGages.map((dg) => dg.id === updated.id ? updated : dg));
-    } catch { alert('Erreur'); }
-  };
-
   if (isLoading) {
     return (
       <div className="text-center py-12">
@@ -217,39 +144,10 @@ const Admin: React.FC = () => {
     );
   }
 
-  /** Parse a "DD/MM/YYYY" string to "YYYY-MM-DD". Returns '' if invalid. */
-  const parseDDMMYYYY = (s: string): string => {
-    const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-    return m ? `${m[3]}-${m[2]}-${m[1]}` : '';
-  };
-
-  // Match days (YYYY-MM-DD) that have no DailyGage configured yet for the selected group
-  const configuredDates = new Set(
-    dailyGages.filter((dg) => dg.groupId === dgGroupId).map((dg) => dg.matchDate)
-  );
-  const unconfiguredMatchDays = [
-    ...new Set(matches.map((m) => m.matchDate.slice(0, 10))),
-  ]
-    .filter((d) => !configuredDates.has(d))
-    .sort();
-
   const tabs: { id: AdminTab; label: string }[] = [
     { id: 'matches', label: '⚽ Matchs' },
     { id: 'forfeits', label: '🃏 Gages' },
   ];
-
-  const statusBadge = (status: string) => {
-    const map: Record<string, string> = {
-      PENDING: 'bg-gray-100 text-gray-600',
-      ACTIVE: 'bg-green-100 text-green-700',
-      SETTLED: 'bg-blue-100 text-blue-700',
-    };
-    return (
-      <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${map[status] ?? ''}`}>
-        {status}
-      </span>
-    );
-  };
 
   return (
     <div className="space-y-6">
@@ -410,210 +308,30 @@ const Admin: React.FC = () => {
           {/* --- Section 1: Gage du Jour --- */}
           <section className="space-y-4">
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">📅 Gage du Jour</h2>
-
-            {/* Create daily gage */}
-            <div className="card">
-              <h3 className="font-semibold text-gray-900 dark:text-white mb-3">+ Créer un gage du jour</h3>
-              <form onSubmit={handleCreateDailyGage} className="flex flex-wrap gap-3 items-end">
-                <div>
-                  <label className="label">Groupe</label>
-                  {adminGroups.length === 0 ? (
-                    <p className="text-sm text-gray-500 dark:text-gray-400 w-36">
-                      Aucun groupe administré
-                    </p>
-                  ) : (
-                    <select
-                      value={dgGroupId}
-                      onChange={(e) => setDgGroupId(Number(e.target.value))}
-                      className="input-field"
-                    >
-                      {adminGroups.map((g) => (
-                        <option key={g.id} value={g.id}>{g.name}</option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-                <div>
-                  <label className="label">Date (JJ/MM/AAAA)</label>
-                  <input
-                    type="text"
-                    value={dgDateDisplay}
-                    onChange={(e) => {
-                      const display = e.target.value;
-                      setDgDateDisplay(display);
-                      setDgDate(parseDDMMYYYY(display));
-                    }}
-                    className="input-field w-36"
-                    placeholder="JJ/MM/AAAA"
-                    maxLength={10}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="label">Mode</label>
-                  <select
-                    value={dgMode}
-                    onChange={(e) => setDgMode(e.target.value as 'DIRECT' | 'VOTE')}
-                    className="input-field"
-                  >
-                    <option value="DIRECT">🎯 Choix direct</option>
-                    <option value="VOTE">🗳️ Vote des joueurs</option>
-                  </select>
-                </div>
-                <button type="submit" className="btn-primary">Créer</button>
-              </form>
-              {dgError && <p className="text-red-500 text-sm mt-2">{dgError}</p>}
-              {dgSuccess && <p className="text-green-500 text-sm mt-2">✅ {dgSuccess}</p>}
-            </div>
-
-            {/* Unconfigured match days alert */}
-            {unconfiguredMatchDays.length > 0 && (
-              <div className="card border-2 border-amber-400 dark:border-amber-600">
-                <h3 className="font-semibold text-amber-700 dark:text-amber-400 mb-3">
-                  ⚠️ Jours de match sans gage configuré ({unconfiguredMatchDays.length})
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {unconfiguredMatchDays.map((date) => (
-                    <button
-                      key={date}
-                      onClick={() => {
-                        setDgDate(date);
-                        setDgDateDisplay(formatDate(date)); // "11/06/2026"
-                        setDgMode('DIRECT');
-                        setDgError('');
-                        setDgSuccess('');
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                      }}
-                      className="btn-gold text-sm py-1 px-3"
-                      title="Pré-remplir le formulaire de création pour cette date"
-                    >
-                      📅 {formatDate(date)}
-                    </button>
-                  ))}
-                </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
-                  Cliquez sur une date pour pré-remplir le formulaire ci-dessus.
-                </p>
+            {adminGroups.length === 0 ? (
+              <div className="card text-center py-6 text-gray-500">
+                Vous n'administrez aucun groupe.
               </div>
-            )}
-
-            {/* Daily gages list */}
-            {dailyGages.length === 0 ? (
-              <div className="card text-center py-6 text-gray-500">Aucun gage du jour configuré</div>
             ) : (
-              <div className="space-y-3">
-                {dailyGages.map((dg) => (
-                  <div key={dg.id} className="card">
-                    <div
-                      className="flex items-center justify-between cursor-pointer"
-                      onClick={() => setExpandedDg(expandedDg === dg.id ? null : dg.id)}
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="font-semibold text-gray-900 dark:text-white">
-                          {formatDate(dg.matchDate)}
-                        </span>
-                        <span className="text-xs bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full font-medium">
-                          👥 {dg.groupName}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {dg.mode === 'DIRECT' ? '🎯 Direct' : '🗳️ Vote'}
-                        </span>
-                        {statusBadge(dg.status)}
-                        {dg.forfeit && (
-                          <span className="text-sm text-wc-green dark:text-green-400 font-medium">
-                            🃏 {dg.forfeit.title}
-                          </span>
-                        )}
-                        {dg.assignedToUsername && (
-                          <span className="text-sm text-wc-red font-medium">
-                            → {dg.assignedToUsername}
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-gray-400 text-sm">{expandedDg === dg.id ? '▲' : '▼'}</span>
-                    </div>
-
-                    {expandedDg === dg.id && dg.status !== 'SETTLED' && (
-                      <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-3">
-                        {/* Pick a forfeit from the library */}
-                        <div className="flex gap-3 items-center flex-wrap">
-                          <select
-                            value={selectedForfeitForDg}
-                            onChange={(e) => setSelectedForfeitForDg(Number(e.target.value) || '')}
-                            className="input-field flex-1 min-w-[180px]"
-                          >
-                            <option value="">— Choisir un gage —</option>
-                            {forfeits.filter((f) => f.isActive).map((f) => (
-                              <option key={f.id} value={f.id}>{f.title}</option>
-                            ))}
-                          </select>
-
-                          {dg.mode === 'DIRECT' ? (
-                            <button
-                              onClick={() => handleSelectDirectly(dg.id)}
-                              disabled={!selectedForfeitForDg}
-                              className="btn-primary text-sm disabled:opacity-50"
-                            >
-                              ✅ Sélectionner
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => handleAddCandidate(dg.id)}
-                              disabled={!selectedForfeitForDg}
-                              className="btn-secondary text-sm disabled:opacity-50"
-                            >
-                              + Ajouter candidat
-                            </button>
-                          )}
-                        </div>
-
-                        {/* Vote candidates */}
-                        {dg.mode === 'VOTE' && dg.candidates.length > 0 && (
-                          <div className="space-y-2">
-                            <p className="text-xs font-semibold text-gray-500 uppercase">Candidats au vote</p>
-                            {dg.candidates.map((c) => (
-                              <div key={c.id} className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2">
-                                <div>
-                                  <span className="text-sm font-medium text-gray-900 dark:text-white">{c.forfeit.title}</span>
-                                  <span className="ml-2 text-xs text-gray-500">
-                                    score : {c.voteScore > 0 ? '+' : ''}{c.voteScore}
-                                  </span>
-                                </div>
-                                <button
-                                  onClick={() => handleRemoveCandidate(dg.id, c.forfeit.id)}
-                                  className="text-xs text-red-500 hover:text-red-700"
-                                >
-                                  ✕ Retirer
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {expandedDg === dg.id && dg.status === 'SETTLED' && (
-                      <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          🃏 <strong>{dg.forfeit?.title}</strong> attribué à{' '}
-                          <strong className="text-wc-red">{dg.assignedToUsername}</strong>
-                          {dg.assignedAt && (
-                            <span className="ml-2 text-xs text-gray-400">
-                              le {formatDate(dg.assignedAt)}
-                            </span>
-                          )}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
+              adminGroups.map((g) => (
+                <div key={g.id} className="card space-y-3">
+                  <h3 className="font-semibold text-gray-800 dark:text-white flex items-center gap-2">
+                    <span className="text-sm bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full font-medium">
+                      👥 {g.name}
+                    </span>
+                  </h3>
+                  <DailyGagePanel groupId={g.id} />
+                </div>
+              ))
             )}
           </section>
 
-          {/* --- Section 2: Bibliotheque de gages --- */}
+          {/* --- Section 2: Bibliothèque de gages (gages partagés uniquement) --- */}
           <section className="space-y-4">
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">📚 Bibliothèque de gages</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Ces gages sont partagés entre tous les groupes. Les gages proposés par les joueurs sont gérés par l'admin de leur groupe.
+            </p>
 
             {/* Create forfeit form */}
             <div className="card">
@@ -657,7 +375,7 @@ const Admin: React.FC = () => {
               </form>
             </div>
 
-            {/* Forfeit list */}
+            {/* Forfeit list — shared forfeits only */}
             <div className="card overflow-hidden p-0">
               <div className="overflow-x-auto">
                 <table className="w-full">
@@ -666,13 +384,12 @@ const Admin: React.FC = () => {
                       <th className="py-3 px-4 text-left text-xs text-gray-500 uppercase">Gage</th>
                       <th className="py-3 px-4 text-left text-xs text-gray-500 uppercase">Catégorie</th>
                       <th className="py-3 px-4 text-center text-xs text-gray-500 uppercase">Effectué</th>
-                      <th className="py-3 px-4 text-left text-xs text-gray-500 uppercase">Proposé par</th>
                       <th className="py-3 px-4 text-center text-xs text-gray-500 uppercase">Statut</th>
                       <th className="py-3 px-4 text-center text-xs text-gray-500 uppercase">Action</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {forfeits.map((f) => (
+                    {forfeits.filter((f) => !f.groupId).map((f) => (
                       <tr
                         key={f.id}
                         className={`border-b border-gray-100 dark:border-gray-700 ${
@@ -686,9 +403,6 @@ const Admin: React.FC = () => {
                         <td className="py-3 px-4 text-xs text-gray-500">{f.category}</td>
                         <td className="py-3 px-4 text-center text-sm font-semibold text-amber-600">
                           {f.timesCompleted > 0 ? `✅ ×${f.timesCompleted}` : '—'}
-                        </td>
-                        <td className="py-3 px-4 text-xs text-gray-500">
-                          {f.proposedByUsername ? `💡 ${f.proposedByUsername}` : '—'}
                         </td>
                         <td className="py-3 px-4 text-center">
                           <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${

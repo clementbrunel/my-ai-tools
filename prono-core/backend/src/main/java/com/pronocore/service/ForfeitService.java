@@ -95,7 +95,7 @@ public class ForfeitService {
                 .title(title)
                 .description(description)
                 .category(category != null ? category : "General")
-                .active(true)
+                .active(false)
                 .proposedBy(proposer)
                 .group(group)
                 .build();
@@ -107,6 +107,66 @@ public class ForfeitService {
     public void deleteForfeit(Long forfeitId) {
         Forfeit forfeit = forfeitRepository.findById(forfeitId)
                 .orElseThrow(() -> new EntityNotFoundException("Forfeit not found: " + forfeitId));
+        forfeit.setActive(false);
+        forfeitRepository.save(forfeit);
+    }
+
+    // ---------------------------------------------------------------
+    // Group-admin gage management
+    // ---------------------------------------------------------------
+
+    /** Returns active group-specific forfeits (visible to any group member). */
+    @Transactional(readOnly = true)
+    public List<ForfeitResponse> getGroupForfeits(Long groupId) {
+        String username = currentUsername();
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
+        requireActiveMembership(groupId, user.getId());
+        return forfeitRepository.findByActiveTrueAndGroupIdOrderById(groupId)
+                .stream().map(this::toForfeitResponse).toList();
+    }
+
+    /** Returns pending (inactive) proposed forfeits for a group (group admin only). */
+    @Transactional(readOnly = true)
+    public List<ForfeitResponse> getGroupPendingForfeits(Long groupId) {
+        String username = currentUsername();
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
+        requireGroupAdmin(groupId, user.getId());
+        return forfeitRepository.findByActiveFalseAndGroupIdOrderById(groupId)
+                .stream().map(this::toForfeitResponse).toList();
+    }
+
+    /** Group admin approves a proposed forfeit (sets active=true). */
+    @Transactional
+    public ForfeitResponse approveGroupForfeit(Long groupId, Long forfeitId) {
+        String username = currentUsername();
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
+        requireGroupAdmin(groupId, user.getId());
+
+        Forfeit forfeit = forfeitRepository.findById(forfeitId)
+                .orElseThrow(() -> new EntityNotFoundException("Forfeit not found: " + forfeitId));
+        if (forfeit.getGroup() == null || !forfeit.getGroup().getId().equals(groupId)) {
+            throw new AccessDeniedException("This forfeit does not belong to group " + groupId);
+        }
+        forfeit.setActive(true);
+        return toForfeitResponse(forfeitRepository.save(forfeit));
+    }
+
+    /** Group admin rejects/deletes a group forfeit (soft-delete). */
+    @Transactional
+    public void deleteGroupForfeit(Long groupId, Long forfeitId) {
+        String username = currentUsername();
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
+        requireGroupAdmin(groupId, user.getId());
+
+        Forfeit forfeit = forfeitRepository.findById(forfeitId)
+                .orElseThrow(() -> new EntityNotFoundException("Forfeit not found: " + forfeitId));
+        if (forfeit.getGroup() == null || !forfeit.getGroup().getId().equals(groupId)) {
+            throw new AccessDeniedException("This forfeit does not belong to group " + groupId);
+        }
         forfeit.setActive(false);
         forfeitRepository.save(forfeit);
     }
@@ -224,6 +284,14 @@ public class ForfeitService {
                 .orElseThrow(() -> new AccessDeniedException("You are not a member of this group"));
         if (member.getStatus() != GroupMember.MemberStatus.ACTIVE) {
             throw new AccessDeniedException("Your membership in this group is pending approval");
+        }
+        return member;
+    }
+
+    private GroupMember requireGroupAdmin(Long groupId, Long userId) {
+        GroupMember member = requireActiveMembership(groupId, userId);
+        if (member.getRole() != GroupMember.GroupRole.GROUP_ADMIN) {
+            throw new AccessDeniedException("You are not an admin of this group");
         }
         return member;
     }

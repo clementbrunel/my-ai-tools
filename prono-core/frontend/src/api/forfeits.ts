@@ -46,6 +46,29 @@ export const deleteForfeit = async (forfeitId: number): Promise<void> => {
 };
 
 // -----------------------------------------------------------------------
+// Group-admin gage management
+// -----------------------------------------------------------------------
+
+export const getGroupForfeits = async (groupId: number): Promise<Forfeit[]> => {
+  const response = await apiClient.get<Forfeit[]>(`/forfeits/group/${groupId}`);
+  return response.data;
+};
+
+export const getGroupPendingForfeits = async (groupId: number): Promise<Forfeit[]> => {
+  const response = await apiClient.get<Forfeit[]>(`/forfeits/group/${groupId}/pending`);
+  return response.data;
+};
+
+export const approveGroupForfeit = async (groupId: number, forfeitId: number): Promise<Forfeit> => {
+  const response = await apiClient.patch<Forfeit>(`/forfeits/group/${groupId}/${forfeitId}/approve`);
+  return response.data;
+};
+
+export const deleteGroupForfeit = async (groupId: number, forfeitId: number): Promise<void> => {
+  await apiClient.delete(`/forfeits/group/${groupId}/${forfeitId}`);
+};
+
+// -----------------------------------------------------------------------
 // Assignment & completion
 // -----------------------------------------------------------------------
 
