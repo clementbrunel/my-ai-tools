@@ -32,11 +32,20 @@ public class GroupMember {
     @Builder.Default
     private GroupRole role = GroupRole.MEMBER;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    @Builder.Default
+    private MemberStatus status = MemberStatus.ACTIVE;
+
     @CreationTimestamp
     @Column(name = "joined_at", nullable = false, updatable = false)
     private LocalDateTime joinedAt;
 
     public enum GroupRole {
         GROUP_ADMIN, MEMBER
+    }
+
+    public enum MemberStatus {
+        ACTIVE, PENDING
     }
 }

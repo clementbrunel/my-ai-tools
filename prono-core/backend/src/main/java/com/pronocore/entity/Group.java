@@ -30,6 +30,10 @@ public class Group {
     @Column(name = "invite_code", nullable = false, unique = true, length = 20)
     private String inviteCode;
 
+    @Column(name = "is_private", nullable = false)
+    @Builder.Default
+    private boolean isPrivate = false;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by", nullable = false)
     private User createdBy;

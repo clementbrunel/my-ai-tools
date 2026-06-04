@@ -19,5 +19,6 @@ public class GroupMemberResponse {
     private String username;
     private String avatarUrl;
     private GroupMember.GroupRole role;
+    private GroupMember.MemberStatus status;
     private LocalDateTime joinedAt;
 }
