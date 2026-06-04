@@ -35,7 +35,8 @@ const Admin: React.FC = () => {
   const [newTeamA, setNewTeamA] = useState('');
   const [newTeamB, setNewTeamB] = useState('');
   const [newMatchDate, setNewMatchDate] = useState('');
-  const [newCompetition, setNewCompetition] = useState('FIFA World Cup 2026');
+  const [newCompetition, setNewCompetition] = useState('');
+  const [isNewCompetition, setIsNewCompetition] = useState(false);
   const [newRound, setNewRound] = useState('Group Stage');
   const [matchError, setMatchError] = useState('');
   const [matchSuccess, setMatchSuccess] = useState('');
@@ -72,16 +73,20 @@ const Admin: React.FC = () => {
     }
     const fetchData = async () => {
       try {
-        const [matchesData, competitionsData] = await Promise.all([
-          getMatches(),
-          getCompetitions(),
-        ]);
+        const matchesData = await getMatches();
         setMatches(matchesData);
-        setCompetitions(competitionsData);
       } catch (err) {
         console.error('Error loading admin data:', err);
       } finally {
         setIsLoading(false);
+      }
+      try {
+        const competitionsData = await getCompetitions();
+        setCompetitions(competitionsData);
+        if (competitionsData.length > 0) setNewCompetition(competitionsData[0]);
+        else setIsNewCompetition(true);
+      } catch {
+        setIsNewCompetition(true);
       }
     };
     fetchData();
@@ -112,11 +117,13 @@ const Admin: React.FC = () => {
         matchDate: new Date(newMatchDate).toISOString(),
         competition: newCompetition, round: newRound,
       });
+      const updatedCompetitions = competitions.includes(newCompetition)
+        ? competitions
+        : [...competitions, newCompetition].sort();
+      setCompetitions(updatedCompetitions);
       setMatches([...matches, newMatch]);
       setNewTeamA(''); setNewTeamB(''); setNewMatchDate('');
-      if (!competitions.includes(newCompetition)) {
-        setCompetitions([...competitions, newCompetition].sort());
-      }
+      setIsNewCompetition(false);
       setMatchSuccess('Match créé avec succès !');
     } catch { setMatchError('Erreur lors de la création du match'); }
   };
@@ -296,20 +303,49 @@ const Admin: React.FC = () => {
               </div>
               <div className="col-span-2">
                 <label className="label">Compétition</label>
-                <input
-                  type="text"
-                  list="competitions-datalist"
-                  value={newCompetition}
-                  onChange={(e) => setNewCompetition(e.target.value)}
-                  className="input-field"
-                  placeholder="Ex: FIFA World Cup 2026"
-                  required
-                />
-                <datalist id="competitions-datalist">
-                  {competitions.map((c) => (
-                    <option key={c} value={c} />
-                  ))}
-                </datalist>
+                {competitions.length > 0 && !isNewCompetition ? (
+                  <div className="flex gap-2">
+                    <select
+                      value={newCompetition}
+                      onChange={(e) => {
+                        if (e.target.value === '__new__') {
+                          setIsNewCompetition(true);
+                          setNewCompetition('');
+                        } else {
+                          setNewCompetition(e.target.value);
+                        }
+                      }}
+                      className="input-field flex-1"
+                      required
+                    >
+                      {competitions.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                      <option value="__new__">➕ Nouvelle compétition...</option>
+                    </select>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newCompetition}
+                      onChange={(e) => setNewCompetition(e.target.value)}
+                      className="input-field flex-1"
+                      placeholder="Ex: FIFA World Cup 2026"
+                      required
+                      autoFocus
+                    />
+                    {competitions.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => { setIsNewCompetition(false); setNewCompetition(competitions[0]); }}
+                        className="btn-secondary text-sm whitespace-nowrap"
+                      >
+                        ← Retour
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
               {matchError && <p className="col-span-2 text-red-500 text-sm">{matchError}</p>}
               {matchSuccess && <p className="col-span-2 text-green-500 text-sm">✅ {matchSuccess}</p>}
