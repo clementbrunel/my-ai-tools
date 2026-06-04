@@ -26,3 +26,12 @@ export function formatDateTime(dateInput: Date | string): string {
   const time = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
   return `${formatDate(d)} ${time}`;
 }
+
+/**
+ * Parse a "DD/MM/YYYY" string to "YYYY-MM-DD".
+ * Returns '' if the format doesn't match.
+ */
+export function parseDDMMYYYY(s: string): string {
+  const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : '';
+}
