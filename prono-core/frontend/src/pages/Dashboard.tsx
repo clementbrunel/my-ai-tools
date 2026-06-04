@@ -134,6 +134,9 @@ const Dashboard: React.FC = () => {
               </div>
             </>
           )}
+          <Link to="/leaderboard" className="text-xs text-wc-green dark:text-green-400 hover:underline mt-2 block">
+            Classement complet →
+          </Link>
         </div>
       </div>
 
@@ -234,8 +237,8 @@ const Dashboard: React.FC = () => {
           </Link>
         </div>
         {upcomingMatches.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {upcomingMatches.slice(0, 3).map((match) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {upcomingMatches.slice(0, 2).map((match) => (
               <MatchCard key={match.id} match={match} />
             ))}
           </div>
@@ -246,35 +249,6 @@ const Dashboard: React.FC = () => {
         )}
       </section>
 
-      {/* Quick Leaderboard */}
-      {leaderboard.length > 0 && (
-        <section>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">🏆 Top 3 du moment</h2>
-            <Link to="/leaderboard" className="text-sm text-wc-green dark:text-green-400 hover:underline">
-              Classement complet →
-            </Link>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {leaderboard.slice(0, 3).map((entry) => {
-              const medals = ['🥇', '🥈', '🥉'];
-              return (
-                <div
-                  key={entry.user.id}
-                  className={`card text-center border-2 ${
-                    entry.rank === 1 ? 'border-wc-gold' : 'border-transparent'
-                  }`}
-                >
-                  <div className="text-3xl mb-2">{medals[entry.rank - 1]}</div>
-                  <div className="font-bold text-gray-900 dark:text-white">{entry.user.username}</div>
-                  <div className="text-2xl font-black text-wc-gold mt-1">{entry.totalPoints}</div>
-                  <div className="text-xs text-gray-500">points</div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
     </div>
   );
 };
