@@ -23,4 +23,10 @@ public class LeaderboardController {
     public ResponseEntity<List<LeaderboardEntryResponse>> getLeaderboard() {
         return ResponseEntity.ok(leaderboardService.getLeaderboard());
     }
+
+    @GetMapping("/group/{groupId}")
+    @Operation(summary = "Get leaderboard for a specific group")
+    public ResponseEntity<List<LeaderboardEntryResponse>> getGroupLeaderboard(@PathVariable Long groupId) {
+        return ResponseEntity.ok(leaderboardService.getGroupLeaderboard(groupId));
+    }
 }

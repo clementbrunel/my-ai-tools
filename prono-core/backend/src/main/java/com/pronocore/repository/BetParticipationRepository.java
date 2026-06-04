@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Repository
@@ -25,6 +26,22 @@ public interface BetParticipationRepository extends JpaRepository<BetParticipati
     @Query("SELECT bp FROM BetParticipation bp WHERE bp.bet.id = :betId AND bp.chosenOption = :option")
     List<BetParticipation> findByBetIdAndChosenOption(@Param("betId") Long betId,
                                                       @Param("option") String option);
+
+    @Query("""
+            SELECT bp.user.id, COALESCE(SUM(bp.pointsEarned), 0)
+            FROM BetParticipation bp
+            WHERE bp.bet.group.id = :groupId AND bp.bet.status = 'VALIDATED'
+            GROUP BY bp.user.id
+            """)
+    List<Object[]> sumPointsEarnedByGroupId(@Param("groupId") Long groupId);
+
+    @Query("""
+            SELECT bp.user.id, COUNT(bp)
+            FROM BetParticipation bp
+            WHERE bp.bet.group.id = :groupId AND bp.bet.status = 'VALIDATED' AND bp.pointsEarned > 0
+            GROUP BY bp.user.id
+            """)
+    List<Object[]> countBetsWonByGroupId(@Param("groupId") Long groupId);
 
     /**
      * All settled participations for bets linked to matches on the given day.

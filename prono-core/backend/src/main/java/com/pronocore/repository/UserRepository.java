@@ -21,4 +21,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     @Query("SELECT u FROM User u ORDER BY u.globalScore DESC, u.betsWon DESC")
     List<User> findAllOrderByGlobalScoreDesc();
+
+    @Query("SELECT u FROM User u WHERE u.id IN (SELECT gm.user.id FROM GroupMember gm WHERE gm.group.id = :groupId) ORDER BY u.globalScore DESC, u.betsWon DESC")
+    List<User> findAllByGroupIdOrderByGlobalScoreDesc(Long groupId);
 }

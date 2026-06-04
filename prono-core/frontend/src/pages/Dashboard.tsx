@@ -2,15 +2,18 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getMatches } from '../api/matches';
-import { getLeaderboard } from '../api/leaderboard';
+import { getLeaderboard, getGroupLeaderboard } from '../api/leaderboard';
+import { getMyGroups } from '../api/groups';
 import { getDailyGageByDate, voteOnCandidate } from '../api/dailyGages';
-import type { Match, LeaderboardEntry, DailyGage } from '../types';
+import type { Match, LeaderboardEntry, DailyGage, Group } from '../types';
 import MatchCard from '../components/MatchCard';
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
   const [matches, setMatches] = useState<Match[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [myGroups, setMyGroups] = useState<Group[]>([]);
+  const [groupRanks, setGroupRanks] = useState<{ group: Group; rank: number; total: number; points: number }[]>([]);
   const [todayGage, setTodayGage] = useState<DailyGage | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -19,12 +22,25 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [matchesData, leaderboardData] = await Promise.all([
+        const [matchesData, leaderboardData, groupsData] = await Promise.all([
           getMatches(),
           getLeaderboard(),
+          getMyGroups(),
         ]);
         setMatches(matchesData);
         setLeaderboard(leaderboardData);
+        setMyGroups(groupsData);
+
+        if (groupsData.length > 0 && user) {
+          const ranks = await Promise.all(
+            groupsData.map(async (group) => {
+              const groupLeaderboard = await getGroupLeaderboard(group.id);
+              const entry = groupLeaderboard.find((e) => e.user.username === user.username);
+              return { group, rank: entry?.rank ?? 0, total: groupLeaderboard.length, points: entry?.totalPoints ?? 0 };
+            })
+          );
+          setGroupRanks(ranks);
+        }
 
         // Attempt to load today's gage (may 404 if not configured)
         try {
@@ -54,6 +70,7 @@ const Dashboard: React.FC = () => {
 
   const upcomingMatches = matches.filter((m) => m.status === 'UPCOMING');
   const userRank = leaderboard.find((e) => e.user.username === user?.username);
+  const hasMultipleGroups = myGroups.length > 1;
 
   if (isLoading) {
     return (
@@ -85,13 +102,49 @@ const Dashboard: React.FC = () => {
           <div className="stat-value">{upcomingMatches.length}</div>
           <div className="stat-label">⚽ Matchs à venir</div>
         </div>
+
+        {/* Classement — un badge par groupe si plusieurs groupes */}
         <div className="stat-card">
-          <div className="stat-value text-wc-gold">{userRank ? `#${userRank.rank}` : '-'}</div>
-          <div className="stat-label">🏅 Votre classement</div>
+          {!hasMultipleGroups ? (
+            <>
+              <div className="stat-value text-wc-gold">{userRank ? `#${userRank.rank}` : '-'}</div>
+              <div className="stat-label">🏅 Votre classement</div>
+            </>
+          ) : (
+            <>
+              <div className="stat-label mb-2">🏅 Votre classement</div>
+              <div className="space-y-1">
+                {groupRanks.map(({ group, rank, total }) => (
+                  <div key={group.id} className="flex items-center justify-between text-sm">
+                    <span className="text-gray-500 dark:text-gray-400 truncate max-w-[60%]">{group.name}</span>
+                    <span className="font-bold text-wc-gold">#{rank}<span className="text-xs text-gray-400 font-normal">/{total}</span></span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
+
+        {/* Points — globaux ou par groupe */}
         <div className="stat-card">
-          <div className="stat-value">{user?.globalScore ?? 0}</div>
-          <div className="stat-label">⭐ Vos points</div>
+          {!hasMultipleGroups ? (
+            <>
+              <div className="stat-value">{user?.globalScore ?? 0}</div>
+              <div className="stat-label">⭐ Vos points</div>
+            </>
+          ) : (
+            <>
+              <div className="stat-label mb-2">⭐ Vos points</div>
+              <div className="space-y-1">
+                {groupRanks.map(({ group, points }) => (
+                  <div key={group.id} className="flex items-center justify-between text-sm">
+                    <span className="text-gray-500 dark:text-gray-400 truncate max-w-[60%]">{group.name}</span>
+                    <span className="font-bold">{points}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </div>
 
