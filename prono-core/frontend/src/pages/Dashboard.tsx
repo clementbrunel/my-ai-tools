@@ -237,8 +237,8 @@ const Dashboard: React.FC = () => {
           </Link>
         </div>
         {upcomingMatches.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {upcomingMatches.slice(0, 2).map((match) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {upcomingMatches.slice(0, 6).map((match) => (
               <MatchCard key={match.id} match={match} />
             ))}
           </div>
