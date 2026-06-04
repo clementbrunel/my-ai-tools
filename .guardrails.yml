@@ -1,0 +1,3 @@
+ignore:
+  paths:
+    - "prono-core/backend/src/main/resources/db/migration/"

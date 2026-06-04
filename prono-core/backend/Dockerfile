@@ -6,7 +6,9 @@ COPY src ./src
 RUN mvn package -DskipTests -q
 
 FROM eclipse-temurin:21-jre-alpine
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 WORKDIR /app
 COPY --from=builder /app/target/*.jar app.jar
 EXPOSE 8080
+USER appuser
 ENTRYPOINT ["java", "-jar", "app.jar"]
