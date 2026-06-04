@@ -32,4 +32,8 @@ public interface MatchRepository extends JpaRepository<Match, Long> {
     long countUnfinishedMatchesOnDay(@Param("startOfDay")     LocalDateTime startOfDay,
                                      @Param("endOfDay")       LocalDateTime endOfDay,
                                      @Param("finishedStatus") Match.Status  finishedStatus);
+
+    /** Distinct competition names that still have at least one non-FINISHED match. */
+    @Query("SELECT DISTINCT m.competition FROM Match m WHERE m.status <> com.pronocore.entity.Match.Status.FINISHED ORDER BY m.competition ASC")
+    List<String> findActiveCompetitions();
 }
