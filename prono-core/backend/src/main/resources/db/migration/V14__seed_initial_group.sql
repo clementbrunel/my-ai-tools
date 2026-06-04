@@ -5,7 +5,7 @@ UPDATE users SET role = 'PLATFORM_ADMIN' WHERE username = 'clement';
 
 -- Create the initial group (clement id=1 in V2 seed)
 INSERT INTO groups (name, description, invite_code, created_by)
-VALUES ('Les Potes', 'Le groupe original des amis', 'POTES2026', 1);
+VALUES ('Unité Core', 'Le groupe original des amis', 'CORE2026', 1);
 -- group id = 1
 
 -- Add clement as GROUP_ADMIN; other users will join after registering
