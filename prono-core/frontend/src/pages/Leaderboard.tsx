@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getLeaderboard } from '../api/leaderboard';
+import { getLeaderboard, getGroupLeaderboard } from '../api/leaderboard';
 import { getMyGroups } from '../api/groups';
 import type { LeaderboardEntry, Group } from '../types';
 import LeaderboardRow from '../components/LeaderboardRow';
@@ -8,18 +8,26 @@ import { useAuth } from '../context/AuthContext';
 const Leaderboard: React.FC = () => {
   const { user } = useAuth();
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
-  const [group, setGroup] = useState<Group | null>(null);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Load the user's groups and select the first one
   useEffect(() => {
-    Promise.all([getLeaderboard(), getMyGroups()])
-      .then(([leaderboard, groups]) => {
-        setEntries(leaderboard);
-        if (groups.length > 0) setGroup(groups[0]);
+    getMyGroups()
+      .then((g) => {
+        setGroups(g);
+        if (g.length > 0) setSelectedGroupId(g[0].id);
       })
-      .catch(console.error)
-      .finally(() => setIsLoading(false));
+      .catch(console.error);
   }, []);
+
+  // Load the leaderboard for the selected group (or global if the user has none)
+  useEffect(() => {
+    setIsLoading(true);
+    const load = selectedGroupId != null ? getGroupLeaderboard(selectedGroupId) : getLeaderboard();
+    load.then(setEntries).catch(console.error).finally(() => setIsLoading(false));
+  }, [selectedGroupId]);
 
   if (isLoading) {
     return (
@@ -42,12 +50,23 @@ const Leaderboard: React.FC = () => {
 
   return (
     <div className="space-y-8">
-      <div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="page-title mb-0">🏆 Classement</h1>
-        {group && (
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Groupe : <span className="font-semibold text-gray-700 dark:text-gray-200">{group.name}</span>
-          </p>
+        {groups.length > 0 ? (
+          <div className="flex items-center gap-2">
+            <label className="label mb-0">Groupe</label>
+            <select
+              value={selectedGroupId ?? ''}
+              onChange={(e) => setSelectedGroupId(Number(e.target.value))}
+              className="input-field"
+            >
+              {groups.map((g) => (
+                <option key={g.id} value={g.id}>{g.name}</option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <p className="text-sm text-gray-500 dark:text-gray-400">Classement global</p>
         )}
       </div>
 

@@ -279,6 +279,7 @@ public class DailyGageService {
                 .user(unlucky)
                 .forfeit(forfeit)
                 .assignedBy(assignedBy)
+                .group(dg.getGroup())
                 .completed(false)
                 .build();
         userForfeitRepository.save(uf);

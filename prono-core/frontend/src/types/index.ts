@@ -70,7 +70,6 @@ export interface Match {
   status: 'UPCOMING' | 'ONGOING' | 'FINISHED';
   competition: string;
   round: string;
-  bettorBonus?: number;
 }
 
 export interface Bet {

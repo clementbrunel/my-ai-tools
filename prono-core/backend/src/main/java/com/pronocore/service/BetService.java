@@ -250,7 +250,9 @@ public class BetService {
                 .filter(p -> !p.getChosenOption().equals(winningOption))
                 .toList();
 
-            List<Forfeit> activeForfeit = forfeitRepository.findByActiveTrue();
+            // Pick from the gages visible to THIS group (shared + group-specific), not all gages.
+            List<Forfeit> activeForfeit =
+                forfeitRepository.findActiveVisibleToGroups(List.of(bet.getGroup().getId()));
             if (!activeForfeit.isEmpty() && !losers.isEmpty()) {
                 Forfeit randomForfeit = activeForfeit.get(
                     (int)(Math.random() * activeForfeit.size())
@@ -267,6 +269,7 @@ public class BetService {
                         .forfeit(randomForfeit)
                         .assignedBy(betCreator)
                         .bet(bet)
+                        .group(bet.getGroup())
                         .completed(false)
                         .build();
                     userForfeitRepository.save(userForfeit);

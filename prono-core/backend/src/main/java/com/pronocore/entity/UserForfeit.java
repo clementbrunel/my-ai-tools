@@ -35,6 +35,11 @@ public class UserForfeit {
     @JoinColumn(name = "bet_id")
     private Bet bet;
 
+    /** The group this gage assignment belongs to (null for legacy / manual global assignments). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "group_id")
+    private Group group;
+
     @Column(name = "is_completed", nullable = false)
     @Builder.Default
     private boolean completed = false;

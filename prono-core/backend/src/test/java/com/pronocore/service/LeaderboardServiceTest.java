@@ -5,6 +5,7 @@ import com.pronocore.dto.response.UserResponse;
 import com.pronocore.entity.User;
 import com.pronocore.mapper.UserMapper;
 import com.pronocore.repository.BetParticipationRepository;
+import com.pronocore.repository.UserForfeitRepository;
 import com.pronocore.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -23,6 +24,7 @@ class LeaderboardServiceTest {
 
     @Mock private UserRepository             userRepository;
     @Mock private BetParticipationRepository betParticipationRepository;
+    @Mock private UserForfeitRepository      userForfeitRepository;
     @Mock private UserMapper                 userMapper;
 
     @InjectMocks
@@ -128,6 +130,32 @@ class LeaderboardServiceTest {
         assertThat(result.get(0).getUser().getUsername()).isEqualTo("bob");
         assertThat(result.get(0).getBetsWon()).isEqualTo(8);
         assertThat(result.get(1).getUser().getUsername()).isEqualTo("alice");
+    }
+
+    @Test
+    void getGroupLeaderboard_shouldReportForfeitsReceivedPerGroup() {
+        User alice = user(1L, "alice", 100, 5, 9); // 9 = GLOBAL forfeits, must be ignored
+        User bob   = user(2L, "bob",   80, 3, 0);
+
+        Object[] alicePts = { 1L, 50 };
+        Object[] bobPts   = { 2L, 30 };
+        Object[] aliceForfeits = { 1L, 2L };
+
+        when(userRepository.findAllByGroupIdOrderByGlobalScoreDesc(42L))
+                .thenReturn(new ArrayList<>(List.of(alice, bob)));
+        when(betParticipationRepository.sumPointsEarnedByGroupId(42L))
+                .thenReturn(List.of(alicePts, bobPts));
+        when(betParticipationRepository.countBetsWonByGroupId(42L)).thenReturn(List.of());
+        // alice received 2 gages in THIS group, bob 0
+        when(userForfeitRepository.countByGroupIdGroupedByUser(42L))
+                .thenReturn(List.<Object[]>of(aliceForfeits));
+        when(userMapper.toResponse(alice)).thenReturn(userResponse(1L, "alice"));
+        when(userMapper.toResponse(bob)).thenReturn(userResponse(2L, "bob"));
+
+        List<LeaderboardEntryResponse> result = leaderboardService.getGroupLeaderboard(42L);
+
+        assertThat(result.get(0).getForfeitsReceived()).isEqualTo(2); // alice, per-group (not 9)
+        assertThat(result.get(1).getForfeitsReceived()).isEqualTo(0); // bob
     }
 
     @Test

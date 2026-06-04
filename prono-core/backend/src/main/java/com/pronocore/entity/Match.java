@@ -46,14 +46,6 @@ public class Match {
     @Builder.Default
     private String round = "Group Stage";
 
-    /**
-     * Bonus points awarded to the biggest bettor on this match (most participations),
-     * regardless of result — used to break leaderboard ties.
-     */
-    @Column(name = "bettor_bonus", nullable = false)
-    @Builder.Default
-    private int bettorBonus = 5;
-
     public enum Status {
         UPCOMING, ONGOING, FINISHED
     }
