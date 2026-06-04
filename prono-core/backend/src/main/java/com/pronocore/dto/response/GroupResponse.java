@@ -1,5 +1,6 @@
 package com.pronocore.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.pronocore.entity.GroupMember;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -21,6 +22,7 @@ public class GroupResponse {
     private String inviteCode;
     private String createdByUsername;
     private int memberCount;
+    @JsonProperty("isPrivate")
     private boolean isPrivate;
     private List<GroupMemberResponse> members;
     /** Pending applications — only populated for GROUP_ADMIN. */

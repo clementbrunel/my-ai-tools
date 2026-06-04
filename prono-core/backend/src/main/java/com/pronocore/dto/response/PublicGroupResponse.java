@@ -1,5 +1,6 @@
 package com.pronocore.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.pronocore.entity.GroupMember;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -19,6 +20,7 @@ public class PublicGroupResponse {
     private String description;
     private String createdByUsername;
     private int memberCount;
+    @JsonProperty("isPrivate")
     private boolean isPrivate;
     private LocalDateTime createdAt;
 
