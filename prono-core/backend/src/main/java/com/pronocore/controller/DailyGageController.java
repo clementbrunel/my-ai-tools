@@ -36,33 +36,31 @@ public class DailyGageController {
     }
 
     @GetMapping("/date/{date}")
-    @Operation(summary = "Get daily gage for a specific date (format: yyyy-MM-dd)")
-    public ResponseEntity<DailyGageResponse> getDailyGageByDate(
+    @Operation(summary = "Get the caller's group gages for a specific date (format: yyyy-MM-dd)")
+    public ResponseEntity<List<DailyGageResponse>> getDailyGagesByDate(
             @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
-        return ResponseEntity.ok(dailyGageService.getDailyGageByDate(date));
+        return ResponseEntity.ok(dailyGageService.getDailyGagesByDate(date));
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "Get daily gage by ID")
+    @Operation(summary = "Get daily gage by ID (must belong to one of the caller's groups)")
     public ResponseEntity<DailyGageResponse> getDailyGageById(@PathVariable Long id) {
         return ResponseEntity.ok(dailyGageService.getDailyGageById(id));
     }
 
     // ---------------------------------------------------------------
-    // Admin commands
+    // Group-admin commands (authorisation enforced in the service)
     // ---------------------------------------------------------------
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Create a daily gage for a calendar day (Admin only)")
+    @Operation(summary = "Create a daily gage for a calendar day in a group (group admin only)")
     public ResponseEntity<DailyGageResponse> createDailyGage(@RequestBody CreateDailyGageRequest req) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(dailyGageService.createDailyGage(req));
     }
 
     @PutMapping("/{id}/select")
-    @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Select the forfeit directly in DIRECT mode (Admin only)")
+    @Operation(summary = "Select the forfeit directly in DIRECT mode (group admin only)")
     public ResponseEntity<DailyGageResponse> selectForfeitDirectly(
             @PathVariable Long id,
             @RequestBody SelectForfeitRequest req) {
@@ -70,8 +68,7 @@ public class DailyGageController {
     }
 
     @PostMapping("/{id}/candidates")
-    @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Add a candidate to the VOTE pool (Admin only)")
+    @Operation(summary = "Add a candidate to the VOTE pool (group admin only)")
     public ResponseEntity<DailyGageResponse> addCandidate(
             @PathVariable Long id,
             @RequestBody SelectForfeitRequest req) {
@@ -79,8 +76,7 @@ public class DailyGageController {
     }
 
     @DeleteMapping("/{id}/candidates/{forfeitId}")
-    @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Remove a candidate from the VOTE pool (Admin only)")
+    @Operation(summary = "Remove a candidate from the VOTE pool (group admin only)")
     public ResponseEntity<DailyGageResponse> removeCandidate(
             @PathVariable Long id,
             @PathVariable Long forfeitId) {

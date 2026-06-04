@@ -16,6 +16,8 @@ import java.util.List;
 public class DailyGageResponse {
 
     private Long   id;
+    private Long   groupId;
+    private String groupName;
     private LocalDate matchDate;
 
     /** Selected forfeit (null until admin picks one or vote closes). */

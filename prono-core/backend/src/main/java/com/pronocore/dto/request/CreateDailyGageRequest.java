@@ -10,6 +10,9 @@ import java.time.LocalDate;
 public class CreateDailyGageRequest {
 
     @NotNull
+    private Long groupId;
+
+    @NotNull
     private LocalDate matchDate;
 
     @NotNull

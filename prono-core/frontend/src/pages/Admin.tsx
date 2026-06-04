@@ -14,7 +14,8 @@ import {
   addCandidate,
   removeCandidate,
 } from '../api/dailyGages';
-import type { Match, Forfeit, DailyGage } from '../types';
+import { getMyGroups } from '../api/groups';
+import type { Match, Forfeit, DailyGage, Group } from '../types';
 import { isAdmin } from '../types';
 import { formatDate } from '../utils/dates';
 
@@ -50,6 +51,8 @@ const Admin: React.FC = () => {
   const [forfeitSuccess, setForfeitSuccess] = useState('');
 
   // Daily gage creation
+  const [adminGroups, setAdminGroups] = useState<Group[]>([]);
+  const [dgGroupId, setDgGroupId] = useState<number | ''>('');
   const [dgDate, setDgDate] = useState('');         // internal YYYY-MM-DD value sent to API
   const [dgDateDisplay, setDgDateDisplay] = useState(''); // DD/MM/YYYY shown in the text input
   const [dgMode, setDgMode] = useState<'DIRECT' | 'VOTE'>('DIRECT');
@@ -81,8 +84,14 @@ const Admin: React.FC = () => {
   // Lazy-load gages tab data
   useEffect(() => {
     if (activeTab === 'forfeits') {
-      Promise.all([getAllForfeitsAdmin(), getAllDailyGages()])
-        .then(([f, dg]) => { setForfeits(f); setDailyGages(dg); })
+      Promise.all([getAllForfeitsAdmin(), getAllDailyGages(), getMyGroups()])
+        .then(([f, dg, groups]) => {
+          setForfeits(f);
+          setDailyGages(dg);
+          const admin = groups.filter((g) => g.currentUserRole === 'GROUP_ADMIN');
+          setAdminGroups(admin);
+          if (admin.length > 0) setDgGroupId((prev) => (prev === '' ? admin[0].id : prev));
+        })
         .catch(console.error);
     }
   }, [activeTab]);
@@ -138,12 +147,16 @@ const Admin: React.FC = () => {
   const handleCreateDailyGage = async (e: React.FormEvent) => {
     e.preventDefault();
     setDgError(''); setDgSuccess('');
+    if (dgGroupId === '') {
+      setDgError('Choisissez un groupe que vous administrez.');
+      return;
+    }
     if (!dgDate) {
       setDgError('Date invalide — utilisez le format JJ/MM/AAAA.');
       return;
     }
     try {
-      const created = await createDailyGage(dgDate, dgMode);
+      const created = await createDailyGage(dgGroupId, dgDate, dgMode);
       setDailyGages([created, ...dailyGages]);
       setDgDate('');
       setDgDateDisplay('');
@@ -194,8 +207,10 @@ const Admin: React.FC = () => {
     return m ? `${m[3]}-${m[2]}-${m[1]}` : '';
   };
 
-  // Match days (YYYY-MM-DD) that have no DailyGage configured yet
-  const configuredDates = new Set(dailyGages.map((dg) => dg.matchDate));
+  // Match days (YYYY-MM-DD) that have no DailyGage configured yet for the selected group
+  const configuredDates = new Set(
+    dailyGages.filter((dg) => dg.groupId === dgGroupId).map((dg) => dg.matchDate)
+  );
   const unconfiguredMatchDays = [
     ...new Set(matches.map((m) => m.matchDate.slice(0, 10))),
   ]
@@ -339,6 +354,24 @@ const Admin: React.FC = () => {
               <h3 className="font-semibold text-gray-900 dark:text-white mb-3">+ Créer un gage du jour</h3>
               <form onSubmit={handleCreateDailyGage} className="flex flex-wrap gap-3 items-end">
                 <div>
+                  <label className="label">Groupe</label>
+                  {adminGroups.length === 0 ? (
+                    <p className="text-sm text-gray-500 dark:text-gray-400 w-36">
+                      Aucun groupe administré
+                    </p>
+                  ) : (
+                    <select
+                      value={dgGroupId}
+                      onChange={(e) => setDgGroupId(Number(e.target.value))}
+                      className="input-field"
+                    >
+                      {adminGroups.map((g) => (
+                        <option key={g.id} value={g.id}>{g.name}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+                <div>
                   <label className="label">Date (JJ/MM/AAAA)</label>
                   <input
                     type="text"
@@ -416,6 +449,9 @@ const Admin: React.FC = () => {
                       <div className="flex items-center gap-3">
                         <span className="font-semibold text-gray-900 dark:text-white">
                           {formatDate(dg.matchDate)}
+                        </span>
+                        <span className="text-xs bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full font-medium">
+                          👥 {dg.groupName}
                         </span>
                         <span className="text-xs text-gray-500">
                           {dg.mode === 'DIRECT' ? '🎯 Direct' : '🗳️ Vote'}

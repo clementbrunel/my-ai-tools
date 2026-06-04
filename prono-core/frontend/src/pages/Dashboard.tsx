@@ -5,7 +5,7 @@ import { getMatches } from '../api/matches';
 import { getLeaderboard } from '../api/leaderboard';
 import { getDashboardStats } from '../api/dashboard';
 import type { GroupRankEntry } from '../api/dashboard';
-import { getDailyGageByDate, voteOnCandidate } from '../api/dailyGages';
+import { getDailyGagesByDate, voteOnCandidate } from '../api/dailyGages';
 import type { Match, LeaderboardEntry, DailyGage } from '../types';
 import MatchCard from '../components/MatchCard';
 
@@ -13,7 +13,7 @@ const Dashboard: React.FC = () => {
   const { user } = useAuth();
   const [matches, setMatches] = useState<Match[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
-  const [todayGage, setTodayGage] = useState<DailyGage | null>(null);
+  const [todayGages, setTodayGages] = useState<DailyGage[]>([]);
   const [upcomingMatchCount, setUpcomingMatchCount] = useState<number>(0);
   const [groupRanks, setGroupRanks] = useState<GroupRankEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -33,12 +33,11 @@ const Dashboard: React.FC = () => {
         setUpcomingMatchCount(statsData.upcomingMatchesInMyGroups);
         setGroupRanks(statsData.groupRanks);
 
-        // Attempt to load today's gage (may 404 if not configured)
+        // Load today's gages across the user's groups (empty if none configured)
         try {
-          const gage = await getDailyGageByDate(today);
-          setTodayGage(gage);
+          setTodayGages(await getDailyGagesByDate(today));
         } catch {
-          // No gage configured today — that's fine
+          // No gage today — that's fine
         }
       } catch (err) {
         console.error('Error loading dashboard:', err);
@@ -49,11 +48,10 @@ const Dashboard: React.FC = () => {
     fetchData();
   }, [today]);
 
-  const handleVote = async (forfeitId: number, vote: number) => {
-    if (!todayGage) return;
+  const handleVote = async (gageId: number, forfeitId: number, vote: number) => {
     try {
-      const updated = await voteOnCandidate(todayGage.id, forfeitId, vote);
-      setTodayGage(updated);
+      const updated = await voteOnCandidate(gageId, forfeitId, vote);
+      setTodayGages((prev) => prev.map((g) => (g.id === updated.id ? updated : g)));
     } catch {
       alert('Erreur lors du vote');
     }
@@ -139,85 +137,91 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Daily Gage Widget */}
-      {todayGage && (
-        <section>
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">🃏 Gage du jour</h2>
+      {/* Daily Gage Widget — one per group that configured one today */}
+      {todayGages.length > 0 && (
+        <section className="space-y-4">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white">🃏 Gage du jour</h2>
 
-          {todayGage.status === 'SETTLED' ? (
-            <div className="card border-2 border-wc-red bg-red-50 dark:bg-red-900/10">
-              <div className="flex items-start gap-4">
-                <div className="text-4xl">😬</div>
-                <div>
-                  <p className="text-sm text-gray-500 mb-1">Gage attribué</p>
-                  <p className="text-xl font-black text-wc-red">{todayGage.forfeit?.title}</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                    {todayGage.forfeit?.description}
-                  </p>
-                  <p className="text-sm mt-2 font-medium">
-                    👎 <span className="text-wc-red">{todayGage.assignedToUsername}</span> devra l'effectuer
-                  </p>
-                </div>
-              </div>
-            </div>
-          ) : todayGage.status === 'ACTIVE' && todayGage.mode === 'DIRECT' && todayGage.forfeit ? (
-            <div className="card border-2 border-wc-green">
-              <div className="flex items-start gap-4">
-                <div className="text-4xl">🃏</div>
-                <div>
-                  <p className="text-sm text-gray-500 mb-1">Gage de la journée — le moins bon joueur l'écopera !</p>
-                  <p className="text-xl font-black text-gray-900 dark:text-white">{todayGage.forfeit.title}</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{todayGage.forfeit.description}</p>
-                </div>
-              </div>
-            </div>
-          ) : todayGage.mode === 'VOTE' && todayGage.candidates.length > 0 ? (
-            <div className="card border-2 border-wc-gold">
-              <p className="text-sm text-gray-500 mb-3">
-                🗳️ Vote pour le gage du jour — le moins bon joueur écopera du gagnant !
-              </p>
-              <div className="space-y-3">
-                {todayGage.candidates.map((c) => {
-                  const isLiked = c.userVote === 1;
-                  const isDisliked = c.userVote === -1;
-                  return (
-                    <div
-                      key={c.id}
-                      className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
-                    >
-                      <div>
-                        <div className="font-medium text-gray-900 dark:text-white">{c.forfeit.title}</div>
-                        <div className="text-xs text-gray-500 mt-0.5">{c.forfeit.description}</div>
-                      </div>
-                      <div className="flex items-center gap-2 ml-4 flex-shrink-0">
-                        <span className={`text-sm font-semibold ${c.voteScore > 0 ? 'text-green-500' : c.voteScore < 0 ? 'text-red-500' : 'text-gray-400'}`}>
-                          {c.voteScore > 0 ? '+' : ''}{c.voteScore}
-                        </span>
-                        <button
-                          onClick={() => handleVote(c.forfeit.id, isLiked ? 0 : 1)}
-                          className={`text-lg transition-transform hover:scale-125 ${isLiked ? 'opacity-100' : 'opacity-40 hover:opacity-80'}`}
-                          title="Pour"
-                        >
-                          👍
-                        </button>
-                        <button
-                          onClick={() => handleVote(c.forfeit.id, isDisliked ? 0 : -1)}
-                          className={`text-lg transition-transform hover:scale-125 ${isDisliked ? 'opacity-100' : 'opacity-40 hover:opacity-80'}`}
-                          title="Contre"
-                        >
-                          👎
-                        </button>
-                      </div>
+          {todayGages.map((g) => (
+            <div key={g.id} className="space-y-2">
+              {todayGages.length > 1 && (
+                <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">👥 {g.groupName}</p>
+              )}
+
+              {g.status === 'SETTLED' ? (
+                <div className="card border-2 border-wc-red bg-red-50 dark:bg-red-900/10">
+                  <div className="flex items-start gap-4">
+                    <div className="text-4xl">😬</div>
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Gage attribué</p>
+                      <p className="text-xl font-black text-wc-red">{g.forfeit?.title}</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{g.forfeit?.description}</p>
+                      <p className="text-sm mt-2 font-medium">
+                        👎 <span className="text-wc-red">{g.assignedToUsername}</span> devra l'effectuer
+                      </p>
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
+                </div>
+              ) : g.status === 'ACTIVE' && g.mode === 'DIRECT' && g.forfeit ? (
+                <div className="card border-2 border-wc-green">
+                  <div className="flex items-start gap-4">
+                    <div className="text-4xl">🃏</div>
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Gage de la journée — le moins bon joueur l'écopera !</p>
+                      <p className="text-xl font-black text-gray-900 dark:text-white">{g.forfeit.title}</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{g.forfeit.description}</p>
+                    </div>
+                  </div>
+                </div>
+              ) : g.mode === 'VOTE' && g.candidates.length > 0 ? (
+                <div className="card border-2 border-wc-gold">
+                  <p className="text-sm text-gray-500 mb-3">
+                    🗳️ Vote pour le gage du jour — le moins bon joueur écopera du gagnant !
+                  </p>
+                  <div className="space-y-3">
+                    {g.candidates.map((c) => {
+                      const isLiked = c.userVote === 1;
+                      const isDisliked = c.userVote === -1;
+                      return (
+                        <div
+                          key={c.id}
+                          className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
+                        >
+                          <div>
+                            <div className="font-medium text-gray-900 dark:text-white">{c.forfeit.title}</div>
+                            <div className="text-xs text-gray-500 mt-0.5">{c.forfeit.description}</div>
+                          </div>
+                          <div className="flex items-center gap-2 ml-4 flex-shrink-0">
+                            <span className={`text-sm font-semibold ${c.voteScore > 0 ? 'text-green-500' : c.voteScore < 0 ? 'text-red-500' : 'text-gray-400'}`}>
+                              {c.voteScore > 0 ? '+' : ''}{c.voteScore}
+                            </span>
+                            <button
+                              onClick={() => handleVote(g.id, c.forfeit.id, isLiked ? 0 : 1)}
+                              className={`text-lg transition-transform hover:scale-125 ${isLiked ? 'opacity-100' : 'opacity-40 hover:opacity-80'}`}
+                              title="Pour"
+                            >
+                              👍
+                            </button>
+                            <button
+                              onClick={() => handleVote(g.id, c.forfeit.id, isDisliked ? 0 : -1)}
+                              className={`text-lg transition-transform hover:scale-125 ${isDisliked ? 'opacity-100' : 'opacity-40 hover:opacity-80'}`}
+                              title="Contre"
+                            >
+                              👎
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <div className="card border border-dashed text-center py-6 text-gray-400">
+                  🃏 Gage du jour en attente de configuration par l'admin du groupe
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="card border border-dashed text-center py-6 text-gray-400">
-              🃏 Gage du jour en attente de configuration par l'admin
-            </div>
-          )}
+          ))}
         </section>
       )}
 

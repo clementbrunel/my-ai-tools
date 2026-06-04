@@ -11,7 +11,13 @@ import java.util.Optional;
 @Repository
 public interface DailyGageRepository extends JpaRepository<DailyGage, Long> {
 
-    Optional<DailyGage> findByMatchDate(LocalDate date);
+    /** All groups' gages for a given day (used by auto-settlement). */
+    List<DailyGage> findByMatchDate(LocalDate date);
 
-    List<DailyGage> findAllByOrderByMatchDateDesc();
+    Optional<DailyGage> findByGroupIdAndMatchDate(Long groupId, LocalDate date);
+
+    /** The given groups' gages for a day (caller's groups). */
+    List<DailyGage> findByMatchDateAndGroupIdIn(LocalDate date, List<Long> groupIds);
+
+    List<DailyGage> findByGroupIdInOrderByMatchDateDesc(List<Long> groupIds);
 }

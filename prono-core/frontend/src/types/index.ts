@@ -131,6 +131,8 @@ export interface DailyGageCandidate {
 
 export interface DailyGage {
   id: number;
+  groupId: number;
+  groupName: string;
   matchDate: string;   // "2026-06-11"
   forfeit?: Forfeit;
   mode: 'DIRECT' | 'VOTE';

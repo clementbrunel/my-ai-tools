@@ -31,11 +31,11 @@ public class DailyGage {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "group_id")
+    @JoinColumn(name = "group_id", nullable = false)
     private Group group;
 
-    /** The calendar day this gage belongs to. */
-    @Column(name = "match_date", nullable = false, unique = true)
+    /** The calendar day this gage belongs to (unique per group, not globally). */
+    @Column(name = "match_date", nullable = false)
     private LocalDate matchDate;
 
     /** Selected forfeit (may be null until admin selects / vote closes). */
