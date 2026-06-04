@@ -1,13 +1,27 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { isAdmin } from '../types';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { getMyGroups } from '../api/groups';
 
 const Navbar: React.FC = () => {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [pendingGroupCount, setPendingGroupCount] = useState(0);
+
+  useEffect(() => {
+    if (!user) return;
+    getMyGroups()
+      .then((groups) => {
+        const count = groups
+          .filter((g) => g.currentUserRole === 'GROUP_ADMIN')
+          .reduce((sum, g) => sum + (g.pendingApplications?.length ?? 0), 0);
+        setPendingGroupCount(count);
+      })
+      .catch(() => {});
+  }, [user]);
 
   const handleLogout = () => {
     logout();
@@ -40,8 +54,13 @@ const Navbar: React.FC = () => {
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-6">
             {navLinks.map((link) => (
-              <Link key={link.to} to={link.to} className={`text-sm ${isActive(link.to)}`}>
+              <Link key={link.to} to={link.to} className={`relative text-sm ${isActive(link.to)}`}>
                 {link.label}
+                {link.to === '/group' && pendingGroupCount > 0 && (
+                  <span className="absolute -top-2 -right-3 bg-red-500 text-white text-[10px] font-bold leading-none rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
+                    {pendingGroupCount}
+                  </span>
+                )}
               </Link>
             ))}
             {isAdmin(user) && (
@@ -96,10 +115,15 @@ const Navbar: React.FC = () => {
                 <Link
                   key={link.to}
                   to={link.to}
-                  className={`text-sm px-2 py-1 ${isActive(link.to)}`}
+                  className={`relative text-sm px-2 py-1 ${isActive(link.to)}`}
                   onClick={() => setMobileOpen(false)}
                 >
                   {link.label}
+                  {link.to === '/group' && pendingGroupCount > 0 && (
+                    <span className="ml-1.5 inline-flex items-center justify-center bg-red-500 text-white text-[10px] font-bold leading-none rounded-full min-w-[16px] h-4 px-1">
+                      {pendingGroupCount}
+                    </span>
+                  )}
                 </Link>
               ))}
               {isAdmin(user) && (
