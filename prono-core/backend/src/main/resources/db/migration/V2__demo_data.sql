@@ -1,7 +1,6 @@
 -- V2__demo_data.sql
 -- World Cup 2026 — users, forfeits, all 72 group stage matches
--- Password for all users: prono2026
--- Hash: bcrypt(prono2026, rounds=10) = $2b$10$SRysqXHa16OSafKhETdOgOpGDK16yWxJPd9bjixgThLLimR6sLk22
+-- All users share the same bcrypt password hash (rounds=10)
 
 -- ============================================================
 -- USERS

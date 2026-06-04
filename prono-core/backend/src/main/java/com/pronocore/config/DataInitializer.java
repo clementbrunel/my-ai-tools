@@ -17,6 +17,6 @@ public class DataInitializer {
     public void onApplicationReady() {
         log.info("⚽ Prono Core is ready! Demo data loaded via Flyway migrations.");
         log.info("🏆 Swagger UI available at: http://localhost:8080/swagger-ui.html");
-        log.info("📋 Default credentials - admin: admin/admin123, demo: demo/demo123");
+        log.info("📋 Demo accounts available — see V2__demo_data.sql for details.");
     }
 }

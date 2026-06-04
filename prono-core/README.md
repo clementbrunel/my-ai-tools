@@ -32,12 +32,8 @@ L'application sera accessible sur :
 
 ### Comptes de démo
 
-| Username | Password | Rôle |
-|----------|----------|------|
-| `admin` | `admin123` | ADMIN |
-| `demo` | `demo123` | USER |
-| `lucas` | `demo123` | USER |
-| `thomas` | `demo123` | USER |
+Les comptes de démo sont créés par la migration Flyway `V2__demo_data.sql`.
+Consulte ce fichier pour les identifiants (ne pas les exposer publiquement).
 
 ---
 
