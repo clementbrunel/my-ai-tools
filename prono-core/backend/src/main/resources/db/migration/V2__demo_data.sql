@@ -6,23 +6,8 @@
 -- USERS
 -- ============================================================
 INSERT INTO users (username, email, password, role, global_score, bets_won, forfeits_received) VALUES
-('adrien',     'adrien@pronocore.com',     'PLACEHOLDER', 'USER',  10, 0, 0),
-('baptiste',   'baptiste@pronocore.com',   'PLACEHOLDER', 'USER',  10, 0, 0),
-('christophe', 'christophe@pronocore.com', 'PLACEHOLDER', 'USER',  10, 0, 0),
-('damien',     'damien@pronocore.com',     'PLACEHOLDER', 'USER',  10, 0, 0),
-('geoffrey',   'geoffrey@pronocore.com',   'PLACEHOLDER', 'USER',  10, 0, 0),
-('jeffrey',    'jeffrey@pronocore.com',    'PLACEHOLDER', 'USER',  10, 0, 0),
-('matheo',     'matheo@pronocore.com',     'PLACEHOLDER', 'USER',  10, 0, 0),
-('mickael',    'mickael@pronocore.com',    'PLACEHOLDER', 'USER',  10, 0, 0),
-('nicolasd',   'nicolasd@pronocore.com',   'PLACEHOLDER', 'USER',  10, 0, 0),
-('nicolasr',   'nicolasr@pronocore.com',   'PLACEHOLDER', 'USER',  10, 0, 0),
-('pierre',     'pierre@pronocore.com',     'PLACEHOLDER', 'USER',  10, 0, 0),
-('thomas',     'thomas@pronocore.com',     'PLACEHOLDER', 'USER',  10, 0, 0),
-('zacharie',   'zacharie@pronocore.com',   'PLACEHOLDER', 'USER',  10, 0, 0),
-('clement',    'clement@pronocore.com',    'PLACEHOLDER', 'ADMIN', 10, 0, 0);
--- IDs: adrien=1, baptiste=2, christophe=3, damien=4, geoffrey=5, jeffrey=6,
---      matheo=7, mickael=8, nicolasd=9, nicolasr=10, pierre=11, thomas=12,
---      zacharie=13, clement=14
+('clement', 'clement@pronocore.com', 'PLACEHOLDER', 'ADMIN', 10, 0, 0);
+-- ID: clement=1
 
 -- ============================================================
 -- FORFEITS (bibliothèque de gages)

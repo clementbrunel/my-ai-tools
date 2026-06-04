@@ -3,28 +3,14 @@
 -- Promote Clément to PLATFORM_ADMIN
 UPDATE users SET role = 'PLATFORM_ADMIN' WHERE username = 'clement';
 
--- Create the initial group (clement id=14 in V2 seed)
+-- Create the initial group (clement id=1 in V2 seed)
 INSERT INTO groups (name, description, invite_code, created_by)
-VALUES ('Les Potes', 'Le groupe original des amis', 'POTES2026', 14);
+VALUES ('Les Potes', 'Le groupe original des amis', 'POTES2026', 1);
 -- group id = 1
 
--- Add all 14 existing users to the initial group
--- clement = GROUP_ADMIN, everyone else = MEMBER
+-- Add clement as GROUP_ADMIN; other users will join after registering
 INSERT INTO group_members (group_id, user_id, role) VALUES
-(1,  1,  'MEMBER'),   -- adrien
-(1,  2,  'MEMBER'),   -- baptiste
-(1,  3,  'MEMBER'),   -- christophe
-(1,  4,  'MEMBER'),   -- damien
-(1,  5,  'MEMBER'),   -- geoffrey
-(1,  6,  'MEMBER'),   -- jeffrey
-(1,  7,  'MEMBER'),   -- matheo
-(1,  8,  'MEMBER'),   -- mickael
-(1,  9,  'MEMBER'),   -- nicolasd
-(1, 10,  'MEMBER'),   -- nicolasr
-(1, 11,  'MEMBER'),   -- pierre
-(1, 12,  'MEMBER'),   -- thomas
-(1, 13,  'MEMBER'),   -- zacharie
-(1, 14,  'GROUP_ADMIN'); -- clement
+(1, 1, 'GROUP_ADMIN'); -- clement
 
 -- Seed group forfeits for the initial group (migrate from global forfeits)
 INSERT INTO group_forfeits (group_id, title, description, category, is_active, times_completed) VALUES
