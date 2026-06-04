@@ -14,6 +14,7 @@ export const isAdmin = (user: User | null | undefined): boolean =>
   user?.role === 'ADMIN' || user?.role === 'PLATFORM_ADMIN';
 
 export type GroupRole = 'GROUP_ADMIN' | 'MEMBER';
+export type MemberStatus = 'ACTIVE' | 'PENDING';
 
 export interface GroupMember {
   id: number;
@@ -21,6 +22,7 @@ export interface GroupMember {
   username: string;
   avatarUrl?: string;
   role: GroupRole;
+  status: MemberStatus;
   joinedAt: string;
 }
 
@@ -31,9 +33,22 @@ export interface Group {
   inviteCode: string;
   createdByUsername: string;
   memberCount: number;
+  isPrivate: boolean;
   members: GroupMember[];
+  pendingApplications?: GroupMember[];
   createdAt: string;
   currentUserRole: GroupRole | null;
+}
+
+export interface PublicGroup {
+  id: number;
+  name: string;
+  description?: string;
+  createdByUsername: string;
+  memberCount: number;
+  isPrivate: boolean;
+  createdAt: string;
+  currentUserStatus: MemberStatus | null;
 }
 
 export interface CreateGroupRequest {

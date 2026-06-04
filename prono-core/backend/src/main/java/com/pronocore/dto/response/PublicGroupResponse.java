@@ -7,26 +7,21 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class GroupResponse {
+public class PublicGroupResponse {
 
     private Long id;
     private String name;
     private String description;
-    private String inviteCode;
     private String createdByUsername;
     private int memberCount;
     private boolean isPrivate;
-    private List<GroupMemberResponse> members;
-    /** Pending applications — only populated for GROUP_ADMIN. */
-    private List<GroupMemberResponse> pendingApplications;
     private LocalDateTime createdAt;
 
-    /** Role of the requesting user within this group (null if not a member). */
-    private GroupMember.GroupRole currentUserRole;
+    /** Current user's membership status: null = not a member/applicant, PENDING = applied, ACTIVE = member. */
+    private GroupMember.MemberStatus currentUserStatus;
 }

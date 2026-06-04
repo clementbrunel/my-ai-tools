@@ -4,6 +4,7 @@ import com.pronocore.dto.request.CreateGroupRequest;
 import com.pronocore.dto.request.JoinGroupRequest;
 import com.pronocore.dto.response.GroupMemberResponse;
 import com.pronocore.dto.response.GroupResponse;
+import com.pronocore.dto.response.PublicGroupResponse;
 import com.pronocore.entity.Group;
 import com.pronocore.entity.GroupMember;
 import com.pronocore.entity.User;
@@ -41,10 +42,11 @@ public class GroupService {
             .group(group)
             .user(creator)
             .role(GroupMember.GroupRole.GROUP_ADMIN)
+            .status(GroupMember.MemberStatus.ACTIVE)
             .build();
         groupMemberRepository.save(membership);
 
-        return toResponse(group, GroupMember.GroupRole.GROUP_ADMIN);
+        return toResponse(group, GroupMember.GroupRole.GROUP_ADMIN, true);
     }
 
     @Transactional
@@ -57,14 +59,78 @@ public class GroupService {
             throw new IllegalStateException("Already a member of this group");
         }
 
+        // Joining via invite code always results in ACTIVE membership (bypasses approval)
         GroupMember membership = GroupMember.builder()
             .group(group)
             .user(user)
             .role(GroupMember.GroupRole.MEMBER)
+            .status(GroupMember.MemberStatus.ACTIVE)
             .build();
         groupMemberRepository.save(membership);
 
-        return toResponse(group, GroupMember.GroupRole.MEMBER);
+        return toResponse(group, GroupMember.GroupRole.MEMBER, false);
+    }
+
+    @Transactional
+    public PublicGroupResponse applyToGroup(Long groupId, String username) {
+        User user = findUser(username);
+        Group group = findGroup(groupId);
+
+        if (group.isPrivate()) {
+            throw new IllegalStateException("This group is private and cannot be applied to");
+        }
+        if (groupMemberRepository.existsByGroupIdAndUserId(groupId, user.getId())) {
+            throw new IllegalStateException("Already a member or applicant of this group");
+        }
+
+        GroupMember application = GroupMember.builder()
+            .group(group)
+            .user(user)
+            .role(GroupMember.GroupRole.MEMBER)
+            .status(GroupMember.MemberStatus.PENDING)
+            .build();
+        groupMemberRepository.save(application);
+
+        return toPublicResponse(group, GroupMember.MemberStatus.PENDING);
+    }
+
+    @Transactional
+    public GroupMemberResponse approveApplication(Long groupId, Long targetUserId, String adminUsername) {
+        assertGroupAdmin(groupId, adminUsername);
+
+        GroupMember application = groupMemberRepository.findByGroupIdAndUserId(groupId, targetUserId)
+            .orElseThrow(() -> new IllegalArgumentException("Application not found"));
+        if (application.getStatus() != GroupMember.MemberStatus.PENDING) {
+            throw new IllegalStateException("This user is already an active member");
+        }
+
+        application.setStatus(GroupMember.MemberStatus.ACTIVE);
+        groupMemberRepository.save(application);
+        return toMemberResponse(application);
+    }
+
+    @Transactional
+    public void rejectApplication(Long groupId, Long targetUserId, String adminUsername) {
+        assertGroupAdmin(groupId, adminUsername);
+
+        GroupMember application = groupMemberRepository.findByGroupIdAndUserId(groupId, targetUserId)
+            .orElseThrow(() -> new IllegalArgumentException("Application not found"));
+        if (application.getStatus() != GroupMember.MemberStatus.PENDING) {
+            throw new IllegalStateException("This user is already an active member");
+        }
+
+        groupMemberRepository.delete(application);
+    }
+
+    @Transactional
+    public GroupResponse updatePrivacy(Long groupId, boolean isPrivate, String adminUsername) {
+        assertGroupAdmin(groupId, adminUsername);
+
+        Group group = findGroup(groupId);
+        group.setPrivate(isPrivate);
+        groupRepository.save(group);
+
+        return toResponse(group, GroupMember.GroupRole.GROUP_ADMIN, true);
     }
 
     @Transactional(readOnly = true)
@@ -72,19 +138,32 @@ public class GroupService {
         User user = findUser(username);
         Group group = findGroup(groupId);
 
-        GroupMember.GroupRole currentUserRole = groupMemberRepository
-            .findByGroupIdAndUserId(groupId, user.getId())
-            .map(GroupMember::getRole)
-            .orElse(null);
+        GroupMember membership = groupMemberRepository.findByGroupIdAndUserId(groupId, user.getId()).orElse(null);
+        GroupMember.GroupRole currentUserRole = (membership != null && membership.getStatus() == GroupMember.MemberStatus.ACTIVE)
+            ? membership.getRole() : null;
+        boolean isAdmin = currentUserRole == GroupMember.GroupRole.GROUP_ADMIN;
 
-        return toResponse(group, currentUserRole);
+        return toResponse(group, currentUserRole, isAdmin);
     }
 
     @Transactional(readOnly = true)
     public List<GroupResponse> getMyGroups(String username) {
         User user = findUser(username);
-        return groupMemberRepository.findByUserId(user.getId()).stream()
-            .map(m -> toResponse(m.getGroup(), m.getRole()))
+        return groupMemberRepository.findByUserIdAndStatus(user.getId(), GroupMember.MemberStatus.ACTIVE).stream()
+            .map(m -> toResponse(m.getGroup(), m.getRole(), m.getRole() == GroupMember.GroupRole.GROUP_ADMIN))
+            .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<PublicGroupResponse> getPublicGroups(String username) {
+        User user = findUser(username);
+        return groupRepository.findByIsPrivateFalse().stream()
+            .map(group -> {
+                GroupMember membership = groupMemberRepository
+                    .findByGroupIdAndUserId(group.getId(), user.getId()).orElse(null);
+                GroupMember.MemberStatus status = membership != null ? membership.getStatus() : null;
+                return toPublicResponse(group, status);
+            })
             .toList();
     }
 
@@ -92,7 +171,7 @@ public class GroupService {
     @Transactional(readOnly = true)
     public List<GroupResponse> getAllGroups() {
         return groupRepository.findAll().stream()
-            .map(g -> toResponse(g, null))
+            .map(g -> toResponse(g, null, false))
             .toList();
     }
 
@@ -102,12 +181,15 @@ public class GroupService {
         GroupMember member = groupMemberRepository.findByGroupIdAndUserId(groupId, user.getId())
             .orElseThrow(() -> new IllegalArgumentException("Not a member of this group"));
 
-        long adminCount = groupMemberRepository.findByGroupId(groupId).stream()
-            .filter(m -> m.getRole() == GroupMember.GroupRole.GROUP_ADMIN)
-            .count();
-
-        if (member.getRole() == GroupMember.GroupRole.GROUP_ADMIN && adminCount == 1) {
-            throw new IllegalStateException("Cannot leave: you are the only admin. Promote another member first.");
+        if (member.getStatus() == GroupMember.MemberStatus.ACTIVE
+                && member.getRole() == GroupMember.GroupRole.GROUP_ADMIN) {
+            long adminCount = groupMemberRepository
+                .findByGroupIdAndStatus(groupId, GroupMember.MemberStatus.ACTIVE).stream()
+                .filter(m -> m.getRole() == GroupMember.GroupRole.GROUP_ADMIN)
+                .count();
+            if (adminCount == 1) {
+                throw new IllegalStateException("Cannot leave: you are the only admin. Promote another member first.");
+            }
         }
 
         groupMemberRepository.delete(member);
@@ -119,6 +201,9 @@ public class GroupService {
 
         GroupMember member = groupMemberRepository.findByGroupIdAndUserId(groupId, targetUserId)
             .orElseThrow(() -> new IllegalArgumentException("User is not a member of this group"));
+        if (member.getStatus() != GroupMember.MemberStatus.ACTIVE) {
+            throw new IllegalStateException("Cannot promote a pending applicant");
+        }
         member.setRole(GroupMember.GroupRole.GROUP_ADMIN);
         groupMemberRepository.save(member);
         return toMemberResponse(member);
@@ -131,7 +216,7 @@ public class GroupService {
         GroupMember member = groupMemberRepository.findByGroupIdAndUserId(groupId, targetUserId)
             .orElseThrow(() -> new IllegalArgumentException("User is not a member of this group"));
 
-        long adminCount = groupMemberRepository.findByGroupId(groupId).stream()
+        long adminCount = groupMemberRepository.findByGroupIdAndStatus(groupId, GroupMember.MemberStatus.ACTIVE).stream()
             .filter(m -> m.getRole() == GroupMember.GroupRole.GROUP_ADMIN)
             .count();
         if (adminCount == 1) {
@@ -157,7 +242,8 @@ public class GroupService {
         User user = findUser(username);
         GroupMember membership = groupMemberRepository.findByGroupIdAndUserId(groupId, user.getId())
             .orElseThrow(() -> new IllegalArgumentException("Not a member of this group"));
-        if (membership.getRole() != GroupMember.GroupRole.GROUP_ADMIN) {
+        if (membership.getStatus() != GroupMember.MemberStatus.ACTIVE
+                || membership.getRole() != GroupMember.GroupRole.GROUP_ADMIN) {
             throw new IllegalStateException("Group admin role required");
         }
     }
@@ -184,18 +270,40 @@ public class GroupService {
         return code;
     }
 
-    private GroupResponse toResponse(Group group, GroupMember.GroupRole currentUserRole) {
-        List<GroupMember> members = groupMemberRepository.findByGroupId(group.getId());
+    private GroupResponse toResponse(Group group, GroupMember.GroupRole currentUserRole, boolean includeAdminData) {
+        List<GroupMember> activeMembers = groupMemberRepository.findByGroupIdAndStatus(group.getId(), GroupMember.MemberStatus.ACTIVE);
+        List<GroupMemberResponse> pendingApplications = null;
+        if (includeAdminData) {
+            pendingApplications = groupMemberRepository
+                .findByGroupIdAndStatus(group.getId(), GroupMember.MemberStatus.PENDING)
+                .stream().map(this::toMemberResponse).toList();
+        }
         return GroupResponse.builder()
             .id(group.getId())
             .name(group.getName())
             .description(group.getDescription())
             .inviteCode(group.getInviteCode())
+            .isPrivate(group.isPrivate())
             .createdByUsername(group.getCreatedBy().getUsername())
-            .memberCount(members.size())
-            .members(members.stream().map(this::toMemberResponse).toList())
+            .memberCount(activeMembers.size())
+            .members(activeMembers.stream().map(this::toMemberResponse).toList())
+            .pendingApplications(pendingApplications)
             .createdAt(group.getCreatedAt())
             .currentUserRole(currentUserRole)
+            .build();
+    }
+
+    private PublicGroupResponse toPublicResponse(Group group, GroupMember.MemberStatus currentUserStatus) {
+        long memberCount = groupMemberRepository.countByGroupIdAndStatus(group.getId(), GroupMember.MemberStatus.ACTIVE);
+        return PublicGroupResponse.builder()
+            .id(group.getId())
+            .name(group.getName())
+            .description(group.getDescription())
+            .isPrivate(group.isPrivate())
+            .createdByUsername(group.getCreatedBy().getUsername())
+            .memberCount((int) memberCount)
+            .createdAt(group.getCreatedAt())
+            .currentUserStatus(currentUserStatus)
             .build();
     }
 
@@ -206,6 +314,7 @@ public class GroupService {
             .username(m.getUser().getUsername())
             .avatarUrl(m.getUser().getAvatarUrl())
             .role(m.getRole())
+            .status(m.getStatus())
             .joinedAt(m.getJoinedAt())
             .build();
     }

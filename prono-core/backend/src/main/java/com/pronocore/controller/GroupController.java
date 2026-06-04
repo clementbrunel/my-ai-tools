@@ -2,8 +2,10 @@ package com.pronocore.controller;
 
 import com.pronocore.dto.request.CreateGroupRequest;
 import com.pronocore.dto.request.JoinGroupRequest;
+import com.pronocore.dto.request.UpdateGroupPrivacyRequest;
 import com.pronocore.dto.response.GroupMemberResponse;
 import com.pronocore.dto.response.GroupResponse;
+import com.pronocore.dto.response.PublicGroupResponse;
 import com.pronocore.service.GroupService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -32,6 +34,12 @@ public class GroupController {
         return ResponseEntity.ok(groupService.getAllGroups());
     }
 
+    @GetMapping("/public")
+    @Operation(summary = "List all public groups with current user's membership status")
+    public ResponseEntity<List<PublicGroupResponse>> getPublicGroups(Authentication auth) {
+        return ResponseEntity.ok(groupService.getPublicGroups(auth.getName()));
+    }
+
     @GetMapping("/mine")
     @Operation(summary = "List groups the authenticated user belongs to")
     public ResponseEntity<List<GroupResponse>> getMyGroups(Authentication auth) {
@@ -53,10 +61,41 @@ public class GroupController {
     }
 
     @PostMapping("/join")
-    @Operation(summary = "Join a group via invite code")
+    @Operation(summary = "Join a group via invite code (bypasses approval)")
     public ResponseEntity<GroupResponse> joinGroup(@Valid @RequestBody JoinGroupRequest request,
                                                     Authentication auth) {
         return ResponseEntity.ok(groupService.joinGroup(request, auth.getName()));
+    }
+
+    @PostMapping("/{groupId}/apply")
+    @Operation(summary = "Apply to join a public group (requires admin approval)")
+    public ResponseEntity<PublicGroupResponse> applyToGroup(@PathVariable Long groupId, Authentication auth) {
+        return ResponseEntity.ok(groupService.applyToGroup(groupId, auth.getName()));
+    }
+
+    @PostMapping("/{groupId}/applications/{userId}/approve")
+    @Operation(summary = "Approve a membership application (Group admin only)")
+    public ResponseEntity<GroupMemberResponse> approveApplication(@PathVariable Long groupId,
+                                                                   @PathVariable Long userId,
+                                                                   Authentication auth) {
+        return ResponseEntity.ok(groupService.approveApplication(groupId, userId, auth.getName()));
+    }
+
+    @DeleteMapping("/{groupId}/applications/{userId}/reject")
+    @Operation(summary = "Reject a membership application (Group admin only)")
+    public ResponseEntity<Void> rejectApplication(@PathVariable Long groupId,
+                                                   @PathVariable Long userId,
+                                                   Authentication auth) {
+        groupService.rejectApplication(groupId, userId, auth.getName());
+        return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/{groupId}/privacy")
+    @Operation(summary = "Update group privacy (Group admin only)")
+    public ResponseEntity<GroupResponse> updatePrivacy(@PathVariable Long groupId,
+                                                        @RequestBody UpdateGroupPrivacyRequest request,
+                                                        Authentication auth) {
+        return ResponseEntity.ok(groupService.updatePrivacy(groupId, request.isPrivate(), auth.getName()));
     }
 
     @DeleteMapping("/{groupId}/leave")
