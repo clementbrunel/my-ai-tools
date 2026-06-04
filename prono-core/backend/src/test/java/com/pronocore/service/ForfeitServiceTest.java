@@ -236,6 +236,25 @@ class ForfeitServiceTest {
     }
 
     @Test
+    void completeForfeit_isIdempotentAndDoesNotInflateTimesCompleted() {
+        UserForfeit alreadyDone = UserForfeit.builder()
+                .id(4L).user(regularUser).forfeit(forfeit)
+                .assignedBy(adminUser).completed(true)
+                .build();
+        forfeit.setTimesCompleted(1);
+
+        when(userForfeitRepository.findById(4L)).thenReturn(Optional.of(alreadyDone));
+        when(userRepository.findByUsername("player")).thenReturn(Optional.of(regularUser));
+
+        forfeitService.completeForfeit(4L);
+
+        // Counter must stay at 1, and no extra saves of the forfeit template.
+        assertThat(forfeit.getTimesCompleted()).isEqualTo(1);
+        verify(forfeitRepository, never()).save(any());
+        verify(userForfeitRepository, never()).save(any());
+    }
+
+    @Test
     void completeForfeit_strangerCannotCompleteOtherPlayerForfeit() {
         User stranger = User.builder()
                 .id(99L).username("stranger").email("s@test.com")

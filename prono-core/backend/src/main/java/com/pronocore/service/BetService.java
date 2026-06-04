@@ -119,6 +119,12 @@ public class BetService {
         Bet bet = betRepository.findById(betId)
             .orElseThrow(() -> new EntityNotFoundException("Bet not found: " + betId));
 
+        // Idempotence: a bet may only be settled once. Re-validating would credit
+        // points/forfeits twice and corrupt the (group) leaderboard.
+        if (bet.getStatus() != Bet.Status.OPEN) {
+            throw new IllegalStateException("Bet is not open — it has already been settled or cancelled");
+        }
+
         bet.setStatus(Bet.Status.VALIDATED);
         bet.setWinningOption(winningOption);
 
@@ -129,6 +135,11 @@ public class BetService {
             user.setGlobalScore(user.getGlobalScore() + bet.getPoints());
             user.setBetsWon(user.getBetsWon() + 1);
             userRepository.save(user);
+
+            // Persist pointsEarned so the group leaderboard / dashboard (which sum
+            // pointsEarned per group) stay consistent with the auto-settlement path.
+            winner.setPointsEarned(bet.getPoints());
+            participationRepository.save(winner);
         }
 
         // Assign forfeits to losers if it's a FORFEIT type bet

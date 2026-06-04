@@ -170,7 +170,24 @@ class BetServiceTest {
         assertThat(result.getStatus()).isEqualTo(Bet.Status.VALIDATED);
         assertThat(winner.getGlobalScore()).isEqualTo(10);
         assertThat(winner.getBetsWon()).isEqualTo(1);
+        // pointsEarned must be persisted so the group leaderboard counts this win
+        assertThat(participation.getPointsEarned()).isEqualTo(10);
         verify(userRepository).save(winner);
+        verify(participationRepository).save(participation);
+    }
+
+    @Test
+    void validateBet_shouldThrowWhenAlreadySettled() {
+        testBet.setStatus(Bet.Status.VALIDATED);
+        when(betRepository.findById(1L)).thenReturn(Optional.of(testBet));
+
+        assertThatThrownBy(() -> betService.validateBet(1L, "France"))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("already been settled");
+
+        // No double crediting: scoring repositories are never touched
+        verify(participationRepository, never()).findByBetIdAndChosenOption(any(), any());
+        verify(userRepository, never()).save(any());
     }
 
     // ── Deadline enforcement ──────────────────────────────────────────────────

@@ -137,6 +137,12 @@ public class ForfeitService {
             throw new AccessDeniedException("You can only complete your own gage");
         }
 
+        // Idempotence: completing an already-completed gage must not inflate
+        // the global timesCompleted counter on the forfeit template.
+        if (uf.isCompleted()) {
+            return;
+        }
+
         uf.setCompleted(true);
         uf.setCompletedAt(LocalDateTime.now());
         userForfeitRepository.save(uf);
