@@ -25,3 +25,8 @@ export const updateMatchScore = async (id: number, data: UpdateMatchScoreRequest
 export const deleteMatch = async (id: number): Promise<void> => {
   await apiClient.delete(`/matches/${id}`);
 };
+
+export const getCompetitions = async (): Promise<string[]> => {
+  const response = await apiClient.get<string[]>('/matches/competitions');
+  return response.data;
+};

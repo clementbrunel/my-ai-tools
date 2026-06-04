@@ -34,6 +34,12 @@ public class MatchController {
         return ResponseEntity.ok(matchService.getAllMatches());
     }
 
+    @GetMapping("/competitions")
+    @Operation(summary = "Get active competitions (at least one non-finished match)")
+    public ResponseEntity<List<String>> getActiveCompetitions() {
+        return ResponseEntity.ok(matchService.getActiveCompetitions());
+    }
+
     @GetMapping("/{id}")
     @Operation(summary = "Get match by ID")
     public ResponseEntity<MatchResponse> getMatch(@PathVariable Long id) {

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getMatches, createMatch, updateMatchScore } from '../api/matches';
+import { getMatches, createMatch, updateMatchScore, getCompetitions } from '../api/matches';
 import {
   getAllForfeitsAdmin,
   createForfeit,
@@ -31,9 +31,11 @@ const Admin: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   // Match creation
+  const [competitions, setCompetitions] = useState<string[]>([]);
   const [newTeamA, setNewTeamA] = useState('');
   const [newTeamB, setNewTeamB] = useState('');
   const [newMatchDate, setNewMatchDate] = useState('');
+  const [newCompetition, setNewCompetition] = useState('FIFA World Cup 2026');
   const [newRound, setNewRound] = useState('Group Stage');
   const [matchError, setMatchError] = useState('');
   const [matchSuccess, setMatchSuccess] = useState('');
@@ -70,8 +72,12 @@ const Admin: React.FC = () => {
     }
     const fetchData = async () => {
       try {
-        const matchesData = await getMatches();
+        const [matchesData, competitionsData] = await Promise.all([
+          getMatches(),
+          getCompetitions(),
+        ]);
         setMatches(matchesData);
+        setCompetitions(competitionsData);
       } catch (err) {
         console.error('Error loading admin data:', err);
       } finally {
@@ -104,10 +110,13 @@ const Admin: React.FC = () => {
       const newMatch = await createMatch({
         teamA: newTeamA, teamB: newTeamB,
         matchDate: new Date(newMatchDate).toISOString(),
-        competition: 'FIFA World Cup 2026', round: newRound,
+        competition: newCompetition, round: newRound,
       });
       setMatches([...matches, newMatch]);
       setNewTeamA(''); setNewTeamB(''); setNewMatchDate('');
+      if (!competitions.includes(newCompetition)) {
+        setCompetitions([...competitions, newCompetition].sort());
+      }
       setMatchSuccess('Match créé avec succès !');
     } catch { setMatchError('Erreur lors de la création du match'); }
   };
@@ -284,6 +293,23 @@ const Admin: React.FC = () => {
                 <label className="label">Stade / Tour</label>
                 <input type="text" value={newRound} onChange={(e) => setNewRound(e.target.value)}
                   className="input-field" placeholder="Ex: Finale" />
+              </div>
+              <div className="col-span-2">
+                <label className="label">Compétition</label>
+                <input
+                  type="text"
+                  list="competitions-datalist"
+                  value={newCompetition}
+                  onChange={(e) => setNewCompetition(e.target.value)}
+                  className="input-field"
+                  placeholder="Ex: FIFA World Cup 2026"
+                  required
+                />
+                <datalist id="competitions-datalist">
+                  {competitions.map((c) => (
+                    <option key={c} value={c} />
+                  ))}
+                </datalist>
               </div>
               {matchError && <p className="col-span-2 text-red-500 text-sm">{matchError}</p>}
               {matchSuccess && <p className="col-span-2 text-green-500 text-sm">✅ {matchSuccess}</p>}

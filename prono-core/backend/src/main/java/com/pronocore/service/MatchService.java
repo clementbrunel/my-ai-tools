@@ -57,6 +57,11 @@ public class MatchService {
         return matchMapper.toResponse(requireMatch(id));
     }
 
+    @Transactional(readOnly = true)
+    public List<String> getActiveCompetitions() {
+        return matchRepository.findActiveCompetitions();
+    }
+
     // ---------------------------------------------------------------
     // Commands
     // ---------------------------------------------------------------
