@@ -37,7 +37,7 @@ function App() {
                         <Route path="/leaderboard" element={<Leaderboard />} />
                         <Route path="/gages" element={<Gages />} />
                         <Route path="/profile" element={<Profile />} />
-                        <Route path="/group" element={<GroupPage />} />
+                        <Route path="/groups" element={<GroupPage />} />
                         <Route path="/open-betting" element={<OpenBetting />} />
                         <Route path="/admin" element={<Admin />} />
                       </Routes>
