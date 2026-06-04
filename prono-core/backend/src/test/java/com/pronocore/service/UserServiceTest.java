@@ -7,11 +7,11 @@ import com.pronocore.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.List;
 import java.util.Optional;
@@ -23,8 +23,9 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
 
-    @Mock private UserRepository userRepository;
-    @Mock private UserMapper     userMapper;
+    @Mock private UserRepository  userRepository;
+    @Mock private UserMapper      userMapper;
+    @Mock private PasswordEncoder passwordEncoder;
 
     @InjectMocks
     private UserService userService;
@@ -36,7 +37,7 @@ class UserServiceTest {
     void setUp() {
         testUser = User.builder()
                 .id(1L).username("alice").email("alice@test.com")
-                .password("encoded").role(User.Role.USER)
+                .password("encodedOld").role(User.Role.USER)
                 .globalScore(50).betsWon(5).forfeitsReceived(1)
                 .build();
 
@@ -129,6 +130,42 @@ class UserServiceTest {
         when(userRepository.findByUsername("ghost")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> userService.updateAvatar("ghost", "https://example.com/avatar.png"))
+                .isInstanceOf(UsernameNotFoundException.class);
+    }
+
+    // ── updatePassword ────────────────────────────────────────────────────────
+
+    @Test
+    void updatePassword_shouldEncodeAndSaveNewPassword() {
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(testUser));
+        when(passwordEncoder.matches("oldPass", "encodedOld")).thenReturn(true);
+        when(passwordEncoder.encode("newPass")).thenReturn("encodedNew");
+
+        userService.updatePassword("alice", "oldPass", "newPass");
+
+        assertThat(testUser.getPassword()).isEqualTo("encodedNew");
+        verify(userRepository).save(testUser);
+        verify(passwordEncoder, never()).encode("oldPass");
+    }
+
+    @Test
+    void updatePassword_shouldThrowWhenCurrentPasswordIsWrong() {
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(testUser));
+        when(passwordEncoder.matches("wrongPass", "encodedOld")).thenReturn(false);
+
+        assertThatThrownBy(() -> userService.updatePassword("alice", "wrongPass", "newPass"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Mot de passe actuel incorrect");
+
+        verify(userRepository, never()).save(any());
+        verify(passwordEncoder, never()).encode(any());
+    }
+
+    @Test
+    void updatePassword_shouldThrowWhenUserNotFound() {
+        when(userRepository.findByUsername("ghost")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userService.updatePassword("ghost", "old", "new"))
                 .isInstanceOf(UsernameNotFoundException.class);
     }
 }
