@@ -39,4 +39,9 @@ public class Forfeit {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "proposed_by_id")
     private User proposedBy;
+
+    /** Null = SHARED gage (visible to all groups). Non-null = belongs to that group only. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "group_id")
+    private Group group;
 }

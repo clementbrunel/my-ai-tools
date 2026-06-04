@@ -64,4 +64,17 @@ public interface BetParticipationRepository extends JpaRepository<BetParticipati
     List<BetParticipation> findSettledByMatchDay(@Param("startOfDay")      LocalDateTime startOfDay,
                                                   @Param("endOfDay")        LocalDateTime endOfDay,
                                                   @Param("validatedStatus") Bet.Status    validatedStatus);
+
+    /** Settled participations for a single group's bets on the given day (daily gage loser). */
+    @Query("""
+            SELECT bp FROM BetParticipation bp
+            WHERE bp.bet.match.matchDate >= :startOfDay
+              AND bp.bet.match.matchDate <  :endOfDay
+              AND bp.bet.status = :validatedStatus
+              AND bp.bet.group.id = :groupId
+            """)
+    List<BetParticipation> findSettledByMatchDayAndGroup(@Param("startOfDay")      LocalDateTime startOfDay,
+                                                          @Param("endOfDay")        LocalDateTime endOfDay,
+                                                          @Param("validatedStatus") Bet.Status    validatedStatus,
+                                                          @Param("groupId")         Long          groupId);
 }

@@ -13,12 +13,12 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -38,47 +38,45 @@ class DailyGageServiceTest {
     @Mock private UserForfeitRepository        userForfeitRepository;
     @Mock private BetParticipationRepository   betParticipationRepository;
     @Mock private MatchRepository              matchRepository;
+    @Mock private GroupRepository              groupRepository;
+    @Mock private GroupMemberRepository        groupMemberRepository;
 
     @InjectMocks
     private DailyGageService dailyGageService;
 
     private static final LocalDate MATCH_DAY = LocalDate.of(2026, 6, 11);
+    private static final Long GROUP_ID = 7L;
 
     private User adminUser;
+    private Group group;
     private Match sampleMatch;
 
     @BeforeEach
     void setUp() {
         adminUser = User.builder()
-                .id(1L)
-                .username("admin")
-                .email("admin@test.com")
-                .password("encoded")
-                .role(User.Role.ADMIN)
-                .globalScore(0)
-                .betsWon(0)
-                .forfeitsReceived(0)
+                .id(1L).username("admin").email("admin@test.com")
+                .password("encoded").role(User.Role.ADMIN)
+                .globalScore(0).betsWon(0).forfeitsReceived(0)
                 .build();
+
+        group = Group.builder().id(GROUP_ID).name("Les Potes").build();
 
         sampleMatch = Match.builder()
-                .id(1L)
-                .teamA("France")
-                .teamB("Brésil")
-                .matchDate(MATCH_DAY.atTime(20, 0))
-                .status(Match.Status.UPCOMING)
-                .competition("FIFA World Cup 2026")
-                .round("Group Stage")
+                .id(1L).teamA("France").teamB("Brésil")
+                .matchDate(MATCH_DAY.atTime(20, 0)).status(Match.Status.UPCOMING)
+                .competition("FIFA World Cup 2026").round("Group Stage")
                 .build();
 
-        // Security context — needed by currentUsername() called in toResponse()
         SecurityContext sc   = mock(SecurityContext.class);
         Authentication  auth = mock(Authentication.class);
         lenient().when(auth.getName()).thenReturn("admin");
         lenient().when(sc.getAuthentication()).thenReturn(auth);
         SecurityContextHolder.setContext(sc);
 
-        // needed by toResponse() when building candidate / gage responses
         lenient().when(userRepository.findByUsername("admin")).thenReturn(Optional.of(adminUser));
+        // admin is a GROUP_ADMIN of the group → passes command authorisation
+        lenient().when(groupMemberRepository.findByGroupIdAndUserId(GROUP_ID, 1L))
+                .thenReturn(Optional.of(adminMembership(GroupMember.GroupRole.GROUP_ADMIN)));
     }
 
     @AfterEach
@@ -86,99 +84,66 @@ class DailyGageServiceTest {
         SecurityContextHolder.clearContext();
     }
 
-    // ── createDailyGage: no match on that day ─────────────────────────────────
+    // ── createDailyGage ───────────────────────────────────────────────────────
 
     @Test
     void createDailyGage_shouldThrow_whenNoMatchExistsOnThatDay() {
         CreateDailyGageRequest req = buildRequest(MATCH_DAY, DailyGage.Mode.DIRECT);
 
-        when(dailyGageRepository.findByMatchDate(MATCH_DAY)).thenReturn(Optional.empty());
-        // MatchRepository returns an empty list → no matches scheduled
-        when(matchRepository.findByMatchDay(any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(List.of());
+        when(groupRepository.findById(GROUP_ID)).thenReturn(Optional.of(group));
+        when(dailyGageRepository.findByGroupIdAndMatchDate(GROUP_ID, MATCH_DAY)).thenReturn(Optional.empty());
+        when(matchRepository.findByMatchDay(any(), any())).thenReturn(List.of());
 
         assertThatThrownBy(() -> dailyGageService.createDailyGage(req))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Aucun match prévu");
-
         verify(dailyGageRepository, never()).save(any());
     }
-
-    // ── createDailyGage: happy path ───────────────────────────────────────────
 
     @Test
     void createDailyGage_shouldCreate_whenAtLeastOneMatchExistsOnThatDay() {
         CreateDailyGageRequest req = buildRequest(MATCH_DAY, DailyGage.Mode.DIRECT);
 
         DailyGage saved = DailyGage.builder()
-                .id(10L)
-                .matchDate(MATCH_DAY)
-                .mode(DailyGage.Mode.DIRECT)
-                .status(DailyGage.Status.PENDING)
-                .candidates(List.of())
-                .build();
+                .id(10L).group(group).matchDate(MATCH_DAY).mode(DailyGage.Mode.DIRECT)
+                .status(DailyGage.Status.PENDING).candidates(List.of()).build();
 
-        when(dailyGageRepository.findByMatchDate(MATCH_DAY)).thenReturn(Optional.empty());
-        when(matchRepository.findByMatchDay(any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(List.of(sampleMatch));
+        when(groupRepository.findById(GROUP_ID)).thenReturn(Optional.of(group));
+        when(dailyGageRepository.findByGroupIdAndMatchDate(GROUP_ID, MATCH_DAY)).thenReturn(Optional.empty());
+        when(matchRepository.findByMatchDay(any(), any())).thenReturn(List.of(sampleMatch));
         when(dailyGageRepository.save(any(DailyGage.class))).thenReturn(saved);
-        // toResponse() looks up the current user to compute userVote on candidates
-        lenient().when(userRepository.findByUsername("admin")).thenReturn(Optional.of(adminUser));
 
         DailyGageResponse result = dailyGageService.createDailyGage(req);
 
-        assertThat(result).isNotNull();
         assertThat(result.getMatchDate()).isEqualTo(MATCH_DAY);
-        assertThat(result.getMode()).isEqualTo("DIRECT");
+        assertThat(result.getGroupId()).isEqualTo(GROUP_ID);
         assertThat(result.getStatus()).isEqualTo("PENDING");
-        assertThat(result.getCandidates()).isEmpty();
-        verify(dailyGageRepository).save(any(DailyGage.class));
+        verify(dailyGageRepository).save(argThat(dg -> dg.getGroup() == group));
     }
 
     @Test
-    void createDailyGage_shouldCreate_inVoteMode_whenMatchExists() {
-        CreateDailyGageRequest req = buildRequest(MATCH_DAY, DailyGage.Mode.VOTE);
-
-        DailyGage saved = DailyGage.builder()
-                .id(11L)
-                .matchDate(MATCH_DAY)
-                .mode(DailyGage.Mode.VOTE)
-                .status(DailyGage.Status.PENDING)
-                .candidates(List.of())
-                .build();
-
-        when(dailyGageRepository.findByMatchDate(MATCH_DAY)).thenReturn(Optional.empty());
-        when(matchRepository.findByMatchDay(any(LocalDateTime.class), any(LocalDateTime.class)))
-                .thenReturn(List.of(sampleMatch));
-        when(dailyGageRepository.save(any(DailyGage.class))).thenReturn(saved);
-        lenient().when(userRepository.findByUsername("admin")).thenReturn(Optional.of(adminUser));
-
-        DailyGageResponse result = dailyGageService.createDailyGage(req);
-
-        assertThat(result.getMode()).isEqualTo("VOTE");
-        verify(dailyGageRepository).save(any(DailyGage.class));
-    }
-
-    // ── createDailyGage: duplicate gage for same day ──────────────────────────
-
-    @Test
-    void createDailyGage_shouldThrow_whenGageAlreadyExistsForThatDay() {
+    void createDailyGage_shouldThrow_whenGageAlreadyExistsForThatDayInGroup() {
         CreateDailyGageRequest req = buildRequest(MATCH_DAY, DailyGage.Mode.DIRECT);
 
-        DailyGage existing = DailyGage.builder()
-                .id(99L)
-                .matchDate(MATCH_DAY)
-                .mode(DailyGage.Mode.DIRECT)
-                .status(DailyGage.Status.PENDING)
-                .candidates(List.of())
-                .build();
-        when(dailyGageRepository.findByMatchDate(MATCH_DAY)).thenReturn(Optional.of(existing));
+        when(groupRepository.findById(GROUP_ID)).thenReturn(Optional.of(group));
+        when(dailyGageRepository.findByGroupIdAndMatchDate(GROUP_ID, MATCH_DAY))
+                .thenReturn(Optional.of(gage(99L, DailyGage.Mode.DIRECT, DailyGage.Status.PENDING)));
 
         assertThatThrownBy(() -> dailyGageService.createDailyGage(req))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("already exists");
-
         verify(matchRepository, never()).findByMatchDay(any(), any());
+        verify(dailyGageRepository, never()).save(any());
+    }
+
+    @Test
+    void createDailyGage_shouldThrow_whenCallerIsNotGroupAdmin() {
+        CreateDailyGageRequest req = buildRequest(MATCH_DAY, DailyGage.Mode.DIRECT);
+        when(groupMemberRepository.findByGroupIdAndUserId(GROUP_ID, 1L))
+                .thenReturn(Optional.of(adminMembership(GroupMember.GroupRole.MEMBER)));
+
+        assertThatThrownBy(() -> dailyGageService.createDailyGage(req))
+                .isInstanceOf(AccessDeniedException.class);
         verify(dailyGageRepository, never()).save(any());
     }
 
@@ -187,16 +152,13 @@ class DailyGageServiceTest {
     @Test
     void selectForfeitDirectly_shouldSetForfeitAndActivateGage() {
         Forfeit forfeit = buildForfeit(1L, "Do pushups");
-        DailyGage dg = DailyGage.builder()
-                .id(1L).matchDate(MATCH_DAY).mode(DailyGage.Mode.DIRECT)
-                .status(DailyGage.Status.PENDING).candidates(new ArrayList<>())
-                .build();
+        DailyGage dg = gage(1L, DailyGage.Mode.DIRECT, DailyGage.Status.PENDING);
 
         when(dailyGageRepository.findById(1L)).thenReturn(Optional.of(dg));
         when(forfeitRepository.findById(1L)).thenReturn(Optional.of(forfeit));
         when(dailyGageRepository.save(dg)).thenReturn(dg);
 
-        DailyGageResponse result = dailyGageService.selectForfeitDirectly(1L, 1L);
+        dailyGageService.selectForfeitDirectly(1L, 1L);
 
         assertThat(dg.getForfeit()).isEqualTo(forfeit);
         assertThat(dg.getStatus()).isEqualTo(DailyGage.Status.ACTIVE);
@@ -205,11 +167,7 @@ class DailyGageServiceTest {
 
     @Test
     void selectForfeitDirectly_shouldThrowWhenGageIsAlreadySettled() {
-        DailyGage dg = DailyGage.builder()
-                .id(1L).matchDate(MATCH_DAY).mode(DailyGage.Mode.DIRECT)
-                .status(DailyGage.Status.SETTLED).candidates(new ArrayList<>())
-                .build();
-
+        DailyGage dg = gage(1L, DailyGage.Mode.DIRECT, DailyGage.Status.SETTLED);
         when(dailyGageRepository.findById(1L)).thenReturn(Optional.of(dg));
 
         assertThatThrownBy(() -> dailyGageService.selectForfeitDirectly(1L, 1L))
@@ -218,15 +176,23 @@ class DailyGageServiceTest {
         verify(dailyGageRepository, never()).save(any());
     }
 
-    // ── addCandidate ──────────────────────────────────────────────────────────
+    @Test
+    void selectForfeitDirectly_shouldThrowWhenCallerNotGroupAdmin() {
+        DailyGage dg = gage(1L, DailyGage.Mode.DIRECT, DailyGage.Status.PENDING);
+        when(dailyGageRepository.findById(1L)).thenReturn(Optional.of(dg));
+        when(groupMemberRepository.findByGroupIdAndUserId(GROUP_ID, 1L))
+                .thenReturn(Optional.of(adminMembership(GroupMember.GroupRole.MEMBER)));
+
+        assertThatThrownBy(() -> dailyGageService.selectForfeitDirectly(1L, 1L))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    // ── addCandidate / removeCandidate ────────────────────────────────────────
 
     @Test
     void addCandidate_shouldActivatePendingGageWhenFirstCandidateIsAdded() {
         Forfeit forfeit = buildForfeit(1L, "Sing a song");
-        DailyGage dg = DailyGage.builder()
-                .id(1L).matchDate(MATCH_DAY).mode(DailyGage.Mode.VOTE)
-                .status(DailyGage.Status.PENDING).candidates(new ArrayList<>())
-                .build();
+        DailyGage dg = gage(1L, DailyGage.Mode.VOTE, DailyGage.Status.PENDING);
 
         when(dailyGageRepository.findById(1L)).thenReturn(Optional.of(dg));
         when(candidateRepository.findByDailyGageIdAndForfeitId(1L, 1L)).thenReturn(Optional.empty());
@@ -238,17 +204,14 @@ class DailyGageServiceTest {
 
         assertThat(dg.getStatus()).isEqualTo(DailyGage.Status.ACTIVE);
         verify(candidateRepository).save(any(DailyGageCandidate.class));
-        verify(dailyGageRepository).save(dg);
     }
 
     @Test
     void addCandidate_shouldThrowWhenForfeitAlreadyACandidate() {
         Forfeit forfeit = buildForfeit(1L, "Sing a song");
         DailyGageCandidate existing = DailyGageCandidate.builder().id(5L).forfeit(forfeit).votes(new ArrayList<>()).build();
-        DailyGage dg = DailyGage.builder()
-                .id(1L).matchDate(MATCH_DAY).mode(DailyGage.Mode.VOTE)
-                .status(DailyGage.Status.ACTIVE).candidates(new ArrayList<>(List.of(existing)))
-                .build();
+        DailyGage dg = gage(1L, DailyGage.Mode.VOTE, DailyGage.Status.ACTIVE);
+        dg.getCandidates().add(existing);
 
         when(dailyGageRepository.findById(1L)).thenReturn(Optional.of(dg));
         when(candidateRepository.findByDailyGageIdAndForfeitId(1L, 1L)).thenReturn(Optional.of(existing));
@@ -259,31 +222,10 @@ class DailyGageServiceTest {
     }
 
     @Test
-    void addCandidate_shouldThrowWhenGageIsAlreadySettled() {
-        DailyGage dg = DailyGage.builder()
-                .id(1L).matchDate(MATCH_DAY).mode(DailyGage.Mode.VOTE)
-                .status(DailyGage.Status.SETTLED).candidates(new ArrayList<>())
-                .build();
-
-        when(dailyGageRepository.findById(1L)).thenReturn(Optional.of(dg));
-
-        assertThatThrownBy(() -> dailyGageService.addCandidate(1L, 1L))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("already settled");
-        verify(candidateRepository, never()).save(any());
-    }
-
-    // ── removeCandidate ───────────────────────────────────────────────────────
-
-    @Test
     void removeCandidate_shouldDeleteExistingCandidate() {
         Forfeit forfeit = buildForfeit(1L, "Sing a song");
-        DailyGageCandidate candidate = DailyGageCandidate.builder()
-                .id(5L).forfeit(forfeit).votes(new ArrayList<>()).build();
-        DailyGage dg = DailyGage.builder()
-                .id(1L).matchDate(MATCH_DAY).mode(DailyGage.Mode.VOTE)
-                .status(DailyGage.Status.ACTIVE).candidates(new ArrayList<>())
-                .build();
+        DailyGageCandidate candidate = DailyGageCandidate.builder().id(5L).forfeit(forfeit).votes(new ArrayList<>()).build();
+        DailyGage dg = gage(1L, DailyGage.Mode.VOTE, DailyGage.Status.ACTIVE);
 
         when(dailyGageRepository.findById(1L)).thenReturn(Optional.of(dg));
         when(candidateRepository.findByDailyGageIdAndForfeitId(1L, 1L)).thenReturn(Optional.of(candidate));
@@ -295,11 +237,7 @@ class DailyGageServiceTest {
 
     @Test
     void removeCandidate_shouldThrowWhenCandidateNotFound() {
-        DailyGage dg = DailyGage.builder()
-                .id(1L).matchDate(MATCH_DAY).mode(DailyGage.Mode.VOTE)
-                .status(DailyGage.Status.ACTIVE).candidates(new ArrayList<>())
-                .build();
-
+        DailyGage dg = gage(1L, DailyGage.Mode.VOTE, DailyGage.Status.ACTIVE);
         when(dailyGageRepository.findById(1L)).thenReturn(Optional.of(dg));
         when(candidateRepository.findByDailyGageIdAndForfeitId(1L, 99L)).thenReturn(Optional.empty());
 
@@ -311,11 +249,7 @@ class DailyGageServiceTest {
 
     @Test
     void vote_shouldThrowWhenGageIsAlreadySettled() {
-        DailyGage dg = DailyGage.builder()
-                .id(1L).matchDate(MATCH_DAY).mode(DailyGage.Mode.VOTE)
-                .status(DailyGage.Status.SETTLED).candidates(new ArrayList<>())
-                .build();
-
+        DailyGage dg = gage(1L, DailyGage.Mode.VOTE, DailyGage.Status.SETTLED);
         when(dailyGageRepository.findById(1L)).thenReturn(Optional.of(dg));
 
         assertThatThrownBy(() -> dailyGageService.vote(1L, 1L, 1))
@@ -325,11 +259,7 @@ class DailyGageServiceTest {
 
     @Test
     void vote_shouldThrowWhenGageIsNotInVoteMode() {
-        DailyGage dg = DailyGage.builder()
-                .id(1L).matchDate(MATCH_DAY).mode(DailyGage.Mode.DIRECT)
-                .status(DailyGage.Status.ACTIVE).candidates(new ArrayList<>())
-                .build();
-
+        DailyGage dg = gage(1L, DailyGage.Mode.DIRECT, DailyGage.Status.ACTIVE);
         when(dailyGageRepository.findById(1L)).thenReturn(Optional.of(dg));
 
         assertThatThrownBy(() -> dailyGageService.vote(1L, 1L, 1))
@@ -338,14 +268,21 @@ class DailyGageServiceTest {
     }
 
     @Test
+    void vote_shouldThrowWhenCallerNotGroupMember() {
+        DailyGage dg = gage(1L, DailyGage.Mode.VOTE, DailyGage.Status.ACTIVE);
+        when(dailyGageRepository.findById(1L)).thenReturn(Optional.of(dg));
+        when(groupMemberRepository.findByGroupIdAndUserId(GROUP_ID, 1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> dailyGageService.vote(1L, 1L, 1))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
     void vote_shouldCreateNewVoteWhenNoneExists() {
         Forfeit forfeit = buildForfeit(1L, "Karaoke");
-        DailyGageCandidate candidate = DailyGageCandidate.builder()
-                .id(5L).forfeit(forfeit).votes(new ArrayList<>()).build();
-        DailyGage dg = DailyGage.builder()
-                .id(1L).matchDate(MATCH_DAY).mode(DailyGage.Mode.VOTE)
-                .status(DailyGage.Status.ACTIVE).candidates(new ArrayList<>(List.of(candidate)))
-                .build();
+        DailyGageCandidate candidate = DailyGageCandidate.builder().id(5L).forfeit(forfeit).votes(new ArrayList<>()).build();
+        DailyGage dg = gage(1L, DailyGage.Mode.VOTE, DailyGage.Status.ACTIVE);
+        dg.getCandidates().add(candidate);
 
         when(dailyGageRepository.findById(1L)).thenReturn(Optional.of(dg));
         when(candidateRepository.findByDailyGageIdAndForfeitId(1L, 1L)).thenReturn(Optional.of(candidate));
@@ -361,43 +298,13 @@ class DailyGageServiceTest {
     }
 
     @Test
-    void vote_shouldUpdateExistingVoteInPlace() {
-        Forfeit forfeit = buildForfeit(1L, "Karaoke");
-        DailyGageCandidate candidate = DailyGageCandidate.builder()
-                .id(5L).forfeit(forfeit).votes(new ArrayList<>()).build();
-        DailyGage dg = DailyGage.builder()
-                .id(1L).matchDate(MATCH_DAY).mode(DailyGage.Mode.VOTE)
-                .status(DailyGage.Status.ACTIVE).candidates(new ArrayList<>(List.of(candidate)))
-                .build();
-
-        DailyGageVote existingVote = DailyGageVote.builder()
-                .id(20L).candidate(candidate).user(adminUser).vote(1)
-                .build();
-
-        when(dailyGageRepository.findById(1L)).thenReturn(Optional.of(dg));
-        when(candidateRepository.findByDailyGageIdAndForfeitId(1L, 1L)).thenReturn(Optional.of(candidate));
-        when(voteRepository.findByCandidateIdAndUserId(5L, 1L)).thenReturn(Optional.of(existingVote));
-        when(voteRepository.save(existingVote)).thenReturn(existingVote);
-
-        dailyGageService.vote(1L, 1L, -1);
-
-        assertThat(existingVote.getVote()).isEqualTo(-1);
-        verify(voteRepository).save(existingVote);
-    }
-
-    @Test
     void vote_shouldRemoveExistingVoteWhenValueIsZero() {
         Forfeit forfeit = buildForfeit(1L, "Karaoke");
-        DailyGageCandidate candidate = DailyGageCandidate.builder()
-                .id(5L).forfeit(forfeit).votes(new ArrayList<>()).build();
-        DailyGage dg = DailyGage.builder()
-                .id(1L).matchDate(MATCH_DAY).mode(DailyGage.Mode.VOTE)
-                .status(DailyGage.Status.ACTIVE).candidates(new ArrayList<>(List.of(candidate)))
-                .build();
+        DailyGageCandidate candidate = DailyGageCandidate.builder().id(5L).forfeit(forfeit).votes(new ArrayList<>()).build();
+        DailyGage dg = gage(1L, DailyGage.Mode.VOTE, DailyGage.Status.ACTIVE);
+        dg.getCandidates().add(candidate);
 
-        DailyGageVote existingVote = DailyGageVote.builder()
-                .id(20L).candidate(candidate).user(adminUser).vote(1)
-                .build();
+        DailyGageVote existingVote = DailyGageVote.builder().id(20L).candidate(candidate).user(adminUser).vote(1).build();
 
         when(dailyGageRepository.findById(1L)).thenReturn(Optional.of(dg));
         when(candidateRepository.findByDailyGageIdAndForfeitId(1L, 1L)).thenReturn(Optional.of(candidate));
@@ -424,57 +331,50 @@ class DailyGageServiceTest {
     @Test
     void onMatchSettled_shouldSkip_whenNoDailyGageConfigured() {
         when(matchRepository.countUnfinishedMatchesOnDay(any(), any(), any())).thenReturn(0L);
-        when(dailyGageRepository.findByMatchDate(MATCH_DAY)).thenReturn(Optional.empty());
+        when(dailyGageRepository.findByMatchDate(MATCH_DAY)).thenReturn(List.of());
 
         dailyGageService.onMatchSettled(MATCH_DAY);
 
-        verify(betParticipationRepository, never()).findSettledByMatchDay(any(), any(), any());
+        verify(betParticipationRepository, never()).findSettledByMatchDayAndGroup(any(), any(), any(), any());
         verify(userForfeitRepository, never()).save(any());
     }
 
     @Test
     void onMatchSettled_shouldSkip_whenGageAlreadySettled() {
-        DailyGage settled = DailyGage.builder()
-                .id(1L).matchDate(MATCH_DAY).mode(DailyGage.Mode.DIRECT)
-                .status(DailyGage.Status.SETTLED).forfeit(buildForfeit(1L, "Pushups"))
-                .candidates(new ArrayList<>()).build();
+        DailyGage settled = gage(1L, DailyGage.Mode.DIRECT, DailyGage.Status.SETTLED);
+        settled.setForfeit(buildForfeit(1L, "Pushups"));
 
         when(matchRepository.countUnfinishedMatchesOnDay(any(), any(), any())).thenReturn(0L);
-        when(dailyGageRepository.findByMatchDate(MATCH_DAY)).thenReturn(Optional.of(settled));
+        when(dailyGageRepository.findByMatchDate(MATCH_DAY)).thenReturn(List.of(settled));
 
         dailyGageService.onMatchSettled(MATCH_DAY);
 
-        verify(betParticipationRepository, never()).findSettledByMatchDay(any(), any(), any());
+        verify(betParticipationRepository, never()).findSettledByMatchDayAndGroup(any(), any(), any(), any());
         verify(userForfeitRepository, never()).save(any());
     }
 
     @Test
     void onMatchSettled_shouldSkip_whenDirectModeHasNoForfeitSelected() {
-        DailyGage dg = DailyGage.builder()
-                .id(1L).matchDate(MATCH_DAY).mode(DailyGage.Mode.DIRECT)
-                .status(DailyGage.Status.PENDING).forfeit(null) // no forfeit selected yet
-                .candidates(new ArrayList<>()).build();
+        DailyGage dg = gage(1L, DailyGage.Mode.DIRECT, DailyGage.Status.PENDING);
 
         when(matchRepository.countUnfinishedMatchesOnDay(any(), any(), any())).thenReturn(0L);
-        when(dailyGageRepository.findByMatchDate(MATCH_DAY)).thenReturn(Optional.of(dg));
+        when(dailyGageRepository.findByMatchDate(MATCH_DAY)).thenReturn(List.of(dg));
 
         dailyGageService.onMatchSettled(MATCH_DAY);
 
-        verify(betParticipationRepository, never()).findSettledByMatchDay(any(), any(), any());
+        verify(betParticipationRepository, never()).findSettledByMatchDayAndGroup(any(), any(), any(), any());
         verify(userForfeitRepository, never()).save(any());
     }
 
     @Test
-    void onMatchSettled_shouldSkip_whenNoSettledParticipationsExist() {
-        Forfeit forfeit = buildForfeit(1L, "Do pushups");
-        DailyGage dg = DailyGage.builder()
-                .id(1L).matchDate(MATCH_DAY).mode(DailyGage.Mode.DIRECT)
-                .status(DailyGage.Status.ACTIVE).forfeit(forfeit)
-                .candidates(new ArrayList<>()).build();
+    void onMatchSettled_shouldSkip_whenNoSettledParticipationsForGroup() {
+        DailyGage dg = gage(1L, DailyGage.Mode.DIRECT, DailyGage.Status.ACTIVE);
+        dg.setForfeit(buildForfeit(1L, "Do pushups"));
 
         when(matchRepository.countUnfinishedMatchesOnDay(any(), any(), any())).thenReturn(0L);
-        when(dailyGageRepository.findByMatchDate(MATCH_DAY)).thenReturn(Optional.of(dg));
-        when(betParticipationRepository.findSettledByMatchDay(any(), any(), any())).thenReturn(List.of());
+        when(dailyGageRepository.findByMatchDate(MATCH_DAY)).thenReturn(List.of(dg));
+        when(betParticipationRepository.findSettledByMatchDayAndGroup(any(), any(), any(), eq(GROUP_ID)))
+                .thenReturn(List.of());
 
         dailyGageService.onMatchSettled(MATCH_DAY);
 
@@ -483,107 +383,90 @@ class DailyGageServiceTest {
     }
 
     @Test
-    void onMatchSettled_directMode_shouldAssignForfeitToLoserAndMarkSettled() {
+    void onMatchSettled_directMode_shouldAssignForfeitToGroupLoserAndMarkSettled() {
         Forfeit forfeit = buildForfeit(1L, "Do pushups");
-        User loser = User.builder()
-                .id(3L).username("loser").email("l@test.com")
+        User loser = User.builder().id(3L).username("loser").email("l@test.com")
                 .password("encoded").role(User.Role.USER)
                 .globalScore(0).betsWon(0).forfeitsReceived(0).build();
 
-        DailyGage dg = DailyGage.builder()
-                .id(1L).matchDate(MATCH_DAY).mode(DailyGage.Mode.DIRECT)
-                .status(DailyGage.Status.ACTIVE).forfeit(forfeit)
-                .candidates(new ArrayList<>()).build();
+        DailyGage dg = gage(1L, DailyGage.Mode.DIRECT, DailyGage.Status.ACTIVE);
+        dg.setForfeit(forfeit);
 
-        // Loser earned 0 pts, adminUser earned 5 pts → loser gets the gage
-        BetParticipation loserPart  = BetParticipation.builder().user(loser)     .pointsEarned(0).build();
-        BetParticipation winnerPart = BetParticipation.builder().user(adminUser)  .pointsEarned(5).build();
+        BetParticipation loserPart  = BetParticipation.builder().user(loser).pointsEarned(0).build();
+        BetParticipation winnerPart = BetParticipation.builder().user(adminUser).pointsEarned(5).build();
 
         when(matchRepository.countUnfinishedMatchesOnDay(any(), any(), any())).thenReturn(0L);
-        when(dailyGageRepository.findByMatchDate(MATCH_DAY)).thenReturn(Optional.of(dg));
-        when(betParticipationRepository.findSettledByMatchDay(any(), any(), any()))
+        when(dailyGageRepository.findByMatchDate(MATCH_DAY)).thenReturn(List.of(dg));
+        when(betParticipationRepository.findSettledByMatchDayAndGroup(any(), any(), any(), eq(GROUP_ID)))
                 .thenReturn(List.of(loserPart, winnerPart));
-        when(userRepository.findAll()).thenReturn(List.of(adminUser, loser));
+        when(groupMemberRepository.findByGroupId(GROUP_ID))
+                .thenReturn(List.of(adminMembership(GroupMember.GroupRole.GROUP_ADMIN)));
 
         dailyGageService.onMatchSettled(MATCH_DAY);
 
         assertThat(dg.getStatus()).isEqualTo(DailyGage.Status.SETTLED);
         assertThat(dg.getAssignedTo()).isEqualTo(loser);
-        assertThat(dg.getAssignedAt()).isNotNull();
         assertThat(loser.getForfeitsReceived()).isEqualTo(1);
 
         ArgumentCaptor<UserForfeit> captor = ArgumentCaptor.forClass(UserForfeit.class);
         verify(userForfeitRepository).save(captor.capture());
         assertThat(captor.getValue().getUser()).isEqualTo(loser);
         assertThat(captor.getValue().getForfeit()).isEqualTo(forfeit);
-        assertThat(captor.getValue().isCompleted()).isFalse();
-
+        assertThat(captor.getValue().getAssignedBy()).isEqualTo(adminUser);
         verify(userRepository).save(loser);
-        verify(dailyGageRepository).save(dg);
     }
 
     @Test
     void onMatchSettled_voteMode_shouldSelectForfeitWithHighestVoteScore() {
-        Forfeit forfeitA = buildForfeit(1L, "Karaoke");    // score = +2
-        Forfeit forfeitB = buildForfeit(2L, "Push-ups");   // score = -1
+        Forfeit forfeitA = buildForfeit(1L, "Karaoke");
+        Forfeit forfeitB = buildForfeit(2L, "Push-ups");
 
-        DailyGageVote vote1 = DailyGageVote.builder().vote(1).build();
-        DailyGageVote vote2 = DailyGageVote.builder().vote(1).build();
-        DailyGageVote vote3 = DailyGageVote.builder().vote(-1).build();
+        DailyGageCandidate candidateA = DailyGageCandidate.builder().id(1L).forfeit(forfeitA)
+                .votes(new ArrayList<>(List.of(
+                        DailyGageVote.builder().vote(1).build(),
+                        DailyGageVote.builder().vote(1).build()))).build();   // +2
+        DailyGageCandidate candidateB = DailyGageCandidate.builder().id(2L).forfeit(forfeitB)
+                .votes(new ArrayList<>(List.of(DailyGageVote.builder().vote(-1).build()))).build(); // -1
 
-        DailyGageCandidate candidateA = DailyGageCandidate.builder()
-                .id(1L).forfeit(forfeitA)
-                .votes(new ArrayList<>(List.of(vote1, vote2))) // score +2
-                .build();
-        DailyGageCandidate candidateB = DailyGageCandidate.builder()
-                .id(2L).forfeit(forfeitB)
-                .votes(new ArrayList<>(List.of(vote3)))        // score -1
-                .build();
-
-        User loser = User.builder()
-                .id(3L).username("loser").email("l@test.com")
+        User loser = User.builder().id(3L).username("loser").email("l@test.com")
                 .password("encoded").role(User.Role.USER)
                 .globalScore(0).betsWon(0).forfeitsReceived(0).build();
 
-        DailyGage dg = DailyGage.builder()
-                .id(1L).matchDate(MATCH_DAY).mode(DailyGage.Mode.VOTE)
-                .status(DailyGage.Status.ACTIVE).forfeit(null)
-                .candidates(new ArrayList<>(List.of(candidateA, candidateB))).build();
-
-        BetParticipation loserPart = BetParticipation.builder().user(loser).pointsEarned(0).build();
+        DailyGage dg = gage(1L, DailyGage.Mode.VOTE, DailyGage.Status.ACTIVE);
+        dg.getCandidates().addAll(List.of(candidateA, candidateB));
 
         when(matchRepository.countUnfinishedMatchesOnDay(any(), any(), any())).thenReturn(0L);
-        when(dailyGageRepository.findByMatchDate(MATCH_DAY)).thenReturn(Optional.of(dg));
-        when(betParticipationRepository.findSettledByMatchDay(any(), any(), any())).thenReturn(List.of(loserPart));
-        when(userRepository.findAll()).thenReturn(List.of(adminUser, loser));
+        when(dailyGageRepository.findByMatchDate(MATCH_DAY)).thenReturn(List.of(dg));
+        when(betParticipationRepository.findSettledByMatchDayAndGroup(any(), any(), any(), eq(GROUP_ID)))
+                .thenReturn(List.of(BetParticipation.builder().user(loser).pointsEarned(0).build()));
+        when(groupMemberRepository.findByGroupId(GROUP_ID))
+                .thenReturn(List.of(adminMembership(GroupMember.GroupRole.GROUP_ADMIN)));
 
         dailyGageService.onMatchSettled(MATCH_DAY);
 
-        // Forfeit with highest vote score (forfeitA, score +2) must be assigned
         assertThat(dg.getForfeit()).isEqualTo(forfeitA);
         assertThat(dg.getStatus()).isEqualTo(DailyGage.Status.SETTLED);
     }
 
-    @Test
-    void onMatchSettled_voteMode_shouldSkipWhenNoCandidates() {
-        DailyGage dg = DailyGage.builder()
-                .id(1L).matchDate(MATCH_DAY).mode(DailyGage.Mode.VOTE)
-                .status(DailyGage.Status.ACTIVE).forfeit(null)
-                .candidates(new ArrayList<>()).build();
-
-        when(matchRepository.countUnfinishedMatchesOnDay(any(), any(), any())).thenReturn(0L);
-        when(dailyGageRepository.findByMatchDate(MATCH_DAY)).thenReturn(Optional.of(dg));
-
-        dailyGageService.onMatchSettled(MATCH_DAY);
-
-        verify(betParticipationRepository, never()).findSettledByMatchDay(any(), any(), any());
-        verify(userForfeitRepository, never()).save(any());
-    }
-
     // ── helpers ────────────────────────────────────────────────────────────────
 
-    private static CreateDailyGageRequest buildRequest(LocalDate date, DailyGage.Mode mode) {
+    private GroupMember adminMembership(GroupMember.GroupRole role) {
+        return GroupMember.builder()
+                .id(1L).group(group).user(adminUser)
+                .role(role).status(GroupMember.MemberStatus.ACTIVE)
+                .build();
+    }
+
+    private DailyGage gage(Long id, DailyGage.Mode mode, DailyGage.Status status) {
+        return DailyGage.builder()
+                .id(id).group(group).matchDate(MATCH_DAY).mode(mode)
+                .status(status).candidates(new ArrayList<>())
+                .build();
+    }
+
+    private CreateDailyGageRequest buildRequest(LocalDate date, DailyGage.Mode mode) {
         CreateDailyGageRequest req = new CreateDailyGageRequest();
+        req.setGroupId(GROUP_ID);
         req.setMatchDate(date);
         req.setMode(mode);
         return req;

@@ -17,6 +17,9 @@ public class CreateBetRequest {
     @NotNull(message = "A match must be associated with a bet")
     private Long matchId;
 
+    @NotNull(message = "A group must be associated with a bet")
+    private Long groupId;
+
     @NotNull(message = "Bet type is required")
     private Bet.BetType betType;
 

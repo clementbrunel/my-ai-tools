@@ -27,11 +27,13 @@ export const createForfeit = async (
 };
 
 export const proposeForfeit = async (
+  groupId: number,
   title: string,
   description: string,
   category: string
 ): Promise<Forfeit> => {
   const response = await apiClient.post<Forfeit>('/forfeits/propose', {
+    groupId,
     title,
     description,
     category,

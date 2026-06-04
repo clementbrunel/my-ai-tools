@@ -70,13 +70,14 @@ export interface Match {
   status: 'UPCOMING' | 'ONGOING' | 'FINISHED';
   competition: string;
   round: string;
-  bettorBonus?: number;
 }
 
 export interface Bet {
   id: number;
   title: string;
   description?: string;
+  groupId: number;
+  groupName: string;
   match?: Match;
   creator: User;
   betType: 'SCORE' | 'EVENT' | 'FORFEIT' | 'FREE';
@@ -105,6 +106,9 @@ export interface Forfeit {
   isActive: boolean;
   timesCompleted: number;
   proposedByUsername?: string;
+  /** null = shared gage (visible to all groups); set = belongs to that group only */
+  groupId?: number | null;
+  groupName?: string | null;
 }
 
 export interface UserForfeitEntry {
@@ -126,6 +130,8 @@ export interface DailyGageCandidate {
 
 export interface DailyGage {
   id: number;
+  groupId: number;
+  groupName: string;
   matchDate: string;   // "2026-06-11"
   forfeit?: Forfeit;
   mode: 'DIRECT' | 'VOTE';
@@ -165,8 +171,19 @@ export interface CreateBetRequest {
   title: string;
   description?: string;
   matchId: number;
+  groupId: number;
   betType: 'SCORE';
   points: number;
+}
+
+export interface OpenBettingRequest {
+  groupId: number;
+  matchId: number;
+}
+
+export interface OpenCompetitionRequest {
+  groupId: number;
+  competition: string;
 }
 
 export interface CreateMatchRequest {

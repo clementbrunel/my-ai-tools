@@ -16,6 +16,8 @@ public interface MatchRepository extends JpaRepository<Match, Long> {
 
     List<Match> findAllByOrderByMatchDateAsc();
 
+    List<Match> findByCompetitionOrderByMatchDateAsc(String competition);
+
     /** All matches whose kick-off falls on the same calendar day as [startOfDay, endOfDay). */
     @Query("SELECT m FROM Match m WHERE m.matchDate >= :startOfDay AND m.matchDate < :endOfDay")
     List<Match> findByMatchDay(@Param("startOfDay") LocalDateTime startOfDay,

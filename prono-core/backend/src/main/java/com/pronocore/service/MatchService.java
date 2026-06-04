@@ -9,7 +9,6 @@ import com.pronocore.repository.*;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -73,7 +72,8 @@ public class MatchService {
                 .status(Match.Status.UPCOMING)
                 .build();
         match = matchRepository.save(match);
-        autoCreateBet(match);
+        // A match is global and starts CLOSED to betting. Each group's admin opens it
+        // for their group via BetService.openMatchForBetting → no auto-created bet here.
         return matchMapper.toResponse(match);
     }
 
@@ -106,31 +106,6 @@ public class MatchService {
     }
 
     public Match findById(Long id) { return requireMatch(id); }
-
-    // ---------------------------------------------------------------
-    // Auto-create bet
-    // ---------------------------------------------------------------
-
-    private void autoCreateBet(Match match) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        User creator = userRepository.findByUsername(username)
-                .orElseGet(() -> userRepository.findAll().stream()
-                        .filter(u -> u.getRole() == User.Role.ADMIN)
-                        .findFirst()
-                        .orElseThrow(() -> new IllegalStateException("No admin user found")));
-
-        Bet bet = Bet.builder()
-                .title(match.getTeamA() + " vs " + match.getTeamB())
-                .match(match)
-                .creator(creator)
-                .betType(Bet.BetType.SCORE)
-                .points(10)
-                .deadline(match.getMatchDate())
-                .status(Bet.Status.OPEN)
-                .build();
-        betRepository.save(bet);
-        log.info("✅ Auto-created bet for match {} ({} vs {})", match.getId(), match.getTeamA(), match.getTeamB());
-    }
 
     // ---------------------------------------------------------------
     // Settlement logic

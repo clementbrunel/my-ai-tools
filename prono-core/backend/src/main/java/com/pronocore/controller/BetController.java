@@ -1,6 +1,8 @@
 package com.pronocore.controller;
 
 import com.pronocore.dto.request.CreateBetRequest;
+import com.pronocore.dto.request.OpenBettingRequest;
+import com.pronocore.dto.request.OpenCompetitionRequest;
 import com.pronocore.dto.request.ParticipateRequest;
 import com.pronocore.dto.response.BetParticipationResponse;
 import com.pronocore.dto.response.BetResponse;
@@ -26,9 +28,9 @@ public class BetController {
     private final BetService betService;
 
     @GetMapping
-    @Operation(summary = "Get all bets")
-    public ResponseEntity<List<BetResponse>> getAllBets() {
-        return ResponseEntity.ok(betService.getAllBets());
+    @Operation(summary = "Get bets from the authenticated user's groups")
+    public ResponseEntity<List<BetResponse>> getAllBets(Authentication authentication) {
+        return ResponseEntity.ok(betService.getBetsForUser(authentication.getName()));
     }
 
     @GetMapping("/participated")
@@ -38,19 +40,39 @@ public class BetController {
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "Get bet by ID")
-    public ResponseEntity<BetResponse> getBet(@PathVariable Long id) {
-        return ResponseEntity.ok(betService.getBetById(id));
+    @Operation(summary = "Get bet by ID (must belong to one of the caller's groups)")
+    public ResponseEntity<BetResponse> getBet(@PathVariable Long id, Authentication authentication) {
+        return ResponseEntity.ok(betService.getBetById(id, authentication.getName()));
     }
 
     @GetMapping("/match/{matchId}")
-    @Operation(summary = "Get bets by match")
-    public ResponseEntity<List<BetResponse>> getBetsByMatch(@PathVariable Long matchId) {
-        return ResponseEntity.ok(betService.getBetsByMatch(matchId));
+    @Operation(summary = "Get the caller's group bets for a match")
+    public ResponseEntity<List<BetResponse>> getBetsByMatch(@PathVariable Long matchId,
+                                                             Authentication authentication) {
+        return ResponseEntity.ok(betService.getBetsByMatch(matchId, authentication.getName()));
+    }
+
+    @PostMapping("/open")
+    @Operation(summary = "Open a match for betting in a group (group admin only)")
+    public ResponseEntity<BetResponse> openMatchForBetting(@Valid @RequestBody OpenBettingRequest request,
+                                                           Authentication authentication) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(betService.openMatchForBetting(request.getGroupId(), request.getMatchId(),
+                                                 authentication.getName()));
+    }
+
+    @PostMapping("/open-competition")
+    @Operation(summary = "Open every match of a competition for betting in a group (group admin only)")
+    public ResponseEntity<List<BetResponse>> openCompetitionForBetting(
+            @Valid @RequestBody OpenCompetitionRequest request,
+            Authentication authentication) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(betService.openCompetitionForBetting(request.getGroupId(), request.getCompetition(),
+                                                       authentication.getName()));
     }
 
     @PostMapping
-    @Operation(summary = "Create a new bet")
+    @Operation(summary = "Create a custom bet on a match for a group (group admin only)")
     public ResponseEntity<BetResponse> createBet(@Valid @RequestBody CreateBetRequest request,
                                                    Authentication authentication) {
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -76,9 +98,10 @@ public class BetController {
     }
 
     @GetMapping("/{id}/participations")
-    @Operation(summary = "Get all participations for a bet")
-    public ResponseEntity<List<BetParticipationResponse>> getParticipations(@PathVariable Long id) {
-        return ResponseEntity.ok(betService.getParticipations(id));
+    @Operation(summary = "Get all participations for a bet (must belong to one of the caller's groups)")
+    public ResponseEntity<List<BetParticipationResponse>> getParticipations(@PathVariable Long id,
+                                                                            Authentication authentication) {
+        return ResponseEntity.ok(betService.getParticipations(id, authentication.getName()));
     }
 
     @PostMapping("/{id}/validate")

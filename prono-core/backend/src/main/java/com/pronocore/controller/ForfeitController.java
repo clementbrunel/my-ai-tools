@@ -6,10 +6,12 @@ import com.pronocore.dto.response.UserForfeitResponse;
 import com.pronocore.service.ForfeitService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -27,9 +29,9 @@ public class ForfeitController {
     // ---------------------------------------------------------------
 
     @GetMapping
-    @Operation(summary = "Get all active forfeits")
-    public ResponseEntity<List<ForfeitResponse>> getAllForfeits() {
-        return ResponseEntity.ok(forfeitService.getAllForfeits());
+    @Operation(summary = "Get active forfeits visible to the caller (shared + their groups)")
+    public ResponseEntity<List<ForfeitResponse>> getAllForfeits(Authentication authentication) {
+        return ResponseEntity.ok(forfeitService.getForfeitsForUser(authentication.getName()));
     }
 
     @GetMapping("/all")
@@ -51,10 +53,11 @@ public class ForfeitController {
     }
 
     @PostMapping("/propose")
-    @Operation(summary = "Any player can propose a new gage (visible immediately)")
-    public ResponseEntity<ForfeitResponse> proposeForfeit(@RequestBody ProposeForfeitRequest req) {
+    @Operation(summary = "A player proposes a gage inside one of their groups (kept in that group)")
+    public ResponseEntity<ForfeitResponse> proposeForfeit(@Valid @RequestBody ProposeForfeitRequest req) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(forfeitService.proposeForfeit(req.getTitle(), req.getDescription(), req.getCategory()));
+                .body(forfeitService.proposeForfeit(req.getGroupId(), req.getTitle(),
+                                                    req.getDescription(), req.getCategory()));
     }
 
     @DeleteMapping("/{forfeitId}")

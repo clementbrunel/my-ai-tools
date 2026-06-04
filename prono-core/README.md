@@ -114,13 +114,16 @@ prono-core/
 - Création / mise à jour du score (Admin)
 
 ### Paris
+- Un pari appartient à un couple **(match, groupe)**
+- Un match est global mais **fermé aux paris** par défaut ; l'**admin du groupe** l'ouvre aux paris pour son groupe (0, 1 ou N paris selon les groupes qui l'ont ouvert)
 - 4 types: Score exact, Événement, Gage, Libre
-- Participation avec pronostic + commentaire
-- Validation avec attribution de points aux gagnants
+- Participation réservée aux **membres actifs** du groupe (pronostic + commentaire)
+- Le résultat saisi par l'admin règle les paris de **tous** les groupes concernés
 - Attribution automatique de gages aux perdants (type FORFEIT)
 
 ### Gages
 - Catalogue de gages fun (maillot adverse, chanson, photo ridicule...)
+- **Gages partagés** (créés par l'admin, visibles par tous les groupes) + **gages de groupe** (ajouts des joueurs, privés à leur groupe)
 - Attribution manuelle (Admin) ou automatique à la validation
 - Suivi de completion
 
@@ -147,9 +150,10 @@ prono-core/
 | GET | /api/matches/{id} | Détail d'un match |
 | POST | /api/matches | Créer un match (Admin) |
 | PATCH | /api/matches/{id}/score | Mettre à jour le score (Admin) |
-| GET | /api/bets | Liste des paris |
-| POST | /api/bets | Créer un pari |
-| POST | /api/bets/{id}/participate | Participer à un pari |
+| GET | /api/bets | Paris des groupes de l'utilisateur |
+| POST | /api/bets/open | Ouvrir un match aux paris dans un groupe (Admin de groupe) |
+| POST | /api/bets | Créer un pari personnalisé (Admin de groupe) |
+| POST | /api/bets/{id}/participate | Participer à un pari (membre du groupe) |
 | POST | /api/bets/{id}/validate | Valider un pari (Admin) |
 | GET | /api/leaderboard | Classement |
 | GET | /api/forfeits | Liste des gages |
