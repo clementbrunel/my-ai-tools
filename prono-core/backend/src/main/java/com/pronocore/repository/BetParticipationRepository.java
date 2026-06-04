@@ -48,6 +48,14 @@ public interface BetParticipationRepository extends JpaRepository<BetParticipati
      * Used to compute per-user daily points for the daily gage loser selection.
      */
     @Query("""
+            SELECT bp.bet.group.id, bp.user.id, COALESCE(SUM(bp.pointsEarned), 0)
+            FROM BetParticipation bp
+            WHERE bp.bet.group.id IN :groupIds AND bp.bet.status = 'VALIDATED'
+            GROUP BY bp.bet.group.id, bp.user.id
+            """)
+    List<Object[]> sumPointsByGroupIds(@Param("groupIds") List<Long> groupIds);
+
+    @Query("""
             SELECT bp FROM BetParticipation bp
             WHERE bp.bet.match.matchDate >= :startOfDay
               AND bp.bet.match.matchDate <  :endOfDay

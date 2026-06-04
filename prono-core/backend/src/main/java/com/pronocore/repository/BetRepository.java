@@ -1,6 +1,7 @@
 package com.pronocore.repository;
 
 import com.pronocore.entity.Bet;
+import com.pronocore.entity.Match;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -27,4 +28,14 @@ public interface BetRepository extends JpaRepository<Bet, Long> {
 
     @Query("SELECT COUNT(bp) FROM BetParticipation bp WHERE bp.bet.id = :betId")
     long countParticipationsByBetId(@Param("betId") Long betId);
+
+    @Query("SELECT COUNT(DISTINCT b.match.id) FROM Bet b " +
+           "JOIN GroupMember gm ON gm.group = b.group " +
+           "WHERE gm.user.id = :userId " +
+           "AND b.status = :betStatus " +
+           "AND b.match.status = :matchStatus")
+    long countDistinctUpcomingMatchesInUserGroups(
+            @Param("userId") Long userId,
+            @Param("betStatus") Bet.Status betStatus,
+            @Param("matchStatus") Match.Status matchStatus);
 }

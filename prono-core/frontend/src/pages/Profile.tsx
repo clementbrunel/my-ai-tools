@@ -3,17 +3,29 @@ import { useAuth } from '../context/AuthContext';
 import { getParticipatedBets } from '../api/bets';
 import { getLeaderboard } from '../api/leaderboard';
 import { getMyForfeits, completeForfeit } from '../api/forfeits';
+import { updateAvatar, updatePassword } from '../api/users';
 import type { Bet, LeaderboardEntry, UserForfeitEntry } from '../types';
 import { isAdmin } from '../types';
 import { formatDate } from '../utils/dates';
 
 const Profile: React.FC = () => {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const [myBets, setMyBets] = useState<Bet[]>([]);
   const [leaderboardEntry, setLeaderboardEntry] = useState<LeaderboardEntry | null>(null);
   const [myForfeits, setMyForfeits] = useState<UserForfeitEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [completingId, setCompletingId] = useState<number | null>(null);
+
+  const [showEdit, setShowEdit] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || '');
+  const [avatarSaving, setAvatarSaving] = useState(false);
+  const [avatarMsg, setAvatarMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [pwSaving, setPwSaving] = useState(false);
+  const [pwMsg, setPwMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -54,6 +66,44 @@ const Profile: React.FC = () => {
     }
   };
 
+  const handleAvatarSave = async () => {
+    setAvatarSaving(true);
+    setAvatarMsg(null);
+    try {
+      const updated = await updateAvatar(avatarUrl);
+      updateUser(updated);
+      setAvatarMsg({ type: 'success', text: 'Avatar mis à jour !' });
+    } catch {
+      setAvatarMsg({ type: 'error', text: 'Impossible de mettre à jour l\'avatar.' });
+    } finally {
+      setAvatarSaving(false);
+    }
+  };
+
+  const handlePasswordSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPwMsg(null);
+    if (newPassword !== confirmPassword) {
+      setPwMsg({ type: 'error', text: 'Les nouveaux mots de passe ne correspondent pas.' });
+      return;
+    }
+    setPwSaving(true);
+    try {
+      await updatePassword(currentPassword, newPassword);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setPwMsg({ type: 'success', text: 'Mot de passe mis à jour !' });
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        'Impossible de modifier le mot de passe.';
+      setPwMsg({ type: 'error', text: message });
+    } finally {
+      setPwSaving(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="text-center py-12">
@@ -80,7 +130,7 @@ const Profile: React.FC = () => {
               user?.username[0].toUpperCase()
             )}
           </div>
-          <div>
+          <div className="flex-1">
             <h2 className="text-2xl font-black text-gray-900 dark:text-white">{user?.username}</h2>
             <p className="text-gray-500 dark:text-gray-400 text-sm">{user?.email}</p>
             <div className="flex items-center gap-2 mt-2">
@@ -92,7 +142,89 @@ const Profile: React.FC = () => {
               )}
             </div>
           </div>
+          <button
+            onClick={() => setShowEdit((v) => !v)}
+            className="btn-secondary text-sm flex-shrink-0"
+          >
+            {showEdit ? 'Fermer' : '✏️ Modifier'}
+          </button>
         </div>
+
+        {/* Edit section */}
+        {showEdit && (
+          <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-6 space-y-6">
+
+            {/* Avatar */}
+            <div>
+              <h3 className="font-bold text-gray-900 dark:text-white mb-3">🖼️ Avatar</h3>
+              <div className="flex gap-2">
+                <input
+                  type="url"
+                  value={avatarUrl}
+                  onChange={(e) => setAvatarUrl(e.target.value)}
+                  placeholder="https://example.com/photo.jpg"
+                  className="input flex-1"
+                />
+                <button
+                  onClick={handleAvatarSave}
+                  disabled={avatarSaving}
+                  className="btn-primary flex-shrink-0 disabled:opacity-50"
+                >
+                  {avatarSaving ? '...' : 'Enregistrer'}
+                </button>
+              </div>
+              {avatarMsg && (
+                <p className={`text-sm mt-2 ${avatarMsg.type === 'success' ? 'text-green-600' : 'text-red-500'}`}>
+                  {avatarMsg.text}
+                </p>
+              )}
+            </div>
+
+            {/* Password */}
+            <div>
+              <h3 className="font-bold text-gray-900 dark:text-white mb-3">🔒 Changer le mot de passe</h3>
+              <form onSubmit={handlePasswordSave} className="space-y-3">
+                <input
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="Mot de passe actuel"
+                  required
+                  className="input w-full"
+                />
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Nouveau mot de passe (min. 6 caractères)"
+                  required
+                  minLength={6}
+                  className="input w-full"
+                />
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Confirmer le nouveau mot de passe"
+                  required
+                  className="input w-full"
+                />
+                <button
+                  type="submit"
+                  disabled={pwSaving}
+                  className="btn-primary w-full disabled:opacity-50"
+                >
+                  {pwSaving ? '...' : 'Changer le mot de passe'}
+                </button>
+                {pwMsg && (
+                  <p className={`text-sm ${pwMsg.type === 'success' ? 'text-green-600' : 'text-red-500'}`}>
+                    {pwMsg.text}
+                  </p>
+                )}
+              </form>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Stats */}

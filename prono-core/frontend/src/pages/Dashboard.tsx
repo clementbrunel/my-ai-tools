@@ -2,19 +2,20 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getMatches } from '../api/matches';
-import { getLeaderboard, getGroupLeaderboard } from '../api/leaderboard';
-import { getMyGroups } from '../api/groups';
+import { getLeaderboard } from '../api/leaderboard';
+import { getDashboardStats } from '../api/dashboard';
+import type { GroupRankEntry } from '../api/dashboard';
 import { getDailyGageByDate, voteOnCandidate } from '../api/dailyGages';
-import type { Match, LeaderboardEntry, DailyGage, Group } from '../types';
+import type { Match, LeaderboardEntry, DailyGage } from '../types';
 import MatchCard from '../components/MatchCard';
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
   const [matches, setMatches] = useState<Match[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
-  const [myGroups, setMyGroups] = useState<Group[]>([]);
-  const [groupRanks, setGroupRanks] = useState<{ group: Group; rank: number; total: number; points: number }[]>([]);
   const [todayGage, setTodayGage] = useState<DailyGage | null>(null);
+  const [upcomingMatchCount, setUpcomingMatchCount] = useState<number>(0);
+  const [groupRanks, setGroupRanks] = useState<GroupRankEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const today = new Date().toISOString().split('T')[0]; // "2026-06-11"
@@ -22,25 +23,15 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [matchesData, leaderboardData, groupsData] = await Promise.all([
+        const [matchesData, leaderboardData, statsData] = await Promise.all([
           getMatches(),
           getLeaderboard(),
-          getMyGroups(),
+          getDashboardStats(),
         ]);
         setMatches(matchesData);
         setLeaderboard(leaderboardData);
-        setMyGroups(groupsData);
-
-        if (groupsData.length > 0 && user) {
-          const ranks = await Promise.all(
-            groupsData.map(async (group) => {
-              const groupLeaderboard = await getGroupLeaderboard(group.id);
-              const entry = groupLeaderboard.find((e) => e.user.username === user.username);
-              return { group, rank: entry?.rank ?? 0, total: groupLeaderboard.length, points: entry?.totalPoints ?? 0 };
-            })
-          );
-          setGroupRanks(ranks);
-        }
+        setUpcomingMatchCount(statsData.upcomingMatchesInMyGroups);
+        setGroupRanks(statsData.groupRanks);
 
         // Attempt to load today's gage (may 404 if not configured)
         try {
@@ -70,7 +61,7 @@ const Dashboard: React.FC = () => {
 
   const upcomingMatches = matches.filter((m) => m.status === 'UPCOMING');
   const userRank = leaderboard.find((e) => e.user.username === user?.username);
-  const hasMultipleGroups = myGroups.length > 1;
+  const hasMultipleGroups = groupRanks.length > 1;
 
   if (isLoading) {
     return (
@@ -99,7 +90,7 @@ const Dashboard: React.FC = () => {
       {/* Stats Cards */}
       <div className="grid grid-cols-3 gap-4">
         <div className="stat-card">
-          <div className="stat-value">{upcomingMatches.length}</div>
+          <div className="stat-value">{upcomingMatchCount}</div>
           <div className="stat-label">⚽ Matchs à venir</div>
         </div>
 
@@ -114,10 +105,10 @@ const Dashboard: React.FC = () => {
             <>
               <div className="stat-label mb-2">🏅 Votre classement</div>
               <div className="space-y-1">
-                {groupRanks.map(({ group, rank, total }) => (
-                  <div key={group.id} className="flex items-center justify-between text-sm">
-                    <span className="text-gray-500 dark:text-gray-400 truncate max-w-[60%]">{group.name}</span>
-                    <span className="font-bold text-wc-gold">#{rank}<span className="text-xs text-gray-400 font-normal">/{total}</span></span>
+                {groupRanks.map((gr) => (
+                  <div key={gr.groupId} className="flex items-center justify-between text-sm">
+                    <span className="text-gray-500 dark:text-gray-400 truncate max-w-[60%]">{gr.groupName}</span>
+                    <span className="font-bold text-wc-gold">#{gr.rank}<span className="text-xs text-gray-400 font-normal">/{gr.total}</span></span>
                   </div>
                 ))}
               </div>
@@ -136,10 +127,10 @@ const Dashboard: React.FC = () => {
             <>
               <div className="stat-label mb-2">⭐ Vos points</div>
               <div className="space-y-1">
-                {groupRanks.map(({ group, points }) => (
-                  <div key={group.id} className="flex items-center justify-between text-sm">
-                    <span className="text-gray-500 dark:text-gray-400 truncate max-w-[60%]">{group.name}</span>
-                    <span className="font-bold">{points}</span>
+                {groupRanks.map((gr) => (
+                  <div key={gr.groupId} className="flex items-center justify-between text-sm">
+                    <span className="text-gray-500 dark:text-gray-400 truncate max-w-[60%]">{gr.groupName}</span>
+                    <span className="font-bold">{gr.points}</span>
                   </div>
                 ))}
               </div>

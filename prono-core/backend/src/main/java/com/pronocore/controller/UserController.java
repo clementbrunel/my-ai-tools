@@ -1,9 +1,11 @@
 package com.pronocore.controller;
 
+import com.pronocore.dto.request.UpdatePasswordRequest;
 import com.pronocore.dto.response.UserResponse;
 import com.pronocore.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -42,5 +44,13 @@ public class UserController {
     public ResponseEntity<UserResponse> updateAvatar(@RequestParam String avatarUrl,
                                                       Authentication authentication) {
         return ResponseEntity.ok(userService.updateAvatar(authentication.getName(), avatarUrl));
+    }
+
+    @PatchMapping("/me/password")
+    @Operation(summary = "Update password")
+    public ResponseEntity<Void> updatePassword(@Valid @RequestBody UpdatePasswordRequest request,
+                                                Authentication authentication) {
+        userService.updatePassword(authentication.getName(), request.getCurrentPassword(), request.getNewPassword());
+        return ResponseEntity.noContent().build();
     }
 }
