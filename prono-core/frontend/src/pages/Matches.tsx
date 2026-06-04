@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { getMatches } from '../api/matches';
-import type { Match } from '../types';
+import { getBets } from '../api/bets';
+import { getMyGroups } from '../api/groups';
+import type { Bet, Match } from '../types';
 import { isAdmin } from '../types';
 import MatchCard from '../components/MatchCard';
 import { useAuth } from '../context/AuthContext';
@@ -12,26 +13,42 @@ type FilterStatus = 'ALL' | 'UPCOMING' | 'FINISHED';
 
 const Matches: React.FC = () => {
   const { user } = useAuth();
-  const [matches, setMatches] = useState<Match[]>([]);
+  const [bets, setBets] = useState<Bet[]>([]);
   const [filter, setFilter] = useState<FilterStatus>('ALL');
   const [isLoading, setIsLoading] = useState(true);
+  const [hasGroups, setHasGroups] = useState(true);
 
   const today = new Date().toISOString().slice(0, 10); // "2026-06-11"
 
   useEffect(() => {
-    const fetchMatches = async () => {
+    const fetchData = async () => {
       setIsLoading(true);
       try {
-        const data = await getMatches(filter !== 'ALL' ? filter : undefined);
-        setMatches(data);
+        const [groups, betsData] = await Promise.all([getMyGroups(), getBets()]);
+        setHasGroups(groups.length > 0);
+        setBets(betsData);
       } catch (err) {
-        console.error('Error loading matches:', err);
+        console.error('Error loading data:', err);
       } finally {
         setIsLoading(false);
       }
     };
-    fetchMatches();
-  }, [filter]);
+    fetchData();
+  }, []);
+
+  const matches = useMemo(() => {
+    if (!hasGroups) return [];
+    const seen = new Set<number>();
+    const unique: Match[] = [];
+    for (const bet of bets) {
+      if (bet.status === 'OPEN' && bet.match && !seen.has(bet.match.id)) {
+        seen.add(bet.match.id);
+        unique.push(bet.match);
+      }
+    }
+    const filtered = filter === 'ALL' ? unique : unique.filter((m) => m.status === filter);
+    return filtered.sort((a, b) => a.matchDate.localeCompare(b.matchDate));
+  }, [bets, filter, hasGroups]);
 
   const filters: { label: string; value: FilterStatus }[] = [
     { label: '🌍 Tous', value: 'ALL' },
@@ -39,7 +56,6 @@ const Matches: React.FC = () => {
     { label: '✅ Terminés', value: 'FINISHED' },
   ];
 
-  // Group matches by calendar day (YYYY-MM-DD), preserving API sort order within each day
   const matchesByDay = matches.reduce<Record<string, Match[]>>((acc, match) => {
     const day = match.matchDate.slice(0, 10);
     if (!acc[day]) acc[day] = [];
@@ -60,22 +76,40 @@ const Matches: React.FC = () => {
         )}
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-2 mb-6">
-        {filters.map((f) => (
-          <button
-            key={f.value}
-            onClick={() => setFilter(f.value)}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-              filter === f.value
-                ? 'bg-wc-green text-white'
-                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-            }`}
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
+      {/* No-group alert */}
+      {!isLoading && !hasGroups && (
+        <div className="mb-6 flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-900/30 px-4 py-3 text-amber-800 dark:text-amber-300">
+          <span className="text-xl mt-0.5">⚠️</span>
+          <div className="text-sm leading-snug">
+            <p className="font-semibold mb-1">Tu n'es membre d'aucun groupe</p>
+            <p>
+              Rejoins ou crée un groupe pour accéder aux paris.{' '}
+              <Link to="/groups" className="underline font-medium hover:opacity-80">
+                Gérer mes groupes →
+              </Link>
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Filters — hidden when no group */}
+      {hasGroups && (
+        <div className="flex flex-wrap gap-2 mb-6">
+          {filters.map((f) => (
+            <button
+              key={f.value}
+              onClick={() => setFilter(f.value)}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                filter === f.value
+                  ? 'bg-wc-green text-white'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Matches grouped by day */}
       {isLoading ? (
@@ -83,7 +117,7 @@ const Matches: React.FC = () => {
           <div className="text-5xl animate-bounce-slow">⚽</div>
           <p className="text-gray-500 mt-3">Chargement...</p>
         </div>
-      ) : sortedDays.length > 0 ? (
+      ) : hasGroups && sortedDays.length > 0 ? (
         <div className="space-y-8">
           {sortedDays.map((day) => {
             const isToday = day === today;
@@ -120,12 +154,12 @@ const Matches: React.FC = () => {
             );
           })}
         </div>
-      ) : (
+      ) : hasGroups ? (
         <div className="card text-center py-12 text-gray-500 dark:text-gray-400">
           <div className="text-4xl mb-3">😅</div>
-          <p>Aucun match trouvé</p>
+          <p>Aucun match avec des paris ouverts dans tes groupes</p>
         </div>
-      )}
+      ) : null}
     </div>
   );
 };
