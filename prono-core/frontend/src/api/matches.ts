@@ -1,0 +1,27 @@
+import apiClient from './axios';
+import type { Match, CreateMatchRequest, UpdateMatchScoreRequest } from '../types';
+
+export const getMatches = async (status?: string): Promise<Match[]> => {
+  const params = status ? { status } : {};
+  const response = await apiClient.get<Match[]>('/matches', { params });
+  return response.data;
+};
+
+export const getMatch = async (id: number): Promise<Match> => {
+  const response = await apiClient.get<Match>(`/matches/${id}`);
+  return response.data;
+};
+
+export const createMatch = async (data: CreateMatchRequest): Promise<Match> => {
+  const response = await apiClient.post<Match>('/matches', data);
+  return response.data;
+};
+
+export const updateMatchScore = async (id: number, data: UpdateMatchScoreRequest): Promise<Match> => {
+  const response = await apiClient.patch<Match>(`/matches/${id}/score`, data);
+  return response.data;
+};
+
+export const deleteMatch = async (id: number): Promise<void> => {
+  await apiClient.delete(`/matches/${id}`);
+};

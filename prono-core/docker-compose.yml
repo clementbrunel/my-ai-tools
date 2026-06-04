@@ -1,0 +1,45 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: pronocore-postgres
+    environment:
+      POSTGRES_DB: pronocore
+      POSTGRES_USER: pronocore
+      POSTGRES_PASSWORD: pronocore
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pronocore"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    container_name: pronocore-backend
+    ports:
+      - "8080:8080"
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/pronocore
+      DB_USER: pronocore
+      DB_PASS: pronocore
+      JWT_SECRET: worldcup2026secretkey1234567890123456789012
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: pronocore-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

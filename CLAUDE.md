@@ -10,6 +10,7 @@ Each tool lives in its own subdirectory with its own `package.json`, `src/`, and
 |-------------------|------------------|-----------------------------------------------------------------|
 | `ai-env-diagram/` | `ai-env-diagram` | Scans project, generates Mermaid diagram of AI setup            |
 | `mistral-chat/`   | `mistral-chat`   | Interactive CLI REPL for enterprise Mistral via browser cookies |
+| `prono-core/`     | `prono-core`     | Full-stack World Cup 2026 betting app (Java/Spring + React)     |
 
 ## Adding a new tool
 

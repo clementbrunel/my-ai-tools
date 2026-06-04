@@ -1,0 +1,221 @@
+package com.pronocore.service;
+
+import com.pronocore.dto.request.CreateMatchRequest;
+import com.pronocore.dto.request.UpdateMatchScoreRequest;
+import com.pronocore.dto.response.MatchResponse;
+import com.pronocore.entity.*;
+import com.pronocore.mapper.MatchMapper;
+import com.pronocore.repository.*;
+import jakarta.persistence.EntityNotFoundException;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.*;
+import java.util.stream.Collectors;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class MatchService {
+
+    private final MatchRepository            matchRepository;
+    private final MatchMapper                matchMapper;
+    private final BetRepository              betRepository;
+    private final BetParticipationRepository betParticipationRepository;
+    private final UserRepository             userRepository;
+    private final DailyGageService           dailyGageService;
+
+    // ---------------------------------------------------------------
+    // Scoring constants
+    // ---------------------------------------------------------------
+
+    /** Exact score. */
+    static final int POINTS_EXACT_SCORE    = 5;
+    /** Correct result (right winner or right draw), wrong score. */
+    static final int POINTS_CORRECT_RESULT = 3;
+
+    // ---------------------------------------------------------------
+    // Queries
+    // ---------------------------------------------------------------
+
+    @Transactional(readOnly = true)
+    public List<MatchResponse> getAllMatches() {
+        return matchRepository.findAllByOrderByMatchDateAsc().stream()
+                .map(matchMapper::toResponse).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<MatchResponse> getMatchesByStatus(Match.Status status) {
+        return matchRepository.findByStatusOrderByMatchDateAsc(status).stream()
+                .map(matchMapper::toResponse).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public MatchResponse getMatchById(Long id) {
+        return matchMapper.toResponse(requireMatch(id));
+    }
+
+    // ---------------------------------------------------------------
+    // Commands
+    // ---------------------------------------------------------------
+
+    @Transactional
+    public MatchResponse createMatch(CreateMatchRequest request) {
+        Match match = Match.builder()
+                .teamA(request.getTeamA())
+                .teamB(request.getTeamB())
+                .matchDate(request.getMatchDate())
+                .competition(request.getCompetition() != null ? request.getCompetition() : "FIFA World Cup 2026")
+                .round(request.getRound() != null ? request.getRound() : "Group Stage")
+                .status(Match.Status.UPCOMING)
+                .build();
+        match = matchRepository.save(match);
+        autoCreateBet(match);
+        return matchMapper.toResponse(match);
+    }
+
+    @Transactional
+    public MatchResponse updateMatchScore(Long id, UpdateMatchScoreRequest request) {
+        Match match = requireMatch(id);
+
+        boolean transitionsToFinished =
+                match.getStatus() != Match.Status.FINISHED
+                        && request.getStatus() == Match.Status.FINISHED;
+
+        match.setScoreA(request.getScoreA());
+        match.setScoreB(request.getScoreB());
+        match.setStatus(request.getStatus());
+        match = matchRepository.save(match);
+
+        if (transitionsToFinished && request.getScoreA() != null && request.getScoreB() != null) {
+            settleBetsForMatch(match);
+            // After settling, check if the whole day is done → assign daily gage
+            dailyGageService.onMatchSettled(match.getMatchDate().toLocalDate());
+        }
+
+        return matchMapper.toResponse(match);
+    }
+
+    @Transactional
+    public void deleteMatch(Long id) {
+        if (!matchRepository.existsById(id)) throw new EntityNotFoundException("Match not found: " + id);
+        matchRepository.deleteById(id);
+    }
+
+    public Match findById(Long id) { return requireMatch(id); }
+
+    // ---------------------------------------------------------------
+    // Auto-create bet
+    // ---------------------------------------------------------------
+
+    private void autoCreateBet(Match match) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        User creator = userRepository.findByUsername(username)
+                .orElseGet(() -> userRepository.findAll().stream()
+                        .filter(u -> u.getRole() == User.Role.ADMIN)
+                        .findFirst()
+                        .orElseThrow(() -> new IllegalStateException("No admin user found")));
+
+        Bet bet = Bet.builder()
+                .title(match.getTeamA() + " vs " + match.getTeamB())
+                .match(match)
+                .creator(creator)
+                .betType(Bet.BetType.SCORE)
+                .points(10)
+                .deadline(match.getMatchDate())
+                .status(Bet.Status.OPEN)
+                .build();
+        betRepository.save(bet);
+        log.info("✅ Auto-created bet for match {} ({} vs {})", match.getId(), match.getTeamA(), match.getTeamB());
+    }
+
+    // ---------------------------------------------------------------
+    // Settlement logic
+    // ---------------------------------------------------------------
+
+    /**
+     * When admin marks a match as FINISHED:
+     * 1. Compute the winning option string.
+     * 2. Award +5 (exact score) or +3 (correct result) to each participant.
+     *    Both +5 and +3 count as a "won bet" (betsWon++).
+     * 3. Store pointsEarned on each participation (used by daily gage loser logic).
+     *
+     * Note: per-match forfeit assignment has been removed.
+     * Gages are now assigned per day via DailyGageService.onMatchSettled().
+     *
+     * Winning-option format (winner's score always first):
+     *   teamA wins 2-1  → "Victoire France 2-1"
+     *   teamB wins 1-0  → "Victoire Sénégal 1-0"
+     *   draw 0-0        → "Match nul 0-0"
+     */
+    private void settleBetsForMatch(Match match) {
+        String winningOption = computeWinningOption(match);
+        log.info("⚽ Settling match {} ({} vs {}) — winning option: {}",
+                match.getId(), match.getTeamA(), match.getTeamB(), winningOption);
+
+        List<Bet> openBets = betRepository
+                .findByMatchIdAndStatusOrderByCreatedAtDesc(match.getId(), Bet.Status.OPEN);
+        if (openBets.isEmpty()) { log.info("No open bets for match {}", match.getId()); return; }
+
+        for (Bet bet : openBets) {
+            List<BetParticipation> participations = betParticipationRepository.findByBetId(bet.getId());
+
+            for (BetParticipation p : participations) {
+                User user = p.getUser();
+                int earned = computeEarnedPoints(p.getChosenOption().trim(), winningOption);
+                p.setPointsEarned(earned);
+                betParticipationRepository.save(p);
+
+                if (earned > 0) {
+                    user.setGlobalScore(user.getGlobalScore() + earned);
+                    // Both +3 (correct result) and +5 (exact score) count as a won bet
+                    user.setBetsWon(user.getBetsWon() + 1);
+                    userRepository.save(user);
+                    log.info("  +{} pts → {} ({})", earned, user.getUsername(), p.getChosenOption());
+                } else {
+                    log.debug("  +0 pts → {} ({})", user.getUsername(), p.getChosenOption());
+                }
+            }
+
+            bet.setStatus(Bet.Status.VALIDATED);
+            bet.setWinningOption(winningOption);
+            betRepository.save(bet);
+        }
+    }
+
+    /**
+     * Points for a single participation:
+     * +5 exact score | +3 correct result | 0 wrong
+     */
+    int computeEarnedPoints(String chosenOption, String winningOption) {
+        if (chosenOption.equals(winningOption)) return POINTS_EXACT_SCORE;
+        if (extractResult(chosenOption).equals(extractResult(winningOption))) return POINTS_CORRECT_RESULT;
+        return 0;
+    }
+
+    /** "Victoire France 2-1" → "Victoire France" | "Match nul 1-1" → "Match nul" */
+    private String extractResult(String option) {
+        if (option.startsWith("Match nul")) return "Match nul";
+        if (option.startsWith("Victoire ")) {
+            int lastSpace = option.lastIndexOf(' ');
+            if (lastSpace > 0) return option.substring(0, lastSpace);
+        }
+        return option;
+    }
+
+    /** Winner's score always first. France 0–1 Sénégal → "Victoire Sénégal 1-0" */
+    private String computeWinningOption(Match match) {
+        int sA = match.getScoreA(), sB = match.getScoreB();
+        if (sA > sB) return "Victoire " + match.getTeamA() + " " + sA + "-" + sB;
+        if (sB > sA) return "Victoire " + match.getTeamB() + " " + sB + "-" + sA;
+        return "Match nul " + sA + "-" + sB;
+    }
+
+    private Match requireMatch(Long id) {
+        return matchRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Match not found: " + id));
+    }
+}
