@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getMatches, createMatch, updateMatchScore, getCompetitions } from '../api/matches';
+import { getMatches, createMatch, updateMatchScore } from '../api/matches';
 import {
   getAllForfeitsAdmin,
   createForfeit,
@@ -31,7 +31,6 @@ const Admin: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   // Match creation
-  const [competitions, setCompetitions] = useState<string[]>([]);
   const [newTeamA, setNewTeamA] = useState('');
   const [newTeamB, setNewTeamB] = useState('');
   const [newMatchDate, setNewMatchDate] = useState('');
@@ -72,12 +71,8 @@ const Admin: React.FC = () => {
     }
     const fetchData = async () => {
       try {
-        const [matchesData, competitionsData] = await Promise.all([
-          getMatches(),
-          getCompetitions(),
-        ]);
+        const matchesData = await getMatches();
         setMatches(matchesData);
-        setCompetitions(competitionsData);
       } catch (err) {
         console.error('Error loading admin data:', err);
       } finally {
@@ -114,9 +109,6 @@ const Admin: React.FC = () => {
       });
       setMatches([...matches, newMatch]);
       setNewTeamA(''); setNewTeamB(''); setNewMatchDate('');
-      if (!competitions.includes(newCompetition)) {
-        setCompetitions([...competitions, newCompetition].sort());
-      }
       setMatchSuccess('Match créé avec succès !');
     } catch { setMatchError('Erreur lors de la création du match'); }
   };
@@ -226,6 +218,11 @@ const Admin: React.FC = () => {
     .filter((d) => !configuredDates.has(d))
     .sort();
 
+  // Competitions derived from loaded matches (non-finished ones)
+  const activeCompetitions = [
+    ...new Set(matches.filter((m) => m.status !== 'FINISHED').map((m) => m.competition)),
+  ].sort();
+
   const tabs: { id: AdminTab; label: string }[] = [
     { id: 'matches', label: '⚽ Matchs' },
     { id: 'forfeits', label: '🃏 Gages' },
@@ -306,7 +303,7 @@ const Admin: React.FC = () => {
                   required
                 />
                 <datalist id="competitions-datalist">
-                  {competitions.map((c) => (
+                  {activeCompetitions.map((c) => (
                     <option key={c} value={c} />
                   ))}
                 </datalist>
