@@ -12,6 +12,7 @@ import {
 import DailyGagePanel from '../components/DailyGagePanel';
 import type { Group, PublicGroup, Forfeit } from '../types';
 import { useAuth } from '../context/AuthContext';
+import { useGroupAdminCounts } from '../context/GroupAdminCountsContext';
 import ConfirmModal from '../components/ConfirmModal';
 
 type Tab = 'mine' | 'discover';
@@ -45,10 +46,12 @@ const GroupPage: React.FC = () => {
   // Copy feedback
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
+  const { pendingForfeitsPerGroup, missingGagesPerGroup, refresh: refreshCounts } = useGroupAdminCounts();
+
   // ---- Group admin state ----
   const [openAdminSection, setOpenAdminSection] = useState<Record<number, AdminSection | null>>({});
 
-  // Pending proposed forfeits per group
+  // Pending proposed forfeits per group (lazy-loaded when section opens)
   const [groupPendingForfeits, setGroupPendingForfeits] = useState<Record<number, Forfeit[]>>({});
   // Active group-specific forfeits per group
   const [groupActiveForfeits, setGroupActiveForfeits] = useState<Record<number, Forfeit[]>>({});
@@ -100,6 +103,7 @@ const GroupPage: React.FC = () => {
         ...prev,
         [groupId]: [...(prev[groupId] ?? []), approved],
       }));
+      refreshCounts();
     } catch {
       setError('Erreur lors de la validation du gage');
     }
@@ -112,6 +116,7 @@ const GroupPage: React.FC = () => {
         ...prev,
         [groupId]: (prev[groupId] ?? []).filter((f) => f.id !== forfeitId),
       }));
+      refreshCounts();
     } catch {
       setError('Erreur lors du refus du gage');
     }
@@ -440,6 +445,9 @@ const GroupPage: React.FC = () => {
               const activeSection = openAdminSection[group.id] ?? null;
               const pendingForfeits = groupPendingForfeits[group.id] ?? [];
               const activeForfeits = groupActiveForfeits[group.id] ?? [];
+              // Badge counts: use live list when section was opened, else context count
+              const pendingForfeitsBadge = groupPendingForfeits[group.id]?.length ?? pendingForfeitsPerGroup[group.id] ?? 0;
+              const missingGagesBadge = missingGagesPerGroup[group.id] ?? 0;
 
               return (
                 <div key={group.id} className="card space-y-4">
@@ -511,23 +519,33 @@ const GroupPage: React.FC = () => {
                       <div className="flex gap-2 pt-2 border-t border-yellow-200 dark:border-yellow-800/40">
                         <button
                           onClick={() => toggleAdminSection(group.id, 'forfeits')}
-                          className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${
+                          className={`relative text-xs px-3 py-1.5 rounded-lg font-medium transition-colors inline-flex items-center gap-1.5 ${
                             activeSection === 'forfeits'
                               ? 'bg-yellow-500 text-white'
                               : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-200'
                           }`}
                         >
                           🃏 Gages du groupe
+                          {pendingForfeitsBadge > 0 && (
+                            <span className="inline-flex items-center justify-center bg-red-500 text-white text-[10px] font-bold leading-none rounded-full min-w-[16px] h-4 px-1">
+                              {pendingForfeitsBadge}
+                            </span>
+                          )}
                         </button>
                         <button
                           onClick={() => toggleAdminSection(group.id, 'daily-gages')}
-                          className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${
+                          className={`relative text-xs px-3 py-1.5 rounded-lg font-medium transition-colors inline-flex items-center gap-1.5 ${
                             activeSection === 'daily-gages'
                               ? 'bg-yellow-500 text-white'
                               : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-200'
                           }`}
                         >
                           📅 Gage du Jour
+                          {missingGagesBadge > 0 && (
+                            <span className="inline-flex items-center justify-center bg-orange-500 text-white text-[10px] font-bold leading-none rounded-full min-w-[16px] h-4 px-1">
+                              {missingGagesBadge}
+                            </span>
+                          )}
                         </button>
                       </div>
                     </div>
