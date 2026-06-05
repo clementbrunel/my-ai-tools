@@ -171,6 +171,9 @@ public class DailyGageService {
         // Appeler candidateRepository.delete() directement échoue silencieusement car
         // Hibernate voit encore le candidat dans dg.candidates au flush.
         dg.getCandidates().remove(c);
+        if (dg.getCandidates().isEmpty() && dg.getStatus() == DailyGage.Status.ACTIVE) {
+            dg.setStatus(DailyGage.Status.PENDING);
+        }
         dailyGageRepository.save(dg);
         return toResponse(dg, user);
     }
