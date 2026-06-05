@@ -40,6 +40,7 @@ class DailyGageServiceTest {
     @Mock private MatchRepository              matchRepository;
     @Mock private GroupRepository              groupRepository;
     @Mock private GroupMemberRepository        groupMemberRepository;
+    @Mock private GroupMemberGuard             groupMemberGuard;
 
     @InjectMocks
     private DailyGageService dailyGageService;
@@ -75,8 +76,10 @@ class DailyGageServiceTest {
 
         lenient().when(userRepository.findByUsername("admin")).thenReturn(Optional.of(adminUser));
         // admin is a GROUP_ADMIN of the group → passes command authorisation
-        lenient().when(groupMemberRepository.findByGroupIdAndUserId(GROUP_ID, 1L))
-                .thenReturn(Optional.of(adminMembership(GroupMember.GroupRole.GROUP_ADMIN)));
+        lenient().when(groupMemberGuard.requireGroupAdmin(GROUP_ID, 1L))
+                .thenReturn(adminMembership(GroupMember.GroupRole.GROUP_ADMIN));
+        lenient().when(groupMemberGuard.requireActiveMembership(GROUP_ID, 1L))
+                .thenReturn(adminMembership(GroupMember.GroupRole.GROUP_ADMIN));
     }
 
     @AfterEach
@@ -139,8 +142,8 @@ class DailyGageServiceTest {
     @Test
     void createDailyGage_shouldThrow_whenCallerIsNotGroupAdmin() {
         CreateDailyGageRequest req = buildRequest(MATCH_DAY, DailyGage.Mode.DIRECT);
-        when(groupMemberRepository.findByGroupIdAndUserId(GROUP_ID, 1L))
-                .thenReturn(Optional.of(adminMembership(GroupMember.GroupRole.MEMBER)));
+        when(groupMemberGuard.requireGroupAdmin(GROUP_ID, 1L))
+                .thenThrow(new AccessDeniedException("Group admin role required"));
 
         assertThatThrownBy(() -> dailyGageService.createDailyGage(req))
                 .isInstanceOf(AccessDeniedException.class);
@@ -180,8 +183,8 @@ class DailyGageServiceTest {
     void selectForfeitDirectly_shouldThrowWhenCallerNotGroupAdmin() {
         DailyGage dg = gage(1L, DailyGage.Mode.DIRECT, DailyGage.Status.PENDING);
         when(dailyGageRepository.findById(1L)).thenReturn(Optional.of(dg));
-        when(groupMemberRepository.findByGroupIdAndUserId(GROUP_ID, 1L))
-                .thenReturn(Optional.of(adminMembership(GroupMember.GroupRole.MEMBER)));
+        when(groupMemberGuard.requireGroupAdmin(GROUP_ID, 1L))
+                .thenThrow(new AccessDeniedException("Group admin role required"));
 
         assertThatThrownBy(() -> dailyGageService.selectForfeitDirectly(1L, 1L))
                 .isInstanceOf(AccessDeniedException.class);
@@ -271,7 +274,8 @@ class DailyGageServiceTest {
     void vote_shouldThrowWhenCallerNotGroupMember() {
         DailyGage dg = gage(1L, DailyGage.Mode.VOTE, DailyGage.Status.ACTIVE);
         when(dailyGageRepository.findById(1L)).thenReturn(Optional.of(dg));
-        when(groupMemberRepository.findByGroupIdAndUserId(GROUP_ID, 1L)).thenReturn(Optional.empty());
+        when(groupMemberGuard.requireActiveMembership(GROUP_ID, 1L))
+                .thenThrow(new AccessDeniedException("You are not a member of this group"));
 
         assertThatThrownBy(() -> dailyGageService.vote(1L, 1L, 1))
                 .isInstanceOf(AccessDeniedException.class);

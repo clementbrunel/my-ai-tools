@@ -39,6 +39,7 @@ class ForfeitServiceTest {
     @Mock private UserForfeitRepository userForfeitRepository;
     @Mock private UserRepository        userRepository;
     @Mock private GroupMemberRepository groupMemberRepository;
+    @Mock private GroupMemberGuard      groupMemberGuard;
 
     @InjectMocks
     private ForfeitService forfeitService;
@@ -162,7 +163,7 @@ class ForfeitServiceTest {
                 .build();
 
         when(userRepository.findByUsername("player")).thenReturn(Optional.of(regularUser));
-        when(groupMemberRepository.findByGroupIdAndUserId(7L, 2L)).thenReturn(Optional.of(m));
+        when(groupMemberGuard.requireActiveMembership(7L, 2L)).thenReturn(m);
         when(forfeitRepository.save(any(Forfeit.class))).thenReturn(forfeit);
 
         forfeitService.proposeForfeit(7L, "My gage", "A description", "Custom");
@@ -171,14 +172,15 @@ class ForfeitServiceTest {
         verify(forfeitRepository).save(captor.capture());
         assertThat(captor.getValue().getProposedBy()).isEqualTo(regularUser);
         assertThat(captor.getValue().getGroup()).isEqualTo(group);
-        assertThat(captor.getValue().isActive()).isTrue();
+        assertThat(captor.getValue().isActive()).isFalse(); // MEMBER proposal is pending admin approval
         assertThat(captor.getValue().getCategory()).isEqualTo("Custom");
     }
 
     @Test
     void proposeForfeit_shouldThrowWhenNotActiveGroupMember() {
         when(userRepository.findByUsername("player")).thenReturn(Optional.of(regularUser));
-        when(groupMemberRepository.findByGroupIdAndUserId(7L, 2L)).thenReturn(Optional.empty());
+        when(groupMemberGuard.requireActiveMembership(7L, 2L))
+                .thenThrow(new AccessDeniedException("You are not a member of this group"));
 
         assertThatThrownBy(() -> forfeitService.proposeForfeit(7L, "My gage", "desc", "Custom"))
                 .isInstanceOf(AccessDeniedException.class);

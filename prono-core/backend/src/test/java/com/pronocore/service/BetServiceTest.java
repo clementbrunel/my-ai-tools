@@ -15,6 +15,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
 
+import static org.mockito.Mockito.lenient;
+
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -32,6 +34,7 @@ class BetServiceTest {
     @Mock private MatchRepository matchRepository;
     @Mock private GroupRepository groupRepository;
     @Mock private GroupMemberRepository groupMemberRepository;
+    @Mock private GroupMemberGuard groupMemberGuard;
     @Mock private ForfeitRepository forfeitRepository;
     @Mock private UserForfeitRepository userForfeitRepository;
     @Mock private BetMapper betMapper;
@@ -69,8 +72,15 @@ class BetServiceTest {
     }
 
     private void stubActiveMember(GroupMember.GroupRole role) {
-        when(groupMemberRepository.findByGroupIdAndUserId(7L, 1L))
-            .thenReturn(Optional.of(membership(role, GroupMember.MemberStatus.ACTIVE)));
+        GroupMember member = membership(role, GroupMember.MemberStatus.ACTIVE);
+        if (role == GroupMember.GroupRole.GROUP_ADMIN) {
+            lenient().when(groupMemberGuard.requireGroupAdmin(7L, 1L)).thenReturn(member);
+            lenient().when(groupMemberGuard.requireActiveMembership(7L, 1L)).thenReturn(member);
+        } else {
+            lenient().when(groupMemberGuard.requireGroupAdmin(7L, 1L))
+                    .thenThrow(new AccessDeniedException("Group admin role required"));
+            lenient().when(groupMemberGuard.requireActiveMembership(7L, 1L)).thenReturn(member);
+        }
     }
 
     // ── openMatchForBetting ─────────────────────────────────────────────────────
@@ -226,7 +236,8 @@ class BetServiceTest {
     void participate_shouldThrowWhenNotGroupMember() {
         when(betRepository.findById(1L)).thenReturn(Optional.of(testBet));
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
-        when(groupMemberRepository.findByGroupIdAndUserId(7L, 1L)).thenReturn(Optional.empty());
+        when(groupMemberGuard.requireActiveMembership(7L, 1L))
+                .thenThrow(new AccessDeniedException("You are not a member of this group"));
 
         ParticipateRequest request = new ParticipateRequest();
         request.setChosenOption("Option A");
