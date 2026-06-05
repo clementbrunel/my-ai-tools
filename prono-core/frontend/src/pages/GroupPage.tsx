@@ -514,6 +514,14 @@ const GroupPage: React.FC = () => {
                           />
                         </button>
                       </div>
+
+                      {/* Workflow guide */}
+                      <div className="text-xs text-yellow-800 dark:text-yellow-300 space-y-1 pt-1">
+                        <p className="font-semibold">Configuration des gages</p>
+                        <p>1. <span className="font-medium">Paris du groupe</span> — ouvrez les matchs aux paris pour la journée.</p>
+                        <p>2. <span className="font-medium">Gage du Jour</span> — pimentez la partie en choisissant le gage qui attend le moins bon pronostiqueur 🌶️</p>
+                      </div>
+
                       <div className="flex items-center justify-between pt-1">
                         <div>
                           <p className="text-sm text-gray-700 dark:text-gray-300 font-medium">Paris du groupe</p>
@@ -529,16 +537,6 @@ const GroupPage: React.FC = () => {
                             </span>
                           )}
                         </Link>
-                      </div>
-
-                      {/* Workflow guide */}
-                      <div className="text-xs text-yellow-800 dark:text-yellow-300 space-y-1 pt-1">
-                        <p className="font-semibold">Comment configurer les gages du jour :</p>
-                        <p>1. Ouvrez les matchs aux paris via{' '}
-                          <Link to="/open-betting" className="underline font-medium">Ouvrir aux paris</Link>
-                          {' '}ci-dessus.
-                        </p>
-                        <p>2. Préparez le supplice du jour — choisissez quel gage va ruiner la journée du moins bon pronostiqueur 😈</p>
                       </div>
 
                       {/* Admin section toggle buttons */}
