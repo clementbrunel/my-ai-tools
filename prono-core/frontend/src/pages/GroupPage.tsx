@@ -558,9 +558,9 @@ const GroupPage: React.FC = () => {
                                 : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-200'
                             }`}
                           >
-                            📅 Gage du Jour
+                            📅 Gages du jour
                             {missingGagesBadge > 0 && (
-                              <span className="inline-flex items-center justify-center bg-orange-500 text-white text-[10px] font-bold leading-none rounded-full min-w-[16px] h-4 px-1">
+                              <span className="inline-flex items-center justify-center bg-red-500 text-white text-[10px] font-bold leading-none rounded-full min-w-[16px] h-4 px-1">
                                 {missingGagesBadge}
                               </span>
                             )}
@@ -657,7 +657,7 @@ const GroupPage: React.FC = () => {
                       {/* ===== SECTION: GAGE DU JOUR ===== */}
                       {activeSection === 'daily-gages' && (
                         <div className="space-y-2 pt-3 border-t border-yellow-200 dark:border-yellow-800/40">
-                          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">📅 Gage du Jour</h3>
+                          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">📅 Gages du jour</h3>
                           <DailyGagePanel groupId={group.id} />
                         </div>
                       )}
