@@ -6,6 +6,11 @@ export const getAllDailyGages = async (): Promise<DailyGage[]> => {
   return response.data;
 };
 
+export const getDailyGagesByGroup = async (groupId: number): Promise<DailyGage[]> => {
+  const response = await apiClient.get<DailyGage[]>(`/daily-gages/group/${groupId}`);
+  return response.data;
+};
+
 /** Returns the caller's group gages for that date (one per group that configured one). */
 export const getDailyGagesByDate = async (date: string): Promise<DailyGage[]> => {
   const response = await apiClient.get<DailyGage[]>(`/daily-gages/date/${date}`);

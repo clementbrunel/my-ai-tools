@@ -49,6 +49,12 @@ export const deleteForfeit = async (forfeitId: number): Promise<void> => {
 // Group-admin gage management
 // -----------------------------------------------------------------------
 
+/** Shared forfeits + group-specific forfeits — for the forfeit selection dropdown. */
+export const getForfeitsVisibleToGroup = async (groupId: number): Promise<Forfeit[]> => {
+  const response = await apiClient.get<Forfeit[]>(`/forfeits/visible/${groupId}`);
+  return response.data;
+};
+
 export const getGroupForfeits = async (groupId: number): Promise<Forfeit[]> => {
   const response = await apiClient.get<Forfeit[]>(`/forfeits/group/${groupId}`);
   return response.data;

@@ -34,6 +34,7 @@ public class DailyGageService {
     private final MatchRepository              matchRepository;
     private final GroupRepository              groupRepository;
     private final GroupMemberRepository        groupMemberRepository;
+    private final GroupMemberGuard             groupMemberGuard;
 
     // ---------------------------------------------------------------
     // Queries (scoped to the caller's groups)
@@ -46,6 +47,15 @@ public class DailyGageService {
         List<Long> groupIds = activeGroupIds(user.getId());
         if (groupIds.isEmpty()) return List.of();
         return dailyGageRepository.findByGroupIdInOrderByMatchDateDesc(groupIds).stream()
+                .map(dg -> toResponse(dg, user))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<DailyGageResponse> getDailyGagesByGroup(Long groupId) {
+        User user = currentUser();
+        groupMemberGuard.requireActiveMembership(groupId, user.getId());
+        return dailyGageRepository.findByGroupIdInOrderByMatchDateDesc(List.of(groupId)).stream()
                 .map(dg -> toResponse(dg, user))
                 .toList();
     }
@@ -65,7 +75,7 @@ public class DailyGageService {
     public DailyGageResponse getDailyGageById(Long id) {
         User user = currentUser();
         DailyGage dg = requireDailyGage(id);
-        requireActiveMembership(dg.getGroup().getId(), user.getId());
+        groupMemberGuard.requireActiveMembership(dg.getGroup().getId(), user.getId());
         return toResponse(dg, user);
     }
 
@@ -76,7 +86,7 @@ public class DailyGageService {
     @Transactional
     public DailyGageResponse createDailyGage(CreateDailyGageRequest req) {
         User user = currentUser();
-        requireGroupAdmin(req.getGroupId(), user.getId());
+        groupMemberGuard.requireGroupAdmin(req.getGroupId(), user.getId());
 
         Group group = groupRepository.findById(req.getGroupId())
                 .orElseThrow(() -> new EntityNotFoundException("Group not found: " + req.getGroupId()));
@@ -110,7 +120,7 @@ public class DailyGageService {
     public DailyGageResponse selectForfeitDirectly(Long dailyGageId, Long forfeitId) {
         User user = currentUser();
         DailyGage dg = requireDailyGage(dailyGageId);
-        requireGroupAdmin(dg.getGroup().getId(), user.getId());
+        groupMemberGuard.requireGroupAdmin(dg.getGroup().getId(), user.getId());
         if (dg.getStatus() == DailyGage.Status.SETTLED) {
             throw new IllegalStateException("Daily gage is already settled");
         }
@@ -127,7 +137,7 @@ public class DailyGageService {
     public DailyGageResponse addCandidate(Long dailyGageId, Long forfeitId) {
         User user = currentUser();
         DailyGage dg = requireDailyGage(dailyGageId);
-        requireGroupAdmin(dg.getGroup().getId(), user.getId());
+        groupMemberGuard.requireGroupAdmin(dg.getGroup().getId(), user.getId());
         if (dg.getStatus() == DailyGage.Status.SETTLED) {
             throw new IllegalStateException("Daily gage is already settled");
         }
@@ -153,7 +163,7 @@ public class DailyGageService {
     public DailyGageResponse removeCandidate(Long dailyGageId, Long forfeitId) {
         User user = currentUser();
         DailyGage dg = requireDailyGage(dailyGageId);
-        requireGroupAdmin(dg.getGroup().getId(), user.getId());
+        groupMemberGuard.requireGroupAdmin(dg.getGroup().getId(), user.getId());
         DailyGageCandidate c = candidateRepository
                 .findByDailyGageIdAndForfeitId(dailyGageId, forfeitId)
                 .orElseThrow(() -> new EntityNotFoundException("Candidate not found"));
@@ -173,7 +183,7 @@ public class DailyGageService {
     public DailyGageResponse vote(Long dailyGageId, Long forfeitId, int voteValue) {
         User user = currentUser();
         DailyGage dg = requireDailyGage(dailyGageId);
-        requireActiveMembership(dg.getGroup().getId(), user.getId());
+        groupMemberGuard.requireActiveMembership(dg.getGroup().getId(), user.getId());
         if (dg.getStatus() == DailyGage.Status.SETTLED) {
             throw new IllegalStateException("Voting is closed — gage already settled");
         }
@@ -330,21 +340,6 @@ public class DailyGageService {
         return groupMemberRepository.findByUserIdAndStatus(userId, GroupMember.MemberStatus.ACTIVE).stream()
                 .map(m -> m.getGroup().getId())
                 .toList();
-    }
-
-    private GroupMember requireActiveMembership(Long groupId, Long userId) {
-        GroupMember member = groupMemberRepository.findByGroupIdAndUserId(groupId, userId)
-                .orElseThrow(() -> new AccessDeniedException("You are not a member of this group"));
-        if (member.getStatus() != GroupMember.MemberStatus.ACTIVE) {
-            throw new AccessDeniedException("Your membership in this group is pending approval");
-        }
-        return member;
-    }
-
-    private void requireGroupAdmin(Long groupId, Long userId) {
-        if (requireActiveMembership(groupId, userId).getRole() != GroupMember.GroupRole.GROUP_ADMIN) {
-            throw new AccessDeniedException("Group admin role required");
-        }
     }
 
     private User currentUser() {

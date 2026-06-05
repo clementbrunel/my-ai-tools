@@ -25,10 +25,10 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ForfeitService {
 
-    private final ForfeitRepository    forfeitRepository;
-    private final UserForfeitRepository userForfeitRepository;
-    private final UserRepository       userRepository;
-    private final GroupMemberRepository groupMemberRepository;
+    private final ForfeitRepository      forfeitRepository;
+    private final UserForfeitRepository  userForfeitRepository;
+    private final UserRepository         userRepository;
+    private final GroupMemberGuard       groupMemberGuard;
 
     // ---------------------------------------------------------------
     // Forfeit library queries
@@ -89,7 +89,7 @@ public class ForfeitService {
         User proposer = userRepository.findByUsername(username)
                 .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
 
-        GroupMember member = requireActiveMembership(groupId, proposer.getId());
+        GroupMember member = groupMemberGuard.requireActiveMembership(groupId, proposer.getId());
         Group group = member.getGroup();
         boolean isAdmin = member.getRole() == GroupMember.GroupRole.GROUP_ADMIN;
 
@@ -117,13 +117,24 @@ public class ForfeitService {
     // Group-admin gage management
     // ---------------------------------------------------------------
 
+    /** Returns shared forfeits + active forfeits owned by this group (for forfeit selection UI). */
+    @Transactional(readOnly = true)
+    public List<ForfeitResponse> getForfeitsVisibleToGroup(Long groupId) {
+        String username = currentUsername();
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
+        groupMemberGuard.requireActiveMembership(groupId, user.getId());
+        return forfeitRepository.findActiveVisibleToGroups(List.of(groupId))
+                .stream().map(this::toForfeitResponse).toList();
+    }
+
     /** Returns active group-specific forfeits (visible to any group member). */
     @Transactional(readOnly = true)
     public List<ForfeitResponse> getGroupForfeits(Long groupId) {
         String username = currentUsername();
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
-        requireActiveMembership(groupId, user.getId());
+        groupMemberGuard.requireActiveMembership(groupId, user.getId());
         return forfeitRepository.findByActiveTrueAndGroupIdOrderById(groupId)
                 .stream().map(this::toForfeitResponse).toList();
     }
@@ -134,7 +145,7 @@ public class ForfeitService {
         String username = currentUsername();
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
-        requireGroupAdmin(groupId, user.getId());
+        groupMemberGuard.requireGroupAdmin(groupId, user.getId());
         return forfeitRepository.findByActiveFalseAndGroupIdOrderById(groupId)
                 .stream().map(this::toForfeitResponse).toList();
     }
@@ -145,7 +156,7 @@ public class ForfeitService {
         String username = currentUsername();
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
-        requireGroupAdmin(groupId, user.getId());
+        groupMemberGuard.requireGroupAdmin(groupId, user.getId());
 
         Forfeit forfeit = forfeitRepository.findById(forfeitId)
                 .orElseThrow(() -> new EntityNotFoundException("Forfeit not found: " + forfeitId));
@@ -162,7 +173,7 @@ public class ForfeitService {
         String username = currentUsername();
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
-        requireGroupAdmin(groupId, user.getId());
+        groupMemberGuard.requireGroupAdmin(groupId, user.getId());
 
         Forfeit forfeit = forfeitRepository.findById(forfeitId)
                 .orElseThrow(() -> new EntityNotFoundException("Forfeit not found: " + forfeitId));
@@ -278,23 +289,6 @@ public class ForfeitService {
                 .groupId(f.getGroup() != null ? f.getGroup().getId() : null)
                 .groupName(f.getGroup() != null ? f.getGroup().getName() : null)
                 .build();
-    }
-
-    private GroupMember requireActiveMembership(Long groupId, Long userId) {
-        GroupMember member = groupMemberRepository.findByGroupIdAndUserId(groupId, userId)
-                .orElseThrow(() -> new AccessDeniedException("You are not a member of this group"));
-        if (member.getStatus() != GroupMember.MemberStatus.ACTIVE) {
-            throw new AccessDeniedException("Your membership in this group is pending approval");
-        }
-        return member;
-    }
-
-    private GroupMember requireGroupAdmin(Long groupId, Long userId) {
-        GroupMember member = requireActiveMembership(groupId, userId);
-        if (member.getRole() != GroupMember.GroupRole.GROUP_ADMIN) {
-            throw new AccessDeniedException("You are not an admin of this group");
-        }
-        return member;
     }
 
     private UserForfeitResponse toUserForfeitResponse(UserForfeit uf) {
