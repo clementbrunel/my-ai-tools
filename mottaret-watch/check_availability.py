@@ -205,12 +205,12 @@ def fetch_maeva_all() -> list[dict]:
         print(f"  Maeva {week['dateDebut']}→{week['dateFin']} : {len(listings)} logement(s)")
         for l in listings:
             print(f"    🌐 {l['title']} | {l['start']} → {l['end']} | {l['price']} | {l.get('dispo','?')} unité(s)")
-            title = l["title"]
-            if title not in seen:
-                seen[title] = dict(l)
+            key = l["title"].strip().lower()
+            if key not in seen:
+                seen[key] = dict(l)
             else:
                 # Même logement disponible sur plusieurs semaines : on étend la plage de dates
-                existing = seen[title]
+                existing = seen[key]
                 if l.get("start", "") < existing.get("start", ""):
                     existing["start"] = l["start"]
                 if l.get("end", "") > existing.get("end", ""):
