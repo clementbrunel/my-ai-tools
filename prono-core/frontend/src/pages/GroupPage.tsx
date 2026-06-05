@@ -117,17 +117,25 @@ const GroupPage: React.FC = () => {
     }
   };
 
-  const handleDeleteGroupForfeit = async (groupId: number, forfeitId: number) => {
-    if (!confirm('Supprimer ce gage du groupe ?')) return;
-    try {
-      await deleteGroupForfeit(groupId, forfeitId);
-      setGroupActiveForfeits((prev) => ({
-        ...prev,
-        [groupId]: (prev[groupId] ?? []).filter((f) => f.id !== forfeitId),
-      }));
-    } catch {
-      setError('Erreur lors de la suppression');
-    }
+  const handleDeleteGroupForfeit = (groupId: number, forfeitId: number) => {
+    setConfirmDialog({
+      title: 'Supprimer ce gage',
+      message: 'Supprimer ce gage du groupe ?',
+      confirmLabel: 'Supprimer',
+      variant: 'danger',
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        try {
+          await deleteGroupForfeit(groupId, forfeitId);
+          setGroupActiveForfeits((prev) => ({
+            ...prev,
+            [groupId]: (prev[groupId] ?? []).filter((f) => f.id !== forfeitId),
+          }));
+        } catch {
+          setError('Erreur lors de la suppression');
+        }
+      },
+    });
   };
 
   // ---- Group membership handlers ----
