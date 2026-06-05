@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   getMyGroups, getPublicGroups, createGroup, joinGroup, applyToGroup,
   approveApplication, rejectApplication, updateGroupPrivacy,
@@ -20,6 +20,7 @@ type AdminSection = 'forfeits' | 'daily-gages';
 
 const GroupPage: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<Tab>('mine');
 
   const [groups, setGroups] = useState<Group[]>([]);
@@ -46,7 +47,7 @@ const GroupPage: React.FC = () => {
   // Copy feedback
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
-  const { pendingForfeitsPerGroup, missingGagesPerGroup, refresh: refreshCounts } = useGroupAdminCounts();
+  const { pendingForfeitsPerGroup, missingGagesPerGroup, groupsWithNoBets, refresh: refreshCounts } = useGroupAdminCounts();
 
   // ---- Group admin state ----
   const [openAdminSection, setOpenAdminSection] = useState<Record<number, AdminSection | null>>({});
@@ -152,6 +153,7 @@ const GroupPage: React.FC = () => {
       setShowCreate(false);
       setCreateName('');
       setCreateDesc('');
+      navigate('/open-betting');
     } catch {
       setError('Erreur lors de la création du groupe');
     }
@@ -510,8 +512,13 @@ const GroupPage: React.FC = () => {
                             Ouvrez des matchs aux paris (par compétition)
                           </p>
                         </div>
-                        <Link to="/open-betting" className="btn-primary text-xs whitespace-nowrap">
+                        <Link to="/open-betting" className="relative btn-primary text-xs whitespace-nowrap inline-flex items-center gap-1.5">
                           🎲 Ouvrir aux paris
+                          {groupsWithNoBets[group.id] && (
+                            <span className="inline-flex items-center justify-center bg-red-500 text-white text-[10px] font-bold leading-none rounded-full min-w-[16px] h-4 px-1">
+                              !
+                            </span>
+                          )}
                         </Link>
                       </div>
 
