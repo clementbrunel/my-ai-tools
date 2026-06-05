@@ -531,6 +531,16 @@ const GroupPage: React.FC = () => {
                         </Link>
                       </div>
 
+                      {/* Workflow guide */}
+                      <div className="text-xs text-yellow-800 dark:text-yellow-300 space-y-1 pt-1">
+                        <p className="font-semibold">Comment configurer les gages du jour :</p>
+                        <p>1. Ouvrez les matchs aux paris via{' '}
+                          <Link to="/open-betting" className="underline font-medium">Ouvrir aux paris</Link>
+                          {' '}ci-dessus.
+                        </p>
+                        <p>2. Préparez le supplice du jour — choisissez quel gage va ruiner la journée du moins bon pronostiqueur 😈</p>
+                      </div>
+
                       {/* Admin section toggle buttons */}
                       <div className="flex gap-2 pt-2 border-t border-yellow-200 dark:border-yellow-800/40">
                         <button
