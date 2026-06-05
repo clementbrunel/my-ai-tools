@@ -1,66 +1,15 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useGroupAdminCounts } from '../context/GroupAdminCountsContext';
 import { isAdmin } from '../types';
-import { useState, useEffect } from 'react';
-import { getMyGroups } from '../api/groups';
-import { getGroupPendingForfeits } from '../api/forfeits';
-import { getAllDailyGages } from '../api/dailyGages';
-import { getMatches } from '../api/matches';
+import { useState } from 'react';
 
 const Navbar: React.FC = () => {
   const { user, logout } = useAuth();
+  const { totalBadge } = useGroupAdminCounts();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [pendingGroupCount, setPendingGroupCount] = useState(0);
-
-  useEffect(() => {
-    if (!user) return;
-    getMyGroups()
-      .then(async (groups) => {
-        const adminGroups = groups.filter((g) => g.currentUserRole === 'GROUP_ADMIN');
-
-        // Candidatures en attente
-        const pendingApplications = adminGroups.reduce(
-          (sum, g) => sum + (g.pendingApplications?.length ?? 0), 0
-        );
-
-        if (adminGroups.length === 0) {
-          setPendingGroupCount(pendingApplications);
-          return;
-        }
-
-        const [forfeitResults, dgResult, matchesResult] = await Promise.allSettled([
-          Promise.allSettled(adminGroups.map((g) => getGroupPendingForfeits(g.id))),
-          getAllDailyGages(),
-          getMatches(),
-        ]);
-
-        // Gages en attente de validation
-        let pendingForfeits = 0;
-        if (forfeitResults.status === 'fulfilled') {
-          forfeitResults.value.forEach((r) => {
-            if (r.status === 'fulfilled') pendingForfeits += r.value.length;
-          });
-        }
-
-        // Jours de match sans gage setté
-        let missingGages = 0;
-        if (dgResult.status === 'fulfilled' && matchesResult.status === 'fulfilled') {
-          const allDg = dgResult.value;
-          const allMatchDates = [...new Set(matchesResult.value.map((m) => m.matchDate.slice(0, 10)))];
-          adminGroups.forEach((g) => {
-            const configuredWithForfeit = new Set(
-              allDg.filter((d) => d.groupId === g.id && d.forfeit != null).map((d) => d.matchDate)
-            );
-            missingGages += allMatchDates.filter((d) => !configuredWithForfeit.has(d)).length;
-          });
-        }
-
-        setPendingGroupCount(pendingApplications + pendingForfeits + missingGages);
-      })
-      .catch(() => {});
-  }, [user]);
 
   const handleLogout = () => {
     logout();
@@ -95,9 +44,9 @@ const Navbar: React.FC = () => {
             {navLinks.map((link) => (
               <Link key={link.to} to={link.to} className={`relative text-sm ${isActive(link.to)}`}>
                 {link.label}
-                {link.to === '/groups' && pendingGroupCount > 0 && (
+                {link.to === '/groups' && totalBadge > 0 && (
                   <span className="absolute -top-2 -right-3 bg-red-500 text-white text-[10px] font-bold leading-none rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
-                    {pendingGroupCount}
+                    {totalBadge}
                   </span>
                 )}
               </Link>
@@ -158,9 +107,9 @@ const Navbar: React.FC = () => {
                   onClick={() => setMobileOpen(false)}
                 >
                   {link.label}
-                  {link.to === '/groups' && pendingGroupCount > 0 && (
+                  {link.to === '/groups' && totalBadge > 0 && (
                     <span className="ml-1.5 inline-flex items-center justify-center bg-red-500 text-white text-[10px] font-bold leading-none rounded-full min-w-[16px] h-4 px-1">
-                      {pendingGroupCount}
+                      {totalBadge}
                     </span>
                   )}
                 </Link>

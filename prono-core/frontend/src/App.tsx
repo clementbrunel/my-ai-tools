@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { GroupAdminCountsProvider } from './context/GroupAdminCountsContext';
 import { ToastProvider } from './components/Toast';
 import PrivateRoute from './components/PrivateRoute';
 import Navbar from './components/Navbar';
@@ -18,6 +19,7 @@ import OpenBetting from './pages/OpenBetting';
 function App() {
   return (
     <AuthProvider>
+      <GroupAdminCountsProvider>
       <ToastProvider>
       <BrowserRouter>
         <div className="min-h-screen bg-gray-50 dark:bg-wc-dark">
@@ -52,6 +54,7 @@ function App() {
         </div>
       </BrowserRouter>
       </ToastProvider>
+      </GroupAdminCountsProvider>
     </AuthProvider>
   );
 }

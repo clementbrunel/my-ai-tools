@@ -9,11 +9,10 @@ import {
   getGroupPendingForfeits, getGroupForfeits,
   approveGroupForfeit, deleteGroupForfeit,
 } from '../api/forfeits';
-import { getAllDailyGages } from '../api/dailyGages';
-import { getMatches } from '../api/matches';
 import DailyGagePanel from '../components/DailyGagePanel';
 import type { Group, PublicGroup, Forfeit } from '../types';
 import { useAuth } from '../context/AuthContext';
+import { useGroupAdminCounts } from '../context/GroupAdminCountsContext';
 import ConfirmModal from '../components/ConfirmModal';
 
 type Tab = 'mine' | 'discover';
@@ -47,17 +46,15 @@ const GroupPage: React.FC = () => {
   // Copy feedback
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
+  const { pendingForfeitsPerGroup, missingGagesPerGroup, refresh: refreshCounts } = useGroupAdminCounts();
+
   // ---- Group admin state ----
   const [openAdminSection, setOpenAdminSection] = useState<Record<number, AdminSection | null>>({});
 
-  // Pending proposed forfeits per group
+  // Pending proposed forfeits per group (lazy-loaded when section opens)
   const [groupPendingForfeits, setGroupPendingForfeits] = useState<Record<number, Forfeit[]>>({});
   // Active group-specific forfeits per group
   const [groupActiveForfeits, setGroupActiveForfeits] = useState<Record<number, Forfeit[]>>({});
-
-  // Badge counts pre-loaded on mount
-  const [groupPendingForfeitsCount, setGroupPendingForfeitsCount] = useState<Record<number, number>>({});
-  const [groupDailyGagesMissingCount, setGroupDailyGagesMissingCount] = useState<Record<number, number>>({});
 
   const loadData = async () => {
     setIsLoading(true);
@@ -65,34 +62,6 @@ const GroupPage: React.FC = () => {
       const [myGroups, pubGroups] = await Promise.all([getMyGroups(), getPublicGroups()]);
       setGroups(myGroups);
       setPublicGroups(pubGroups);
-
-      const adminGroups = myGroups.filter((g) => g.currentUserRole === 'GROUP_ADMIN');
-      if (adminGroups.length > 0) {
-        // Pending forfeits badge — one call per admin group
-        Promise.allSettled(adminGroups.map((g) => getGroupPendingForfeits(g.id))).then((results) => {
-          const counts: Record<number, number> = {};
-          adminGroups.forEach((g, i) => {
-            const r = results[i];
-            if (r.status === 'fulfilled') counts[g.id] = r.value.length;
-          });
-          setGroupPendingForfeitsCount(counts);
-        });
-
-        // Daily-gage missing badge — two shared calls, then compute per group
-        Promise.allSettled([getAllDailyGages(), getMatches()]).then(([dgResult, matchesResult]) => {
-          if (dgResult.status !== 'fulfilled' || matchesResult.status !== 'fulfilled') return;
-          const allDg = dgResult.value;
-          const allMatchDates = [...new Set(matchesResult.value.map((m) => m.matchDate.slice(0, 10)))];
-          const counts: Record<number, number> = {};
-          adminGroups.forEach((g) => {
-            const configuredWithForfeit = new Set(
-              allDg.filter((d) => d.groupId === g.id && d.forfeit != null).map((d) => d.matchDate)
-            );
-            counts[g.id] = allMatchDates.filter((d) => !configuredWithForfeit.has(d)).length;
-          });
-          setGroupDailyGagesMissingCount(counts);
-        });
-      }
     } catch {
       setError('Impossible de charger les groupes');
     } finally {
@@ -134,10 +103,7 @@ const GroupPage: React.FC = () => {
         ...prev,
         [groupId]: [...(prev[groupId] ?? []), approved],
       }));
-      setGroupPendingForfeitsCount((prev) => ({
-        ...prev,
-        [groupId]: Math.max(0, (prev[groupId] ?? 1) - 1),
-      }));
+      refreshCounts();
     } catch {
       setError('Erreur lors de la validation du gage');
     }
@@ -150,10 +116,7 @@ const GroupPage: React.FC = () => {
         ...prev,
         [groupId]: (prev[groupId] ?? []).filter((f) => f.id !== forfeitId),
       }));
-      setGroupPendingForfeitsCount((prev) => ({
-        ...prev,
-        [groupId]: Math.max(0, (prev[groupId] ?? 1) - 1),
-      }));
+      refreshCounts();
     } catch {
       setError('Erreur lors du refus du gage');
     }
@@ -482,9 +445,9 @@ const GroupPage: React.FC = () => {
               const activeSection = openAdminSection[group.id] ?? null;
               const pendingForfeits = groupPendingForfeits[group.id] ?? [];
               const activeForfeits = groupActiveForfeits[group.id] ?? [];
-              // Badge counts: use live list when section was opened, else pre-loaded count
-              const pendingForfeitsBadge = groupPendingForfeits[group.id]?.length ?? groupPendingForfeitsCount[group.id] ?? 0;
-              const missingGagesBadge = groupDailyGagesMissingCount[group.id] ?? 0;
+              // Badge counts: use live list when section was opened, else context count
+              const pendingForfeitsBadge = groupPendingForfeits[group.id]?.length ?? pendingForfeitsPerGroup[group.id] ?? 0;
+              const missingGagesBadge = missingGagesPerGroup[group.id] ?? 0;
 
               return (
                 <div key={group.id} className="card space-y-4">
