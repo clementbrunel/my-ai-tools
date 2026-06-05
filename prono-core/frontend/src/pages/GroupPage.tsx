@@ -515,41 +515,7 @@ const GroupPage: React.FC = () => {
                         </button>
                       </div>
 
-                      {/* Workflow guide with inline actions */}
-                      <div className="text-xs text-yellow-800 dark:text-yellow-300 pt-1 space-y-2">
-                        <p className="font-semibold">Configuration des gages</p>
-                        <div className="flex items-center justify-between gap-3">
-                          <p>1. Ouvrez les matchs aux paris pour la journée.</p>
-                          <Link to="/open-betting" className="relative btn-primary text-xs whitespace-nowrap inline-flex items-center gap-1.5 shrink-0">
-                            🎲 Ouvrir aux paris
-                            {groupsWithNoBets[group.id] && (
-                              <span className="inline-flex items-center justify-center bg-red-500 text-white text-[10px] font-bold leading-none rounded-full min-w-[16px] h-4 px-1">
-                                !
-                              </span>
-                            )}
-                          </Link>
-                        </div>
-                        <div className="flex items-center justify-between gap-3">
-                          <p>2. Pimentez la partie en choisissant le gage qui attend le moins bon pronostiqueur 🌶️</p>
-                          <button
-                            onClick={() => toggleAdminSection(group.id, 'daily-gages')}
-                            className={`relative text-xs px-3 py-1.5 rounded-lg font-medium transition-colors inline-flex items-center gap-1.5 shrink-0 ${
-                              activeSection === 'daily-gages'
-                                ? 'bg-yellow-500 text-white'
-                                : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-200'
-                            }`}
-                          >
-                            📅 Gage du Jour
-                            {missingGagesBadge > 0 && (
-                              <span className="inline-flex items-center justify-center bg-orange-500 text-white text-[10px] font-bold leading-none rounded-full min-w-[16px] h-4 px-1">
-                                {missingGagesBadge}
-                              </span>
-                            )}
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between gap-3 pt-2 border-t border-yellow-200 dark:border-yellow-800/40">
+                      <div className="flex items-center justify-between gap-3 pt-1">
                         <p className="text-xs text-yellow-800 dark:text-yellow-300">Configurez les gages customisés de votre groupe.</p>
                         <button
                           onClick={() => toggleAdminSection(group.id, 'forfeits')}
@@ -566,6 +532,40 @@ const GroupPage: React.FC = () => {
                             </span>
                           )}
                         </button>
+                      </div>
+
+                      {/* Workflow guide with inline actions */}
+                      <div className="text-xs text-yellow-800 dark:text-yellow-300 pt-1 space-y-2 border-t border-yellow-200 dark:border-yellow-800/40">
+                        <p className="font-semibold pt-1">Configuration des paris de votre groupe</p>
+                        <div className="flex items-center justify-between gap-3">
+                          <p>1. Ouvrez les matchs aux paris pour la journée.</p>
+                          <Link to="/open-betting" className="relative btn-primary text-xs whitespace-nowrap inline-flex items-center gap-1.5 shrink-0">
+                            🎲 Ouvrir aux paris
+                            {groupsWithNoBets[group.id] && (
+                              <span className="inline-flex items-center justify-center bg-red-500 text-white text-[10px] font-bold leading-none rounded-full min-w-[16px] h-4 px-1">
+                                !
+                              </span>
+                            )}
+                          </Link>
+                        </div>
+                        <div className="flex items-center justify-between gap-3">
+                          <p>2. Pimentez la partie en ajoutant un gage au plus mauvais parieur 🌶️</p>
+                          <button
+                            onClick={() => toggleAdminSection(group.id, 'daily-gages')}
+                            className={`relative text-xs px-3 py-1.5 rounded-lg font-medium transition-colors inline-flex items-center gap-1.5 shrink-0 ${
+                              activeSection === 'daily-gages'
+                                ? 'bg-yellow-500 text-white'
+                                : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-200'
+                            }`}
+                          >
+                            📅 Gage du Jour
+                            {missingGagesBadge > 0 && (
+                              <span className="inline-flex items-center justify-center bg-orange-500 text-white text-[10px] font-bold leading-none rounded-full min-w-[16px] h-4 px-1">
+                                {missingGagesBadge}
+                              </span>
+                            )}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   )}
