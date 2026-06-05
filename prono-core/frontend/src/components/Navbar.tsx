@@ -1,27 +1,15 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useGroupAdminCounts } from '../context/GroupAdminCountsContext';
 import { isAdmin } from '../types';
-import { useState, useEffect } from 'react';
-import { getMyGroups } from '../api/groups';
+import { useState } from 'react';
 
 const Navbar: React.FC = () => {
   const { user, logout } = useAuth();
+  const { totalBadge } = useGroupAdminCounts();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [pendingGroupCount, setPendingGroupCount] = useState(0);
-
-  useEffect(() => {
-    if (!user) return;
-    getMyGroups()
-      .then((groups) => {
-        const count = groups
-          .filter((g) => g.currentUserRole === 'GROUP_ADMIN')
-          .reduce((sum, g) => sum + (g.pendingApplications?.length ?? 0), 0);
-        setPendingGroupCount(count);
-      })
-      .catch(() => {});
-  }, [user]);
 
   const handleLogout = () => {
     logout();
@@ -56,9 +44,9 @@ const Navbar: React.FC = () => {
             {navLinks.map((link) => (
               <Link key={link.to} to={link.to} className={`relative text-sm ${isActive(link.to)}`}>
                 {link.label}
-                {link.to === '/groups' && pendingGroupCount > 0 && (
+                {link.to === '/groups' && totalBadge > 0 && (
                   <span className="absolute -top-2 -right-3 bg-red-500 text-white text-[10px] font-bold leading-none rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
-                    {pendingGroupCount}
+                    {totalBadge}
                   </span>
                 )}
               </Link>
@@ -119,9 +107,9 @@ const Navbar: React.FC = () => {
                   onClick={() => setMobileOpen(false)}
                 >
                   {link.label}
-                  {link.to === '/groups' && pendingGroupCount > 0 && (
+                  {link.to === '/groups' && totalBadge > 0 && (
                     <span className="ml-1.5 inline-flex items-center justify-center bg-red-500 text-white text-[10px] font-bold leading-none rounded-full min-w-[16px] h-4 px-1">
-                      {pendingGroupCount}
+                      {totalBadge}
                     </span>
                   )}
                 </Link>
