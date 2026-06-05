@@ -516,7 +516,7 @@ const GroupPage: React.FC = () => {
                       </div>
 
                       <div className="flex items-center justify-between gap-3 pt-1">
-                        <p className="text-xs text-yellow-800 dark:text-yellow-300">Configurez les gages customisés de votre groupe.</p>
+                        <p className="text-xs text-yellow-800 dark:text-yellow-300 font-semibold">Configurez les gages customisés de votre groupe.</p>
                         <button
                           onClick={() => toggleAdminSection(group.id, 'forfeits')}
                           className={`relative text-xs px-3 py-1.5 rounded-lg font-medium transition-colors inline-flex items-center gap-1.5 shrink-0 ${
@@ -558,7 +558,7 @@ const GroupPage: React.FC = () => {
                                 : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-200'
                             }`}
                           >
-                            📅 Gage du Jour
+                            📅 Gages du jour
                             {missingGagesBadge > 0 && (
                               <span className="inline-flex items-center justify-center bg-orange-500 text-white text-[10px] font-bold leading-none rounded-full min-w-[16px] h-4 px-1">
                                 {missingGagesBadge}
@@ -567,12 +567,9 @@ const GroupPage: React.FC = () => {
                           </button>
                         </div>
                       </div>
-                    </div>
-                  )}
-
-                  {/* ===== SECTION: GAGES DU GROUPE ===== */}
-                  {isGroupAdmin && activeSection === 'forfeits' && (
-                    <div className="space-y-4">
+                      {/* ===== SECTION: GAGES DU GROUPE ===== */}
+                      {activeSection === 'forfeits' && (
+                        <div className="space-y-4 pt-3 border-t border-yellow-200 dark:border-yellow-800/40">
                       {/* Pending proposed forfeits */}
                       <div>
                         <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
@@ -654,14 +651,16 @@ const GroupPage: React.FC = () => {
                           </div>
                         )}
                       </div>
-                    </div>
-                  )}
+                        </div>
+                      )}
 
-                  {/* ===== SECTION: GAGE DU JOUR ===== */}
-                  {isGroupAdmin && activeSection === 'daily-gages' && (
-                    <div className="space-y-2">
-                      <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">📅 Gage du Jour</h3>
-                      <DailyGagePanel groupId={group.id} />
+                      {/* ===== SECTION: GAGE DU JOUR ===== */}
+                      {activeSection === 'daily-gages' && (
+                        <div className="space-y-2 pt-3 border-t border-yellow-200 dark:border-yellow-800/40">
+                          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">📅 Gages du jour</h3>
+                          <DailyGagePanel groupId={group.id} />
+                        </div>
+                      )}
                     </div>
                   )}
 
