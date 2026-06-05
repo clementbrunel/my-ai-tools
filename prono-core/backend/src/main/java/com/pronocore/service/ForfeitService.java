@@ -28,6 +28,7 @@ public class ForfeitService {
     private final ForfeitRepository      forfeitRepository;
     private final UserForfeitRepository  userForfeitRepository;
     private final UserRepository         userRepository;
+    private final GroupMemberRepository  groupMemberRepository;
     private final GroupMemberGuard       groupMemberGuard;
 
     // ---------------------------------------------------------------
