@@ -567,12 +567,9 @@ const GroupPage: React.FC = () => {
                           </button>
                         </div>
                       </div>
-                    </div>
-                  )}
-
-                  {/* ===== SECTION: GAGES DU GROUPE ===== */}
-                  {isGroupAdmin && activeSection === 'forfeits' && (
-                    <div className="space-y-4">
+                      {/* ===== SECTION: GAGES DU GROUPE ===== */}
+                      {activeSection === 'forfeits' && (
+                        <div className="space-y-4 pt-3 border-t border-yellow-200 dark:border-yellow-800/40">
                       {/* Pending proposed forfeits */}
                       <div>
                         <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
@@ -654,14 +651,16 @@ const GroupPage: React.FC = () => {
                           </div>
                         )}
                       </div>
-                    </div>
-                  )}
+                        </div>
+                      )}
 
-                  {/* ===== SECTION: GAGE DU JOUR ===== */}
-                  {isGroupAdmin && activeSection === 'daily-gages' && (
-                    <div className="space-y-2">
-                      <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">📅 Gage du Jour</h3>
-                      <DailyGagePanel groupId={group.id} />
+                      {/* ===== SECTION: GAGE DU JOUR ===== */}
+                      {activeSection === 'daily-gages' && (
+                        <div className="space-y-2 pt-3 border-t border-yellow-200 dark:border-yellow-800/40">
+                          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">📅 Gage du Jour</h3>
+                          <DailyGagePanel groupId={group.id} />
+                        </div>
+                      )}
                     </div>
                   )}
 
