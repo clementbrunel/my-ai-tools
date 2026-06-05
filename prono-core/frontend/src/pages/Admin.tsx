@@ -277,6 +277,7 @@ const Admin: React.FC = () => {
                 <thead>
                   <tr className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
                     <th className="py-3 px-4 text-left text-xs text-gray-500 uppercase">Match</th>
+                    <th className="py-3 px-4 text-left text-xs text-gray-500 uppercase">Compétition</th>
                     <th className="py-3 px-4 text-center text-xs text-gray-500 uppercase">Date</th>
                     <th className="py-3 px-4 text-center text-xs text-gray-500 uppercase">Score</th>
                     <th className="py-3 px-4 text-center text-xs text-gray-500 uppercase">Statut</th>
@@ -288,6 +289,9 @@ const Admin: React.FC = () => {
                     <tr key={match.id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50">
                       <td className="py-3 px-4 text-sm font-medium text-gray-900 dark:text-white">
                         {match.teamA} vs {match.teamB}
+                      </td>
+                      <td className="py-3 px-4 text-sm text-gray-500 dark:text-gray-400">
+                        {match.competition ?? '-'}
                       </td>
                       <td className="py-3 px-4 text-center text-xs text-gray-500">
                         {formatDate(match.matchDate)}
