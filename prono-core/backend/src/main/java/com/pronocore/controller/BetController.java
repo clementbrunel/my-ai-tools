@@ -105,7 +105,7 @@ public class BetController {
     }
 
     @PostMapping("/{id}/validate")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     @Operation(summary = "Validate a bet with winning option (Admin only)")
     public ResponseEntity<BetResponse> validateBet(@PathVariable Long id,
                                                     @RequestParam String winningOption) {
@@ -113,7 +113,7 @@ public class BetController {
     }
 
     @PostMapping("/{id}/cancel")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     @Operation(summary = "Cancel a bet (Admin only)")
     public ResponseEntity<BetResponse> cancelBet(@PathVariable Long id) {
         return ResponseEntity.ok(betService.cancelBet(id));

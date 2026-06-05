@@ -47,14 +47,14 @@ public class MatchController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     @Operation(summary = "Create a new match (Admin only)")
     public ResponseEntity<MatchResponse> createMatch(@Valid @RequestBody CreateMatchRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(matchService.createMatch(request));
     }
 
     @PatchMapping("/{id}/score")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     @Operation(summary = "Update match score (Admin only)")
     public ResponseEntity<MatchResponse> updateScore(@PathVariable Long id,
                                                       @Valid @RequestBody UpdateMatchScoreRequest request) {
@@ -62,7 +62,7 @@ public class MatchController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     @Operation(summary = "Delete a match (Admin only)")
     public ResponseEntity<Void> deleteMatch(@PathVariable Long id) {
         matchService.deleteMatch(id);

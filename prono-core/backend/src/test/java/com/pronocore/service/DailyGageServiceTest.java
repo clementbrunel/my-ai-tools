@@ -55,7 +55,7 @@ class DailyGageServiceTest {
     void setUp() {
         adminUser = User.builder()
                 .id(1L).username("admin").email("admin@test.com")
-                .password("encoded").role(User.Role.ADMIN)
+                .password("encoded").role(User.Role.PLATFORM_ADMIN)
                 .globalScore(0).betsWon(0).forfeitsReceived(0)
                 .build();
 

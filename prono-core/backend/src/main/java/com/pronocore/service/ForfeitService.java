@@ -215,7 +215,7 @@ public class ForfeitService {
                 .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
 
         boolean isOwner = uf.getUser().getId().equals(caller.getId());
-        boolean isAdmin = caller.getRole() == User.Role.ADMIN;
+        boolean isAdmin = caller.getRole() == User.Role.PLATFORM_ADMIN;
         if (!isOwner && !isAdmin) {
             throw new AccessDeniedException("You can only complete your own gage");
         }
