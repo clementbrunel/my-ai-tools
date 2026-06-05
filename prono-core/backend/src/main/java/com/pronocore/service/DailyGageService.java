@@ -167,8 +167,12 @@ public class DailyGageService {
         DailyGageCandidate c = candidateRepository
                 .findByDailyGageIdAndForfeitId(dailyGageId, forfeitId)
                 .orElseThrow(() -> new EntityNotFoundException("Candidate not found"));
-        candidateRepository.delete(c);
-        return toResponse(dailyGageRepository.findById(dailyGageId).orElseThrow(), user);
+        // Retirer de la collection parente pour que orphanRemoval déclenche la suppression.
+        // Appeler candidateRepository.delete() directement échoue silencieusement car
+        // Hibernate voit encore le candidat dans dg.candidates au flush.
+        dg.getCandidates().remove(c);
+        dailyGageRepository.save(dg);
+        return toResponse(dg, user);
     }
 
     // ---------------------------------------------------------------
