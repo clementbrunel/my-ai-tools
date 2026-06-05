@@ -24,7 +24,7 @@ public class BetService {
     private final UserRepository userRepository;
     private final MatchRepository matchRepository;
     private final GroupRepository groupRepository;
-    private final GroupMemberRepository groupMemberRepository;
+    private final GroupMemberGuard groupMemberGuard;
     private final ForfeitRepository forfeitRepository;
     private final UserForfeitRepository userForfeitRepository;
     private final BetMapper betMapper;
@@ -60,14 +60,14 @@ public class BetService {
     @Transactional(readOnly = true)
     public BetResponse getBetById(Long id, String username) {
         Bet bet = requireBet(id);
-        requireActiveMembership(bet.getGroup().getId(), requireUser(username).getId());
+        groupMemberGuard.requireActiveMembership(bet.getGroup().getId(), requireUser(username).getId());
         return toBetResponseWithCount(bet);
     }
 
     @Transactional(readOnly = true)
     public List<BetParticipationResponse> getParticipations(Long betId, String username) {
         Bet bet = requireBet(betId);
-        requireActiveMembership(bet.getGroup().getId(), requireUser(username).getId());
+        groupMemberGuard.requireActiveMembership(bet.getGroup().getId(), requireUser(username).getId());
         return participationRepository.findByBetId(betId).stream()
             .map(betMapper::toParticipationResponse)
             .toList();
@@ -84,7 +84,7 @@ public class BetService {
     @Transactional
     public BetResponse openMatchForBetting(Long groupId, Long matchId, String username) {
         User requester = requireUser(username);
-        requireGroupAdmin(groupId, requester.getId());
+        groupMemberGuard.requireGroupAdmin(groupId, requester.getId());
 
         Group group = groupRepository.findById(groupId)
             .orElseThrow(() -> new EntityNotFoundException("Group not found: " + groupId));
@@ -106,7 +106,7 @@ public class BetService {
     @Transactional
     public List<BetResponse> openCompetitionForBetting(Long groupId, String competition, String username) {
         User requester = requireUser(username);
-        requireGroupAdmin(groupId, requester.getId());
+        groupMemberGuard.requireGroupAdmin(groupId, requester.getId());
 
         Group group = groupRepository.findById(groupId)
             .orElseThrow(() -> new EntityNotFoundException("Group not found: " + groupId));
@@ -137,7 +137,7 @@ public class BetService {
     @Transactional
     public BetResponse createBet(CreateBetRequest request, String username) {
         User creator = requireUser(username);
-        requireGroupAdmin(request.getGroupId(), creator.getId());
+        groupMemberGuard.requireGroupAdmin(request.getGroupId(), creator.getId());
 
         Group group = groupRepository.findById(request.getGroupId())
             .orElseThrow(() -> new EntityNotFoundException("Group not found: " + request.getGroupId()));
@@ -173,7 +173,7 @@ public class BetService {
         assertOpenForParticipation(bet);
 
         User user = requireUser(username);
-        requireActiveMembership(bet.getGroup().getId(), user.getId());
+        groupMemberGuard.requireActiveMembership(bet.getGroup().getId(), user.getId());
 
         if (participationRepository.existsByBetIdAndUserId(betId, user.getId())) {
             throw new IllegalStateException("User already participated in this bet");
@@ -195,7 +195,7 @@ public class BetService {
         assertOpenForParticipation(bet);
 
         User user = requireUser(username);
-        requireActiveMembership(bet.getGroup().getId(), user.getId());
+        groupMemberGuard.requireActiveMembership(bet.getGroup().getId(), user.getId());
 
         BetParticipation participation = participationRepository.findByBetIdAndUserId(betId, user.getId())
             .map(existing -> {
@@ -297,21 +297,6 @@ public class BetService {
         }
         if (bet.getDeadline() != null && java.time.LocalDateTime.now().isAfter(bet.getDeadline())) {
             throw new IllegalStateException("Le match a déjà commencé, les paris sont fermés");
-        }
-    }
-
-    private GroupMember requireActiveMembership(Long groupId, Long userId) {
-        GroupMember member = groupMemberRepository.findByGroupIdAndUserId(groupId, userId)
-            .orElseThrow(() -> new AccessDeniedException("You are not a member of this group"));
-        if (member.getStatus() != GroupMember.MemberStatus.ACTIVE) {
-            throw new AccessDeniedException("Your membership in this group is pending approval");
-        }
-        return member;
-    }
-
-    private void requireGroupAdmin(Long groupId, Long userId) {
-        if (requireActiveMembership(groupId, userId).getRole() != GroupMember.GroupRole.GROUP_ADMIN) {
-            throw new AccessDeniedException("Group admin role required");
         }
     }
 

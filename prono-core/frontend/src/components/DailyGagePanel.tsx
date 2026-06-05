@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import {
-  getAllDailyGages, createDailyGage,
+  getDailyGagesByGroup, createDailyGage,
   selectForfeitDirectly, addCandidate, removeCandidate,
 } from '../api/dailyGages';
-import { getForfeits } from '../api/forfeits';
+import { getForfeitsVisibleToGroup } from '../api/forfeits';
 import { getMatches } from '../api/matches';
 import type { DailyGage, Forfeit, Match } from '../types';
 import { formatDate, parseDDMMYYYY } from '../utils/dates';
@@ -43,10 +43,10 @@ const DailyGagePanel: React.FC<Props> = ({ groupId }) => {
   const [selectedForfeit, setSelectedForfeit] = useState<number | ''>('');
 
   useEffect(() => {
-    Promise.all([getAllDailyGages(), getForfeits(), getMatches()])
-      .then(([allDg, forfeits, matches]) => {
-        setDailyGages(allDg.filter((dg) => dg.groupId === groupId));
-        setAvailableForfeits(forfeits.filter((f) => !f.groupId || f.groupId === groupId));
+    Promise.all([getDailyGagesByGroup(groupId), getForfeitsVisibleToGroup(groupId), getMatches()])
+      .then(([dgs, forfeits, matches]) => {
+        setDailyGages(dgs);
+        setAvailableForfeits(forfeits);
         setAllMatches(matches);
       })
       .finally(() => setIsLoading(false));

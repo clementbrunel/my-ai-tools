@@ -35,6 +35,12 @@ public class DailyGageController {
         return ResponseEntity.ok(dailyGageService.getAllDailyGages());
     }
 
+    @GetMapping("/group/{groupId}")
+    @Operation(summary = "List daily gages for a specific group (member only)")
+    public ResponseEntity<List<DailyGageResponse>> getDailyGagesByGroup(@PathVariable Long groupId) {
+        return ResponseEntity.ok(dailyGageService.getDailyGagesByGroup(groupId));
+    }
+
     @GetMapping("/date/{date}")
     @Operation(summary = "Get the caller's group gages for a specific date (format: yyyy-MM-dd)")
     public ResponseEntity<List<DailyGageResponse>> getDailyGagesByDate(

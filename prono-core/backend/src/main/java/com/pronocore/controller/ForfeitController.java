@@ -72,6 +72,12 @@ public class ForfeitController {
     // Group-admin gage management
     // ---------------------------------------------------------------
 
+    @GetMapping("/visible/{groupId}")
+    @Operation(summary = "Get shared forfeits + group-specific forfeits visible for selection (group member)")
+    public ResponseEntity<List<ForfeitResponse>> getForfeitsVisibleToGroup(@PathVariable Long groupId) {
+        return ResponseEntity.ok(forfeitService.getForfeitsVisibleToGroup(groupId));
+    }
+
     @GetMapping("/group/{groupId}")
     @Operation(summary = "Get active group-specific forfeits (group member)")
     public ResponseEntity<List<ForfeitResponse>> getGroupForfeits(@PathVariable Long groupId) {
