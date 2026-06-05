@@ -71,6 +71,15 @@ public class BetController {
                                                        authentication.getName()));
     }
 
+    @DeleteMapping("/match/{matchId}/group/{groupId}")
+    @Operation(summary = "Close a match for betting in a group — removes all open bets and participations (group admin only)")
+    public ResponseEntity<Void> closeMatchForBetting(@PathVariable Long matchId,
+                                                     @PathVariable Long groupId,
+                                                     Authentication authentication) {
+        betService.closeMatchForBetting(groupId, matchId, authentication.getName());
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping
     @Operation(summary = "Create a custom bet on a match for a group (group admin only)")
     public ResponseEntity<BetResponse> createBet(@Valid @RequestBody CreateBetRequest request,

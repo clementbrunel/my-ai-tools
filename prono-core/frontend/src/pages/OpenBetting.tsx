@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { getMyGroups } from '../api/groups';
 import { getMatches } from '../api/matches';
-import { getBets, openMatchForBetting, openCompetitionForBetting } from '../api/bets';
+import { getBets, openMatchForBetting, openCompetitionForBetting, closeMatchForBetting } from '../api/bets';
 import type { Group, Match } from '../types';
 import { formatDate } from '../utils/dates';
+import ConfirmModal from '../components/ConfirmModal';
 
 /**
  * Group-admin view to open matches for betting in a group.
@@ -18,6 +19,7 @@ const OpenBetting: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [matchToClose, setMatchToClose] = useState<Match | null>(null);
 
   // Load the groups the user administers
   useEffect(() => {
@@ -68,6 +70,25 @@ const OpenBetting: React.FC = () => {
       setOpenMatchIds((prev) => new Set(prev).add(matchId));
     } catch {
       setError("Erreur lors de l'ouverture du match");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleCloseMatch = async () => {
+    if (selectedGroupId == null || matchToClose == null) return;
+    setBusy(`match-close-${matchToClose.id}`);
+    setError(null);
+    setMatchToClose(null);
+    try {
+      await closeMatchForBetting(selectedGroupId, matchToClose.id);
+      setOpenMatchIds((prev) => {
+        const next = new Set(prev);
+        next.delete(matchToClose.id);
+        return next;
+      });
+    } catch {
+      setError('Erreur lors de la fermeture du match');
     } finally {
       setBusy(null);
     }
@@ -182,9 +203,18 @@ const OpenBetting: React.FC = () => {
                           <p className="text-xs text-gray-400">{formatDate(match.matchDate)}</p>
                         </div>
                         {isOpen ? (
-                          <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-1 rounded font-medium whitespace-nowrap">
-                            ✓ Ouvert
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-1 rounded font-medium whitespace-nowrap">
+                              ✓ Ouvert
+                            </span>
+                            <button
+                              onClick={() => setMatchToClose(match)}
+                              disabled={busy === `match-close-${match.id}`}
+                              className="btn-danger text-xs whitespace-nowrap disabled:opacity-50"
+                            >
+                              {busy === `match-close-${match.id}` ? '...' : 'Fermer'}
+                            </button>
+                          </div>
                         ) : (
                           <button
                             onClick={() => handleOpenMatch(match.id)}
@@ -203,6 +233,16 @@ const OpenBetting: React.FC = () => {
           })}
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={matchToClose != null}
+        title="Fermer ce match aux paris ?"
+        message={`Cela supprimera définitivement le pari et tous les pronostics déjà enregistrés pour "${matchToClose?.teamA} vs ${matchToClose?.teamB}". Cette action est irréversible.`}
+        confirmLabel="Fermer le match"
+        variant="danger"
+        onConfirm={handleCloseMatch}
+        onCancel={() => setMatchToClose(null)}
+      />
     </div>
   );
 };

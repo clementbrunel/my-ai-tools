@@ -34,6 +34,11 @@ export const openMatchForBetting = async (data: OpenBettingRequest): Promise<Bet
   return response.data;
 };
 
+/** Group admin closes a match for betting in their group — removes all open bets and participations. */
+export const closeMatchForBetting = async (groupId: number, matchId: number): Promise<void> => {
+  await apiClient.delete(`/bets/match/${matchId}/group/${groupId}`);
+};
+
 /** Group admin opens every match of a competition for betting in their group (one action). */
 export const openCompetitionForBetting = async (data: OpenCompetitionRequest): Promise<Bet[]> => {
   const response = await apiClient.post<Bet[]>('/bets/open-competition', data);
