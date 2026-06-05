@@ -99,6 +99,22 @@ public class BetService {
     }
 
     /**
+     * A group admin closes a match for betting in their group.
+     * Deletes all OPEN bets (and their participations) for that (match, group) pair.
+     */
+    @Transactional
+    public void closeMatchForBetting(Long groupId, Long matchId, String username) {
+        User requester = requireUser(username);
+        groupMemberGuard.requireGroupAdmin(groupId, requester.getId());
+
+        List<Bet> bets = betRepository.findByMatchIdAndGroupId(matchId, groupId);
+        for (Bet bet : bets) {
+            participationRepository.deleteAll(participationRepository.findByBetId(bet.getId()));
+            betRepository.delete(bet);
+        }
+    }
+
+    /**
      * Open every match of a competition for betting in the group, in one action.
      * Matches already open in the group are skipped (idempotent), so the admin can
      * re-run it after new matches are added. Returns only the newly created bets.
