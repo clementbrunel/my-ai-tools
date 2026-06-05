@@ -89,13 +89,15 @@ public class ForfeitService {
         User proposer = userRepository.findByUsername(username)
                 .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
 
-        Group group = requireActiveMembership(groupId, proposer.getId()).getGroup();
+        GroupMember member = requireActiveMembership(groupId, proposer.getId());
+        Group group = member.getGroup();
+        boolean isAdmin = member.getRole() == GroupMember.GroupRole.GROUP_ADMIN;
 
         Forfeit forfeit = Forfeit.builder()
                 .title(title)
                 .description(description)
                 .category(category != null ? category : "General")
-                .active(false)
+                .active(isAdmin)
                 .proposedBy(proposer)
                 .group(group)
                 .build();
