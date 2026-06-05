@@ -560,7 +560,7 @@ const GroupPage: React.FC = () => {
                           >
                             📅 Gages du jour
                             {missingGagesBadge > 0 && (
-                              <span className="inline-flex items-center justify-center bg-red-500 text-white text-[10px] font-bold leading-none rounded-full min-w-[16px] h-4 px-1">
+                              <span className="inline-flex items-center justify-center bg-orange-500 text-white text-[10px] font-bold leading-none rounded-full min-w-[16px] h-4 px-1">
                                 {missingGagesBadge}
                               </span>
                             )}
