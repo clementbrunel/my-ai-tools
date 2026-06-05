@@ -51,6 +51,19 @@ public interface BetRepository extends JpaRepository<Bet, Long> {
     @Query("SELECT COUNT(bp) FROM BetParticipation bp WHERE bp.bet.id = :betId")
     long countParticipationsByBetId(@Param("betId") Long betId);
 
+    /** Returns true if at least one OPEN bet exists for the given group on the given calendar day. */
+    @Query("""
+            SELECT COUNT(b) > 0 FROM Bet b
+            WHERE b.group.id = :groupId
+              AND b.status = com.pronocore.entity.Bet.Status.OPEN
+              AND b.match IS NOT NULL
+              AND b.match.matchDate >= :startOfDay
+              AND b.match.matchDate < :endOfDay
+            """)
+    boolean existsOpenBetForGroupOnDay(@Param("groupId") Long groupId,
+                                       @Param("startOfDay") LocalDateTime startOfDay,
+                                       @Param("endOfDay") LocalDateTime endOfDay);
+
     @Query("SELECT COUNT(DISTINCT b.match.id) FROM Bet b " +
            "JOIN GroupMember gm ON gm.group = b.group " +
            "WHERE gm.user.id = :userId " +
