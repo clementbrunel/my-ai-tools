@@ -31,6 +31,7 @@ public class DailyGageService {
     private final UserRepository               userRepository;
     private final UserForfeitRepository        userForfeitRepository;
     private final BetParticipationRepository   betParticipationRepository;
+    private final BetRepository                betRepository;
     private final MatchRepository              matchRepository;
     private final GroupRepository              groupRepository;
     private final GroupMemberRepository        groupMemberRepository;
@@ -94,14 +95,13 @@ public class DailyGageService {
         if (dailyGageRepository.findByGroupIdAndMatchDate(req.getGroupId(), req.getMatchDate()).isPresent()) {
             throw new IllegalStateException("A daily gage already exists for " + req.getMatchDate() + " in this group");
         }
-        // Guard: at least one match must be scheduled on that calendar day
+        // Guard: at least one bet must be open for this group on that day
         LocalDateTime startOfDay = req.getMatchDate().atStartOfDay();
         LocalDateTime endOfDay   = req.getMatchDate().plusDays(1).atStartOfDay();
-        List<Match> matchesOnDay = matchRepository.findByMatchDay(startOfDay, endOfDay);
-        if (matchesOnDay.isEmpty()) {
+        if (!betRepository.existsOpenBetForGroupOnDay(req.getGroupId(), startOfDay, endOfDay)) {
             throw new IllegalArgumentException(
-                    "Aucun match prévu le " + req.getMatchDate()
-                    + " — configurez d'abord les matchs de cette journée.");
+                    "Aucun pari ouvert le " + req.getMatchDate()
+                    + " dans ce groupe — ouvrez d'abord les paris sur les matchs de cette journée.");
         }
         DailyGage dg = DailyGage.builder()
                 .group(group)
@@ -110,8 +110,8 @@ public class DailyGageService {
                 .status(DailyGage.Status.PENDING)
                 .build();
         dg = dailyGageRepository.save(dg);
-        log.info("📅 Daily gage created for {} [{}] in group {} ({} match(es) that day)",
-                req.getMatchDate(), req.getMode(), group.getName(), matchesOnDay.size());
+        log.info("📅 Daily gage created for {} [{}] in group {}",
+                req.getMatchDate(), req.getMode(), group.getName());
         return toResponse(dg, user);
     }
 
