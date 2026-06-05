@@ -516,7 +516,7 @@ const GroupPage: React.FC = () => {
                       </div>
 
                       <div className="flex items-center justify-between gap-3 pt-1">
-                        <p className="text-xs text-yellow-800 dark:text-yellow-300">Configurez les gages customisés de votre groupe.</p>
+                        <p className="text-xs text-yellow-800 dark:text-yellow-300 font-semibold">Configurez les gages customisés de votre groupe.</p>
                         <button
                           onClick={() => toggleAdminSection(group.id, 'forfeits')}
                           className={`relative text-xs px-3 py-1.5 rounded-lg font-medium transition-colors inline-flex items-center gap-1.5 shrink-0 ${
