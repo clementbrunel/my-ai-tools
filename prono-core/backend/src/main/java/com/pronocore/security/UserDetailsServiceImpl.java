@@ -27,10 +27,6 @@ public class UserDetailsServiceImpl implements UserDetailsService {
 
         List<SimpleGrantedAuthority> authorities = new ArrayList<>();
         authorities.add(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
-        // PLATFORM_ADMIN inherits ADMIN privileges
-        if (user.getRole() == User.Role.PLATFORM_ADMIN) {
-            authorities.add(new SimpleGrantedAuthority("ROLE_ADMIN"));
-        }
 
         return new org.springframework.security.core.userdetails.User(
             user.getUsername(),

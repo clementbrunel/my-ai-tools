@@ -110,17 +110,26 @@ const GroupPage: React.FC = () => {
     }
   };
 
-  const handleRejectGroupForfeit = async (groupId: number, forfeitId: number) => {
-    try {
-      await deleteGroupForfeit(groupId, forfeitId);
-      setGroupPendingForfeits((prev) => ({
-        ...prev,
-        [groupId]: (prev[groupId] ?? []).filter((f) => f.id !== forfeitId),
-      }));
-      refreshCounts();
-    } catch {
-      setError('Erreur lors du refus du gage');
-    }
+  const handleRejectGroupForfeit = (groupId: number, forfeitId: number) => {
+    setConfirmDialog({
+      title: 'Refuser ce gage',
+      message: 'Refuser définitivement ce gage proposé ?',
+      confirmLabel: 'Refuser',
+      variant: 'danger',
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        try {
+          await deleteGroupForfeit(groupId, forfeitId);
+          setGroupPendingForfeits((prev) => ({
+            ...prev,
+            [groupId]: (prev[groupId] ?? []).filter((f) => f.id !== forfeitId),
+          }));
+          refreshCounts();
+        } catch {
+          setError('Erreur lors du refus du gage');
+        }
+      },
+    });
   };
 
   const handleDeleteGroupForfeit = (groupId: number, forfeitId: number) => {

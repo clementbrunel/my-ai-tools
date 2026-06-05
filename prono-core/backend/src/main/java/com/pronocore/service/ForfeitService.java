@@ -156,7 +156,7 @@ public class ForfeitService {
         return toForfeitResponse(forfeitRepository.save(forfeit));
     }
 
-    /** Group admin rejects/deletes a group forfeit (soft-delete). */
+    /** Group admin rejects/deletes a group forfeit (hard-delete). */
     @Transactional
     public void deleteGroupForfeit(Long groupId, Long forfeitId) {
         String username = currentUsername();
@@ -169,8 +169,7 @@ public class ForfeitService {
         if (forfeit.getGroup() == null || !forfeit.getGroup().getId().equals(groupId)) {
             throw new AccessDeniedException("This forfeit does not belong to group " + groupId);
         }
-        forfeit.setActive(false);
-        forfeitRepository.save(forfeit);
+        forfeitRepository.delete(forfeit);
     }
 
     // ---------------------------------------------------------------
@@ -216,7 +215,7 @@ public class ForfeitService {
                 .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
 
         boolean isOwner = uf.getUser().getId().equals(caller.getId());
-        boolean isAdmin = caller.getRole() == User.Role.ADMIN;
+        boolean isAdmin = caller.getRole() == User.Role.PLATFORM_ADMIN;
         if (!isOwner && !isAdmin) {
             throw new AccessDeniedException("You can only complete your own gage");
         }

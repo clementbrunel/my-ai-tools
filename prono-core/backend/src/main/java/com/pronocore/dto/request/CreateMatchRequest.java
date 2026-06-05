@@ -18,6 +18,7 @@ public class CreateMatchRequest {
     @NotNull(message = "Match date is required")
     private LocalDateTime matchDate;
 
+    @NotBlank(message = "Competition is required")
     private String competition = "FIFA World Cup 2026";
 
     private String round = "Group Stage";

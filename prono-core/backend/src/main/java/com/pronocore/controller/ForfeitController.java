@@ -35,14 +35,14 @@ public class ForfeitController {
     }
 
     @GetMapping("/all")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     @Operation(summary = "Get all forfeits including inactive (Admin only)")
     public ResponseEntity<List<ForfeitResponse>> getAllForfeitsAdmin() {
         return ResponseEntity.ok(forfeitService.getAllForfeitsAdmin());
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     @Operation(summary = "Create a new forfeit (Admin only)")
     public ResponseEntity<ForfeitResponse> createForfeit(
             @RequestParam String title,
@@ -61,7 +61,7 @@ public class ForfeitController {
     }
 
     @DeleteMapping("/{forfeitId}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     @Operation(summary = "Soft-delete a forfeit (Admin only)")
     public ResponseEntity<Void> deleteForfeit(@PathVariable Long forfeitId) {
         forfeitService.deleteForfeit(forfeitId);
@@ -104,7 +104,7 @@ public class ForfeitController {
     // ---------------------------------------------------------------
 
     @PostMapping("/assign")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     @Operation(summary = "Manually assign a forfeit to a user (Admin only)")
     public ResponseEntity<Void> assignForfeit(
             @RequestParam Long userId,
@@ -136,7 +136,7 @@ public class ForfeitController {
     }
 
     @GetMapping("/user/{userId}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     @Operation(summary = "Get gage assignments for a specific user (Admin only)")
     public ResponseEntity<List<UserForfeitResponse>> getUserForfeits(@PathVariable Long userId) {
         return ResponseEntity.ok(forfeitService.getUserForfeits(userId));

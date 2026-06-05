@@ -47,7 +47,7 @@ public class SecurityConfig {
                 // Making them public avoids spurious 401s when the JWT hasn't loaded yet.
                 .requestMatchers(HttpMethod.GET,
                                  "/api/daily-gages", "/api/daily-gages/**").permitAll()
-                .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "PLATFORM_ADMIN")
+                .requestMatchers("/api/admin/**").hasRole("PLATFORM_ADMIN")
                 .anyRequest().authenticated())
             // Return 401 (not 403) for requests that are missing/have an invalid JWT.
             // Spring Security 6 defaults to Http403ForbiddenEntryPoint when neither

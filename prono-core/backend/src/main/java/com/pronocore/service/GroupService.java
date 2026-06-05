@@ -239,9 +239,25 @@ public class GroupService {
 
     @Transactional
     public void removeMember(Long groupId, Long targetUserId, String requesterUsername) {
+        User requester = findUser(requesterUsername);
         assertGroupAdmin(groupId, requesterUsername);
+
+        if (requester.getId().equals(targetUserId)) {
+            throw new IllegalArgumentException("Use 'leave group' to remove yourself");
+        }
+
         GroupMember member = groupMemberRepository.findByGroupIdAndUserId(groupId, targetUserId)
             .orElseThrow(() -> new IllegalArgumentException("User is not a member of this group"));
+
+        if (member.getRole() == GroupMember.GroupRole.GROUP_ADMIN) {
+            long adminCount = groupMemberRepository.findByGroupIdAndStatus(groupId, GroupMember.MemberStatus.ACTIVE).stream()
+                .filter(m -> m.getRole() == GroupMember.GroupRole.GROUP_ADMIN)
+                .count();
+            if (adminCount == 1) {
+                throw new IllegalStateException("Cannot remove: at least one admin must remain.");
+            }
+        }
+
         groupMemberRepository.delete(member);
     }
 

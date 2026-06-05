@@ -18,7 +18,7 @@ const Matches: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [hasGroups, setHasGroups] = useState(true);
 
-  const today = new Date().toISOString().slice(0, 10); // "2026-06-11"
+  const today = new Date().toISOString().slice(0, 10);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -41,7 +41,7 @@ const Matches: React.FC = () => {
     const seen = new Set<number>();
     const unique: Match[] = [];
     for (const bet of bets) {
-      if (bet.status === 'OPEN' && bet.match && !seen.has(bet.match.id)) {
+      if (bet.match && !seen.has(bet.match.id)) {
         seen.add(bet.match.id);
         unique.push(bet.match);
       }
@@ -157,7 +157,7 @@ const Matches: React.FC = () => {
       ) : hasGroups ? (
         <div className="card text-center py-12 text-gray-500 dark:text-gray-400">
           <div className="text-4xl mb-3">😅</div>
-          <p>Aucun match avec des paris ouverts dans tes groupes</p>
+          <p>Aucun match disponible dans tes groupes</p>
         </div>
       ) : null}
     </div>

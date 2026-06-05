@@ -147,7 +147,7 @@ const Admin: React.FC = () => {
         setConfirmDialog(null);
         try {
           await deleteForfeit(id);
-          setForfeits(forfeits.map((f) => f.id === id ? { ...f, isActive: false } : f));
+          setForfeits(prev => prev.map((f) => f.id === id ? { ...f, isActive: false } : f));
         } catch { showToast('Erreur'); }
       },
     });

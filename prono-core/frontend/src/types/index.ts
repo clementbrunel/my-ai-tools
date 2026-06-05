@@ -2,7 +2,7 @@ export interface User {
   id: number;
   username: string;
   email: string;
-  role: 'PLATFORM_ADMIN' | 'ADMIN' | 'USER';
+  role: 'PLATFORM_ADMIN' | 'USER';
   avatarUrl?: string;
   globalScore: number;
   betsWon: number;
@@ -11,7 +11,7 @@ export interface User {
 }
 
 export const isAdmin = (user: User | null | undefined): boolean =>
-  user?.role === 'ADMIN' || user?.role === 'PLATFORM_ADMIN';
+  user?.role === 'PLATFORM_ADMIN';
 
 export type GroupRole = 'GROUP_ADMIN' | 'MEMBER';
 export type MemberStatus = 'ACTIVE' | 'PENDING';

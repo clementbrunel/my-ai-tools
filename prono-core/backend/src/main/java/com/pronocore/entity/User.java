@@ -53,6 +53,6 @@ public class User {
     private LocalDateTime createdAt;
 
     public enum Role {
-        PLATFORM_ADMIN, ADMIN, USER
+        PLATFORM_ADMIN, USER
     }
 }
