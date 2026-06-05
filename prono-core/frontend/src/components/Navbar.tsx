@@ -3,6 +3,9 @@ import { useAuth } from '../context/AuthContext';
 import { isAdmin } from '../types';
 import { useState, useEffect } from 'react';
 import { getMyGroups } from '../api/groups';
+import { getGroupPendingForfeits } from '../api/forfeits';
+import { getAllDailyGages } from '../api/dailyGages';
+import { getMatches } from '../api/matches';
 
 const Navbar: React.FC = () => {
   const { user, logout } = useAuth();
@@ -14,11 +17,47 @@ const Navbar: React.FC = () => {
   useEffect(() => {
     if (!user) return;
     getMyGroups()
-      .then((groups) => {
-        const count = groups
-          .filter((g) => g.currentUserRole === 'GROUP_ADMIN')
-          .reduce((sum, g) => sum + (g.pendingApplications?.length ?? 0), 0);
-        setPendingGroupCount(count);
+      .then(async (groups) => {
+        const adminGroups = groups.filter((g) => g.currentUserRole === 'GROUP_ADMIN');
+
+        // Candidatures en attente
+        const pendingApplications = adminGroups.reduce(
+          (sum, g) => sum + (g.pendingApplications?.length ?? 0), 0
+        );
+
+        if (adminGroups.length === 0) {
+          setPendingGroupCount(pendingApplications);
+          return;
+        }
+
+        const [forfeitResults, dgResult, matchesResult] = await Promise.allSettled([
+          Promise.allSettled(adminGroups.map((g) => getGroupPendingForfeits(g.id))),
+          getAllDailyGages(),
+          getMatches(),
+        ]);
+
+        // Gages en attente de validation
+        let pendingForfeits = 0;
+        if (forfeitResults.status === 'fulfilled') {
+          forfeitResults.value.forEach((r) => {
+            if (r.status === 'fulfilled') pendingForfeits += r.value.length;
+          });
+        }
+
+        // Jours de match sans gage setté
+        let missingGages = 0;
+        if (dgResult.status === 'fulfilled' && matchesResult.status === 'fulfilled') {
+          const allDg = dgResult.value;
+          const allMatchDates = [...new Set(matchesResult.value.map((m) => m.matchDate.slice(0, 10)))];
+          adminGroups.forEach((g) => {
+            const configuredWithForfeit = new Set(
+              allDg.filter((d) => d.groupId === g.id && d.forfeit != null).map((d) => d.matchDate)
+            );
+            missingGages += allMatchDates.filter((d) => !configuredWithForfeit.has(d)).length;
+          });
+        }
+
+        setPendingGroupCount(pendingApplications + pendingForfeits + missingGages);
       })
       .catch(() => {});
   }, [user]);
