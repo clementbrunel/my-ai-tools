@@ -4,8 +4,8 @@ import {
   selectForfeitDirectly, addCandidate, removeCandidate,
 } from '../api/dailyGages';
 import { getForfeitsVisibleToGroup } from '../api/forfeits';
-import { getMatches } from '../api/matches';
-import type { DailyGage, Forfeit, Match } from '../types';
+import { getBets } from '../api/bets';
+import type { DailyGage, Forfeit, Bet } from '../types';
 import { formatDate, parseDDMMYYYY } from '../utils/dates';
 
 interface Props {
@@ -28,7 +28,7 @@ const statusBadge = (status: string) => {
 const DailyGagePanel: React.FC<Props> = ({ groupId }) => {
   const [dailyGages, setDailyGages] = useState<DailyGage[]>([]);
   const [availableForfeits, setAvailableForfeits] = useState<Forfeit[]>([]);
-  const [allMatches, setAllMatches] = useState<Match[]>([]);
+  const [openGroupBets, setOpenGroupBets] = useState<Bet[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Create form
@@ -43,18 +43,18 @@ const DailyGagePanel: React.FC<Props> = ({ groupId }) => {
   const [selectedForfeit, setSelectedForfeit] = useState<number | ''>('');
 
   useEffect(() => {
-    Promise.all([getDailyGagesByGroup(groupId), getForfeitsVisibleToGroup(groupId), getMatches()])
-      .then(([dgs, forfeits, matches]) => {
+    Promise.all([getDailyGagesByGroup(groupId), getForfeitsVisibleToGroup(groupId), getBets()])
+      .then(([dgs, forfeits, bets]) => {
         setDailyGages(dgs);
         setAvailableForfeits(forfeits);
-        setAllMatches(matches);
+        setOpenGroupBets(bets.filter((b) => b.groupId === groupId && b.status === 'OPEN' && b.match));
       })
       .finally(() => setIsLoading(false));
   }, [groupId]);
 
   const configuredDates = new Set(dailyGages.map((dg) => dg.matchDate));
   const unconfiguredMatchDays = [
-    ...new Set(allMatches.map((m) => m.matchDate.slice(0, 10))),
+    ...new Set(openGroupBets.map((b) => b.match!.matchDate.slice(0, 10))),
   ]
     .filter((d) => !configuredDates.has(d))
     .sort();
