@@ -1,8 +1,8 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { getBets } from '../api/bets';
+import { getMatches } from '../api/matches';
 import { getMyGroups } from '../api/groups';
-import type { Bet, Match } from '../types';
+import type { Match } from '../types';
 import { isAdmin } from '../types';
 import MatchCard from '../components/MatchCard';
 import { useAuth } from '../context/AuthContext';
@@ -13,20 +13,20 @@ type FilterStatus = 'ALL' | 'UPCOMING' | 'FINISHED';
 
 const Matches: React.FC = () => {
   const { user } = useAuth();
-  const [bets, setBets] = useState<Bet[]>([]);
+  const [allMatches, setAllMatches] = useState<Match[]>([]);
   const [filter, setFilter] = useState<FilterStatus>('ALL');
   const [isLoading, setIsLoading] = useState(true);
   const [hasGroups, setHasGroups] = useState(true);
 
-  const today = new Date().toISOString().slice(0, 10); // "2026-06-11"
+  const today = new Date().toISOString().slice(0, 10);
 
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const [groups, betsData] = await Promise.all([getMyGroups(), getBets()]);
+        const [groups, matchesData] = await Promise.all([getMyGroups(), getMatches()]);
         setHasGroups(groups.length > 0);
-        setBets(betsData);
+        setAllMatches(matchesData);
       } catch (err) {
         console.error('Error loading data:', err);
       } finally {
@@ -37,18 +37,9 @@ const Matches: React.FC = () => {
   }, []);
 
   const matches = useMemo(() => {
-    if (!hasGroups) return [];
-    const seen = new Set<number>();
-    const unique: Match[] = [];
-    for (const bet of bets) {
-      if (bet.match && !seen.has(bet.match.id)) {
-        seen.add(bet.match.id);
-        unique.push(bet.match);
-      }
-    }
-    const filtered = filter === 'ALL' ? unique : unique.filter((m) => m.status === filter);
+    const filtered = filter === 'ALL' ? allMatches : allMatches.filter((m) => m.status === filter);
     return filtered.sort((a, b) => a.matchDate.localeCompare(b.matchDate));
-  }, [bets, filter, hasGroups]);
+  }, [allMatches, filter]);
 
   const filters: { label: string; value: FilterStatus }[] = [
     { label: '🌍 Tous', value: 'ALL' },
