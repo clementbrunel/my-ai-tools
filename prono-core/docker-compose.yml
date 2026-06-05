@@ -7,7 +7,7 @@ services:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASS}
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -21,7 +21,7 @@ services:
     build: ./backend
     container_name: pronocore-backend
     ports:
-      - "8080:8080"
+      - "8090:8080"
     environment:
       DB_URL: jdbc:postgresql://postgres:5432/pronocore
       DB_USER: ${DB_USER}
