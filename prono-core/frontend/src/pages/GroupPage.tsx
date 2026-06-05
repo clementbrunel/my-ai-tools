@@ -515,32 +515,41 @@ const GroupPage: React.FC = () => {
                         </button>
                       </div>
 
-                      {/* Workflow guide */}
-                      <div className="text-xs text-yellow-800 dark:text-yellow-300 space-y-1 pt-1">
+                      {/* Workflow guide with inline actions */}
+                      <div className="text-xs text-yellow-800 dark:text-yellow-300 pt-1 space-y-2">
                         <p className="font-semibold">Configuration des gages</p>
-                        <p>1. <span className="font-medium">Paris du groupe</span> — ouvrez les matchs aux paris pour la journée.</p>
-                        <p>2. <span className="font-medium">Gage du Jour</span> — pimentez la partie en choisissant le gage qui attend le moins bon pronostiqueur 🌶️</p>
-                      </div>
-
-                      <div className="flex items-center justify-between pt-1">
-                        <div>
-                          <p className="text-sm text-gray-700 dark:text-gray-300 font-medium">Paris du groupe</p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
-                            Ouvrez des matchs aux paris (par compétition)
-                          </p>
+                        <div className="flex items-center justify-between gap-3">
+                          <p>1. Ouvrez les matchs aux paris pour la journée.</p>
+                          <Link to="/open-betting" className="relative btn-primary text-xs whitespace-nowrap inline-flex items-center gap-1.5 shrink-0">
+                            🎲 Ouvrir aux paris
+                            {groupsWithNoBets[group.id] && (
+                              <span className="inline-flex items-center justify-center bg-red-500 text-white text-[10px] font-bold leading-none rounded-full min-w-[16px] h-4 px-1">
+                                !
+                              </span>
+                            )}
+                          </Link>
                         </div>
-                        <Link to="/open-betting" className="relative btn-primary text-xs whitespace-nowrap inline-flex items-center gap-1.5">
-                          🎲 Ouvrir aux paris
-                          {groupsWithNoBets[group.id] && (
-                            <span className="inline-flex items-center justify-center bg-red-500 text-white text-[10px] font-bold leading-none rounded-full min-w-[16px] h-4 px-1">
-                              !
-                            </span>
-                          )}
-                        </Link>
+                        <div className="flex items-center justify-between gap-3">
+                          <p>2. Pimentez la partie en choisissant le gage qui attend le moins bon pronostiqueur 🌶️</p>
+                          <button
+                            onClick={() => toggleAdminSection(group.id, 'daily-gages')}
+                            className={`relative text-xs px-3 py-1.5 rounded-lg font-medium transition-colors inline-flex items-center gap-1.5 shrink-0 ${
+                              activeSection === 'daily-gages'
+                                ? 'bg-yellow-500 text-white'
+                                : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-200'
+                            }`}
+                          >
+                            📅 Gage du Jour
+                            {missingGagesBadge > 0 && (
+                              <span className="inline-flex items-center justify-center bg-orange-500 text-white text-[10px] font-bold leading-none rounded-full min-w-[16px] h-4 px-1">
+                                {missingGagesBadge}
+                              </span>
+                            )}
+                          </button>
+                        </div>
                       </div>
 
-                      {/* Admin section toggle buttons */}
-                      <div className="flex gap-2 pt-2 border-t border-yellow-200 dark:border-yellow-800/40">
+                      <div className="pt-2 border-t border-yellow-200 dark:border-yellow-800/40">
                         <button
                           onClick={() => toggleAdminSection(group.id, 'forfeits')}
                           className={`relative text-xs px-3 py-1.5 rounded-lg font-medium transition-colors inline-flex items-center gap-1.5 ${
@@ -553,21 +562,6 @@ const GroupPage: React.FC = () => {
                           {pendingForfeitsBadge > 0 && (
                             <span className="inline-flex items-center justify-center bg-red-500 text-white text-[10px] font-bold leading-none rounded-full min-w-[16px] h-4 px-1">
                               {pendingForfeitsBadge}
-                            </span>
-                          )}
-                        </button>
-                        <button
-                          onClick={() => toggleAdminSection(group.id, 'daily-gages')}
-                          className={`relative text-xs px-3 py-1.5 rounded-lg font-medium transition-colors inline-flex items-center gap-1.5 ${
-                            activeSection === 'daily-gages'
-                              ? 'bg-yellow-500 text-white'
-                              : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-200'
-                          }`}
-                        >
-                          📅 Gage du Jour
-                          {missingGagesBadge > 0 && (
-                            <span className="inline-flex items-center justify-center bg-orange-500 text-white text-[10px] font-bold leading-none rounded-full min-w-[16px] h-4 px-1">
-                              {missingGagesBadge}
                             </span>
                           )}
                         </button>
