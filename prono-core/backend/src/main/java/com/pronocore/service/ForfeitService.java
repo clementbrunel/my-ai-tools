@@ -156,7 +156,7 @@ public class ForfeitService {
         return toForfeitResponse(forfeitRepository.save(forfeit));
     }
 
-    /** Group admin rejects/deletes a group forfeit (soft-delete). */
+    /** Group admin rejects/deletes a group forfeit (hard-delete). */
     @Transactional
     public void deleteGroupForfeit(Long groupId, Long forfeitId) {
         String username = currentUsername();
@@ -169,8 +169,7 @@ public class ForfeitService {
         if (forfeit.getGroup() == null || !forfeit.getGroup().getId().equals(groupId)) {
             throw new AccessDeniedException("This forfeit does not belong to group " + groupId);
         }
-        forfeit.setActive(false);
-        forfeitRepository.save(forfeit);
+        forfeitRepository.delete(forfeit);
     }
 
     // ---------------------------------------------------------------
