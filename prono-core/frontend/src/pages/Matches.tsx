@@ -1,8 +1,8 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { getMatches } from '../api/matches';
+import { getBets } from '../api/bets';
 import { getMyGroups } from '../api/groups';
-import type { Match } from '../types';
+import type { Bet, Match } from '../types';
 import { isAdmin } from '../types';
 import MatchCard from '../components/MatchCard';
 import { useAuth } from '../context/AuthContext';
@@ -13,7 +13,7 @@ type FilterStatus = 'ALL' | 'UPCOMING' | 'FINISHED';
 
 const Matches: React.FC = () => {
   const { user } = useAuth();
-  const [allMatches, setAllMatches] = useState<Match[]>([]);
+  const [bets, setBets] = useState<Bet[]>([]);
   const [filter, setFilter] = useState<FilterStatus>('ALL');
   const [isLoading, setIsLoading] = useState(true);
   const [hasGroups, setHasGroups] = useState(true);
@@ -24,9 +24,9 @@ const Matches: React.FC = () => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const [groups, matchesData] = await Promise.all([getMyGroups(), getMatches()]);
+        const [groups, betsData] = await Promise.all([getMyGroups(), getBets()]);
         setHasGroups(groups.length > 0);
-        setAllMatches(matchesData);
+        setBets(betsData);
       } catch (err) {
         console.error('Error loading data:', err);
       } finally {
@@ -37,9 +37,18 @@ const Matches: React.FC = () => {
   }, []);
 
   const matches = useMemo(() => {
-    const filtered = filter === 'ALL' ? allMatches : allMatches.filter((m) => m.status === filter);
+    if (!hasGroups) return [];
+    const seen = new Set<number>();
+    const unique: Match[] = [];
+    for (const bet of bets) {
+      if (bet.match && !seen.has(bet.match.id)) {
+        seen.add(bet.match.id);
+        unique.push(bet.match);
+      }
+    }
+    const filtered = filter === 'ALL' ? unique : unique.filter((m) => m.status === filter);
     return filtered.sort((a, b) => a.matchDate.localeCompare(b.matchDate));
-  }, [allMatches, filter]);
+  }, [bets, filter, hasGroups]);
 
   const filters: { label: string; value: FilterStatus }[] = [
     { label: '🌍 Tous', value: 'ALL' },
