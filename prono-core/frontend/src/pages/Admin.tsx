@@ -5,7 +5,7 @@ import { useToast } from '../components/Toast';
 import { useAuth } from '../context/AuthContext';
 import { getMatches, createMatch, updateMatchScore, getCompetitions } from '../api/matches';
 import { getAllForfeitsAdmin, createForfeit, deleteForfeit } from '../api/forfeits';
-import { getMyGroups } from '../api/groups';
+import { getAllGroups } from '../api/groups';
 import DailyGagePanel from '../components/DailyGagePanel';
 import type { Match, Forfeit, Group } from '../types';
 import { isAdmin } from '../types';
@@ -84,10 +84,10 @@ const Admin: React.FC = () => {
   // Lazy-load gages tab data
   useEffect(() => {
     if (activeTab === 'forfeits') {
-      Promise.all([getAllForfeitsAdmin(), getMyGroups()])
+      Promise.all([getAllForfeitsAdmin(), getAllGroups()])
         .then(([f, groups]) => {
           setForfeits(f);
-          setAdminGroups(groups.filter((g) => g.currentUserRole === 'GROUP_ADMIN'));
+          setAdminGroups(groups);
         })
         .catch(console.error);
     }
