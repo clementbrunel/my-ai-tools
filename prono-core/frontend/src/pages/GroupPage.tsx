@@ -9,6 +9,8 @@ import {
   getGroupPendingForfeits, getGroupForfeits,
   approveGroupForfeit, deleteGroupForfeit,
 } from '../api/forfeits';
+import { getAllDailyGages } from '../api/dailyGages';
+import { getMatches } from '../api/matches';
 import DailyGagePanel from '../components/DailyGagePanel';
 import type { Group, PublicGroup, Forfeit } from '../types';
 import { useAuth } from '../context/AuthContext';
@@ -53,12 +55,44 @@ const GroupPage: React.FC = () => {
   // Active group-specific forfeits per group
   const [groupActiveForfeits, setGroupActiveForfeits] = useState<Record<number, Forfeit[]>>({});
 
+  // Badge counts pre-loaded on mount
+  const [groupPendingForfeitsCount, setGroupPendingForfeitsCount] = useState<Record<number, number>>({});
+  const [groupDailyGagesMissingCount, setGroupDailyGagesMissingCount] = useState<Record<number, number>>({});
+
   const loadData = async () => {
     setIsLoading(true);
     try {
       const [myGroups, pubGroups] = await Promise.all([getMyGroups(), getPublicGroups()]);
       setGroups(myGroups);
       setPublicGroups(pubGroups);
+
+      const adminGroups = myGroups.filter((g) => g.currentUserRole === 'GROUP_ADMIN');
+      if (adminGroups.length > 0) {
+        // Pending forfeits badge — one call per admin group
+        Promise.allSettled(adminGroups.map((g) => getGroupPendingForfeits(g.id))).then((results) => {
+          const counts: Record<number, number> = {};
+          adminGroups.forEach((g, i) => {
+            const r = results[i];
+            if (r.status === 'fulfilled') counts[g.id] = r.value.length;
+          });
+          setGroupPendingForfeitsCount(counts);
+        });
+
+        // Daily-gage missing badge — two shared calls, then compute per group
+        Promise.allSettled([getAllDailyGages(), getMatches()]).then(([dgResult, matchesResult]) => {
+          if (dgResult.status !== 'fulfilled' || matchesResult.status !== 'fulfilled') return;
+          const allDg = dgResult.value;
+          const allMatchDates = [...new Set(matchesResult.value.map((m) => m.matchDate.slice(0, 10)))];
+          const counts: Record<number, number> = {};
+          adminGroups.forEach((g) => {
+            const configuredWithForfeit = new Set(
+              allDg.filter((d) => d.groupId === g.id && d.forfeit != null).map((d) => d.matchDate)
+            );
+            counts[g.id] = allMatchDates.filter((d) => !configuredWithForfeit.has(d)).length;
+          });
+          setGroupDailyGagesMissingCount(counts);
+        });
+      }
     } catch {
       setError('Impossible de charger les groupes');
     } finally {
@@ -100,6 +134,10 @@ const GroupPage: React.FC = () => {
         ...prev,
         [groupId]: [...(prev[groupId] ?? []), approved],
       }));
+      setGroupPendingForfeitsCount((prev) => ({
+        ...prev,
+        [groupId]: Math.max(0, (prev[groupId] ?? 1) - 1),
+      }));
     } catch {
       setError('Erreur lors de la validation du gage');
     }
@@ -111,6 +149,10 @@ const GroupPage: React.FC = () => {
       setGroupPendingForfeits((prev) => ({
         ...prev,
         [groupId]: (prev[groupId] ?? []).filter((f) => f.id !== forfeitId),
+      }));
+      setGroupPendingForfeitsCount((prev) => ({
+        ...prev,
+        [groupId]: Math.max(0, (prev[groupId] ?? 1) - 1),
       }));
     } catch {
       setError('Erreur lors du refus du gage');
@@ -440,6 +482,9 @@ const GroupPage: React.FC = () => {
               const activeSection = openAdminSection[group.id] ?? null;
               const pendingForfeits = groupPendingForfeits[group.id] ?? [];
               const activeForfeits = groupActiveForfeits[group.id] ?? [];
+              // Badge counts: use live list when section was opened, else pre-loaded count
+              const pendingForfeitsBadge = groupPendingForfeits[group.id]?.length ?? groupPendingForfeitsCount[group.id] ?? 0;
+              const missingGagesBadge = groupDailyGagesMissingCount[group.id] ?? 0;
 
               return (
                 <div key={group.id} className="card space-y-4">
@@ -511,23 +556,33 @@ const GroupPage: React.FC = () => {
                       <div className="flex gap-2 pt-2 border-t border-yellow-200 dark:border-yellow-800/40">
                         <button
                           onClick={() => toggleAdminSection(group.id, 'forfeits')}
-                          className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${
+                          className={`relative text-xs px-3 py-1.5 rounded-lg font-medium transition-colors inline-flex items-center gap-1.5 ${
                             activeSection === 'forfeits'
                               ? 'bg-yellow-500 text-white'
                               : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-200'
                           }`}
                         >
                           🃏 Gages du groupe
+                          {pendingForfeitsBadge > 0 && (
+                            <span className="inline-flex items-center justify-center bg-red-500 text-white text-[10px] font-bold leading-none rounded-full min-w-[16px] h-4 px-1">
+                              {pendingForfeitsBadge}
+                            </span>
+                          )}
                         </button>
                         <button
                           onClick={() => toggleAdminSection(group.id, 'daily-gages')}
-                          className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${
+                          className={`relative text-xs px-3 py-1.5 rounded-lg font-medium transition-colors inline-flex items-center gap-1.5 ${
                             activeSection === 'daily-gages'
                               ? 'bg-yellow-500 text-white'
                               : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-200'
                           }`}
                         >
                           📅 Gage du Jour
+                          {missingGagesBadge > 0 && (
+                            <span className="inline-flex items-center justify-center bg-orange-500 text-white text-[10px] font-bold leading-none rounded-full min-w-[16px] h-4 px-1">
+                              {missingGagesBadge}
+                            </span>
+                          )}
                         </button>
                       </div>
                     </div>
