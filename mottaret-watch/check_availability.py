@@ -198,15 +198,24 @@ def fetch_maeva_week(date_debut: str, date_fin: str) -> list[dict]:
 
 
 def fetch_maeva_all() -> list[dict]:
-    """Récupère les dispos Maeva pour les 2 semaines."""
-    all_results = []
+    """Récupère les dispos Maeva pour les 2 semaines, en fusionnant les doublons par titre."""
+    seen: dict[str, dict] = {}
     for week in MAEVA_WEEKS:
         listings = fetch_maeva_week(week["dateDebut"], week["dateFin"])
         print(f"  Maeva {week['dateDebut']}→{week['dateFin']} : {len(listings)} logement(s)")
         for l in listings:
             print(f"    🌐 {l['title']} | {l['start']} → {l['end']} | {l['price']} | {l.get('dispo','?')} unité(s)")
-        all_results.extend(listings)
-    return all_results
+            title = l["title"]
+            if title not in seen:
+                seen[title] = dict(l)
+            else:
+                # Même logement disponible sur plusieurs semaines : on étend la plage de dates
+                existing = seen[title]
+                if l.get("start", "") < existing.get("start", ""):
+                    existing["start"] = l["start"]
+                if l.get("end", "") > existing.get("end", ""):
+                    existing["end"] = l["end"]
+    return list(seen.values())
 
 
 # ── Email ─────────────────────────────────────────────────────────────────────
