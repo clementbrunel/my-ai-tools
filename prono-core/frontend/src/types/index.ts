@@ -234,3 +234,12 @@ export interface DecodedToken {
   iat: number;
   exp: number;
 }
+
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ResetPasswordRequest {
+  token: string;
+  newPassword: string;
+}

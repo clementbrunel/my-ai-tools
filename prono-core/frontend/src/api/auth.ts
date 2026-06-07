@@ -1,5 +1,12 @@
 import apiClient from './axios';
-import type { AuthResponse, LoginRequest, RegisterRequest, RegisterResponse } from '../types';
+import type {
+  AuthResponse,
+  ForgotPasswordRequest,
+  LoginRequest,
+  RegisterRequest,
+  RegisterResponse,
+  ResetPasswordRequest,
+} from '../types';
 
 export const login = async (data: LoginRequest): Promise<AuthResponse> => {
   const response = await apiClient.post<AuthResponse>('/auth/login', data);
@@ -18,4 +25,19 @@ export const verifyEmail = async (token: string): Promise<AuthResponse> => {
 
 export const resendVerification = async (email: string): Promise<void> => {
   await apiClient.post('/auth/resend-verification', { email });
+};
+
+export const forgotPassword = async (data: ForgotPasswordRequest): Promise<void> => {
+  await apiClient.post('/auth/forgot-password', data);
+};
+
+export const validateResetToken = async (token: string): Promise<boolean> => {
+  const response = await apiClient.get<{ valid: boolean }>('/auth/reset-password/validate', {
+    params: { token },
+  });
+  return response.data.valid;
+};
+
+export const resetPassword = async (data: ResetPasswordRequest): Promise<void> => {
+  await apiClient.post('/auth/reset-password', data);
 };

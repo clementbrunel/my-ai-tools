@@ -86,11 +86,16 @@ const Login: React.FC = () => {
             </button>
           </form>
 
-          <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700 text-center">
+          <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700 text-center space-y-2">
             <p className="text-sm text-gray-600 dark:text-gray-400">
               Pas encore de compte ?{' '}
               <Link to="/register" className="text-wc-green dark:text-green-400 font-semibold hover:underline">
                 S'inscrire
+              </Link>
+            </p>
+            <p className="text-sm">
+              <Link to="/forgot-password" className="text-gray-500 dark:text-gray-400 hover:underline">
+                Mot de passe oublié ?
               </Link>
             </p>
           </div>
