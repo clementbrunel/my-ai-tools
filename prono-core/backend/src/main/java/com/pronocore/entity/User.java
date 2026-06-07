@@ -51,6 +51,16 @@ public class User {
     @Builder.Default
     private int forfeitsReceived = 0;
 
+    @Column(name = "email_verified", nullable = false)
+    @Builder.Default
+    private boolean emailVerified = false;
+
+    @Column(name = "verification_token", length = 255)
+    private String verificationToken;
+
+    @Column(name = "token_expiry")
+    private LocalDateTime tokenExpiry;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

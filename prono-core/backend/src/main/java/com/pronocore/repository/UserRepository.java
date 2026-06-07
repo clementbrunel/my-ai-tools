@@ -19,6 +19,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     boolean existsByEmail(String email);
 
+    Optional<User> findByVerificationToken(String verificationToken);
+
     @Query("SELECT u FROM User u ORDER BY u.globalScore DESC, u.betsWon DESC")
     List<User> findAllOrderByGlobalScoreDesc();
 

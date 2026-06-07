@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { jwtDecode } from 'jwt-decode';
-import type { User, LoginRequest, RegisterRequest, DecodedToken } from '../types';
+import type { User, LoginRequest, RegisterRequest, AuthResponse, DecodedToken } from '../types';
 import { login as apiLogin, register as apiRegister } from '../api/auth';
 
 interface AuthContextType {
@@ -9,7 +9,8 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (data: LoginRequest) => Promise<void>;
-  register: (data: RegisterRequest) => Promise<void>;
+  register: (data: RegisterRequest) => Promise<string>;
+  setSession: (response: AuthResponse) => void;
   logout: () => void;
   updateUser: (user: User) => void;
 }
@@ -37,7 +38,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // On app load, restore session from localStorage
   useEffect(() => {
     const storedToken = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
@@ -55,14 +55,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (data: LoginRequest) => {
     const response = await apiLogin(data);
-    localStorage.setItem('token', response.token);
-    localStorage.setItem('user', JSON.stringify(response.user));
-    setToken(response.token);
-    setUser(response.user);
+    setSession(response);
   };
 
-  const register = async (data: RegisterRequest) => {
+  // Returns the email to allow the caller to redirect to the verify page
+  const register = async (data: RegisterRequest): Promise<string> => {
     const response = await apiRegister(data);
+    return response.email;
+  };
+
+  const setSession = (response: AuthResponse) => {
     localStorage.setItem('token', response.token);
     localStorage.setItem('user', JSON.stringify(response.user));
     setToken(response.token);
@@ -83,6 +85,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAuthenticated: !!token && !!user,
         login,
         register,
+        setSession,
         logout,
         updateUser,
       }}

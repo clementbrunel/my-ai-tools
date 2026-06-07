@@ -17,7 +17,11 @@ spring:
     locations: classpath:db/migration
     repair-on-migrate: true   # auto-repair checksum mismatches (safe for dev; migrations were edited after apply)
 
+resend:
+  api-key: ${RESEND_API_KEY:}
+
 app:
+  frontend-url: ${FRONTEND_URL:http://localhost:5173}
   demo:
     password: ${DEMO_PASSWORD:prono2026}
 

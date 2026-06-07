@@ -16,8 +16,8 @@ const Register: React.FC = () => {
     setError('');
     setIsLoading(true);
     try {
-      await register({ username, email, password });
-      navigate('/dashboard');
+      const verifiedEmail = await register({ username, email, password });
+      navigate(`/verify-email?email=${encodeURIComponent(verifiedEmail)}`);
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
       setError(axiosErr.response?.data?.message || 'Erreur lors de l\'inscription');

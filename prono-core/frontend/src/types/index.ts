@@ -3,6 +3,7 @@ export interface User {
   username: string;
   displayName?: string;
   email: string;
+  emailVerified: boolean;
   role: 'PLATFORM_ADMIN' | 'USER';
   avatarUrl?: string;
   globalScore: number;
@@ -177,6 +178,11 @@ export interface AuthResponse {
   token: string;
   tokenType: string;
   user: User;
+}
+
+export interface RegisterResponse {
+  message: string;
+  email: string;
 }
 
 export interface LoginRequest {
