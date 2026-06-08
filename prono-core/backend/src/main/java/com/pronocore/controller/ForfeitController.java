@@ -1,6 +1,7 @@
 package com.pronocore.controller;
 
 import com.pronocore.dto.request.ProposeForfeitRequest;
+import com.pronocore.dto.request.VoteForfeitRequest;
 import com.pronocore.dto.response.ForfeitResponse;
 import com.pronocore.dto.response.UserForfeitResponse;
 import com.pronocore.service.ForfeitService;
@@ -58,6 +59,14 @@ public class ForfeitController {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(forfeitService.proposeForfeit(req.getGroupId(), req.getTitle(),
                                                     req.getDescription(), req.getCategory()));
+    }
+
+    @PostMapping("/{forfeitId}/vote")
+    @Operation(summary = "Upvote (+1), downvote (-1), or remove vote (0) on a forfeit")
+    public ResponseEntity<ForfeitResponse> voteForfeit(
+            @PathVariable Long forfeitId,
+            @RequestBody VoteForfeitRequest req) {
+        return ResponseEntity.ok(forfeitService.voteForfeit(forfeitId, req.getVote()));
     }
 
     @DeleteMapping("/{forfeitId}")

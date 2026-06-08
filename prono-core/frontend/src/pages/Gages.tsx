@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getForfeits, proposeForfeit } from '../api/forfeits';
+import { getForfeits, proposeForfeit, voteForfeit } from '../api/forfeits';
 import { getMyGroups } from '../api/groups';
 import type { Forfeit, Group } from '../types';
 
@@ -25,6 +25,7 @@ const Gages: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   // Propose form
+  const [filter, setFilter] = useState<'all' | 'shared' | 'groups'>('all');
   const [showPropose, setShowPropose] = useState(false);
   const [propEmoji, setPropEmoji] = useState(DEFAULT_GAGE_EMOJI);
   const [propTitle, setPropTitle] = useState('');
@@ -44,6 +45,19 @@ const Gages: React.FC = () => {
       .catch(console.error)
       .finally(() => setIsLoading(false));
   }, []);
+
+  const handleVote = async (forfeitId: number, vote: 1 | -1 | 0) => {
+    try {
+      const updated = await voteForfeit(forfeitId, vote);
+      setForfeits((prev) =>
+        prev.map((f) =>
+          f.id === forfeitId ? { ...f, voteScore: updated.voteScore, userVote: updated.userVote } : f
+        )
+      );
+    } catch (err) {
+      console.error('Vote error', err);
+    }
+  };
 
   const handlePropose = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,7 +91,13 @@ const Gages: React.FC = () => {
     );
   }
 
-  const categories = [...new Set(forfeits.map((f) => f.category))].sort();
+  const filteredForfeits = forfeits.filter((f) => {
+    if (filter === 'shared') return !f.groupId;
+    if (filter === 'groups') return !!f.groupId;
+    return true;
+  });
+
+  const categories = [...new Set(filteredForfeits.map((f) => f.category))].sort();
 
   return (
     <div className="space-y-6">
@@ -89,6 +109,26 @@ const Gages: React.FC = () => {
         >
           + Proposer un gage
         </button>
+      </div>
+
+      {/* Filter tabs */}
+      <div className="flex gap-2">
+        {(['all', 'shared', 'groups'] as const).map((tab) => {
+          const labels = { all: '🃏 Tous', shared: '🌍 Partagés', groups: '🔒 Mes groupes' };
+          return (
+            <button
+              key={tab}
+              onClick={() => setFilter(tab)}
+              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                filter === tab
+                  ? 'bg-wc-green text-white'
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+              }`}
+            >
+              {labels[tab]}
+            </button>
+          );
+        })}
       </div>
 
       {propSuccess && (
@@ -200,59 +240,96 @@ const Gages: React.FC = () => {
             {categoryEmoji[cat] || '🃏'} {cat}
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {forfeits
+            {filteredForfeits
               .filter((f) => f.category === cat)
-              .map((forfeit) => (
-                <div
-                  key={forfeit.id}
-                  className="card flex flex-col gap-2"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="font-bold text-gray-900 dark:text-white">{forfeit.title}</h3>
-                    {forfeit.timesCompleted > 0 && (
-                      <span
-                        title={`Effectué ${forfeit.timesCompleted} fois`}
-                        className="flex-shrink-0 text-xs bg-wc-gold/20 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full font-semibold"
-                      >
-                        ✅ ×{forfeit.timesCompleted}
-                      </span>
+              .map((forfeit) => {
+                const userVote = forfeit.userVote ?? 0;
+                const voteScore = forfeit.voteScore ?? 0;
+                return (
+                  <div key={forfeit.id} className="card flex flex-col gap-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="font-bold text-gray-900 dark:text-white">{forfeit.title}</h3>
+                      {forfeit.timesCompleted > 0 && (
+                        <span
+                          title={`Effectué ${forfeit.timesCompleted} fois`}
+                          className="flex-shrink-0 text-xs bg-wc-gold/20 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full font-semibold"
+                        >
+                          ✅ ×{forfeit.timesCompleted}
+                        </span>
+                      )}
+                    </div>
+                    <span
+                      className={`self-start text-xs px-2 py-0.5 rounded-full font-medium ${
+                        forfeit.groupId
+                          ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                      }`}
+                    >
+                      {forfeit.groupId ? `🔒 ${forfeit.groupName}` : '🌍 Partagé'}
+                    </span>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">{forfeit.description}</p>
+                    {forfeit.proposedByUsername && (
+                      <p className="text-xs text-gray-400 dark:text-gray-500">
+                        💡 Proposé par <span className="font-medium">{forfeit.proposedByDisplayName || forfeit.proposedByUsername}</span>
+                      </p>
                     )}
+                    {/* Vote row */}
+                    <div className="flex items-center gap-1 mt-auto pt-2 border-t border-gray-100 dark:border-gray-700">
+                      <button
+                        onClick={() => handleVote(forfeit.id, userVote === 1 ? 0 : 1)}
+                        title="J'aime"
+                        className={`w-8 h-8 flex items-center justify-center rounded-md transition-colors text-base ${
+                          userVote === 1
+                            ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                            : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-green-500'
+                        }`}
+                      >
+                        ▲
+                      </button>
+                      <span
+                        className={`w-8 text-center text-sm font-semibold tabular-nums ${
+                          voteScore > 0
+                            ? 'text-green-600 dark:text-green-400'
+                            : voteScore < 0
+                            ? 'text-red-500 dark:text-red-400'
+                            : 'text-gray-400 dark:text-gray-500'
+                        }`}
+                      >
+                        {voteScore > 0 ? `+${voteScore}` : voteScore}
+                      </span>
+                      <button
+                        onClick={() => handleVote(forfeit.id, userVote === -1 ? 0 : -1)}
+                        title="Je n'aime pas"
+                        className={`w-8 h-8 flex items-center justify-center rounded-md transition-colors text-base ${
+                          userVote === -1
+                            ? 'bg-red-100 dark:bg-red-900/30 text-red-500 dark:text-red-400'
+                            : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-red-500'
+                        }`}
+                      >
+                        ▼
+                      </button>
+                    </div>
                   </div>
-                  <span
-                    className={`self-start text-xs px-2 py-0.5 rounded-full font-medium ${
-                      forfeit.groupId
-                        ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
-                        : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
-                    }`}
-                  >
-                    {forfeit.groupId ? `🔒 ${forfeit.groupName}` : '🌍 Partagé'}
-                  </span>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">{forfeit.description}</p>
-                  {forfeit.proposedByUsername && (
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-auto">
-                      💡 Proposé par <span className="font-medium">{forfeit.proposedByDisplayName || forfeit.proposedByUsername}</span>
-                    </p>
-                  )}
-                </div>
-              ))}
+                );
+              })}
           </div>
         </section>
       ))}
 
-      {forfeits.length === 0 && (
+      {filteredForfeits.length === 0 && (
         <div className="card text-center py-12 text-gray-500">
           <div className="text-5xl mb-3">🃏</div>
-          <p>Aucun gage dans la bibliothèque.</p>
+          <p>Aucun gage dans cette catégorie.</p>
           <p className="text-sm mt-1">Sois le premier à en proposer un !</p>
         </div>
       )}
 
       {/* Stats footer */}
-      {forfeits.length > 0 && (
+      {filteredForfeits.length > 0 && (
         <div className="text-center text-sm text-gray-400 dark:text-gray-500">
-          {forfeits.length} gage{forfeits.length > 1 ? 's' : ''} •{' '}
-          {forfeits.filter((f) => f.proposedByUsername).length} proposé{forfeits.filter((f) => f.proposedByUsername).length > 1 ? 's' : ''} par des joueurs •{' '}
-          {forfeits.reduce((sum, f) => sum + f.timesCompleted, 0)} fois effectué{forfeits.reduce((sum, f) => sum + f.timesCompleted, 0) > 1 ? 's' : ''} au total
+          {filteredForfeits.length} gage{filteredForfeits.length > 1 ? 's' : ''} •{' '}
+          {filteredForfeits.filter((f) => f.proposedByUsername).length} proposé{filteredForfeits.filter((f) => f.proposedByUsername).length > 1 ? 's' : ''} par des joueurs •{' '}
+          {filteredForfeits.reduce((sum, f) => sum + f.timesCompleted, 0)} fois effectué{filteredForfeits.reduce((sum, f) => sum + f.timesCompleted, 0) > 1 ? 's' : ''} au total
         </div>
       )}
     </div>

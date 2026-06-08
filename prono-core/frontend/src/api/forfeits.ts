@@ -41,6 +41,11 @@ export const proposeForfeit = async (
   return response.data;
 };
 
+export const voteForfeit = async (forfeitId: number, vote: 1 | -1 | 0): Promise<Forfeit> => {
+  const response = await apiClient.post<Forfeit>(`/forfeits/${forfeitId}/vote`, { vote });
+  return response.data;
+};
+
 export const deleteForfeit = async (forfeitId: number): Promise<void> => {
   await apiClient.delete(`/forfeits/${forfeitId}`);
 };

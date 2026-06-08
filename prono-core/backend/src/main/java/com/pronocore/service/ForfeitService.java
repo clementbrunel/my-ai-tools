@@ -3,11 +3,13 @@ package com.pronocore.service;
 import com.pronocore.dto.response.ForfeitResponse;
 import com.pronocore.dto.response.UserForfeitResponse;
 import com.pronocore.entity.Forfeit;
+import com.pronocore.entity.ForfeitVote;
 import com.pronocore.entity.Group;
 import com.pronocore.entity.GroupMember;
 import com.pronocore.entity.User;
 import com.pronocore.entity.UserForfeit;
 import com.pronocore.repository.ForfeitRepository;
+import com.pronocore.repository.ForfeitVoteRepository;
 import com.pronocore.repository.GroupMemberRepository;
 import com.pronocore.repository.UserForfeitRepository;
 import com.pronocore.repository.UserRepository;
@@ -20,12 +22,16 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class ForfeitService {
 
     private final ForfeitRepository      forfeitRepository;
+    private final ForfeitVoteRepository  forfeitVoteRepository;
     private final UserForfeitRepository  userForfeitRepository;
     private final UserRepository         userRepository;
     private final GroupMemberRepository  groupMemberRepository;
@@ -53,14 +59,15 @@ public class ForfeitService {
                 ? forfeitRepository.findByActiveTrueAndGroupIsNullOrderById()
                 : forfeitRepository.findActiveVisibleToGroups(groupIds);
 
-        return visible.stream().map(this::toForfeitResponse).toList();
+        return toForfeitResponsesForUser(visible, user.getId());
     }
 
     @Transactional(readOnly = true)
     public List<ForfeitResponse> getAllForfeitsAdmin() {
-        return forfeitRepository.findAll().stream()
-                .map(this::toForfeitResponse)
-                .toList();
+        String username = currentUsername();
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
+        return toForfeitResponsesForUser(forfeitRepository.findAll(), user.getId());
     }
 
     // ---------------------------------------------------------------
@@ -125,8 +132,8 @@ public class ForfeitService {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
         groupMemberGuard.requireActiveMembership(groupId, user.getId());
-        return forfeitRepository.findActiveVisibleToGroups(List.of(groupId))
-                .stream().map(this::toForfeitResponse).toList();
+        return toForfeitResponsesForUser(
+                forfeitRepository.findActiveVisibleToGroups(List.of(groupId)), user.getId());
     }
 
     /** Returns active group-specific forfeits (visible to any group member). */
@@ -136,8 +143,8 @@ public class ForfeitService {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
         groupMemberGuard.requireActiveMembership(groupId, user.getId());
-        return forfeitRepository.findByActiveTrueAndGroupIdOrderById(groupId)
-                .stream().map(this::toForfeitResponse).toList();
+        return toForfeitResponsesForUser(
+                forfeitRepository.findByActiveTrueAndGroupIdOrderById(groupId), user.getId());
     }
 
     /** Returns pending (inactive) proposed forfeits for a group (group admin only). */
@@ -147,8 +154,8 @@ public class ForfeitService {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
         groupMemberGuard.requireGroupAdmin(groupId, user.getId());
-        return forfeitRepository.findByActiveFalseAndGroupIdOrderById(groupId)
-                .stream().map(this::toForfeitResponse).toList();
+        return toForfeitResponsesForUser(
+                forfeitRepository.findByActiveFalseAndGroupIdOrderById(groupId), user.getId());
     }
 
     /** Group admin approves a proposed forfeit (sets active=true). */
@@ -275,10 +282,76 @@ public class ForfeitService {
     }
 
     // ---------------------------------------------------------------
+    // Voting
+    // ---------------------------------------------------------------
+
+    /**
+     * Cast, change, or remove the current user's vote on a forfeit from the library.
+     * Any authenticated user can vote on shared forfeits; for group forfeits, the
+     * user must be an active member of that group.
+     */
+    @Transactional
+    public ForfeitResponse voteForfeit(Long forfeitId, int voteValue) {
+        String username = currentUsername();
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
+        Forfeit forfeit = forfeitRepository.findById(forfeitId)
+                .orElseThrow(() -> new EntityNotFoundException("Forfeit not found: " + forfeitId));
+
+        if (forfeit.getGroup() != null) {
+            groupMemberGuard.requireActiveMembership(forfeit.getGroup().getId(), user.getId());
+        }
+
+        if (voteValue == 0) {
+            forfeitVoteRepository.deleteByForfeitIdAndUserId(forfeitId, user.getId());
+        } else {
+            if (voteValue != 1 && voteValue != -1) {
+                throw new IllegalArgumentException("Vote must be -1, 0, or +1");
+            }
+            Optional<ForfeitVote> existing = forfeitVoteRepository.findByForfeitIdAndUserId(forfeitId, user.getId());
+            if (existing.isPresent()) {
+                existing.get().setVote(voteValue);
+                forfeitVoteRepository.save(existing.get());
+            } else {
+                forfeitVoteRepository.save(ForfeitVote.builder()
+                        .forfeit(forfeit)
+                        .user(user)
+                        .vote(voteValue)
+                        .build());
+            }
+        }
+
+        return toForfeitResponsesForUser(List.of(forfeit), user.getId()).get(0);
+    }
+
+    // ---------------------------------------------------------------
     // Mapping helpers
     // ---------------------------------------------------------------
 
+    /** Bulk-enriches a list of forfeits with vote scores and the caller's own votes. */
+    private List<ForfeitResponse> toForfeitResponsesForUser(List<Forfeit> forfeits, Long userId) {
+        if (forfeits.isEmpty()) return List.of();
+
+        List<Long> ids = forfeits.stream().map(Forfeit::getId).toList();
+
+        Map<Long, Integer> scores = forfeitVoteRepository.sumVoteScoresByForfeitIds(ids).stream()
+                .collect(Collectors.toMap(r -> (Long) r[0], r -> ((Number) r[1]).intValue()));
+
+        Map<Long, Integer> userVotes = forfeitVoteRepository.findByForfeitIdInAndUserId(ids, userId).stream()
+                .collect(Collectors.toMap(v -> v.getForfeit().getId(), ForfeitVote::getVote));
+
+        return forfeits.stream()
+                .map(f -> toForfeitResponse(f,
+                        scores.getOrDefault(f.getId(), 0),
+                        userVotes.getOrDefault(f.getId(), 0)))
+                .toList();
+    }
+
     ForfeitResponse toForfeitResponse(Forfeit f) {
+        return toForfeitResponse(f, 0, 0);
+    }
+
+    private ForfeitResponse toForfeitResponse(Forfeit f, int voteScore, int userVote) {
         return ForfeitResponse.builder()
                 .id(f.getId())
                 .title(f.getTitle())
@@ -290,6 +363,8 @@ public class ForfeitService {
                 .proposedByDisplayName(f.getProposedBy() != null ? f.getProposedBy().getDisplayName() : null)
                 .groupId(f.getGroup() != null ? f.getGroup().getId() : null)
                 .groupName(f.getGroup() != null ? f.getGroup().getName() : null)
+                .voteScore(voteScore)
+                .userVote(userVote)
                 .build();
     }
 

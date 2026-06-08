@@ -31,4 +31,10 @@ public class ForfeitResponse {
     /** Null = shared gage (visible to all groups). Non-null = belongs to that group only. */
     private Long groupId;
     private String groupName;
+
+    /** Sum of all upvotes (+1) and downvotes (-1) across all users. */
+    private int voteScore;
+
+    /** Current user's vote: +1, -1, or 0 (no vote / not loaded). */
+    private int userVote;
 }

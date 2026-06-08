@@ -126,6 +126,10 @@ export interface Forfeit {
   /** null = shared gage (visible to all groups); set = belongs to that group only */
   groupId?: number | null;
   groupName?: string | null;
+  /** Sum of all upvotes and downvotes. */
+  voteScore: number;
+  /** Current user's vote: +1, -1, or 0 (no vote). */
+  userVote: number;
 }
 
 export interface UserForfeitEntry {
