@@ -1,5 +1,6 @@
 package com.pronocore.service;
 
+import com.pronocore.dto.request.EmailType;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
@@ -25,6 +26,12 @@ public class EmailService {
         this.restClient = RestClient.builder()
             .baseUrl("https://api.resend.com")
             .build();
+    }
+
+    public void sendTestEmail(String to, EmailType emailType) {
+        switch (emailType) {
+            case VERIFICATION -> sendVerificationEmail(to, "test-preview-000");
+        }
     }
 
     public void sendVerificationEmail(String to, String token) {

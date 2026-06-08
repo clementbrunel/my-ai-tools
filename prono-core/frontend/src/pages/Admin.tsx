@@ -7,12 +7,13 @@ import { getMatches, createMatch, updateMatchScore, getCompetitions } from '../a
 import { getAllForfeitsAdmin, createForfeit, deleteForfeit } from '../api/forfeits';
 import { getAllGroups } from '../api/groups';
 import { getAllUsersAdmin } from '../api/users';
+import { sendTestEmail, type EmailType } from '../api/email';
 import DailyGagePanel from '../components/DailyGagePanel';
 import type { Match, Forfeit, Group, UserAdminInfo } from '../types';
 import { isAdmin } from '../types';
 import { formatDate } from '../utils/dates';
 
-type AdminTab = 'matches' | 'forfeits' | 'users';
+type AdminTab = 'matches' | 'forfeits' | 'users' | 'emails';
 
 const Admin: React.FC = () => {
   const { user } = useAuth();
@@ -52,6 +53,13 @@ const Admin: React.FC = () => {
   const [newForfeitCategory, setNewForfeitCategory] = useState('General');
   const [forfeitError, setForfeitError] = useState('');
   const [forfeitSuccess, setForfeitSuccess] = useState('');
+
+  // Test email form
+  const [testEmailTarget, setTestEmailTarget] = useState('');
+  const [testEmailType, setTestEmailType] = useState<EmailType>('VERIFICATION');
+  const [emailTestLoading, setEmailTestLoading] = useState(false);
+  const [emailTestError, setEmailTestError] = useState('');
+  const [emailTestSuccess, setEmailTestSuccess] = useState('');
 
   // Groups the platform admin manages
   const [adminGroups, setAdminGroups] = useState<Group[]>([]);
@@ -167,6 +175,21 @@ const Admin: React.FC = () => {
     });
   };
 
+  const handleSendTestEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEmailTestError(''); setEmailTestSuccess('');
+    setEmailTestLoading(true);
+    try {
+      await sendTestEmail(testEmailTarget, testEmailType);
+      setEmailTestSuccess(`Email envoyé à ${testEmailTarget} !`);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message ?? 'Erreur lors de l\'envoi.';
+      setEmailTestError(msg);
+    } finally {
+      setEmailTestLoading(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="text-center py-12">
@@ -180,6 +203,7 @@ const Admin: React.FC = () => {
     { id: 'matches', label: '⚽ Matchs' },
     { id: 'forfeits', label: '🃏 Gages' },
     { id: 'users', label: '👥 Utilisateurs' },
+    { id: 'emails', label: '📧 Emails' },
   ];
 
   return (
@@ -582,6 +606,74 @@ const Admin: React.FC = () => {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ===== EMAILS TAB ===== */}
+      {activeTab === 'emails' && (
+        <div className="space-y-6">
+          <div className="card">
+            <h3 className="font-bold text-gray-900 dark:text-white mb-1">📧 Tester un template d'email</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+              Envoie un email de test directement vers une adresse pour prévisualiser le rendu d'un template.
+            </p>
+            <form onSubmit={handleSendTestEmail} className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+              <div>
+                <label className="label">Adresse cible</label>
+                <input
+                  type="email"
+                  value={testEmailTarget}
+                  onChange={(e) => setTestEmailTarget(e.target.value)}
+                  className="input-field"
+                  placeholder="test@example.com"
+                  required
+                />
+              </div>
+              <div>
+                <label className="label">Template</label>
+                <select
+                  value={testEmailType}
+                  onChange={(e) => setTestEmailType(e.target.value as EmailType)}
+                  className="input-field"
+                >
+                  <option value="VERIFICATION">Vérification d'email</option>
+                </select>
+              </div>
+              <div>
+                <button
+                  type="submit"
+                  className="btn-primary text-sm w-full"
+                  disabled={emailTestLoading}
+                >
+                  {emailTestLoading ? 'Envoi...' : '📤 Envoyer'}
+                </button>
+              </div>
+              {emailTestError && (
+                <p className="md:col-span-3 text-red-500 text-sm">{emailTestError}</p>
+              )}
+              {emailTestSuccess && (
+                <p className="md:col-span-3 text-green-500 text-sm">✅ {emailTestSuccess}</p>
+              )}
+            </form>
+          </div>
+
+          <div className="card">
+            <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">Templates disponibles</h3>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+                  <th className="py-2 px-4 text-left text-xs text-gray-500 uppercase">Template</th>
+                  <th className="py-2 px-4 text-left text-xs text-gray-500 uppercase">Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-gray-100 dark:border-gray-700">
+                  <td className="py-3 px-4 font-medium text-gray-900 dark:text-white">Vérification d'email</td>
+                  <td className="py-3 px-4 text-gray-500">Envoyé à l'inscription pour vérifier l'adresse email du nouvel utilisateur.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
