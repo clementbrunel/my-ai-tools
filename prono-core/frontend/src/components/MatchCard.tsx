@@ -16,7 +16,7 @@ const statusEmoji: Record<string, string> = {
 const TeamFlag: React.FC<{ name: string; size?: string }> = ({ name, size = 'w-8 h-6' }) => {
   const url = getFlagUrl(name);
   return url
-    ? <img src={url} alt={name} className={`${size} object-cover rounded-sm shadow-sm`} />
+    ? <img src={url} alt={name} className={`${size} object-contain rounded-sm shadow-sm`} />
     : <span className="text-2xl">🏳️</span>;
 };
 
