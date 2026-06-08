@@ -1,13 +1,18 @@
 package com.pronocore.service;
 
 import com.pronocore.dto.request.EmailType;
+import com.pronocore.entity.Match;
+import com.pronocore.entity.User;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 @Service
@@ -32,6 +37,15 @@ public class EmailService {
         switch (emailType) {
             case VERIFICATION -> sendVerificationEmail(to, "test-preview-000");
             case PASSWORD_RESET -> sendPasswordResetEmail(to, "test-preview-000");
+            case MATCH_REMINDER -> {
+                User fakeUser = User.builder().username("joueur_test").email(to).emailReminderEnabled(true).build();
+                Match fakeMatch = Match.builder()
+                    .id(0L).teamA("France").teamB("Brésil")
+                    .matchDate(LocalDateTime.now().plusHours(1))
+                    .competition("FIFA World Cup 2026").round("Finale")
+                    .reminderSent(false).build();
+                sendMatchReminder(fakeUser, fakeMatch);
+            }
         }
     }
 
@@ -46,7 +60,7 @@ public class EmailService {
                     "from", "PronoCore <noreply@app.prono-core.top>",
                     "to", List.of(to),
                     "subject", "Vérifie ton adresse email - PronoCore",
-                    "html", buildHtml(verifyUrl)
+                    "html", buildVerificationHtml(verifyUrl)
                 ))
                 .retrieve()
                 .toBodilessEntity();
@@ -77,6 +91,72 @@ public class EmailService {
             log.error("Failed to send password reset email to {}: {}", to, e.getMessage());
             throw new RuntimeException("Impossible d'envoyer l'email de réinitialisation. Vérifie ta configuration Resend.");
         }
+    }
+
+    public void sendMatchReminder(User user, Match match) {
+        String kickoff = match.getMatchDate()
+                .format(DateTimeFormatter.ofPattern("HH'h'mm", Locale.FRANCE));
+        String appUrl = frontendUrl + "/matches/" + match.getId();
+        try {
+            restClient.post()
+                .uri("/emails")
+                .header("Authorization", "Bearer " + apiKey)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(Map.of(
+                    "from", "PronoCore <noreply@app.prono-core.top>",
+                    "to", List.of(user.getEmail()),
+                    "subject", "⚽ Rappel : " + match.getTeamA() + " – " + match.getTeamB() + " dans 1h !",
+                    "html", buildMatchReminderHtml(user, match, kickoff, appUrl)
+                ))
+                .retrieve()
+                .toBodilessEntity();
+            log.info("Match reminder sent to {} for match {}", user.getEmail(), match.getId());
+        } catch (Exception e) {
+            log.error("Failed to send match reminder to {}: {}", user.getEmail(), e.getMessage());
+        }
+    }
+
+    private String buildMatchReminderHtml(User user, Match match, String kickoff, String appUrl) {
+        String displayName = user.getDisplayName() != null ? user.getDisplayName() : user.getUsername();
+        return """
+            <!DOCTYPE html>
+            <html lang="fr">
+            <head><meta charset="utf-8"></head>
+            <body style="font-family:Arial,sans-serif;background:#f4f4f4;padding:20px;margin:0">
+              <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.1)">
+                <div style="background:linear-gradient(135deg,#1a472a,#2d6a4f);padding:32px;text-align:center">
+                  <div style="font-size:48px;margin-bottom:8px">⚽</div>
+                  <h1 style="color:#FFD700;margin:0;font-size:28px">PronoCore</h1>
+                  <p style="color:#90EE90;margin:8px 0 0">Coupe du Monde 2026</p>
+                </div>
+                <div style="padding:32px">
+                  <h2 style="color:#1a1a1a;margin-top:0">Rappel de match ⏰</h2>
+                  <p style="color:#444;line-height:1.6">Bonjour <strong>%s</strong>,</p>
+                  <p style="color:#444;line-height:1.6">
+                    Le match <strong>%s – %s</strong> commence dans <strong>1 heure</strong> (%s) et tu n'as pas encore saisi ton pronostic !
+                  </p>
+                  <div style="background:#f8f9fa;border-radius:8px;padding:16px;margin:24px 0;text-align:center">
+                    <div style="font-size:32px;margin-bottom:4px">🆚</div>
+                    <div style="font-size:20px;font-weight:bold;color:#1a472a">%s – %s</div>
+                    <div style="color:#6b7280;margin-top:4px;font-size:14px">%s • Coup d'envoi à %s</div>
+                  </div>
+                  <div style="text-align:center;margin:32px 0">
+                    <a href="%s"
+                       style="background:#2d6a4f;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:16px;display:inline-block">
+                      ⚽ Saisir mon pronostic
+                    </a>
+                  </div>
+                  <hr style="border:none;border-top:1px solid #eee;margin:24px 0">
+                  <p style="color:#aaa;font-size:12px;text-align:center">
+                    Tu reçois cet email car les rappels de matchs sont activés dans ton profil.<br>
+                    Pour les désactiver : <em>Mon profil → Notifications</em>.
+                  </p>
+                </div>
+              </div>
+            </body>
+            </html>
+            """.formatted(displayName, match.getTeamA(), match.getTeamB(), kickoff,
+                          match.getTeamA(), match.getTeamB(), match.getRound(), kickoff, appUrl);
     }
 
     private String buildPasswordResetHtml(String resetUrl) {
@@ -110,7 +190,7 @@ public class EmailService {
             """.formatted(resetUrl);
     }
 
-    private String buildHtml(String verifyUrl) {
+    private String buildVerificationHtml(String verifyUrl) {
         return """
             <!DOCTYPE html>
             <html lang="fr">

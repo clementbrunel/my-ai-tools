@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { getParticipatedBets } from '../api/bets';
 import { getLeaderboard } from '../api/leaderboard';
 import { getMyForfeits, completeForfeit } from '../api/forfeits';
-import { updateAvatar, updateDisplayName, updatePassword } from '../api/users';
+import { updateAvatar, updateDisplayName, updateEmailReminder, updatePassword } from '../api/users';
 import type { Bet, LeaderboardEntry, UserForfeitEntry } from '../types';
 import { isAdmin } from '../types';
 import { formatDate } from '../utils/dates';
@@ -32,6 +32,9 @@ const Profile: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [pwSaving, setPwSaving] = useState(false);
   const [pwMsg, setPwMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const [reminderEnabled, setReminderEnabled] = useState(user?.emailReminderEnabled ?? true);
+  const [reminderSaving, setReminderSaving] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -97,6 +100,20 @@ const Profile: React.FC = () => {
       setAvatarMsg({ type: 'error', text: 'Impossible de mettre à jour l\'avatar.' });
     } finally {
       setAvatarSaving(false);
+    }
+  };
+
+  const handleReminderToggle = async (enabled: boolean) => {
+    setReminderSaving(true);
+    try {
+      const updated = await updateEmailReminder(enabled);
+      setReminderEnabled(updated.emailReminderEnabled);
+      updateUser(updated);
+      showToast(enabled ? 'Rappels par email activés' : 'Rappels par email désactivés');
+    } catch {
+      showToast('Impossible de modifier la préférence de rappel');
+    } finally {
+      setReminderSaving(false);
     }
   };
 
@@ -231,6 +248,34 @@ const Profile: React.FC = () => {
                   {avatarMsg.text}
                 </p>
               )}
+            </div>
+
+            {/* Email reminder */}
+            <div>
+              <h3 className="font-bold text-gray-900 dark:text-white mb-3">🔔 Notifications</h3>
+              <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <div>
+                  <p className="font-medium text-gray-900 dark:text-white text-sm">Rappel par email avant chaque match</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    Reçois un email 1 heure avant le match si tu n'as pas encore saisi ton pronostic
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleReminderToggle(!reminderEnabled)}
+                  disabled={reminderSaving}
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-50 ${
+                    reminderEnabled ? 'bg-wc-green' : 'bg-gray-300 dark:bg-gray-600'
+                  }`}
+                  role="switch"
+                  aria-checked={reminderEnabled}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ${
+                      reminderEnabled ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
             </div>
 
             {/* Password */}

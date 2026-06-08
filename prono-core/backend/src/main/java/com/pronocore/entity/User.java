@@ -61,6 +61,10 @@ public class User {
     @Column(name = "token_expiry")
     private LocalDateTime tokenExpiry;
 
+    @Column(name = "email_reminder_enabled", nullable = false)
+    @Builder.Default
+    private boolean emailReminderEnabled = true;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

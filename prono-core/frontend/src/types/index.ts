@@ -9,6 +9,7 @@ export interface User {
   globalScore: number;
   betsWon: number;
   forfeitsReceived: number;
+  emailReminderEnabled: boolean;
   createdAt?: string;
 }
 

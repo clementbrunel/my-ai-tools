@@ -46,6 +46,10 @@ public class Match {
     @Builder.Default
     private String round = "Group Stage";
 
+    @Column(name = "reminder_sent", nullable = false)
+    @Builder.Default
+    private boolean reminderSent = false;
+
     public enum Status {
         UPCOMING, ONGOING, FINISHED
     }

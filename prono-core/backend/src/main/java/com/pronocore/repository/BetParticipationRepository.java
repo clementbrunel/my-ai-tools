@@ -77,4 +77,11 @@ public interface BetParticipationRepository extends JpaRepository<BetParticipati
                                                           @Param("endOfDay")        LocalDateTime endOfDay,
                                                           @Param("validatedStatus") Bet.Status    validatedStatus,
                                                           @Param("groupId")         Long          groupId);
+
+    /** True if the user has already placed at least one bet for the given match (across any group). */
+    @Query("""
+            SELECT COUNT(bp) > 0 FROM BetParticipation bp
+            WHERE bp.user.id = :userId AND bp.bet.match.id = :matchId
+            """)
+    boolean existsByUserIdAndMatchId(@Param("userId") Long userId, @Param("matchId") Long matchId);
 }

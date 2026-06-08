@@ -15,6 +15,11 @@ export const updatePassword = async (currentPassword: string, newPassword: strin
   await apiClient.patch('/users/me/password', { currentPassword, newPassword });
 };
 
+export const updateEmailReminder = async (emailReminderEnabled: boolean): Promise<User> => {
+  const response = await apiClient.patch<User>('/users/me/email-reminder', { emailReminderEnabled });
+  return response.data;
+};
+
 export const getAllUsersAdmin = async (): Promise<UserAdminInfo[]> => {
   const response = await apiClient.get<UserAdminInfo[]>('/admin/users');
   return response.data;

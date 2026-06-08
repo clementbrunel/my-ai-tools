@@ -1,5 +1,6 @@
 package com.pronocore.controller;
 
+import com.pronocore.dto.request.UpdateEmailReminderRequest;
 import com.pronocore.dto.request.UpdatePasswordRequest;
 import com.pronocore.dto.response.UserResponse;
 import com.pronocore.service.UserService;
@@ -59,5 +60,12 @@ public class UserController {
                                                 Authentication authentication) {
         userService.updatePassword(authentication.getName(), request.getCurrentPassword(), request.getNewPassword());
         return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/me/email-reminder")
+    @Operation(summary = "Update email reminder preference")
+    public ResponseEntity<UserResponse> updateEmailReminder(@Valid @RequestBody UpdateEmailReminderRequest request,
+                                                             Authentication authentication) {
+        return ResponseEntity.ok(userService.updateEmailReminder(authentication.getName(), request.getEmailReminderEnabled()));
     }
 }

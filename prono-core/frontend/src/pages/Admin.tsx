@@ -669,6 +669,7 @@ const Admin: React.FC = () => {
                 >
                   <option value="VERIFICATION">Vérification d'email</option>
                   <option value="PASSWORD_RESET">Réinitialisation de mot de passe</option>
+                  <option value="MATCH_REMINDER">Rappel de match</option>
                 </select>
               </div>
               <div>
@@ -706,6 +707,14 @@ const Admin: React.FC = () => {
                 <tr className="border-b border-gray-100 dark:border-gray-700">
                   <td className="py-3 px-4 font-medium text-gray-900 dark:text-white">Réinitialisation de mot de passe</td>
                   <td className="py-3 px-4 text-gray-500">Envoyé lors d'une demande de mot de passe oublié. Contient un lien valable 1 heure.</td>
+                </tr>
+                <tr className="border-b border-gray-100 dark:border-gray-700">
+                  <td className="py-3 px-4 font-medium text-gray-900 dark:text-white">Rappel de match</td>
+                  <td className="py-3 px-4 text-gray-500">
+                    Envoyé automatiquement 1 heure avant chaque match aux joueurs n'ayant pas encore saisi leur pronostic.
+                    Activable / désactivable par chaque utilisateur dans son profil.
+                    Le test utilise un match fictif (France – Brésil, Finale).
+                  </td>
                 </tr>
               </tbody>
             </table>

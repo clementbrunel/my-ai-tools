@@ -24,5 +24,6 @@ public class UserResponse {
     private int globalScore;
     private int betsWon;
     private int forfeitsReceived;
+    private boolean emailReminderEnabled;
     private LocalDateTime createdAt;
 }

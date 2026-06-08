@@ -36,4 +36,15 @@ public interface MatchRepository extends JpaRepository<Match, Long> {
     /** Distinct competition names that still have at least one non-FINISHED match. */
     @Query("SELECT DISTINCT m.competition FROM Match m WHERE m.status <> com.pronocore.entity.Match.Status.FINISHED ORDER BY m.competition ASC")
     List<String> findActiveCompetitions();
+
+    /** Upcoming matches whose kick-off falls in [from, to] and for which no reminder has been sent yet. */
+    @Query("""
+            SELECT m FROM Match m
+            WHERE m.status = com.pronocore.entity.Match.Status.UPCOMING
+              AND m.reminderSent = false
+              AND m.matchDate >= :from
+              AND m.matchDate <= :to
+            """)
+    List<Match> findUpcomingMatchesForReminder(@Param("from") LocalDateTime from,
+                                               @Param("to")   LocalDateTime to);
 }

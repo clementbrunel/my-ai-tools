@@ -78,6 +78,15 @@ public class UserService {
         userRepository.save(user);
     }
 
+    @Transactional
+    public UserResponse updateEmailReminder(String username, boolean enabled) {
+        User user = userRepository.findByUsername(username)
+            .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
+        user.setEmailReminderEnabled(enabled);
+        userRepository.save(user);
+        return userMapper.toResponse(user);
+    }
+
     @Transactional(readOnly = true)
     public List<UserAdminResponse> getAllUsersWithGroups() {
         List<User> users = userRepository.findAll();
