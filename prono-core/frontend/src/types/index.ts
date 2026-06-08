@@ -55,6 +55,18 @@ export interface PublicGroup {
   currentUserStatus: MemberStatus | null;
 }
 
+export interface UserGroupSummary {
+  groupId: number;
+  groupName: string;
+  role: GroupRole;
+  status: MemberStatus;
+  joinedAt: string;
+}
+
+export interface UserAdminInfo extends User {
+  groups: UserGroupSummary[];
+}
+
 export interface CreateGroupRequest {
   name: string;
   description?: string;

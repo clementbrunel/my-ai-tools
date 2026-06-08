@@ -28,4 +28,7 @@ public interface GroupMemberRepository extends JpaRepository<GroupMember, Long> 
 
     @Query("SELECT gm FROM GroupMember gm JOIN FETCH gm.group WHERE gm.group.id IN :groupIds")
     List<GroupMember> findByGroupIdIn(@Param("groupIds") List<Long> groupIds);
+
+    @Query("SELECT gm FROM GroupMember gm JOIN FETCH gm.group JOIN FETCH gm.user")
+    List<GroupMember> findAllWithGroupAndUser();
 }

@@ -1,5 +1,5 @@
 import apiClient from './axios';
-import type { User } from '../types';
+import type { User, UserAdminInfo } from '../types';
 
 export const updateAvatar = async (avatarUrl: string): Promise<User> => {
   const response = await apiClient.patch<User>('/users/me/avatar', null, { params: { avatarUrl } });
@@ -13,4 +13,9 @@ export const updateDisplayName = async (displayName: string): Promise<User> => {
 
 export const updatePassword = async (currentPassword: string, newPassword: string): Promise<void> => {
   await apiClient.patch('/users/me/password', { currentPassword, newPassword });
+};
+
+export const getAllUsersAdmin = async (): Promise<UserAdminInfo[]> => {
+  const response = await apiClient.get<UserAdminInfo[]>('/admin/users');
+  return response.data;
 };

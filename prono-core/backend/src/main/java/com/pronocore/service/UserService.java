@@ -1,8 +1,12 @@
 package com.pronocore.service;
 
+import com.pronocore.dto.response.UserAdminResponse;
+import com.pronocore.dto.response.UserGroupSummary;
 import com.pronocore.dto.response.UserResponse;
+import com.pronocore.entity.GroupMember;
 import com.pronocore.entity.User;
 import com.pronocore.mapper.UserMapper;
+import com.pronocore.repository.GroupMemberRepository;
 import com.pronocore.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -10,13 +14,17 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class UserService {
 
     private final UserRepository userRepository;
+    private final GroupMemberRepository groupMemberRepository;
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
 
@@ -68,6 +76,42 @@ public class UserService {
         }
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
+    }
+
+    @Transactional(readOnly = true)
+    public List<UserAdminResponse> getAllUsersWithGroups() {
+        List<User> users = userRepository.findAll();
+        List<GroupMember> allMembers = groupMemberRepository.findAllWithGroupAndUser();
+
+        Map<Long, List<UserGroupSummary>> groupsByUserId = allMembers.stream()
+            .collect(Collectors.groupingBy(
+                gm -> gm.getUser().getId(),
+                Collectors.mapping(gm -> UserGroupSummary.builder()
+                    .groupId(gm.getGroup().getId())
+                    .groupName(gm.getGroup().getName())
+                    .role(gm.getRole())
+                    .status(gm.getStatus())
+                    .joinedAt(gm.getJoinedAt())
+                    .build(),
+                Collectors.toList())
+            ));
+
+        return users.stream()
+            .map(user -> UserAdminResponse.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .role(user.getRole())
+                .avatarUrl(user.getAvatarUrl())
+                .globalScore(user.getGlobalScore())
+                .betsWon(user.getBetsWon())
+                .forfeitsReceived(user.getForfeitsReceived())
+                .createdAt(user.getCreatedAt())
+                .groups(groupsByUserId.getOrDefault(user.getId(), List.of()))
+                .build())
+            .sorted(Comparator.comparing(UserAdminResponse::getCreatedAt,
+                Comparator.nullsLast(Comparator.naturalOrder())))
+            .toList();
     }
 
     public User findByUsername(String username) {

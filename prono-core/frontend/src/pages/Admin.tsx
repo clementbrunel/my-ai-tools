@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ConfirmModal from '../components/ConfirmModal';
 import { useToast } from '../components/Toast';
@@ -6,12 +6,13 @@ import { useAuth } from '../context/AuthContext';
 import { getMatches, createMatch, updateMatchScore, getCompetitions } from '../api/matches';
 import { getAllForfeitsAdmin, createForfeit, deleteForfeit } from '../api/forfeits';
 import { getAllGroups } from '../api/groups';
+import { getAllUsersAdmin } from '../api/users';
 import DailyGagePanel from '../components/DailyGagePanel';
-import type { Match, Forfeit, Group } from '../types';
+import type { Match, Forfeit, Group, UserAdminInfo } from '../types';
 import { isAdmin } from '../types';
 import { formatDate } from '../utils/dates';
 
-type AdminTab = 'matches' | 'forfeits';
+type AdminTab = 'matches' | 'forfeits' | 'users';
 
 const Admin: React.FC = () => {
   const { user } = useAuth();
@@ -55,6 +56,10 @@ const Admin: React.FC = () => {
   // Groups the platform admin manages
   const [adminGroups, setAdminGroups] = useState<Group[]>([]);
 
+  // Users tab
+  const [platformUsers, setPlatformUsers] = useState<UserAdminInfo[]>([]);
+  const [expandedUserId, setExpandedUserId] = useState<number | null>(null);
+
   useEffect(() => {
     if (!isAdmin(user)) {
       navigate('/dashboard');
@@ -92,6 +97,15 @@ const Admin: React.FC = () => {
         .catch(console.error);
     }
   }, [activeTab]);
+
+  // Lazy-load users tab data
+  useEffect(() => {
+    if (activeTab === 'users' && platformUsers.length === 0) {
+      getAllUsersAdmin()
+        .then(setPlatformUsers)
+        .catch(console.error);
+    }
+  }, [activeTab, platformUsers.length]);
 
   // ---- Match handlers ----
   const handleCreateMatch = async (e: React.FormEvent) => {
@@ -165,6 +179,7 @@ const Admin: React.FC = () => {
   const tabs: { id: AdminTab; label: string }[] = [
     { id: 'matches', label: '⚽ Matchs' },
     { id: 'forfeits', label: '🃏 Gages' },
+    { id: 'users', label: '👥 Utilisateurs' },
   ];
 
   return (
@@ -450,6 +465,123 @@ const Admin: React.FC = () => {
               </div>
             </div>
           </section>
+        </div>
+      )}
+
+      {/* ===== USERS TAB ===== */}
+      {activeTab === 'users' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {platformUsers.length} utilisateur{platformUsers.length !== 1 ? 's' : ''} inscrit{platformUsers.length !== 1 ? 's' : ''}
+            </p>
+          </div>
+
+          {platformUsers.length === 0 ? (
+            <div className="card text-center py-8 text-gray-500">Chargement...</div>
+          ) : (
+            <div className="card overflow-hidden p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+                      <th className="py-3 px-4 text-left text-xs text-gray-500 uppercase">Utilisateur</th>
+                      <th className="py-3 px-4 text-left text-xs text-gray-500 uppercase">Email</th>
+                      <th className="py-3 px-4 text-center text-xs text-gray-500 uppercase">Rôle</th>
+                      <th className="py-3 px-4 text-center text-xs text-gray-500 uppercase">Groupes</th>
+                      <th className="py-3 px-4 text-center text-xs text-gray-500 uppercase">Score</th>
+                      <th className="py-3 px-4 text-center text-xs text-gray-500 uppercase">Inscrit le</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {platformUsers.map((u) => (
+                      <React.Fragment key={u.id}>
+                        <tr
+                          onClick={() => setExpandedUserId(expandedUserId === u.id ? null : u.id)}
+                          className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer"
+                        >
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-2">
+                              {u.avatarUrl ? (
+                                <img src={u.avatarUrl} alt="" className="w-7 h-7 rounded-full object-cover" />
+                              ) : (
+                                <div className="w-7 h-7 rounded-full bg-wc-green/20 flex items-center justify-center text-xs font-bold text-wc-green">
+                                  {u.username.charAt(0).toUpperCase()}
+                                </div>
+                              )}
+                              <span className="text-sm font-medium text-gray-900 dark:text-white">{u.username}</span>
+                              {expandedUserId === u.id && (
+                                <span className="text-xs text-gray-400">▲</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 text-sm text-gray-500 dark:text-gray-400">{u.email}</td>
+                          <td className="py-3 px-4 text-center">
+                            {u.role === 'PLATFORM_ADMIN' ? (
+                              <span className="badge-admin text-xs">ADMIN</span>
+                            ) : (
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                                Joueur
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            <span className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
+                              {u.groups.filter(g => g.status === 'ACTIVE').length}
+                            </span>
+                            {u.groups.some(g => g.status === 'PENDING') && (
+                              <span className="ml-1 text-xs text-amber-500">
+                                (+{u.groups.filter(g => g.status === 'PENDING').length} en attente)
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-center text-sm font-semibold text-wc-gold">
+                            {u.globalScore}
+                          </td>
+                          <td className="py-3 px-4 text-center text-xs text-gray-400">
+                            {u.createdAt ? formatDate(u.createdAt) : '—'}
+                          </td>
+                        </tr>
+
+                        {expandedUserId === u.id && (
+                          <tr className="bg-indigo-50 dark:bg-indigo-900/10 border-b border-indigo-100 dark:border-indigo-800">
+                            <td colSpan={6} className="px-6 py-3">
+                              {u.groups.length === 0 ? (
+                                <p className="text-sm text-gray-400 italic">Aucun groupe</p>
+                              ) : (
+                                <div className="flex flex-wrap gap-2">
+                                  {u.groups.map((g) => (
+                                    <div
+                                      key={g.groupId}
+                                      className="flex items-center gap-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-sm"
+                                    >
+                                      <span className="font-medium text-gray-900 dark:text-white">{g.groupName}</span>
+                                      <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
+                                        g.role === 'GROUP_ADMIN'
+                                          ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
+                                          : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                                      }`}>
+                                        {g.role === 'GROUP_ADMIN' ? 'Admin' : 'Membre'}
+                                      </span>
+                                      {g.status === 'PENDING' && (
+                                        <span className="text-xs px-1.5 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 font-medium">
+                                          En attente
+                                        </span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
