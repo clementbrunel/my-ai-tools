@@ -6,6 +6,11 @@ export const updateAvatar = async (avatarUrl: string): Promise<User> => {
   return response.data;
 };
 
+export const updateDisplayName = async (displayName: string): Promise<User> => {
+  const response = await apiClient.patch<User>('/users/me/display-name', null, { params: { displayName } });
+  return response.data;
+};
+
 export const updatePassword = async (currentPassword: string, newPassword: string): Promise<void> => {
   await apiClient.patch('/users/me/password', { currentPassword, newPassword });
 };

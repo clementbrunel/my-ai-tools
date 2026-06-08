@@ -33,6 +33,9 @@ public class User {
     @Builder.Default
     private Role role = Role.USER;
 
+    @Column(name = "display_name", length = 100)
+    private String displayName;
+
     @Column(name = "avatar_url")
     private String avatarUrl;
 

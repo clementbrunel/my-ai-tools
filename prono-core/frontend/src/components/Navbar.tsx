@@ -73,7 +73,7 @@ const Navbar: React.FC = () => {
                       user.username[0].toUpperCase()
                     )}
                   </div>
-                  <span className="text-sm font-medium">{user.username}</span>
+                  <span className="text-sm font-medium">{user.displayName || user.username}</span>
                   {isAdmin(user) && <span className="badge-admin">Admin</span>}
                 </Link>
                 <button
@@ -128,7 +128,7 @@ const Navbar: React.FC = () => {
                 className="text-sm px-2 py-1 text-gray-200"
                 onClick={() => setMobileOpen(false)}
               >
-                👤 Profil ({user?.username})
+                👤 Profil ({user?.displayName || user?.username})
               </Link>
               <button
                 onClick={handleLogout}

@@ -42,6 +42,15 @@ public class UserService {
     }
 
     @Transactional
+    public UserResponse updateDisplayName(String username, String displayName) {
+        User user = userRepository.findByUsername(username)
+            .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
+        user.setDisplayName(displayName.isBlank() ? null : displayName.trim());
+        userRepository.save(user);
+        return userMapper.toResponse(user);
+    }
+
+    @Transactional
     public UserResponse updateAvatar(String username, String avatarUrl) {
         User user = userRepository.findByUsername(username)
             .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
