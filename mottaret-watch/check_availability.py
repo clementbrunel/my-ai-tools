@@ -19,7 +19,10 @@ URL          = "https://meribel-mottaret-lesbleuets.fr/locations"
 TARGET_START = date(2026, 7, 16)
 TARGET_END   = date(2026, 7, 31)
 
-MAEVA_BASE = "https://www.maeva.com/fr-fr/pages/fiche.php"
+MAEVA_BASE_VARIANTS = [
+    "https://www.maeva.com/pages/fiche.php",        # URL canonique (sans /fr-fr/)
+    "https://www.maeva.com/fr-fr/pages/fiche.php",  # ancienne URL
+]
 MAEVA_PARAMS_COMMON = {
     "filtres": "",
     "action": "updatePrixSeo",
@@ -171,37 +174,59 @@ def _maeva_product_to_dict(p: dict, date_debut: str, date_fin: str, booking_url:
     }
 
 
-def fetch_maeva_week(date_debut: str, date_fin: str) -> list[dict]:
-    """Interroge l'API Maeva pour une semaine et retourne les logements dispo."""
+def fetch_maeva_week(date_debut: str, date_fin: str) -> tuple[list[dict], bool]:
+    """Interroge l'API Maeva pour une semaine.
+
+    Retourne (listings, had_error). Essaie plusieurs variantes d'URL.
+    had_error=True si aucune variante n'a répondu correctement.
+    """
     params = {**MAEVA_PARAMS_COMMON, "dateDebut": date_debut, "dateFin": date_fin}
-    try:
-        resp = requests.get(MAEVA_BASE, params=params, headers=HEADERS, timeout=30)
-        resp.raise_for_status()
-        data = resp.json()
-    except Exception as e:
-        print(f"  ⚠️  Maeva {date_debut}→{date_fin} : erreur {e}")
-        return []
+    last_error: Exception | None = None
 
-    produits = data.get("content", {}).get("produit", {})
-    products = _parse_maeva_products(produits)
-    if products is None:
-        print(f"  ⚠️  Maeva : structure JSON inattendue pour {date_debut}→{date_fin}")
-        return []
+    for base in MAEVA_BASE_VARIANTS:
+        try:
+            resp = requests.get(base, params=params, headers=HEADERS, timeout=30)
+            if resp.status_code == 404:
+                print(f"  ⚠️  Maeva {date_debut}→{date_fin} : 404 sur {base}")
+                continue
+            resp.raise_for_status()
+            data = resp.json()
+        except Exception as e:
+            print(f"  ⚠️  Maeva {date_debut}→{date_fin} : erreur ({base}) : {e}")
+            last_error = e
+            continue
 
-    booking_url = MAEVA_URL_TEMPLATE.format(debut=date_debut, fin=date_fin)
-    results = []
-    for p in products:
-        entry = _maeva_product_to_dict(p, date_debut, date_fin, booking_url)
-        if entry:
-            results.append(entry)
-    return results
+        produits = data.get("content", {}).get("produit", {})
+        products = _parse_maeva_products(produits)
+        if products is None:
+            print(f"  ⚠️  Maeva : structure JSON inattendue pour {date_debut}→{date_fin}")
+            return [], True
+
+        booking_url = MAEVA_URL_TEMPLATE.format(debut=date_debut, fin=date_fin)
+        results = []
+        for p in products:
+            entry = _maeva_product_to_dict(p, date_debut, date_fin, booking_url)
+            if entry:
+                results.append(entry)
+        return results, False
+
+    # Toutes les variantes ont échoué
+    if last_error:
+        print(f"  ❌ Maeva {date_debut}→{date_fin} : toutes les URLs en échec — API indisponible")
+    return [], True
 
 
-def fetch_maeva_all() -> list[dict]:
-    """Récupère les dispos Maeva pour les 2 semaines, en fusionnant les doublons par titre."""
+def fetch_maeva_all() -> tuple[list[dict], bool]:
+    """Récupère les dispos Maeva pour les 2 semaines, en fusionnant les doublons par titre.
+
+    Retourne (listings, had_error). had_error=True si au moins une semaine a échoué.
+    """
     seen: dict[str, dict] = {}
+    had_error = False
     for week in MAEVA_WEEKS:
-        listings = fetch_maeva_week(week["dateDebut"], week["dateFin"])
+        listings, week_error = fetch_maeva_week(week["dateDebut"], week["dateFin"])
+        if week_error:
+            had_error = True
         print(f"  Maeva {week['dateDebut']}→{week['dateFin']} : {len(listings)} logement(s)")
         for l in listings:
             print(f"    🌐 {l['title']} | {l['start']} → {l['end']} | {l['price']} | {l.get('dispo','?')} unité(s)")
@@ -209,13 +234,12 @@ def fetch_maeva_all() -> list[dict]:
             if key not in seen:
                 seen[key] = dict(l)
             else:
-                # Même logement disponible sur plusieurs semaines : on étend la plage de dates
                 existing = seen[key]
                 if l.get("start", "") < existing.get("start", ""):
                     existing["start"] = l["start"]
                 if l.get("end", "") > existing.get("end", ""):
                     existing["end"] = l["end"]
-    return list(seen.values())
+    return list(seen.values()), had_error
 
 
 # ── Email ─────────────────────────────────────────────────────────────────────
@@ -545,6 +569,40 @@ def notify_if_needed(
     send_email(subject, html, text)
 
 
+# ── Alerte API ───────────────────────────────────────────────────────────────
+
+def _alert_maeva_api_down(cached_listings: list[dict]):
+    """Envoie une alerte unique si l'API Maeva est indisponible."""
+    if not RESEND_API_KEY:
+        print("  ⚠️  RESEND_API_KEY non configurée — alerte Maeva non envoyée.")
+        return
+
+    cached_info = (
+        f"{len(cached_listings)} logement(s) dans le cache"
+        if cached_listings
+        else "aucun logement en cache"
+    )
+    subject = "⚠️ Mottaret Watch – API Maeva indisponible"
+    body_text = (
+        "L'API Maeva (fiche.php) ne répond plus correctement (erreur 404/403).\n"
+        f"Les données affichées proviennent du dernier cache ({cached_info}).\n\n"
+        "Action recommandée : vérifier manuellement sur maeva.com et mettre à jour "
+        "l'endpoint dans check_availability.py si nécessaire.\n\n"
+        f"URL de la résidence : https://www.maeva.com/fr-fr/residence-pierre-vacances-les-bleuets_10793.html"
+    )
+    body_html = f"""<html><body style="font-family:Arial,sans-serif;max-width:600px;margin:auto">
+      <h2 style="color:#c00">⚠️ API Maeva indisponible</h2>
+      <p>L'endpoint Maeva (<code>fiche.php</code>) retourne une erreur 404/403.</p>
+      <p>Les données affichées proviennent du dernier cache ({cached_info}).</p>
+      <p><strong>Action recommandée :</strong> vérifier manuellement sur
+         <a href="https://www.maeva.com/fr-fr/residence-pierre-vacances-les-bleuets_10793.html">maeva.com</a>
+         et mettre à jour l'endpoint dans <code>check_availability.py</code>.</p>
+    </body></html>"""
+
+    print(f"  → Envoi alerte API Maeva down")
+    send_email(subject, body_html, body_text)
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
@@ -565,13 +623,28 @@ def main():
         print(f"    ✅ {l['title']} | {l['start']} → {l['end']} | {l['price']}")
 
     # ── Maeva ─────────────────────────────────────────────────────────────────
-    maeva_listings = fetch_maeva_all()
+    maeva_listings, maeva_api_error = fetch_maeva_all()
 
     # ── Cache & envoi ────────────────────────────────────────────────────────
     previous = load_cache()
-    new_bleuets, maeva_changes = detect_changes(previous, bleuets_available, maeva_listings)
-    save_cache({"bleuets": bleuets_available, "maeva": maeva_listings})
-    notify_if_needed(previous, bleuets_available, bleuets_all, maeva_listings, new_bleuets, maeva_changes)
+
+    # Si l'API Maeva a échoué, on conserve les données précédentes plutôt que
+    # d'écraser le cache avec [] — ainsi la prochaine exécution peut comparer
+    # correctement, et l'email affiche toujours les dernières données connues.
+    if maeva_api_error and not maeva_listings:
+        cached_maeva = previous.get("maeva", [])
+        print(f"  ⚠️  API Maeva indisponible — conservation des {len(cached_maeva)} logement(s) en cache")
+        maeva_listings_for_cache = cached_maeva
+    else:
+        maeva_listings_for_cache = maeva_listings
+
+    new_bleuets, maeva_changes = detect_changes(previous, bleuets_available, maeva_listings_for_cache)
+    save_cache({"bleuets": bleuets_available, "maeva": maeva_listings_for_cache})
+
+    if maeva_api_error:
+        _alert_maeva_api_down(maeva_listings_for_cache)
+
+    notify_if_needed(previous, bleuets_available, bleuets_all, maeva_listings_for_cache, new_bleuets, maeva_changes)
 
 
 if __name__ == "__main__":
