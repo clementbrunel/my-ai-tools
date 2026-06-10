@@ -69,6 +69,17 @@ public class ForfeitController {
         return ResponseEntity.ok(forfeitService.voteForfeit(forfeitId, req.getVote()));
     }
 
+    @PutMapping("/{forfeitId}")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+    @Operation(summary = "Update a forfeit's title, description and category (Admin only)")
+    public ResponseEntity<ForfeitResponse> updateForfeit(
+            @PathVariable Long forfeitId,
+            @RequestParam String title,
+            @RequestParam String description,
+            @RequestParam(defaultValue = "General") String category) {
+        return ResponseEntity.ok(forfeitService.updateForfeit(forfeitId, title, description, category));
+    }
+
     @DeleteMapping("/{forfeitId}")
     @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     @Operation(summary = "Soft-delete a forfeit (Admin only)")

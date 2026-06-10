@@ -4,7 +4,7 @@ import ConfirmModal from '../components/ConfirmModal';
 import { useToast } from '../components/Toast';
 import { useAuth } from '../context/AuthContext';
 import { getMatches, createMatch, updateMatchScore, getCompetitions } from '../api/matches';
-import { getAllForfeitsAdmin, createForfeit, deleteForfeit } from '../api/forfeits';
+import { getAllForfeitsAdmin, createForfeit, updateForfeit, deleteForfeit } from '../api/forfeits';
 import { getAllGroups } from '../api/groups';
 import { getAllUsersAdmin } from '../api/users';
 import { sendTestEmail, type EmailType } from '../api/email';
@@ -46,6 +46,12 @@ const Admin: React.FC = () => {
   const [editingMatch, setEditingMatch] = useState<Match | null>(null);
   const [scoreA, setScoreA] = useState('');
   const [scoreB, setScoreB] = useState('');
+
+  // Forfeit edit
+  const [editingForfeit, setEditingForfeit] = useState<Forfeit | null>(null);
+  const [editForfeitTitle, setEditForfeitTitle] = useState('');
+  const [editForfeitDesc, setEditForfeitDesc] = useState('');
+  const [editForfeitCategory, setEditForfeitCategory] = useState('General');
 
   // Forfeit library
   const [newForfeitTitle, setNewForfeitTitle] = useState('');
@@ -188,6 +194,23 @@ const Admin: React.FC = () => {
     } finally {
       setEmailTestLoading(false);
     }
+  };
+
+  const handleOpenEditForfeit = (f: Forfeit) => {
+    setEditingForfeit(f);
+    setEditForfeitTitle(f.title);
+    setEditForfeitDesc(f.description);
+    setEditForfeitCategory(f.category);
+  };
+
+  const handleSaveEditForfeit = async () => {
+    if (!editingForfeit) return;
+    try {
+      const updated = await updateForfeit(editingForfeit.id, editForfeitTitle, editForfeitDesc, editForfeitCategory);
+      setForfeits(prev => prev.map((f) => f.id === updated.id ? updated : f));
+      setEditingForfeit(null);
+      showToast('Gage mis à jour !');
+    } catch { showToast('Erreur lors de la mise à jour'); }
   };
 
   if (isLoading) {
@@ -473,14 +496,22 @@ const Admin: React.FC = () => {
                           </span>
                         </td>
                         <td className="py-3 px-4 text-center">
-                          {f.isActive && (
+                          <div className="flex items-center justify-center gap-2">
                             <button
-                              onClick={() => handleDeleteForfeit(f.id)}
-                              className="text-xs text-red-500 hover:text-red-700"
+                              onClick={() => handleOpenEditForfeit(f)}
+                              className="text-xs text-indigo-500 hover:text-indigo-700"
                             >
-                              🗑️ Supprimer
+                              ✏️ Éditer
                             </button>
-                          )}
+                            {f.isActive && (
+                              <button
+                                onClick={() => handleDeleteForfeit(f.id)}
+                                className="text-xs text-red-500 hover:text-red-700"
+                              >
+                                🗑️ Supprimer
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -691,6 +722,61 @@ const Admin: React.FC = () => {
         onConfirm={() => confirmDialog?.onConfirm()}
         onCancel={() => setConfirmDialog(null)}
       />
+
+      {/* Forfeit Edit Modal */}
+      {editingForfeit && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-wc-dark-secondary rounded-xl p-6 w-full max-w-md">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
+              ✏️ Éditer le gage
+            </h2>
+            <div className="space-y-3 mb-4">
+              <div>
+                <label className="label">Titre</label>
+                <input
+                  type="text"
+                  value={editForfeitTitle}
+                  onChange={(e) => setEditForfeitTitle(e.target.value)}
+                  className="input-field"
+                  placeholder="Titre du gage"
+                />
+              </div>
+              <div>
+                <label className="label">Description</label>
+                <textarea
+                  value={editForfeitDesc}
+                  onChange={(e) => setEditForfeitDesc(e.target.value)}
+                  className="input-field resize-none"
+                  rows={3}
+                  placeholder="Description détaillée du gage..."
+                />
+              </div>
+              <div>
+                <label className="label">Catégorie</label>
+                <select
+                  value={editForfeitCategory}
+                  onChange={(e) => setEditForfeitCategory(e.target.value)}
+                  className="input-field"
+                >
+                  {['General', 'Nourriture', 'Humiliation', 'Spectacle', 'Réseaux sociaux', 'Boissons'].map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setEditingForfeit(null)} className="btn-secondary flex-1">Annuler</button>
+              <button
+                onClick={handleSaveEditForfeit}
+                disabled={!editForfeitTitle.trim() || !editForfeitDesc.trim()}
+                className="btn-primary flex-1"
+              >
+                Sauvegarder
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Score Update Modal */}
       {editingMatch && (

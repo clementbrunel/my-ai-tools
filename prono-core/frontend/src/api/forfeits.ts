@@ -46,6 +46,18 @@ export const voteForfeit = async (forfeitId: number, vote: 1 | -1 | 0): Promise<
   return response.data;
 };
 
+export const updateForfeit = async (
+  forfeitId: number,
+  title: string,
+  description: string,
+  category: string
+): Promise<Forfeit> => {
+  const response = await apiClient.put<Forfeit>(`/forfeits/${forfeitId}`, null, {
+    params: { title, description, category },
+  });
+  return response.data;
+};
+
 export const deleteForfeit = async (forfeitId: number): Promise<void> => {
   await apiClient.delete(`/forfeits/${forfeitId}`);
 };

@@ -112,6 +112,17 @@ public class ForfeitService {
         return toForfeitResponse(forfeitRepository.save(forfeit));
     }
 
+    /** Admin updates title, description and category of any forfeit. */
+    @Transactional
+    public ForfeitResponse updateForfeit(Long forfeitId, String title, String description, String category) {
+        Forfeit forfeit = forfeitRepository.findById(forfeitId)
+                .orElseThrow(() -> new EntityNotFoundException("Forfeit not found: " + forfeitId));
+        forfeit.setTitle(title);
+        forfeit.setDescription(description);
+        forfeit.setCategory(category);
+        return toForfeitResponse(forfeitRepository.save(forfeit));
+    }
+
     /** Admin soft-deletes a gage (isActive=false). */
     @Transactional
     public void deleteForfeit(Long forfeitId) {
