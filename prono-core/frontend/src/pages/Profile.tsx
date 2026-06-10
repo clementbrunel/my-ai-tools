@@ -312,7 +312,7 @@ const Profile: React.FC = () => {
                   <div className="font-semibold text-gray-900 dark:text-white">{uf.forfeit.title}</div>
                   <div className="text-xs text-gray-500 mt-0.5">{uf.forfeit.description}</div>
                   <div className="text-xs text-gray-400 mt-1">
-                    Assigné par {uf.assignedByUsername} •{' '}
+                    Assigné par {uf.assignedByDisplayName || uf.assignedByUsername} •{' '}
                     {formatDate(uf.assignedAt)}
                   </div>
                 </div>

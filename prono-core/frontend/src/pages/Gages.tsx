@@ -230,7 +230,7 @@ const Gages: React.FC = () => {
                   <p className="text-sm text-gray-600 dark:text-gray-400">{forfeit.description}</p>
                   {forfeit.proposedByUsername && (
                     <p className="text-xs text-gray-400 dark:text-gray-500 mt-auto">
-                      💡 Proposé par <span className="font-medium">{forfeit.proposedByUsername}</span>
+                      💡 Proposé par <span className="font-medium">{forfeit.proposedByDisplayName || forfeit.proposedByUsername}</span>
                     </p>
                   )}
                 </div>

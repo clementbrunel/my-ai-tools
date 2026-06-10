@@ -591,7 +591,7 @@ const GroupPage: React.FC = () => {
                                   )}
                                   <p className="text-xs text-gray-400 mt-0.5">
                                     {f.category} · proposé par{' '}
-                                    <span className="font-medium">{f.proposedByUsername ?? '—'}</span>
+                                    <span className="font-medium">{f.proposedByDisplayName || f.proposedByUsername || '—'}</span>
                                   </p>
                                 </div>
                                 <div className="flex gap-1 shrink-0">
@@ -636,7 +636,7 @@ const GroupPage: React.FC = () => {
                                   <p className="text-xs text-gray-400 mt-0.5">
                                     {f.category}
                                     {f.proposedByUsername && (
-                                      <> · proposé par <span className="font-medium">{f.proposedByUsername}</span></>
+                                      <> · proposé par <span className="font-medium">{f.proposedByDisplayName || f.proposedByUsername}</span></>
                                     )}
                                   </p>
                                 </div>
@@ -793,7 +793,7 @@ const GroupPage: React.FC = () => {
                         <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 truncate">{pg.description}</p>
                       )}
                       <p className="text-xs text-gray-400 mt-1">
-                        {pg.memberCount} membre{pg.memberCount > 1 ? 's' : ''} · par {pg.createdByUsername}
+                        {pg.memberCount} membre{pg.memberCount > 1 ? 's' : ''} · par {pg.createdByDisplayName || pg.createdByUsername}
                       </p>
                     </div>
                     <div className="shrink-0">
