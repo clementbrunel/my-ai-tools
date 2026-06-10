@@ -100,6 +100,7 @@ public class UserService {
             .map(user -> UserAdminResponse.builder()
                 .id(user.getId())
                 .username(user.getUsername())
+                .displayName(user.getDisplayName())
                 .email(user.getEmail())
                 .role(user.getRole())
                 .avatarUrl(user.getAvatarUrl())

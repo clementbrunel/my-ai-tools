@@ -16,6 +16,7 @@ import java.util.List;
 public class UserAdminResponse {
     private Long id;
     private String username;
+    private String displayName;
     private String email;
     private User.Role role;
     private String avatarUrl;
