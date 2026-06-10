@@ -31,7 +31,7 @@ public class DataInitializer {
     public void onApplicationReady() {
         initDemoPasswords();
         log.info("⚽ Prono Core is ready!");
-        log.info("🏆 Swagger UI: http://localhost:8080/swagger-ui.html");
+        log.info("🏆 Swagger UI: http://localhost:8090/swagger-ui.html");
     }
 
     private void initDemoPasswords() {
