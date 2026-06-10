@@ -39,6 +39,13 @@ public class UserController {
         return ResponseEntity.ok(userService.getUserById(id));
     }
 
+    @PatchMapping("/me/display-name")
+    @Operation(summary = "Update display name")
+    public ResponseEntity<UserResponse> updateDisplayName(@RequestParam String displayName,
+                                                           Authentication authentication) {
+        return ResponseEntity.ok(userService.updateDisplayName(authentication.getName(), displayName));
+    }
+
     @PatchMapping("/me/avatar")
     @Operation(summary = "Update avatar URL")
     public ResponseEntity<UserResponse> updateAvatar(@RequestParam String avatarUrl,

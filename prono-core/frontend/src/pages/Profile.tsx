@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { getParticipatedBets } from '../api/bets';
 import { getLeaderboard } from '../api/leaderboard';
 import { getMyForfeits, completeForfeit } from '../api/forfeits';
-import { updateAvatar, updatePassword } from '../api/users';
+import { updateAvatar, updateDisplayName, updatePassword } from '../api/users';
 import type { Bet, LeaderboardEntry, UserForfeitEntry } from '../types';
 import { isAdmin } from '../types';
 import { formatDate } from '../utils/dates';
@@ -19,6 +19,10 @@ const Profile: React.FC = () => {
   const [completingId, setCompletingId] = useState<number | null>(null);
 
   const [showEdit, setShowEdit] = useState(false);
+  const [displayName, setDisplayName] = useState(user?.displayName || '');
+  const [displayNameSaving, setDisplayNameSaving] = useState(false);
+  const [displayNameMsg, setDisplayNameMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
   const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || '');
   const [avatarSaving, setAvatarSaving] = useState(false);
   const [avatarMsg, setAvatarMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -65,6 +69,20 @@ const Profile: React.FC = () => {
       showToast('Erreur lors de la mise à jour du gage');
     } finally {
       setCompletingId(null);
+    }
+  };
+
+  const handleDisplayNameSave = async () => {
+    setDisplayNameSaving(true);
+    setDisplayNameMsg(null);
+    try {
+      const updated = await updateDisplayName(displayName);
+      updateUser(updated);
+      setDisplayNameMsg({ type: 'success', text: 'Nom affiché mis à jour !' });
+    } catch {
+      setDisplayNameMsg({ type: 'error', text: 'Impossible de mettre à jour le nom affiché.' });
+    } finally {
+      setDisplayNameSaving(false);
     }
   };
 
@@ -133,7 +151,12 @@ const Profile: React.FC = () => {
             )}
           </div>
           <div className="flex-1">
-            <h2 className="text-2xl font-black text-gray-900 dark:text-white">{user?.username}</h2>
+            <h2 className="text-2xl font-black text-gray-900 dark:text-white">
+              {user?.displayName || user?.username}
+            </h2>
+            {user?.displayName && (
+              <p className="text-gray-400 dark:text-gray-500 text-xs">@{user.username}</p>
+            )}
             <p className="text-gray-500 dark:text-gray-400 text-sm">{user?.email}</p>
             <div className="flex items-center gap-2 mt-2">
               {isAdmin(user) && <span className="badge-admin">Admin</span>}
@@ -155,6 +178,34 @@ const Profile: React.FC = () => {
         {/* Edit section */}
         {showEdit && (
           <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-6 space-y-6">
+
+            {/* Display Name */}
+            <div>
+              <h3 className="font-bold text-gray-900 dark:text-white mb-3">✏️ Nom affiché</h3>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  placeholder={user?.username}
+                  maxLength={100}
+                  className="input flex-1"
+                />
+                <button
+                  onClick={handleDisplayNameSave}
+                  disabled={displayNameSaving}
+                  className="btn-primary flex-shrink-0 disabled:opacity-50"
+                >
+                  {displayNameSaving ? '...' : 'Enregistrer'}
+                </button>
+              </div>
+              <p className="text-xs text-gray-400 mt-1">Laisser vide pour afficher votre login.</p>
+              {displayNameMsg && (
+                <p className={`text-sm mt-2 ${displayNameMsg.type === 'success' ? 'text-green-600' : 'text-red-500'}`}>
+                  {displayNameMsg.text}
+                </p>
+              )}
+            </div>
 
             {/* Avatar */}
             <div>
