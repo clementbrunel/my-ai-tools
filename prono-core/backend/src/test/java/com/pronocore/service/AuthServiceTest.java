@@ -3,6 +3,7 @@ package com.pronocore.service;
 import com.pronocore.dto.request.LoginRequest;
 import com.pronocore.dto.request.RegisterRequest;
 import com.pronocore.dto.response.AuthResponse;
+import com.pronocore.dto.response.RegisterResponse;
 import com.pronocore.dto.response.UserResponse;
 import com.pronocore.entity.User;
 import com.pronocore.mapper.UserMapper;
@@ -38,6 +39,8 @@ class AuthServiceTest {
     private AuthenticationManager authenticationManager;
     @Mock
     private UserMapper userMapper;
+    @Mock
+    private EmailService emailService;
 
     @InjectMocks
     private AuthService authService;
@@ -65,27 +68,19 @@ class AuthServiceTest {
         request.setEmail("test@example.com");
         request.setPassword("password123");
 
-        UserResponse userResponse = UserResponse.builder()
-            .id(1L)
-            .username("testuser")
-            .email("test@example.com")
-            .role(User.Role.USER)
-            .build();
-
         when(userRepository.existsByUsername("testuser")).thenReturn(false);
         when(userRepository.existsByEmail("test@example.com")).thenReturn(false);
         when(passwordEncoder.encode("password123")).thenReturn("encodedPassword");
         when(userRepository.save(any(User.class))).thenReturn(testUser);
-        when(jwtTokenProvider.generateToken("testuser")).thenReturn("jwt-token");
-        when(userMapper.toResponse(any(User.class))).thenReturn(userResponse);
+        doNothing().when(emailService).sendVerificationEmail(anyString(), anyString());
 
-        AuthResponse result = authService.register(request);
+        RegisterResponse result = authService.register(request);
 
         assertThat(result).isNotNull();
-        assertThat(result.getToken()).isEqualTo("jwt-token");
-        assertThat(result.getTokenType()).isEqualTo("Bearer");
-        assertThat(result.getUser().getUsername()).isEqualTo("testuser");
+        assertThat(result.getEmail()).isEqualTo("test@example.com");
+        assertThat(result.getMessage()).isNotBlank();
         verify(userRepository).save(any(User.class));
+        verify(emailService).sendVerificationEmail(eq("test@example.com"), anyString());
     }
 
     @Test
