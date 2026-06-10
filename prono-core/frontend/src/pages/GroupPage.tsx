@@ -674,9 +674,9 @@ const GroupPage: React.FC = () => {
                         <div key={applicant.id} className="flex items-center justify-between py-1">
                           <div className="flex items-center gap-2">
                             <div className="w-7 h-7 rounded-full bg-blue-400 text-white flex items-center justify-center text-xs font-bold">
-                              {applicant.username[0].toUpperCase()}
+                              {(applicant.displayName || applicant.username)[0].toUpperCase()}
                             </div>
-                            <span className="text-sm text-gray-800 dark:text-gray-200">{applicant.username}</span>
+                            <span className="text-sm text-gray-800 dark:text-gray-200">{applicant.displayName || applicant.username}</span>
                           </div>
                           <div className="flex gap-1">
                             <button
@@ -720,9 +720,9 @@ const GroupPage: React.FC = () => {
                       <div key={member.id} className="flex items-center justify-between py-1.5 border-b border-gray-100 dark:border-gray-700 last:border-0">
                         <div className="flex items-center gap-2">
                           <div className="w-7 h-7 rounded-full bg-wc-green text-white flex items-center justify-center text-xs font-bold">
-                            {member.username[0].toUpperCase()}
+                            {(member.displayName || member.username)[0].toUpperCase()}
                           </div>
-                          <span className="text-sm text-gray-800 dark:text-gray-200">{member.username}</span>
+                          <span className="text-sm text-gray-800 dark:text-gray-200">{member.displayName || member.username}</span>
                           {member.role === 'GROUP_ADMIN' && (
                             <span className="text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 px-1.5 py-0.5 rounded font-medium">
                               Admin

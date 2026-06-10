@@ -21,6 +21,7 @@ export interface GroupMember {
   id: number;
   userId: number;
   username: string;
+  displayName?: string;
   avatarUrl?: string;
   role: GroupRole;
   status: MemberStatus;

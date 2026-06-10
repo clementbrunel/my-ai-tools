@@ -34,12 +34,12 @@ const LeaderboardRow: React.FC<LeaderboardRowProps> = ({ entry, isCurrentUser })
             {user.avatarUrl ? (
               <img src={user.avatarUrl} alt={user.username} className="w-8 h-8 rounded-full object-cover" />
             ) : (
-              user.username[0].toUpperCase()
+              (user.displayName || user.username)[0].toUpperCase()
             )}
           </div>
           <div>
             <span className="text-gray-900 dark:text-white text-sm font-medium">
-              {user.username}
+              {user.displayName || user.username}
             </span>
             {isCurrentUser && (
               <span className="ml-2 text-xs text-wc-green dark:text-green-400">(vous)</span>

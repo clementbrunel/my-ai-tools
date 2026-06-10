@@ -80,7 +80,7 @@ const Dashboard: React.FC = () => {
       <div className="wc-header rounded-2xl p-6 text-white shadow-lg">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-black mb-1">Salut {user?.username} ! ⚽</h1>
+            <h1 className="text-3xl font-black mb-1">Salut {user?.displayName || user?.username} ! ⚽</h1>
             <p className="text-green-200">🏆 Coupe du Monde 2026 — Les paris sont ouverts !</p>
           </div>
           <div className="text-6xl hidden md:block animate-bounce-slow">🏆</div>
