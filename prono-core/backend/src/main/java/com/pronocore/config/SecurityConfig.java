@@ -41,7 +41,7 @@ public class SecurityConfig {
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**", "/swagger-ui/**", "/swagger-ui.html",
-                                 "/v3/api-docs/**", "/v3/api-docs").permitAll()
+                                 "/v3/api-docs/**", "/v3/api-docs", "/error").permitAll()
                 // Daily gage READ endpoints are public — gage info is not sensitive and
                 // these are called on every page load (Dashboard, MatchDetail).
                 // Making them public avoids spurious 401s when the JWT hasn't loaded yet.
