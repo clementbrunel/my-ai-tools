@@ -337,6 +337,7 @@ public class GroupService {
             .id(m.getId())
             .userId(m.getUser().getId())
             .username(m.getUser().getUsername())
+            .displayName(m.getUser().getDisplayName())
             .avatarUrl(m.getUser().getAvatarUrl())
             .role(m.getRole())
             .status(m.getStatus())

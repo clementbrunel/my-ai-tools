@@ -17,6 +17,7 @@ public class GroupMemberResponse {
     private Long id;
     private Long userId;
     private String username;
+    private String displayName;
     private String avatarUrl;
     private GroupMember.GroupRole role;
     private GroupMember.MemberStatus status;

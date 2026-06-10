@@ -543,11 +543,11 @@ const MatchDetail: React.FC = () => {
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="w-8 h-8 rounded-full bg-wc-gold text-gray-900 flex items-center justify-center font-bold text-sm flex-shrink-0">
-                      {p.user.username[0].toUpperCase()}
+                      {(p.user.displayName || p.user.username)[0].toUpperCase()}
                     </div>
                     <div className="min-w-0">
                       <p className="font-medium text-gray-900 dark:text-white text-sm">
-                        {p.user.username}{' '}
+                        {p.user.displayName || p.user.username}{' '}
                         {isMe && (
                           <span className="text-blue-500 text-xs font-normal">(moi)</span>
                         )}

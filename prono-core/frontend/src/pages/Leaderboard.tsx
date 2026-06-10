@@ -78,7 +78,7 @@ const Leaderboard: React.FC = () => {
               <div className="text-3xl mb-1">🃏</div>
               <div className="font-bold text-purple-800 dark:text-purple-300 text-sm">Roi des gages</div>
               <div className="text-xl font-black text-purple-900 dark:text-purple-200 mt-1">
-                {kingOfForfeits.user.username}
+                {kingOfForfeits.user.displayName || kingOfForfeits.user.username}
               </div>
               <div className="text-xs text-purple-600 dark:text-purple-400">
                 {kingOfForfeits.forfeitsReceived} gage{kingOfForfeits.forfeitsReceived > 1 ? 's' : ''} reçu{kingOfForfeits.forfeitsReceived > 1 ? 's' : ''}
@@ -90,7 +90,7 @@ const Leaderboard: React.FC = () => {
               <div className="text-3xl mb-1">💀</div>
               <div className="font-bold text-gray-600 dark:text-gray-400 text-sm">Pire loser</div>
               <div className="text-xl font-black text-gray-700 dark:text-gray-300 mt-1">
-                {worstLoser.user.username}
+                {worstLoser.user.displayName || worstLoser.user.username}
               </div>
               <div className="text-xs text-gray-500">
                 {worstLoser.totalPoints} points 😅
@@ -108,9 +108,9 @@ const Leaderboard: React.FC = () => {
             <div className="flex flex-col items-center">
               <div className="text-4xl mb-2">🥈</div>
               <div className="w-16 h-16 rounded-full bg-gray-400 text-white flex items-center justify-center font-black text-xl mb-2">
-                {top3[1].user.username[0].toUpperCase()}
+                {(top3[1].user.displayName || top3[1].user.username)[0].toUpperCase()}
               </div>
-              <div className="font-bold text-sm text-gray-800 dark:text-gray-200 mb-1">{top3[1].user.username}</div>
+              <div className="font-bold text-sm text-gray-800 dark:text-gray-200 mb-1">{top3[1].user.displayName || top3[1].user.username}</div>
               <div className="podium-2 rounded-t-lg w-20 h-20 flex items-center justify-center">
                 <div className="text-center">
                   <div className="text-2xl font-black text-gray-700">{top3[1].totalPoints}</div>
@@ -125,9 +125,9 @@ const Leaderboard: React.FC = () => {
             <div className="flex flex-col items-center">
               <div className="text-4xl mb-2 animate-bounce-slow">🥇</div>
               <div className="w-20 h-20 rounded-full bg-yellow-500 text-white flex items-center justify-center font-black text-2xl mb-2 ring-4 ring-yellow-300">
-                {top3[0].user.username[0].toUpperCase()}
+                {(top3[0].user.displayName || top3[0].user.username)[0].toUpperCase()}
               </div>
-              <div className="font-black text-base text-gray-800 dark:text-white mb-1">{top3[0].user.username}</div>
+              <div className="font-black text-base text-gray-800 dark:text-white mb-1">{top3[0].user.displayName || top3[0].user.username}</div>
               <div className="podium-1 rounded-t-lg w-20 h-28 flex items-center justify-center">
                 <div className="text-center">
                   <div className="text-3xl font-black text-yellow-900">{top3[0].totalPoints}</div>
@@ -142,9 +142,9 @@ const Leaderboard: React.FC = () => {
             <div className="flex flex-col items-center">
               <div className="text-4xl mb-2">🥉</div>
               <div className="w-16 h-16 rounded-full bg-orange-400 text-white flex items-center justify-center font-black text-xl mb-2">
-                {top3[2].user.username[0].toUpperCase()}
+                {(top3[2].user.displayName || top3[2].user.username)[0].toUpperCase()}
               </div>
-              <div className="font-bold text-sm text-gray-800 dark:text-gray-200 mb-1">{top3[2].user.username}</div>
+              <div className="font-bold text-sm text-gray-800 dark:text-gray-200 mb-1">{top3[2].user.displayName || top3[2].user.username}</div>
               <div className="podium-3 rounded-t-lg w-20 h-14 flex items-center justify-center">
                 <div className="text-center">
                   <div className="text-xl font-black text-orange-900">{top3[2].totalPoints}</div>
