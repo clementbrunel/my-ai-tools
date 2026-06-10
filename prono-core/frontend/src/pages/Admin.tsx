@@ -486,10 +486,10 @@ const Admin: React.FC = () => {
                   <thead>
                     <tr className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
                       <th className="py-3 px-4 text-left text-xs text-gray-500 uppercase">Utilisateur</th>
+                      <th className="py-3 px-4 text-left text-xs text-gray-500 uppercase">Nom affiché</th>
                       <th className="py-3 px-4 text-left text-xs text-gray-500 uppercase">Email</th>
                       <th className="py-3 px-4 text-center text-xs text-gray-500 uppercase">Rôle</th>
                       <th className="py-3 px-4 text-center text-xs text-gray-500 uppercase">Groupes</th>
-                      <th className="py-3 px-4 text-center text-xs text-gray-500 uppercase">Score</th>
                       <th className="py-3 px-4 text-center text-xs text-gray-500 uppercase">Inscrit le</th>
                     </tr>
                   </thead>
@@ -515,6 +515,9 @@ const Admin: React.FC = () => {
                               )}
                             </div>
                           </td>
+                          <td className="py-3 px-4 text-sm text-gray-500 dark:text-gray-400">
+                            {u.displayName ?? <span className="italic text-gray-300 dark:text-gray-600">—</span>}
+                          </td>
                           <td className="py-3 px-4 text-sm text-gray-500 dark:text-gray-400">{u.email}</td>
                           <td className="py-3 px-4 text-center">
                             {u.role === 'PLATFORM_ADMIN' ? (
@@ -534,9 +537,6 @@ const Admin: React.FC = () => {
                                 (+{u.groups.filter(g => g.status === 'PENDING').length} en attente)
                               </span>
                             )}
-                          </td>
-                          <td className="py-3 px-4 text-center text-sm font-semibold text-wc-gold">
-                            {u.globalScore}
                           </td>
                           <td className="py-3 px-4 text-center text-xs text-gray-400">
                             {u.createdAt ? formatDate(u.createdAt) : '—'}
