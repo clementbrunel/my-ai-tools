@@ -51,5 +51,5 @@ const ISO2: Record<string, string> = {
 
 export const getFlagUrl = (teamName: string): string | null => {
   const code = ISO2[teamName];
-  return code ? `https://flagcdn.com/w40/${code}.png` : null;
+  return code ? `https://flagcdn.com/${code}.svg` : null;
 };
