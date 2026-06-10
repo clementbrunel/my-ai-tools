@@ -19,6 +19,7 @@ public class PublicGroupResponse {
     private String name;
     private String description;
     private String createdByUsername;
+    private String createdByDisplayName;
     private int memberCount;
     @JsonProperty("isPrivate")
     private boolean isPrivate;

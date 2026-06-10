@@ -34,6 +34,7 @@ export interface Group {
   description?: string;
   inviteCode: string;
   createdByUsername: string;
+  createdByDisplayName?: string;
   memberCount: number;
   isPrivate: boolean;
   members: GroupMember[];
@@ -47,6 +48,7 @@ export interface PublicGroup {
   name: string;
   description?: string;
   createdByUsername: string;
+  createdByDisplayName?: string;
   memberCount: number;
   isPrivate: boolean;
   createdAt: string;
@@ -108,6 +110,7 @@ export interface Forfeit {
   isActive: boolean;
   timesCompleted: number;
   proposedByUsername?: string;
+  proposedByDisplayName?: string;
   /** null = shared gage (visible to all groups); set = belongs to that group only */
   groupId?: number | null;
   groupName?: string | null;
@@ -117,6 +120,7 @@ export interface UserForfeitEntry {
   id: number;
   forfeit: Forfeit;
   assignedByUsername: string;
+  assignedByDisplayName?: string;
   completed: boolean;
   completedAt?: string;
   assignedAt: string;
@@ -139,6 +143,7 @@ export interface DailyGage {
   mode: 'DIRECT' | 'VOTE';
   status: 'PENDING' | 'ACTIVE' | 'SETTLED';
   assignedToUsername?: string;
+  assignedToDisplayName?: string;
   assignedAt?: string;
   candidates: DailyGageCandidate[];
   createdAt: string;

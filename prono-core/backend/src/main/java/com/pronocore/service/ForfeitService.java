@@ -287,6 +287,7 @@ public class ForfeitService {
                 .isActive(f.isActive())
                 .timesCompleted(f.getTimesCompleted())
                 .proposedByUsername(f.getProposedBy() != null ? f.getProposedBy().getUsername() : null)
+                .proposedByDisplayName(f.getProposedBy() != null ? f.getProposedBy().getDisplayName() : null)
                 .groupId(f.getGroup() != null ? f.getGroup().getId() : null)
                 .groupName(f.getGroup() != null ? f.getGroup().getName() : null)
                 .build();
@@ -297,6 +298,7 @@ public class ForfeitService {
                 .id(uf.getId())
                 .forfeit(toForfeitResponse(uf.getForfeit()))
                 .assignedByUsername(uf.getAssignedBy().getUsername())
+                .assignedByDisplayName(uf.getAssignedBy().getDisplayName())
                 .completed(uf.isCompleted())
                 .completedAt(uf.getCompletedAt())
                 .assignedAt(uf.getAssignedAt())

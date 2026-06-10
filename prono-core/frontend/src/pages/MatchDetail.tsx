@@ -286,7 +286,7 @@ const MatchDetail: React.FC = () => {
                   <p className="text-xs text-gray-500 mt-0.5">{g.forfeit.description}</p>
                 )}
                 <p className="text-sm mt-1">
-                  👎 <span className="text-wc-red font-medium">{g.assignedToUsername}</span> devra l'effectuer
+                  👎 <span className="text-wc-red font-medium">{g.assignedToDisplayName || g.assignedToUsername}</span> devra l'effectuer
                 </p>
               </div>
             </div>

@@ -16,6 +16,7 @@ public class UserForfeitResponse {
     private Long   id;
     private ForfeitResponse forfeit;
     private String assignedByUsername;
+    private String assignedByDisplayName;
     private boolean completed;
     private LocalDateTime completedAt;
     private LocalDateTime assignedAt;

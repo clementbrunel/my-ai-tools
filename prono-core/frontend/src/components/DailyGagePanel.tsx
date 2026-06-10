@@ -207,7 +207,7 @@ const DailyGagePanel: React.FC<Props> = ({ groupId }) => {
                     )}
                     {dg.assignedToUsername && (
                       <span className="text-xs text-wc-red font-medium">
-                        → {dg.assignedToUsername}
+                        → {dg.assignedToDisplayName || dg.assignedToUsername}
                       </span>
                     )}
                   </div>
@@ -280,7 +280,7 @@ const DailyGagePanel: React.FC<Props> = ({ groupId }) => {
                   <div className="px-3 pb-3 border-t border-gray-200 dark:border-gray-700 pt-2">
                     <p className="text-xs text-gray-600 dark:text-gray-400">
                       🃏 <strong>{dg.forfeit?.title}</strong> attribué à{' '}
-                      <strong className="text-wc-red">{dg.assignedToUsername}</strong>
+                      <strong className="text-wc-red">{dg.assignedToDisplayName || dg.assignedToUsername}</strong>
                       {dg.assignedAt && (
                         <span className="ml-1 text-gray-400">le {formatDate(dg.assignedAt)}</span>
                       )}

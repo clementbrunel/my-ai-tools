@@ -21,6 +21,7 @@ public class GroupResponse {
     private String description;
     private String inviteCode;
     private String createdByUsername;
+    private String createdByDisplayName;
     private int memberCount;
     @JsonProperty("isPrivate")
     private boolean isPrivate;

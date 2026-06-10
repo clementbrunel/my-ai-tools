@@ -31,6 +31,7 @@ public class DailyGageResponse {
 
     /** The unlucky player (set when SETTLED). */
     private String assignedToUsername;
+    private String assignedToDisplayName;
     private LocalDateTime assignedAt;
 
     /** Vote candidates (populated in VOTE mode). */

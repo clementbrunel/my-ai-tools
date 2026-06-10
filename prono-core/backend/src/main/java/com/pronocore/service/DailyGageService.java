@@ -395,6 +395,7 @@ public class DailyGageService {
                 .mode(dg.getMode().name())
                 .status(dg.getStatus().name())
                 .assignedToUsername(dg.getAssignedTo() != null ? dg.getAssignedTo().getUsername() : null)
+                .assignedToDisplayName(dg.getAssignedTo() != null ? dg.getAssignedTo().getDisplayName() : null)
                 .assignedAt(dg.getAssignedAt())
                 .candidates(candidateResponses)
                 .createdAt(dg.getCreatedAt())
@@ -410,6 +411,7 @@ public class DailyGageService {
                 .isActive(f.isActive())
                 .timesCompleted(f.getTimesCompleted())
                 .proposedByUsername(f.getProposedBy() != null ? f.getProposedBy().getUsername() : null)
+                .proposedByDisplayName(f.getProposedBy() != null ? f.getProposedBy().getDisplayName() : null)
                 .groupId(f.getGroup() != null ? f.getGroup().getId() : null)
                 .groupName(f.getGroup() != null ? f.getGroup().getName() : null)
                 .build();

@@ -162,7 +162,7 @@ const Dashboard: React.FC = () => {
                       <p className="text-xl font-black text-wc-red">{g.forfeit?.title}</p>
                       <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{g.forfeit?.description}</p>
                       <p className="text-sm mt-2 font-medium">
-                        👎 <span className="text-wc-red">{g.assignedToUsername}</span> devra l'effectuer
+                        👎 <span className="text-wc-red">{g.assignedToDisplayName || g.assignedToUsername}</span> devra l'effectuer
                       </p>
                     </div>
                   </div>
