@@ -670,6 +670,7 @@ const Admin: React.FC = () => {
                   <option value="VERIFICATION">Vérification d'email</option>
                   <option value="PASSWORD_RESET">Réinitialisation de mot de passe</option>
                   <option value="MATCH_REMINDER">Rappel de match</option>
+                  <option value="TEST_CEDRIC">test cédric 🏦</option>
                 </select>
               </div>
               <div>
@@ -714,6 +715,13 @@ const Admin: React.FC = () => {
                     Envoyé automatiquement 4 heures avant chaque match aux joueurs n'ayant pas encore saisi leur pronostic.
                     Activable / désactivable par chaque utilisateur dans son profil.
                     Le test utilise un match fictif (France – Brésil, Finale).
+                  </td>
+                </tr>
+                <tr className="border-b border-gray-100 dark:border-gray-700">
+                  <td className="py-3 px-4 font-medium text-gray-900 dark:text-white">test cédric 🏦</td>
+                  <td className="py-3 px-4 text-gray-500">
+                    Email de test technique minimaliste, envoyé intentionnellement (contrairement à celui du Crédit Agricole le 9/06/2026).
+                    Objet : "test cédric". Permet de vérifier que la chaîne d'envoi Resend est opérationnelle sans déclencher de logique métier.
                   </td>
                 </tr>
               </tbody>

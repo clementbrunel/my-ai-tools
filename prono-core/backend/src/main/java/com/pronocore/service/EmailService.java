@@ -52,6 +52,7 @@ public class EmailService {
                 );
                 sendMatchReminder(fakeUser, fakeMatches);
             }
+            case TEST_CEDRIC -> sendTestCedricEmail(to);
         }
     }
 
@@ -121,6 +122,70 @@ public class EmailService {
         } catch (Exception e) {
             log.error("Failed to send match reminder to {}: {}", user.getEmail(), e.getMessage());
         }
+    }
+
+    public void sendTestCedricEmail(String to) {
+        try {
+            restClient.post()
+                .uri("/emails")
+                .header("Authorization", "Bearer " + apiKey)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(Map.of(
+                    "from", "PronoCore <noreply@app.prono-core.top>",
+                    "to", List.of(to),
+                    "subject", "test cédric",
+                    "html", buildTestCedricHtml()
+                ))
+                .retrieve()
+                .toBodilessEntity();
+            log.info("Test Cédric email sent to {}", to);
+        } catch (Exception e) {
+            log.error("Failed to send Test Cédric email to {}: {}", to, e.getMessage());
+            throw new RuntimeException("Impossible d'envoyer l'email de test. Vérifie ta configuration Resend.");
+        }
+    }
+
+    private String buildTestCedricHtml() {
+        return """
+            <!DOCTYPE html>
+            <html lang="fr">
+            <head><meta charset="utf-8"></head>
+            <body style="font-family:Arial,sans-serif;background:#f4f4f4;padding:20px;margin:0">
+              <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.1)">
+                <div style="background:linear-gradient(135deg,#1a472a,#2d6a4f);padding:32px;text-align:center">
+                  <div style="font-size:48px;margin-bottom:8px">🏆</div>
+                  <h1 style="color:#FFD700;margin:0;font-size:28px">PronoCore</h1>
+                  <p style="color:#90EE90;margin:8px 0 0">Coupe du Monde 2026</p>
+                </div>
+                <div style="padding:32px">
+                  <h2 style="color:#1a1a1a;margin-top:0">test cédric 🏦</h2>
+                  <p style="color:#444;line-height:1.6">
+                    Bonjour,
+                  </p>
+                  <p style="color:#444;line-height:1.6">
+                    Si tu reçois cet email, <strong>bonne nouvelle : l'envoi de mails fonctionne !</strong>
+                  </p>
+                  <div style="background:#fff8e1;border-left:4px solid #FFD700;border-radius:4px;padding:16px;margin:24px 0">
+                    <p style="margin:0;color:#555;font-size:14px;line-height:1.7">
+                      💬 <em>Contrairement à notre confrère <strong>Cédric Agricole</strong> qui, le 9 juin 2026,
+                      a envoyé son "test cédric" à des millions de clients du Crédit Agricole en croyant rester
+                      dans un environnement de dev… cet email a été déclenché <strong>intentionnellement</strong>
+                      depuis l'interface d'administration.</em>
+                    </p>
+                    <p style="margin:8px 0 0;color:#555;font-size:14px">
+                      Ici, les tests restent des tests. 😌
+                    </p>
+                  </div>
+                  <p style="color:#888;font-size:14px">
+                    Ce message confirme que la chaîne d'envoi Resend est opérationnelle. Aucune action n'est requise.
+                  </p>
+                  <hr style="border:none;border-top:1px solid #eee;margin:24px 0">
+                  <p style="color:#aaa;font-size:12px;text-align:center">PronoCore — Le meilleur pronostiqueur remporte la coupe ⚽</p>
+                </div>
+              </div>
+            </body>
+            </html>
+            """;
     }
 
     private String buildMatchReminderHtml(User user, List<Match> matches) {
