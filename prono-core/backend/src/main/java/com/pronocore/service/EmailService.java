@@ -51,8 +51,8 @@ public class EmailService {
                 .toBodilessEntity();
             log.info("Verification email sent to {}", to);
         } catch (Exception e) {
-            log.error("Failed to send verification email to {}: {} — {}", to, e.getClass().getSimpleName(), e.getMessage(), e);
-            throw new RuntimeException("Resend error: " + e.getClass().getSimpleName() + " — " + e.getMessage());
+            log.error("Failed to send verification email to {}: {}", to, e.getMessage());
+            throw new RuntimeException("Impossible d'envoyer l'email de vérification. Vérifie ta configuration Resend.");
         }
     }
 
