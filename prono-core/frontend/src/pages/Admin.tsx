@@ -672,6 +672,10 @@ const Admin: React.FC = () => {
                   <td className="py-3 px-4 font-medium text-gray-900 dark:text-white">Vérification d'email</td>
                   <td className="py-3 px-4 text-gray-500">Envoyé à l'inscription pour vérifier l'adresse email du nouvel utilisateur.</td>
                 </tr>
+                <tr className="border-b border-gray-100 dark:border-gray-700">
+                  <td className="py-3 px-4 font-medium text-gray-900 dark:text-white">Réinitialisation de mot de passe</td>
+                  <td className="py-3 px-4 text-gray-500">Envoyé lors d'une demande de mot de passe oublié. Contient un lien valable 1 heure.</td>
+                </tr>
               </tbody>
             </table>
           </div>
