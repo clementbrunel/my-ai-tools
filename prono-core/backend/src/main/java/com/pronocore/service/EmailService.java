@@ -42,7 +42,7 @@ public class EmailService {
                 .header("Authorization", "Bearer " + apiKey)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(Map.of(
-                    "from", "PronoCore <noreply@prono-core.top>",
+                    "from", "PronoCore <noreply@app.prono-core.top>",
                     "to", List.of(to),
                     "subject", "Vérifie ton adresse email - PronoCore",
                     "html", buildHtml(verifyUrl)
