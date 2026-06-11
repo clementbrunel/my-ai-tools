@@ -209,7 +209,7 @@ const Admin: React.FC = () => {
       const updated = await updateForfeit(editingForfeit.id, editForfeitTitle, editForfeitDesc, editForfeitCategory);
       setForfeits(prev => prev.map((f) => f.id === updated.id ? updated : f));
       setEditingForfeit(null);
-      showToast('Gage mis à jour !');
+      showToast('Gage mis à jour !', 'success');
     } catch { showToast('Erreur lors de la mise à jour'); }
   };
 
