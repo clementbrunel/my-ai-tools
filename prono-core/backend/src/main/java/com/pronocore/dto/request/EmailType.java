@@ -1,5 +1,6 @@
 package com.pronocore.dto.request;
 
 public enum EmailType {
-    VERIFICATION
+    VERIFICATION,
+    PASSWORD_RESET
 }
