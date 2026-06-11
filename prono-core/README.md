@@ -9,11 +9,11 @@
 | Backend | Java 21 + Spring Boot 3 + Spring Security JWT |
 | Base de données | PostgreSQL 16 + Flyway |
 | Frontend | React 18 + TypeScript + Vite + Tailwind CSS |
-| Déploiement | Docker Compose |
+| Déploiement | Docker Compose (dev) / Registry NAS Synology (prod) |
 
 ---
 
-## Lancement rapide (Docker)
+## Lancement rapide (développement local)
 
 ### Prérequis
 - Docker + Docker Compose installés
@@ -27,13 +27,52 @@ docker compose up --build
 
 L'application sera accessible sur :
 - **Frontend** : http://localhost:3000
-- **Backend API** : http://localhost:8080
-- **Swagger UI** : http://localhost:8080/swagger-ui.html
+- **Backend API** : http://localhost:8090
+- **Swagger UI** : http://localhost:8090/swagger-ui.html
 
 ### Comptes de démo
 
 Les comptes de démo sont créés par la migration Flyway `V2__demo_data.sql`.
 Consulte ce fichier pour les identifiants (ne pas les exposer publiquement).
+
+---
+
+## Déploiement production (NAS Synology)
+
+Le déploiement repose sur un registry Docker privé tournant sur le NAS (`192.168.68.112:5000`).
+Les images sont buildées en local et poussées sur le NAS — **aucune compilation sur le NAS**.
+
+### Prérequis (une seule fois)
+
+- Registry `registry:2` lancé sur le NAS via Container Manager
+- `192.168.68.112:5000` déclaré comme insecure registry dans Docker Desktop
+- `docker-compose.prod.yml` et un fichier `.env` copiés sur le NAS dans le même dossier
+
+### Déployer une nouvelle version
+
+**Depuis ta machine de dev :**
+
+```bash
+cd prono-core
+./build-and-push.sh          # build + push backend & frontend sur le NAS
+# optionnel : ./build-and-push.sh v1.2.0  pour tagger une version spécifique
+```
+
+**Sur le NAS (SSH ou tâche planifiée) :**
+
+```bash
+docker compose -f docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml up -d
+```
+
+### Fichiers
+
+| Fichier | Usage |
+|---------|-------|
+| `docker-compose.yml` | Dev local (build à la volée) |
+| `docker-compose.prod.yml` | Production NAS (images pré-buildées) |
+| `build-and-push.sh` | Build + push vers le registry NAS |
+| `.env.example` | Template des variables d'environnement |
 
 ---
 
