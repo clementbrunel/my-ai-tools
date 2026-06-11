@@ -637,6 +637,7 @@ const Admin: React.FC = () => {
                   className="input-field"
                 >
                   <option value="VERIFICATION">Vérification d'email</option>
+                  <option value="PASSWORD_RESET">Réinitialisation de mot de passe</option>
                 </select>
               </div>
               <div>
