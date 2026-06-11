@@ -14,6 +14,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -39,12 +40,17 @@ public class EmailService {
             case PASSWORD_RESET -> sendPasswordResetEmail(to, "test-preview-000");
             case MATCH_REMINDER -> {
                 User fakeUser = User.builder().username("joueur_test").email(to).emailReminderEnabled(true).build();
-                Match fakeMatch = Match.builder()
-                    .id(0L).teamA("France").teamB("Brésil")
-                    .matchDate(LocalDateTime.now().plusHours(1))
-                    .competition("FIFA World Cup 2026").round("Finale")
-                    .reminderSent(false).build();
-                sendMatchReminder(fakeUser, fakeMatch);
+                List<Match> fakeMatches = List.of(
+                    Match.builder().id(0L).teamA("France").teamB("Brésil")
+                        .matchDate(LocalDateTime.now().plusHours(1))
+                        .competition("FIFA World Cup 2026").round("Finale")
+                        .reminderSent(false).build(),
+                    Match.builder().id(1L).teamA("Espagne").teamB("Allemagne")
+                        .matchDate(LocalDateTime.now().plusMinutes(65))
+                        .competition("FIFA World Cup 2026").round("Demi-finale")
+                        .reminderSent(false).build()
+                );
+                sendMatchReminder(fakeUser, fakeMatches);
             }
         }
     }
@@ -93,10 +99,11 @@ public class EmailService {
         }
     }
 
-    public void sendMatchReminder(User user, Match match) {
-        String kickoff = match.getMatchDate()
-                .format(DateTimeFormatter.ofPattern("HH'h'mm", Locale.FRANCE));
-        String appUrl = frontendUrl + "/matches/" + match.getId();
+    public void sendMatchReminder(User user, List<Match> matches) {
+        if (matches.isEmpty()) return;
+        String subject = matches.size() == 1
+            ? "⚽ Rappel : " + matches.get(0).getTeamA() + " – " + matches.get(0).getTeamB() + " dans 1h !"
+            : "⚽ Rappel : " + matches.size() + " matchs à pronostiquer dans 1h !";
         try {
             restClient.post()
                 .uri("/emails")
@@ -105,19 +112,43 @@ public class EmailService {
                 .body(Map.of(
                     "from", "PronoCore <noreply@app.prono-core.top>",
                     "to", List.of(user.getEmail()),
-                    "subject", "⚽ Rappel : " + match.getTeamA() + " – " + match.getTeamB() + " dans 1h !",
-                    "html", buildMatchReminderHtml(user, match, kickoff, appUrl)
+                    "subject", subject,
+                    "html", buildMatchReminderHtml(user, matches)
                 ))
                 .retrieve()
                 .toBodilessEntity();
-            log.info("Match reminder sent to {} for match {}", user.getEmail(), match.getId());
+            log.info("Match reminder sent to {} ({} match(es))", user.getEmail(), matches.size());
         } catch (Exception e) {
             log.error("Failed to send match reminder to {}: {}", user.getEmail(), e.getMessage());
         }
     }
 
-    private String buildMatchReminderHtml(User user, Match match, String kickoff, String appUrl) {
+    private String buildMatchReminderHtml(User user, List<Match> matches) {
         String displayName = user.getDisplayName() != null ? user.getDisplayName() : user.getUsername();
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("HH'h'mm", Locale.FRANCE);
+
+        String matchCards = matches.stream().map(m -> {
+            String appUrl = frontendUrl + "/matches/" + m.getId();
+            return """
+                <div style="background:#f8f9fa;border-radius:8px;padding:16px;margin:12px 0;display:flex;align-items:center;justify-content:space-between">
+                  <div>
+                    <div style="font-size:16px;font-weight:bold;color:#1a472a">%s – %s</div>
+                    <div style="color:#6b7280;font-size:13px;margin-top:2px">%s • %s</div>
+                  </div>
+                  <a href="%s"
+                     style="background:#2d6a4f;color:#fff;padding:8px 16px;border-radius:6px;text-decoration:none;font-weight:bold;font-size:13px;white-space:nowrap;margin-left:16px">
+                    ⚽ Parier
+                  </a>
+                </div>
+                """.formatted(m.getTeamA(), m.getTeamB(),
+                              m.getMatchDate().format(fmt), m.getRound(),
+                              appUrl);
+        }).collect(Collectors.joining());
+
+        String intro = matches.size() == 1
+            ? "Le match suivant commence dans <strong>1 heure</strong> et tu n'as pas encore saisi ton pronostic !"
+            : "Les <strong>" + matches.size() + " matchs</strong> suivants commencent dans <strong>1 heure</strong> et tu n'as encore saisi aucun pronostic !";
+
         return """
             <!DOCTYPE html>
             <html lang="fr">
@@ -132,20 +163,8 @@ public class EmailService {
                 <div style="padding:32px">
                   <h2 style="color:#1a1a1a;margin-top:0">Rappel de match ⏰</h2>
                   <p style="color:#444;line-height:1.6">Bonjour <strong>%s</strong>,</p>
-                  <p style="color:#444;line-height:1.6">
-                    Le match <strong>%s – %s</strong> commence dans <strong>1 heure</strong> (%s) et tu n'as pas encore saisi ton pronostic !
-                  </p>
-                  <div style="background:#f8f9fa;border-radius:8px;padding:16px;margin:24px 0;text-align:center">
-                    <div style="font-size:32px;margin-bottom:4px">🆚</div>
-                    <div style="font-size:20px;font-weight:bold;color:#1a472a">%s – %s</div>
-                    <div style="color:#6b7280;margin-top:4px;font-size:14px">%s • Coup d'envoi à %s</div>
-                  </div>
-                  <div style="text-align:center;margin:32px 0">
-                    <a href="%s"
-                       style="background:#2d6a4f;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:16px;display:inline-block">
-                      ⚽ Saisir mon pronostic
-                    </a>
-                  </div>
+                  <p style="color:#444;line-height:1.6">%s</p>
+                  %s
                   <hr style="border:none;border-top:1px solid #eee;margin:24px 0">
                   <p style="color:#aaa;font-size:12px;text-align:center">
                     Tu reçois cet email car les rappels de matchs sont activés dans ton profil.<br>
@@ -155,8 +174,7 @@ public class EmailService {
               </div>
             </body>
             </html>
-            """.formatted(displayName, match.getTeamA(), match.getTeamB(), kickoff,
-                          match.getTeamA(), match.getTeamB(), match.getRound(), kickoff, appUrl);
+            """.formatted(displayName, intro, matchCards);
     }
 
     private String buildPasswordResetHtml(String resetUrl) {

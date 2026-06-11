@@ -15,11 +15,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.HashSet;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -34,7 +33,7 @@ public class ReminderSchedulerService {
 
     /**
      * Runs every minute. Finds UPCOMING matches starting in ~60 minutes (±1 min window)
-     * and notifies group members who haven't placed their bet yet.
+     * and sends one email per user listing all matches they haven't bet on yet.
      */
     @Scheduled(fixedDelay = 60_000)
     @Transactional
@@ -43,46 +42,47 @@ public class ReminderSchedulerService {
         List<Match> matches = matchRepository.findUpcomingMatchesForReminder(
                 now.plusMinutes(59), now.plusMinutes(61));
 
+        if (matches.isEmpty()) return;
+
+        // userId -> User
+        Map<Long, User> userById = new LinkedHashMap<>();
+        // userId -> ordered list of distinct matches the user hasn't bet on
+        Map<Long, Map<Long, Match>> pendingMatchesByUser = new LinkedHashMap<>();
+
         for (Match match : matches) {
-            processMatch(match);
-        }
-    }
+            List<Bet> openBets = betRepository.findByMatchIdAndStatusOrderByCreatedAtDesc(
+                    match.getId(), Bet.Status.OPEN);
 
-    private void processMatch(Match match) {
-        List<Bet> openBets = betRepository.findByMatchIdAndStatusOrderByCreatedAtDesc(
-                match.getId(), Bet.Status.OPEN);
+            for (Bet bet : openBets) {
+                Long groupId = bet.getGroup().getId();
+                List<GroupMember> members = groupMemberRepository.findByGroupIdAndStatus(
+                        groupId, GroupMember.MemberStatus.ACTIVE);
 
-        if (openBets.isEmpty()) {
-            match.setReminderSent(true);
-            matchRepository.save(match);
-            return;
-        }
+                for (GroupMember gm : members) {
+                    User user = gm.getUser();
+                    if (!user.isEmailReminderEnabled()) continue;
+                    if (betParticipationRepository.existsByUserIdAndMatchId(user.getId(), match.getId())) continue;
 
-        Set<Long> notifiedIds = new HashSet<>();
-        Map<Long, User> userById = new HashMap<>();
-
-        for (Bet bet : openBets) {
-            Long groupId = bet.getGroup().getId();
-            List<GroupMember> members = groupMemberRepository.findByGroupIdAndStatus(
-                    groupId, GroupMember.MemberStatus.ACTIVE);
-
-            for (GroupMember gm : members) {
-                User user = gm.getUser();
-                if (!user.isEmailReminderEnabled()) continue;
-                if (notifiedIds.contains(user.getId())) continue;
-                if (betParticipationRepository.existsByUserIdAndMatchId(user.getId(), match.getId())) continue;
-
-                notifiedIds.add(user.getId());
-                userById.put(user.getId(), user);
+                    userById.put(user.getId(), user);
+                    pendingMatchesByUser
+                            .computeIfAbsent(user.getId(), k -> new LinkedHashMap<>())
+                            .putIfAbsent(match.getId(), match);
+                }
             }
         }
 
-        log.info("Match {}: sending reminders to {} user(s)", match.getId(), notifiedIds.size());
-        for (User user : userById.values()) {
-            emailService.sendMatchReminder(user, match);
+        log.info("Sending match reminder(s) to {} user(s) for {} match(es)",
+                pendingMatchesByUser.size(), matches.size());
+
+        for (Map.Entry<Long, Map<Long, Match>> entry : pendingMatchesByUser.entrySet()) {
+            User user = userById.get(entry.getKey());
+            List<Match> pendingMatches = new ArrayList<>(entry.getValue().values());
+            emailService.sendMatchReminder(user, pendingMatches);
         }
 
-        match.setReminderSent(true);
-        matchRepository.save(match);
+        matches.forEach(m -> {
+            m.setReminderSent(true);
+            matchRepository.save(m);
+        });
     }
 }
