@@ -1,0 +1,45 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: pronocore-postgres
+    environment:
+      POSTGRES_DB: pronocore
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  backend:
+    image: 192.168.68.112:5000/prono-core-backend:latest
+    container_name: pronocore-backend
+    ports:
+      - "8090:8080"
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/pronocore
+      DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASS}
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    image: 192.168.68.112:5000/prono-core-frontend:latest
+    container_name: pronocore-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
