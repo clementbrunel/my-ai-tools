@@ -2,11 +2,9 @@ package com.pronocore.service;
 
 import com.pronocore.entity.PasswordResetToken;
 import com.pronocore.entity.User;
-import com.pronocore.event.PasswordResetRequestedEvent;
 import com.pronocore.repository.PasswordResetTokenRepository;
 import com.pronocore.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,12 +21,11 @@ public class PasswordResetService {
     private final UserRepository userRepository;
     private final PasswordResetTokenRepository tokenRepository;
     private final PasswordEncoder passwordEncoder;
-    private final ApplicationEventPublisher eventPublisher;
+    private final EmailService emailService;
 
     /**
-     * Creates a reset token for the given email and publishes a
-     * PasswordResetRequestedEvent. Always returns silently even if the email
-     * is unknown to prevent user-enumeration.
+     * Creates a reset token and sends the reset email.
+     * Always returns silently even if the email is unknown to prevent user enumeration.
      */
     @Transactional
     public void initiateReset(String email) {
@@ -43,9 +40,7 @@ public class PasswordResetService {
                     .build();
             tokenRepository.save(resetToken);
 
-            // The email-sending feature branch listens for this event
-            eventPublisher.publishEvent(
-                    new PasswordResetRequestedEvent(email, tokenValue, user.getUsername()));
+            emailService.sendPasswordResetEmail(email, tokenValue);
         });
     }
 
