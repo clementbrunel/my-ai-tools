@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getMatch } from '../api/matches';
-import { getBetsByMatch, getParticipations, upsertParticipate } from '../api/bets';
+import { getBetsByMatch, getParticipationsByMatch, upsertParticipate } from '../api/bets';
 import { getDailyGagesByDate, voteOnCandidate } from '../api/dailyGages';
 import { useAuth } from '../context/AuthContext';
 import type { Match, Bet, BetParticipation, DailyGage } from '../types';
@@ -69,11 +69,12 @@ const MatchDetail: React.FC = () => {
   const [saveMsg, setSaveMsg] = useState('');
   const [saveError, setSaveError] = useState('');
 
-  const refreshParticipations = useCallback(async (betId: number) => {
-    const parts = await getParticipations(betId);
+  const refreshParticipations = useCallback(async () => {
+    if (!id) return [];
+    const parts = await getParticipationsByMatch(parseInt(id));
     setParticipations(parts);
     return parts;
-  }, []);
+  }, [id]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -96,7 +97,7 @@ const MatchDetail: React.FC = () => {
         if (betsData.length > 0) {
           const theBet = betsData[0];
           setBet(theBet);
-          const parts = await refreshParticipations(theBet.id);
+          const parts = await refreshParticipations();
           // Pre-fill form if user already participated
           const myPart = parts.find((p) => p.user.username === user?.username);
           if (myPart) {
@@ -155,7 +156,7 @@ const MatchDetail: React.FC = () => {
     setIsSaving(true);
     try {
       await upsertParticipate(bet.id, previewOption, comment || undefined);
-      await refreshParticipations(bet.id);
+      await refreshParticipations();
       setSaveMsg(alreadyVoted ? '✅ Pronostic mis à jour !' : '✅ Pronostic enregistré !');
       setTimeout(() => setSaveMsg(''), 3000);
     } catch (err: unknown) {
