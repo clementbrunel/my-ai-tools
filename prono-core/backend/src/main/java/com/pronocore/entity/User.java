@@ -65,6 +65,9 @@ public class User {
     @Builder.Default
     private boolean emailReminderEnabled = true;
 
+    @Column(name = "reminder_sent_date")
+    private java.time.LocalDate reminderSentDate;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

@@ -47,4 +47,26 @@ public interface MatchRepository extends JpaRepository<Match, Long> {
             """)
     List<Match> findUpcomingMatchesForReminder(@Param("from") LocalDateTime from,
                                                @Param("to")   LocalDateTime to);
+
+    /** All UPCOMING matches today (in [startOfDay, endOfDay)) that have at least one OPEN bet
+     *  in one of the user's ACTIVE groups and on which the user has not yet participated. */
+    @Query("""
+            SELECT DISTINCT m FROM Match m
+            JOIN Bet b ON b.match = m
+            JOIN GroupMember gm ON gm.group = b.group
+            WHERE gm.user.id = :userId
+              AND gm.status = com.pronocore.entity.GroupMember.MemberStatus.ACTIVE
+              AND b.status = com.pronocore.entity.Bet.Status.OPEN
+              AND m.status = com.pronocore.entity.Match.Status.UPCOMING
+              AND m.matchDate >= :startOfDay
+              AND m.matchDate < :endOfDay
+              AND NOT EXISTS (
+                  SELECT bp FROM BetParticipation bp
+                  WHERE bp.bet.match = m AND bp.user.id = :userId
+              )
+            ORDER BY m.matchDate ASC
+            """)
+    List<Match> findPendingMatchesTodayForUser(@Param("userId")     Long          userId,
+                                               @Param("startOfDay") LocalDateTime startOfDay,
+                                               @Param("endOfDay")   LocalDateTime endOfDay);
 }

@@ -8,14 +8,15 @@ import com.pronocore.repository.BetParticipationRepository;
 import com.pronocore.repository.BetRepository;
 import com.pronocore.repository.GroupMemberRepository;
 import com.pronocore.repository.MatchRepository;
+import com.pronocore.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,58 +30,65 @@ public class ReminderSchedulerService {
     private final BetRepository betRepository;
     private final GroupMemberRepository groupMemberRepository;
     private final BetParticipationRepository betParticipationRepository;
+    private final UserRepository userRepository;
     private final EmailService emailService;
 
     /**
-     * Runs every minute. Finds UPCOMING matches starting in ~60 minutes (±1 min window)
-     * and sends one email per user listing all matches they haven't bet on yet.
+     * Runs every minute. When a match enters the 4h-before window, collects every
+     * user who hasn't been reminded today, fetches ALL their pending matches of the day,
+     * and sends a single consolidated email. At most one email per user per day.
      */
     @Scheduled(fixedDelay = 60_000)
     @Transactional
     public void sendMatchReminders() {
         LocalDateTime now = LocalDateTime.now();
-        List<Match> matches = matchRepository.findUpcomingMatchesForReminder(
+        LocalDate today = now.toLocalDate();
+
+        List<Match> triggerMatches = matchRepository.findUpcomingMatchesForReminder(
                 now.plusMinutes(239), now.plusMinutes(241));
 
-        if (matches.isEmpty()) return;
+        if (triggerMatches.isEmpty()) return;
 
-        // userId -> User
-        Map<Long, User> userById = new LinkedHashMap<>();
-        // userId -> ordered list of distinct matches the user hasn't bet on
-        Map<Long, Map<Long, Match>> pendingMatchesByUser = new LinkedHashMap<>();
+        // Collect users who need a reminder today (not yet reminded, reminder enabled,
+        // and have at least one unbet match in the trigger window)
+        Map<Long, User> usersToRemind = new LinkedHashMap<>();
 
-        for (Match match : matches) {
+        for (Match match : triggerMatches) {
             List<Bet> openBets = betRepository.findByMatchIdAndStatusOrderByCreatedAtDesc(
                     match.getId(), Bet.Status.OPEN);
 
             for (Bet bet : openBets) {
-                Long groupId = bet.getGroup().getId();
                 List<GroupMember> members = groupMemberRepository.findByGroupIdAndStatus(
-                        groupId, GroupMember.MemberStatus.ACTIVE);
+                        bet.getGroup().getId(), GroupMember.MemberStatus.ACTIVE);
 
                 for (GroupMember gm : members) {
                     User user = gm.getUser();
                     if (!user.isEmailReminderEnabled()) continue;
+                    if (today.equals(user.getReminderSentDate())) continue;
                     if (betParticipationRepository.existsByUserIdAndMatchId(user.getId(), match.getId())) continue;
-
-                    userById.put(user.getId(), user);
-                    pendingMatchesByUser
-                            .computeIfAbsent(user.getId(), k -> new LinkedHashMap<>())
-                            .putIfAbsent(match.getId(), match);
+                    usersToRemind.put(user.getId(), user);
                 }
             }
         }
 
-        log.info("Sending match reminder(s) to {} user(s) for {} match(es)",
-                pendingMatchesByUser.size(), matches.size());
+        log.info("Triggered by {} match(es), reminding {} user(s)", triggerMatches.size(), usersToRemind.size());
 
-        for (Map.Entry<Long, Map<Long, Match>> entry : pendingMatchesByUser.entrySet()) {
-            User user = userById.get(entry.getKey());
-            List<Match> pendingMatches = new ArrayList<>(entry.getValue().values());
-            emailService.sendMatchReminder(user, pendingMatches);
+        LocalDateTime startOfDay = today.atStartOfDay();
+        LocalDateTime startOfNextDay = today.plusDays(1).atStartOfDay();
+
+        for (User user : usersToRemind.values()) {
+            // Fetch ALL matches today this user hasn't bet on (not just the trigger ones)
+            List<Match> allPending = matchRepository.findPendingMatchesTodayForUser(
+                    user.getId(), startOfDay, startOfNextDay);
+
+            if (!allPending.isEmpty()) {
+                emailService.sendMatchReminder(user, allPending);
+            }
+            user.setReminderSentDate(today);
+            userRepository.save(user);
         }
 
-        matches.forEach(m -> {
+        triggerMatches.forEach(m -> {
             m.setReminderSent(true);
             matchRepository.save(m);
         });
