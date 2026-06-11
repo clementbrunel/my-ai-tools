@@ -711,7 +711,7 @@ const Admin: React.FC = () => {
                 <tr className="border-b border-gray-100 dark:border-gray-700">
                   <td className="py-3 px-4 font-medium text-gray-900 dark:text-white">Rappel de match</td>
                   <td className="py-3 px-4 text-gray-500">
-                    Envoyé automatiquement 1 heure avant chaque match aux joueurs n'ayant pas encore saisi leur pronostic.
+                    Envoyé automatiquement 4 heures avant chaque match aux joueurs n'ayant pas encore saisi leur pronostic.
                     Activable / désactivable par chaque utilisateur dans son profil.
                     Le test utilise un match fictif (France – Brésil, Finale).
                   </td>

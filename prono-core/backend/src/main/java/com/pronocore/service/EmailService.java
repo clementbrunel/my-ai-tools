@@ -102,8 +102,8 @@ public class EmailService {
     public void sendMatchReminder(User user, List<Match> matches) {
         if (matches.isEmpty()) return;
         String subject = matches.size() == 1
-            ? "⚽ Rappel : " + matches.get(0).getTeamA() + " – " + matches.get(0).getTeamB() + " dans 1h !"
-            : "⚽ Rappel : " + matches.size() + " matchs à pronostiquer dans 1h !";
+            ? "⚽ Rappel : " + matches.get(0).getTeamA() + " – " + matches.get(0).getTeamB() + " dans 4h !"
+            : "⚽ Rappel : " + matches.size() + " matchs à pronostiquer dans 4h !";
         try {
             restClient.post()
                 .uri("/emails")
@@ -146,8 +146,8 @@ public class EmailService {
         }).collect(Collectors.joining());
 
         String intro = matches.size() == 1
-            ? "Le match suivant commence dans <strong>1 heure</strong> et tu n'as pas encore saisi ton pronostic !"
-            : "Les <strong>" + matches.size() + " matchs</strong> suivants commencent dans <strong>1 heure</strong> et tu n'as encore saisi aucun pronostic !";
+            ? "Le match suivant commence dans <strong>4 heures</strong> et tu n'as pas encore saisi ton pronostic !"
+            : "Les <strong>" + matches.size() + " matchs</strong> suivants commencent dans <strong>4 heures</strong> et tu n'as encore saisi aucun pronostic !";
 
         return """
             <!DOCTYPE html>

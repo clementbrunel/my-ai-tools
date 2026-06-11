@@ -257,7 +257,7 @@ const Profile: React.FC = () => {
                 <div>
                   <p className="font-medium text-gray-900 dark:text-white text-sm">Rappel par email avant chaque match</p>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                    Reçois un email 1 heure avant le match si tu n'as pas encore saisi ton pronostic
+                    Reçois un email 4 heures avant le match si tu n'as pas encore saisi ton pronostic
                   </p>
                 </div>
                 <button

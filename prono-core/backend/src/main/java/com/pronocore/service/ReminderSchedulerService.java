@@ -40,7 +40,7 @@ public class ReminderSchedulerService {
     public void sendMatchReminders() {
         LocalDateTime now = LocalDateTime.now();
         List<Match> matches = matchRepository.findUpcomingMatchesForReminder(
-                now.plusMinutes(59), now.plusMinutes(61));
+                now.plusMinutes(239), now.plusMinutes(241));
 
         if (matches.isEmpty()) return;
 
