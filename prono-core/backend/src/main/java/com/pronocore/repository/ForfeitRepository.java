@@ -13,6 +13,8 @@ public interface ForfeitRepository extends JpaRepository<Forfeit, Long> {
 
     List<Forfeit> findByActiveTrue();
 
+    List<Forfeit> findAllByOrderByIdAsc();
+
     List<Forfeit> findByCategory(String category);
 
     /** Active SHARED gages only (group_id IS NULL). */

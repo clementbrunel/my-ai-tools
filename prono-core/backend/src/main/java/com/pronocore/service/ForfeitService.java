@@ -67,7 +67,7 @@ public class ForfeitService {
         String username = currentUsername();
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
-        return toForfeitResponsesForUser(forfeitRepository.findAll(), user.getId());
+        return toForfeitResponsesForUser(forfeitRepository.findAllByOrderByIdAsc(), user.getId());
     }
 
     // ---------------------------------------------------------------
