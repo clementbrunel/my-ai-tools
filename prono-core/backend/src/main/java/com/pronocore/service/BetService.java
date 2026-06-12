@@ -238,6 +238,33 @@ public class BetService {
         return betMapper.toParticipationResponse(participationRepository.save(participation));
     }
 
+    @Transactional
+    public List<BetParticipationResponse> upsertParticipateByMatch(Long matchId, ParticipateRequest request, String username) {
+        User user = requireUser(username);
+        List<Bet> bets = betRepository.findByMatchIdInUserActiveGroups(matchId, user.getId());
+        return bets.stream()
+            .filter(bet -> {
+                try { assertOpenForParticipation(bet); return true; }
+                catch (IllegalStateException e) { return false; }
+            })
+            .map(bet -> {
+                BetParticipation participation = participationRepository.findByBetIdAndUserId(bet.getId(), user.getId())
+                    .map(existing -> {
+                        existing.setChosenOption(request.getChosenOption());
+                        existing.setComment(request.getComment());
+                        return existing;
+                    })
+                    .orElseGet(() -> BetParticipation.builder()
+                        .bet(bet)
+                        .user(user)
+                        .chosenOption(request.getChosenOption())
+                        .comment(request.getComment())
+                        .build());
+                return betMapper.toParticipationResponse(participationRepository.save(participation));
+            })
+            .toList();
+    }
+
     // ---------------------------------------------------------------
     // Admin settlement
     // ---------------------------------------------------------------

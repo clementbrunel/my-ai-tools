@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getMatch } from '../api/matches';
-import { getBetsByMatch, getParticipationsByMatch, upsertParticipate } from '../api/bets';
+import { getBetsByMatch, getParticipationsByMatch, upsertParticipateByMatch } from '../api/bets';
 import { getDailyGagesByDate, voteOnCandidate } from '../api/dailyGages';
 import { useAuth } from '../context/AuthContext';
 import type { Match, Bet, BetParticipation, DailyGage } from '../types';
@@ -150,12 +150,12 @@ const MatchDetail: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!bet || !previewOption) return;
+    if (!id || !bet || !previewOption) return;
     setSaveError('');
     setSaveMsg('');
     setIsSaving(true);
     try {
-      await upsertParticipate(bet.id, previewOption, comment || undefined);
+      await upsertParticipateByMatch(parseInt(id), previewOption, comment || undefined);
       await refreshParticipations();
       setSaveMsg(alreadyVoted ? '✅ Pronostic mis à jour !' : '✅ Pronostic enregistré !');
       setTimeout(() => setSaveMsg(''), 3000);

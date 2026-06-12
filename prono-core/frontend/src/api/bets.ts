@@ -69,6 +69,18 @@ export const upsertParticipate = async (
   return response.data;
 };
 
+export const upsertParticipateByMatch = async (
+  matchId: number,
+  chosenOption: string,
+  comment?: string
+): Promise<BetParticipation[]> => {
+  const response = await apiClient.put<BetParticipation[]>(`/bets/match/${matchId}/participate`, {
+    chosenOption,
+    comment,
+  });
+  return response.data;
+};
+
 export const getParticipations = async (betId: number): Promise<BetParticipation[]> => {
   const response = await apiClient.get<BetParticipation[]>(`/bets/${betId}/participations`);
   return response.data;
