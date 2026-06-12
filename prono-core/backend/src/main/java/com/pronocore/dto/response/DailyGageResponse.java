@@ -38,4 +38,7 @@ public class DailyGageResponse {
     private List<DailyGageCandidateResponse> candidates;
 
     private LocalDateTime createdAt;
+
+    /** True when all matches of the day are finished but this gage is not yet settled. */
+    private boolean canForceSettle;
 }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   getDailyGagesByGroup, createDailyGage,
-  selectForfeitDirectly, addCandidate, removeCandidate,
+  selectForfeitDirectly, addCandidate, removeCandidate, forceSettleGage,
 } from '../api/dailyGages';
 import { getForfeitsVisibleToGroup } from '../api/forfeits';
 import { getBets } from '../api/bets';
@@ -98,6 +98,16 @@ const DailyGagePanel: React.FC<Props> = ({ groupId }) => {
       setSelectedForfeit('');
     } catch {
       setError('Erreur — ce gage est peut-être déjà candidat ?');
+    }
+  };
+
+  const handleForceSettle = async (dgId: number) => {
+    try {
+      const updated = await forceSettleGage(dgId);
+      setDailyGages((prev) => prev.map((dg) => (dg.id === updated.id ? updated : dg)));
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setError(msg ?? 'Erreur lors de l\'attribution forcée');
     }
   };
 
@@ -271,6 +281,20 @@ const DailyGagePanel: React.FC<Props> = ({ groupId }) => {
                             </button>
                           </div>
                         ))}
+                      </div>
+                    )}
+
+                    {dg.canForceSettle && (
+                      <div className="pt-1 border-t border-gray-200 dark:border-gray-700">
+                        <button
+                          onClick={() => handleForceSettle(dg.id)}
+                          className="btn-primary text-xs bg-orange-600 hover:bg-orange-700"
+                        >
+                          ⚡ Attribuer maintenant
+                        </button>
+                        <p className="text-xs text-gray-400 mt-1">
+                          Tous les matchs du jour sont terminés — l'attribution automatique n'a pas eu lieu.
+                        </p>
                       </div>
                     )}
                   </div>
