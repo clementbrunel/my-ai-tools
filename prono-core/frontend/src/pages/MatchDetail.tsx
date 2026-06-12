@@ -56,6 +56,7 @@ const MatchDetail: React.FC = () => {
 
   const [match, setMatch] = useState<Match | null>(null);
   const [bet, setBet] = useState<Bet | null>(null);
+  const [bets, setBets] = useState<Bet[]>([]);
   const [participations, setParticipations] = useState<BetParticipation[]>([]);
   const [dayGages, setDayGages] = useState<DailyGage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -97,6 +98,7 @@ const MatchDetail: React.FC = () => {
         if (betsData.length > 0) {
           const theBet = betsData[0];
           setBet(theBet);
+          setBets(betsData);
           const parts = await refreshParticipations();
           // Pre-fill form if user already participated
           const myPart = parts.find((p) => p.user.username === user?.username);
@@ -155,7 +157,7 @@ const MatchDetail: React.FC = () => {
     setSaveMsg('');
     setIsSaving(true);
     try {
-      await upsertParticipate(bet.id, previewOption, comment || undefined);
+      await Promise.all(bets.map((b) => upsertParticipate(b.id, previewOption, comment || undefined)));
       await refreshParticipations();
       setSaveMsg(alreadyVoted ? '✅ Pronostic mis à jour !' : '✅ Pronostic enregistré !');
       setTimeout(() => setSaveMsg(''), 3000);
