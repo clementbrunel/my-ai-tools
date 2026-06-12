@@ -13,18 +13,14 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Optional;
 
 /**
- * Polls api-football.com every 5 minutes for matches that are inside their
- * "active window" (kick-off − 15 min to kick-off + 3 h).
+ * Polls api-football.com every 5 minutes for matches inside their active window
+ * (kick-off − 15 min → kick-off + 3 h).
  *
- * Only processes matches that:
- *   1. Have an external_fixture_id set (i.e. have been linked)
- *   2. Are NOT sync-locked (admin override takes precedence)
- *   3. Are not already FINISHED in our DB
- *
- * Uses MatchService.syncMatchScore() which handles bet settlement and daily-gage
- * assignment exactly like the admin endpoint does.
+ * Home/away mapping uses ISO2-derived team IDs from TeamMappingService —
+ * no text translation required regardless of the language used in our DB.
  */
 @Slf4j
 @Service
@@ -34,25 +30,22 @@ public class MatchSyncService {
     private final MatchRepository    matchRepository;
     private final MatchService       matchService;
     private final ApiFootballClient  apiClient;
-    private final TeamNameNormalizer normalizer;
+    private final TeamMappingService teamMapping;
 
     @Value("${sync.enabled:true}")
     private boolean syncEnabled;
 
-    @Scheduled(fixedDelay = 300_000)   // every 5 minutes
+    @Scheduled(fixedDelay = 300_000)
     public void syncMatches() {
         if (!syncEnabled || apiClient.isDisabled()) return;
 
-        LocalDateTime now         = LocalDateTime.now(ZoneOffset.UTC);
-        LocalDateTime windowStart = now.minusHours(3);
-        LocalDateTime windowEnd   = now.plusMinutes(15);
+        LocalDateTime now   = LocalDateTime.now(ZoneOffset.UTC);
+        List<Match> targets = matchRepository.findSyncableMatchesInWindow(
+                now.minusHours(3), now.plusMinutes(15));
+        if (targets.isEmpty()) return;
 
-        List<Match> candidates = matchRepository.findSyncableMatchesInWindow(windowStart, windowEnd);
-        if (candidates.isEmpty()) return;
-
-        log.debug("Sync: {} match(es) in active window", candidates.size());
-
-        for (Match match : candidates) {
+        log.debug("Sync: {} match(es) in active window", targets.size());
+        for (Match match : targets) {
             if (match.getExternalFixtureId() == null) continue;
             processMatch(match);
         }
@@ -64,7 +57,6 @@ public class MatchSyncService {
 
         String status = fixture.statusShort();
 
-        // Mark ONGOING when the match kicks off
         if (ApiFootballClient.LIVE_STATUSES.contains(status)
                 && match.getStatus() == Match.Status.UPCOMING) {
             log.info("Match {} ({} vs {}) is now ONGOING", match.getId(), match.getTeamA(), match.getTeamB());
@@ -72,10 +64,8 @@ public class MatchSyncService {
             return;
         }
 
-        // Settle when finished
         if (ApiFootballClient.FINISHED_STATUSES.contains(status)
                 && match.getStatus() != Match.Status.FINISHED) {
-
             if (fixture.homeGoals() == null || fixture.awayGoals() == null) return;
 
             int[] scores = mapGoals(match, fixture);
@@ -86,19 +76,19 @@ public class MatchSyncService {
     }
 
     /**
-     * Determines which API goal (home vs away) corresponds to teamA vs teamB.
-     * Uses the TeamNameNormalizer to compare our team names with the fixture's team names.
-     * Returns [scoreA, scoreB].
+     * Maps fixture home/away goals to our teamA/teamB order using ISO2-derived team IDs.
+     * Falls back to assuming teamA = home if no ID is available.
      */
     private int[] mapGoals(Match match, ApiFixture fixture) {
-        double simAHome = normalizer.similarity(match.getTeamA(), fixture.homeTeam());
-        double simBHome = normalizer.similarity(match.getTeamB(), fixture.homeTeam());
-
-        // If teamA better matches the home team → home=teamA, away=teamB
-        if (simAHome >= simBHome) {
+        Optional<Long> idA = teamMapping.getTeamId(match.getTeamA());
+        if (idA.isPresent() && idA.get() == fixture.homeTeamId()) {
             return new int[]{fixture.homeGoals(), fixture.awayGoals()};
-        } else {
+        }
+        Optional<Long> idB = teamMapping.getTeamId(match.getTeamB());
+        if (idB.isPresent() && idB.get() == fixture.homeTeamId()) {
             return new int[]{fixture.awayGoals(), fixture.homeGoals()};
         }
+        log.warn("Match {}: could not determine home/away via team IDs, assuming teamA=home", match.getId());
+        return new int[]{fixture.homeGoals(), fixture.awayGoals()};
     }
 }
