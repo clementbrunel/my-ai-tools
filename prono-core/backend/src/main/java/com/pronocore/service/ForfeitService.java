@@ -319,17 +319,7 @@ public class ForfeitService {
             if (voteValue != 1 && voteValue != -1) {
                 throw new IllegalArgumentException("Vote must be -1, 0, or +1");
             }
-            Optional<ForfeitVote> existing = forfeitVoteRepository.findByForfeitIdAndUserId(forfeitId, user.getId());
-            if (existing.isPresent()) {
-                existing.get().setVote(voteValue);
-                forfeitVoteRepository.save(existing.get());
-            } else {
-                forfeitVoteRepository.save(ForfeitVote.builder()
-                        .forfeit(forfeit)
-                        .user(user)
-                        .vote(voteValue)
-                        .build());
-            }
+            forfeitVoteRepository.upsertVote(forfeitId, user.getId(), voteValue);
         }
 
         return toForfeitResponsesForUser(List.of(forfeit), user.getId()).get(0);
