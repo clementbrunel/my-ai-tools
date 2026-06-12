@@ -182,6 +182,25 @@ public class MatchService {
     }
 
     /**
+     * Force-recalculates points for ALL bets of a match, regardless of status.
+     * Safe to call multiple times — applies only the delta to avoid double-counting.
+     */
+    @Transactional
+    public void forceSettleMatch(Long matchId) {
+        Match match = requireMatch(matchId);
+        if (match.getStatus() != Match.Status.FINISHED) {
+            throw new IllegalStateException("Match is not FINISHED");
+        }
+        List<Bet> bets = betRepository.findByMatchIdOrderByCreatedAtDesc(matchId);
+        log.info("🔧 Force-settling all {} bet(s) for match {} ({} vs {})",
+                bets.size(), matchId, match.getTeamA(), match.getTeamB());
+        for (Bet bet : bets) {
+            forceSettleBet(matchId, bet.getId());
+        }
+        log.info("  ✓ Done — {} bet(s) processed", bets.size());
+    }
+
+    /**
      * Force-recalculates points for a specific bet, regardless of its current status.
      * Applies only the delta vs the previously stored pointsEarned to avoid double-counting.
      * Use for data recovery when a group's bet was settled with wrong/missing points.

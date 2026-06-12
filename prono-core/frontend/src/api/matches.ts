@@ -30,3 +30,7 @@ export const getCompetitions = async (): Promise<string[]> => {
   const response = await apiClient.get<string[]>('/matches/competitions');
   return response.data;
 };
+
+export const forceSettleMatch = async (id: number): Promise<void> => {
+  await apiClient.post(`/matches/${id}/force-settle-all`);
+};

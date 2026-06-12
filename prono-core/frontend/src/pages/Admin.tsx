@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import ConfirmModal from '../components/ConfirmModal';
 import { useToast } from '../components/Toast';
 import { useAuth } from '../context/AuthContext';
-import { getMatches, createMatch, updateMatchScore, getCompetitions } from '../api/matches';
+import { getMatches, createMatch, updateMatchScore, getCompetitions, forceSettleMatch } from '../api/matches';
 import { getAllForfeitsAdmin, createForfeit, updateForfeit, deleteForfeit } from '../api/forfeits';
 import { getAllGroups } from '../api/groups';
 import { getAllUsersAdmin } from '../api/users';
@@ -46,6 +46,7 @@ const Admin: React.FC = () => {
   const [editingMatch, setEditingMatch] = useState<Match | null>(null);
   const [scoreA, setScoreA] = useState('');
   const [scoreB, setScoreB] = useState('');
+  const [recalculatingMatchId, setRecalculatingMatchId] = useState<number | null>(null);
 
   // Forfeit edit
   const [editingForfeit, setEditingForfeit] = useState<Forfeit | null>(null);
@@ -151,6 +152,18 @@ const Admin: React.FC = () => {
       setMatches(matches.map((m) => (m.id === updated.id ? updated : m)));
       setEditingMatch(null);
     } catch { showToast('Erreur lors de la mise à jour du score'); }
+  };
+
+  const handleForceSettleMatch = async (matchId: number) => {
+    setRecalculatingMatchId(matchId);
+    try {
+      await forceSettleMatch(matchId);
+      showToast('Points recalculés avec succès');
+    } catch {
+      showToast('Erreur lors du recalcul des points');
+    } finally {
+      setRecalculatingMatchId(null);
+    }
   };
 
   // ---- Forfeit library handlers ----
@@ -365,16 +378,27 @@ const Admin: React.FC = () => {
                         <span className={`badge-${match.status.toLowerCase()} text-xs`}>{match.status}</span>
                       </td>
                       <td className="py-3 px-4 text-center">
-                        <button
-                          onClick={() => {
-                            setEditingMatch(match);
-                            setScoreA(match.scoreA?.toString() ?? '0');
-                            setScoreB(match.scoreB?.toString() ?? '0');
-                          }}
-                          className="text-xs btn-secondary py-1 px-2"
-                        >
-                          ✏️ Score
-                        </button>
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={() => {
+                              setEditingMatch(match);
+                              setScoreA(match.scoreA?.toString() ?? '0');
+                              setScoreB(match.scoreB?.toString() ?? '0');
+                            }}
+                            className="text-xs btn-secondary py-1 px-2"
+                          >
+                            ✏️ Score
+                          </button>
+                          {match.status === 'FINISHED' && (
+                            <button
+                              onClick={() => handleForceSettleMatch(match.id)}
+                              disabled={recalculatingMatchId === match.id}
+                              className="text-xs btn-secondary py-1 px-2 disabled:opacity-50"
+                            >
+                              {recalculatingMatchId === match.id ? '⏳' : '🔄'} Recalculer
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
