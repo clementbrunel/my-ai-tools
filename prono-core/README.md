@@ -37,6 +37,45 @@ Consulte ce fichier pour les identifiants (ne pas les exposer publiquement).
 
 ---
 
+## Accès à la base de données (pgAdmin)
+
+pgAdmin est disponible pour inspecter ou modifier directement les données.
+
+### En développement local
+
+pgAdmin démarre automatiquement avec `docker compose up` :
+
+- **URL** : http://localhost:5050
+- **Email** : `admin@local.dev` (ou `PGADMIN_EMAIL`)
+- **Mot de passe** : `admin` (ou `PGADMIN_PASSWORD`)
+
+Connexion à configurer dans pgAdmin :
+
+| Champ | Valeur |
+|-------|--------|
+| Host | `postgres` |
+| Port | `5432` |
+| Database | `pronocore` |
+| Username | valeur de `DB_USER` |
+| Password | valeur de `DB_PASS` |
+
+### En production (NAS Synology)
+
+pgAdmin n'est **pas démarré par défaut**. Pour l'activer ponctuellement :
+
+```bash
+# Sur le NAS (SSH)
+docker compose -f docker-compose.prod.yml --profile tools up -d pgadmin
+```
+
+Accessible sur http://<IP-NAS>:5050 — **penser à le couper une fois terminé** :
+
+```bash
+docker compose -f docker-compose.prod.yml --profile tools stop pgadmin
+```
+
+---
+
 ## Déploiement production (NAS Synology)
 
 Le déploiement repose sur un registry Docker privé tournant sur le NAS (`192.168.68.112:5000`).
@@ -114,90 +153,25 @@ prono-core/
 ├── backend/
 │   ├── Dockerfile
 │   ├── pom.xml
-│   └── src/
-│       ├── main/java/com/pronocore/
-│       │   ├── config/          # SecurityConfig, OpenApiConfig
-│       │   ├── controller/      # REST controllers
-│       │   ├── dto/             # Request/Response DTOs
-│       │   ├── entity/          # JPA entities
-│       │   ├── mapper/          # MapStruct mappers
-│       │   ├── repository/      # Spring Data repositories
-│       │   ├── security/        # JWT provider & filter
-│       │   └── service/         # Business logic
-│       └── main/resources/
-│           ├── application.yml
-│           └── db/migration/    # Flyway SQL migrations
+│   └── src/main/
+│       ├── java/com/pronocore/   # config, controller, dto, entity, service...
+│       └── resources/db/migration/  # Flyway SQL migrations
 └── frontend/
     ├── Dockerfile
-    ├── nginx.conf
-    └── src/
-        ├── api/                 # Axios API calls
-        ├── components/          # Reusable React components
-        ├── context/             # AuthContext (JWT)
-        ├── pages/               # Full page components
-        └── types/               # TypeScript interfaces
+    └── src/                      # api, components, context, pages, types
 ```
 
 ---
 
 ## Fonctionnalités
 
-### Utilisateurs
-- Inscription / Connexion (JWT)
-- Profil avec stats (points, paris gagnés, gages reçus)
-- Classement général
+- Inscription / Connexion JWT, profil avec stats, classement
+- Paris par couple **(match, groupe)** — 4 types : Score exact, Événement, Gage, Libre
+- Gages partagés (admin global) et gages de groupe (privés)
+- Attribution automatique des gages aux perdants à la validation
+- Interface admin : créer des matchs, saisir les scores, valider les paris
 
-### Matchs
-- Liste des matchs (filtres: à venir / en cours / terminés)
-- Détail d'un match avec ses paris
-- Création / mise à jour du score (Admin)
-
-### Paris
-- Un pari appartient à un couple **(match, groupe)**
-- Un match est global mais **fermé aux paris** par défaut ; l'**admin du groupe** l'ouvre aux paris pour son groupe (0, 1 ou N paris selon les groupes qui l'ont ouvert)
-- 4 types: Score exact, Événement, Gage, Libre
-- Participation réservée aux **membres actifs** du groupe (pronostic + commentaire)
-- Le résultat saisi par l'admin règle les paris de **tous** les groupes concernés
-- Attribution automatique de gages aux perdants (type FORFEIT)
-
-### Gages
-- Catalogue de gages fun (maillot adverse, chanson, photo ridicule...)
-- **Gages partagés** (créés par l'admin, visibles par tous les groupes) + **gages de groupe** (ajouts des joueurs, privés à leur groupe)
-- Attribution manuelle (Admin) ou automatique à la validation
-- Suivi de completion
-
-### Classement
-- Podium top 3
-- Badge "Roi des gages" 🃏 (plus de gages reçus)
-- Badge "Pire loser" 💀
-
-### Admin
-- Créer des matchs
-- Mettre à jour les scores en direct
-- Valider ou annuler des paris
-- Gérer les gages
-
----
-
-## API Endpoints
-
-| Méthode | URL | Description |
-|---------|-----|-------------|
-| POST | /api/auth/login | Connexion |
-| POST | /api/auth/register | Inscription |
-| GET | /api/matches | Liste des matchs |
-| GET | /api/matches/{id} | Détail d'un match |
-| POST | /api/matches | Créer un match (Admin) |
-| PATCH | /api/matches/{id}/score | Mettre à jour le score (Admin) |
-| GET | /api/bets | Paris des groupes de l'utilisateur |
-| POST | /api/bets/open | Ouvrir un match aux paris dans un groupe (Admin de groupe) |
-| POST | /api/bets | Créer un pari personnalisé (Admin de groupe) |
-| POST | /api/bets/{id}/participate | Participer à un pari (membre du groupe) |
-| POST | /api/bets/{id}/validate | Valider un pari (Admin) |
-| GET | /api/leaderboard | Classement |
-| GET | /api/forfeits | Liste des gages |
-
-Voir la documentation complète sur http://localhost:8080/swagger-ui.html
+Documentation API complète : http://localhost:8090/swagger-ui.html
 
 ---
 
