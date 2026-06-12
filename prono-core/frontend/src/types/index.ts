@@ -88,6 +88,18 @@ export interface Match {
   status: 'UPCOMING' | 'ONGOING' | 'FINISHED';
   competition: string;
   round: string;
+  externalFixtureId?: number;
+  syncLocked?: boolean;
+  autoSynced?: boolean;
+}
+
+export interface FixtureCandidate {
+  fixtureId: number;
+  homeTeam: string;
+  awayTeam: string;
+  date: string;
+  confidence: number;
+  autoLinkable: boolean;
 }
 
 export interface Bet {

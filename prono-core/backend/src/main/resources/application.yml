@@ -20,6 +20,15 @@ spring:
 resend:
   api-key: ${RESEND_API_KEY:}
 
+api-football:
+  base-url: https://v3.football.api-sports.io
+  api-key: ${API_FOOTBALL_KEY:}
+  league-id: 1
+  season: 2026
+
+sync:
+  enabled: ${SYNC_ENABLED:true}
+
 app:
   frontend-url: ${FRONTEND_URL:http://localhost:5173}
   demo:

@@ -4,12 +4,13 @@ import ConfirmModal from '../components/ConfirmModal';
 import { useToast } from '../components/Toast';
 import { useAuth } from '../context/AuthContext';
 import { getMatches, createMatch, updateMatchScore, getCompetitions } from '../api/matches';
+import { getFixtureCandidates, linkMatch, unlinkMatch, triggerSync } from '../api/sync';
 import { getAllForfeitsAdmin, createForfeit, updateForfeit, deleteForfeit } from '../api/forfeits';
 import { getAllGroups } from '../api/groups';
 import { getAllUsersAdmin } from '../api/users';
 import { sendTestEmail, type EmailType } from '../api/email';
 import DailyGagePanel from '../components/DailyGagePanel';
-import type { Match, Forfeit, Group, UserAdminInfo } from '../types';
+import type { Match, Forfeit, Group, UserAdminInfo, FixtureCandidate } from '../types';
 import { isAdmin } from '../types';
 import { formatDate } from '../utils/dates';
 
@@ -46,6 +47,11 @@ const Admin: React.FC = () => {
   const [editingMatch, setEditingMatch] = useState<Match | null>(null);
   const [scoreA, setScoreA] = useState('');
   const [scoreB, setScoreB] = useState('');
+
+  // API fixture linking
+  const [linkingMatch, setLinkingMatch] = useState<Match | null>(null);
+  const [candidates, setCandidates] = useState<FixtureCandidate[]>([]);
+  const [candidatesLoading, setCandidatesLoading] = useState(false);
 
   // Forfeit edit
   const [editingForfeit, setEditingForfeit] = useState<Forfeit | null>(null);
@@ -151,6 +157,58 @@ const Admin: React.FC = () => {
       setMatches(matches.map((m) => (m.id === updated.id ? updated : m)));
       setEditingMatch(null);
     } catch { showToast('Erreur lors de la mise à jour du score'); }
+  };
+
+  // ---- Sync / linking handlers ----
+  const handleOpenLinkModal = async (match: Match) => {
+    setLinkingMatch(match);
+    setCandidates([]);
+    setCandidatesLoading(true);
+    try {
+      const result = await getFixtureCandidates(match.id);
+      setCandidates(result);
+    } catch {
+      showToast('Impossible de récupérer les fixtures (clé API manquante ?)');
+    } finally {
+      setCandidatesLoading(false);
+    }
+  };
+
+  const handleLink = async (fixtureId: number) => {
+    if (!linkingMatch) return;
+    try {
+      await linkMatch(linkingMatch.id, fixtureId);
+      setMatches(matches.map((m) => m.id === linkingMatch.id
+        ? { ...m, externalFixtureId: fixtureId }
+        : m));
+      showToast('Match lié à api-football !', 'success');
+      setLinkingMatch(null);
+    } catch {
+      showToast('Erreur lors de la liaison');
+    }
+  };
+
+  const handleUnlink = async (match: Match) => {
+    try {
+      await unlinkMatch(match.id);
+      setMatches(matches.map((m) => m.id === match.id
+        ? { ...m, externalFixtureId: undefined, autoSynced: false }
+        : m));
+      showToast('Liaison supprimée', 'success');
+    } catch {
+      showToast('Erreur lors de la suppression de la liaison');
+    }
+  };
+
+  const handleTriggerSync = async () => {
+    try {
+      await triggerSync();
+      showToast('Sync déclenché', 'success');
+      const updated = await getMatches();
+      setMatches(updated);
+    } catch {
+      showToast('Erreur lors du sync');
+    }
   };
 
   // ---- Forfeit library handlers ----
@@ -333,6 +391,12 @@ const Admin: React.FC = () => {
             </form>
           </div>
 
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm text-gray-500 dark:text-gray-400">{matches.length} match{matches.length !== 1 ? 's' : ''}</span>
+            <button onClick={handleTriggerSync} className="btn-secondary text-xs py-1 px-3">
+              🔄 Sync maintenant
+            </button>
+          </div>
           <div className="card overflow-hidden p-0">
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -343,6 +407,7 @@ const Admin: React.FC = () => {
                     <th className="py-3 px-4 text-center text-xs text-gray-500 uppercase">Date</th>
                     <th className="py-3 px-4 text-center text-xs text-gray-500 uppercase">Score</th>
                     <th className="py-3 px-4 text-center text-xs text-gray-500 uppercase">Statut</th>
+                    <th className="py-3 px-4 text-center text-xs text-gray-500 uppercase">Sync</th>
                     <th className="py-3 px-4 text-center text-xs text-gray-500 uppercase">Action</th>
                   </tr>
                 </thead>
@@ -365,16 +430,48 @@ const Admin: React.FC = () => {
                         <span className={`badge-${match.status.toLowerCase()} text-xs`}>{match.status}</span>
                       </td>
                       <td className="py-3 px-4 text-center">
-                        <button
-                          onClick={() => {
-                            setEditingMatch(match);
-                            setScoreA(match.scoreA?.toString() ?? '0');
-                            setScoreB(match.scoreB?.toString() ?? '0');
-                          }}
-                          className="text-xs btn-secondary py-1 px-2"
-                        >
-                          ✏️ Score
-                        </button>
+                        {match.syncLocked ? (
+                          <span className="text-xs text-gray-400" title="Score posé manuellement — sync désactivé">✏️ Manuel</span>
+                        ) : match.externalFixtureId ? (
+                          match.autoSynced ? (
+                            <span className="text-xs text-blue-500" title={`Fixture #${match.externalFixtureId}`}>🔄 Sync #{match.externalFixtureId}</span>
+                          ) : (
+                            <span className="text-xs text-green-600" title={`Lié au fixture #${match.externalFixtureId}`}>🔗 #{match.externalFixtureId}</span>
+                          )
+                        ) : (
+                          <span className="text-xs text-amber-500">⚠️ Non lié</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <button
+                            onClick={() => {
+                              setEditingMatch(match);
+                              setScoreA(match.scoreA?.toString() ?? '0');
+                              setScoreB(match.scoreB?.toString() ?? '0');
+                            }}
+                            className="text-xs btn-secondary py-1 px-2"
+                          >
+                            ✏️
+                          </button>
+                          {match.externalFixtureId ? (
+                            <button
+                              onClick={() => handleUnlink(match)}
+                              className="text-xs text-red-400 hover:text-red-600 py-1 px-1"
+                              title="Supprimer la liaison"
+                            >
+                              🔓
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleOpenLinkModal(match)}
+                              className="text-xs text-indigo-500 hover:text-indigo-700 py-1 px-1"
+                              title="Lier à api-football"
+                            >
+                              🔗
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -781,6 +878,73 @@ const Admin: React.FC = () => {
                 className="btn-primary flex-1"
               >
                 Sauvegarder
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Fixture Linking Modal */}
+      {linkingMatch && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-wc-dark-secondary rounded-xl p-6 w-full max-w-lg">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+              🔗 Lier à api-football
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+              {linkingMatch.teamA} vs {linkingMatch.teamB}
+            </p>
+
+            {candidatesLoading ? (
+              <p className="text-center text-gray-400 py-6">Recherche des fixtures...</p>
+            ) : candidates.length === 0 ? (
+              <p className="text-center text-gray-400 py-6">
+                Aucun candidat trouvé. Vérifiez que la clé API est configurée et que les matchs existent dans api-football.
+              </p>
+            ) : (
+              <div className="space-y-2 max-h-72 overflow-y-auto">
+                {candidates.map((c) => (
+                  <button
+                    key={c.fixtureId}
+                    onClick={() => handleLink(c.fixtureId)}
+                    className={`w-full text-left p-3 rounded-lg border transition-colors ${
+                      c.autoLinkable
+                        ? 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30'
+                        : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <span className="text-sm font-medium text-gray-900 dark:text-white">
+                          {c.homeTeam} vs {c.awayTeam}
+                        </span>
+                        <div className="text-xs text-gray-400 mt-0.5">
+                          {new Date(c.date).toLocaleString('fr-FR')} · ID #{c.fixtureId}
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-1">
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                          c.confidence >= 0.85
+                            ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400'
+                            : c.confidence >= 0.5
+                            ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400'
+                            : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
+                        }`}>
+                          {Math.round(c.confidence * 100)}%
+                        </span>
+                        {c.autoLinkable && (
+                          <span className="text-xs text-green-600 dark:text-green-400">✓ Recommandé</span>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div className="mt-4">
+              <button onClick={() => setLinkingMatch(null)} className="btn-secondary w-full">
+                Annuler
               </button>
             </div>
           </div>

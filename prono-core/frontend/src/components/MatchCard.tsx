@@ -72,8 +72,14 @@ const MatchCard: React.FC<MatchCardProps> = ({ match }) => {
         </div>
 
         {/* Footer */}
-        <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+        <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between gap-2">
           <span className="text-xs text-gray-500 dark:text-gray-400">{match.competition}</span>
+          {match.autoSynced && !match.syncLocked && (
+            <span className="text-xs text-blue-500 dark:text-blue-400" title="Résultat synchronisé automatiquement">🔄 sync</span>
+          )}
+          {match.syncLocked && (
+            <span className="text-xs text-gray-400 dark:text-gray-500" title="Score posé manuellement">✏️ manuel</span>
+          )}
         </div>
       </div>
     </Link>

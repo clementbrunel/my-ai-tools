@@ -93,6 +93,8 @@ public class MatchService {
         match.setScoreA(request.getScoreA());
         match.setScoreB(request.getScoreB());
         match.setStatus(request.getStatus());
+        match.setSyncLocked(true);
+        match.setAutoSynced(false);
         match = matchRepository.save(match);
 
         if (transitionsToFinished && request.getScoreA() != null && request.getScoreB() != null) {
@@ -111,6 +113,33 @@ public class MatchService {
     }
 
     public Match findById(Long id) { return requireMatch(id); }
+
+    /**
+     * Called by MatchSyncService when the external API signals a match is live or finished.
+     * Does NOT set syncLocked (admin score always takes precedence if syncLocked = true).
+     */
+    @Transactional
+    public void syncMatchScore(Long id, int scoreA, int scoreB, Match.Status newStatus) {
+        Match match = requireMatch(id);
+        if (match.isSyncLocked()) {
+            log.debug("Match {} is sync-locked, skipping auto-sync", id);
+            return;
+        }
+
+        boolean transitionsToFinished =
+                match.getStatus() != Match.Status.FINISHED && newStatus == Match.Status.FINISHED;
+
+        match.setScoreA(scoreA);
+        match.setScoreB(scoreB);
+        match.setStatus(newStatus);
+        match.setAutoSynced(true);
+        match = matchRepository.save(match);
+
+        if (transitionsToFinished) {
+            settleBetsForMatch(match);
+            dailyGageService.onMatchSettled(match.getMatchDate().toLocalDate());
+        }
+    }
 
     // ---------------------------------------------------------------
     // Settlement logic

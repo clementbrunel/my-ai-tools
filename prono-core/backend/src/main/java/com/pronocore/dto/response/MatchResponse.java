@@ -23,4 +23,7 @@ public class MatchResponse {
     private Match.Status status;
     private String competition;
     private String round;
+    private Long externalFixtureId;
+    private boolean syncLocked;
+    private boolean autoSynced;
 }

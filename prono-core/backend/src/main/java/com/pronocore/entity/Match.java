@@ -50,6 +50,17 @@ public class Match {
     @Builder.Default
     private boolean reminderSent = false;
 
+    @Column(name = "external_fixture_id")
+    private Long externalFixtureId;
+
+    @Column(name = "sync_locked", nullable = false)
+    @Builder.Default
+    private boolean syncLocked = false;
+
+    @Column(name = "auto_synced", nullable = false)
+    @Builder.Default
+    private boolean autoSynced = false;
+
     public enum Status {
         UPCOMING, ONGOING, FINISHED
     }
