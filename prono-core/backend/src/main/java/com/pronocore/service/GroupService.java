@@ -12,12 +12,14 @@ import com.pronocore.repository.GroupMemberRepository;
 import com.pronocore.repository.GroupRepository;
 import com.pronocore.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Random;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class GroupService {
@@ -45,6 +47,7 @@ public class GroupService {
             .status(GroupMember.MemberStatus.ACTIVE)
             .build();
         groupMemberRepository.save(membership);
+        log.info("Group '{}' created by {}", group.getName(), username);
 
         return toResponse(group, GroupMember.GroupRole.GROUP_ADMIN, true);
     }
@@ -67,6 +70,7 @@ public class GroupService {
             .status(GroupMember.MemberStatus.ACTIVE)
             .build();
         groupMemberRepository.save(membership);
+        log.info("User {} joined group '{}'", username, group.getName());
 
         return toResponse(group, GroupMember.GroupRole.MEMBER, false);
     }
@@ -77,9 +81,11 @@ public class GroupService {
         Group group = findGroup(groupId);
 
         if (group.isPrivate()) {
+            log.warn("User {} attempted to apply to private group {}", username, groupId);
             throw new IllegalStateException("This group is private and cannot be applied to");
         }
         if (groupMemberRepository.existsByGroupIdAndUserId(groupId, user.getId())) {
+            log.warn("User {} already a member or applicant of group {}", username, groupId);
             throw new IllegalStateException("Already a member or applicant of this group");
         }
 
@@ -90,6 +96,7 @@ public class GroupService {
             .status(GroupMember.MemberStatus.PENDING)
             .build();
         groupMemberRepository.save(application);
+        log.info("User {} applied to group '{}'", username, group.getName());
 
         return toPublicResponse(group, GroupMember.MemberStatus.PENDING);
     }
@@ -106,6 +113,7 @@ public class GroupService {
 
         application.setStatus(GroupMember.MemberStatus.ACTIVE);
         groupMemberRepository.save(application);
+        log.info("User {} approved into group {} by {}", targetUserId, groupId, adminUsername);
         return toMemberResponse(application);
     }
 
@@ -120,6 +128,7 @@ public class GroupService {
         }
 
         groupMemberRepository.delete(application);
+        log.info("User {} rejected from group {} by {}", targetUserId, groupId, adminUsername);
     }
 
     @Transactional
@@ -196,12 +205,14 @@ public class GroupService {
                     .filter(m -> m.getRole() == GroupMember.GroupRole.GROUP_ADMIN)
                     .count();
                 if (adminCount == 1) {
+                    log.warn("User {} cannot leave group {} — only admin remaining", username, groupId);
                     throw new IllegalStateException("Cannot leave: you are the only admin. Promote another member first.");
                 }
             }
         }
 
         groupMemberRepository.delete(member);
+        log.info("User {} left group {}", username, groupId);
     }
 
     @Transactional
@@ -215,6 +226,7 @@ public class GroupService {
         }
         member.setRole(GroupMember.GroupRole.GROUP_ADMIN);
         groupMemberRepository.save(member);
+        log.info("User {} promoted to admin in group {} by {}", targetUserId, groupId, requesterUsername);
         return toMemberResponse(member);
     }
 
@@ -234,6 +246,7 @@ public class GroupService {
 
         member.setRole(GroupMember.GroupRole.MEMBER);
         groupMemberRepository.save(member);
+        log.info("User {} demoted to member in group {} by {}", targetUserId, groupId, requesterUsername);
         return toMemberResponse(member);
     }
 
@@ -259,6 +272,7 @@ public class GroupService {
         }
 
         groupMemberRepository.delete(member);
+        log.info("User {} removed from group {} by {}", targetUserId, groupId, requesterUsername);
     }
 
     // -------------------------------------------------------------------------

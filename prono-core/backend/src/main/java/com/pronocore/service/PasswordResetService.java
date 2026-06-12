@@ -5,6 +5,7 @@ import com.pronocore.entity.User;
 import com.pronocore.repository.PasswordResetTokenRepository;
 import com.pronocore.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PasswordResetService {
@@ -39,6 +41,7 @@ public class PasswordResetService {
                     .expiresAt(LocalDateTime.now().plusHours(TOKEN_EXPIRY_HOURS))
                     .build();
             tokenRepository.save(resetToken);
+            log.info("Password reset initiated for user: {}", user.getUsername());
 
             emailService.sendPasswordResetEmail(email, tokenValue);
         });
@@ -53,15 +56,21 @@ public class PasswordResetService {
     @Transactional
     public void resetPassword(String tokenValue, String newPassword) {
         PasswordResetToken resetToken = tokenRepository.findByToken(tokenValue)
-                .orElseThrow(() -> new IllegalArgumentException("Token invalide ou expiré"));
+                .orElseThrow(() -> {
+                    log.warn("Password reset failed — token not found");
+                    return new IllegalArgumentException("Token invalide ou expiré");
+                });
 
         if (!resetToken.isValid()) {
+            log.warn("Password reset failed — token expired or already used for user: {}",
+                    resetToken.getUser().getUsername());
             throw new IllegalArgumentException("Token invalide ou expiré");
         }
 
         User user = resetToken.getUser();
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
+        log.info("Password reset completed for user: {}", user.getUsername());
 
         resetToken.setUsed(true);
         tokenRepository.save(resetToken);
