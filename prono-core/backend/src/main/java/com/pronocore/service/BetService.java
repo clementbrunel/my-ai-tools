@@ -37,8 +37,13 @@ public class BetService {
     @Transactional(readOnly = true)
     public List<BetResponse> getBetsForUser(String username) {
         User user = requireUser(username);
+        java.util.Set<Long> participated = participationRepository.findParticipatedBetIdsByUserId(user.getId());
         return betRepository.findAllInUserActiveGroups(user.getId()).stream()
-            .map(this::toBetResponseWithCount)
+            .map(bet -> {
+                BetResponse response = toBetResponseWithCount(bet);
+                response.setUserParticipated(participated.contains(bet.getId()));
+                return response;
+            })
             .toList();
     }
 
