@@ -89,6 +89,12 @@ public class DailyGageController {
         return ResponseEntity.ok(dailyGageService.removeCandidate(id, forfeitId));
     }
 
+    @PostMapping("/{id}/settle")
+    @Operation(summary = "Force gage settlement after the fact (group admin only, all matches must be finished)")
+    public ResponseEntity<DailyGageResponse> forceSettle(@PathVariable Long id) {
+        return ResponseEntity.ok(dailyGageService.forceSettle(id));
+    }
+
     // ---------------------------------------------------------------
     // Player vote
     // ---------------------------------------------------------------

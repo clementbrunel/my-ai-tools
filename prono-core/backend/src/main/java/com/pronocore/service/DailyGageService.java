@@ -315,8 +315,51 @@ public class DailyGageService {
     }
 
     // ---------------------------------------------------------------
+    // Force-settle (admin, after-the-fact)
+    // ---------------------------------------------------------------
+
+    /**
+     * Manually triggers gage settlement for an ACTIVE gage whose day's matches are all finished.
+     * Used when the admin configured the gage after the last match was already resolved.
+     */
+    @Transactional
+    public DailyGageResponse forceSettle(Long id) {
+        User user = currentUser();
+        DailyGage dg = requireDailyGage(id);
+        groupMemberGuard.requireGroupAdmin(dg.getGroup().getId(), user.getId());
+
+        if (dg.getStatus() == DailyGage.Status.SETTLED) {
+            throw new IllegalStateException("Daily gage is already settled");
+        }
+        if (dg.getStatus() != DailyGage.Status.ACTIVE) {
+            throw new IllegalStateException(
+                    "Le gage doit être configuré (ACTIVE) avant de pouvoir forcer l'attribution");
+        }
+
+        LocalDate matchDay = dg.getMatchDate();
+        LocalDateTime startOfDay = matchDay.atStartOfDay();
+        LocalDateTime endOfDay   = matchDay.plusDays(1).atStartOfDay();
+
+        long unfinished = matchRepository.countUnfinishedMatchesOnDay(startOfDay, endOfDay, Match.Status.FINISHED);
+        if (unfinished > 0) {
+            throw new IllegalStateException(
+                    unfinished + " match(es) non terminé(s) ce jour-là — impossible de forcer l'attribution");
+        }
+
+        settleGage(dg, startOfDay, endOfDay, matchDay);
+
+        return toResponse(requireDailyGage(id), user);
+    }
+
+    // ---------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------
+
+    private boolean allMatchesFinishedOnDay(LocalDate date) {
+        LocalDateTime start = date.atStartOfDay();
+        LocalDateTime end   = date.plusDays(1).atStartOfDay();
+        return matchRepository.countUnfinishedMatchesOnDay(start, end, Match.Status.FINISHED) == 0;
+    }
 
     private Forfeit selectWinnerByVotes(DailyGage dg) {
         return dg.getCandidates().stream()
@@ -386,6 +429,9 @@ public class DailyGageService {
                 })
                 .toList();
 
+        boolean canForceSettle = dg.getStatus() == DailyGage.Status.ACTIVE
+                && allMatchesFinishedOnDay(dg.getMatchDate());
+
         return DailyGageResponse.builder()
                 .id(dg.getId())
                 .groupId(dg.getGroup().getId())
@@ -399,6 +445,7 @@ public class DailyGageService {
                 .assignedAt(dg.getAssignedAt())
                 .candidates(candidateResponses)
                 .createdAt(dg.getCreatedAt())
+                .canForceSettle(canForceSettle)
                 .build();
     }
 

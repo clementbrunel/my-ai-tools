@@ -165,6 +165,8 @@ export interface DailyGage {
   assignedAt?: string;
   candidates: DailyGageCandidate[];
   createdAt: string;
+  /** True when all matches of the day are done but the gage isn't settled yet. */
+  canForceSettle?: boolean;
 }
 
 export interface LeaderboardEntry {
