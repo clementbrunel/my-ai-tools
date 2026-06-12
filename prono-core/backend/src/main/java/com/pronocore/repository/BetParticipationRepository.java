@@ -83,4 +83,12 @@ public interface BetParticipationRepository extends JpaRepository<BetParticipati
             WHERE bp.user.id = :userId AND bp.bet.match.id = :matchId
             """)
     boolean existsByUserIdAndMatchId(@Param("userId") Long userId, @Param("matchId") Long matchId);
+
+    /** All participations a user has for a given match, across all groups. */
+    @Query("""
+            SELECT bp FROM BetParticipation bp
+            WHERE bp.user.id = :userId AND bp.bet.match.id = :matchId
+            """)
+    List<BetParticipation> findByUserIdAndMatchId(@Param("userId") Long userId,
+                                                   @Param("matchId") Long matchId);
 }
