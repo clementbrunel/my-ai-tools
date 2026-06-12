@@ -95,17 +95,8 @@ const MatchDetail: React.FC = () => {
         }
 
         if (betsData.length > 0) {
-          const theBet = betsData[0];
-          setBet(theBet);
-          const parts = await refreshParticipations();
-          // Pre-fill form if user already participated
-          const myPart = parts.find((p) => p.user.username === user?.username);
-          if (myPart) {
-            const [sA, sB] = parseOption(myPart.chosenOption, matchData.teamA, matchData.teamB);
-            setScoreA(sA);
-            setScoreB(sB);
-            setComment(myPart.comment || '');
-          }
+          setBet(betsData[0]);
+          await refreshParticipations();
         }
       } catch {
         setError('Match introuvable');
@@ -114,7 +105,19 @@ const MatchDetail: React.FC = () => {
       }
     };
     fetchData();
-  }, [id, user?.username, refreshParticipations]);
+  }, [id, refreshParticipations]);
+
+  // Pre-fill the prediction form once participations and user are both available.
+  // Kept separate so auth resolving after mount doesn't re-trigger the data fetch.
+  useEffect(() => {
+    if (!match || !user) return;
+    const myPart = participations.find((p) => p.user.username === user.username);
+    if (!myPart) return;
+    const [sA, sB] = parseOption(myPart.chosenOption, match.teamA, match.teamB);
+    setScoreA(sA);
+    setScoreB(sB);
+    setComment(myPart.comment || '');
+  }, [participations, match, user]);
 
   // ── gage vote handler ─────────────────────────────────────────────────────
 
