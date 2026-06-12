@@ -111,6 +111,7 @@ public class UserService {
                 .username(user.getUsername())
                 .displayName(user.getDisplayName())
                 .email(user.getEmail())
+                .emailVerified(user.isEmailVerified())
                 .role(user.getRole())
                 .avatarUrl(user.getAvatarUrl())
                 .globalScore(user.getGlobalScore())

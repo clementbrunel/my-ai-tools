@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { getMatches, createMatch, updateMatchScore, getCompetitions } from '../api/matches';
 import { getAllForfeitsAdmin, createForfeit, updateForfeit, deleteForfeit } from '../api/forfeits';
 import { getAllGroups } from '../api/groups';
-import { getAllUsersAdmin } from '../api/users';
+import { getAllUsersAdmin, adminUnlockUser } from '../api/users';
 import { sendTestEmail, type EmailType } from '../api/email';
 import DailyGagePanel from '../components/DailyGagePanel';
 import type { Match, Forfeit, Group, UserAdminInfo } from '../types';
@@ -73,6 +73,9 @@ const Admin: React.FC = () => {
   // Users tab
   const [platformUsers, setPlatformUsers] = useState<UserAdminInfo[]>([]);
   const [expandedUserId, setExpandedUserId] = useState<number | null>(null);
+  const [unlockingUser, setUnlockingUser] = useState<UserAdminInfo | null>(null);
+  const [unlockPassword, setUnlockPassword] = useState('');
+  const [unlockLoading, setUnlockLoading] = useState(false);
 
   useEffect(() => {
     if (!isAdmin(user)) {
@@ -211,6 +214,22 @@ const Admin: React.FC = () => {
       setEditingForfeit(null);
       showToast('Gage mis à jour !', 'success');
     } catch { showToast('Erreur lors de la mise à jour'); }
+  };
+
+  const handleUnlockUser = async () => {
+    if (!unlockingUser) return;
+    setUnlockLoading(true);
+    try {
+      const updated = await adminUnlockUser(unlockingUser.id, unlockPassword || undefined);
+      setPlatformUsers(prev => prev.map(u => u.id === updated.id ? { ...u, ...updated } : u));
+      showToast(`✅ ${unlockingUser.username} débloqué`, 'success');
+      setUnlockingUser(null);
+      setUnlockPassword('');
+    } catch {
+      showToast('Erreur lors du déblocage');
+    } finally {
+      setUnlockLoading(false);
+    }
   };
 
   if (isLoading) {
@@ -543,9 +562,11 @@ const Admin: React.FC = () => {
                       <th className="py-3 px-4 text-left text-xs text-gray-500 uppercase">Utilisateur</th>
                       <th className="py-3 px-4 text-left text-xs text-gray-500 uppercase">Nom affiché</th>
                       <th className="py-3 px-4 text-left text-xs text-gray-500 uppercase">Email</th>
+                      <th className="py-3 px-4 text-center text-xs text-gray-500 uppercase">Vérifié</th>
                       <th className="py-3 px-4 text-center text-xs text-gray-500 uppercase">Rôle</th>
                       <th className="py-3 px-4 text-center text-xs text-gray-500 uppercase">Groupes</th>
                       <th className="py-3 px-4 text-center text-xs text-gray-500 uppercase">Inscrit le</th>
+                      <th className="py-3 px-4 text-center text-xs text-gray-500 uppercase">Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -575,6 +596,13 @@ const Admin: React.FC = () => {
                           </td>
                           <td className="py-3 px-4 text-sm text-gray-500 dark:text-gray-400">{u.email}</td>
                           <td className="py-3 px-4 text-center">
+                            {u.emailVerified ? (
+                              <span title="Email vérifié" className="text-green-500 text-base">✓</span>
+                            ) : (
+                              <span title="Email non vérifié" className="text-red-400 text-base font-bold">✗</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-center">
                             {u.role === 'PLATFORM_ADMIN' ? (
                               <span className="badge-admin text-xs">ADMIN</span>
                             ) : (
@@ -596,11 +624,20 @@ const Admin: React.FC = () => {
                           <td className="py-3 px-4 text-center text-xs text-gray-400">
                             {u.createdAt ? formatDate(u.createdAt) : '—'}
                           </td>
+                          <td className="py-3 px-4 text-center" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              onClick={() => { setUnlockingUser(u); setUnlockPassword(''); }}
+                              className="text-xs text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-200 whitespace-nowrap"
+                              title="Forcer emailVerified + optionnellement changer le MDP"
+                            >
+                              🔓 Débloquer
+                            </button>
+                          </td>
                         </tr>
 
                         {expandedUserId === u.id && (
                           <tr className="bg-indigo-50 dark:bg-indigo-900/10 border-b border-indigo-100 dark:border-indigo-800">
-                            <td colSpan={6} className="px-6 py-3">
+                            <td colSpan={8} className="px-6 py-3">
                               {u.groups.length === 0 ? (
                                 <p className="text-sm text-gray-400 italic">Aucun groupe</p>
                               ) : (
@@ -789,6 +826,63 @@ const Admin: React.FC = () => {
                 className="btn-primary flex-1"
               >
                 Sauvegarder
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Unlock User Modal */}
+      {unlockingUser && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-wc-dark-secondary rounded-xl p-6 w-full max-w-md">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+              🔓 Débloquer {unlockingUser.username}
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+              Force <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">emailVerified = true</code> et permet optionnellement de définir un nouveau mot de passe.
+            </p>
+
+            <div className="space-y-3 mb-5">
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-gray-600 dark:text-gray-400">Email vérifié actuel :</span>
+                {unlockingUser.emailVerified ? (
+                  <span className="text-green-600 font-semibold">✓ Oui</span>
+                ) : (
+                  <span className="text-red-500 font-semibold">✗ Non — sera forcé à Oui</span>
+                )}
+              </div>
+              <div>
+                <label className="label">Nouveau mot de passe <span className="text-gray-400 font-normal">(optionnel)</span></label>
+                <input
+                  type="password"
+                  value={unlockPassword}
+                  onChange={(e) => setUnlockPassword(e.target.value)}
+                  className="input-field"
+                  placeholder="Laisser vide pour garder l'actuel"
+                  minLength={6}
+                  autoComplete="new-password"
+                />
+                {unlockPassword && unlockPassword.length < 6 && (
+                  <p className="text-xs text-red-400 mt-1">Minimum 6 caractères</p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setUnlockingUser(null); setUnlockPassword(''); }}
+                className="btn-secondary flex-1"
+                disabled={unlockLoading}
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleUnlockUser}
+                disabled={unlockLoading || (unlockPassword.length > 0 && unlockPassword.length < 6)}
+                className="btn-primary flex-1"
+              >
+                {unlockLoading ? '⏳ En cours...' : '🔓 Débloquer'}
               </button>
             </div>
           </div>

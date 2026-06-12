@@ -18,6 +18,7 @@ public class UserAdminResponse {
     private String username;
     private String displayName;
     private String email;
+    private boolean emailVerified;
     private User.Role role;
     private String avatarUrl;
     private int globalScore;

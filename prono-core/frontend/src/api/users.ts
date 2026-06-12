@@ -24,3 +24,8 @@ export const getAllUsersAdmin = async (): Promise<UserAdminInfo[]> => {
   const response = await apiClient.get<UserAdminInfo[]>('/admin/users');
   return response.data;
 };
+
+export const adminUnlockUser = async (userId: number, newPassword?: string): Promise<UserAdminInfo> => {
+  const response = await apiClient.patch<UserAdminInfo>(`/admin/users/${userId}/unlock`, { newPassword: newPassword || null });
+  return response.data;
+};
