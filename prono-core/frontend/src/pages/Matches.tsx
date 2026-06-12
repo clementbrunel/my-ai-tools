@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { getBets } from '../api/bets';
+import { getBets, getParticipatedBets } from '../api/bets';
 import { getMyGroups } from '../api/groups';
 import type { Bet, Match } from '../types';
 import { isAdmin } from '../types';
@@ -14,6 +14,7 @@ type FilterStatus = 'ALL' | 'UPCOMING' | 'FINISHED';
 const Matches: React.FC = () => {
   const { user } = useAuth();
   const [bets, setBets] = useState<Bet[]>([]);
+  const [participatedBets, setParticipatedBets] = useState<Bet[]>([]);
   const [filter, setFilter] = useState<FilterStatus>('ALL');
   const [isLoading, setIsLoading] = useState(true);
   const [hasGroups, setHasGroups] = useState(true);
@@ -24,9 +25,14 @@ const Matches: React.FC = () => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const [groups, betsData] = await Promise.all([getMyGroups(), getBets()]);
+        const [groups, betsData, participatedData] = await Promise.all([
+          getMyGroups(),
+          getBets(),
+          getParticipatedBets(),
+        ]);
         setHasGroups(groups.length > 0);
         setBets(betsData);
+        setParticipatedBets(participatedData);
       } catch (err) {
         console.error('Error loading data:', err);
       } finally {
@@ -49,6 +55,31 @@ const Matches: React.FC = () => {
     const filtered = filter === 'ALL' ? unique : unique.filter((m) => m.status === filter);
     return filtered.sort((a, b) => a.matchDate.localeCompare(b.matchDate));
   }, [bets, filter, hasGroups]);
+
+  const pronoStatusByMatchId = useMemo(() => {
+    const totalPerMatch = new Map<number, number>();
+    const participatedPerMatch = new Map<number, number>();
+
+    for (const bet of bets) {
+      if (bet.match && bet.status === 'OPEN') {
+        totalPerMatch.set(bet.match.id, (totalPerMatch.get(bet.match.id) ?? 0) + 1);
+      }
+    }
+    for (const bet of participatedBets) {
+      if (bet.match) {
+        participatedPerMatch.set(bet.match.id, (participatedPerMatch.get(bet.match.id) ?? 0) + 1);
+      }
+    }
+
+    const result = new Map<number, 'done' | 'partial' | 'missing'>();
+    for (const [matchId, total] of totalPerMatch) {
+      const participated = participatedPerMatch.get(matchId) ?? 0;
+      if (participated >= total) result.set(matchId, 'done');
+      else if (participated > 0) result.set(matchId, 'partial');
+      else result.set(matchId, 'missing');
+    }
+    return result;
+  }, [bets, participatedBets]);
 
   const filters: { label: string; value: FilterStatus }[] = [
     { label: '🌍 Tous', value: 'ALL' },
@@ -146,9 +177,18 @@ const Matches: React.FC = () => {
 
                 {/* Cards for this day */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {matchesByDay[day].map((match) => (
-                    <MatchCard key={match.id} match={match} />
-                  ))}
+                  {matchesByDay[day].map((match) => {
+                    const rawStatus = pronoStatusByMatchId.get(match.id);
+                    const pronoStatus =
+                      rawStatus === 'done'
+                        ? 'done'
+                        : rawStatus === 'partial'
+                          ? 'partial'
+                          : rawStatus === 'missing' && match.status === 'UPCOMING'
+                            ? 'missing'
+                            : undefined;
+                    return <MatchCard key={match.id} match={match} pronoStatus={pronoStatus} />;
+                  })}
                 </div>
               </section>
             );
