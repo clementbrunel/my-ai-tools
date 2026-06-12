@@ -10,6 +10,7 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Repository
 public interface BetParticipationRepository extends JpaRepository<BetParticipation, Long> {
@@ -76,6 +77,9 @@ public interface BetParticipationRepository extends JpaRepository<BetParticipati
                                                           @Param("endOfDay")        LocalDateTime endOfDay,
                                                           @Param("validatedStatus") Bet.Status    validatedStatus,
                                                           @Param("groupId")         Long          groupId);
+
+    @Query("SELECT bp.bet.id FROM BetParticipation bp WHERE bp.user.id = :userId")
+    Set<Long> findParticipatedBetIdsByUserId(@Param("userId") Long userId);
 
     /** True if the user has already placed at least one bet for the given match (across any group). */
     @Query("""

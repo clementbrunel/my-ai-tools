@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { getBets, getParticipatedBets } from '../api/bets';
+import { getBets } from '../api/bets';
 import { getMyGroups } from '../api/groups';
 import type { Bet, Match } from '../types';
 import { isAdmin } from '../types';
@@ -14,7 +14,6 @@ type FilterStatus = 'ALL' | 'UPCOMING' | 'FINISHED';
 const Matches: React.FC = () => {
   const { user } = useAuth();
   const [bets, setBets] = useState<Bet[]>([]);
-  const [participatedBets, setParticipatedBets] = useState<Bet[]>([]);
   const [filter, setFilter] = useState<FilterStatus>('ALL');
   const [isLoading, setIsLoading] = useState(true);
   const [hasGroups, setHasGroups] = useState(true);
@@ -25,14 +24,9 @@ const Matches: React.FC = () => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const [groups, betsData, participatedData] = await Promise.all([
-          getMyGroups(),
-          getBets(),
-          getParticipatedBets(),
-        ]);
+        const [groups, betsData] = await Promise.all([getMyGroups(), getBets()]);
         setHasGroups(groups.length > 0);
         setBets(betsData);
-        setParticipatedBets(participatedData);
       } catch (err) {
         console.error('Error loading data:', err);
       } finally {
@@ -58,11 +52,11 @@ const Matches: React.FC = () => {
 
   const participatedMatchIds = useMemo(() => {
     const ids = new Set<number>();
-    for (const bet of participatedBets) {
-      if (bet.match) ids.add(bet.match.id);
+    for (const bet of bets) {
+      if (bet.match && bet.userParticipated) ids.add(bet.match.id);
     }
     return ids;
-  }, [participatedBets]);
+  }, [bets]);
 
   const filters: { label: string; value: FilterStatus }[] = [
     { label: '🌍 Tous', value: 'ALL' },

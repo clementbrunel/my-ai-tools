@@ -105,6 +105,7 @@ export interface Bet {
   winningOption?: string;
   createdAt: string;
   participationsCount: number;
+  userParticipated: boolean;
 }
 
 export interface BetParticipation {
