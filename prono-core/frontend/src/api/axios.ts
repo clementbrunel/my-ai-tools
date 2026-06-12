@@ -20,10 +20,12 @@ apiClient.interceptors.request.use(
 );
 
 // Response interceptor: 401 = session expired / invalid token → back to login
+// Auth endpoints handle their own 401s (wrong credentials, unverified email, etc.)
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const isAuthEndpoint = error.config?.url?.startsWith('/auth/');
+    if (error.response?.status === 401 && !isAuthEndpoint) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';

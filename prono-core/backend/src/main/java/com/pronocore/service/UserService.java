@@ -124,6 +124,25 @@ public class UserService {
             .toList();
     }
 
+    /**
+     * Admin: force emailVerified=true and optionally set a new password.
+     * Fixes users stuck in a loop because their email was never verified
+     * (password resets don't flip emailVerified, so the login endpoint kept returning 401).
+     */
+    @Transactional
+    public UserResponse adminUnlockUser(Long userId, String newPassword) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new UsernameNotFoundException("User not found: " + userId));
+        user.setEmailVerified(true);
+        user.setVerificationToken(null);
+        user.setTokenExpiry(null);
+        if (newPassword != null && !newPassword.isBlank()) {
+            user.setPassword(passwordEncoder.encode(newPassword));
+        }
+        userRepository.save(user);
+        return userMapper.toResponse(user);
+    }
+
     public User findByUsername(String username) {
         return userRepository.findByUsername(username)
             .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
