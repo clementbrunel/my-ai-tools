@@ -4,6 +4,7 @@ import com.pronocore.dto.request.CreateMatchRequest;
 import com.pronocore.dto.request.UpdateMatchScoreRequest;
 import com.pronocore.dto.response.MatchResponse;
 import com.pronocore.entity.*;
+import com.pronocore.entity.Group;
 import com.pronocore.mapper.MatchMapper;
 import com.pronocore.repository.*;
 import jakarta.persistence.EntityNotFoundException;
@@ -263,6 +264,137 @@ class MatchServiceTest {
                 .hasMessageContaining("99");
     }
 
+    // ── forceSettleBet ────────────────────────────────────────────────────────
+
+    /**
+     * The main data-recovery scenario: participation was previously stored with
+     * pointsEarned=0 (bet skipped or bad state). forceSettleBet must apply the
+     * delta without double-counting.
+     */
+    @Test
+    void forceSettleBet_shouldCorrectPointsWhenParticipationHadZero() {
+        Match match = finishedMatch(1L, "France", "Brésil", 2, 1);
+        Bet   bet   = validatedBet(10L, match);
+
+        User user = user(1L, "alice", 0);
+        BetParticipation p = participation(1L, user, "Victoire France 3-0", 0); // missed: should be 3
+
+        stubForceSettle(match, bet, List.of(p));
+
+        matchService.forceSettleBet(1L, 10L);
+
+        assertThat(user.getGlobalScore()).isEqualTo(3);  // 0 + delta(3)
+        assertThat(user.getBetsWon()).isEqualTo(1);      // 0→3, so betsWon++
+        assertThat(p.getPointsEarned()).isEqualTo(3);
+        verify(userRepository).save(user);
+        verify(betParticipationRepository).save(p);
+    }
+
+    /**
+     * Idempotency: if the participation already has the correct points,
+     * forceSettleBet must not touch the user's score or betsWon.
+     */
+    @Test
+    void forceSettleBet_shouldNotDoubleCountIfAlreadyCorrect() {
+        Match match = finishedMatch(1L, "France", "Brésil", 2, 1);
+        Bet   bet   = validatedBet(10L, match);
+
+        User user = user(1L, "alice", 13);  // already has 3 pts from this bet
+        BetParticipation p = participation(1L, user, "Victoire France 3-0", 3); // already correct
+
+        stubForceSettle(match, bet, List.of(p));
+
+        matchService.forceSettleBet(1L, 10L);
+
+        assertThat(user.getGlobalScore()).isEqualTo(13); // unchanged
+        assertThat(user.getBetsWon()).isEqualTo(0);      // unchanged
+        verifyNoInteractions(userRepository);
+        verify(betParticipationRepository, never()).save(any());
+    }
+
+    /**
+     * A participant who predicted the wrong result keeps 0 pts — no score change.
+     */
+    @Test
+    void forceSettleBet_shouldKeepZeroForWrongPrediction() {
+        Match match = finishedMatch(1L, "France", "Brésil", 2, 1);
+        Bet   bet   = openBet(10L, match);
+
+        User user = user(1L, "bob", 5);
+        BetParticipation p = participation(1L, user, "Match nul 0-0", 0); // wrong
+
+        stubForceSettle(match, bet, List.of(p));
+
+        matchService.forceSettleBet(1L, 10L);
+
+        assertThat(user.getGlobalScore()).isEqualTo(5); // unchanged
+        assertThat(user.getBetsWon()).isEqualTo(0);
+        verifyNoInteractions(userRepository);
+    }
+
+    /**
+     * Three participants: one already correct (+5), one missed (+0 → +3), one wrong (+0 stays).
+     * Only the missed one must be updated.
+     */
+    @Test
+    void forceSettleBet_shouldOnlyUpdateParticipantsWithWrongPoints() {
+        Match match = finishedMatch(1L, "France", "Brésil", 2, 1);
+        Bet   bet   = validatedBet(10L, match);
+
+        User exactUser   = user(1L, "exact",   15); // already correct: +5 credited
+        User correctUser = user(2L, "correct", 10); // missed: +3 not credited
+        User wrongUser   = user(3L, "wrong",   10); // wrong prediction: 0 correct
+
+        BetParticipation pExact   = participation(1L, exactUser,   "Victoire France 2-1", 5); // correct
+        BetParticipation pCorrect = participation(2L, correctUser, "Victoire France 3-0", 0); // missed
+        BetParticipation pWrong   = participation(3L, wrongUser,   "Match nul 0-0",       0); // correct(0)
+
+        stubForceSettle(match, bet, List.of(pExact, pCorrect, pWrong));
+
+        matchService.forceSettleBet(1L, 10L);
+
+        assertThat(exactUser.getGlobalScore()).isEqualTo(15);   // no change (delta=0)
+        assertThat(correctUser.getGlobalScore()).isEqualTo(13); // +3 delta applied
+        assertThat(wrongUser.getGlobalScore()).isEqualTo(10);   // no change (delta=0)
+
+        assertThat(exactUser.getBetsWon()).isEqualTo(0);   // already counted, not re-incremented
+        assertThat(correctUser.getBetsWon()).isEqualTo(1); // was 0→3, so betsWon++
+        assertThat(wrongUser.getBetsWon()).isEqualTo(0);
+
+        verify(userRepository, times(1)).save(correctUser);
+        verify(userRepository, never()).save(exactUser);
+        verify(userRepository, never()).save(wrongUser);
+    }
+
+    @Test
+    void forceSettleBet_shouldThrowWhenMatchNotFinished() {
+        Match match = Match.builder()
+                .id(1L).teamA("France").teamB("Brésil")
+                .status(Match.Status.ONGOING)
+                .build();
+
+        when(matchRepository.findById(1L)).thenReturn(Optional.of(match));
+
+        assertThatThrownBy(() -> matchService.forceSettleBet(1L, 10L))
+                .isInstanceOf(IllegalStateException.class);
+
+        verifyNoInteractions(betRepository, betParticipationRepository, userRepository);
+    }
+
+    @Test
+    void forceSettleBet_shouldThrowWhenBetBelongsToDifferentMatch() {
+        Match match1  = finishedMatch(1L, "France", "Brésil", 2, 1);
+        Match match2  = Match.builder().id(2L).build();
+        Bet   betM2   = Bet.builder().id(10L)
+                .match(match2).group(Group.builder().id(1L).name("G").build()).build();
+
+        when(matchRepository.findById(1L)).thenReturn(Optional.of(match1));
+        when(betRepository.findById(10L)).thenReturn(Optional.of(betM2));
+
+        assertThatThrownBy(() -> matchService.forceSettleBet(1L, 10L))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
     // ── helpers ───────────────────────────────────────────────────────────────
 
     private User user(Long id, String username, int score) {
@@ -272,9 +404,40 @@ class MatchServiceTest {
                 .build();
     }
 
-    private BetParticipation participation(Long id, User user, String option) {
+    /** Participation with an explicit pointsEarned value (simulating already-settled state). */
+    private BetParticipation participation(Long id, User user, String option, int pointsEarned) {
         return BetParticipation.builder()
-                .id(id).user(user).chosenOption(option)
+                .id(id).user(user).chosenOption(option).pointsEarned(pointsEarned)
                 .build();
+    }
+
+    /** Participation with default pointsEarned=0 (not yet settled). */
+    private BetParticipation participation(Long id, User user, String option) {
+        return participation(id, user, option, 0);
+    }
+
+    private Match finishedMatch(Long id, String teamA, String teamB, int scoreA, int scoreB) {
+        return Match.builder()
+                .id(id).teamA(teamA).teamB(teamB)
+                .matchDate(LocalDateTime.now().minusHours(2))
+                .scoreA(scoreA).scoreB(scoreB)
+                .status(Match.Status.FINISHED)
+                .build();
+    }
+
+    private Bet validatedBet(Long id, Match match) {
+        return Bet.builder().id(id).status(Bet.Status.VALIDATED)
+                .match(match).group(Group.builder().id(1L).name("TestGroup").build()).build();
+    }
+
+    private Bet openBet(Long id, Match match) {
+        return Bet.builder().id(id).status(Bet.Status.OPEN)
+                .match(match).group(Group.builder().id(1L).name("TestGroup").build()).build();
+    }
+
+    private void stubForceSettle(Match match, Bet bet, List<BetParticipation> participations) {
+        when(matchRepository.findById(match.getId())).thenReturn(Optional.of(match));
+        when(betRepository.findById(bet.getId())).thenReturn(Optional.of(bet));
+        when(betParticipationRepository.findByBetId(bet.getId())).thenReturn(participations);
     }
 }

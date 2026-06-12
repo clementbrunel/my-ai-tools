@@ -138,9 +138,20 @@ public class MatchService {
 
         List<Bet> openBets = betRepository
                 .findByMatchIdAndStatusOrderByCreatedAtDesc(match.getId(), Bet.Status.OPEN);
-        if (openBets.isEmpty()) { log.info("No open bets for match {}", match.getId()); return; }
+        if (openBets.isEmpty()) {
+            log.info("  No OPEN bets for match {} — nothing to settle", match.getId());
+            return;
+        }
+
+        log.info("  {} OPEN bet(s) — groups: {}", openBets.size(),
+                openBets.stream()
+                        .map(b -> b.getGroup() != null
+                                ? b.getGroup().getName() + " [id=" + b.getGroup().getId() + "]"
+                                : "[no group]")
+                        .collect(Collectors.joining(", ")));
 
         for (Bet bet : openBets) {
+            String groupName = bet.getGroup() != null ? bet.getGroup().getName() : "?";
             List<BetParticipation> participations = betParticipationRepository.findByBetId(bet.getId());
 
             for (BetParticipation p : participations) {
@@ -154,16 +165,68 @@ public class MatchService {
                     // Both +3 (correct result) and +5 (exact score) count as a won bet
                     user.setBetsWon(user.getBetsWon() + 1);
                     userRepository.save(user);
-                    log.info("  +{} pts → {} ({})", earned, user.getUsername(), p.getChosenOption());
+                    log.info("  +{} pts → {} ({}) [group: {}]",
+                            earned, user.getUsername(), p.getChosenOption(), groupName);
                 } else {
-                    log.debug("  +0 pts → {} ({})", user.getUsername(), p.getChosenOption());
+                    log.debug("  +0 pts → {} ({}) [group: {}]",
+                            user.getUsername(), p.getChosenOption(), groupName);
                 }
             }
 
             bet.setStatus(Bet.Status.VALIDATED);
             bet.setWinningOption(winningOption);
             betRepository.save(bet);
+            log.info("  ✓ Bet {} (group '{}') → VALIDATED ({} participant(s))",
+                    bet.getId(), groupName, participations.size());
         }
+    }
+
+    /**
+     * Force-recalculates points for a specific bet, regardless of its current status.
+     * Applies only the delta vs the previously stored pointsEarned to avoid double-counting.
+     * Use for data recovery when a group's bet was settled with wrong/missing points.
+     */
+    @Transactional
+    public void forceSettleBet(Long matchId, Long betId) {
+        Match match = requireMatch(matchId);
+        if (match.getStatus() != Match.Status.FINISHED) {
+            throw new IllegalStateException("Match is not FINISHED");
+        }
+
+        Bet bet = betRepository.findById(betId)
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Bet not found: " + betId));
+        if (!bet.getMatch().getId().equals(matchId)) {
+            throw new IllegalArgumentException("Bet " + betId + " does not belong to match " + matchId);
+        }
+
+        String winningOption = computeWinningOption(match);
+        log.info("🔧 Force-settling bet {} (group '{}', match {}) — winning option: {}",
+                betId, bet.getGroup().getName(), matchId, winningOption);
+
+        List<BetParticipation> participations = betParticipationRepository.findByBetId(betId);
+        for (BetParticipation p : participations) {
+            int shouldBe = computeEarnedPoints(p.getChosenOption().trim(), winningOption);
+            int delta = shouldBe - p.getPointsEarned();
+            if (delta != 0) {
+                User user = p.getUser();
+                user.setGlobalScore(user.getGlobalScore() + delta);
+                // Credit betsWon only if this participation wasn't already counted
+                if (shouldBe > 0 && p.getPointsEarned() == 0) {
+                    user.setBetsWon(user.getBetsWon() + 1);
+                }
+                userRepository.save(user);
+                p.setPointsEarned(shouldBe);
+                betParticipationRepository.save(p);
+                log.info("  {} → {} pts (delta {})", user.getUsername(), shouldBe, delta > 0 ? "+" + delta : delta);
+            } else {
+                log.info("  {} → {} pts (no change)", p.getUser().getUsername(), shouldBe);
+            }
+        }
+
+        bet.setStatus(Bet.Status.VALIDATED);
+        bet.setWinningOption(winningOption);
+        betRepository.save(bet);
+        log.info("  ✓ Bet {} → VALIDATED ({} participant(s))", betId, participations.size());
     }
 
     /**

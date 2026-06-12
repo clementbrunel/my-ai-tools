@@ -270,7 +270,7 @@ public class DailyGageService {
             }
         }
 
-        // Per-player daily points among THIS group's settled participations
+        // Only members who actually placed a bet are in the gage pool (non-bettors are excluded).
         List<BetParticipation> participations = betParticipationRepository
                 .findSettledByMatchDayAndGroup(startOfDay, endOfDay, Bet.Status.VALIDATED, groupId);
         if (participations.isEmpty()) {
@@ -283,11 +283,20 @@ public class DailyGageService {
                         BetParticipation::getUser,
                         Collectors.summingInt(BetParticipation::getPointsEarned)));
 
+        // Detailed log so gage resolution is auditable
+        log.info("📊 Gage settlement — group {} on {} ({} bettor(s)):", groupId, matchDay, dailyPoints.size());
+        dailyPoints.forEach((user, pts) ->
+                log.info("  {} → {} pts", user.getUsername(), pts));
+
         int minPoints = Collections.min(dailyPoints.values());
         List<User> losers = dailyPoints.entrySet().stream()
                 .filter(e -> e.getValue() == minPoints)
                 .map(Map.Entry::getKey)
                 .collect(Collectors.toList());
+
+        log.info("  → min={} pts | {} loser(s) in pool: {}",
+                minPoints, losers.size(),
+                losers.stream().map(User::getUsername).collect(Collectors.joining(", ")));
 
         User unlucky = losers.get(new Random().nextInt(losers.size()));
         User assignedBy = groupAdminOf(groupId).orElse(unlucky);
