@@ -9,6 +9,7 @@ import com.pronocore.mapper.UserMapper;
 import com.pronocore.repository.GroupMemberRepository;
 import com.pronocore.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -19,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class UserService {
@@ -72,6 +74,7 @@ public class UserService {
         User user = userRepository.findByUsername(username)
             .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
         if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
+            log.warn("Password change failed — wrong current password for user: {}", username);
             throw new IllegalArgumentException("Mot de passe actuel incorrect");
         }
         user.setPassword(passwordEncoder.encode(newPassword));

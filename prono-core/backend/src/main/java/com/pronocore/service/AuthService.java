@@ -9,9 +9,11 @@ import com.pronocore.mapper.UserMapper;
 import com.pronocore.repository.UserRepository;
 import com.pronocore.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -20,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -34,9 +37,11 @@ public class AuthService {
     @Transactional
     public RegisterResponse register(RegisterRequest request) {
         if (userRepository.existsByUsername(request.getUsername())) {
+            log.warn("Registration failed — username already taken: {}", request.getUsername());
             throw new IllegalArgumentException("Username already taken: " + request.getUsername());
         }
         if (userRepository.existsByEmail(request.getEmail())) {
+            log.warn("Registration failed — email already in use: {}", request.getEmail());
             throw new IllegalArgumentException("Email already in use: " + request.getEmail());
         }
 
@@ -53,6 +58,7 @@ public class AuthService {
             .build();
 
         userRepository.save(user);
+        log.info("New user registered: {}", user.getUsername());
         emailService.sendVerificationEmail(user.getEmail(), verificationToken);
 
         return RegisterResponse.builder()
@@ -64,9 +70,13 @@ public class AuthService {
     @Transactional
     public AuthResponse verifyEmail(String token) {
         User user = userRepository.findByVerificationToken(token)
-            .orElseThrow(() -> new IllegalArgumentException("Lien de vérification invalide ou déjà utilisé."));
+            .orElseThrow(() -> {
+                log.warn("Email verification failed — token not found or already used");
+                return new IllegalArgumentException("Lien de vérification invalide ou déjà utilisé.");
+            });
 
         if (user.getTokenExpiry() == null || user.getTokenExpiry().isBefore(LocalDateTime.now())) {
+            log.warn("Email verification failed — token expired for user: {}", user.getUsername());
             throw new IllegalArgumentException("Ce lien de vérification a expiré. Demande un nouvel email de vérification.");
         }
 
@@ -74,6 +84,7 @@ public class AuthService {
         user.setVerificationToken(null);
         user.setTokenExpiry(null);
         userRepository.save(user);
+        log.info("Email verified for user: {}", user.getUsername());
 
         String jwtToken = jwtTokenProvider.generateToken(user.getUsername());
         return AuthResponse.builder()
@@ -89,6 +100,7 @@ public class AuthService {
             .orElseThrow(() -> new IllegalArgumentException("Aucun compte trouvé avec cet email."));
 
         if (user.isEmailVerified()) {
+            log.warn("Resend verification requested for already-verified account: {}", email);
             throw new IllegalStateException("Cet email est déjà vérifié. Tu peux te connecter.");
         }
 
@@ -101,18 +113,30 @@ public class AuthService {
     }
 
     public AuthResponse login(LoginRequest request) {
-        Authentication authentication = authenticationManager.authenticate(
-            new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
-        );
+        int pwdLen = request.getPassword() != null ? request.getPassword().length() : 0;
+        log.info("Login attempt — username: {}, password length: {}", request.getUsername(), pwdLen);
+
+        Authentication authentication;
+        try {
+            authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
+            );
+        } catch (AuthenticationException ex) {
+            log.warn("Login failed — invalid credentials for username: {}, password length: {}",
+                    request.getUsername(), pwdLen);
+            throw ex;
+        }
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
         User user = userRepository.findByUsername(request.getUsername())
             .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
         if (!user.isEmailVerified()) {
+            log.warn("Login attempt for unverified account: {}", user.getUsername());
             throw new IllegalStateException("Vérifie ton adresse email avant de te connecter. Consulte ta boîte mail.");
         }
 
+        log.info("User logged in: {}", user.getUsername());
         String token = jwtTokenProvider.generateToken(user.getUsername());
         return AuthResponse.builder()
             .token(token)
