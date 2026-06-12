@@ -79,14 +79,22 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, pronoStatus }) => {
         </div>
 
         {/* Footer */}
-        <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between">
+        <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between gap-2">
           <span className="text-xs text-gray-500 dark:text-gray-400">{match.competition}</span>
-          {pronoStatus === 'done' && (
-            <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">✓ Prono saisi</span>
-          )}
-          {pronoStatus === 'missing' && (
-            <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">⏰ À saisir</span>
-          )}
+          <div className="flex items-center gap-2">
+            {match.autoSynced && !match.syncLocked && match.externalLinks?.['API-FOOTBALL'] && (
+              <span className="text-xs text-blue-500 dark:text-blue-400" title="Résultat synchronisé automatiquement">🔄 sync</span>
+            )}
+            {match.syncLocked && (
+              <span className="text-xs text-gray-400 dark:text-gray-500" title="Score posé manuellement">✏️ manuel</span>
+            )}
+            {pronoStatus === 'done' && (
+              <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">✓ Prono saisi</span>
+            )}
+            {pronoStatus === 'missing' && (
+              <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">⏰ À saisir</span>
+            )}
+          </div>
         </div>
       </div>
     </Link>

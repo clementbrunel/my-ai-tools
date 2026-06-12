@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 
 @Data
 @Builder
@@ -23,5 +24,9 @@ public class MatchResponse {
     private Match.Status status;
     private String competition;
     private String round;
+    private boolean syncLocked;
+    private boolean autoSynced;
+    /** Map&lt;API_CODE, external_id&gt;, e.g. {"API-FOOTBALL": 12345} */
+    private Map<String, Long> externalLinks;
     private Boolean userParticipated;
 }

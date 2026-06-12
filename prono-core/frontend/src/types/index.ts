@@ -89,7 +89,20 @@ export interface Match {
   status: 'UPCOMING' | 'ONGOING' | 'FINISHED';
   competition: string;
   round: string;
+  /** Map of API_CODE → external fixture/match ID, e.g. {"API-FOOTBALL": 12345} */
+  externalLinks?: Record<string, number>;
+  syncLocked?: boolean;
+  autoSynced?: boolean;
   userParticipated?: boolean;
+}
+
+export interface FixtureCandidate {
+  fixtureId: number;
+  homeTeam: string;
+  awayTeam: string;
+  date: string;
+  confidence: number;
+  autoLinkable: boolean;
 }
 
 export interface Bet {
