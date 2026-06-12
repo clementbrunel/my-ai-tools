@@ -68,4 +68,12 @@ public class MatchController {
         matchService.deleteMatch(id);
         return ResponseEntity.noContent().build();
     }
+
+    @PostMapping("/{matchId}/bets/{betId}/force-settle")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+    @Operation(summary = "Force-recalculate points for a specific bet (OPEN or VALIDATED) — applies delta only, no double-count (Admin only)")
+    public ResponseEntity<Void> forceSettleBet(@PathVariable Long matchId, @PathVariable Long betId) {
+        matchService.forceSettleBet(matchId, betId);
+        return ResponseEntity.noContent().build();
+    }
 }
