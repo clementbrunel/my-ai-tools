@@ -35,6 +35,7 @@ class MatchServiceTest {
     @Mock private MatchMapper                matchMapper;
     @Mock private BetRepository              betRepository;
     @Mock private BetParticipationRepository betParticipationRepository;
+    @Mock private GroupMemberRepository      groupMemberRepository;
     @Mock private UserRepository             userRepository;
     @Mock private UserForfeitRepository      userForfeitRepository;
     @Mock private DailyGageService           dailyGageService;
@@ -364,6 +365,71 @@ class MatchServiceTest {
         verify(userRepository, times(1)).save(correctUser);
         verify(userRepository, never()).save(exactUser);
         verify(userRepository, never()).save(wrongUser);
+    }
+
+    /**
+     * The main catch-up scenario: alice is an active member of group B but never submitted
+     * her prediction there due to the single-group bug. She did submit in group A for the
+     * same match. forceSettleBet must backfill her participation from group A into group B
+     * and then award her the correct points.
+     */
+    @Test
+    void forceSettleBet_backfillsMissingParticipationFromOtherGroupBet() {
+        Match match  = finishedMatch(1L, "France", "Brésil", 2, 1);
+        Group groupA = Group.builder().id(1L).name("Group A").build();
+        Group groupB = Group.builder().id(2L).name("Group B").build();
+        Bet   betA   = Bet.builder().id(10L).status(Bet.Status.VALIDATED).match(match).group(groupA).build();
+        Bet   betB   = Bet.builder().id(20L).status(Bet.Status.OPEN).match(match).group(groupB).build();
+
+        User alice = user(1L, "alice", 0);
+        BetParticipation aliceInA = BetParticipation.builder()
+                .id(1L).bet(betA).user(alice).chosenOption("Victoire France 2-1").pointsEarned(5).build();
+        BetParticipation backfilled = BetParticipation.builder()
+                .id(99L).bet(betB).user(alice).chosenOption("Victoire France 2-1").pointsEarned(0).build();
+
+        GroupMember aliceInB = GroupMember.builder()
+                .id(1L).group(groupB).user(alice)
+                .role(GroupMember.GroupRole.MEMBER).status(GroupMember.MemberStatus.ACTIVE).build();
+
+        when(matchRepository.findById(1L)).thenReturn(Optional.of(match));
+        when(betRepository.findById(20L)).thenReturn(Optional.of(betB));
+        when(groupMemberRepository.findByGroupIdAndStatus(2L, GroupMember.MemberStatus.ACTIVE))
+                .thenReturn(List.of(aliceInB));
+        when(betParticipationRepository.existsByBetIdAndUserId(20L, 1L)).thenReturn(false);
+        when(betParticipationRepository.findByUserIdAndMatchId(1L, 1L)).thenReturn(List.of(aliceInA));
+        when(betParticipationRepository.save(any(BetParticipation.class))).thenReturn(backfilled);
+        when(betParticipationRepository.findByBetId(20L)).thenReturn(List.of(backfilled));
+
+        matchService.forceSettleBet(1L, 20L);
+
+        verify(betParticipationRepository, times(2)).save(any(BetParticipation.class)); // backfill + settle
+        assertThat(alice.getGlobalScore()).isEqualTo(5);
+        assertThat(alice.getBetsWon()).isEqualTo(1);
+    }
+
+    @Test
+    void forceSettleBet_doesNotBackfillWhenUserHasNoParticipationInAnyOtherBet() {
+        Match match  = finishedMatch(1L, "France", "Brésil", 2, 1);
+        Group groupB = Group.builder().id(2L).name("Group B").build();
+        Bet   betB   = Bet.builder().id(20L).status(Bet.Status.OPEN).match(match).group(groupB).build();
+
+        User alice = user(1L, "alice", 0);
+        GroupMember aliceInB = GroupMember.builder()
+                .id(1L).group(groupB).user(alice)
+                .role(GroupMember.GroupRole.MEMBER).status(GroupMember.MemberStatus.ACTIVE).build();
+
+        when(matchRepository.findById(1L)).thenReturn(Optional.of(match));
+        when(betRepository.findById(20L)).thenReturn(Optional.of(betB));
+        when(groupMemberRepository.findByGroupIdAndStatus(2L, GroupMember.MemberStatus.ACTIVE))
+                .thenReturn(List.of(aliceInB));
+        when(betParticipationRepository.existsByBetIdAndUserId(20L, 1L)).thenReturn(false);
+        when(betParticipationRepository.findByUserIdAndMatchId(1L, 1L)).thenReturn(List.of());
+        when(betParticipationRepository.findByBetId(20L)).thenReturn(List.of());
+
+        matchService.forceSettleBet(1L, 20L);
+
+        verify(betParticipationRepository, never()).save(any(BetParticipation.class));
+        verifyNoInteractions(userRepository);
     }
 
     @Test

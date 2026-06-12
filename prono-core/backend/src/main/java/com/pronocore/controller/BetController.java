@@ -97,13 +97,13 @@ public class BetController {
             .body(betService.participate(id, request, authentication.getName()));
     }
 
-    @PutMapping("/{id}/participate")
-    @Operation(summary = "Create or update participation — upsert (before kick-off only)")
-    public ResponseEntity<BetParticipationResponse> upsertParticipate(
-            @PathVariable Long id,
+    @PutMapping("/match/{matchId}/participate")
+    @Operation(summary = "Upsert participation in all open group bets for a match (before kick-off only)")
+    public ResponseEntity<List<BetParticipationResponse>> upsertParticipateByMatch(
+            @PathVariable Long matchId,
             @Valid @RequestBody ParticipateRequest request,
             Authentication authentication) {
-        return ResponseEntity.ok(betService.upsertParticipate(id, request, authentication.getName()));
+        return ResponseEntity.ok(betService.upsertParticipateByMatch(matchId, request, authentication.getName()));
     }
 
     @GetMapping("/{id}/participations")

@@ -215,27 +215,30 @@ public class BetService {
     }
 
     @Transactional
-    public BetParticipationResponse upsertParticipate(Long betId, ParticipateRequest request, String username) {
-        Bet bet = requireBet(betId);
-        assertOpenForParticipation(bet);
-
+    public List<BetParticipationResponse> upsertParticipateByMatch(Long matchId, ParticipateRequest request, String username) {
         User user = requireUser(username);
-        groupMemberGuard.requireActiveMembership(bet.getGroup().getId(), user.getId());
-
-        BetParticipation participation = participationRepository.findByBetIdAndUserId(betId, user.getId())
-            .map(existing -> {
-                existing.setChosenOption(request.getChosenOption());
-                existing.setComment(request.getComment());
-                return existing;
+        List<Bet> bets = betRepository.findByMatchIdInUserActiveGroups(matchId, user.getId());
+        return bets.stream()
+            .filter(bet -> {
+                try { assertOpenForParticipation(bet); return true; }
+                catch (IllegalStateException e) { return false; }
             })
-            .orElseGet(() -> BetParticipation.builder()
-                .bet(bet)
-                .user(user)
-                .chosenOption(request.getChosenOption())
-                .comment(request.getComment())
-                .build());
-
-        return betMapper.toParticipationResponse(participationRepository.save(participation));
+            .map(bet -> {
+                BetParticipation participation = participationRepository.findByBetIdAndUserId(bet.getId(), user.getId())
+                    .map(existing -> {
+                        existing.setChosenOption(request.getChosenOption());
+                        existing.setComment(request.getComment());
+                        return existing;
+                    })
+                    .orElseGet(() -> BetParticipation.builder()
+                        .bet(bet)
+                        .user(user)
+                        .chosenOption(request.getChosenOption())
+                        .comment(request.getComment())
+                        .build());
+                return betMapper.toParticipationResponse(participationRepository.save(participation));
+            })
+            .toList();
     }
 
     // ---------------------------------------------------------------

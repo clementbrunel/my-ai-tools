@@ -24,6 +24,7 @@ public class MatchService {
     private final MatchMapper                matchMapper;
     private final BetRepository              betRepository;
     private final BetParticipationRepository betParticipationRepository;
+    private final GroupMemberRepository      groupMemberRepository;
     private final UserRepository             userRepository;
     private final DailyGageService           dailyGageService;
 
@@ -222,6 +223,8 @@ public class MatchService {
         log.info("🔧 Force-settling bet {} (group '{}', match {}) — winning option: {}",
                 betId, bet.getGroup().getName(), matchId, winningOption);
 
+        backfillMissingParticipations(bet, match);
+
         List<BetParticipation> participations = betParticipationRepository.findByBetId(betId);
         for (BetParticipation p : participations) {
             int shouldBe = computeEarnedPoints(p.getChosenOption().trim(), winningOption);
@@ -246,6 +249,39 @@ public class MatchService {
         bet.setWinningOption(winningOption);
         betRepository.save(bet);
         log.info("  ✓ Bet {} → VALIDATED ({} participant(s))", betId, participations.size());
+    }
+
+    /**
+     * For each active member of the bet's group who has no participation in this bet,
+     * look for their prediction in another bet for the same match and copy it.
+     * This recovers participations that were missed due to the single-group submission bug.
+     */
+    private void backfillMissingParticipations(Bet bet, Match match) {
+        List<GroupMember> activeMembers = groupMemberRepository
+                .findByGroupIdAndStatus(bet.getGroup().getId(), GroupMember.MemberStatus.ACTIVE);
+
+        for (GroupMember member : activeMembers) {
+            Long userId = member.getUser().getId();
+            if (betParticipationRepository.existsByBetIdAndUserId(bet.getId(), userId)) {
+                continue;
+            }
+            betParticipationRepository.findByUserIdAndMatchId(userId, match.getId()).stream()
+                    .filter(p -> !p.getBet().getId().equals(bet.getId()))
+                    .findFirst()
+                    .ifPresent(source -> {
+                        BetParticipation backfilled = BetParticipation.builder()
+                                .bet(bet)
+                                .user(member.getUser())
+                                .chosenOption(source.getChosenOption())
+                                .comment(source.getComment())
+                                .build();
+                        betParticipationRepository.save(backfilled);
+                        log.info("  ↩ Backfilled participation for {} in group '{}' (copied from group '{}')",
+                                member.getUser().getUsername(),
+                                bet.getGroup().getName(),
+                                source.getBet().getGroup().getName());
+                    });
+        }
     }
 
     /**
