@@ -56,30 +56,13 @@ const Matches: React.FC = () => {
     return filtered.sort((a, b) => a.matchDate.localeCompare(b.matchDate));
   }, [bets, filter, hasGroups]);
 
-  const pronoStatusByMatchId = useMemo(() => {
-    const totalPerMatch = new Map<number, number>();
-    const participatedPerMatch = new Map<number, number>();
-
-    for (const bet of bets) {
-      if (bet.match && bet.status === 'OPEN') {
-        totalPerMatch.set(bet.match.id, (totalPerMatch.get(bet.match.id) ?? 0) + 1);
-      }
-    }
+  const participatedMatchIds = useMemo(() => {
+    const ids = new Set<number>();
     for (const bet of participatedBets) {
-      if (bet.match) {
-        participatedPerMatch.set(bet.match.id, (participatedPerMatch.get(bet.match.id) ?? 0) + 1);
-      }
+      if (bet.match) ids.add(bet.match.id);
     }
-
-    const result = new Map<number, 'done' | 'partial' | 'missing'>();
-    for (const [matchId, total] of totalPerMatch) {
-      const participated = participatedPerMatch.get(matchId) ?? 0;
-      if (participated >= total) result.set(matchId, 'done');
-      else if (participated > 0) result.set(matchId, 'partial');
-      else result.set(matchId, 'missing');
-    }
-    return result;
-  }, [bets, participatedBets]);
+    return ids;
+  }, [participatedBets]);
 
   const filters: { label: string; value: FilterStatus }[] = [
     { label: '🌍 Tous', value: 'ALL' },
@@ -178,15 +161,12 @@ const Matches: React.FC = () => {
                 {/* Cards for this day */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {matchesByDay[day].map((match) => {
-                    const rawStatus = pronoStatusByMatchId.get(match.id);
                     const pronoStatus =
-                      rawStatus === 'done'
+                      participatedMatchIds.has(match.id)
                         ? 'done'
-                        : rawStatus === 'partial'
-                          ? 'partial'
-                          : rawStatus === 'missing' && match.status === 'UPCOMING'
-                            ? 'missing'
-                            : undefined;
+                        : match.status === 'UPCOMING'
+                          ? 'missing'
+                          : undefined;
                     return <MatchCard key={match.id} match={match} pronoStatus={pronoStatus} />;
                   })}
                 </div>

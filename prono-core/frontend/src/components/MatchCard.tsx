@@ -5,7 +5,7 @@ import { getFlagUrl } from '../utils/countryFlags';
 
 interface MatchCardProps {
   match: Match;
-  pronoStatus?: 'done' | 'partial' | 'missing';
+  pronoStatus?: 'done' | 'missing';
 }
 
 const statusEmoji: Record<string, string> = {
@@ -27,7 +27,7 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, pronoStatus }) => {
   const borderClass =
     pronoStatus === 'done'
       ? 'border-emerald-400 dark:border-emerald-600 hover:border-emerald-500'
-      : pronoStatus === 'missing' || pronoStatus === 'partial'
+      : pronoStatus === 'missing'
         ? 'border-amber-400 dark:border-amber-600 hover:border-amber-500'
         : 'border-transparent hover:border-wc-green';
 
@@ -87,9 +87,6 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, pronoStatus }) => {
           )}
           {pronoStatus === 'missing' && (
             <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">⏰ À saisir</span>
-          )}
-          {pronoStatus === 'partial' && (
-            <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">⚡ Partiel</span>
           )}
         </div>
       </div>
