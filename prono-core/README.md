@@ -37,6 +37,45 @@ Consulte ce fichier pour les identifiants (ne pas les exposer publiquement).
 
 ---
 
+## Accès à la base de données (pgAdmin)
+
+pgAdmin est disponible pour inspecter ou modifier directement les données.
+
+### En développement local
+
+pgAdmin démarre automatiquement avec `docker compose up` :
+
+- **URL** : http://localhost:5050
+- **Email** : `admin@local.dev` (ou `PGADMIN_EMAIL`)
+- **Mot de passe** : `admin` (ou `PGADMIN_PASSWORD`)
+
+Connexion à configurer dans pgAdmin :
+
+| Champ | Valeur |
+|-------|--------|
+| Host | `postgres` |
+| Port | `5432` |
+| Database | `pronocore` |
+| Username | valeur de `DB_USER` |
+| Password | valeur de `DB_PASS` |
+
+### En production (NAS Synology)
+
+pgAdmin n'est **pas démarré par défaut**. Pour l'activer ponctuellement :
+
+```bash
+# Sur le NAS (SSH)
+docker compose -f docker-compose.prod.yml --profile tools up -d pgadmin
+```
+
+Accessible sur http://<IP-NAS>:5050 — **penser à le couper une fois terminé** :
+
+```bash
+docker compose -f docker-compose.prod.yml --profile tools stop pgadmin
+```
+
+---
+
 ## Déploiement production (NAS Synology)
 
 Le déploiement repose sur un registry Docker privé tournant sur le NAS (`192.168.68.112:5000`).
