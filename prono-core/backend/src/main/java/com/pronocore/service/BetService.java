@@ -215,30 +215,6 @@ public class BetService {
     }
 
     @Transactional
-    public BetParticipationResponse upsertParticipate(Long betId, ParticipateRequest request, String username) {
-        Bet bet = requireBet(betId);
-        assertOpenForParticipation(bet);
-
-        User user = requireUser(username);
-        groupMemberGuard.requireActiveMembership(bet.getGroup().getId(), user.getId());
-
-        BetParticipation participation = participationRepository.findByBetIdAndUserId(betId, user.getId())
-            .map(existing -> {
-                existing.setChosenOption(request.getChosenOption());
-                existing.setComment(request.getComment());
-                return existing;
-            })
-            .orElseGet(() -> BetParticipation.builder()
-                .bet(bet)
-                .user(user)
-                .chosenOption(request.getChosenOption())
-                .comment(request.getComment())
-                .build());
-
-        return betMapper.toParticipationResponse(participationRepository.save(participation));
-    }
-
-    @Transactional
     public List<BetParticipationResponse> upsertParticipateByMatch(Long matchId, ParticipateRequest request, String username) {
         User user = requireUser(username);
         List<Bet> bets = betRepository.findByMatchIdInUserActiveGroups(matchId, user.getId());

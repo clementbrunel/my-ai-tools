@@ -275,80 +275,88 @@ class BetServiceTest {
             .hasMessageContaining("déjà commencé");
     }
 
-    // ── upsertParticipate ───────────────────────────────────────────────────────
+    // ── upsertParticipateByMatch ────────────────────────────────────────────────
 
     @Test
-    void upsertParticipate_shouldThrowWhenBetNotOpen() {
-        testBet.setStatus(Bet.Status.VALIDATED);
-        when(betRepository.findById(1L)).thenReturn(Optional.of(testBet));
+    void upsertParticipateByMatch_createsParticipationsInAllOpenBets() {
+        Group group2 = Group.builder().id(8L).name("Autre groupe").build();
+        Bet bet2 = Bet.builder().id(2L).title("Bet 2").betType(Bet.BetType.SCORE).points(10)
+            .deadline(LocalDateTime.now().plusHours(2)).status(Bet.Status.OPEN)
+            .creator(testUser).group(group2).build();
 
-        ParticipateRequest request = new ParticipateRequest();
-        request.setChosenOption("Victoire France 2-1");
+        BetParticipationResponse resp1 = BetParticipationResponse.builder().id(10L).chosenOption("Victoire France 2-1").build();
+        BetParticipationResponse resp2 = BetParticipationResponse.builder().id(11L).chosenOption("Victoire France 2-1").build();
 
-        assertThatThrownBy(() -> betService.upsertParticipate(1L, request, "testuser"))
-            .isInstanceOf(IllegalStateException.class)
-            .hasMessageContaining("not open");
-    }
-
-    @Test
-    void upsertParticipate_shouldThrowWhenDeadlinePassed() {
-        testBet.setDeadline(LocalDateTime.now().minusMinutes(5));
-        when(betRepository.findById(1L)).thenReturn(Optional.of(testBet));
-
-        ParticipateRequest request = new ParticipateRequest();
-        request.setChosenOption("Victoire France 2-1");
-
-        assertThatThrownBy(() -> betService.upsertParticipate(1L, request, "testuser"))
-            .isInstanceOf(IllegalStateException.class)
-            .hasMessageContaining("déjà commencé");
-    }
-
-    @Test
-    void upsertParticipate_shouldCreateNewParticipationWhenNoneExists() {
-        BetParticipationResponse expectedResponse = BetParticipationResponse.builder()
-            .id(1L).chosenOption("Victoire France 2-1").build();
-
-        when(betRepository.findById(1L)).thenReturn(Optional.of(testBet));
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
-        stubActiveMember(GroupMember.GroupRole.MEMBER);
+        when(betRepository.findByMatchIdInUserActiveGroups(5L, 1L)).thenReturn(List.of(testBet, bet2));
+        when(participationRepository.findByBetIdAndUserId(1L, 1L)).thenReturn(Optional.empty());
+        when(participationRepository.findByBetIdAndUserId(2L, 1L)).thenReturn(Optional.empty());
+        when(participationRepository.save(any(BetParticipation.class))).thenReturn(new BetParticipation());
+        when(betMapper.toParticipationResponse(any())).thenReturn(resp1, resp2);
+
+        ParticipateRequest request = new ParticipateRequest();
+        request.setChosenOption("Victoire France 2-1");
+
+        List<BetParticipationResponse> results = betService.upsertParticipateByMatch(5L, request, "testuser");
+
+        assertThat(results).hasSize(2);
+        verify(participationRepository, times(2)).save(any(BetParticipation.class));
+    }
+
+    @Test
+    void upsertParticipateByMatch_skipsClosedBets() {
+        Bet closedBet = Bet.builder().id(2L).title("Closed").betType(Bet.BetType.SCORE).points(10)
+            .deadline(LocalDateTime.now().plusHours(2)).status(Bet.Status.VALIDATED)
+            .creator(testUser).group(testGroup).build();
+
+        BetParticipationResponse resp = BetParticipationResponse.builder().id(10L).chosenOption("Victoire France 2-1").build();
+
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+        when(betRepository.findByMatchIdInUserActiveGroups(5L, 1L)).thenReturn(List.of(testBet, closedBet));
         when(participationRepository.findByBetIdAndUserId(1L, 1L)).thenReturn(Optional.empty());
         when(participationRepository.save(any(BetParticipation.class))).thenReturn(new BetParticipation());
-        when(betMapper.toParticipationResponse(any())).thenReturn(expectedResponse);
+        when(betMapper.toParticipationResponse(any())).thenReturn(resp);
 
         ParticipateRequest request = new ParticipateRequest();
         request.setChosenOption("Victoire France 2-1");
 
-        BetParticipationResponse result = betService.upsertParticipate(1L, request, "testuser");
+        List<BetParticipationResponse> results = betService.upsertParticipateByMatch(5L, request, "testuser");
 
-        assertThat(result.getChosenOption()).isEqualTo("Victoire France 2-1");
-        verify(participationRepository).save(argThat(p ->
-            p.getChosenOption().equals("Victoire France 2-1") && p.getUser() == testUser));
+        assertThat(results).hasSize(1);
+        verify(participationRepository, times(1)).save(any(BetParticipation.class));
     }
 
     @Test
-    void upsertParticipate_shouldUpdateExistingParticipationInPlace() {
+    void upsertParticipateByMatch_updatesExistingParticipation() {
         BetParticipation existing = BetParticipation.builder()
-            .id(5L).bet(testBet).user(testUser)
-            .chosenOption("Match nul 0-0")
-            .build();
+            .id(5L).bet(testBet).user(testUser).chosenOption("Match nul 0-0").build();
 
-        BetParticipationResponse expectedResponse = BetParticipationResponse.builder()
-            .id(5L).chosenOption("Victoire France 2-1").build();
+        BetParticipationResponse resp = BetParticipationResponse.builder().id(5L).chosenOption("Victoire France 2-1").build();
 
-        when(betRepository.findById(1L)).thenReturn(Optional.of(testBet));
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
-        stubActiveMember(GroupMember.GroupRole.MEMBER);
+        when(betRepository.findByMatchIdInUserActiveGroups(5L, 1L)).thenReturn(List.of(testBet));
         when(participationRepository.findByBetIdAndUserId(1L, 1L)).thenReturn(Optional.of(existing));
         when(participationRepository.save(existing)).thenReturn(existing);
-        when(betMapper.toParticipationResponse(existing)).thenReturn(expectedResponse);
+        when(betMapper.toParticipationResponse(existing)).thenReturn(resp);
 
         ParticipateRequest request = new ParticipateRequest();
         request.setChosenOption("Victoire France 2-1");
 
-        betService.upsertParticipate(1L, request, "testuser");
+        betService.upsertParticipateByMatch(5L, request, "testuser");
 
         assertThat(existing.getChosenOption()).isEqualTo("Victoire France 2-1");
         verify(participationRepository).save(existing);
+    }
+
+    @Test
+    void upsertParticipateByMatch_returnsEmptyListWhenNoBets() {
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+        when(betRepository.findByMatchIdInUserActiveGroups(5L, 1L)).thenReturn(List.of());
+
+        List<BetParticipationResponse> results = betService.upsertParticipateByMatch(5L, new ParticipateRequest(), "testuser");
+
+        assertThat(results).isEmpty();
+        verifyNoInteractions(participationRepository);
     }
 
     // ── validateBet ─────────────────────────────────────────────────────────────
