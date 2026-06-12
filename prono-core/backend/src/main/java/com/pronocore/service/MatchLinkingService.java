@@ -11,18 +11,21 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Handles linking our Match records to api-football.com fixture IDs.
  *
  * Confidence scoring (0.0 – 1.0):
- *   - Date proximity (40 %): ≤10 min → 0.40, ≤60 min → 0.30, ≤120 min → 0.15
- *   - Team name match (60 %): both teams match → 0.60, one team → 0.30
+ *   - Date proximity  (40 %): ≤10 min → 0.40, ≤60 min → 0.30, ≤120 min → 0.15
+ *   - Team ID match   (60 %): both teams by ISO2→ID → 0.60, one team → 0.30
+ *                             fallback to team name containment if ISO2 unknown → ≤0.20
  *
- * Auto-linkable threshold: 0.85 (date close + both teams matched).
+ * Auto-linkable threshold: 0.85 (date ok + both teams matched by ID).
  */
 @Slf4j
 @Service
@@ -32,9 +35,9 @@ public class MatchLinkingService {
     private static final double THRESHOLD_AUTO = 0.85;
     private static final int    MAX_CANDIDATES = 5;
 
-    private final ApiFootballClient  apiClient;
-    private final MatchRepository    matchRepository;
-    private final TeamNameNormalizer normalizer;
+    private final ApiFootballClient apiClient;
+    private final MatchRepository   matchRepository;
+    private final TeamMappingService teamMapping;
 
     // ----------------------------------------------------------------
     // Public API
@@ -59,7 +62,6 @@ public class MatchLinkingService {
         match.setExternalFixtureId(fixtureId);
         matchRepository.save(match);
         log.info("Match {} linked to fixture {}", matchId, fixtureId);
-        // Invalidate cache so the new link is reflected immediately in sync
         apiClient.invalidateCache();
     }
 
@@ -80,24 +82,29 @@ public class MatchLinkingService {
 
         // --- Date proximity (40 %) ---
         long diffMinutes = Math.abs(ChronoUnit.MINUTES.between(
-                match.getMatchDate().atOffset(java.time.ZoneOffset.UTC),
+                match.getMatchDate().atOffset(ZoneOffset.UTC),
                 fixture.date()));
         if (diffMinutes <= 10)       score += 0.40;
         else if (diffMinutes <= 60)  score += 0.30;
         else if (diffMinutes <= 120) score += 0.15;
-        // Beyond 120 min: 0 contribution from date
 
-        // --- Team name matching (60 %) ---
-        double simAHome = normalizer.similarity(match.getTeamA(), fixture.homeTeam());
-        double simBAway = normalizer.similarity(match.getTeamB(), fixture.awayTeam());
-        double simAway  = normalizer.similarity(match.getTeamA(), fixture.awayTeam());
-        double simBHome = normalizer.similarity(match.getTeamB(), fixture.homeTeam());
+        // --- Team matching (60 %) via ISO2 → team ID ---
+        Optional<Long> idA = teamMapping.getTeamId(match.getTeamA());
+        Optional<Long> idB = teamMapping.getTeamId(match.getTeamB());
 
-        double directScore  = (simAHome + simBAway) / 2.0;
-        double reverseScore = (simAway  + simBHome) / 2.0;
-        double bestTeamScore = Math.max(directScore, reverseScore);
-
-        score += bestTeamScore * 0.60;
+        if (idA.isPresent() && idB.isPresent()) {
+            boolean direct  = idA.get() == fixture.homeTeamId() && idB.get() == fixture.awayTeamId();
+            boolean reverse = idB.get() == fixture.homeTeamId() && idA.get() == fixture.awayTeamId();
+            if (direct || reverse) {
+                score += 0.60;
+            } else if (idA.get() == fixture.homeTeamId() || idA.get() == fixture.awayTeamId()
+                    || idB.get() == fixture.homeTeamId() || idB.get() == fixture.awayTeamId()) {
+                score += 0.30;
+            }
+        } else {
+            // Fallback: one or both teams not in ISO2 map — coarse name containment
+            score += fallbackNameScore(match, fixture) * 0.20;
+        }
 
         return FixtureCandidateResponse.builder()
                 .fixtureId(fixture.fixtureId())
@@ -107,6 +114,20 @@ public class MatchLinkingService {
                 .confidence(Math.min(score, 1.0))
                 .autoLinkable(score >= THRESHOLD_AUTO)
                 .build();
+    }
+
+    /** Coarse fallback when ISO2 lookup failed: checks if any team name is contained in the fixture names. */
+    private double fallbackNameScore(Match match, ApiFixture fixture) {
+        String homeL = fixture.homeTeam().toLowerCase();
+        String awayL = fixture.awayTeam().toLowerCase();
+        String aL = match.getTeamA().toLowerCase();
+        String bL = match.getTeamB().toLowerCase();
+        int hits = 0;
+        if (homeL.contains(aL) || aL.contains(homeL)) hits++;
+        if (awayL.contains(bL) || bL.contains(awayL)) hits++;
+        if (homeL.contains(bL) || bL.contains(homeL)) hits++;
+        if (awayL.contains(aL) || aL.contains(awayL)) hits++;
+        return hits >= 2 ? 1.0 : hits > 0 ? 0.5 : 0.0;
     }
 
     private Match requireMatch(Long id) {
