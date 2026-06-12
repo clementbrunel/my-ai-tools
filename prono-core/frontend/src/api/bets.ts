@@ -74,6 +74,11 @@ export const getParticipations = async (betId: number): Promise<BetParticipation
   return response.data;
 };
 
+export const getParticipationsByMatch = async (matchId: number): Promise<BetParticipation[]> => {
+  const response = await apiClient.get<BetParticipation[]>(`/bets/match/${matchId}/participations`);
+  return response.data;
+};
+
 export const validateBet = async (betId: number, winningOption: string): Promise<Bet> => {
   const response = await apiClient.post<Bet>(`/bets/${betId}/validate`, null, {
     params: { winningOption },

@@ -73,6 +73,15 @@ public class BetService {
             .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<BetParticipationResponse> getParticipationsByMatch(Long matchId, String username) {
+        User user = requireUser(username);
+        return betRepository.findByMatchIdInUserActiveGroups(matchId, user.getId()).stream()
+            .flatMap(bet -> participationRepository.findByBetId(bet.getId()).stream())
+            .map(betMapper::toParticipationResponse)
+            .toList();
+    }
+
     // ---------------------------------------------------------------
     // Opening a match for betting (group admin)
     // ---------------------------------------------------------------

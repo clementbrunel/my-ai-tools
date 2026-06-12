@@ -113,6 +113,13 @@ public class BetController {
         return ResponseEntity.ok(betService.getParticipations(id, authentication.getName()));
     }
 
+    @GetMapping("/match/{matchId}/participations")
+    @Operation(summary = "Get all participations across all group bets for a match")
+    public ResponseEntity<List<BetParticipationResponse>> getParticipationsByMatch(
+            @PathVariable Long matchId, Authentication authentication) {
+        return ResponseEntity.ok(betService.getParticipationsByMatch(matchId, authentication.getName()));
+    }
+
     @PostMapping("/{id}/validate")
     @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     @Operation(summary = "Validate a bet with winning option (Admin only)")
