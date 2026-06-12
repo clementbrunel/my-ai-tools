@@ -79,7 +79,7 @@ public class ReminderSchedulerService {
         for (User user : usersToRemind.values()) {
             // Fetch ALL matches today this user hasn't bet on (not just the trigger ones)
             List<Match> allPending = matchRepository.findPendingMatchesTodayForUser(
-                    user.getId(), startOfDay, startOfNextDay);
+                    user.getId(), startOfDay, startOfNextDay, now);
 
             if (!allPending.isEmpty()) {
                 emailService.sendMatchReminder(user, allPending);

@@ -49,7 +49,9 @@ public interface MatchRepository extends JpaRepository<Match, Long> {
                                                @Param("to")   LocalDateTime to);
 
     /** All UPCOMING matches today (in [startOfDay, endOfDay)) that have at least one OPEN bet
-     *  in one of the user's ACTIVE groups and on which the user has not yet participated. */
+     *  in one of the user's ACTIVE groups and on which the user has not yet participated.
+     *  Only matches that have not yet kicked off (matchDate > now) are returned, so a match
+     *  whose status was not yet flipped to ONGOING/FINISHED by the admin is not included. */
     @Query("""
             SELECT DISTINCT m FROM Match m
             JOIN Bet b ON b.match = m
@@ -60,6 +62,7 @@ public interface MatchRepository extends JpaRepository<Match, Long> {
               AND m.status = com.pronocore.entity.Match.Status.UPCOMING
               AND m.matchDate >= :startOfDay
               AND m.matchDate < :endOfDay
+              AND m.matchDate > :now
               AND NOT EXISTS (
                   SELECT bp FROM BetParticipation bp
                   WHERE bp.bet.match = m AND bp.user.id = :userId
@@ -68,5 +71,6 @@ public interface MatchRepository extends JpaRepository<Match, Long> {
             """)
     List<Match> findPendingMatchesTodayForUser(@Param("userId")     Long          userId,
                                                @Param("startOfDay") LocalDateTime startOfDay,
-                                               @Param("endOfDay")   LocalDateTime endOfDay);
+                                               @Param("endOfDay")   LocalDateTime endOfDay,
+                                               @Param("now")        LocalDateTime now);
 }
