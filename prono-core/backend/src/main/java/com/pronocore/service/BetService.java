@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -78,6 +79,12 @@ public class BetService {
         User user = requireUser(username);
         return betRepository.findByMatchIdInUserActiveGroups(matchId, user.getId()).stream()
             .flatMap(bet -> participationRepository.findByBetId(bet.getId()).stream())
+            .collect(Collectors.toMap(
+                p -> p.getUser().getId(),
+                p -> p,
+                (existing, duplicate) -> existing
+            ))
+            .values().stream()
             .map(betMapper::toParticipationResponse)
             .toList();
     }
