@@ -62,8 +62,8 @@ const MatchDetail: React.FC = () => {
   const [error, setError] = useState('');
 
   // Prediction form state
-  const [scoreA, setScoreA] = useState('');
-  const [scoreB, setScoreB] = useState('');
+  const [scoreA, setScoreA] = useState('0');
+  const [scoreB, setScoreB] = useState('0');
   const [comment, setComment] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
