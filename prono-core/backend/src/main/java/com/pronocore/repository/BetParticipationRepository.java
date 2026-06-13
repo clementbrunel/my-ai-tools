@@ -78,9 +78,6 @@ public interface BetParticipationRepository extends JpaRepository<BetParticipati
                                                           @Param("validatedStatus") Bet.Status    validatedStatus,
                                                           @Param("groupId")         Long          groupId);
 
-    @Query("SELECT bp.bet.id FROM BetParticipation bp WHERE bp.user.id = :userId")
-    Set<Long> findParticipatedBetIdsByUserId(@Param("userId") Long userId);
-
     @Query("SELECT DISTINCT bp.bet.match.id FROM BetParticipation bp WHERE bp.user.id = :userId AND bp.bet.match IS NOT NULL")
     Set<Long> findParticipatedMatchIdsByUserId(@Param("userId") Long userId);
 
