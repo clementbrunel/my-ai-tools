@@ -49,6 +49,10 @@ export const removeCandidate = async (id: number, forfeitId: number): Promise<Da
   return response.data;
 };
 
+export const deleteDailyGage = async (id: number): Promise<void> => {
+  await apiClient.delete(`/daily-gages/${id}`);
+};
+
 export const forceSettleGage = async (id: number): Promise<DailyGage> => {
   const response = await apiClient.post<DailyGage>(`/daily-gages/${id}/settle`);
   return response.data;

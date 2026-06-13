@@ -94,6 +94,13 @@ public class DailyGageController {
         return ResponseEntity.ok(dailyGageService.forceSettle(id));
     }
 
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Delete a daily gage (group admin only, must not be SETTLED)")
+    public ResponseEntity<Void> deleteDailyGage(@PathVariable Long id) {
+        dailyGageService.deleteDailyGage(id);
+        return ResponseEntity.noContent().build();
+    }
+
     // ---------------------------------------------------------------
     // Player vote
     // ---------------------------------------------------------------
