@@ -158,6 +158,19 @@ public class DailyGageService {
         return toResponse(dailyGageRepository.findById(dailyGageId).orElseThrow(), user);
     }
 
+    /** Delete a daily gage entirely (must not be SETTLED). */
+    @Transactional
+    public void deleteDailyGage(Long dailyGageId) {
+        User user = currentUser();
+        DailyGage dg = requireDailyGage(dailyGageId);
+        groupMemberGuard.requireGroupAdmin(dg.getGroup().getId(), user.getId());
+        if (dg.getStatus() == DailyGage.Status.SETTLED) {
+            throw new IllegalStateException("Cannot delete a settled daily gage");
+        }
+        dailyGageRepository.delete(dg);
+        log.info("🗑️ Daily gage {} ({}) deleted by {}", dailyGageId, dg.getMatchDate(), user.getUsername());
+    }
+
     /** VOTE mode: remove a candidate. */
     @Transactional
     public DailyGageResponse removeCandidate(Long dailyGageId, Long forfeitId) {

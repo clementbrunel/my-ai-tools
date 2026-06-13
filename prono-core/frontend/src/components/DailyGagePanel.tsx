@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   getDailyGagesByGroup, createDailyGage,
-  selectForfeitDirectly, addCandidate, removeCandidate, forceSettleGage,
+  selectForfeitDirectly, addCandidate, removeCandidate, forceSettleGage, deleteDailyGage,
 } from '../api/dailyGages';
 import { getForfeitsVisibleToGroup } from '../api/forfeits';
 import { getBets } from '../api/bets';
@@ -120,6 +120,15 @@ const DailyGagePanel: React.FC<Props> = ({ groupId }) => {
     }
   };
 
+  const handleDelete = async (dgId: number) => {
+    try {
+      await deleteDailyGage(dgId);
+      setDailyGages((prev) => prev.filter((dg) => dg.id !== dgId));
+    } catch {
+      setError('Erreur lors de la suppression du gage');
+    }
+  };
+
   if (isLoading) {
     return <p className="text-xs text-gray-400 italic">Chargement...</p>;
   }
@@ -221,7 +230,18 @@ const DailyGagePanel: React.FC<Props> = ({ groupId }) => {
                       </span>
                     )}
                   </div>
-                  <span className="text-gray-400 text-xs">{isExpanded ? '▲' : '▼'}</span>
+                  <div className="flex items-center gap-2">
+                    {dg.status !== 'SETTLED' && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDelete(dg.id); }}
+                        className="text-xs text-red-400 hover:text-red-600"
+                        title="Supprimer ce gage"
+                      >
+                        🗑️
+                      </button>
+                    )}
+                    <span className="text-gray-400 text-xs">{isExpanded ? '▲' : '▼'}</span>
+                  </div>
                 </div>
 
                 {isExpanded && dg.status !== 'SETTLED' && (

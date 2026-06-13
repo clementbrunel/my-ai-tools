@@ -87,10 +87,14 @@ export const GroupAdminCountsProvider: React.FC<{ children: React.ReactNode }> =
           const allDg = dgResult.value;
           const allMatchDates = [...new Set(matchesResult.value.map((m) => m.matchDate.slice(0, 10)))];
           adminGroups.forEach((g) => {
-            const configuredWithForfeit = new Set(
-              allDg.filter((d) => d.groupId === g.id && d.forfeit != null).map((d) => d.matchDate)
+            // VOTE gages are configured as soon as they exist (forfeit picked by votes)
+            // DIRECT gages need a forfeit selected to be configured
+            const configuredDates = new Set(
+              allDg
+                .filter((d) => d.groupId === g.id && (d.mode === 'VOTE' || d.forfeit != null))
+                .map((d) => d.matchDate)
             );
-            const count = allMatchDates.filter((d) => !configuredWithForfeit.has(d)).length;
+            const count = allMatchDates.filter((d) => !configuredDates.has(d)).length;
             missingPerGroup[g.id] = count;
             missingGages += count;
           });
