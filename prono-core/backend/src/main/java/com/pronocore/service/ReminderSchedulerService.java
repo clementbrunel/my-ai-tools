@@ -85,7 +85,7 @@ public class ReminderSchedulerService {
                 emailService.sendMatchReminder(user, allPending);
                 log.info("Reminder sent to {} ({}) for {} match(es): {}",
                         user.getUsername(), user.getEmail(), allPending.size(),
-                        allPending.stream().map(m -> m.getHomeTeam() + " vs " + m.getAwayTeam()).toList());
+                        allPending.stream().map(m -> m.getTeamA() + " vs " + m.getTeamB()).toList());
             }
             user.setReminderSentDate(today);
             userRepository.save(user);
