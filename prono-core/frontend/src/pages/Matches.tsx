@@ -141,7 +141,7 @@ const Matches: React.FC = () => {
                     const pronoStatus =
                       match.userParticipated
                         ? 'done'
-                        : match.status === 'UPCOMING'
+                        : match.status === 'UPCOMING' && new Date(match.matchDate) > new Date()
                           ? 'missing'
                           : undefined;
                     return <MatchCard key={match.id} match={match} pronoStatus={pronoStatus} />;
