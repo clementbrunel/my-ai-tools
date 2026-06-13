@@ -28,5 +28,4 @@ public class BetResponse {
     private String winningOption;
     private LocalDateTime createdAt;
     private long participationsCount;
-    private boolean userParticipated;
 }
