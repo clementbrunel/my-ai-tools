@@ -19,6 +19,8 @@ public interface BetRepository extends JpaRepository<Bet, Long> {
 
     boolean existsByMatchIdAndGroupId(Long matchId, Long groupId);
 
+    boolean existsByGroupIdAndStatus(Long groupId, Bet.Status status);
+
     List<Bet> findByMatchIdAndGroupId(Long matchId, Long groupId);
 
     /** Bets belonging to any group the user is an ACTIVE member of. */
