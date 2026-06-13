@@ -83,6 +83,9 @@ public class ReminderSchedulerService {
 
             if (!allPending.isEmpty()) {
                 emailService.sendMatchReminder(user, allPending);
+                log.info("Reminder sent to {} ({}) for {} match(es): {}",
+                        user.getUsername(), user.getEmail(), allPending.size(),
+                        allPending.stream().map(m -> m.getHomeTeam() + " vs " + m.getAwayTeam()).toList());
             }
             user.setReminderSentDate(today);
             userRepository.save(user);
