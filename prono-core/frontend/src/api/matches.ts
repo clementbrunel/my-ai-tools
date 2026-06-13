@@ -26,6 +26,11 @@ export const deleteMatch = async (id: number): Promise<void> => {
   await apiClient.delete(`/matches/${id}`);
 };
 
+export const getMatchesForMyGroups = async (): Promise<Match[]> => {
+  const response = await apiClient.get<Match[]>('/matches/my-groups');
+  return response.data;
+};
+
 export const getCompetitions = async (): Promise<string[]> => {
   const response = await apiClient.get<string[]>('/matches/competitions');
   return response.data;

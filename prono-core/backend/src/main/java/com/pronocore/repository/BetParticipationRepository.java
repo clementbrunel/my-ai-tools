@@ -81,6 +81,9 @@ public interface BetParticipationRepository extends JpaRepository<BetParticipati
     @Query("SELECT bp.bet.id FROM BetParticipation bp WHERE bp.user.id = :userId")
     Set<Long> findParticipatedBetIdsByUserId(@Param("userId") Long userId);
 
+    @Query("SELECT DISTINCT bp.bet.match.id FROM BetParticipation bp WHERE bp.user.id = :userId AND bp.bet.match IS NOT NULL")
+    Set<Long> findParticipatedMatchIdsByUserId(@Param("userId") Long userId);
+
     /** True if the user has already placed at least one bet for the given match (across any group). */
     @Query("""
             SELECT COUNT(bp) > 0 FROM BetParticipation bp

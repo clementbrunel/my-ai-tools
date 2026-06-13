@@ -1,8 +1,8 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { getBets } from '../api/bets';
+import { getMatchesForMyGroups } from '../api/matches';
 import { getMyGroups } from '../api/groups';
-import type { Bet, Match } from '../types';
+import type { Match } from '../types';
 import { isAdmin } from '../types';
 import MatchCard from '../components/MatchCard';
 import { useAuth } from '../context/AuthContext';
@@ -13,7 +13,7 @@ type FilterStatus = 'ALL' | 'UPCOMING' | 'FINISHED';
 
 const Matches: React.FC = () => {
   const { user } = useAuth();
-  const [bets, setBets] = useState<Bet[]>([]);
+  const [matches, setMatches] = useState<Match[]>([]);
   const [filter, setFilter] = useState<FilterStatus>('ALL');
   const [isLoading, setIsLoading] = useState(true);
   const [hasGroups, setHasGroups] = useState(true);
@@ -24,9 +24,9 @@ const Matches: React.FC = () => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const [groups, betsData] = await Promise.all([getMyGroups(), getBets()]);
+        const [groups, matchesData] = await Promise.all([getMyGroups(), getMatchesForMyGroups()]);
         setHasGroups(groups.length > 0);
-        setBets(betsData);
+        setMatches(matchesData);
       } catch (err) {
         console.error('Error loading data:', err);
       } finally {
@@ -36,27 +36,10 @@ const Matches: React.FC = () => {
     fetchData();
   }, []);
 
-  const matches = useMemo(() => {
+  const filtered = useMemo(() => {
     if (!hasGroups) return [];
-    const seen = new Set<number>();
-    const unique: Match[] = [];
-    for (const bet of bets) {
-      if (bet.match && !seen.has(bet.match.id)) {
-        seen.add(bet.match.id);
-        unique.push(bet.match);
-      }
-    }
-    const filtered = filter === 'ALL' ? unique : unique.filter((m) => m.status === filter);
-    return filtered.sort((a, b) => a.matchDate.localeCompare(b.matchDate));
-  }, [bets, filter, hasGroups]);
-
-  const participatedMatchIds = useMemo(() => {
-    const ids = new Set<number>();
-    for (const bet of bets) {
-      if (bet.match && bet.userParticipated) ids.add(bet.match.id);
-    }
-    return ids;
-  }, [bets]);
+    return filter === 'ALL' ? matches : matches.filter((m) => m.status === filter);
+  }, [matches, filter, hasGroups]);
 
   const filters: { label: string; value: FilterStatus }[] = [
     { label: '🌍 Tous', value: 'ALL' },
@@ -64,7 +47,7 @@ const Matches: React.FC = () => {
     { label: '✅ Terminés', value: 'FINISHED' },
   ];
 
-  const matchesByDay = matches.reduce<Record<string, Match[]>>((acc, match) => {
+  const matchesByDay = filtered.reduce<Record<string, Match[]>>((acc, match) => {
     const day = match.matchDate.slice(0, 10);
     if (!acc[day]) acc[day] = [];
     acc[day].push(match);
@@ -156,7 +139,7 @@ const Matches: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {matchesByDay[day].map((match) => {
                     const pronoStatus =
-                      participatedMatchIds.has(match.id)
+                      match.userParticipated
                         ? 'done'
                         : match.status === 'UPCOMING'
                           ? 'missing'

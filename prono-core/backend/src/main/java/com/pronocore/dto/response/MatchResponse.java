@@ -23,4 +23,5 @@ public class MatchResponse {
     private Match.Status status;
     private String competition;
     private String round;
+    private Boolean userParticipated;
 }

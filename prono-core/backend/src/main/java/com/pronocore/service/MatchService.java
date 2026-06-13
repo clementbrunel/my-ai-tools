@@ -59,6 +59,21 @@ public class MatchService {
     }
 
     @Transactional(readOnly = true)
+    public List<MatchResponse> getMatchesForUserGroups(String username) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("User not found: " + username));
+        List<Match> matches = betRepository.findDistinctMatchesWithOpenBetsInUserGroups(user.getId());
+        Set<Long> participatedIds = betParticipationRepository.findParticipatedMatchIdsByUserId(user.getId());
+        return matches.stream()
+                .map(match -> {
+                    MatchResponse response = matchMapper.toResponse(match);
+                    response.setUserParticipated(participatedIds.contains(match.getId()));
+                    return response;
+                })
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public List<String> getActiveCompetitions() {
         return matchRepository.findActiveCompetitions();
     }
