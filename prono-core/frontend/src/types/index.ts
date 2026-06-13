@@ -88,6 +88,7 @@ export interface Match {
   status: 'UPCOMING' | 'ONGOING' | 'FINISHED';
   competition: string;
   round: string;
+  userParticipated?: boolean;
 }
 
 export interface Bet {

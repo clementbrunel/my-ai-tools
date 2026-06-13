@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -32,6 +33,12 @@ public class MatchController {
             return ResponseEntity.ok(matchService.getMatchesByStatus(status));
         }
         return ResponseEntity.ok(matchService.getAllMatches());
+    }
+
+    @GetMapping("/my-groups")
+    @Operation(summary = "Get matches with open bets in the current user's groups, with participation status")
+    public ResponseEntity<List<MatchResponse>> getMatchesForMyGroups(Authentication authentication) {
+        return ResponseEntity.ok(matchService.getMatchesForUserGroups(authentication.getName()));
     }
 
     @GetMapping("/competitions")
