@@ -1,38 +1,5 @@
 {
-  "bleuets": [
-    {
-      "title": "Réf. 1287 – Junior - 3 personnes – Bâtiment 1 - Tougnète",
-      "start": "2026-07-16",
-      "end": "2026-07-31",
-      "price": "300 €",
-      "url": "https://meribel-mottaret-lesbleuets.fr/location/location-de-la-periode-16-du-16-07-2026-au-31-07-2026/1287",
-      "overlaps_target": true
-    },
-    {
-      "title": "Réf. 1292 – Junior - 3 personnes – Bâtiment 2 - Saulire",
-      "start": "2026-07-16",
-      "end": "2026-07-23",
-      "price": "250 €",
-      "url": "https://meribel-mottaret-lesbleuets.fr/location/location-de-la-periode-16-du-16-07-2026-au-23-07-2026/1292",
-      "overlaps_target": true
-    },
-    {
-      "title": "Réf. 1295 – Normal - 4 personnes – Bâtiment 1 - Tougnète",
-      "start": "2026-07-16",
-      "end": "2026-07-31",
-      "price": "780 €",
-      "url": "https://meribel-mottaret-lesbleuets.fr/location/location-de-la-periode-16-du-16-07-2026-au-31-07-2026/1295",
-      "overlaps_target": true
-    },
-    {
-      "title": "Réf. 1294 – Junior - 3 personnes – Bâtiment 2 - Saulire",
-      "start": "2026-07-23",
-      "end": "2026-07-31",
-      "price": "250 €",
-      "url": "https://meribel-mottaret-lesbleuets.fr/location/location-de-la-periode-16-du-23-07-2026-au-31-07-2026/1294",
-      "overlaps_target": true
-    }
-  ],
+  "bleuets": [],
   "maeva": [
     {
       "title": "Studio 4 personnes - 1 coin nuit",
@@ -50,5 +17,6 @@
       "dispo": "?",
       "url": "https://www.maeva.com/fr-fr/residence-pierre-vacances-les-bleuets_10793.html?residence_cle=10793&nbPax=4&ordreSeo=prixAsc&adultePax=2&enfantPax=1&babiePax=1&date_debut=2026-07-16&date_fin=2026-07-22"
     }
-  ]
+  ],
+  "maeva_api_down_alerted": true
 }
