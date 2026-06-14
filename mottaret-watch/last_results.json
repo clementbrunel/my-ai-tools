@@ -57,5 +57,6 @@
       "overlaps_target": true
     }
   ],
-  "maeva": []
+  "maeva": [],
+  "maeva_api_down_alerted": true
 }
