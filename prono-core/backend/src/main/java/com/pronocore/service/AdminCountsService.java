@@ -69,7 +69,7 @@ public class AdminCountsService {
 
         Map<Long, Set<LocalDate>> configuredDatesPerGroup = dailyGageRepository
                 .findByGroupIdInOrderByMatchDateDesc(adminGroupIds).stream()
-                .filter(dg -> dg.getForfeit() != null)
+                .filter(dg -> dg.getMode() == DailyGage.Mode.VOTE || dg.getForfeit() != null)
                 .collect(Collectors.groupingBy(
                         dg -> dg.getGroup().getId(),
                         Collectors.mapping(DailyGage::getMatchDate, Collectors.toSet())
