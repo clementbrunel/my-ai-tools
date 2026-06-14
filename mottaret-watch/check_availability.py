@@ -571,8 +571,11 @@ def notify_if_needed(
 
 # ── Alerte API ───────────────────────────────────────────────────────────────
 
-def _alert_maeva_api_down(cached_listings: list[dict]):
+def _alert_maeva_api_down(cached_listings: list[dict], already_alerted: bool):
     """Envoie une alerte unique si l'API Maeva est indisponible."""
+    if already_alerted:
+        print("  ℹ️  API Maeva toujours indisponible — alerte déjà envoyée, pas de nouvel email.")
+        return
     if not RESEND_API_KEY:
         print("  ⚠️  RESEND_API_KEY non configurée — alerte Maeva non envoyée.")
         return
@@ -639,10 +642,15 @@ def main():
         maeva_listings_for_cache = maeva_listings
 
     new_bleuets, maeva_changes = detect_changes(previous, bleuets_available, maeva_listings_for_cache)
-    save_cache({"bleuets": bleuets_available, "maeva": maeva_listings_for_cache})
+    already_alerted = bool(previous.get("maeva_api_down_alerted"))
+    save_cache({
+        "bleuets": bleuets_available,
+        "maeva": maeva_listings_for_cache,
+        "maeva_api_down_alerted": maeva_api_error,
+    })
 
     if maeva_api_error:
-        _alert_maeva_api_down(maeva_listings_for_cache)
+        _alert_maeva_api_down(maeva_listings_for_cache, already_alerted=already_alerted)
 
     notify_if_needed(previous, bleuets_available, bleuets_all, maeva_listings_for_cache, new_bleuets, maeva_changes)
 
