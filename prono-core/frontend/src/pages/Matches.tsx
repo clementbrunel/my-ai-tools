@@ -16,7 +16,7 @@ type ViewMode = 'grid' | 'list';
 const Matches: React.FC = () => {
   const { user } = useAuth();
   const [matches, setMatches] = useState<Match[]>([]);
-  const [filter, setFilter] = useState<FilterStatus>('ALL');
+  const [filter, setFilter] = useState<FilterStatus>('UPCOMING');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [isLoading, setIsLoading] = useState(true);
   const [hasGroups, setHasGroups] = useState(true);
@@ -45,9 +45,9 @@ const Matches: React.FC = () => {
   }, [matches, filter, hasGroups]);
 
   const filters: { label: string; value: FilterStatus }[] = [
-    { label: '🌍 Tous', value: 'ALL' },
     { label: '📅 À venir', value: 'UPCOMING' },
     { label: '✅ Terminés', value: 'FINISHED' },
+    { label: '🌍 Tous', value: 'ALL' },
   ];
 
   const matchesByDay = filtered.reduce<Record<string, Match[]>>((acc, match) => {
