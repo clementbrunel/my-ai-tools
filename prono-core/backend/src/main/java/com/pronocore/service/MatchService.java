@@ -62,7 +62,7 @@ public class MatchService {
     public List<MatchResponse> getMatchesForUserGroups(String username) {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("User not found: " + username));
-        List<Match> matches = betRepository.findDistinctMatchesWithOpenBetsInUserGroups(user.getId());
+        List<Match> matches = betRepository.findDistinctMatchesWithBetsInUserGroups(user.getId());
         Set<Long> participatedIds = betParticipationRepository.findParticipatedMatchIdsByUserId(user.getId());
         return matches.stream()
                 .map(match -> {
