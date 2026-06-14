@@ -6,12 +6,12 @@ export const getFixtureCandidates = async (matchId: number): Promise<FixtureCand
   return response.data;
 };
 
-export const linkMatch = async (matchId: number, fixtureId: number): Promise<void> => {
-  await apiClient.post(`/admin/sync/link/${matchId}`, { fixtureId });
+export const linkMatch = async (matchId: number, externalId: number, apiCode: string): Promise<void> => {
+  await apiClient.post(`/admin/sync/link/${matchId}`, { externalId, apiCode });
 };
 
-export const unlinkMatch = async (matchId: number): Promise<void> => {
-  await apiClient.delete(`/admin/sync/link/${matchId}`);
+export const unlinkMatch = async (matchId: number, apiCode: string): Promise<void> => {
+  await apiClient.delete(`/admin/sync/link/${matchId}`, { params: { apiCode } });
 };
 
 export const triggerSync = async (): Promise<void> => {

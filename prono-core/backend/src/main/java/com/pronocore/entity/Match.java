@@ -50,9 +50,6 @@ public class Match {
     @Builder.Default
     private boolean reminderSent = false;
 
-    @Column(name = "external_fixture_id")
-    private Long externalFixtureId;
-
     @Column(name = "sync_locked", nullable = false)
     @Builder.Default
     private boolean syncLocked = false;
@@ -60,6 +57,9 @@ public class Match {
     @Column(name = "auto_synced", nullable = false)
     @Builder.Default
     private boolean autoSynced = false;
+
+    @OneToOne(mappedBy = "match", cascade = CascadeType.ALL, orphanRemoval = true)
+    private MatchExternalLinks externalLinks;
 
     public enum Status {
         UPCOMING, ONGOING, FINISHED

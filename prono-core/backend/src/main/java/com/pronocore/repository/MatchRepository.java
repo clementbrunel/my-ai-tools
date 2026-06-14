@@ -59,8 +59,6 @@ public interface MatchRepository extends JpaRepository<Match, Long> {
     List<Match> findSyncableMatchesInWindow(@Param("from") LocalDateTime from,
                                             @Param("to")   LocalDateTime to);
 
-    java.util.Optional<Match> findByExternalFixtureId(Long externalFixtureId);
-
     /** All UPCOMING matches today (in [startOfDay, endOfDay)) that have at least one OPEN bet
      *  in one of the user's ACTIVE groups and on which the user has not yet participated.
      *  Only matches that have not yet kicked off (matchDate > now) are returned, so a match

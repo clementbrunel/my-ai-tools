@@ -19,7 +19,7 @@ import java.util.Map;
 @RequestMapping("/api/admin/sync")
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('PLATFORM_ADMIN')")
-@Tag(name = "Sync", description = "Match ↔ api-football.com linking and sync endpoints (Admin only)")
+@Tag(name = "Sync", description = "Match ↔ external API linking and sync (Admin only)")
 public class SyncController {
 
     private final MatchLinkingService linkingService;
@@ -32,17 +32,18 @@ public class SyncController {
     }
 
     @PostMapping("/link/{matchId}")
-    @Operation(summary = "Link a match to an api-football fixture ID")
+    @Operation(summary = "Link a match to an external fixture ID (body: {externalId, apiCode})")
     public ResponseEntity<Void> linkMatch(@PathVariable Long matchId,
                                           @Valid @RequestBody LinkMatchRequest request) {
-        linkingService.linkMatch(matchId, request.getFixtureId());
+        linkingService.linkMatch(matchId, request.getExternalId(), request.getApiCode());
         return ResponseEntity.ok().build();
     }
 
     @DeleteMapping("/link/{matchId}")
-    @Operation(summary = "Unlink a match from its api-football fixture ID")
-    public ResponseEntity<Void> unlinkMatch(@PathVariable Long matchId) {
-        linkingService.unlinkMatch(matchId);
+    @Operation(summary = "Unlink a match from an external API (?apiCode=API-FOOTBALL)")
+    public ResponseEntity<Void> unlinkMatch(@PathVariable Long matchId,
+                                            @RequestParam String apiCode) {
+        linkingService.unlinkMatch(matchId, apiCode);
         return ResponseEntity.ok().build();
     }
 

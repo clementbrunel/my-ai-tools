@@ -4,6 +4,8 @@ import com.pronocore.client.ApiFootballClient;
 import com.pronocore.client.ApiFootballClient.ApiFixture;
 import com.pronocore.dto.response.FixtureCandidateResponse;
 import com.pronocore.entity.Match;
+import com.pronocore.entity.MatchExternalLinks;
+import com.pronocore.repository.MatchExternalLinksRepository;
 import com.pronocore.repository.MatchRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -18,26 +20,28 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Handles linking our Match records to api-football.com fixture IDs.
+ * Handles linking Match records to external API fixture IDs.
  *
  * Confidence scoring (0.0 – 1.0):
  *   - Date proximity  (40 %): ≤10 min → 0.40, ≤60 min → 0.30, ≤120 min → 0.15
- *   - Team ID match   (60 %): both teams by ISO2→ID → 0.60, one team → 0.30
- *                             fallback to team name containment if ISO2 unknown → ≤0.20
+ *   - Team ID match   (60 %): both teams via ISO2→ID → 0.60, one team → 0.30
+ *                             name-containment fallback when ISO2 unknown → ≤0.20
  *
- * Auto-linkable threshold: 0.85 (date ok + both teams matched by ID).
+ * Auto-linkable threshold: 0.85.
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class MatchLinkingService {
 
-    private static final double THRESHOLD_AUTO = 0.85;
-    private static final int    MAX_CANDIDATES = 5;
+    private static final double THRESHOLD_AUTO  = 0.85;
+    private static final int    MAX_CANDIDATES  = 5;
+    private static final String API_FOOTBALL    = "API-FOOTBALL";
 
-    private final ApiFootballClient apiClient;
-    private final MatchRepository   matchRepository;
-    private final TeamMappingService teamMapping;
+    private final ApiFootballClient          apiClient;
+    private final MatchRepository            matchRepository;
+    private final MatchExternalLinksRepository linksRepository;
+    private final TeamMappingService         teamMapping;
 
     // ----------------------------------------------------------------
     // Public API
@@ -56,21 +60,54 @@ public class MatchLinkingService {
                 .toList();
     }
 
+    /**
+     * Links a match to an external fixture ID for the given API code.
+     * Currently supports API-FOOTBALL. Adding a new API = add a branch here
+     * after creating the corresponding column via Flyway migration.
+     */
     @Transactional
-    public void linkMatch(Long matchId, Long fixtureId) {
+    public void linkMatch(Long matchId, Long externalId, String apiCode) {
         Match match = requireMatch(matchId);
-        match.setExternalFixtureId(fixtureId);
-        matchRepository.save(match);
-        log.info("Match {} linked to fixture {}", matchId, fixtureId);
+
+        MatchExternalLinks links = match.getExternalLinks();
+        if (links == null) {
+            links = new MatchExternalLinks();
+            links.setMatch(match);
+            match.setExternalLinks(links);
+        }
+
+        switch (apiCode.toUpperCase()) {
+            case API_FOOTBALL -> links.setApiFootballFixtureId(externalId);
+            default -> throw new IllegalArgumentException("Unknown API code: " + apiCode);
+        }
+
+        linksRepository.save(links);
+        log.info("Match {} linked to {} external ID {}", matchId, apiCode, externalId);
         apiClient.invalidateCache();
     }
 
+    /**
+     * Removes the external link for a specific API from a match.
+     * If all links are null after the removal, the row is deleted.
+     */
     @Transactional
-    public void unlinkMatch(Long matchId) {
+    public void unlinkMatch(Long matchId, String apiCode) {
         Match match = requireMatch(matchId);
-        match.setExternalFixtureId(null);
-        matchRepository.save(match);
-        log.info("Match {} unlinked", matchId);
+        MatchExternalLinks links = match.getExternalLinks();
+        if (links == null) return;
+
+        switch (apiCode.toUpperCase()) {
+            case API_FOOTBALL -> links.setApiFootballFixtureId(null);
+            default -> throw new IllegalArgumentException("Unknown API code: " + apiCode);
+        }
+
+        if (links.toMap().isEmpty()) {
+            linksRepository.delete(links);
+            match.setExternalLinks(null);
+        } else {
+            linksRepository.save(links);
+        }
+        log.info("Match {} unlinked from {}", matchId, apiCode);
     }
 
     // ----------------------------------------------------------------
@@ -102,7 +139,6 @@ public class MatchLinkingService {
                 score += 0.30;
             }
         } else {
-            // Fallback: one or both teams not in ISO2 map — coarse name containment
             score += fallbackNameScore(match, fixture) * 0.20;
         }
 
@@ -116,12 +152,11 @@ public class MatchLinkingService {
                 .build();
     }
 
-    /** Coarse fallback when ISO2 lookup failed: checks if any team name is contained in the fixture names. */
     private double fallbackNameScore(Match match, ApiFixture fixture) {
         String homeL = fixture.homeTeam().toLowerCase();
         String awayL = fixture.awayTeam().toLowerCase();
-        String aL = match.getTeamA().toLowerCase();
-        String bL = match.getTeamB().toLowerCase();
+        String aL    = match.getTeamA().toLowerCase();
+        String bL    = match.getTeamB().toLowerCase();
         int hits = 0;
         if (homeL.contains(aL) || aL.contains(homeL)) hits++;
         if (awayL.contains(bL) || bL.contains(awayL)) hits++;
