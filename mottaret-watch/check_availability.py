@@ -49,7 +49,7 @@ MAEVA_URL_TEMPLATE = (
 RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
 NOTIFY_EMAIL   = os.getenv("NOTIFY_EMAIL", "hasto88@gmail.com")
 
-CACHE_FILE = "last_results.json"
+CACHE_FILE = os.path.join(os.getenv("DATA_DIR", "."), "last_results.json")
 # ─────────────────────────────────────────────────────────────────────────────
 
 HEADERS = {

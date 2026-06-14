@@ -1,0 +1,11 @@
+services:
+  mottaret-watch:
+    build: .
+    restart: "no"
+    environment:
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - NOTIFY_EMAIL=${NOTIFY_EMAIL:-hasto88@gmail.com}
+      - DATA_DIR=/app/data
+    volumes:
+      - ./data:/app/data
+
