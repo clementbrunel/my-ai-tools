@@ -5,16 +5,19 @@ import { getMyGroups } from '../api/groups';
 import type { Match } from '../types';
 import { isAdmin } from '../types';
 import MatchCard from '../components/MatchCard';
+import MatchRow from '../components/MatchRow';
 import { useAuth } from '../context/AuthContext';
 
 import { formatDate } from '../utils/dates';
 
 type FilterStatus = 'ALL' | 'UPCOMING' | 'FINISHED';
+type ViewMode = 'grid' | 'list';
 
 const Matches: React.FC = () => {
   const { user } = useAuth();
   const [matches, setMatches] = useState<Match[]>([]);
   const [filter, setFilter] = useState<FilterStatus>('ALL');
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [isLoading, setIsLoading] = useState(true);
   const [hasGroups, setHasGroups] = useState(true);
 
@@ -83,22 +86,59 @@ const Matches: React.FC = () => {
         </div>
       )}
 
-      {/* Filters — hidden when no group */}
+      {/* Filters + view toggle — hidden when no group */}
       {hasGroups && (
-        <div className="flex flex-wrap gap-2 mb-6">
-          {filters.map((f) => (
+        <div className="flex items-center justify-between gap-2 mb-6">
+          <div className="flex flex-wrap gap-2">
+            {filters.map((f) => (
+              <button
+                key={f.value}
+                onClick={() => setFilter(f.value)}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                  filter === f.value
+                    ? 'bg-wc-green text-white'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          {/* View mode toggle */}
+          <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1 shrink-0">
             <button
-              key={f.value}
-              onClick={() => setFilter(f.value)}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                filter === f.value
-                  ? 'bg-wc-green text-white'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+              onClick={() => setViewMode('grid')}
+              title="Vue tuiles"
+              className={`p-1.5 rounded-md transition-colors ${
+                viewMode === 'grid'
+                  ? 'bg-white dark:bg-gray-600 shadow text-wc-green'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
               }`}
             >
-              {f.label}
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <rect x="3" y="3" width="7" height="7" rx="1" />
+                <rect x="14" y="3" width="7" height="7" rx="1" />
+                <rect x="3" y="14" width="7" height="7" rx="1" />
+                <rect x="14" y="14" width="7" height="7" rx="1" />
+              </svg>
             </button>
-          ))}
+            <button
+              onClick={() => setViewMode('list')}
+              title="Vue liste"
+              className={`p-1.5 rounded-md transition-colors ${
+                viewMode === 'list'
+                  ? 'bg-white dark:bg-gray-600 shadow text-wc-green'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+              }`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+              </svg>
+            </button>
+          </div>
         </div>
       )}
 
@@ -135,18 +175,32 @@ const Matches: React.FC = () => {
                   </span>
                 </div>
 
-                {/* Cards for this day */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {matchesByDay[day].map((match) => {
-                    const pronoStatus =
-                      match.userParticipated
-                        ? 'done'
-                        : match.status === 'UPCOMING' && new Date(match.matchDate) > new Date()
-                          ? 'missing'
-                          : undefined;
-                    return <MatchCard key={match.id} match={match} pronoStatus={pronoStatus} />;
-                  })}
-                </div>
+                {/* Cards / rows for this day */}
+                {viewMode === 'grid' ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {matchesByDay[day].map((match) => {
+                      const pronoStatus =
+                        match.userParticipated
+                          ? 'done'
+                          : match.status === 'UPCOMING' && new Date(match.matchDate) > new Date()
+                            ? 'missing'
+                            : undefined;
+                      return <MatchCard key={match.id} match={match} pronoStatus={pronoStatus} />;
+                    })}
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-1">
+                    {matchesByDay[day].map((match) => {
+                      const pronoStatus =
+                        match.userParticipated
+                          ? 'done'
+                          : match.status === 'UPCOMING' && new Date(match.matchDate) > new Date()
+                            ? 'missing'
+                            : undefined;
+                      return <MatchRow key={match.id} match={match} pronoStatus={pronoStatus} />;
+                    })}
+                  </div>
+                )}
               </section>
             );
           })}
