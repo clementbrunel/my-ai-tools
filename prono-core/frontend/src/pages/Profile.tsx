@@ -123,7 +123,7 @@ const Profile: React.FC = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="stat-card">
           <div className="stat-value">{leaderboardEntry?.totalPoints ?? user?.globalScore ?? 0}</div>
           <div className="stat-label">⭐ Points</div>

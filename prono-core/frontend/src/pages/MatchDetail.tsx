@@ -265,6 +265,7 @@ const MatchDetail: React.FC = () => {
                   <label className="label text-sm">{match.teamA}</label>
                   <input
                     type="number"
+                    inputMode="numeric"
                     min={0}
                     max={20}
                     value={scoreA}
@@ -279,6 +280,7 @@ const MatchDetail: React.FC = () => {
                   <label className="label text-sm">{match.teamB}</label>
                   <input
                     type="number"
+                    inputMode="numeric"
                     min={0}
                     max={20}
                     value={scoreB}

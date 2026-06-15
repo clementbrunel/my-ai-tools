@@ -89,7 +89,7 @@ const Navbar: React.FC = () => {
           {/* Mobile menu button */}
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
-            className="md:hidden text-white p-2"
+            className="md:hidden text-white p-2 min-w-[44px] min-h-[44px] flex items-center justify-center"
           >
             {mobileOpen ? '✕' : '☰'}
           </button>
@@ -103,7 +103,7 @@ const Navbar: React.FC = () => {
                 <Link
                   key={link.to}
                   to={link.to}
-                  className={`relative text-sm px-2 py-1 ${isActive(link.to)}`}
+                  className={`relative text-sm px-3 py-3 min-h-[44px] flex items-center ${isActive(link.to)}`}
                   onClick={() => setMobileOpen(false)}
                 >
                   {link.label}
@@ -117,7 +117,7 @@ const Navbar: React.FC = () => {
               {isAdmin(user) && (
                 <Link
                   to="/admin"
-                  className={`text-sm px-2 py-1 ${isActive('/admin')}`}
+                  className={`text-sm px-3 py-3 min-h-[44px] flex items-center ${isActive('/admin')}`}
                   onClick={() => setMobileOpen(false)}
                 >
                   ⚙️ Admin
@@ -125,14 +125,14 @@ const Navbar: React.FC = () => {
               )}
               <Link
                 to="/profile"
-                className="text-sm px-2 py-1 text-gray-200"
+                className="text-sm px-3 py-3 min-h-[44px] flex items-center text-gray-200"
                 onClick={() => setMobileOpen(false)}
               >
                 👤 Profil ({user?.displayName || user?.username})
               </Link>
               <button
                 onClick={handleLogout}
-                className="text-sm px-2 py-1 text-left text-red-400"
+                className="text-sm px-3 py-3 min-h-[44px] flex items-center text-left text-red-400"
               >
                 Déconnexion
               </button>
