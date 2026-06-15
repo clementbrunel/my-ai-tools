@@ -95,4 +95,15 @@ public interface BetParticipationRepository extends JpaRepository<BetParticipati
             """)
     List<BetParticipation> findByUserIdAndMatchId(@Param("userId") Long userId,
                                                    @Param("matchId") Long matchId);
+
+    /** Participations a user has in a given group for past matches, ordered by match date desc. */
+    @Query("""
+            SELECT bp FROM BetParticipation bp
+            WHERE bp.user.id = :userId AND bp.bet.group.id = :groupId
+              AND bp.bet.match IS NOT NULL AND bp.bet.match.matchDate < :now
+            ORDER BY bp.bet.match.matchDate DESC
+            """)
+    List<BetParticipation> findByUserIdAndGroupId(@Param("userId") Long userId,
+                                                   @Param("groupId") Long groupId,
+                                                   @Param("now") java.time.LocalDateTime now);
 }

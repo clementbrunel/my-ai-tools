@@ -182,6 +182,21 @@ export interface DailyGage {
   canForceSettle?: boolean;
 }
 
+export interface UserBetSummary {
+  participationId: number;
+  betId: number;
+  betTitle: string;
+  matchTeamA?: string;
+  matchTeamB?: string;
+  matchDate?: string;
+  betStatus: 'OPEN' | 'VALIDATED' | 'CANCELLED';
+  betPoints: number;
+  chosenOption: string;
+  winningOption?: string;
+  pointsEarned: number;
+  participatedAt: string;
+}
+
 export interface LeaderboardEntry {
   rank: number;
   user: User;

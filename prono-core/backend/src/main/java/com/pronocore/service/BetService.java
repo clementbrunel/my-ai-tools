@@ -4,6 +4,7 @@ import com.pronocore.dto.request.CreateBetRequest;
 import com.pronocore.dto.request.ParticipateRequest;
 import com.pronocore.dto.response.BetParticipationResponse;
 import com.pronocore.dto.response.BetResponse;
+import com.pronocore.dto.response.UserBetSummaryResponse;
 import com.pronocore.entity.*;
 import com.pronocore.mapper.BetMapper;
 import com.pronocore.repository.*;
@@ -71,6 +72,34 @@ public class BetService {
         groupMemberGuard.requireActiveMembership(bet.getGroup().getId(), requireUser(username).getId());
         return participationRepository.findByBetId(betId).stream()
             .map(betMapper::toParticipationResponse)
+            .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<UserBetSummaryResponse> getUserBetsInGroup(Long groupId, Long userId, String callerUsername) {
+        User caller = requireUser(callerUsername);
+        groupMemberGuard.requireActiveMembership(groupId, caller.getId());
+        return participationRepository.findByUserIdAndGroupId(userId, groupId, java.time.LocalDateTime.now()).stream()
+            .map(bp -> {
+                Bet bet = bp.getBet();
+                var matchTeamA = bet.getMatch() != null ? bet.getMatch().getTeamA() : null;
+                var matchTeamB = bet.getMatch() != null ? bet.getMatch().getTeamB() : null;
+                var matchDate  = bet.getMatch() != null ? bet.getMatch().getMatchDate() : null;
+                return UserBetSummaryResponse.builder()
+                    .participationId(bp.getId())
+                    .betId(bet.getId())
+                    .betTitle(bet.getTitle())
+                    .matchTeamA(matchTeamA)
+                    .matchTeamB(matchTeamB)
+                    .matchDate(matchDate)
+                    .betStatus(bet.getStatus())
+                    .betPoints(bet.getPoints())
+                    .chosenOption(bp.getChosenOption())
+                    .winningOption(bet.getWinningOption())
+                    .pointsEarned(bp.getPointsEarned())
+                    .participatedAt(bp.getCreatedAt())
+                    .build();
+            })
             .toList();
     }
 
