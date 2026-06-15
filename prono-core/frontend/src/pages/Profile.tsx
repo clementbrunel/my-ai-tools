@@ -3,38 +3,24 @@ import { useAuth } from '../context/AuthContext';
 import { getParticipatedBets } from '../api/bets';
 import { getLeaderboard } from '../api/leaderboard';
 import { getMyForfeits, completeForfeit } from '../api/forfeits';
-import { updateAvatar, updateDisplayName, updateEmailReminder, updatePassword } from '../api/users';
 import type { Bet, LeaderboardEntry, UserForfeitEntry } from '../types';
 import { isAdmin } from '../types';
 import { formatDate } from '../utils/dates';
 import { useToast } from '../components/Toast';
+import DisplayNameEdit from './profile/DisplayNameEdit';
+import AvatarEdit from './profile/AvatarEdit';
+import ReminderToggle from './profile/ReminderToggle';
+import PasswordForm from './profile/PasswordForm';
 
 const Profile: React.FC = () => {
-  const { user, updateUser } = useAuth();
+  const { user } = useAuth();
   const { showToast } = useToast();
   const [myBets, setMyBets] = useState<Bet[]>([]);
   const [leaderboardEntry, setLeaderboardEntry] = useState<LeaderboardEntry | null>(null);
   const [myForfeits, setMyForfeits] = useState<UserForfeitEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [completingId, setCompletingId] = useState<number | null>(null);
-
   const [showEdit, setShowEdit] = useState(false);
-  const [displayName, setDisplayName] = useState(user?.displayName || '');
-  const [displayNameSaving, setDisplayNameSaving] = useState(false);
-  const [displayNameMsg, setDisplayNameMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-  const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || '');
-  const [avatarSaving, setAvatarSaving] = useState(false);
-  const [avatarMsg, setAvatarMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [pwSaving, setPwSaving] = useState(false);
-  const [pwMsg, setPwMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-  const [reminderEnabled, setReminderEnabled] = useState(user?.emailReminderEnabled ?? true);
-  const [reminderSaving, setReminderSaving] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -72,72 +58,6 @@ const Profile: React.FC = () => {
       showToast('Erreur lors de la mise à jour du gage');
     } finally {
       setCompletingId(null);
-    }
-  };
-
-  const handleDisplayNameSave = async () => {
-    setDisplayNameSaving(true);
-    setDisplayNameMsg(null);
-    try {
-      const updated = await updateDisplayName(displayName);
-      updateUser(updated);
-      setDisplayNameMsg({ type: 'success', text: 'Nom affiché mis à jour !' });
-    } catch {
-      setDisplayNameMsg({ type: 'error', text: 'Impossible de mettre à jour le nom affiché.' });
-    } finally {
-      setDisplayNameSaving(false);
-    }
-  };
-
-  const handleAvatarSave = async () => {
-    setAvatarSaving(true);
-    setAvatarMsg(null);
-    try {
-      const updated = await updateAvatar(avatarUrl);
-      updateUser(updated);
-      setAvatarMsg({ type: 'success', text: 'Avatar mis à jour !' });
-    } catch {
-      setAvatarMsg({ type: 'error', text: 'Impossible de mettre à jour l\'avatar.' });
-    } finally {
-      setAvatarSaving(false);
-    }
-  };
-
-  const handleReminderToggle = async (enabled: boolean) => {
-    setReminderSaving(true);
-    try {
-      const updated = await updateEmailReminder(enabled);
-      setReminderEnabled(updated.emailReminderEnabled);
-      updateUser(updated);
-      showToast(enabled ? 'Rappels par email activés' : 'Rappels par email désactivés');
-    } catch {
-      showToast('Impossible de modifier la préférence de rappel');
-    } finally {
-      setReminderSaving(false);
-    }
-  };
-
-  const handlePasswordSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setPwMsg(null);
-    if (newPassword !== confirmPassword) {
-      setPwMsg({ type: 'error', text: 'Les nouveaux mots de passe ne correspondent pas.' });
-      return;
-    }
-    setPwSaving(true);
-    try {
-      await updatePassword(currentPassword, newPassword);
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-      setPwMsg({ type: 'success', text: 'Mot de passe mis à jour !' });
-    } catch (err: unknown) {
-      const message =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-        'Impossible de modifier le mot de passe.';
-      setPwMsg({ type: 'error', text: message });
-    } finally {
-      setPwSaving(false);
     }
   };
 
@@ -192,135 +112,12 @@ const Profile: React.FC = () => {
           </button>
         </div>
 
-        {/* Edit section */}
         {showEdit && (
           <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-6 space-y-6">
-
-            {/* Display Name */}
-            <div>
-              <h3 className="font-bold text-gray-900 dark:text-white mb-3">✏️ Nom affiché</h3>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder={user?.username}
-                  maxLength={100}
-                  className="input flex-1"
-                />
-                <button
-                  onClick={handleDisplayNameSave}
-                  disabled={displayNameSaving}
-                  className="btn-primary flex-shrink-0 disabled:opacity-50"
-                >
-                  {displayNameSaving ? '...' : 'Enregistrer'}
-                </button>
-              </div>
-              <p className="text-xs text-gray-400 mt-1">Laisser vide pour afficher votre login.</p>
-              {displayNameMsg && (
-                <p className={`text-sm mt-2 ${displayNameMsg.type === 'success' ? 'text-green-600' : 'text-red-500'}`}>
-                  {displayNameMsg.text}
-                </p>
-              )}
-            </div>
-
-            {/* Avatar */}
-            <div>
-              <h3 className="font-bold text-gray-900 dark:text-white mb-3">🖼️ Avatar</h3>
-              <div className="flex gap-2">
-                <input
-                  type="url"
-                  value={avatarUrl}
-                  onChange={(e) => setAvatarUrl(e.target.value)}
-                  placeholder="https://example.com/photo.jpg"
-                  className="input flex-1"
-                />
-                <button
-                  onClick={handleAvatarSave}
-                  disabled={avatarSaving}
-                  className="btn-primary flex-shrink-0 disabled:opacity-50"
-                >
-                  {avatarSaving ? '...' : 'Enregistrer'}
-                </button>
-              </div>
-              {avatarMsg && (
-                <p className={`text-sm mt-2 ${avatarMsg.type === 'success' ? 'text-green-600' : 'text-red-500'}`}>
-                  {avatarMsg.text}
-                </p>
-              )}
-            </div>
-
-            {/* Email reminder */}
-            <div>
-              <h3 className="font-bold text-gray-900 dark:text-white mb-3">🔔 Notifications</h3>
-              <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                <div>
-                  <p className="font-medium text-gray-900 dark:text-white text-sm">Rappel par email avant chaque match</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                    Reçois un email 4 heures avant le match si tu n'as pas encore saisi ton pronostic
-                  </p>
-                </div>
-                <button
-                  onClick={() => handleReminderToggle(!reminderEnabled)}
-                  disabled={reminderSaving}
-                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-50 ${
-                    reminderEnabled ? 'bg-wc-green' : 'bg-gray-300 dark:bg-gray-600'
-                  }`}
-                  role="switch"
-                  aria-checked={reminderEnabled}
-                >
-                  <span
-                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ${
-                      reminderEnabled ? 'translate-x-5' : 'translate-x-0'
-                    }`}
-                  />
-                </button>
-              </div>
-            </div>
-
-            {/* Password */}
-            <div>
-              <h3 className="font-bold text-gray-900 dark:text-white mb-3">🔒 Changer le mot de passe</h3>
-              <form onSubmit={handlePasswordSave} className="space-y-3">
-                <input
-                  type="password"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  placeholder="Mot de passe actuel"
-                  required
-                  className="input w-full"
-                />
-                <input
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Nouveau mot de passe (min. 6 caractères)"
-                  required
-                  minLength={6}
-                  className="input w-full"
-                />
-                <input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Confirmer le nouveau mot de passe"
-                  required
-                  className="input w-full"
-                />
-                <button
-                  type="submit"
-                  disabled={pwSaving}
-                  className="btn-primary w-full disabled:opacity-50"
-                >
-                  {pwSaving ? '...' : 'Changer le mot de passe'}
-                </button>
-                {pwMsg && (
-                  <p className={`text-sm ${pwMsg.type === 'success' ? 'text-green-600' : 'text-red-500'}`}>
-                    {pwMsg.text}
-                  </p>
-                )}
-              </form>
-            </div>
+            <DisplayNameEdit initialValue={user?.displayName || ''} placeholder={user?.username} />
+            <AvatarEdit initialValue={user?.avatarUrl || ''} />
+            <ReminderToggle initialEnabled={user?.emailReminderEnabled ?? true} />
+            <PasswordForm />
           </div>
         )}
       </div>
@@ -439,7 +236,6 @@ const Profile: React.FC = () => {
         )}
       </div>
 
-      {/* Member since */}
       {user?.createdAt && (
         <div className="text-center text-sm text-gray-400 dark:text-gray-500">
           Membre depuis le {formatDate(user.createdAt)}
