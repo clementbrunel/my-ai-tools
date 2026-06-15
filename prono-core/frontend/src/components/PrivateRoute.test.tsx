@@ -1,27 +1,18 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { screen } from '@testing-library/react';
 import PrivateRoute from './PrivateRoute';
 import * as AuthContextModule from '../context/AuthContext';
+import { makeMockAuth } from '../test-utils/auth-mock';
+import { renderWithRouter } from '../test-utils/render-helpers';
 
 function renderRoute(authState: { isAuthenticated: boolean; isLoading: boolean }) {
-  vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
-    ...authState,
-    user: null,
-    token: null,
-    login: vi.fn(),
-    register: vi.fn(),
-    setSession: vi.fn(),
-    logout: vi.fn(),
-    updateUser: vi.fn(),
-  });
+  vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue(makeMockAuth(authState));
 
-  return render(
-    <MemoryRouter initialEntries={['/private']}>
-      <PrivateRoute>
-        <div>Contenu protégé</div>
-      </PrivateRoute>
-    </MemoryRouter>,
+  return renderWithRouter(
+    <PrivateRoute>
+      <div>Contenu protégé</div>
+    </PrivateRoute>,
+    { route: '/private' }
   );
 }
 
