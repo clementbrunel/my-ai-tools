@@ -1,8 +1,10 @@
 package com.pronocore.controller;
 
 import com.pronocore.dto.response.LeaderboardEntryResponse;
+import com.pronocore.aspect.LoggedAt;
 import com.pronocore.service.LeaderboardService;
 import io.swagger.v3.oas.annotations.Operation;
+import org.slf4j.event.Level;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -20,12 +22,14 @@ public class LeaderboardController {
 
     @GetMapping
     @Operation(summary = "Get full leaderboard")
+    @LoggedAt(Level.INFO)
     public ResponseEntity<List<LeaderboardEntryResponse>> getLeaderboard() {
         return ResponseEntity.ok(leaderboardService.getLeaderboard());
     }
 
     @GetMapping("/group/{groupId}")
     @Operation(summary = "Get leaderboard for a specific group")
+    @LoggedAt(Level.INFO)
     public ResponseEntity<List<LeaderboardEntryResponse>> getGroupLeaderboard(@PathVariable Long groupId) {
         return ResponseEntity.ok(leaderboardService.getGroupLeaderboard(groupId));
     }
