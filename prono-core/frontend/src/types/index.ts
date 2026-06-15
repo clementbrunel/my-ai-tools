@@ -145,6 +145,18 @@ export interface UserForfeitEntry {
   assignedAt: string;
 }
 
+export interface GroupUserForfeit {
+  id: number;
+  username: string;
+  displayName?: string;
+  forfeit: Forfeit;
+  assignedByUsername: string;
+  assignedByDisplayName?: string;
+  completed: boolean;
+  completedAt?: string;
+  assignedAt: string;
+}
+
 export interface DailyGageCandidate {
   id: number;
   forfeit: Forfeit;

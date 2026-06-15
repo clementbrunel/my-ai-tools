@@ -1,15 +1,109 @@
 import { useEffect, useState } from 'react';
 import { getLeaderboard, getGroupLeaderboard } from '../api/leaderboard';
 import { getMyGroups } from '../api/groups';
-import type { LeaderboardEntry, Group } from '../types';
+import { getGroupPendingAssignments } from '../api/forfeits';
+import type { GroupUserForfeit, LeaderboardEntry, Group } from '../types';
 import LeaderboardRow from '../components/LeaderboardRow';
 import { useAuth } from '../context/AuthContext';
+
+// ─── Pending Gages Section ────────────────────────────────────────────────────
+
+const categoryColor: Record<string, string> = {
+  General:         'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
+  Nourriture:      'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300',
+  Humiliation:     'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300',
+  Spectacle:       'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300',
+  'Réseaux sociaux': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+  Boissons:        'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300',
+};
+
+function groupByUser(gages: GroupUserForfeit[]): Map<string, GroupUserForfeit[]> {
+  const map = new Map<string, GroupUserForfeit[]>();
+  for (const g of gages) {
+    const key = g.username;
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(g);
+  }
+  return map;
+}
+
+interface PendingGagesSectionProps {
+  gages: GroupUserForfeit[];
+  currentUsername?: string;
+}
+
+const PendingGagesSection: React.FC<PendingGagesSectionProps> = ({ gages, currentUsername }) => {
+  const byUser = groupByUser(gages);
+
+  return (
+    <div className="space-y-3">
+      <h2 className="text-base font-bold text-gray-800 dark:text-white flex items-center gap-2">
+        🃏 Gages en attente
+        <span className="text-sm font-normal text-gray-500 dark:text-gray-400">
+          — qui doit faire quoi ?
+        </span>
+      </h2>
+
+      <div className="space-y-3">
+        {Array.from(byUser.entries()).map(([username, userGages]) => {
+          const first = userGages[0];
+          const displayName = first.displayName || username;
+          const isMe = username === currentUsername;
+
+          return (
+            <div
+              key={username}
+              className={`card p-4 border-l-4 ${isMe ? 'border-l-wc-red' : 'border-l-purple-400'}`}
+            >
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-8 h-8 rounded-full bg-purple-500 text-white flex items-center justify-center font-bold text-sm shrink-0">
+                  {displayName[0].toUpperCase()}
+                </div>
+                <span className="font-semibold text-gray-900 dark:text-white text-sm">
+                  {displayName}
+                  {isMe && <span className="ml-2 text-xs text-wc-red">(vous)</span>}
+                </span>
+                <span className="ml-auto text-xs text-gray-500 dark:text-gray-400">
+                  {userGages.length} gage{userGages.length > 1 ? 's' : ''} à faire
+                </span>
+              </div>
+
+              <ul className="space-y-2">
+                {userGages.map((g) => (
+                  <li key={g.id} className="flex items-start gap-2 text-sm">
+                    <span className="text-purple-400 mt-0.5">›</span>
+                    <div className="flex-1 min-w-0">
+                      <span className="font-medium text-gray-800 dark:text-gray-100">
+                        {g.forfeit.title}
+                      </span>
+                      {g.forfeit.description && (
+                        <p className="text-gray-500 dark:text-gray-400 text-xs mt-0.5 truncate">
+                          {g.forfeit.description}
+                        </p>
+                      )}
+                    </div>
+                    <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium ${categoryColor[g.forfeit.category] ?? categoryColor['General']}`}>
+                      {g.forfeit.category}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// ─── Leaderboard Page ─────────────────────────────────────────────────────────
 
 const Leaderboard: React.FC = () => {
   const { user } = useAuth();
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
+  const [pendingGages, setPendingGages] = useState<GroupUserForfeit[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Load the user's groups and select the first one
@@ -27,6 +121,12 @@ const Leaderboard: React.FC = () => {
     setIsLoading(true);
     const load = selectedGroupId != null ? getGroupLeaderboard(selectedGroupId) : getLeaderboard();
     load.then(setEntries).catch(console.error).finally(() => setIsLoading(false));
+
+    if (selectedGroupId != null) {
+      getGroupPendingAssignments(selectedGroupId).then(setPendingGages).catch(console.error);
+    } else {
+      setPendingGages([]);
+    }
   }, [selectedGroupId]);
 
   if (isLoading) {
@@ -39,7 +139,6 @@ const Leaderboard: React.FC = () => {
   }
 
   const top3 = entries.slice(0, 3);
-  const rest = entries.slice(3);
 
   // Special badges
   const kingOfForfeits = entries.reduce(
@@ -181,6 +280,11 @@ const Leaderboard: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* Pending Gages Section — visible only in group mode */}
+      {selectedGroupId != null && pendingGages.length > 0 && (
+        <PendingGagesSection gages={pendingGages} currentUsername={user?.username} />
+      )}
     </div>
   );
 };

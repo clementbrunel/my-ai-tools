@@ -20,4 +20,8 @@ public interface UserForfeitRepository extends JpaRepository<UserForfeit, Long> 
     /** Number of gages received per user within a group (for the "Roi des gages" badge). */
     @Query("SELECT uf.user.id, COUNT(uf) FROM UserForfeit uf WHERE uf.group.id = :groupId GROUP BY uf.user.id")
     List<Object[]> countByGroupIdGroupedByUser(@Param("groupId") Long groupId);
+
+    /** All incomplete gage assignments for a group, newest first. */
+    @Query("SELECT uf FROM UserForfeit uf JOIN FETCH uf.user JOIN FETCH uf.forfeit JOIN FETCH uf.assignedBy WHERE uf.group.id = :groupId AND uf.completed = false ORDER BY uf.assignedAt DESC")
+    List<UserForfeit> findPendingByGroupId(@Param("groupId") Long groupId);
 }

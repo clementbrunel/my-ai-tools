@@ -1,5 +1,5 @@
 import apiClient from './axios';
-import type { Forfeit, UserForfeitEntry } from '../types';
+import type { Forfeit, GroupUserForfeit, UserForfeitEntry } from '../types';
 
 // -----------------------------------------------------------------------
 // Forfeit library
@@ -79,6 +79,12 @@ export const getGroupForfeits = async (groupId: number): Promise<Forfeit[]> => {
 
 export const getGroupPendingForfeits = async (groupId: number): Promise<Forfeit[]> => {
   const response = await apiClient.get<Forfeit[]>(`/forfeits/group/${groupId}/pending`);
+  return response.data;
+};
+
+/** Returns all incomplete gage assignments for every member of the group. */
+export const getGroupPendingAssignments = async (groupId: number): Promise<GroupUserForfeit[]> => {
+  const response = await apiClient.get<GroupUserForfeit[]>(`/forfeits/group/${groupId}/pending-assignments`);
   return response.data;
 };
 
