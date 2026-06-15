@@ -1,6 +1,7 @@
 package com.pronocore.controller;
 
 import com.pronocore.dto.request.UpdateEmailReminderRequest;
+import com.pronocore.dto.request.UpdateEmailRequest;
 import com.pronocore.dto.request.UpdatePasswordRequest;
 import com.pronocore.dto.response.UserResponse;
 import com.pronocore.service.UserService;
@@ -52,6 +53,13 @@ public class UserController {
     public ResponseEntity<UserResponse> updateAvatar(@RequestParam String avatarUrl,
                                                       Authentication authentication) {
         return ResponseEntity.ok(userService.updateAvatar(authentication.getName(), avatarUrl));
+    }
+
+    @PatchMapping("/me/email")
+    @Operation(summary = "Update email address")
+    public ResponseEntity<UserResponse> updateEmail(@Valid @RequestBody UpdateEmailRequest request,
+                                                     Authentication authentication) {
+        return ResponseEntity.ok(userService.updateEmail(authentication.getName(), request.getEmail()));
     }
 
     @PatchMapping("/me/password")

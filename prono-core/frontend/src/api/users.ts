@@ -11,6 +11,11 @@ export const updateDisplayName = async (displayName: string): Promise<User> => {
   return response.data;
 };
 
+export const updateEmail = async (email: string): Promise<User> => {
+  const response = await apiClient.patch<User>('/users/me/email', { email });
+  return response.data;
+};
+
 export const updatePassword = async (currentPassword: string, newPassword: string): Promise<void> => {
   await apiClient.patch('/users/me/password', { currentPassword, newPassword });
 };
