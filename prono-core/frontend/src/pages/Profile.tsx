@@ -7,9 +7,7 @@ import type { Bet, LeaderboardEntry, UserForfeitEntry } from '../types';
 import { isAdmin } from '../types';
 import { formatDate } from '../utils/dates';
 import { useToast } from '../components/Toast';
-import DisplayNameEdit from './profile/DisplayNameEdit';
-import AvatarEdit from './profile/AvatarEdit';
-import ReminderToggle from './profile/ReminderToggle';
+import ProfileInfoForm from './profile/ProfileInfoForm';
 import PasswordForm from './profile/PasswordForm';
 
 const Profile: React.FC = () => {
@@ -114,10 +112,16 @@ const Profile: React.FC = () => {
 
         {showEdit && (
           <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-6 space-y-6">
-            <DisplayNameEdit initialValue={user?.displayName || ''} placeholder={user?.username} />
-            <AvatarEdit initialValue={user?.avatarUrl || ''} />
-            <ReminderToggle initialEnabled={user?.emailReminderEnabled ?? true} />
-            <PasswordForm />
+            <ProfileInfoForm
+              initialDisplayName={user?.displayName || ''}
+              initialAvatarUrl={user?.avatarUrl || ''}
+              initialEmail={user?.email || ''}
+              initialEmailReminder={user?.emailReminderEnabled ?? true}
+              usernamePlaceholder={user?.username}
+            />
+            <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+              <PasswordForm />
+            </div>
           </div>
         )}
       </div>

@@ -82,6 +82,18 @@ public class UserService {
     }
 
     @Transactional
+    public UserResponse updateEmail(String username, String newEmail) {
+        User user = userRepository.findByUsername(username)
+            .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
+        if (!newEmail.equalsIgnoreCase(user.getEmail()) && userRepository.existsByEmail(newEmail)) {
+            throw new IllegalArgumentException("Cette adresse email est déjà utilisée");
+        }
+        user.setEmail(newEmail.toLowerCase().trim());
+        userRepository.save(user);
+        return userMapper.toResponse(user);
+    }
+
+    @Transactional
     public UserResponse updateEmailReminder(String username, boolean enabled) {
         User user = userRepository.findByUsername(username)
             .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
