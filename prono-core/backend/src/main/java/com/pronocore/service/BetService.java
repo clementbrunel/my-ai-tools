@@ -79,7 +79,7 @@ public class BetService {
     public List<UserBetSummaryResponse> getUserBetsInGroup(Long groupId, Long userId, String callerUsername) {
         User caller = requireUser(callerUsername);
         groupMemberGuard.requireActiveMembership(groupId, caller.getId());
-        return participationRepository.findByUserIdAndGroupId(userId, groupId).stream()
+        return participationRepository.findByUserIdAndGroupId(userId, groupId, java.time.LocalDateTime.now()).stream()
             .map(bp -> {
                 Bet bet = bp.getBet();
                 var matchTeamA = bet.getMatch() != null ? bet.getMatch().getTeamA() : null;
