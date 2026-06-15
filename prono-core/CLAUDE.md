@@ -30,11 +30,11 @@ npm install
 npm run dev   # listens on :5173, proxies /api → localhost:8090
 ```
 
-### Production (NAS Synology)
+### Production
 ```bash
-./build-and-push.sh [VERSION]   # builds & pushes images to 192.168.68.112:5000
+./build-and-push.sh [VERSION]   # builds & pushes Docker images to the private registry
 
-# On NAS:
+# On the production host:
 docker compose -f docker-compose.prod.yml pull
 docker compose -f docker-compose.prod.yml up -d
 ```
@@ -72,7 +72,7 @@ prono-core/
 │   ├── vite.config.ts
 │   └── tailwind.config.js
 ├── docker-compose.yml        # dev
-├── docker-compose.prod.yml   # prod (NAS)
+├── docker-compose.prod.yml   # prod
 ├── .env.example
 ├── dev.sh / dev-back.sh
 └── build-and-push.sh
