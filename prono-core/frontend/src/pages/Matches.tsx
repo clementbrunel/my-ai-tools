@@ -20,6 +20,7 @@ const Matches: React.FC = () => {
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [isLoading, setIsLoading] = useState(true);
   const [hasGroups, setHasGroups] = useState(true);
+  const [search, setSearch] = useState('');
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -41,8 +42,13 @@ const Matches: React.FC = () => {
 
   const filtered = useMemo(() => {
     if (!hasGroups) return [];
-    return filter === 'ALL' ? matches : matches.filter((m) => m.status === filter);
-  }, [matches, filter, hasGroups]);
+    const q = search.trim().toLowerCase();
+    return matches.filter((m) => {
+      if (filter !== 'ALL' && m.status !== filter) return false;
+      if (!q) return true;
+      return m.teamA.toLowerCase().includes(q) || m.teamB.toLowerCase().includes(q);
+    });
+  }, [matches, filter, hasGroups, search]);
 
   const filters: { label: string; value: FilterStatus }[] = [
     { label: '📅 À venir', value: 'UPCOMING' },
@@ -88,7 +94,26 @@ const Matches: React.FC = () => {
 
       {/* Filters + view toggle — hidden when no group */}
       {hasGroups && (
-        <div className="flex items-center justify-between gap-2 mb-6">
+        <div className="flex flex-col gap-3 mb-6">
+        <div className="relative">
+          <span className="absolute inset-y-0 left-3 flex items-center text-gray-400 pointer-events-none">🔍</span>
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Rechercher une équipe…"
+            className="w-full pl-9 pr-4 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-wc-green"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              className="absolute inset-y-0 right-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+        <div className="flex items-center justify-between gap-2">
           <div className="flex flex-wrap gap-2">
             {filters.map((f) => (
               <button
@@ -139,6 +164,7 @@ const Matches: React.FC = () => {
               </svg>
             </button>
           </div>
+        </div>
         </div>
       )}
 
