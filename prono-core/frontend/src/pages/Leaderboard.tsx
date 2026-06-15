@@ -167,6 +167,7 @@ const Leaderboard: React.FC = () => {
                 <th className="py-3 px-4 text-center text-xs font-semibold text-gray-500 uppercase">Points</th>
                 <th className="py-3 px-4 text-center text-xs font-semibold text-gray-500 uppercase">Paris gagnés</th>
                 <th className="py-3 px-4 text-center text-xs font-semibold text-gray-500 uppercase">Gages 🃏</th>
+                {selectedGroupId && <th className="py-3 px-4 w-8"></th>}
               </tr>
             </thead>
             <tbody>
@@ -175,6 +176,7 @@ const Leaderboard: React.FC = () => {
                   key={entry.user.id}
                   entry={entry}
                   isCurrentUser={entry.user.username === user?.username}
+                  groupId={selectedGroupId}
                 />
               ))}
             </tbody>

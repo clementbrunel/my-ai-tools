@@ -1,6 +1,6 @@
 import apiClient from './axios';
 import type {
-  Bet, BetParticipation, CreateBetRequest, OpenBettingRequest, OpenCompetitionRequest,
+  Bet, BetParticipation, CreateBetRequest, OpenBettingRequest, OpenCompetitionRequest, UserBetSummary,
 } from '../types';
 
 export const getBets = async (): Promise<Bet[]> => {
@@ -88,5 +88,10 @@ export const validateBet = async (betId: number, winningOption: string): Promise
 
 export const cancelBet = async (betId: number): Promise<Bet> => {
   const response = await apiClient.post<Bet>(`/bets/${betId}/cancel`);
+  return response.data;
+};
+
+export const getUserBetsInGroup = async (groupId: number, userId: number): Promise<UserBetSummary[]> => {
+  const response = await apiClient.get<UserBetSummary[]>(`/bets/group/${groupId}/user/${userId}/participations`);
   return response.data;
 };

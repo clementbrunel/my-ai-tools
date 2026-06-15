@@ -6,6 +6,7 @@ import com.pronocore.dto.request.OpenCompetitionRequest;
 import com.pronocore.dto.request.ParticipateRequest;
 import com.pronocore.dto.response.BetParticipationResponse;
 import com.pronocore.dto.response.BetResponse;
+import com.pronocore.dto.response.UserBetSummaryResponse;
 import com.pronocore.service.BetService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -118,6 +119,14 @@ public class BetController {
     public ResponseEntity<List<BetParticipationResponse>> getParticipationsByMatch(
             @PathVariable Long matchId, Authentication authentication) {
         return ResponseEntity.ok(betService.getParticipationsByMatch(matchId, authentication.getName()));
+    }
+
+    @GetMapping("/group/{groupId}/user/{userId}/participations")
+    @Operation(summary = "Get all bets placed by a user in a group (caller must be a member of that group)")
+    public ResponseEntity<List<UserBetSummaryResponse>> getUserBetsInGroup(@PathVariable Long groupId,
+                                                                            @PathVariable Long userId,
+                                                                            Authentication authentication) {
+        return ResponseEntity.ok(betService.getUserBetsInGroup(groupId, userId, authentication.getName()));
     }
 
     @PostMapping("/{id}/validate")

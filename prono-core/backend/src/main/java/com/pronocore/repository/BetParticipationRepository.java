@@ -95,4 +95,13 @@ public interface BetParticipationRepository extends JpaRepository<BetParticipati
             """)
     List<BetParticipation> findByUserIdAndMatchId(@Param("userId") Long userId,
                                                    @Param("matchId") Long matchId);
+
+    /** All participations a user has in a given group, ordered by bet deadline desc. */
+    @Query("""
+            SELECT bp FROM BetParticipation bp
+            WHERE bp.user.id = :userId AND bp.bet.group.id = :groupId
+            ORDER BY bp.bet.deadline DESC
+            """)
+    List<BetParticipation> findByUserIdAndGroupId(@Param("userId") Long userId,
+                                                   @Param("groupId") Long groupId);
 }
