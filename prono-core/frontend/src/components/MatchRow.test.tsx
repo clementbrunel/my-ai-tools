@@ -1,50 +1,33 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { describe, it, expect } from 'vitest';
+import { screen } from '@testing-library/react';
 import MatchRow from './MatchRow';
-import type { Match } from '../types';
+import { makeMatch } from '../test-utils/factories';
+import { renderWithRouter } from '../test-utils/render-helpers';
 
-vi.mock('../utils/countryFlags', () => ({
-  getFlagUrl: (name: string) => `https://flags.example.com/${name}.png`,
-}));
+vi.mock('../utils/countryFlags');
 
-const makeMatch = (overrides?: Partial<Match>): Match => ({
-  id: 1,
-  teamA: 'Espagne',
-  teamB: 'Allemagne',
-  matchDate: '2026-07-01T18:00:00Z',
-  status: 'UPCOMING',
-  competition: 'Coupe du Monde 2026',
-  round: 'Demi-finale',
-  ...overrides,
-});
-
-const renderRow = (match: Match, pronoStatus?: 'done' | 'missing') =>
-  render(
-    <MemoryRouter>
-      <MatchRow match={match} pronoStatus={pronoStatus} />
-    </MemoryRouter>
-  );
+const renderRow = (match = makeMatch(), pronoStatus?: 'done' | 'missing') =>
+  renderWithRouter(<MatchRow match={match} pronoStatus={pronoStatus} />);
 
 describe('MatchRow — match UPCOMING', () => {
   it('affiche VS', () => {
-    renderRow(makeMatch());
+    renderRow();
     expect(screen.getByText('VS')).toBeDefined();
   });
 
   it("affiche l'heure", () => {
-    renderRow(makeMatch());
+    renderRow();
     expect(screen.getByText(/\d{2}:\d{2}/)).toBeDefined();
   });
 
-  it('affiche les deux noms d\'équipe', () => {
-    renderRow(makeMatch());
-    expect(screen.getByText('Espagne')).toBeDefined();
-    expect(screen.getByText('Allemagne')).toBeDefined();
+  it("affiche les deux noms d'équipe", () => {
+    renderRow();
+    expect(screen.getByText('France')).toBeDefined();
+    expect(screen.getByText('Brésil')).toBeDefined();
   });
 
   it("n'affiche pas de score", () => {
-    renderRow(makeMatch());
+    renderRow();
     expect(screen.queryByText(/\d+ - \d+/)).toBeNull();
   });
 });
@@ -75,7 +58,7 @@ describe('MatchRow — pronoStatus', () => {
   });
 
   it("n'affiche pas d'indicateur de prono si absent", () => {
-    renderRow(makeMatch());
+    renderRow();
     expect(screen.queryByText(/Saisi/)).toBeNull();
     expect(screen.queryByText(/À saisir/)).toBeNull();
   });
@@ -83,7 +66,7 @@ describe('MatchRow — pronoStatus', () => {
 
 describe('MatchRow — drapeaux', () => {
   it('rend les images de drapeau pour chaque équipe', () => {
-    renderRow(makeMatch());
+    renderRow(makeMatch({ teamA: 'Espagne', teamB: 'Allemagne' }));
     const imgs = screen.getAllByRole('img');
     const srcs = imgs.map((img) => (img as HTMLImageElement).src);
     expect(srcs.some((s) => s.includes('Espagne'))).toBe(true);

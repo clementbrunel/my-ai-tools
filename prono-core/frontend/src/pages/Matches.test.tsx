@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
 import Matches from './Matches';
-import type { Match } from '../types';
+import { makeMatch } from '../test-utils/factories';
+import { renderWithRouter } from '../test-utils/render-helpers';
 
 vi.mock('../api/matches', () => ({
   getMatchesForMyGroups: vi.fn(),
@@ -17,29 +17,12 @@ vi.mock('../context/AuthContext', () => ({
   useAuth: () => ({ user: null }),
 }));
 
-vi.mock('../utils/countryFlags', () => ({
-  getFlagUrl: () => null,
-}));
+vi.mock('../utils/countryFlags');
 
 import * as matchesApi from '../api/matches';
 import * as groupsApi from '../api/groups';
 
-const makeMatch = (overrides: Partial<Match> & { id: number }): Match => ({
-  teamA: 'France',
-  teamB: 'Brésil',
-  matchDate: '2026-07-01T20:00:00Z',
-  status: 'UPCOMING',
-  competition: 'WC 2026',
-  round: 'Finale',
-  ...overrides,
-});
-
-const renderPage = () =>
-  render(
-    <MemoryRouter>
-      <Matches />
-    </MemoryRouter>
-  );
+const renderPage = () => renderWithRouter(<Matches />);
 
 describe('Matches — filtrage', () => {
   beforeEach(() => {
@@ -47,7 +30,7 @@ describe('Matches — filtrage', () => {
     vi.mocked(groupsApi.getMyGroups).mockResolvedValue([{ id: 1 } as any]);
   });
 
-  it('filtre UPCOMING : n\'affiche que les matchs à venir', async () => {
+  it("filtre UPCOMING : n'affiche que les matchs à venir", async () => {
     vi.mocked(matchesApi.getMatchesForMyGroups).mockResolvedValue([
       makeMatch({ id: 1, teamA: 'France', teamB: 'Brésil', status: 'UPCOMING' }),
       makeMatch({ id: 2, teamA: 'Espagne', teamB: 'Italie', status: 'FINISHED', scoreA: 1, scoreB: 0 }),
@@ -61,7 +44,7 @@ describe('Matches — filtrage', () => {
     });
   });
 
-  it('filtre FINISHED : n\'affiche que les matchs terminés', async () => {
+  it("filtre FINISHED : n'affiche que les matchs terminés", async () => {
     const user = userEvent.setup();
     vi.mocked(matchesApi.getMatchesForMyGroups).mockResolvedValue([
       makeMatch({ id: 1, teamA: 'France', teamB: 'Brésil', status: 'UPCOMING' }),
@@ -108,7 +91,7 @@ describe('Matches — recherche', () => {
     ]);
   });
 
-  it('filtre par nom d\'équipe (case-insensitive)', async () => {
+  it("filtre par nom d'équipe (case-insensitive)", async () => {
     const user = userEvent.setup();
     renderPage();
 
@@ -188,7 +171,6 @@ describe('Matches — group-by-date', () => {
     await user.click(screen.getByText(/Tous/));
 
     await waitFor(() => {
-      // 2 matchs le 2026-07-01, 1 match le 2026-07-02
       const sections = document.querySelectorAll('section');
       expect(sections.length).toBe(2);
     });

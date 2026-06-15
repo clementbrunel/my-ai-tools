@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, act, waitFor } from '@testing-library/react';
 import { AuthProvider, useAuth } from './AuthContext';
-import type { AuthResponse, User } from '../types';
+import { makeUser, makeToken, makeAuthResponse } from '../test-utils/factories';
 
 vi.mock('../api/auth', () => ({
   login: vi.fn(),
@@ -9,34 +9,6 @@ vi.mock('../api/auth', () => ({
 }));
 
 import * as authApi from '../api/auth';
-
-const makeUser = (overrides?: Partial<User>): User => ({
-  id: 1,
-  username: 'testuser',
-  email: 'test@example.com',
-  emailVerified: true,
-  role: 'USER',
-  globalScore: 0,
-  betsWon: 0,
-  forfeitsReceived: 0,
-  emailReminderEnabled: false,
-  ...overrides,
-});
-
-const makeToken = (expOffsetSeconds = 3600): string => {
-  const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
-  const payload = btoa(
-    JSON.stringify({ sub: 'testuser', iat: Math.floor(Date.now() / 1000), exp: Math.floor(Date.now() / 1000) + expOffsetSeconds })
-  );
-  return `${header}.${payload}.sig`;
-};
-
-const makeAuthResponse = (overrides?: Partial<AuthResponse>): AuthResponse => ({
-  token: makeToken(),
-  tokenType: 'Bearer',
-  user: makeUser(),
-  ...overrides,
-});
 
 const TestConsumer: React.FC = () => {
   const { user, token, isAuthenticated } = useAuth();
@@ -185,9 +157,8 @@ describe('AuthContext — AuthProvider', () => {
 
   it('expired JWT token in localStorage at mount triggers automatic logout', async () => {
     const expiredToken = makeToken(-3600);
-    const user = makeUser();
     localStorage.setItem('token', expiredToken);
-    localStorage.setItem('user', JSON.stringify(user));
+    localStorage.setItem('user', JSON.stringify(makeUser()));
 
     renderWithAuth();
 
@@ -200,10 +171,8 @@ describe('AuthContext — AuthProvider', () => {
   });
 
   it('valid JWT token in localStorage at mount restores session', async () => {
-    const validToken = makeToken(3600);
-    const user = makeUser();
-    localStorage.setItem('token', validToken);
-    localStorage.setItem('user', JSON.stringify(user));
+    localStorage.setItem('token', makeToken(3600));
+    localStorage.setItem('user', JSON.stringify(makeUser()));
 
     renderWithAuth();
 

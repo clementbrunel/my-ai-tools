@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import LeaderboardRow from './LeaderboardRow';
 import type { LeaderboardEntry, UserBetSummary } from '../types';
+import { makeUser } from '../test-utils/factories';
 
 vi.mock('../api/bets', () => ({
   getUserBetsInGroup: vi.fn(),
@@ -12,18 +13,7 @@ import * as betsApi from '../api/bets';
 
 const makeEntry = (overrides?: Partial<LeaderboardEntry>): LeaderboardEntry => ({
   rank: 2,
-  user: {
-    id: 42,
-    username: 'alice',
-    displayName: 'Alice Dupont',
-    email: 'alice@example.com',
-    emailVerified: true,
-    role: 'USER',
-    globalScore: 100,
-    betsWon: 5,
-    forfeitsReceived: 1,
-    emailReminderEnabled: false,
-  },
+  user: makeUser({ id: 42, username: 'alice', displayName: 'Alice Dupont' }),
   betsWon: 5,
   totalPoints: 120,
   forfeitsReceived: 1,
@@ -78,7 +68,7 @@ describe('LeaderboardRow — rendu initial', () => {
     expect(screen.getByText('#5')).toBeDefined();
   });
 
-  it('affiche l\'emoji médaille pour le rang 1', () => {
+  it("affiche l'emoji médaille pour le rang 1", () => {
     renderRow(makeEntry({ rank: 1 }));
     expect(screen.getByText('🥇')).toBeDefined();
   });
@@ -133,7 +123,6 @@ describe('LeaderboardRow — expand au clic', () => {
     await user.click(screen.getByText('Alice Dupont'));
     await waitFor(() => expect(screen.getByText('Résultat France-Brésil')).toBeDefined());
 
-    // click again to collapse then expand
     await user.click(screen.getByText('Alice Dupont'));
     await user.click(screen.getByText('Alice Dupont'));
 

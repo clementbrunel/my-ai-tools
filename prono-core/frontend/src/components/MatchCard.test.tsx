@@ -1,52 +1,34 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { describe, it, expect } from 'vitest';
+import { screen } from '@testing-library/react';
 import MatchCard from './MatchCard';
-import type { Match } from '../types';
+import { makeMatch } from '../test-utils/factories';
+import { renderWithRouter } from '../test-utils/render-helpers';
 
-vi.mock('../utils/countryFlags', () => ({
-  getFlagUrl: (name: string) => `https://flags.example.com/${name}.png`,
-}));
+vi.mock('../utils/countryFlags');
 
-const makeMatch = (overrides?: Partial<Match>): Match => ({
-  id: 1,
-  teamA: 'France',
-  teamB: 'Brésil',
-  matchDate: '2026-07-01T20:00:00Z',
-  status: 'UPCOMING',
-  competition: 'Coupe du Monde 2026',
-  round: 'Finale',
-  ...overrides,
-});
-
-const renderCard = (match: Match, pronoStatus?: 'done' | 'missing') =>
-  render(
-    <MemoryRouter>
-      <MatchCard match={match} pronoStatus={pronoStatus} />
-    </MemoryRouter>
-  );
+const renderCard = (match = makeMatch(), pronoStatus?: 'done' | 'missing') =>
+  renderWithRouter(<MatchCard match={match} pronoStatus={pronoStatus} />);
 
 describe('MatchCard — match UPCOMING', () => {
   it('affiche VS et non un score', () => {
-    renderCard(makeMatch());
+    renderCard();
     expect(screen.getByText('VS')).toBeDefined();
     expect(screen.queryByText(/^\d+ - \d+$/)).toBeNull();
   });
 
   it("affiche l'heure du match", () => {
     renderCard(makeMatch({ matchDate: '2026-07-01T20:00:00Z' }));
-    // time is formatted locale-dependently; just check something time-like is shown
     expect(screen.getByText(/\d{2}:\d{2}/)).toBeDefined();
   });
 
   it('affiche les noms des deux équipes', () => {
-    renderCard(makeMatch());
+    renderCard();
     expect(screen.getByText('France')).toBeDefined();
     expect(screen.getByText('Brésil')).toBeDefined();
   });
 
   it('affiche le badge statut À venir', () => {
-    renderCard(makeMatch());
+    renderCard();
     expect(screen.getByText(/À venir/)).toBeDefined();
   });
 });
@@ -83,7 +65,7 @@ describe('MatchCard — pronoStatus', () => {
   });
 
   it("n'affiche pas d'indicateur de prono si pronoStatus absent", () => {
-    renderCard(makeMatch());
+    renderCard();
     expect(screen.queryByText(/Prono saisi/)).toBeNull();
     expect(screen.queryByText(/À saisir/)).toBeNull();
   });
@@ -91,7 +73,7 @@ describe('MatchCard — pronoStatus', () => {
 
 describe('MatchCard — drapeaux', () => {
   it('affiche les drapeaux des deux équipes via img', () => {
-    renderCard(makeMatch());
+    renderCard();
     const imgs = screen.getAllByRole('img');
     const srcs = imgs.map((img) => (img as HTMLImageElement).src);
     expect(srcs.some((s) => s.includes('France'))).toBe(true);
