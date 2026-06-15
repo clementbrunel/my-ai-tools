@@ -34,7 +34,21 @@ const Admin: React.FC = () => {
         <span className="badge-admin">ADMIN</span>
       </div>
 
-      <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700">
+      {/* Mobile: native select */}
+      <div className="md:hidden">
+        <select
+          value={activeTab}
+          onChange={(e) => setActiveTab(e.target.value as AdminTab)}
+          className="input-field w-full"
+        >
+          {tabs.map((tab) => (
+            <option key={tab.id} value={tab.id}>{tab.label}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Desktop: tab strip */}
+      <div className="hidden md:flex gap-2 border-b border-gray-200 dark:border-gray-700">
         {tabs.map((tab) => (
           <button
             key={tab.id}

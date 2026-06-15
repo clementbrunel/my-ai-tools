@@ -4,6 +4,7 @@ import { getMatches, createMatch, updateMatchScore, getCompetitions, forceSettle
 import { useFormMessages } from '../../hooks/useFormMessages';
 import type { Match } from '../../types';
 import { formatDate } from '../../utils/dates';
+import ScrollableTableWrapper from '../../components/ScrollableTableWrapper';
 
 const AdminMatchesTab: React.FC = () => {
   const { showToast } = useToast();
@@ -172,7 +173,7 @@ const AdminMatchesTab: React.FC = () => {
       </div>
 
       <div className="card overflow-hidden p-0">
-        <div className="overflow-x-auto">
+        <ScrollableTableWrapper>
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
@@ -229,7 +230,7 @@ const AdminMatchesTab: React.FC = () => {
               ))}
             </tbody>
           </table>
-        </div>
+        </ScrollableTableWrapper>
       </div>
 
       {editingMatch && (
