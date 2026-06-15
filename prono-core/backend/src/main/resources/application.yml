@@ -45,5 +45,5 @@ springdoc:
 logging:
   level:
     com.pronocore: INFO
-    com.pronocore.aspect: DEBUG
+    com.pronocore.aspect: INFO
     org.springframework.security: WARN
