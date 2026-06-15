@@ -9,6 +9,7 @@ import { formatDate, formatDateTime } from '../utils/dates';
 import { useToast } from '../components/Toast';
 import { getFlagUrl } from '../utils/countryFlags';
 import { extractResult, computePoints, parseOption } from '../utils/matchCalculations';
+import DailyGageCard from '../components/DailyGageCard';
 
 // ── component ─────────────────────────────────────────────────────────────────
 
@@ -231,97 +232,14 @@ const MatchDetail: React.FC = () => {
       </div>
 
       {/* ── Daily gages for this match day — one card per group at stake ── */}
-      {dayGages.map((g) => (
-        <div className="card" key={g.id}>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white">🃏 Gage du jour</h2>
-            {dayGages.length > 1 && (
-              <span className="text-xs bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full font-medium">
-                👥 {g.groupName}
-              </span>
-            )}
-          </div>
-
-          {g.status === 'SETTLED' ? (
-            /* Already attributed */
-            <div className="flex items-start gap-3 p-3 bg-red-50 dark:bg-red-900/10 rounded-lg border border-red-200 dark:border-red-800">
-              <div className="text-3xl">😬</div>
-              <div>
-                <p className="text-xs text-gray-500 mb-1">Gage attribué</p>
-                <p className="font-bold text-wc-red">{g.forfeit?.title}</p>
-                {g.forfeit?.description && (
-                  <p className="text-xs text-gray-500 mt-0.5">{g.forfeit.description}</p>
-                )}
-                <p className="text-sm mt-1">
-                  👎 <span className="text-wc-red font-medium">{g.assignedToDisplayName || g.assignedToUsername}</span> devra l'effectuer
-                </p>
-              </div>
-            </div>
-          ) : g.mode === 'DIRECT' && g.forfeit ? (
-            /* Direct mode — gage already chosen by admin */
-            <div className="flex items-start gap-3 p-3 bg-green-50 dark:bg-green-900/10 rounded-lg border border-green-200 dark:border-green-800">
-              <div className="text-3xl">🃏</div>
-              <div>
-                <p className="text-xs text-gray-500 mb-1">Le moins bon joueur du jour l'écopera !</p>
-                <p className="font-bold text-gray-900 dark:text-white">{g.forfeit.title}</p>
-                <p className="text-xs text-gray-500 mt-0.5">{g.forfeit.description}</p>
-              </div>
-            </div>
-          ) : g.mode === 'VOTE' && g.candidates.length > 0 ? (
-            /* Vote mode — let users pick their favourite */
-            <div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                🗳️ Vote pour le gage — le moins bon joueur de la journée écopera du gagnant !
-              </p>
-              <div className="space-y-2">
-                {g.candidates.map((c) => {
-                  const isLiked = c.userVote === 1;
-                  const isDisliked = c.userVote === -1;
-                  return (
-                    <div
-                      key={c.id}
-                      className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
-                    >
-                      <div className="min-w-0">
-                        <div className="font-medium text-sm text-gray-900 dark:text-white">{c.forfeit.title}</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{c.forfeit.description}</div>
-                      </div>
-                      <div className="flex items-center gap-2 ml-3 flex-shrink-0">
-                        <span
-                          className={`text-sm font-semibold tabular-nums ${
-                            c.voteScore > 0 ? 'text-green-500' : c.voteScore < 0 ? 'text-red-500' : 'text-gray-400'
-                          }`}
-                        >
-                          {c.voteScore > 0 ? '+' : ''}{c.voteScore}
-                        </span>
-                        <button
-                          onClick={() => handleVoteGage(g.id, c.forfeit.id, isLiked ? 0 : 1)}
-                          className={`text-xl transition-transform hover:scale-125 ${isLiked ? 'opacity-100' : 'opacity-40 hover:opacity-80'}`}
-                          title="Pour"
-                        >
-                          👍
-                        </button>
-                        <button
-                          onClick={() => handleVoteGage(g.id, c.forfeit.id, isDisliked ? 0 : -1)}
-                          className={`text-xl transition-transform hover:scale-125 ${isDisliked ? 'opacity-100' : 'opacity-40 hover:opacity-80'}`}
-                          title="Contre"
-                        >
-                          👎
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ) : (
-            /* Configured but no forfeit yet (PENDING / VOTE with no candidates) */
-            <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-2">
-              🃏 Gage en attente de configuration par l'admin du groupe
-            </p>
-          )}
+      {dayGages.length > 0 && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white">🃏 Gage du jour</h2>
+          {dayGages.map((g) => (
+            <DailyGageCard key={g.id} gage={g} onVote={handleVoteGage} showGroupName={dayGages.length > 1} />
+          ))}
         </div>
-      ))}
+      )}
 
       {/* ── My prediction ── */}
       {bet && (
