@@ -1,13 +1,5 @@
 -- V2__demo_data.sql
--- World Cup 2026 — users, forfeits, all 72 group stage matches
--- All users share the same bcrypt password hash (rounds=10)
-
--- ============================================================
--- USERS
--- ============================================================
-INSERT INTO users (username, email, password, role, global_score, bets_won, forfeits_received) VALUES
-('clement', 'clement@pronocore.com', 'PLACEHOLDER', 'ADMIN', 10, 0, 0);
--- ID: clement=1
+-- World Cup 2026 — forfeits and all 72 group stage matches
 
 -- ============================================================
 -- FORFEITS (bibliothèque de gages)

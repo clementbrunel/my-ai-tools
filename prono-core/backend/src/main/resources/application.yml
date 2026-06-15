@@ -22,8 +22,6 @@ resend:
 
 app:
   frontend-url: ${FRONTEND_URL:http://localhost:5173}
-  demo:
-    password: ${DEMO_PASSWORD:prono2026}
 
 jwt:
   secret: ${JWT_SECRET:mySecretKey1234567890123456789012345678901234}

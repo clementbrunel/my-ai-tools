@@ -91,7 +91,6 @@ Copy `.env.example` to `.env` at the root.
 | `JWT_SECRET` | *(change in prod)* | HS256 signing key |
 | `RESEND_API_KEY` | — | Resend.com API key for emails |
 | `FRONTEND_URL` | `http://localhost:5173` | Used in CORS & email links |
-| `DEMO_PASSWORD` | `prono2026` | Password for seeded demo accounts |
 
 ## Backend Key Facts
 
