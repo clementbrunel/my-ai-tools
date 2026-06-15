@@ -7,7 +7,7 @@ import { formatDate } from '../../utils/dates';
 
 const AdminMatchesTab: React.FC = () => {
   const { showToast } = useToast();
-  const { error: matchError, success: matchSuccess, setError: setMatchError, setSuccess: setMatchSuccess, clear: clearMatchMessages } = useFormMessages();
+  const { msg: matchMsg, setError: setMatchError, setSuccess: setMatchSuccess, clear: clearMatchMessages } = useFormMessages();
 
   const [matches, setMatches] = useState<Match[]>([]);
   const [competitions, setCompetitions] = useState<string[]>([]);
@@ -163,8 +163,8 @@ const AdminMatchesTab: React.FC = () => {
               </div>
             )}
           </div>
-          {matchError && <p className="col-span-2 text-red-500 text-sm">{matchError}</p>}
-          {matchSuccess && <p className="col-span-2 text-green-500 text-sm">✅ {matchSuccess}</p>}
+          {matchMsg?.type === 'error' && <p className="col-span-2 text-red-500 text-sm">{matchMsg.text}</p>}
+          {matchMsg?.type === 'success' && <p className="col-span-2 text-green-500 text-sm">✅ {matchMsg.text}</p>}
           <div className="col-span-2">
             <button type="submit" className="btn-primary">⚽ Créer le match</button>
           </div>

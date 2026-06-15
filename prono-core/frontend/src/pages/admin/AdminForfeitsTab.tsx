@@ -11,7 +11,7 @@ const FORFEIT_CATEGORIES = ['General', 'Nourriture', 'Humiliation', 'Spectacle',
 
 const AdminForfeitsTab: React.FC = () => {
   const { showToast } = useToast();
-  const { error: forfeitError, success: forfeitSuccess, setError: setForfeitError, setSuccess: setForfeitSuccess, clear: clearForfeitMessages } = useFormMessages();
+  const { msg: forfeitMsg, setError: setForfeitError, setSuccess: setForfeitSuccess, clear: clearForfeitMessages } = useFormMessages();
 
   const [forfeits, setForfeits] = useState<Forfeit[]>([]);
   const [adminGroups, setAdminGroups] = useState<Group[]>([]);
@@ -132,8 +132,8 @@ const AdminForfeitsTab: React.FC = () => {
                 {FORFEIT_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
-            {forfeitError && <p className="col-span-3 text-red-500 text-sm">{forfeitError}</p>}
-            {forfeitSuccess && <p className="col-span-3 text-green-500 text-sm">✅ {forfeitSuccess}</p>}
+            {forfeitMsg?.type === 'error' && <p className="col-span-3 text-red-500 text-sm">{forfeitMsg.text}</p>}
+            {forfeitMsg?.type === 'success' && <p className="col-span-3 text-green-500 text-sm">✅ {forfeitMsg.text}</p>}
             <div className="md:col-span-3">
               <button type="submit" className="btn-primary text-sm">🃏 Ajouter le gage</button>
             </div>

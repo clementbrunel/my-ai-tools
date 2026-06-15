@@ -3,7 +3,7 @@ import { sendTestEmail, type EmailType } from '../../api/email';
 import { useFormMessages } from '../../hooks/useFormMessages';
 
 const AdminEmailsTab: React.FC = () => {
-  const { error: emailTestError, success: emailTestSuccess, setError: setEmailTestError, setSuccess: setEmailTestSuccess, clear: clearEmailMessages } = useFormMessages();
+  const { msg: emailMsg, setError: setEmailTestError, setSuccess: setEmailTestSuccess, clear: clearEmailMessages } = useFormMessages();
   const [testEmailTarget, setTestEmailTarget] = useState('');
   const [testEmailType, setTestEmailType] = useState<EmailType>('VERIFICATION');
   const [emailTestLoading, setEmailTestLoading] = useState(false);
@@ -50,8 +50,8 @@ const AdminEmailsTab: React.FC = () => {
               {emailTestLoading ? 'Envoi...' : '📤 Envoyer'}
             </button>
           </div>
-          {emailTestError && <p className="md:col-span-3 text-red-500 text-sm">{emailTestError}</p>}
-          {emailTestSuccess && <p className="md:col-span-3 text-green-500 text-sm">✅ {emailTestSuccess}</p>}
+          {emailMsg?.type === 'error' && <p className="md:col-span-3 text-red-500 text-sm">{emailMsg.text}</p>}
+          {emailMsg?.type === 'success' && <p className="md:col-span-3 text-green-500 text-sm">✅ {emailMsg.text}</p>}
         </form>
       </div>
 
