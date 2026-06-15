@@ -32,7 +32,8 @@ npm run dev   # listens on :5173, proxies /api → localhost:8090
 
 ### Production
 ```bash
-./build-and-push.sh [VERSION]   # builds & pushes Docker images to the private registry
+export REGISTRY=myregistry:5000   # set your private registry
+./build-and-push.sh [VERSION]     # builds & pushes Docker images
 
 # On the production host:
 docker compose -f docker-compose.prod.yml pull
@@ -142,6 +143,30 @@ Copy `.env.example` to `.env` at the root.
 - `src/App.tsx` — routing + PrivateRoute wrapper
 - `src/types/index.ts` — all TypeScript interfaces (start here when adding features)
 - `vite.config.ts` — `/api` proxy to backend port 8090
+
+## Tests unitaires (backend)
+
+JUnit 5 + Mockito — tous dans `backend/src/test/java/com/pronocore/service/`.
+
+```bash
+cd backend
+mvn test
+```
+
+| Fichier de test | # tests | Ce qui est couvert |
+|---|---|---|
+| `BetServiceTest` | 18 | Création de paris, participation, validation, settlement, forfeits assignés |
+| `DailyGageServiceTest` | 33 | Création, VOTE/DIRECT, vote candidat, force-settle, statuts |
+| `GroupServiceTest` | 23 | Création groupe, rejoindre, appliquer, approuver, rôles membres |
+| `MatchServiceTest` | 19 | CRUD matchs, mise à jour scores, filtrage par status |
+| `ForfeitServiceTest` | 15 | Proposition, visibilité (shared/groupe), marquer complété, votes |
+| `LeaderboardServiceTest` | 7 | Classement global et par groupe |
+| `DashboardServiceTest` | 6 | Stats utilisateur, matchs à venir |
+| `UserServiceTest` | 10 | Profil, mot de passe, displayName, avatar, reminder toggle |
+| `AuthServiceTest` | 4 | Register, login, vérification email, reset password |
+| `AdminCountsServiceTest` | 6 | Compteurs admin (users, groups, matches, bets) |
+
+Les services sont testés en isolation (mocks des repositories via Mockito). Pas de tests d'intégration ni de tests frontend.
 
 ## Domain Concepts
 
