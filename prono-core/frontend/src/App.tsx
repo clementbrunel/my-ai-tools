@@ -1,4 +1,13 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
+
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  return null;
+}
 import { AuthProvider } from './context/AuthContext';
 import { GroupAdminCountsProvider } from './context/GroupAdminCountsContext';
 import { ToastProvider } from './components/Toast';
@@ -25,6 +34,7 @@ function App() {
       <GroupAdminCountsProvider>
       <ToastProvider>
       <BrowserRouter>
+        <ScrollToTop />
         <div className="min-h-screen bg-gray-50 dark:bg-wc-dark">
           <Routes>
             <Route path="/login" element={<Login />} />
@@ -38,7 +48,7 @@ function App() {
                 <PrivateRoute>
                   <div className="flex flex-col min-h-screen">
                     <Navbar />
-                    <main className="flex-1 container mx-auto px-4 py-6 max-w-7xl">
+                    <main className="flex-1 container mx-auto px-4 py-6 max-w-7xl pb-safe">
                       <Routes>
                         <Route path="/" element={<Navigate to="/dashboard" replace />} />
                         <Route path="/dashboard" element={<Dashboard />} />

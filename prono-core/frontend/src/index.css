@@ -14,19 +14,19 @@
 
 @layer components {
   .btn-primary {
-    @apply bg-wc-green hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply bg-wc-green hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] inline-flex items-center justify-center;
   }
 
   .btn-secondary {
-    @apply bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200;
+    @apply bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200 min-h-[44px] inline-flex items-center justify-center;
   }
 
   .btn-danger {
-    @apply bg-wc-red hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200;
+    @apply bg-wc-red hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200 min-h-[44px] inline-flex items-center justify-center;
   }
 
   .btn-gold {
-    @apply bg-wc-gold hover:bg-yellow-500 text-gray-900 font-bold py-2 px-4 rounded-lg transition-colors duration-200;
+    @apply bg-wc-gold hover:bg-yellow-500 text-gray-900 font-bold py-2 px-4 rounded-lg transition-colors duration-200 min-h-[44px] inline-flex items-center justify-center;
   }
 
   .card {
@@ -110,6 +110,16 @@
 @keyframes shimmer {
   to {
     background-position: 200% center;
+  }
+}
+
+/* iOS safe area — bottom padding for fixed elements and main content */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .mb-safe {
+    margin-bottom: env(safe-area-inset-bottom);
   }
 }
 
