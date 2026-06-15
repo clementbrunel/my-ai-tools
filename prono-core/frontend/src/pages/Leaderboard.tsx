@@ -44,6 +44,11 @@ const PendingGagesSection: React.FC<PendingGagesSectionProps> = ({ gages, curren
         </span>
       </h2>
 
+      {gages.length === 0 ? (
+        <div className="card p-6 text-center text-gray-500 dark:text-gray-400 text-sm">
+          Aucun gage en attente dans ce groupe 🎉
+        </div>
+      ) : (
       <div className="space-y-3">
         {Array.from(byUser.entries()).map(([username, userGages]) => {
           const first = userGages[0];
@@ -92,6 +97,7 @@ const PendingGagesSection: React.FC<PendingGagesSectionProps> = ({ gages, curren
           );
         })}
       </div>
+      )}
     </div>
   );
 };
@@ -282,7 +288,7 @@ const Leaderboard: React.FC = () => {
       </div>
 
       {/* Pending Gages Section — visible only in group mode */}
-      {selectedGroupId != null && pendingGages.length > 0 && (
+      {selectedGroupId != null && (
         <PendingGagesSection gages={pendingGages} currentUsername={user?.username} />
       )}
     </div>
