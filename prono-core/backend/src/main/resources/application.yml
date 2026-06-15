@@ -22,6 +22,8 @@ resend:
 
 app:
   frontend-url: ${FRONTEND_URL:http://localhost:5173}
+  cors:
+    extra-origin: ${CORS_EXTRA_ORIGIN:}
 
 jwt:
   secret: ${JWT_SECRET:mySecretKey1234567890123456789012345678901234}
