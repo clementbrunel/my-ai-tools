@@ -3,6 +3,7 @@ import { useToast } from '../../components/Toast';
 import { getAllUsersAdmin, adminUnlockUser } from '../../api/users';
 import type { UserAdminInfo } from '../../types';
 import { formatDate } from '../../utils/dates';
+import ScrollableTableWrapper from '../../components/ScrollableTableWrapper';
 
 const AdminUsersTab: React.FC = () => {
   const { showToast } = useToast();
@@ -47,7 +48,7 @@ const AdminUsersTab: React.FC = () => {
       </p>
 
       <div className="card overflow-hidden p-0">
-        <div className="overflow-x-auto">
+        <ScrollableTableWrapper>
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
@@ -160,7 +161,7 @@ const AdminUsersTab: React.FC = () => {
               ))}
             </tbody>
           </table>
-        </div>
+        </ScrollableTableWrapper>
       </div>
 
       {unlockingUser && (
