@@ -3,6 +3,7 @@ package com.pronocore.controller;
 import com.pronocore.dto.request.ProposeForfeitRequest;
 import com.pronocore.dto.request.VoteForfeitRequest;
 import com.pronocore.dto.response.ForfeitResponse;
+import com.pronocore.dto.response.GroupUserForfeitResponse;
 import com.pronocore.dto.response.UserForfeitResponse;
 import com.pronocore.service.ForfeitService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -108,6 +109,12 @@ public class ForfeitController {
     @Operation(summary = "Get pending proposed forfeits awaiting approval (group admin)")
     public ResponseEntity<List<ForfeitResponse>> getGroupPendingForfeits(@PathVariable Long groupId) {
         return ResponseEntity.ok(forfeitService.getGroupPendingForfeits(groupId));
+    }
+
+    @GetMapping("/group/{groupId}/pending-assignments")
+    @Operation(summary = "Get incomplete gage assignments for all members of a group (group member)")
+    public ResponseEntity<List<GroupUserForfeitResponse>> getGroupPendingAssignments(@PathVariable Long groupId) {
+        return ResponseEntity.ok(forfeitService.getGroupPendingAssignments(groupId));
     }
 
     @PatchMapping("/group/{groupId}/{forfeitId}/approve")

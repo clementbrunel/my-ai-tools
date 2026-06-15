@@ -1,6 +1,7 @@
 package com.pronocore.service;
 
 import com.pronocore.dto.response.ForfeitResponse;
+import com.pronocore.dto.response.GroupUserForfeitResponse;
 import com.pronocore.dto.response.UserForfeitResponse;
 import com.pronocore.entity.Forfeit;
 import com.pronocore.entity.ForfeitVote;
@@ -284,6 +285,18 @@ public class ForfeitService {
                 .toList();
     }
 
+    /** Returns incomplete gage assignments for all members of a group (any group member can call this). */
+    @Transactional(readOnly = true)
+    public List<GroupUserForfeitResponse> getGroupPendingAssignments(Long groupId) {
+        String username = currentUsername();
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
+        groupMemberGuard.requireActiveMembership(groupId, user.getId());
+        return userForfeitRepository.findPendingByGroupId(groupId).stream()
+                .map(this::toGroupUserForfeitResponse)
+                .toList();
+    }
+
     @Transactional(readOnly = true)
     public List<UserForfeitResponse> getMyForfeits() {
         String username = currentUsername();
@@ -372,6 +385,20 @@ public class ForfeitService {
     private UserForfeitResponse toUserForfeitResponse(UserForfeit uf) {
         return UserForfeitResponse.builder()
                 .id(uf.getId())
+                .forfeit(toForfeitResponse(uf.getForfeit()))
+                .assignedByUsername(uf.getAssignedBy().getUsername())
+                .assignedByDisplayName(uf.getAssignedBy().getDisplayName())
+                .completed(uf.isCompleted())
+                .completedAt(uf.getCompletedAt())
+                .assignedAt(uf.getAssignedAt())
+                .build();
+    }
+
+    private GroupUserForfeitResponse toGroupUserForfeitResponse(UserForfeit uf) {
+        return GroupUserForfeitResponse.builder()
+                .id(uf.getId())
+                .username(uf.getUser().getUsername())
+                .displayName(uf.getUser().getDisplayName())
                 .forfeit(toForfeitResponse(uf.getForfeit()))
                 .assignedByUsername(uf.getAssignedBy().getUsername())
                 .assignedByDisplayName(uf.getAssignedBy().getDisplayName())
