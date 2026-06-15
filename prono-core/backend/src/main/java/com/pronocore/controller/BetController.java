@@ -7,8 +7,10 @@ import com.pronocore.dto.request.ParticipateRequest;
 import com.pronocore.dto.response.BetParticipationResponse;
 import com.pronocore.dto.response.BetResponse;
 import com.pronocore.dto.response.UserBetSummaryResponse;
+import com.pronocore.aspect.LoggedAt;
 import com.pronocore.service.BetService;
 import io.swagger.v3.oas.annotations.Operation;
+import org.slf4j.event.Level;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -91,6 +93,7 @@ public class BetController {
 
     @PostMapping("/{id}/participate")
     @Operation(summary = "Participate in a bet")
+    @LoggedAt(Level.INFO)
     public ResponseEntity<BetParticipationResponse> participate(@PathVariable Long id,
                                                                   @Valid @RequestBody ParticipateRequest request,
                                                                   Authentication authentication) {
@@ -100,6 +103,7 @@ public class BetController {
 
     @PutMapping("/match/{matchId}/participate")
     @Operation(summary = "Upsert participation in all open group bets for a match (before kick-off only)")
+    @LoggedAt(Level.INFO)
     public ResponseEntity<List<BetParticipationResponse>> upsertParticipateByMatch(
             @PathVariable Long matchId,
             @Valid @RequestBody ParticipateRequest request,

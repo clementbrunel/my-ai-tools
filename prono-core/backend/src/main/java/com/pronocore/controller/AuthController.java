@@ -10,9 +10,11 @@ import com.pronocore.dto.response.AuthResponse;
 import com.pronocore.dto.response.RegisterResponse;
 import com.pronocore.service.AuthService;
 import com.pronocore.service.PasswordResetService;
+import com.pronocore.aspect.LoggedAt;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.slf4j.event.Level;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -37,6 +39,7 @@ public class AuthController {
 
     @PostMapping("/login")
     @Operation(summary = "Login and get JWT token (email must be verified)")
+    @LoggedAt(Level.INFO)
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         return ResponseEntity.ok(authService.login(request));
     }
