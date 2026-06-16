@@ -76,6 +76,36 @@ public class BetService {
     }
 
     @Transactional(readOnly = true)
+    public List<UserBetSummaryResponse> getMyParticipations(String username) {
+        User user = requireUser(username);
+        return participationRepository.findByUserId(user.getId()).stream()
+            .sorted(java.util.Comparator.comparing(
+                bp -> bp.getBet().getMatch() != null ? bp.getBet().getMatch().getMatchDate() : bp.getCreatedAt(),
+                java.util.Comparator.reverseOrder()))
+            .map(bp -> {
+                Bet bet = bp.getBet();
+                var matchTeamA = bet.getMatch() != null ? bet.getMatch().getTeamA() : null;
+                var matchTeamB = bet.getMatch() != null ? bet.getMatch().getTeamB() : null;
+                var matchDate  = bet.getMatch() != null ? bet.getMatch().getMatchDate() : null;
+                return UserBetSummaryResponse.builder()
+                    .participationId(bp.getId())
+                    .betId(bet.getId())
+                    .betTitle(bet.getTitle())
+                    .matchTeamA(matchTeamA)
+                    .matchTeamB(matchTeamB)
+                    .matchDate(matchDate)
+                    .betStatus(bet.getStatus())
+                    .betPoints(bet.getPoints())
+                    .chosenOption(bp.getChosenOption())
+                    .winningOption(bet.getWinningOption())
+                    .pointsEarned(bp.getPointsEarned())
+                    .participatedAt(bp.getCreatedAt())
+                    .build();
+            })
+            .toList();
+    }
+
+    @Transactional(readOnly = true)
     public List<UserBetSummaryResponse> getUserBetsInGroup(Long groupId, Long userId, String callerUsername) {
         User caller = requireUser(callerUsername);
         groupMemberGuard.requireActiveMembership(groupId, caller.getId());

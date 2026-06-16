@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getParticipatedBets } from '../api/bets';
+import { getMyParticipations } from '../api/bets';
 import { getLeaderboard } from '../api/leaderboard';
 import { getMyForfeits, completeForfeit } from '../api/forfeits';
-import type { Bet, LeaderboardEntry, UserForfeitEntry } from '../types';
+import type { UserBetSummary, LeaderboardEntry, UserForfeitEntry } from '../types';
 import { isAdmin } from '../types';
 import { formatDate } from '../utils/dates';
 import { useToast } from '../components/Toast';
@@ -15,7 +15,7 @@ const Profile: React.FC = () => {
   const { user } = useAuth();
   const { showToast } = useToast();
   const { refresh: refreshUserCounts } = useUserCounts();
-  const [myBets, setMyBets] = useState<Bet[]>([]);
+  const [myParticipations, setMyParticipations] = useState<UserBetSummary[]>([]);
   const [leaderboardEntry, setLeaderboardEntry] = useState<LeaderboardEntry | null>(null);
   const [myForfeits, setMyForfeits] = useState<UserForfeitEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -25,12 +25,12 @@ const Profile: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [betsData, leaderboardData, forfeitsData] = await Promise.all([
-          getParticipatedBets(),
+        const [participationsData, leaderboardData, forfeitsData] = await Promise.all([
+          getMyParticipations(),
           getLeaderboard(),
           getMyForfeits(),
         ]);
-        setMyBets(betsData);
+        setMyParticipations(participationsData);
         const entry = leaderboardData.find((e) => e.user.username === user?.username);
         setLeaderboardEntry(entry || null);
         setMyForfeits(forfeitsData);
@@ -217,26 +217,43 @@ const Profile: React.FC = () => {
       {/* My bets */}
       <div className="card">
         <h3 className="font-bold text-gray-900 dark:text-white mb-4">
-          🎯 Mes pronostics ({myBets.length})
+          🎯 Mes pronostics ({myParticipations.length})
         </h3>
-        {myBets.length > 0 ? (
+        {myParticipations.length > 0 ? (
           <div className="space-y-2">
-            {myBets.slice(0, 5).map((bet) => (
-              <div
-                key={bet.id}
-                className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
-              >
-                <div>
-                  <div className="text-sm font-medium text-gray-900 dark:text-white">{bet.title}</div>
-                  <div className="text-xs text-gray-500">
-                    {bet.participationsCount} participants • {bet.points} pts
+            {myParticipations.slice(0, 10).map((p) => {
+              const isWon = p.betStatus === 'VALIDATED' && p.pointsEarned > 0;
+              const isLost = p.betStatus === 'VALIDATED' && p.pointsEarned === 0;
+              return (
+                <div
+                  key={p.participationId}
+                  className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                      {p.matchTeamA && p.matchTeamB ? `${p.matchTeamA} – ${p.matchTeamB}` : p.betTitle}
+                    </div>
+                    <div className="text-xs text-gray-500 truncate">
+                      Mon choix : <span className="font-medium text-gray-700 dark:text-gray-300">{p.chosenOption}</span>
+                      {p.betStatus === 'VALIDATED' && p.winningOption && (
+                        <> · Résultat : <span className="font-medium">{p.winningOption}</span></>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end ml-3 shrink-0">
+                    {p.betStatus === 'VALIDATED' ? (
+                      <span className={isWon ? 'text-green-600 font-bold text-sm' : 'text-red-500 text-sm'}>
+                        {isWon ? `+${p.pointsEarned} pts` : isLost ? '0 pt' : ''}
+                      </span>
+                    ) : p.betStatus === 'OPEN' ? (
+                      <span className="text-xs text-blue-500">En cours</span>
+                    ) : (
+                      <span className="text-xs text-gray-400">Annulé</span>
+                    )}
                   </div>
                 </div>
-                <span className={`badge-${bet.status.toLowerCase()}`}>
-                  {bet.status === 'OPEN' ? '🟢' : bet.status === 'VALIDATED' ? '✅' : '❌'}
-                </span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <p className="text-gray-500 dark:text-gray-400 text-sm">Vous n'avez encore participé à aucun pari</p>

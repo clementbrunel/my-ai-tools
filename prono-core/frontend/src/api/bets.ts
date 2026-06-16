@@ -13,6 +13,11 @@ export const getParticipatedBets = async (): Promise<Bet[]> => {
   return response.data;
 };
 
+export const getMyParticipations = async (): Promise<UserBetSummary[]> => {
+  const response = await apiClient.get<UserBetSummary[]>('/bets/my-participations');
+  return response.data;
+};
+
 export const getBet = async (id: number): Promise<Bet> => {
   const response = await apiClient.get<Bet>(`/bets/${id}`);
   return response.data;

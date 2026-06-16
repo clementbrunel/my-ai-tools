@@ -42,6 +42,12 @@ public class BetController {
         return ResponseEntity.ok(betService.getParticipatedBets(authentication.getName()));
     }
 
+    @GetMapping("/my-participations")
+    @Operation(summary = "Get all participations of the authenticated user with their chosen options and results")
+    public ResponseEntity<List<UserBetSummaryResponse>> getMyParticipations(Authentication authentication) {
+        return ResponseEntity.ok(betService.getMyParticipations(authentication.getName()));
+    }
+
     @GetMapping("/{id}")
     @Operation(summary = "Get bet by ID (must belong to one of the caller's groups)")
     public ResponseEntity<BetResponse> getBet(@PathVariable Long id, Authentication authentication) {
