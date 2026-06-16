@@ -29,7 +29,7 @@ const ProfileInfoForm: React.FC<Props> = ({
   const handleSave = async () => {
     setSaving(true);
     try {
-      const updates: Promise<ReturnType<typeof updateDisplayName>>[] = [];
+      const updates: ReturnType<typeof updateDisplayName>[] = [];
 
       if (displayName !== initialDisplayName) {
         updates.push(updateDisplayName(displayName));
