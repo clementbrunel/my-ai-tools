@@ -1,12 +1,14 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useGroupAdminCounts } from '../context/GroupAdminCountsContext';
+import { useUserCounts } from '../context/UserCountsContext';
 import { isAdmin } from '../types';
 import { useState } from 'react';
 
 const Navbar: React.FC = () => {
   const { user, logout } = useAuth();
   const { totalBadge } = useGroupAdminCounts();
+  const { totalBadge: userTotalBadge } = useUserCounts();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -64,13 +66,20 @@ const Navbar: React.FC = () => {
               <>
                 <Link
                   to="/profile"
-                  className="flex items-center gap-2 text-white hover:text-wc-gold transition-colors"
+                  className="relative flex items-center gap-2 text-white hover:text-wc-gold transition-colors"
                 >
-                  <div className="w-8 h-8 rounded-full bg-wc-gold text-gray-900 flex items-center justify-center font-bold text-sm">
-                    {user.avatarUrl ? (
-                      <img src={user.avatarUrl} alt={user.username} className="w-8 h-8 rounded-full object-cover" />
-                    ) : (
-                      user.username[0].toUpperCase()
+                  <div className="relative w-8 h-8">
+                    <div className="w-8 h-8 rounded-full bg-wc-gold text-gray-900 flex items-center justify-center font-bold text-sm">
+                      {user.avatarUrl ? (
+                        <img src={user.avatarUrl} alt={user.username} className="w-8 h-8 rounded-full object-cover" />
+                      ) : (
+                        user.username[0].toUpperCase()
+                      )}
+                    </div>
+                    {userTotalBadge > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold leading-none rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
+                        {userTotalBadge}
+                      </span>
                     )}
                   </div>
                   <span className="text-sm font-medium">{user.displayName || user.username}</span>
@@ -125,10 +134,15 @@ const Navbar: React.FC = () => {
               )}
               <Link
                 to="/profile"
-                className="text-sm px-3 py-3 min-h-[44px] flex items-center text-gray-200"
+                className="text-sm px-3 py-3 min-h-[44px] flex items-center gap-2 text-gray-200"
                 onClick={() => setMobileOpen(false)}
               >
                 👤 Profil ({user?.displayName || user?.username})
+                {userTotalBadge > 0 && (
+                  <span className="inline-flex items-center justify-center bg-red-500 text-white text-[10px] font-bold leading-none rounded-full min-w-[16px] h-4 px-1">
+                    {userTotalBadge}
+                  </span>
+                )}
               </Link>
               <button
                 onClick={handleLogout}

@@ -7,12 +7,14 @@ import type { Bet, LeaderboardEntry, UserForfeitEntry } from '../types';
 import { isAdmin } from '../types';
 import { formatDate } from '../utils/dates';
 import { useToast } from '../components/Toast';
+import { useUserCounts } from '../context/UserCountsContext';
 import ProfileInfoForm from './profile/ProfileInfoForm';
 import PasswordForm from './profile/PasswordForm';
 
 const Profile: React.FC = () => {
   const { user } = useAuth();
   const { showToast } = useToast();
+  const { refresh: refreshUserCounts } = useUserCounts();
   const [myBets, setMyBets] = useState<Bet[]>([]);
   const [leaderboardEntry, setLeaderboardEntry] = useState<LeaderboardEntry | null>(null);
   const [myForfeits, setMyForfeits] = useState<UserForfeitEntry[]>([]);
@@ -52,6 +54,7 @@ const Profile: React.FC = () => {
             : uf
         )
       );
+      refreshUserCounts();
     } catch {
       showToast('Erreur lors de la mise à jour du gage');
     } finally {
