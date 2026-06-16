@@ -1,6 +1,7 @@
 package com.pronocore.service;
 
 import com.pronocore.dto.request.CreateDailyGageRequest;
+import com.pronocore.entity.GroupMember;
 import com.pronocore.dto.response.DailyGageCandidateResponse;
 import com.pronocore.dto.response.DailyGageResponse;
 import com.pronocore.dto.response.ForfeitResponse;
@@ -36,6 +37,7 @@ public class DailyGageService {
     private final GroupRepository              groupRepository;
     private final GroupMemberRepository        groupMemberRepository;
     private final GroupMemberGuard             groupMemberGuard;
+    private final EmailService                 emailService;
 
     // ---------------------------------------------------------------
     // Queries (scoped to the caller's groups)
@@ -334,6 +336,22 @@ public class DailyGageService {
 
         log.info("🃏 Daily gage '{}' assigned to {} (group {}) for {} ({} pts, {} loser(s) in draw)",
                 forfeit.getTitle(), unlucky.getUsername(), groupId, matchDay, minPoints, losers.size());
+
+        // Send gage resolution email to subscribed group members
+        Map<String, Integer> namedScores = dailyPoints.entrySet().stream()
+                .collect(Collectors.toMap(
+                        e -> e.getKey().getDisplayName() != null ? e.getKey().getDisplayName() : e.getKey().getUsername(),
+                        Map.Entry::getValue));
+        String assignedToName = unlucky.getDisplayName() != null ? unlucky.getDisplayName() : unlucky.getUsername();
+        String groupName = dg.getGroup().getName();
+
+        groupMemberRepository.findByGroupId(groupId).stream()
+                .filter(m -> m.getStatus() == GroupMember.MemberStatus.ACTIVE)
+                .map(GroupMember::getUser)
+                .filter(User::isEmailGageEnabled)
+                .forEach(subscriber -> emailService.sendGageResolutionEmail(
+                        subscriber, forfeit.getTitle(), forfeit.getDescription(),
+                        unlucky, groupName, namedScores));
     }
 
     // ---------------------------------------------------------------

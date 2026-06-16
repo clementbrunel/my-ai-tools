@@ -25,5 +25,6 @@ public class UserResponse {
     private int betsWon;
     private int forfeitsReceived;
     private boolean emailReminderEnabled;
+    private boolean emailGageEnabled;
     private LocalDateTime createdAt;
 }

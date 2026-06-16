@@ -10,6 +10,7 @@ export interface User {
   betsWon: number;
   forfeitsReceived: number;
   emailReminderEnabled: boolean;
+  emailGageEnabled: boolean;
   createdAt?: string;
 }
 

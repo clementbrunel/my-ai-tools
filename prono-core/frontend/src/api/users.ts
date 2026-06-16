@@ -25,6 +25,11 @@ export const updateEmailReminder = async (emailReminderEnabled: boolean): Promis
   return response.data;
 };
 
+export const updateEmailGage = async (emailGageEnabled: boolean): Promise<User> => {
+  const response = await apiClient.patch<User>('/users/me/email-gage', { emailGageEnabled });
+  return response.data;
+};
+
 export const getAllUsersAdmin = async (): Promise<UserAdminInfo[]> => {
   const response = await apiClient.get<UserAdminInfo[]>('/admin/users');
   return response.data;

@@ -1,5 +1,6 @@
 package com.pronocore.controller;
 
+import com.pronocore.dto.request.UpdateEmailGageRequest;
 import com.pronocore.dto.request.UpdateEmailReminderRequest;
 import com.pronocore.dto.request.UpdateEmailRequest;
 import com.pronocore.dto.request.UpdatePasswordRequest;
@@ -75,5 +76,12 @@ public class UserController {
     public ResponseEntity<UserResponse> updateEmailReminder(@Valid @RequestBody UpdateEmailReminderRequest request,
                                                              Authentication authentication) {
         return ResponseEntity.ok(userService.updateEmailReminder(authentication.getName(), request.getEmailReminderEnabled()));
+    }
+
+    @PatchMapping("/me/email-gage")
+    @Operation(summary = "Update gage resolution email preference")
+    public ResponseEntity<UserResponse> updateEmailGage(@Valid @RequestBody UpdateEmailGageRequest request,
+                                                         Authentication authentication) {
+        return ResponseEntity.ok(userService.updateEmailGage(authentication.getName(), request.getEmailGageEnabled()));
     }
 }
