@@ -37,13 +37,6 @@ const LeaderboardRow: React.FC<LeaderboardRowProps> = ({ entry, isCurrentUser, g
     setExpanded((v) => !v);
   };
 
-  const getResultLabel = (bet: UserBetSummary) => {
-    if (bet.betStatus !== 'VALIDATED') return null;
-    return bet.pointsEarned > 0
-      ? <span className="text-xs font-bold text-wc-green">+{bet.pointsEarned} pts ✓</span>
-      : <span className="text-xs font-bold text-wc-red">0 pt ✗</span>;
-  };
-
   return (
     <>
       <tr
@@ -113,35 +106,25 @@ const LeaderboardRow: React.FC<LeaderboardRowProps> = ({ entry, isCurrentUser, g
             ) : bets && bets.length === 0 ? (
               <p className="text-sm text-gray-400 py-3 text-center italic">Aucun pari effectué dans ce groupe.</p>
             ) : (
-              <div className="flex flex-wrap gap-2 pt-3">
+              <div className="divide-y divide-gray-100 dark:divide-gray-700 pt-1">
                 {bets?.map((bet) => {
                   const isWon = bet.betStatus === 'VALIDATED' && bet.pointsEarned > 0;
                   const isLost = bet.betStatus === 'VALIDATED' && bet.pointsEarned === 0;
-                  const isPending = bet.betStatus === 'OPEN';
                   return (
-                    <div
-                      key={bet.participationId}
-                      className={`rounded-lg border px-3 py-2 text-xs flex flex-col gap-1 min-w-[140px] max-w-[200px]
-                        ${isWon ? 'border-green-300 bg-green-50 dark:bg-green-900/20 dark:border-green-700' : ''}
-                        ${isLost ? 'border-red-200 bg-red-50 dark:bg-red-900/10 dark:border-red-800' : ''}
-                        ${isPending ? 'border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-600' : ''}
-                        ${bet.betStatus === 'CANCELLED' ? 'border-gray-200 bg-gray-50 dark:bg-gray-700/30 opacity-60' : ''}
-                      `}
-                    >
-                      <div className="font-semibold text-gray-800 dark:text-gray-100 leading-tight">{bet.betTitle}</div>
-                      <div className="text-gray-500 dark:text-gray-400">
-                        Choix : <span className="font-medium text-gray-700 dark:text-gray-200">{bet.chosenOption}</span>
+                    <div key={bet.participationId} className="flex items-center justify-between py-2 gap-3 text-xs">
+                      <span className="text-gray-700 dark:text-gray-300 truncate">{bet.betTitle}</span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-gray-500 dark:text-gray-400">{bet.chosenOption}</span>
+                        {bet.betStatus === 'VALIDATED' && (
+                          isWon
+                            ? <span className="font-bold text-wc-green">+{bet.pointsEarned}pts</span>
+                            : <span className="font-bold text-wc-red">0pt</span>
+                        )}
+                        {isWon && <span>✓</span>}
+                        {isLost && <span>✗</span>}
+                        {bet.betStatus === 'OPEN' && <span className="text-amber-500">…</span>}
+                        {bet.betStatus === 'CANCELLED' && <span className="text-gray-400">—</span>}
                       </div>
-                      {bet.betStatus === 'VALIDATED' && bet.winningOption && (
-                        <div className="text-gray-500 dark:text-gray-400">
-                          Résultat : <span className="font-medium">{bet.winningOption}</span>
-                        </div>
-                      )}
-                      <div className="mt-1">{getResultLabel(bet) ?? (
-                        <span className={`text-xs ${bet.betStatus === 'CANCELLED' ? 'text-gray-400' : 'text-amber-500'}`}>
-                          {bet.betStatus === 'CANCELLED' ? 'Annulé' : 'En attente'}
-                        </span>
-                      )}</div>
                     </div>
                   );
                 })}
