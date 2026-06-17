@@ -42,6 +42,16 @@
     accent-color: #009900;
   }
 
+  /* Hide native spinners on number inputs — ScoreInput provides its own +/− buttons */
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type='number'] {
+    -moz-appearance: textfield;
+  }
+
   .label {
     @apply block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1;
   }
