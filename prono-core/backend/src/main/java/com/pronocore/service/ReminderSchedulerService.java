@@ -35,8 +35,10 @@ public class ReminderSchedulerService {
 
     /**
      * Runs every minute. When a match enters the 4h-before window, collects every
-     * user who hasn't been reminded today, fetches ALL their pending matches of the day,
-     * and sends a single consolidated email. At most one email per user per day.
+     * user who hasn't been reminded for that trigger day yet, fetches ALL their pending
+     * matches up to the end of the trigger day, and sends a single consolidated email.
+     * At most one email per user per trigger calendar day (which may be tomorrow for
+     * early-morning matches whose window fires the previous evening).
      */
     @Scheduled(fixedDelay = 60_000)
     @Transactional
@@ -49,8 +51,17 @@ public class ReminderSchedulerService {
 
         if (triggerMatches.isEmpty()) return;
 
-        // Collect users who need a reminder today (not yet reminded, reminder enabled,
-        // and have at least one unbet match in the trigger window)
+        // Use the calendar day of the furthest trigger match as the reminder key.
+        // This handles early-morning matches (0h–4h) whose 4h window fires the
+        // previous evening: their date is tomorrow, so the window and the
+        // dedup key must extend into the next calendar day.
+        LocalDate latestTriggerDay = triggerMatches.stream()
+                .map(m -> m.getMatchDate().toLocalDate())
+                .max(LocalDate::compareTo)
+                .orElse(today);
+
+        // Collect users who need a reminder (not yet reminded for this trigger day,
+        // reminder enabled, and have at least one unbet match in the trigger window)
         Map<Long, User> usersToRemind = new LinkedHashMap<>();
 
         for (Match match : triggerMatches) {
@@ -64,7 +75,9 @@ public class ReminderSchedulerService {
                 for (GroupMember gm : members) {
                     User user = gm.getUser();
                     if (!user.isEmailReminderEnabled()) continue;
-                    if (today.equals(user.getReminderSentDate())) continue;
+                    // Dedup against the trigger day (not "today") so a user reminded
+                    // earlier today for a 15h match still receives the 2h-next-morning email.
+                    if (latestTriggerDay.equals(user.getReminderSentDate())) continue;
                     if (betParticipationRepository.existsByUserIdAndMatchId(user.getId(), match.getId())) continue;
                     usersToRemind.put(user.getId(), user);
                 }
@@ -73,13 +86,15 @@ public class ReminderSchedulerService {
 
         log.info("Triggered by {} match(es), reminding {} user(s)", triggerMatches.size(), usersToRemind.size());
 
+        // Window: from start of today to start of the day after the trigger match day.
+        // Covers both same-day matches and early-morning matches of the next calendar day.
         LocalDateTime startOfDay = today.atStartOfDay();
-        LocalDateTime startOfNextDay = today.plusDays(1).atStartOfDay();
+        LocalDateTime endOfWindow = latestTriggerDay.plusDays(1).atStartOfDay();
 
         for (User user : usersToRemind.values()) {
-            // Fetch ALL matches today this user hasn't bet on (not just the trigger ones)
+            // Fetch ALL pending matches in the window this user hasn't bet on yet
             List<Match> allPending = matchRepository.findPendingMatchesTodayForUser(
-                    user.getId(), startOfDay, startOfNextDay, now);
+                    user.getId(), startOfDay, endOfWindow, now);
 
             if (!allPending.isEmpty()) {
                 emailService.sendMatchReminder(user, allPending);
@@ -87,7 +102,7 @@ public class ReminderSchedulerService {
                         user.getUsername(), user.getEmail(), allPending.size(),
                         allPending.stream().map(m -> m.getTeamA() + " vs " + m.getTeamB()).toList());
             }
-            user.setReminderSentDate(today);
+            user.setReminderSentDate(latestTriggerDay);
             userRepository.save(user);
         }
 
