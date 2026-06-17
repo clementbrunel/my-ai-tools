@@ -247,7 +247,8 @@ const AdminMatchesTab: React.FC = () => {
                   value={scoreA}
                   onChange={setScoreA}
                   min={0}
-                  inputClassName="input-field w-20 text-center text-xl font-bold"
+                  inputClassName="input-field w-16 text-center text-xl font-bold"
+                  compact
                 />
               </div>
               <span className="text-2xl font-bold text-gray-400 mt-5">-</span>
@@ -257,7 +258,8 @@ const AdminMatchesTab: React.FC = () => {
                   value={scoreB}
                   onChange={setScoreB}
                   min={0}
-                  inputClassName="input-field w-20 text-center text-xl font-bold"
+                  inputClassName="input-field w-16 text-center text-xl font-bold"
+                  compact
                 />
               </div>
             </div>
