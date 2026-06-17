@@ -24,4 +24,8 @@ public interface UserForfeitRepository extends JpaRepository<UserForfeit, Long> 
     /** All incomplete gage assignments for a group, newest first. */
     @Query("SELECT uf FROM UserForfeit uf JOIN FETCH uf.user JOIN FETCH uf.forfeit JOIN FETCH uf.assignedBy WHERE uf.group.id = :groupId AND uf.completed = false ORDER BY uf.assignedAt DESC")
     List<UserForfeit> findPendingByGroupId(@Param("groupId") Long groupId);
+
+    /** All completed gage assignments for a group, most recently completed first. */
+    @Query("SELECT uf FROM UserForfeit uf JOIN FETCH uf.user JOIN FETCH uf.forfeit JOIN FETCH uf.assignedBy WHERE uf.group.id = :groupId AND uf.completed = true ORDER BY uf.completedAt DESC")
+    List<UserForfeit> findCompletedByGroupId(@Param("groupId") Long groupId);
 }

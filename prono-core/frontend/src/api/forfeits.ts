@@ -88,6 +88,12 @@ export const getGroupPendingAssignments = async (groupId: number): Promise<Group
   return response.data;
 };
 
+/** Returns all completed gage assignments for every member of the group. */
+export const getGroupCompletedAssignments = async (groupId: number): Promise<GroupUserForfeit[]> => {
+  const response = await apiClient.get<GroupUserForfeit[]>(`/forfeits/group/${groupId}/completed-assignments`);
+  return response.data;
+};
+
 export const approveGroupForfeit = async (groupId: number, forfeitId: number): Promise<Forfeit> => {
   const response = await apiClient.patch<Forfeit>(`/forfeits/group/${groupId}/${forfeitId}/approve`);
   return response.data;

@@ -117,6 +117,12 @@ public class ForfeitController {
         return ResponseEntity.ok(forfeitService.getGroupPendingAssignments(groupId));
     }
 
+    @GetMapping("/group/{groupId}/completed-assignments")
+    @Operation(summary = "Get completed gage assignments for all members of a group (group member)")
+    public ResponseEntity<List<GroupUserForfeitResponse>> getGroupCompletedAssignments(@PathVariable Long groupId) {
+        return ResponseEntity.ok(forfeitService.getGroupCompletedAssignments(groupId));
+    }
+
     @PatchMapping("/group/{groupId}/{forfeitId}/approve")
     @Operation(summary = "Approve a player-proposed forfeit (group admin)")
     public ResponseEntity<ForfeitResponse> approveGroupForfeit(
