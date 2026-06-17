@@ -5,6 +5,7 @@ import { useFormMessages } from '../../hooks/useFormMessages';
 import type { Match } from '../../types';
 import { formatDate } from '../../utils/dates';
 import ScrollableTableWrapper from '../../components/ScrollableTableWrapper';
+import ScoreInput from '../../components/ScoreInput';
 
 const AdminMatchesTab: React.FC = () => {
   const { showToast } = useToast();
@@ -242,14 +243,22 @@ const AdminMatchesTab: React.FC = () => {
             <div className="flex items-center gap-3 mb-4">
               <div>
                 <label className="label text-xs">{editingMatch.teamA}</label>
-                <input type="number" value={scoreA} onChange={(e) => setScoreA(e.target.value)}
-                  className="input-field w-20 text-center text-xl font-bold" min={0} />
+                <ScoreInput
+                  value={scoreA}
+                  onChange={setScoreA}
+                  min={0}
+                  inputClassName="input-field w-20 text-center text-xl font-bold"
+                />
               </div>
               <span className="text-2xl font-bold text-gray-400 mt-5">-</span>
               <div>
                 <label className="label text-xs">{editingMatch.teamB}</label>
-                <input type="number" value={scoreB} onChange={(e) => setScoreB(e.target.value)}
-                  className="input-field w-20 text-center text-xl font-bold" min={0} />
+                <ScoreInput
+                  value={scoreB}
+                  onChange={setScoreB}
+                  min={0}
+                  inputClassName="input-field w-20 text-center text-xl font-bold"
+                />
               </div>
             </div>
             <div className="flex gap-3">

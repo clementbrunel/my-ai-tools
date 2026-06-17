@@ -10,6 +10,7 @@ import { useToast } from '../components/Toast';
 import { getFlagUrl } from '../utils/countryFlags';
 import { extractResult, computePoints, parseOption } from '../utils/matchCalculations';
 import DailyGageCard from '../components/DailyGageCard';
+import ScoreInput from '../components/ScoreInput';
 
 // ── component ─────────────────────────────────────────────────────────────────
 
@@ -263,14 +264,12 @@ const MatchDetail: React.FC = () => {
               <div className="flex items-end gap-4">
                 <div className="flex-1 text-center">
                   <label className="label text-sm">{match.teamA}</label>
-                  <input
-                    type="number"
-                    inputMode="numeric"
+                  <ScoreInput
+                    value={scoreA}
+                    onChange={setScoreA}
                     min={0}
                     max={20}
-                    value={scoreA}
-                    onChange={(e) => setScoreA(e.target.value)}
-                    className="input-field text-center text-3xl font-black w-full py-3"
+                    inputClassName="input-field text-center text-3xl font-black w-full py-3"
                     placeholder="0"
                     required
                   />
@@ -278,14 +277,12 @@ const MatchDetail: React.FC = () => {
                 <div className="text-3xl font-black text-gray-400 dark:text-gray-500 pb-3">—</div>
                 <div className="flex-1 text-center">
                   <label className="label text-sm">{match.teamB}</label>
-                  <input
-                    type="number"
-                    inputMode="numeric"
+                  <ScoreInput
+                    value={scoreB}
+                    onChange={setScoreB}
                     min={0}
                     max={20}
-                    value={scoreB}
-                    onChange={(e) => setScoreB(e.target.value)}
-                    className="input-field text-center text-3xl font-black w-full py-3"
+                    inputClassName="input-field text-center text-3xl font-black w-full py-3"
                     placeholder="0"
                     required
                   />
