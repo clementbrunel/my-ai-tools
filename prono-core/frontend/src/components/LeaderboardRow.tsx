@@ -24,6 +24,7 @@ const LeaderboardRow: React.FC<LeaderboardRowProps> = ({ entry, isCurrentUser, g
   const handleRowClick = async () => {
     if (!groupId) return;
     if (!expanded && bets === null) {
+      setExpanded(true);
       setLoading(true);
       try {
         const data = await getUserBetsInGroup(groupId, user.id);
@@ -33,8 +34,9 @@ const LeaderboardRow: React.FC<LeaderboardRowProps> = ({ entry, isCurrentUser, g
       } finally {
         setLoading(false);
       }
+    } else {
+      setExpanded((v) => !v);
     }
-    setExpanded((v) => !v);
   };
 
   return (
@@ -102,7 +104,13 @@ const LeaderboardRow: React.FC<LeaderboardRowProps> = ({ entry, isCurrentUser, g
         <tr className="border-b border-gray-100 dark:border-gray-700">
           <td colSpan={groupId ? 6 : 5} className="px-4 pb-4 pt-0 bg-gray-50 dark:bg-gray-800/30">
             {loading ? (
-              <p className="text-sm text-gray-500 py-3 text-center">Chargement des paris...</p>
+              <div className="flex items-center justify-center gap-2 py-3">
+                <svg className="animate-spin h-4 w-4 text-wc-green" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                <span className="text-sm text-gray-500">Chargement des paris...</span>
+              </div>
             ) : bets && bets.length === 0 ? (
               <p className="text-sm text-gray-400 py-3 text-center italic">Aucun pari effectué dans ce groupe.</p>
             ) : (
