@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getLeaderboard, getGroupLeaderboard } from '../api/leaderboard';
 import { getMyGroups } from '../api/groups';
-import { getGroupPendingAssignments, getGroupCompletedAssignments } from '../api/forfeits';
+import { getGroupAssignments } from '../api/forfeits';
 import type { GroupUserForfeit, LeaderboardEntry, Group } from '../types';
 import LeaderboardRow from '../components/LeaderboardRow';
 import ScrollableTableWrapper from '../components/ScrollableTableWrapper';
@@ -111,8 +111,7 @@ const Leaderboard: React.FC = () => {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
-  const [pendingGages, setPendingGages] = useState<GroupUserForfeit[]>([]);
-  const [completedGages, setCompletedGages] = useState<GroupUserForfeit[]>([]);
+  const [allGages, setAllGages] = useState<GroupUserForfeit[]>([]);
   const [gagesFilter, setGagesFilter] = useState<'pending' | 'completed'>('pending');
   const [isLoading, setIsLoading] = useState(true);
 
@@ -133,11 +132,9 @@ const Leaderboard: React.FC = () => {
     load.then(setEntries).catch(console.error).finally(() => setIsLoading(false));
 
     if (selectedGroupId != null) {
-      getGroupPendingAssignments(selectedGroupId).then(setPendingGages).catch(console.error);
-      getGroupCompletedAssignments(selectedGroupId).then(setCompletedGages).catch(console.error);
+      getGroupAssignments(selectedGroupId).then(setAllGages).catch(console.error);
     } else {
-      setPendingGages([]);
-      setCompletedGages([]);
+      setAllGages([]);
     }
   }, [selectedGroupId]);
 
@@ -319,61 +316,65 @@ const Leaderboard: React.FC = () => {
       </div>
 
       {/* Gages Section — visible only in group mode */}
-      {selectedGroupId != null && (pendingGages.length > 0 || completedGages.length > 0) && (
-        <div className="space-y-3">
-          <div className="flex items-center gap-3">
-            <h2 className="text-base font-bold text-gray-800 dark:text-white flex items-center gap-2">
-              🃏 Gages
-            </h2>
-            <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 text-sm">
-              <button
-                onClick={() => setGagesFilter('pending')}
-                className={`px-3 py-1.5 font-medium transition-colors ${
-                  gagesFilter === 'pending'
-                    ? 'bg-purple-600 text-white'
-                    : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                }`}
-              >
-                En attente
-                {pendingGages.length > 0 && (
-                  <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${gagesFilter === 'pending' ? 'bg-purple-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'}`}>
-                    {pendingGages.length}
-                  </span>
-                )}
-              </button>
-              <button
-                onClick={() => setGagesFilter('completed')}
-                className={`px-3 py-1.5 font-medium transition-colors border-l border-gray-200 dark:border-gray-700 ${
-                  gagesFilter === 'completed'
-                    ? 'bg-green-600 text-white'
-                    : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                }`}
-              >
-                Effectués
-                {completedGages.length > 0 && (
-                  <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${gagesFilter === 'completed' ? 'bg-green-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'}`}>
-                    {completedGages.length}
-                  </span>
-                )}
-              </button>
+      {selectedGroupId != null && allGages.length > 0 && (() => {
+        const pendingGages = allGages.filter((g) => !g.completed);
+        const completedGages = allGages.filter((g) => g.completed);
+        return (
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <h2 className="text-base font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                🃏 Gages
+              </h2>
+              <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 text-sm">
+                <button
+                  onClick={() => setGagesFilter('pending')}
+                  className={`px-3 py-1.5 font-medium transition-colors ${
+                    gagesFilter === 'pending'
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  En attente
+                  {pendingGages.length > 0 && (
+                    <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${gagesFilter === 'pending' ? 'bg-purple-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'}`}>
+                      {pendingGages.length}
+                    </span>
+                  )}
+                </button>
+                <button
+                  onClick={() => setGagesFilter('completed')}
+                  className={`px-3 py-1.5 font-medium transition-colors border-l border-gray-200 dark:border-gray-700 ${
+                    gagesFilter === 'completed'
+                      ? 'bg-green-600 text-white'
+                      : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  Effectués
+                  {completedGages.length > 0 && (
+                    <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${gagesFilter === 'completed' ? 'bg-green-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'}`}>
+                      {completedGages.length}
+                    </span>
+                  )}
+                </button>
+              </div>
             </div>
+
+            {gagesFilter === 'pending' && pendingGages.length === 0 && (
+              <p className="text-sm text-gray-500 dark:text-gray-400">Aucun gage en attente 🎉</p>
+            )}
+            {gagesFilter === 'completed' && completedGages.length === 0 && (
+              <p className="text-sm text-gray-500 dark:text-gray-400">Aucun gage effectué pour le moment.</p>
+            )}
+
+            {gagesFilter === 'pending' && pendingGages.length > 0 && (
+              <GagesSection gages={pendingGages} currentUsername={user?.username} completed={false} />
+            )}
+            {gagesFilter === 'completed' && completedGages.length > 0 && (
+              <GagesSection gages={completedGages} currentUsername={user?.username} completed={true} />
+            )}
           </div>
-
-          {gagesFilter === 'pending' && pendingGages.length === 0 && (
-            <p className="text-sm text-gray-500 dark:text-gray-400">Aucun gage en attente 🎉</p>
-          )}
-          {gagesFilter === 'completed' && completedGages.length === 0 && (
-            <p className="text-sm text-gray-500 dark:text-gray-400">Aucun gage effectué pour le moment.</p>
-          )}
-
-          {gagesFilter === 'pending' && pendingGages.length > 0 && (
-            <GagesSection gages={pendingGages} currentUsername={user?.username} completed={false} />
-          )}
-          {gagesFilter === 'completed' && completedGages.length > 0 && (
-            <GagesSection gages={completedGages} currentUsername={user?.username} completed={true} />
-          )}
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 };
