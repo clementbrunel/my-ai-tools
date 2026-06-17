@@ -172,19 +172,7 @@ const Leaderboard: React.FC = () => {
 
       {/* Special Badges */}
       {entries.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {kingOfForfeits?.forfeitsReceived > 0 && (
-            <div className="card border-2 border-purple-300 dark:border-purple-700 bg-purple-50 dark:bg-purple-900/10 text-center p-4">
-              <div className="text-3xl mb-1">🃏</div>
-              <div className="font-bold text-purple-800 dark:text-purple-300 text-sm">Roi des gages</div>
-              <div className="text-xl font-black text-purple-900 dark:text-purple-200 mt-1">
-                {kingOfForfeits.user.displayName || kingOfForfeits.user.username}
-              </div>
-              <div className="text-xs text-purple-600 dark:text-purple-400">
-                {kingOfForfeits.forfeitsReceived} gage{kingOfForfeits.forfeitsReceived > 1 ? 's' : ''} reçu{kingOfForfeits.forfeitsReceived > 1 ? 's' : ''}
-              </div>
-            </div>
-          )}
+        <div className="grid grid-cols-1 gap-4">
           {worstLoser && worstLoser.totalPoints === 0 ? null : worstLoser && entries.length > 1 && (
             <div className="card border-2 border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 text-center p-4">
               <div className="text-3xl mb-1">💀</div>
