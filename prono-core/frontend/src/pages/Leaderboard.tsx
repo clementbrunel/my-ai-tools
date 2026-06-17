@@ -141,13 +141,6 @@ const Leaderboard: React.FC = () => {
 
   const top3 = entries.slice(0, 3);
 
-  // Special badges
-  const kingOfForfeits = entries.reduce(
-    (prev, curr) => (curr.forfeitsReceived > prev.forfeitsReceived ? curr : prev),
-    entries[0]
-  );
-  const worstLoser = entries[entries.length - 1];
-
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
