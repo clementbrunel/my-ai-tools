@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
-import { Link, useNavigationType } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import { useScrollRestoration } from '../hooks/useScrollRestoration';
 import { getMatchesForMyGroups } from '../api/matches';
 import { getMyGroups } from '../api/groups';
 import type { Match } from '../types';
@@ -13,17 +14,16 @@ import { formatDate } from '../utils/dates';
 type FilterStatus = 'ALL' | 'UPCOMING' | 'FINISHED';
 type ViewMode = 'grid' | 'list';
 
-const SCROLL_KEY = 'matches-scroll-y';
-
 const Matches: React.FC = () => {
   const { user } = useAuth();
-  const navigationType = useNavigationType();
   const [matches, setMatches] = useState<Match[]>([]);
   const [filter, setFilter] = useState<FilterStatus>('UPCOMING');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [isLoading, setIsLoading] = useState(true);
   const [hasGroups, setHasGroups] = useState(true);
   const [search, setSearch] = useState('');
+
+  useScrollRestoration('matches-scroll-y', !isLoading);
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -42,27 +42,6 @@ const Matches: React.FC = () => {
     };
     fetchData();
   }, []);
-
-  // Save scroll position continuously while on this page
-  useEffect(() => {
-    const handleScroll = () => {
-      sessionStorage.setItem(SCROLL_KEY, String(window.scrollY));
-    };
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  // Restore scroll position when navigating back, after data is loaded
-  useEffect(() => {
-    if (navigationType === 'POP' && !isLoading) {
-      const saved = sessionStorage.getItem(SCROLL_KEY);
-      if (saved) {
-        requestAnimationFrame(() => {
-          window.scrollTo(0, parseInt(saved, 10));
-        });
-      }
-    }
-  }, [navigationType, isLoading]);
 
   const filtered = useMemo(() => {
     if (!hasGroups) return [];
