@@ -1,11 +1,13 @@
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigationType } from 'react-router-dom';
 import { useEffect } from 'react';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
+  const navigationType = useNavigationType();
   useEffect(() => {
+    if (navigationType === 'POP') return;
     window.scrollTo(0, 0);
-  }, [pathname]);
+  }, [pathname, navigationType]);
   return null;
 }
 import { AuthProvider } from './context/AuthContext';

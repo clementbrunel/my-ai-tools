@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import { useScrollRestoration } from '../hooks/useScrollRestoration';
 import { getMatchesForMyGroups } from '../api/matches';
 import { getMyGroups } from '../api/groups';
 import type { Match } from '../types';
@@ -21,6 +22,8 @@ const Matches: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [hasGroups, setHasGroups] = useState(true);
   const [search, setSearch] = useState('');
+
+  useScrollRestoration('matches-scroll-y', !isLoading);
 
   const today = new Date().toISOString().slice(0, 10);
 
