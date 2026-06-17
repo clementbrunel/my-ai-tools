@@ -170,23 +170,6 @@ const Leaderboard: React.FC = () => {
         )}
       </div>
 
-      {/* Special Badges */}
-      {entries.length > 0 && (
-        <div className="grid grid-cols-1 gap-4">
-          {worstLoser && worstLoser.totalPoints === 0 ? null : worstLoser && entries.length > 1 && (
-            <div className="card border-2 border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 text-center p-4">
-              <div className="text-3xl mb-1">💀</div>
-              <div className="font-bold text-gray-600 dark:text-gray-400 text-sm">Pire loser</div>
-              <div className="text-xl font-black text-gray-700 dark:text-gray-300 mt-1">
-                {worstLoser.user.displayName || worstLoser.user.username}
-              </div>
-              <div className="text-xs text-gray-500">
-                {worstLoser.totalPoints} points 😅
-              </div>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Podium Top 3 */}
       {top3.length > 0 && (
