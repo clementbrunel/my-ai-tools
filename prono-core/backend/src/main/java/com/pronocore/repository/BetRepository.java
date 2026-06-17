@@ -50,9 +50,6 @@ public interface BetRepository extends JpaRepository<Bet, Long> {
     @Query("SELECT b FROM Bet b WHERE b.creator.id = :creatorId ORDER BY b.createdAt DESC")
     List<Bet> findByCreatorId(@Param("creatorId") Long creatorId);
 
-    @Query("SELECT bp.bet FROM BetParticipation bp WHERE bp.user.id = :userId ORDER BY bp.createdAt DESC")
-    List<Bet> findParticipatedBetsByUserId(@Param("userId") Long userId);
-
     @Query("SELECT COUNT(bp) FROM BetParticipation bp WHERE bp.bet.id = :betId")
     long countParticipationsByBetId(@Param("betId") Long betId);
 

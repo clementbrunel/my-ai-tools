@@ -36,12 +36,6 @@ public class BetController {
         return ResponseEntity.ok(betService.getBetsForUser(authentication.getName()));
     }
 
-    @GetMapping("/participated")
-    @Operation(summary = "Get bets where the authenticated user has placed a participation")
-    public ResponseEntity<List<BetResponse>> getParticipatedBets(Authentication authentication) {
-        return ResponseEntity.ok(betService.getParticipatedBets(authentication.getName()));
-    }
-
     @GetMapping("/my-participations")
     @Operation(summary = "Get all participations of the authenticated user with their chosen options and results")
     public ResponseEntity<List<UserBetSummaryResponse>> getMyParticipations(Authentication authentication) {

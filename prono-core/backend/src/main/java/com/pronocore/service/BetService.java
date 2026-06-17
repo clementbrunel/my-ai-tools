@@ -44,14 +44,6 @@ public class BetService {
     }
 
     @Transactional(readOnly = true)
-    public List<BetResponse> getParticipatedBets(String username) {
-        User user = requireUser(username);
-        return betRepository.findParticipatedBetsByUserId(user.getId()).stream()
-            .map(this::toBetResponseWithCount)
-            .toList();
-    }
-
-    @Transactional(readOnly = true)
     public List<BetResponse> getBetsByMatch(Long matchId, String username) {
         User user = requireUser(username);
         return betRepository.findByMatchIdInUserActiveGroups(matchId, user.getId()).stream()
