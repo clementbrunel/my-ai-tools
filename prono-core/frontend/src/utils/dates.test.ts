@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatDate, formatDateTime, parseDDMMYYYY } from './dates';
+import { formatDate, formatTime, formatDateTime, parseDDMMYYYY } from './dates';
 
 describe('formatDate', () => {
   it('formats a LocalDate string', () => {
@@ -21,6 +21,29 @@ describe('formatDate', () => {
   it('handles end-of-year date', () => {
     expect(formatDate('2026-12-31')).toBe('31/12/2026');
   });
+
+  // Regression: midnight match must not shift to the previous day
+  it('ne décale pas la date pour un match à minuit (pas de conversion UTC)', () => {
+    expect(formatDate('2026-06-11T00:00:00')).toBe('11/06/2026');
+  });
+});
+
+describe('formatTime', () => {
+  it('extrait les heures et minutes depuis une chaîne ISO', () => {
+    expect(formatTime('2026-06-11T21:00:00')).toBe('21:00');
+  });
+
+  it('gère minuit sans décalage', () => {
+    expect(formatTime('2026-06-11T00:00:00')).toBe('00:00');
+  });
+
+  it('extrait les minutes correctement', () => {
+    expect(formatTime('2026-06-11T08:30:00')).toBe('08:30');
+  });
+
+  it('accepte un objet Date (timestamp UTC explicite)', () => {
+    expect(formatTime(new Date('2026-06-11T21:00:00.000Z'))).toBe('21:00');
+  });
 });
 
 describe('formatDateTime', () => {
@@ -29,9 +52,12 @@ describe('formatDateTime', () => {
     expect(result).toMatch(/^11\/06\/2026/);
   });
 
-  it('includes hours and minutes', () => {
-    const result = formatDateTime('2026-06-11T21:30:00');
-    expect(result).toMatch(/\d{2}:\d{2}$/);
+  it('includes the exact time from the ISO string', () => {
+    expect(formatDateTime('2026-06-11T21:30:00')).toBe('11/06/2026 21:30');
+  });
+
+  it('retourne la bonne date et heure pour minuit', () => {
+    expect(formatDateTime('2026-06-11T00:00:00')).toBe('11/06/2026 00:00');
   });
 
   it('accepts a Date object', () => {
