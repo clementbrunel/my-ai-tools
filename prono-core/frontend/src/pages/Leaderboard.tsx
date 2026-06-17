@@ -141,13 +141,6 @@ const Leaderboard: React.FC = () => {
 
   const top3 = entries.slice(0, 3);
 
-  // Special badges
-  const kingOfForfeits = entries.reduce(
-    (prev, curr) => (curr.forfeitsReceived > prev.forfeitsReceived ? curr : prev),
-    entries[0]
-  );
-  const worstLoser = entries[entries.length - 1];
-
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -170,35 +163,6 @@ const Leaderboard: React.FC = () => {
         )}
       </div>
 
-      {/* Special Badges */}
-      {entries.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {kingOfForfeits?.forfeitsReceived > 0 && (
-            <div className="card border-2 border-purple-300 dark:border-purple-700 bg-purple-50 dark:bg-purple-900/10 text-center p-4">
-              <div className="text-3xl mb-1">🃏</div>
-              <div className="font-bold text-purple-800 dark:text-purple-300 text-sm">Roi des gages</div>
-              <div className="text-xl font-black text-purple-900 dark:text-purple-200 mt-1">
-                {kingOfForfeits.user.displayName || kingOfForfeits.user.username}
-              </div>
-              <div className="text-xs text-purple-600 dark:text-purple-400">
-                {kingOfForfeits.forfeitsReceived} gage{kingOfForfeits.forfeitsReceived > 1 ? 's' : ''} reçu{kingOfForfeits.forfeitsReceived > 1 ? 's' : ''}
-              </div>
-            </div>
-          )}
-          {worstLoser && worstLoser.totalPoints === 0 ? null : worstLoser && entries.length > 1 && (
-            <div className="card border-2 border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 text-center p-4">
-              <div className="text-3xl mb-1">💀</div>
-              <div className="font-bold text-gray-600 dark:text-gray-400 text-sm">Pire loser</div>
-              <div className="text-xl font-black text-gray-700 dark:text-gray-300 mt-1">
-                {worstLoser.user.displayName || worstLoser.user.username}
-              </div>
-              <div className="text-xs text-gray-500">
-                {worstLoser.totalPoints} points 😅
-              </div>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Podium Top 3 */}
       {top3.length > 0 && (
