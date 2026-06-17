@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import type { Match } from '../types';
-import { formatDate } from '../utils/dates';
+import { formatDate, formatTime } from '../utils/dates';
 import { getFlagUrl } from '../utils/countryFlags';
 
 interface MatchCardProps {
@@ -22,7 +22,6 @@ const TeamFlag: React.FC<{ name: string; size?: string }> = ({ name, size = 'w-8
 };
 
 const MatchCard: React.FC<MatchCardProps> = ({ match, pronoStatus }) => {
-  const matchDate = new Date(match.matchDate);
 
   const borderClass =
     pronoStatus === 'done'
@@ -62,10 +61,10 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, pronoStatus }) => {
               <div className="text-center">
                 <div className="text-gray-400 dark:text-gray-500 font-bold text-lg">VS</div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">
-                  {formatDate(matchDate)}
+                  {formatDate(match.matchDate)}
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">
-                  {matchDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                  {formatTime(match.matchDate)}
                 </div>
               </div>
             )}
