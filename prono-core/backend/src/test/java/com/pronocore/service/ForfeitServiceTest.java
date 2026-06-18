@@ -1,0 +1,349 @@
+package com.pronocore.service;
+
+import com.pronocore.dto.response.ForfeitResponse;
+import com.pronocore.dto.response.UserForfeitResponse;
+import com.pronocore.entity.Forfeit;
+import com.pronocore.entity.Group;
+import com.pronocore.entity.GroupMember;
+import com.pronocore.entity.User;
+import com.pronocore.entity.UserForfeit;
+import com.pronocore.repository.ForfeitRepository;
+import com.pronocore.repository.GroupMemberRepository;
+import com.pronocore.repository.UserForfeitRepository;
+import com.pronocore.repository.UserRepository;
+import jakarta.persistence.EntityNotFoundException;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
+
+import java.util.List;
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class ForfeitServiceTest {
+
+    @Mock private ForfeitRepository     forfeitRepository;
+    @Mock private UserForfeitRepository userForfeitRepository;
+    @Mock private UserRepository        userRepository;
+    @Mock private GroupMemberRepository groupMemberRepository;
+    @Mock private GroupMemberGuard      groupMemberGuard;
+
+    @InjectMocks
+    private ForfeitService forfeitService;
+
+    private User adminUser;
+    private User regularUser;
+    private Forfeit forfeit;
+
+    @BeforeEach
+    void setUp() {
+        adminUser = User.builder()
+                .id(1L).username("admin").email("admin@test.com")
+                .password("encoded").role(User.Role.PLATFORM_ADMIN)
+                .globalScore(0).betsWon(0).forfeitsReceived(0)
+                .build();
+
+        regularUser = User.builder()
+                .id(2L).username("player").email("player@test.com")
+                .password("encoded").role(User.Role.USER)
+                .globalScore(0).betsWon(0).forfeitsReceived(0)
+                .build();
+
+        forfeit = Forfeit.builder()
+                .id(10L).title("Drink water").description("Drink a glass")
+                .category("Fun").active(true).timesCompleted(0)
+                .build();
+
+        setCurrentUser("player");
+    }
+
+    @AfterEach
+    void clearSecurityContext() {
+        SecurityContextHolder.clearContext();
+    }
+
+    private void setCurrentUser(String username) {
+        SecurityContext sc   = mock(SecurityContext.class);
+        Authentication  auth = mock(Authentication.class);
+        lenient().when(auth.getName()).thenReturn(username);
+        lenient().when(sc.getAuthentication()).thenReturn(auth);
+        SecurityContextHolder.setContext(sc);
+    }
+
+    // ── getForfeitsForUser ──────────────────────────────────────────────────────
+
+    @Test
+    void getForfeitsForUser_withGroups_returnsSharedAndGroupGages() {
+        Group group = Group.builder().id(7L).name("Les Potes").build();
+        GroupMember m = GroupMember.builder()
+                .id(1L).group(group).user(regularUser)
+                .role(GroupMember.GroupRole.MEMBER).status(GroupMember.MemberStatus.ACTIVE)
+                .build();
+
+        when(userRepository.findByUsername("player")).thenReturn(Optional.of(regularUser));
+        when(groupMemberRepository.findByUserIdAndStatus(2L, GroupMember.MemberStatus.ACTIVE))
+                .thenReturn(List.of(m));
+        when(forfeitRepository.findActiveVisibleToGroups(List.of(7L))).thenReturn(List.of(forfeit));
+
+        List<ForfeitResponse> result = forfeitService.getForfeitsForUser("player");
+
+        assertThat(result).hasSize(1);
+        verify(forfeitRepository).findActiveVisibleToGroups(List.of(7L));
+        verify(forfeitRepository, never()).findByActiveTrueAndGroupIsNullOrderById();
+    }
+
+    @Test
+    void getForfeitsForUser_withoutGroups_returnsOnlySharedGages() {
+        when(userRepository.findByUsername("player")).thenReturn(Optional.of(regularUser));
+        when(groupMemberRepository.findByUserIdAndStatus(2L, GroupMember.MemberStatus.ACTIVE))
+                .thenReturn(List.of());
+        when(forfeitRepository.findByActiveTrueAndGroupIsNullOrderById()).thenReturn(List.of(forfeit));
+
+        List<ForfeitResponse> result = forfeitService.getForfeitsForUser("player");
+
+        assertThat(result).hasSize(1);
+        verify(forfeitRepository).findByActiveTrueAndGroupIsNullOrderById();
+        verify(forfeitRepository, never()).findActiveVisibleToGroups(any());
+    }
+
+    // ── getAllForfeitsAdmin ─────────────────────────────────────────────────────
+
+    @Test
+    void getAllForfeitsAdmin_shouldReturnAllForfeitsIncludingInactive() {
+        Forfeit inactive = Forfeit.builder()
+                .id(11L).title("Old gage").description("desc")
+                .category("Old").active(false).timesCompleted(0)
+                .build();
+
+        when(forfeitRepository.findAll()).thenReturn(List.of(forfeit, inactive));
+
+        List<ForfeitResponse> result = forfeitService.getAllForfeitsAdmin();
+
+        assertThat(result).hasSize(2);
+        assertThat(result).extracting(ForfeitResponse::isActive).containsExactlyInAnyOrder(true, false);
+        verify(forfeitRepository).findAll();
+    }
+
+    // ── createForfeit ──────────────────────────────────────────────────────────
+
+    @Test
+    void createForfeit_shouldSaveWithActiveTrueAndNoProposedBy() {
+        when(forfeitRepository.save(any(Forfeit.class))).thenReturn(forfeit);
+
+        forfeitService.createForfeit("Drink water", "Drink a glass", "Fun");
+
+        ArgumentCaptor<Forfeit> captor = ArgumentCaptor.forClass(Forfeit.class);
+        verify(forfeitRepository).save(captor.capture());
+        assertThat(captor.getValue().isActive()).isTrue();
+        assertThat(captor.getValue().getProposedBy()).isNull();
+        assertThat(captor.getValue().getTitle()).isEqualTo("Drink water");
+    }
+
+    // ── proposeForfeit ─────────────────────────────────────────────────────────
+
+    @Test
+    void proposeForfeit_shouldSetProposedByAndGroup() {
+        Group group = Group.builder().id(7L).name("Les Potes").build();
+        GroupMember m = GroupMember.builder()
+                .id(1L).group(group).user(regularUser)
+                .role(GroupMember.GroupRole.MEMBER).status(GroupMember.MemberStatus.ACTIVE)
+                .build();
+
+        when(userRepository.findByUsername("player")).thenReturn(Optional.of(regularUser));
+        when(groupMemberGuard.requireActiveMembership(7L, 2L)).thenReturn(m);
+        when(forfeitRepository.save(any(Forfeit.class))).thenReturn(forfeit);
+
+        forfeitService.proposeForfeit(7L, "My gage", "A description", "Custom");
+
+        ArgumentCaptor<Forfeit> captor = ArgumentCaptor.forClass(Forfeit.class);
+        verify(forfeitRepository).save(captor.capture());
+        assertThat(captor.getValue().getProposedBy()).isEqualTo(regularUser);
+        assertThat(captor.getValue().getGroup()).isEqualTo(group);
+        assertThat(captor.getValue().isActive()).isFalse(); // MEMBER proposal is pending admin approval
+        assertThat(captor.getValue().getCategory()).isEqualTo("Custom");
+    }
+
+    @Test
+    void proposeForfeit_shouldThrowWhenNotActiveGroupMember() {
+        when(userRepository.findByUsername("player")).thenReturn(Optional.of(regularUser));
+        when(groupMemberGuard.requireActiveMembership(7L, 2L))
+                .thenThrow(new AccessDeniedException("You are not a member of this group"));
+
+        assertThatThrownBy(() -> forfeitService.proposeForfeit(7L, "My gage", "desc", "Custom"))
+                .isInstanceOf(AccessDeniedException.class);
+        verify(forfeitRepository, never()).save(any());
+    }
+
+    // ── deleteForfeit (soft delete) ────────────────────────────────────────────
+
+    @Test
+    void deleteForfeit_shouldSetActiveFalseWithoutDeletingRow() {
+        when(forfeitRepository.findById(10L)).thenReturn(Optional.of(forfeit));
+
+        forfeitService.deleteForfeit(10L);
+
+        assertThat(forfeit.isActive()).isFalse();
+        verify(forfeitRepository).save(forfeit);
+        verify(forfeitRepository, never()).delete(any());
+        verify(forfeitRepository, never()).deleteById(any());
+    }
+
+    @Test
+    void deleteForfeit_shouldThrowWhenForfeitNotFound() {
+        when(forfeitRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> forfeitService.deleteForfeit(99L))
+                .isInstanceOf(EntityNotFoundException.class);
+    }
+
+    // ── assignForfeit ─────────────────────────────────────────────────────────
+
+    @Test
+    void assignForfeit_shouldIncrementForfeitsReceivedAndPersistUserForfeit() {
+        when(userRepository.findById(2L)).thenReturn(Optional.of(regularUser));
+        when(forfeitRepository.findById(10L)).thenReturn(Optional.of(forfeit));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(adminUser));
+
+        forfeitService.assignForfeit(2L, 10L, 1L);
+
+        assertThat(regularUser.getForfeitsReceived()).isEqualTo(1);
+        verify(userRepository).save(regularUser);
+
+        ArgumentCaptor<UserForfeit> captor = ArgumentCaptor.forClass(UserForfeit.class);
+        verify(userForfeitRepository).save(captor.capture());
+        assertThat(captor.getValue().getUser()).isEqualTo(regularUser);
+        assertThat(captor.getValue().getForfeit()).isEqualTo(forfeit);
+        assertThat(captor.getValue().getAssignedBy()).isEqualTo(adminUser);
+        assertThat(captor.getValue().isCompleted()).isFalse();
+    }
+
+    // ── completeForfeit ────────────────────────────────────────────────────────
+
+    @Test
+    void completeForfeit_ownerCanCompleteTheirOwnForfeit() {
+        UserForfeit uf = UserForfeit.builder()
+                .id(1L).user(regularUser).forfeit(forfeit)
+                .assignedBy(adminUser).completed(false)
+                .build();
+
+        when(userForfeitRepository.findById(1L)).thenReturn(Optional.of(uf));
+        when(userRepository.findByUsername("player")).thenReturn(Optional.of(regularUser));
+
+        forfeitService.completeForfeit(1L);
+
+        assertThat(uf.isCompleted()).isTrue();
+        assertThat(uf.getCompletedAt()).isNotNull();
+        assertThat(forfeit.getTimesCompleted()).isEqualTo(1);
+        verify(userForfeitRepository).save(uf);
+        verify(forfeitRepository).save(forfeit);
+    }
+
+    @Test
+    void completeForfeit_adminCanCompleteAnyPlayerForfeit() {
+        setCurrentUser("admin");
+
+        UserForfeit uf = UserForfeit.builder()
+                .id(2L).user(regularUser).forfeit(forfeit)
+                .assignedBy(adminUser).completed(false)
+                .build();
+
+        when(userForfeitRepository.findById(2L)).thenReturn(Optional.of(uf));
+        when(userRepository.findByUsername("admin")).thenReturn(Optional.of(adminUser));
+
+        forfeitService.completeForfeit(2L);
+
+        assertThat(uf.isCompleted()).isTrue();
+        assertThat(forfeit.getTimesCompleted()).isEqualTo(1);
+    }
+
+    @Test
+    void completeForfeit_isIdempotentAndDoesNotInflateTimesCompleted() {
+        UserForfeit alreadyDone = UserForfeit.builder()
+                .id(4L).user(regularUser).forfeit(forfeit)
+                .assignedBy(adminUser).completed(true)
+                .build();
+        forfeit.setTimesCompleted(1);
+
+        when(userForfeitRepository.findById(4L)).thenReturn(Optional.of(alreadyDone));
+        when(userRepository.findByUsername("player")).thenReturn(Optional.of(regularUser));
+
+        forfeitService.completeForfeit(4L);
+
+        // Counter must stay at 1, and no extra saves of the forfeit template.
+        assertThat(forfeit.getTimesCompleted()).isEqualTo(1);
+        verify(forfeitRepository, never()).save(any());
+        verify(userForfeitRepository, never()).save(any());
+    }
+
+    @Test
+    void completeForfeit_strangerCannotCompleteOtherPlayerForfeit() {
+        User stranger = User.builder()
+                .id(99L).username("stranger").email("s@test.com")
+                .password("encoded").role(User.Role.USER)
+                .globalScore(0).betsWon(0).forfeitsReceived(0)
+                .build();
+        setCurrentUser("stranger");
+
+        UserForfeit uf = UserForfeit.builder()
+                .id(3L).user(regularUser).forfeit(forfeit)
+                .assignedBy(adminUser).completed(false)
+                .build();
+
+        when(userForfeitRepository.findById(3L)).thenReturn(Optional.of(uf));
+        when(userRepository.findByUsername("stranger")).thenReturn(Optional.of(stranger));
+
+        assertThatThrownBy(() -> forfeitService.completeForfeit(3L))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("your own gage");
+    }
+
+    // ── getPendingForfeits ────────────────────────────────────────────────────
+
+    @Test
+    void getPendingForfeits_shouldReturnOnlyIncompleteForfeits() {
+        UserForfeit pending = UserForfeit.builder()
+                .id(1L).user(regularUser).forfeit(forfeit)
+                .assignedBy(adminUser).completed(false)
+                .build();
+
+        when(userForfeitRepository.findByUserIdAndCompletedFalse(2L)).thenReturn(List.of(pending));
+
+        List<UserForfeitResponse> result = forfeitService.getPendingForfeits(2L);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).isCompleted()).isFalse();
+        verify(userForfeitRepository).findByUserIdAndCompletedFalse(2L);
+        verify(userForfeitRepository, never()).findByUserId(any());
+    }
+
+    // ── getMyForfeits ─────────────────────────────────────────────────────────
+
+    @Test
+    void getMyForfeits_shouldFetchForfeitsForCurrentUser() {
+        UserForfeit uf = UserForfeit.builder()
+                .id(1L).user(regularUser).forfeit(forfeit)
+                .assignedBy(adminUser).completed(false)
+                .build();
+
+        when(userRepository.findByUsername("player")).thenReturn(Optional.of(regularUser));
+        when(userForfeitRepository.findByUserId(regularUser.getId())).thenReturn(List.of(uf));
+
+        List<UserForfeitResponse> result = forfeitService.getMyForfeits();
+
+        assertThat(result).hasSize(1);
+        verify(userForfeitRepository).findByUserId(regularUser.getId());
+    }
+}

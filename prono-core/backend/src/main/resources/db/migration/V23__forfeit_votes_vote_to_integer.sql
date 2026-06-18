@@ -1,0 +1,1 @@
+ALTER TABLE forfeit_votes ALTER COLUMN vote TYPE INTEGER;

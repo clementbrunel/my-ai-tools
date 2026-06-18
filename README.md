@@ -8,6 +8,8 @@ A personal collection of AI development tools for inspecting, diagnosing, and op
 |---------------------------------------|----------------------------------------------------------------------------------------------------------------------------|
 | [`ai-env-diagram`](./ai-env-diagram/) | Scans your Claude Code / AI environment and generates a Mermaid diagram of all connected components and their health status |
 | [`mistral-chat`](./mistral-chat/)     | Interactive CLI REPL to chat with an enterprise Mistral instance, authenticating via Chrome/Edge browser session cookies   |
+| [`mottaret-watch`](./mottaret-watch/) | Python script (GitHub Actions cron) that scrapes rental availability for Méribel Mottaret Les Bleuets and sends email alerts via Resend |
+| [`prono-core`](./prono-core/)         | Full-stack World Cup 2026 betting app for friends — Java/Spring Boot + React, deployed via private Docker registry on NAS  |
 
 ## Roadmap
 

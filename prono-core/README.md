@@ -1,0 +1,200 @@
+# Prono Core ⚽🏆
+
+**Application de pronostics Coupe du Monde 2026 entre amis — Pas d'argent réel, que du fun et des gages !**
+
+## Stack technique
+
+| Couche | Techno |
+|--------|--------|
+| Backend | Java 21 + Spring Boot 3 + Spring Security JWT |
+| Base de données | PostgreSQL 16 + Flyway |
+| Frontend | React 18 + TypeScript + Vite + Tailwind CSS |
+| Déploiement | Docker Compose (dev) / Registry NAS Synology (prod) |
+
+---
+
+## Lancement rapide (développement local)
+
+### Prérequis
+- Docker + Docker Compose installés
+
+### Démarrage
+
+```bash
+cd prono-core
+docker compose up --build
+```
+
+L'application sera accessible sur :
+- **Frontend** : http://localhost:3000
+- **Backend API** : http://localhost:8090
+- **Swagger UI** : http://localhost:8090/swagger-ui.html
+
+### Comptes de démo
+
+Les comptes de démo sont créés par la migration Flyway `V2__demo_data.sql`.
+Consulte ce fichier pour les identifiants (ne pas les exposer publiquement).
+
+---
+
+## Accès à la base de données (pgAdmin)
+
+pgAdmin est disponible pour inspecter ou modifier directement les données.
+
+### En développement local
+
+pgAdmin démarre automatiquement avec `docker compose up` :
+
+- **URL** : http://localhost:5050
+- **Email** : `admin@local.dev` (ou `PGADMIN_EMAIL`)
+- **Mot de passe** : `admin` (ou `PGADMIN_PASSWORD`)
+
+Connexion à configurer dans pgAdmin :
+
+| Champ | Valeur |
+|-------|--------|
+| Host | `postgres` |
+| Port | `5432` |
+| Database | `pronocore` |
+| Username | valeur de `DB_USER` |
+| Password | valeur de `DB_PASS` |
+
+### En production (NAS Synology)
+
+pgAdmin n'est **pas démarré par défaut**. Pour l'activer ponctuellement :
+
+```bash
+# Sur le NAS (SSH)
+docker compose -f docker-compose.prod.yml --profile tools up -d pgadmin
+```
+
+Accessible sur http://<IP-NAS>:5050 — **penser à le couper une fois terminé** :
+
+```bash
+docker compose -f docker-compose.prod.yml --profile tools stop pgadmin
+```
+
+---
+
+## Déploiement production (NAS Synology)
+
+Le déploiement repose sur un registry Docker privé tournant sur le NAS (`192.168.68.112:5000`).
+Les images sont buildées en local et poussées sur le NAS — **aucune compilation sur le NAS**.
+
+### Prérequis (une seule fois)
+
+- Registry `registry:2` lancé sur le NAS via Container Manager
+- `192.168.68.112:5000` déclaré comme insecure registry dans Docker Desktop
+- `docker-compose.prod.yml` et un fichier `.env` copiés sur le NAS dans le même dossier
+
+### Déployer une nouvelle version
+
+**Depuis ta machine de dev :**
+
+```bash
+cd prono-core
+./build-and-push.sh          # build + push backend & frontend sur le NAS
+# optionnel : ./build-and-push.sh v1.2.0  pour tagger une version spécifique
+```
+
+**Sur le NAS (SSH ou tâche planifiée) :**
+
+```bash
+docker compose -f docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml up -d
+```
+
+### Fichiers
+
+| Fichier | Usage |
+|---------|-------|
+| `docker-compose.yml` | Dev local (build à la volée) |
+| `docker-compose.prod.yml` | Production NAS (images pré-buildées) |
+| `build-and-push.sh` | Build + push vers le registry NAS |
+| `.env.example` | Template des variables d'environnement |
+
+---
+
+## Développement local
+
+### Backend
+
+```bash
+cd backend
+
+# Démarrer uniquement PostgreSQL
+docker compose -f ../docker-compose.yml up postgres -d
+
+# Lancer le backend
+./mvnw spring-boot:run
+# ou
+mvn spring-boot:run
+```
+
+Le backend écoute sur http://localhost:8080
+
+### Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Le frontend écoute sur http://localhost:5173 avec proxy vers le backend.
+
+---
+
+## Architecture
+
+```
+prono-core/
+├── docker-compose.yml
+├── backend/
+│   ├── Dockerfile
+│   ├── pom.xml
+│   └── src/main/
+│       ├── java/com/pronocore/   # config, controller, dto, entity, service...
+│       └── resources/db/migration/  # Flyway SQL migrations
+└── frontend/
+    ├── Dockerfile
+    └── src/                      # api, components, context, pages, types
+```
+
+---
+
+## Fonctionnalités
+
+- Inscription / Connexion JWT, profil avec stats, classement
+- Paris par couple **(match, groupe)** — 4 types : Score exact, Événement, Gage, Libre
+- Gages partagés (admin global) et gages de groupe (privés)
+- Attribution automatique des gages aux perdants à la validation
+- Interface admin : créer des matchs, saisir les scores, valider les paris
+
+Documentation API complète : http://localhost:8090/swagger-ui.html
+
+---
+
+## Configuration
+
+Variables d'environnement (backend) :
+
+| Variable | Défaut | Description |
+|----------|--------|-------------|
+| `DB_URL` | `jdbc:postgresql://localhost:5432/pronocore` | URL PostgreSQL |
+| `DB_USER` | `pronocore` | Utilisateur DB |
+| `DB_PASS` | `pronocore` | Mot de passe DB |
+| `JWT_SECRET` | `mySecretKey...` | Clé secrète JWT (changer en prod !) |
+
+---
+
+## Notes importantes
+
+- **Aucun argent réel** — Ce projet est uniquement à des fins de fun entre amis
+- Les mots de passe sont hashés avec BCrypt
+- Les tokens JWT expirent après 24h
+- En production, changez `JWT_SECRET` pour une vraie clé sécurisée
+
+---
+
+*Bonne Coupe du Monde 2026 ! 🌍⚽🏆*

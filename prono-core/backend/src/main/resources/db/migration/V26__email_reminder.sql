@@ -1,0 +1,2 @@
+ALTER TABLE users  ADD COLUMN email_reminder_enabled BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE matches ADD COLUMN reminder_sent          BOOLEAN NOT NULL DEFAULT FALSE;

@@ -1,0 +1,3 @@
+-- V3__fix_passwords.sql
+-- Password initialization is handled by DataInitializer at application startup.
+-- Bcrypt encoding is done via Spring Security's PasswordEncoder — no hashes stored in SQL.
