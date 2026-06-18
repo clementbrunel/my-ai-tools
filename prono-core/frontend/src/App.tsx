@@ -12,6 +12,7 @@ function ScrollToTop() {
 }
 import { AuthProvider } from './context/AuthContext';
 import { GroupAdminCountsProvider } from './context/GroupAdminCountsContext';
+import { UserCountsProvider } from './context/UserCountsContext';
 import { ToastProvider } from './components/Toast';
 import PrivateRoute from './components/PrivateRoute';
 import Navbar from './components/Navbar';
@@ -34,6 +35,7 @@ function App() {
   return (
     <AuthProvider>
       <GroupAdminCountsProvider>
+      <UserCountsProvider>
       <ToastProvider>
       <BrowserRouter>
         <ScrollToTop />
@@ -72,6 +74,7 @@ function App() {
         </div>
       </BrowserRouter>
       </ToastProvider>
+      </UserCountsProvider>
       </GroupAdminCountsProvider>
     </AuthProvider>
   );
