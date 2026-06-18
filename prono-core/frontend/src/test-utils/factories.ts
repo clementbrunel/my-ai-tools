@@ -10,6 +10,7 @@ export const makeUser = (overrides?: Partial<User>): User => ({
   betsWon: 0,
   forfeitsReceived: 0,
   emailReminderEnabled: false,
+  emailGageEnabled: false,
   ...overrides,
 });
 
