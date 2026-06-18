@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getParticipatedBets } from '../api/bets';
+import { getMyParticipations } from '../api/bets';
+import UserBetList from '../components/UserBetList';
 import { getLeaderboard } from '../api/leaderboard';
 import { getMyForfeits, completeForfeit } from '../api/forfeits';
-import type { Bet, LeaderboardEntry, UserForfeitEntry } from '../types';
+import type { UserBetSummary, LeaderboardEntry, UserForfeitEntry } from '../types';
 import { isAdmin } from '../types';
 import { formatDate } from '../utils/dates';
 import { useToast } from '../components/Toast';
@@ -15,7 +16,7 @@ const Profile: React.FC = () => {
   const { user } = useAuth();
   const { showToast } = useToast();
   const { refresh: refreshUserCounts } = useUserCounts();
-  const [myBets, setMyBets] = useState<Bet[]>([]);
+  const [myParticipations, setMyParticipations] = useState<UserBetSummary[]>([]);
   const [leaderboardEntry, setLeaderboardEntry] = useState<LeaderboardEntry | null>(null);
   const [myForfeits, setMyForfeits] = useState<UserForfeitEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -25,12 +26,12 @@ const Profile: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [betsData, leaderboardData, forfeitsData] = await Promise.all([
-          getParticipatedBets(),
+        const [participationsData, leaderboardData, forfeitsData] = await Promise.all([
+          getMyParticipations(),
           getLeaderboard(),
           getMyForfeits(),
         ]);
-        setMyBets(betsData);
+        setMyParticipations(participationsData);
         const entry = leaderboardData.find((e) => e.user.username === user?.username);
         setLeaderboardEntry(entry || null);
         setMyForfeits(forfeitsData);
@@ -217,30 +218,9 @@ const Profile: React.FC = () => {
       {/* My bets */}
       <div className="card">
         <h3 className="font-bold text-gray-900 dark:text-white mb-4">
-          🎯 Mes pronostics ({myBets.length})
+          🎯 Mes pronostics ({myParticipations.length})
         </h3>
-        {myBets.length > 0 ? (
-          <div className="space-y-2">
-            {myBets.slice(0, 5).map((bet) => (
-              <div
-                key={bet.id}
-                className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
-              >
-                <div>
-                  <div className="text-sm font-medium text-gray-900 dark:text-white">{bet.title}</div>
-                  <div className="text-xs text-gray-500">
-                    {bet.participationsCount} participants • {bet.points} pts
-                  </div>
-                </div>
-                <span className={`badge-${bet.status.toLowerCase()}`}>
-                  {bet.status === 'OPEN' ? '🟢' : bet.status === 'VALIDATED' ? '✅' : '❌'}
-                </span>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-gray-500 dark:text-gray-400 text-sm">Vous n'avez encore participé à aucun pari</p>
-        )}
+        <UserBetList bets={myParticipations} showOpen />
       </div>
 
       {user?.createdAt && (

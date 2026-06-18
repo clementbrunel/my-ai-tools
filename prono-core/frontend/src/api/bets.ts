@@ -8,8 +8,8 @@ export const getBets = async (): Promise<Bet[]> => {
   return response.data;
 };
 
-export const getParticipatedBets = async (): Promise<Bet[]> => {
-  const response = await apiClient.get<Bet[]>('/bets/participated');
+export const getMyParticipations = async (): Promise<UserBetSummary[]> => {
+  const response = await apiClient.get<UserBetSummary[]>('/bets/my-participations');
   return response.data;
 };
 

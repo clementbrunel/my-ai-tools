@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { LeaderboardEntry, UserBetSummary } from '../types';
 import { isAdmin } from '../types';
 import { getUserBetsInGroup } from '../api/bets';
+import UserBetList from './UserBetList';
 
 interface LeaderboardRowProps {
   entry: LeaderboardEntry;
@@ -111,32 +112,8 @@ const LeaderboardRow: React.FC<LeaderboardRowProps> = ({ entry, isCurrentUser, g
                 </svg>
                 <span className="text-sm text-gray-500">Chargement des paris...</span>
               </div>
-            ) : bets && bets.length === 0 ? (
-              <p className="text-sm text-gray-400 py-3 text-center italic">Aucun pari effectué dans ce groupe.</p>
             ) : (
-              <div className="divide-y divide-gray-100 dark:divide-gray-700 pt-1">
-                {bets?.map((bet) => {
-                  const isWon = bet.betStatus === 'VALIDATED' && bet.pointsEarned > 0;
-                  const isLost = bet.betStatus === 'VALIDATED' && bet.pointsEarned === 0;
-                  return (
-                    <div key={bet.participationId} className="flex items-center justify-between py-2 gap-3 text-xs">
-                      <span className="text-gray-700 dark:text-gray-300 truncate">{bet.betTitle}</span>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-gray-500 dark:text-gray-400">{bet.chosenOption}</span>
-                        {bet.betStatus === 'VALIDATED' && (
-                          isWon
-                            ? <span className="font-bold text-wc-green">+{bet.pointsEarned}pts</span>
-                            : <span className="font-bold text-wc-red">0pt</span>
-                        )}
-                        {isWon && <span>✓</span>}
-                        {isLost && <span>✗</span>}
-                        {bet.betStatus === 'OPEN' && <span className="text-amber-500">…</span>}
-                        {bet.betStatus === 'CANCELLED' && <span className="text-gray-400">—</span>}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+              <UserBetList bets={bets ?? []} compact />
             )}
           </td>
         </tr>
