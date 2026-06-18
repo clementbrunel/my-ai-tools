@@ -19,12 +19,20 @@ export function formatDate(dateInput: Date | string): string {
 }
 
 /**
+ * Extract HH:mm from an ISO datetime string without timezone conversion.
+ */
+export function formatTime(dateInput: Date | string): string {
+  const s = typeof dateInput === 'string' ? dateInput : dateInput.toISOString();
+  const m = s.match(/T(\d{2}):(\d{2})/);
+  if (m) return `${m[1]}:${m[2]}`;
+  return new Date(s).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+}
+
+/**
  * Format an ISO datetime string as DD/MM/YYYY HH:mm.
  */
 export function formatDateTime(dateInput: Date | string): string {
-  const d = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
-  const time = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-  return `${formatDate(d)} ${time}`;
+  return `${formatDate(dateInput)} ${formatTime(dateInput)}`;
 }
 
 /**

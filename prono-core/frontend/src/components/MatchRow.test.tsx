@@ -20,6 +20,18 @@ describe('MatchRow — match UPCOMING', () => {
     expect(screen.getByText(/\d{2}:\d{2}/)).toBeDefined();
   });
 
+  // Régression : un match à minuit ne doit pas afficher la veille
+  it('affiche la bonne date pour un match à minuit sans décalage timezone', () => {
+    renderRow(makeMatch({ matchDate: '2026-06-11T00:00:00' }));
+    expect(screen.getByText('11/06/2026')).toBeDefined();
+    expect(screen.queryByText('10/06/2026')).toBeNull();
+  });
+
+  it('affiche 00:00 pour un match à minuit', () => {
+    renderRow(makeMatch({ matchDate: '2026-06-11T00:00:00' }));
+    expect(screen.getByText('00:00')).toBeDefined();
+  });
+
   it("affiche les deux noms d'équipe", () => {
     renderRow();
     expect(screen.getByText('France')).toBeDefined();

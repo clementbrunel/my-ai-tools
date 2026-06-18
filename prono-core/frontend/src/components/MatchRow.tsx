@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import type { Match } from '../types';
-import { formatDate } from '../utils/dates';
+import { formatDate, formatTime } from '../utils/dates';
 import { getFlagUrl } from '../utils/countryFlags';
 
 interface MatchRowProps {
@@ -16,7 +16,6 @@ const TeamFlag: React.FC<{ name: string }> = ({ name }) => {
 };
 
 const MatchRow: React.FC<MatchRowProps> = ({ match, pronoStatus }) => {
-  const matchDate = new Date(match.matchDate);
 
   const borderClass =
     pronoStatus === 'done'
@@ -48,7 +47,7 @@ const MatchRow: React.FC<MatchRowProps> = ({ match, pronoStatus }) => {
             <div className="text-center">
               <div className="text-xs font-bold text-gray-400 dark:text-gray-500">VS</div>
               <div className="text-xs text-gray-400 dark:text-gray-500">
-                {matchDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                {formatTime(match.matchDate)}
               </div>
             </div>
           )}
@@ -64,7 +63,7 @@ const MatchRow: React.FC<MatchRowProps> = ({ match, pronoStatus }) => {
 
         {/* Date */}
         <div className="hidden sm:block text-xs text-gray-400 dark:text-gray-500 w-24 text-right shrink-0">
-          {formatDate(matchDate)}
+          {formatDate(match.matchDate)}
         </div>
 
         {/* Prono status */}
