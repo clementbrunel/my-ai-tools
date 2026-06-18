@@ -121,6 +121,7 @@ const Profile: React.FC = () => {
               initialAvatarUrl={user?.avatarUrl || ''}
               initialEmail={user?.email || ''}
               initialEmailReminder={user?.emailReminderEnabled ?? true}
+              initialEmailGage={user?.emailGageEnabled ?? false}
               usernamePlaceholder={user?.username}
             />
             <div className="border-t border-gray-200 dark:border-gray-700 pt-6">

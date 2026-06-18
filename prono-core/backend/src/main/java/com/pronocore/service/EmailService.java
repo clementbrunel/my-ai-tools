@@ -3,6 +3,7 @@ package com.pronocore.service;
 import com.pronocore.dto.request.EmailType;
 import com.pronocore.entity.Match;
 import com.pronocore.entity.User;
+import com.pronocore.entity.DailyGage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
@@ -51,6 +52,16 @@ public class EmailService {
                         .reminderSent(false).build()
                 );
                 sendMatchReminder(fakeUser, fakeMatches);
+            }
+            case GAGE_RESOLUTION -> {
+                User fakeRecipient = User.builder().username("joueur_test").displayName("Joueur Test").email(to).build();
+                User fakeLucky = User.builder().username("malheureux").displayName("Le Malchanceux").build();
+                Map<String, Integer> fakeScores = Map.of(
+                    "Joueur Test", 20,
+                    "Le Malchanceux", 5,
+                    "Autre Joueur", 15
+                );
+                sendGageResolutionEmail(fakeRecipient, "Les 10 pompes", "Fais 10 pompes devant tout le groupe", fakeLucky, "Groupe des Amis", fakeScores);
             }
             case TEST_CEDRIC -> sendTestCedricEmail(to);
         }
@@ -122,6 +133,104 @@ public class EmailService {
         } catch (Exception e) {
             log.error("Failed to send match reminder to {}: {}", user.getEmail(), e.getMessage());
         }
+    }
+
+    public void sendGageResolutionEmail(User recipient, String forfeitTitle, String forfeitDescription,
+                                        User assignedTo, String groupName, Map<String, Integer> dailyScores) {
+        String displayName = recipient.getDisplayName() != null ? recipient.getDisplayName() : recipient.getUsername();
+        String assignedToName = assignedTo.getDisplayName() != null ? assignedTo.getDisplayName() : assignedTo.getUsername();
+        try {
+            restClient.post()
+                .uri("/emails")
+                .header("Authorization", "Bearer " + apiKey)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(Map.of(
+                    "from", "PronoCore <noreply@app.prono-core.top>",
+                    "to", List.of(recipient.getEmail()),
+                    "subject", "🃏 Gage du jour attribué — " + groupName,
+                    "html", buildGageResolutionHtml(displayName, forfeitTitle, forfeitDescription, assignedToName, groupName, dailyScores)
+                ))
+                .retrieve()
+                .toBodilessEntity();
+            log.info("Gage resolution email sent to {} (group {})", recipient.getEmail(), groupName);
+        } catch (Exception e) {
+            log.error("Failed to send gage resolution email to {}: {}", recipient.getEmail(), e.getMessage());
+        }
+    }
+
+    private String buildGageResolutionHtml(String recipientName, String forfeitTitle, String forfeitDescription,
+                                           String assignedToName, String groupName, Map<String, Integer> dailyScores) {
+        List<Map.Entry<String, Integer>> sorted = dailyScores.entrySet().stream()
+                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
+                .toList();
+
+        String scoreRows = sorted.stream().map(e -> {
+            boolean isLoser = e.getKey().equals(assignedToName);
+            String rowStyle = isLoser
+                ? "background:#fff0f0;border-left:3px solid #e53e3e;"
+                : "background:#f8f9fa;";
+            String badge = isLoser ? " 🃏" : "";
+            return """
+                <tr style="%s">
+                  <td style="padding:10px 14px;font-weight:%s;color:#1a1a1a">%s%s</td>
+                  <td style="padding:10px 14px;text-align:right;font-weight:bold;color:%s">%d pts</td>
+                </tr>
+                """.formatted(rowStyle, isLoser ? "bold" : "normal", e.getKey(), badge,
+                              isLoser ? "#e53e3e" : "#1a472a", e.getValue());
+        }).collect(Collectors.joining());
+
+        return """
+            <!DOCTYPE html>
+            <html lang="fr">
+            <head><meta charset="utf-8"></head>
+            <body style="font-family:Arial,sans-serif;background:#f4f4f4;padding:20px;margin:0">
+              <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.1)">
+                <div style="background:linear-gradient(135deg,#1a472a,#2d6a4f);padding:32px;text-align:center">
+                  <div style="font-size:48px;margin-bottom:8px">🃏</div>
+                  <h1 style="color:#FFD700;margin:0;font-size:28px">PronoCore</h1>
+                  <p style="color:#90EE90;margin:8px 0 0">%s</p>
+                </div>
+                <div style="padding:32px">
+                  <h2 style="color:#1a1a1a;margin-top:0">Le gage du jour est attribué !</h2>
+                  <p style="color:#444;line-height:1.6">Bonjour <strong>%s</strong>,</p>
+                  <p style="color:#444;line-height:1.6">
+                    La journée de matchs est terminée. Voici le bilan des pronostics et l'attribution du gage du jour.
+                  </p>
+
+                  <h3 style="color:#1a472a;margin-bottom:8px">📊 Paris du jour</h3>
+                  <table style="width:100%%;border-collapse:collapse;border-radius:8px;overflow:hidden;margin-bottom:24px">
+                    <thead>
+                      <tr style="background:#1a472a">
+                        <th style="padding:10px 14px;text-align:left;color:#fff;font-size:13px">Joueur</th>
+                        <th style="padding:10px 14px;text-align:right;color:#fff;font-size:13px">Points gagnés</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      %s
+                    </tbody>
+                  </table>
+
+                  <div style="background:#fff0f0;border:2px solid #e53e3e;border-radius:10px;padding:20px;margin-bottom:24px;text-align:center">
+                    <div style="font-size:32px;margin-bottom:8px">🃏</div>
+                    <p style="margin:0 0 4px;color:#e53e3e;font-weight:bold;font-size:18px">%s écope du gage !</p>
+                    <p style="margin:0;color:#888;font-size:13px">Score le plus faible de la journée</p>
+                  </div>
+
+                  <div style="background:#f8f9fa;border-left:4px solid #FFD700;border-radius:4px;padding:16px;margin-bottom:24px">
+                    <p style="margin:0 0 4px;font-weight:bold;color:#1a1a1a">%s</p>
+                    <p style="margin:0;color:#555;font-size:14px;line-height:1.6">%s</p>
+                  </div>
+
+                  <hr style="border:none;border-top:1px solid #eee;margin:24px 0">
+                  <p style="color:#aaa;font-size:12px;text-align:center">
+                    Tu reçois cet email car les notifications de gage sont activées dans ton profil.<br>
+                    Pour les désactiver : <em>Mon profil → Notifications</em>.
+                  </p>
+                </div>
+              </div>
+            </body>
+            </html>
+            """.formatted(groupName, recipientName, scoreRows, assignedToName, forfeitTitle, forfeitDescription);
     }
 
     public void sendTestCedricEmail(String to) {

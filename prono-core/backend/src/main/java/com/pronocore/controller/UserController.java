@@ -71,9 +71,12 @@ public class UserController {
     }
 
     @PatchMapping("/me/email-reminder")
-    @Operation(summary = "Update email reminder preference")
-    public ResponseEntity<UserResponse> updateEmailReminder(@Valid @RequestBody UpdateEmailReminderRequest request,
-                                                             Authentication authentication) {
-        return ResponseEntity.ok(userService.updateEmailReminder(authentication.getName(), request.getEmailReminderEnabled()));
+    @Operation(summary = "Update email notification preferences")
+    public ResponseEntity<UserResponse> updateEmailPreferences(@Valid @RequestBody UpdateEmailReminderRequest request,
+                                                                Authentication authentication) {
+        return ResponseEntity.ok(userService.updateEmailPreferences(
+                authentication.getName(),
+                request.getEmailReminderEnabled(),
+                request.getEmailGageEnabled()));
     }
 }

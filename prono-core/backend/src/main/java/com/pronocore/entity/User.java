@@ -68,6 +68,10 @@ public class User {
     @Column(name = "reminder_sent_date")
     private java.time.LocalDate reminderSentDate;
 
+    @Column(name = "email_gage_enabled", nullable = false)
+    @Builder.Default
+    private boolean emailGageEnabled = false;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

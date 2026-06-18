@@ -1,6 +1,11 @@
 import apiClient from './axios';
 import type { User, UserAdminInfo } from '../types';
 
+export const updateEmailPreferences = async (emailReminderEnabled: boolean, emailGageEnabled: boolean): Promise<User> => {
+  const response = await apiClient.patch<User>('/users/me/email-reminder', { emailReminderEnabled, emailGageEnabled });
+  return response.data;
+};
+
 export const updateAvatar = async (avatarUrl: string): Promise<User> => {
   const response = await apiClient.patch<User>('/users/me/avatar', null, { params: { avatarUrl } });
   return response.data;
@@ -20,10 +25,6 @@ export const updatePassword = async (currentPassword: string, newPassword: strin
   await apiClient.patch('/users/me/password', { currentPassword, newPassword });
 };
 
-export const updateEmailReminder = async (emailReminderEnabled: boolean): Promise<User> => {
-  const response = await apiClient.patch<User>('/users/me/email-reminder', { emailReminderEnabled });
-  return response.data;
-};
 
 export const getAllUsersAdmin = async (): Promise<UserAdminInfo[]> => {
   const response = await apiClient.get<UserAdminInfo[]>('/admin/users');

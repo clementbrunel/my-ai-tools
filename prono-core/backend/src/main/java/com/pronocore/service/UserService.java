@@ -94,10 +94,11 @@ public class UserService {
     }
 
     @Transactional
-    public UserResponse updateEmailReminder(String username, boolean enabled) {
+    public UserResponse updateEmailPreferences(String username, boolean reminderEnabled, boolean gageEnabled) {
         User user = userRepository.findByUsername(username)
             .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
-        user.setEmailReminderEnabled(enabled);
+        user.setEmailReminderEnabled(reminderEnabled);
+        user.setEmailGageEnabled(gageEnabled);
         userRepository.save(user);
         return userMapper.toResponse(user);
     }

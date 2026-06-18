@@ -42,6 +42,7 @@ const AdminEmailsTab: React.FC = () => {
               <option value="VERIFICATION">Vérification d'email</option>
               <option value="PASSWORD_RESET">Réinitialisation de mot de passe</option>
               <option value="MATCH_REMINDER">Rappel de match</option>
+              <option value="GAGE_RESOLUTION">Résolution du gage du jour</option>
               <option value="TEST_CEDRIC">test cédric 🏦</option>
             </select>
           </div>
@@ -79,6 +80,15 @@ const AdminEmailsTab: React.FC = () => {
                 Envoyé automatiquement 4 heures avant chaque match aux joueurs n'ayant pas encore saisi leur pronostic.
                 Activable / désactivable par chaque utilisateur dans son profil.
                 Le test utilise un match fictif (France – Brésil, Finale).
+              </td>
+            </tr>
+            <tr className="border-b border-gray-100 dark:border-gray-700">
+              <td className="py-3 px-4 font-medium text-gray-900 dark:text-white">Résolution du gage du jour</td>
+              <td className="py-3 px-4 text-gray-500">
+                Envoyé automatiquement à la fin de la journée de matchs aux membres du groupe ayant activé cette notification.
+                Contient le classement du jour (points gagnés par joueur) et l'identité du joueur qui écope du gage.
+                Désactivé par défaut dans le profil utilisateur.
+                Le test utilise des données fictives (groupe "Groupe des Amis", 3 joueurs).
               </td>
             </tr>
             <tr className="border-b border-gray-100 dark:border-gray-700">

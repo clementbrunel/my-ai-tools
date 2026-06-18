@@ -8,4 +8,7 @@ public class UpdateEmailReminderRequest {
 
     @NotNull
     private Boolean emailReminderEnabled;
+
+    @NotNull
+    private Boolean emailGageEnabled;
 }

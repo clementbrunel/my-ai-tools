@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { updateDisplayName, updateAvatar, updateEmail, updateEmailReminder } from '../../api/users';
+import { updateDisplayName, updateAvatar, updateEmail, updateEmailPreferences } from '../../api/users';
 import { useAuth } from '../../context/AuthContext';
 import { useFormMessages } from '../../hooks/useFormMessages';
 
@@ -8,6 +8,7 @@ interface Props {
   initialAvatarUrl: string;
   initialEmail: string;
   initialEmailReminder: boolean;
+  initialEmailGage: boolean;
   usernamePlaceholder?: string;
 }
 
@@ -16,6 +17,7 @@ const ProfileInfoForm: React.FC<Props> = ({
   initialAvatarUrl,
   initialEmail,
   initialEmailReminder,
+  initialEmailGage,
   usernamePlaceholder,
 }) => {
   const { updateUser } = useAuth();
@@ -23,6 +25,7 @@ const ProfileInfoForm: React.FC<Props> = ({
   const [avatarUrl, setAvatarUrl] = useState(initialAvatarUrl);
   const [email, setEmail] = useState(initialEmail);
   const [emailReminder, setEmailReminder] = useState(initialEmailReminder);
+  const [emailGage, setEmailGage] = useState(initialEmailGage);
   const [saving, setSaving] = useState(false);
   const { msg, setSuccess, setError } = useFormMessages();
 
@@ -40,8 +43,8 @@ const ProfileInfoForm: React.FC<Props> = ({
       if (email !== initialEmail) {
         updates.push(updateEmail(email));
       }
-      if (emailReminder !== initialEmailReminder) {
-        updates.push(updateEmailReminder(emailReminder));
+      if (emailReminder !== initialEmailReminder || emailGage !== initialEmailGage) {
+        updates.push(updateEmailPreferences(emailReminder, emailGage));
       }
 
       const results = await Promise.all(updates);
@@ -120,6 +123,30 @@ const ProfileInfoForm: React.FC<Props> = ({
           <span
             className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ${
               emailReminder ? 'translate-x-5' : 'translate-x-0'
+            }`}
+          />
+        </button>
+      </div>
+
+      <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+        <div>
+          <p className="font-medium text-gray-900 dark:text-white text-sm">🃏 Résolution du gage du jour</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+            Reçois un email avec le bilan des paris et l'attribution du gage quand la journée se termine
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setEmailGage((v) => !v)}
+          className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
+            emailGage ? 'bg-wc-green' : 'bg-gray-300 dark:bg-gray-600'
+          }`}
+          role="switch"
+          aria-checked={emailGage}
+        >
+          <span
+            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ${
+              emailGage ? 'translate-x-5' : 'translate-x-0'
             }`}
           />
         </button>
