@@ -338,11 +338,12 @@ public class DailyGageService {
                 forfeit.getTitle(), unlucky.getUsername(), groupId, matchDay, minPoints, losers.size());
 
         // Send gage resolution email to subscribed group members
+        final Forfeit resolvedForfeit = forfeit;
+        final User resolvedUnlucky = unlucky;
         Map<String, Integer> namedScores = dailyPoints.entrySet().stream()
                 .collect(Collectors.toMap(
                         e -> e.getKey().getDisplayName() != null ? e.getKey().getDisplayName() : e.getKey().getUsername(),
                         Map.Entry::getValue));
-        String assignedToName = unlucky.getDisplayName() != null ? unlucky.getDisplayName() : unlucky.getUsername();
         String groupName = dg.getGroup().getName();
 
         groupMemberRepository.findByGroupId(groupId).stream()
@@ -350,8 +351,8 @@ public class DailyGageService {
                 .map(GroupMember::getUser)
                 .filter(User::isEmailGageEnabled)
                 .forEach(subscriber -> emailService.sendGageResolutionEmail(
-                        subscriber, forfeit.getTitle(), forfeit.getDescription(),
-                        unlucky, groupName, namedScores));
+                        subscriber, resolvedForfeit.getTitle(), resolvedForfeit.getDescription(),
+                        resolvedUnlucky, groupName, namedScores));
     }
 
     // ---------------------------------------------------------------
