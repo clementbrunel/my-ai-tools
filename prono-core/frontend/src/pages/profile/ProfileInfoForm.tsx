@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { updateDisplayName, updateAvatar, updateEmail, updateEmailReminder, updateEmailGage } from '../../api/users';
+import { updateDisplayName, updateAvatar, updateEmail, updateEmailPreferences } from '../../api/users';
 import { useAuth } from '../../context/AuthContext';
 import { useFormMessages } from '../../hooks/useFormMessages';
 
@@ -43,11 +43,8 @@ const ProfileInfoForm: React.FC<Props> = ({
       if (email !== initialEmail) {
         updates.push(updateEmail(email));
       }
-      if (emailReminder !== initialEmailReminder) {
-        updates.push(updateEmailReminder(emailReminder));
-      }
-      if (emailGage !== initialEmailGage) {
-        updates.push(updateEmailGage(emailGage));
+      if (emailReminder !== initialEmailReminder || emailGage !== initialEmailGage) {
+        updates.push(updateEmailPreferences(emailReminder, emailGage));
       }
 
       const results = await Promise.all(updates);
