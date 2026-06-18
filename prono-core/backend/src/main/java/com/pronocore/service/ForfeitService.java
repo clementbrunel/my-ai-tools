@@ -285,14 +285,14 @@ public class ForfeitService {
                 .toList();
     }
 
-    /** Returns incomplete gage assignments for all members of a group (any group member can call this). */
+    /** Returns all gage assignments for all members of a group, pending first then completed (any group member can call this). */
     @Transactional(readOnly = true)
-    public List<GroupUserForfeitResponse> getGroupPendingAssignments(Long groupId) {
+    public List<GroupUserForfeitResponse> getGroupAssignments(Long groupId) {
         String username = currentUsername();
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
         groupMemberGuard.requireActiveMembership(groupId, user.getId());
-        return userForfeitRepository.findPendingByGroupId(groupId).stream()
+        return userForfeitRepository.findAllByGroupId(groupId).stream()
                 .map(this::toGroupUserForfeitResponse)
                 .toList();
     }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getLeaderboard, getGroupLeaderboard } from '../api/leaderboard';
 import { getMyGroups } from '../api/groups';
-import { getGroupPendingAssignments } from '../api/forfeits';
+import { getGroupAssignments } from '../api/forfeits';
 import type { GroupUserForfeit, LeaderboardEntry, Group } from '../types';
 import LeaderboardRow from '../components/LeaderboardRow';
 import ScrollableTableWrapper from '../components/ScrollableTableWrapper';
@@ -28,36 +28,38 @@ function groupByUser(gages: GroupUserForfeit[]): Map<string, GroupUserForfeit[]>
   return map;
 }
 
-interface PendingGagesSectionProps {
+interface GagesSectionProps {
   gages: GroupUserForfeit[];
   currentUsername?: string;
+  completed?: boolean;
 }
 
-const PendingGagesSection: React.FC<PendingGagesSectionProps> = ({ gages, currentUsername }) => {
+const GagesSection: React.FC<GagesSectionProps> = ({ gages, currentUsername, completed = false }) => {
   const byUser = groupByUser(gages);
 
   return (
     <div className="space-y-3">
-      <h2 className="text-base font-bold text-gray-800 dark:text-white flex items-center gap-2">
-        🃏 Gages en attente
-        <span className="text-sm font-normal text-gray-500 dark:text-gray-400">
-          — qui doit faire quoi ?
-        </span>
-      </h2>
-
       <div className="space-y-3">
         {Array.from(byUser.entries()).map(([username, userGages]) => {
           const first = userGages[0];
           const displayName = first.displayName || username;
           const isMe = username === currentUsername;
+          const borderColor = completed
+            ? (isMe ? 'border-l-green-500' : 'border-l-green-400')
+            : (isMe ? 'border-l-wc-red' : 'border-l-purple-400');
+          const avatarColor = completed ? 'bg-green-500' : 'bg-purple-500';
+          const bulletColor = completed ? 'text-green-400' : 'text-purple-400';
+          const countLabel = completed
+            ? `${userGages.length} gage${userGages.length > 1 ? 's' : ''} effectué${userGages.length > 1 ? 's' : ''}`
+            : `${userGages.length} gage${userGages.length > 1 ? 's' : ''} à faire`;
 
           return (
             <div
               key={username}
-              className={`card p-4 border-l-4 ${isMe ? 'border-l-wc-red' : 'border-l-purple-400'}`}
+              className={`card p-4 border-l-4 ${borderColor}`}
             >
               <div className="flex items-center gap-2 mb-3">
-                <div className="w-8 h-8 rounded-full bg-purple-500 text-white flex items-center justify-center font-bold text-sm shrink-0">
+                <div className={`w-8 h-8 rounded-full ${avatarColor} text-white flex items-center justify-center font-bold text-sm shrink-0`}>
                   {displayName[0].toUpperCase()}
                 </div>
                 <span className="font-semibold text-gray-900 dark:text-white text-sm">
@@ -65,21 +67,26 @@ const PendingGagesSection: React.FC<PendingGagesSectionProps> = ({ gages, curren
                   {isMe && <span className="ml-2 text-xs text-wc-red">(vous)</span>}
                 </span>
                 <span className="ml-auto text-xs text-gray-500 dark:text-gray-400">
-                  {userGages.length} gage{userGages.length > 1 ? 's' : ''} à faire
+                  {countLabel}
                 </span>
               </div>
 
               <ul className="space-y-2">
                 {userGages.map((g) => (
                   <li key={g.id} className="flex items-start gap-2 text-sm">
-                    <span className="text-purple-400 mt-0.5">›</span>
+                    <span className={`${bulletColor} mt-0.5`}>{completed ? '✓' : '›'}</span>
                     <div className="flex-1 min-w-0">
-                      <span className="font-medium text-gray-800 dark:text-gray-100">
+                      <span className={`font-medium ${completed ? 'text-gray-500 dark:text-gray-400 line-through' : 'text-gray-800 dark:text-gray-100'}`}>
                         {g.forfeit.title}
                       </span>
                       {g.forfeit.description && (
                         <p className="text-gray-500 dark:text-gray-400 text-xs mt-0.5 truncate">
                           {g.forfeit.description}
+                        </p>
+                      )}
+                      {completed && g.completedAt && (
+                        <p className="text-green-500 dark:text-green-400 text-xs mt-0.5">
+                          Fait le {new Date(g.completedAt).toLocaleDateString('fr-FR')}
                         </p>
                       )}
                     </div>
@@ -104,7 +111,8 @@ const Leaderboard: React.FC = () => {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
-  const [pendingGages, setPendingGages] = useState<GroupUserForfeit[]>([]);
+  const [allGages, setAllGages] = useState<GroupUserForfeit[]>([]);
+  const [gagesFilter, setGagesFilter] = useState<'pending' | 'completed'>('pending');
   const [isLoading, setIsLoading] = useState(true);
 
   // Load the user's groups and select the first one
@@ -124,9 +132,9 @@ const Leaderboard: React.FC = () => {
     load.then(setEntries).catch(console.error).finally(() => setIsLoading(false));
 
     if (selectedGroupId != null) {
-      getGroupPendingAssignments(selectedGroupId).then(setPendingGages).catch(console.error);
+      getGroupAssignments(selectedGroupId).then(setAllGages).catch(console.error);
     } else {
-      setPendingGages([]);
+      setAllGages([]);
     }
   }, [selectedGroupId]);
 
@@ -271,10 +279,66 @@ const Leaderboard: React.FC = () => {
         </ScrollableTableWrapper>
       </div>
 
-      {/* Pending Gages Section — visible only in group mode */}
-      {selectedGroupId != null && pendingGages.length > 0 && (
-        <PendingGagesSection gages={pendingGages} currentUsername={user?.username} />
-      )}
+      {/* Gages Section — visible only in group mode */}
+      {selectedGroupId != null && allGages.length > 0 && (() => {
+        const pendingGages = allGages.filter((g) => !g.completed);
+        const completedGages = allGages.filter((g) => g.completed);
+        return (
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <h2 className="text-base font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                🃏 Gages
+              </h2>
+              <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 text-sm">
+                <button
+                  onClick={() => setGagesFilter('pending')}
+                  className={`px-3 py-1.5 font-medium transition-colors ${
+                    gagesFilter === 'pending'
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  En attente
+                  {pendingGages.length > 0 && (
+                    <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${gagesFilter === 'pending' ? 'bg-purple-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'}`}>
+                      {pendingGages.length}
+                    </span>
+                  )}
+                </button>
+                <button
+                  onClick={() => setGagesFilter('completed')}
+                  className={`px-3 py-1.5 font-medium transition-colors border-l border-gray-200 dark:border-gray-700 ${
+                    gagesFilter === 'completed'
+                      ? 'bg-green-600 text-white'
+                      : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  Effectués
+                  {completedGages.length > 0 && (
+                    <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${gagesFilter === 'completed' ? 'bg-green-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'}`}>
+                      {completedGages.length}
+                    </span>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {gagesFilter === 'pending' && pendingGages.length === 0 && (
+              <p className="text-sm text-gray-500 dark:text-gray-400">Aucun gage en attente 🎉</p>
+            )}
+            {gagesFilter === 'completed' && completedGages.length === 0 && (
+              <p className="text-sm text-gray-500 dark:text-gray-400">Aucun gage effectué pour le moment.</p>
+            )}
+
+            {gagesFilter === 'pending' && pendingGages.length > 0 && (
+              <GagesSection gages={pendingGages} currentUsername={user?.username} completed={false} />
+            )}
+            {gagesFilter === 'completed' && completedGages.length > 0 && (
+              <GagesSection gages={completedGages} currentUsername={user?.username} completed={true} />
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 };

@@ -111,10 +111,10 @@ public class ForfeitController {
         return ResponseEntity.ok(forfeitService.getGroupPendingForfeits(groupId));
     }
 
-    @GetMapping("/group/{groupId}/pending-assignments")
-    @Operation(summary = "Get incomplete gage assignments for all members of a group (group member)")
-    public ResponseEntity<List<GroupUserForfeitResponse>> getGroupPendingAssignments(@PathVariable Long groupId) {
-        return ResponseEntity.ok(forfeitService.getGroupPendingAssignments(groupId));
+    @GetMapping("/group/{groupId}/assignments")
+    @Operation(summary = "Get all gage assignments for all members of a group, pending first then completed (group member)")
+    public ResponseEntity<List<GroupUserForfeitResponse>> getGroupAssignments(@PathVariable Long groupId) {
+        return ResponseEntity.ok(forfeitService.getGroupAssignments(groupId));
     }
 
     @PatchMapping("/group/{groupId}/{forfeitId}/approve")
