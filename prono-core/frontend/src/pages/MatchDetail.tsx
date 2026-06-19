@@ -269,7 +269,7 @@ const MatchDetail: React.FC = () => {
                     onChange={setScoreA}
                     min={0}
                     max={20}
-                    inputClassName="input-field text-center text-3xl font-black w-full py-3"
+                    inputClassName="input-field text-center text-xl sm:text-3xl font-black w-full py-2 sm:py-3"
                     placeholder="0"
                     required
                   />
@@ -282,7 +282,7 @@ const MatchDetail: React.FC = () => {
                     onChange={setScoreB}
                     min={0}
                     max={20}
-                    inputClassName="input-field text-center text-3xl font-black w-full py-3"
+                    inputClassName="input-field text-center text-xl sm:text-3xl font-black w-full py-2 sm:py-3"
                     placeholder="0"
                     required
                   />
