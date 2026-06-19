@@ -17,7 +17,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -166,12 +168,22 @@ public class GroupService {
     @Transactional(readOnly = true)
     public List<PublicGroupResponse> getPublicGroups(String username) {
         User user = findUser(username);
-        return groupRepository.findByIsPrivateFalse().stream()
+        List<Group> publicGroups = groupRepository.findByIsPrivateFalse();
+
+        // Batch-load: user memberships for all public groups in one query
+        Map<Long, GroupMember.MemberStatus> membershipByGroupId = groupMemberRepository
+            .findByUserId(user.getId()).stream()
+            .collect(Collectors.toMap(gm -> gm.getGroup().getId(), GroupMember::getStatus));
+
+        // Batch-load: active member counts for all public groups in one query
+        Map<Long, Long> memberCountByGroupId = groupRepository.countActiveMembersForPublicGroups().stream()
+            .collect(Collectors.toMap(row -> (Long) row[0], row -> (Long) row[1]));
+
+        return publicGroups.stream()
             .map(group -> {
-                GroupMember membership = groupMemberRepository
-                    .findByGroupIdAndUserId(group.getId(), user.getId()).orElse(null);
-                GroupMember.MemberStatus status = membership != null ? membership.getStatus() : null;
-                return toPublicResponse(group, status);
+                GroupMember.MemberStatus status = membershipByGroupId.get(group.getId());
+                long count = memberCountByGroupId.getOrDefault(group.getId(), 0L);
+                return toPublicResponseWithCount(group, status, count);
             })
             .toList();
     }
@@ -179,7 +191,7 @@ public class GroupService {
     /** PLATFORM_ADMIN only — list all groups. */
     @Transactional(readOnly = true)
     public List<GroupResponse> getAllGroups() {
-        return groupRepository.findAll().stream()
+        return groupRepository.findAllWithCreatedBy().stream()
             .map(g -> toResponse(g, null, false))
             .toList();
     }
@@ -335,6 +347,10 @@ public class GroupService {
 
     private PublicGroupResponse toPublicResponse(Group group, GroupMember.MemberStatus currentUserStatus) {
         long memberCount = groupMemberRepository.countByGroupIdAndStatus(group.getId(), GroupMember.MemberStatus.ACTIVE);
+        return toPublicResponseWithCount(group, currentUserStatus, memberCount);
+    }
+
+    private PublicGroupResponse toPublicResponseWithCount(Group group, GroupMember.MemberStatus currentUserStatus, long memberCount) {
         return PublicGroupResponse.builder()
             .id(group.getId())
             .name(group.getName())

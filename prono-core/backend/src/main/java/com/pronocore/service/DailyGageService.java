@@ -157,7 +157,7 @@ public class DailyGageService {
             dg.setStatus(DailyGage.Status.ACTIVE);
             dailyGageRepository.save(dg);
         }
-        return toResponse(dailyGageRepository.findById(dailyGageId).orElseThrow(), user);
+        return toResponse(requireDailyGage(dailyGageId), user);
     }
 
     /** Delete a daily gage entirely (must not be SETTLED). */
@@ -233,7 +233,7 @@ public class DailyGageService {
                 voteRepository.save(v);
             }
         }
-        return toResponse(dailyGageRepository.findById(dailyGageId).orElseThrow(), user);
+        return toResponse(requireDailyGage(dailyGageId), user);
     }
 
     // ---------------------------------------------------------------
@@ -418,7 +418,7 @@ public class DailyGageService {
     }
 
     private DailyGage requireDailyGage(Long id) {
-        return dailyGageRepository.findById(id)
+        return dailyGageRepository.findByIdWithDetails(id)
                 .orElseThrow(() -> new EntityNotFoundException("DailyGage not found: " + id));
     }
 
@@ -452,22 +452,34 @@ public class DailyGageService {
     private DailyGageResponse toResponse(DailyGage dg, User currentUser) {
         Long currentUserId = currentUser != null ? currentUser.getId() : null;
 
-        List<DailyGageCandidateResponse> candidateResponses = dg.getCandidates().stream()
-                .map(c -> {
-                    int userVote = 0;
-                    if (currentUserId != null) {
-                        Optional<DailyGageVote> v = c.getVotes().stream()
-                                .filter(vote -> vote.getUser().getId().equals(currentUserId))
-                                .findFirst();
-                        userVote = v.map(DailyGageVote::getVote).orElse(0);
-                    }
-                    return DailyGageCandidateResponse.builder()
-                            .id(c.getId())
-                            .forfeit(toForfeitResponse(c.getForfeit()))
-                            .voteScore(c.getVoteScore())
-                            .userVote(userVote)
-                            .build();
-                })
+        List<DailyGageCandidate> candidates = dg.getCandidates();
+        // Batch-load all votes for all candidates in a single query, then build a lookup map
+        Map<Long, Integer> userVoteByCandidate = Map.of();
+        Map<Long, Integer> voteScoreByCandidate = Map.of();
+        if (!candidates.isEmpty()) {
+            List<Long> candidateIds = candidates.stream().map(DailyGageCandidate::getId).toList();
+            List<DailyGageVote> allVotes = voteRepository.findByCandidateIdIn(candidateIds);
+            voteScoreByCandidate = allVotes.stream()
+                    .collect(Collectors.groupingBy(
+                            v -> v.getCandidate().getId(),
+                            Collectors.summingInt(DailyGageVote::getVote)));
+            if (currentUserId != null) {
+                userVoteByCandidate = allVotes.stream()
+                        .filter(v -> v.getUser().getId().equals(currentUserId))
+                        .collect(Collectors.toMap(v -> v.getCandidate().getId(), DailyGageVote::getVote));
+            }
+        }
+
+        final Map<Long, Integer> finalScores = voteScoreByCandidate;
+        final Map<Long, Integer> finalUserVotes = userVoteByCandidate;
+
+        List<DailyGageCandidateResponse> candidateResponses = candidates.stream()
+                .map(c -> DailyGageCandidateResponse.builder()
+                        .id(c.getId())
+                        .forfeit(toForfeitResponse(c.getForfeit()))
+                        .voteScore(finalScores.getOrDefault(c.getId(), 0))
+                        .userVote(finalUserVotes.getOrDefault(c.getId(), 0))
+                        .build())
                 .toList();
 
         boolean canForceSettle = dg.getStatus() == DailyGage.Status.ACTIVE

@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -38,17 +39,15 @@ public class BetService {
     @Transactional(readOnly = true)
     public List<BetResponse> getBetsForUser(String username) {
         User user = requireUser(username);
-        return betRepository.findAllInUserActiveGroups(user.getId()).stream()
-            .map(this::toBetResponseWithCount)
-            .toList();
+        List<Bet> bets = betRepository.findAllInUserActiveGroups(user.getId());
+        return toBetResponsesWithCounts(bets);
     }
 
     @Transactional(readOnly = true)
     public List<BetResponse> getBetsByMatch(Long matchId, String username) {
         User user = requireUser(username);
-        return betRepository.findByMatchIdInUserActiveGroups(matchId, user.getId()).stream()
-            .map(this::toBetResponseWithCount)
-            .toList();
+        List<Bet> bets = betRepository.findByMatchIdInUserActiveGroups(matchId, user.getId());
+        return toBetResponsesWithCounts(bets);
     }
 
     @Transactional(readOnly = true)
@@ -128,8 +127,7 @@ public class BetService {
     @Transactional(readOnly = true)
     public List<BetParticipationResponse> getParticipationsByMatch(Long matchId, String username) {
         User user = requireUser(username);
-        return betRepository.findByMatchIdInUserActiveGroups(matchId, user.getId()).stream()
-            .flatMap(bet -> participationRepository.findByBetId(bet.getId()).stream())
+        return participationRepository.findByMatchIdInUserActiveGroups(matchId, user.getId()).stream()
             .collect(Collectors.toMap(
                 p -> p.getUser().getId(),
                 p -> p,
@@ -394,6 +392,22 @@ public class BetService {
     private Bet requireBet(Long betId) {
         return betRepository.findById(betId)
             .orElseThrow(() -> new EntityNotFoundException("Bet not found: " + betId));
+    }
+
+    /** Batch-loads participation counts for a list of bets (single query instead of N). */
+    private List<BetResponse> toBetResponsesWithCounts(List<Bet> bets) {
+        if (bets.isEmpty()) return List.of();
+        List<Long> ids = bets.stream().map(Bet::getId).toList();
+        Map<Long, Long> counts = betRepository.countParticipationsByBetIds(ids).stream()
+            .collect(java.util.stream.Collectors.toMap(
+                row -> (Long) row[0],
+                row -> (Long) row[1]
+            ));
+        return bets.stream().map(bet -> {
+            BetResponse r = betMapper.toResponse(bet);
+            r.setParticipationsCount(counts.getOrDefault(bet.getId(), 0L));
+            return r;
+        }).toList();
     }
 
     private BetResponse toBetResponseWithCount(Bet bet) {
