@@ -15,9 +15,28 @@ import java.util.Set;
 @Repository
 public interface BetParticipationRepository extends JpaRepository<BetParticipation, Long> {
 
-    List<BetParticipation> findByBetId(Long betId);
+    @Query("SELECT bp FROM BetParticipation bp JOIN FETCH bp.user WHERE bp.bet.id = :betId")
+    List<BetParticipation> findByBetId(@Param("betId") Long betId);
 
-    List<BetParticipation> findByUserId(Long userId);
+    @Query("""
+            SELECT bp FROM BetParticipation bp
+            JOIN FETCH bp.bet b
+            LEFT JOIN FETCH b.match
+            WHERE bp.user.id = :userId
+            """)
+    List<BetParticipation> findByUserId(@Param("userId") Long userId);
+
+    /** All participations for all bets linked to a given match, restricted to the user's active groups. */
+    @Query("""
+            SELECT bp FROM BetParticipation bp
+            JOIN FETCH bp.user
+            JOIN bp.bet b
+            JOIN GroupMember gm ON gm.group = b.group
+            WHERE b.match.id = :matchId
+              AND gm.user.id = :userId
+              AND gm.status = com.pronocore.entity.GroupMember.MemberStatus.ACTIVE
+            """)
+    List<BetParticipation> findByMatchIdInUserActiveGroups(@Param("matchId") Long matchId, @Param("userId") Long userId);
 
     Optional<BetParticipation> findByBetIdAndUserId(Long betId, Long userId);
 

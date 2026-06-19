@@ -49,16 +49,16 @@ public class AdminCountsService {
                 .map(m -> m.getGroup().getId())
                 .toList();
 
-        // pendingApplications
-        int pendingApplications = adminGroupIds.stream()
-                .mapToInt(gid -> (int) groupMemberRepository.countByGroupIdAndStatus(gid, GroupMember.MemberStatus.PENDING))
+        // pendingApplications — single batch query instead of N
+        int pendingApplications = groupMemberRepository.countPendingByGroupIds(adminGroupIds).stream()
+                .mapToInt(row -> ((Number) row[1]).intValue())
                 .sum();
 
-        // pendingForfeitsPerGroup
-        Map<Long, Integer> pendingForfeitsPerGroup = adminGroupIds.stream()
+        // pendingForfeitsPerGroup — single batch query instead of N
+        Map<Long, Integer> pendingForfeitsPerGroup = forfeitRepository.countPendingByGroupIds(adminGroupIds).stream()
                 .collect(Collectors.toMap(
-                        gid -> gid,
-                        gid -> forfeitRepository.findByActiveFalseAndGroupIdOrderById(gid).size()
+                        row -> (Long) row[0],
+                        row -> ((Number) row[1]).intValue()
                 ));
 
         // missingGagesPerGroup — only counts days that have at least one OPEN bet in the group
@@ -86,11 +86,13 @@ public class AdminCountsService {
                         }
                 ));
 
-        // groupsWithNoBets
+        // groupsWithNoBets — single batch query instead of N
+        Set<Long> groupsWithOpenBets = betRepository.findGroupIdsWithOpenBets(adminGroupIds).stream()
+                .collect(Collectors.toSet());
         Map<Long, Boolean> groupsWithNoBets = adminGroupIds.stream()
                 .collect(Collectors.toMap(
                         gid -> gid,
-                        gid -> !betRepository.existsByGroupIdAndStatus(gid, Bet.Status.OPEN)
+                        gid -> !groupsWithOpenBets.contains(gid)
                 ));
 
         // matchesWithoutBetsPerGroup — UPCOMING matches not yet opened to betting in the group

@@ -33,4 +33,8 @@ public interface ForfeitRepository extends JpaRepository<Forfeit, Long> {
 
     /** Pending (inactive, awaiting group admin approval) forfeits proposed for a group. */
     List<Forfeit> findByActiveFalseAndGroupIdOrderById(Long groupId);
+
+    /** Returns [groupId, count] of pending forfeits across multiple groups (single batch query). */
+    @Query("SELECT f.group.id, COUNT(f) FROM Forfeit f WHERE f.active = false AND f.group.id IN :groupIds GROUP BY f.group.id")
+    List<Object[]> countPendingByGroupIds(@Param("groupIds") List<Long> groupIds);
 }
