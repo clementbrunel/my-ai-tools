@@ -10,3 +10,5 @@ entities.json
 __pycache__/
 *.pyc
 *.pyo
+# Claude Code internal (agent worktrees, session data)
+.claude/
