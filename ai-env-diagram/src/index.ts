@@ -13,6 +13,10 @@ import { summarizeEnvVars } from "./scanner/env.js";
 import { renderConsole } from "./diagram/console.js";
 import { renderMarkdown } from "./diagram/markdown.js";
 import { checkAndMarkUpdates, runUpdates } from "./updater/index.js";
+import { CATALOGUE, getToolById, getConflicts } from "./prepare/catalogue.js";
+import type { ToolId } from "./prepare/catalogue.js";
+import { renderCatalogue, renderInstallPlan } from "./prepare/render.js";
+import { runInstall } from "./prepare/installer.js";
 import type { ScanResult } from "./types.js";
 
 
@@ -74,6 +78,42 @@ program
     process.stdout.write(renderConsole(result));
 
     runUpdates(targets);
+  });
+
+program
+  .command("prepare")
+  .description(
+    "Affiche le catalogue des outils recommandés et génère un plan d'installation"
+  )
+  .option(
+    "--with <tools>",
+    "outils à installer, séparés par des virgules (ex: rtk,mempalace)",
+  )
+  .option("--install", "exécuter les commandes shell automatiquement")
+  .option("--verbose", "afficher les descriptions complètes des outils")
+  .action((options: { with?: string; install?: boolean; verbose?: boolean }) => {
+    if (!options.with) {
+      process.stdout.write(renderCatalogue(options.verbose ?? false));
+      return;
+    }
+
+    const ids = options.with.split(",").map((s) => s.trim()) as ToolId[];
+    const validIds = new Set(CATALOGUE.map((t) => t.id));
+    const unknown = ids.filter((id) => !validIds.has(id));
+    if (unknown.length > 0) {
+      console.error(chalk.red(`\n  Outil(s) inconnu(s): ${unknown.join(", ")}`));
+      console.error(chalk.dim(`  IDs valides : ${[...validIds].join(", ")}\n`));
+      process.exit(1);
+    }
+
+    const tools = ids.map((id) => getToolById(id)!);
+    const conflicts = getConflicts(ids);
+
+    process.stdout.write(renderInstallPlan(tools, conflicts, !options.install));
+
+    if (options.install && conflicts.length === 0) {
+      runInstall(tools);
+    }
   });
 
 program.parse();
