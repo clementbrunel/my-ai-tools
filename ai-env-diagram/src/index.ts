@@ -13,9 +13,9 @@ import { summarizeEnvVars } from "./scanner/env.js";
 import { renderConsole } from "./diagram/console.js";
 import { renderMarkdown } from "./diagram/markdown.js";
 import { checkAndMarkUpdates, runUpdates } from "./updater/index.js";
-import { CATALOGUE, getToolById, getConflicts } from "./prepare/catalogue.js";
+import { CATALOGUE, getToolById, getConflicts, suggestMissing } from "./prepare/catalogue.js";
 import type { ToolId } from "./prepare/catalogue.js";
-import { renderCatalogue, renderInstallPlan } from "./prepare/render.js";
+import { renderCatalogue, renderInstallPlan, renderSuggestion } from "./prepare/render.js";
 import { runInstall } from "./prepare/installer.js";
 import type { ScanResult } from "./types.js";
 
@@ -91,9 +91,17 @@ program
   )
   .option("--install", "exécuter les commandes shell automatiquement")
   .option("--verbose", "afficher les descriptions complètes des outils")
-  .action((options: { with?: string; install?: boolean; verbose?: boolean }) => {
+  .action((options: { with?: string; install?: boolean; verbose?: boolean; path: string }) => {
     if (!options.with) {
+      const projectPath = resolve(options.path);
+      const mcpServers = scanMcpServers(projectPath);
+      const hooks = scanHooks(projectPath);
+      const integrations = scanIntegrations(projectPath, mcpServers, hooks);
+      const detectedNames = integrations.filter((i) => i.detected).map((i) => i.name);
+      const suggested = suggestMissing(detectedNames);
+
       process.stdout.write(renderCatalogue(options.verbose ?? false));
+      process.stdout.write(renderSuggestion(suggested, projectPath));
       return;
     }
 

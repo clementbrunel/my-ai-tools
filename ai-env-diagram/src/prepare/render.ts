@@ -122,3 +122,25 @@ export function renderInstallPlan(
 
   return lines.join("\n");
 }
+
+export function renderSuggestion(suggested: string[], projectPath: string): string {
+  const lines: string[] = [];
+  lines.push("");
+  lines.push(RULE);
+
+  if (suggested.length === 0) {
+    lines.push(chalk.green("\n  ✓ Tous les groupes d'outils sont déjà couverts dans cet environnement.\n"));
+    return lines.join("\n");
+  }
+
+  const withArg = suggested.join(",");
+  lines.push(chalk.bold("\n  SUGGESTION — basée sur le scan de votre environnement"));
+  lines.push(chalk.dim(`  Projet : ${projectPath}\n`));
+  lines.push(chalk.dim("  Outils manquants détectés. Commande générée :\n"));
+  lines.push(`    ${chalk.cyan.bold(`ai-env-diagram prepare --with ${withArg}`)}`);
+  lines.push("");
+  lines.push(`    ${chalk.dim("Ajouter")} ${chalk.white("--install")} ${chalk.dim("pour exécuter les étapes shell automatiquement.")}`);
+  lines.push(`    ${chalk.dim("Modifier")} ${chalk.white(`--with ${withArg}`)} ${chalk.dim("selon vos préférences (voir catalogue ci-dessus).")}\n`);
+
+  return lines.join("\n");
+}

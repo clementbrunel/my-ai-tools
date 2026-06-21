@@ -150,6 +150,43 @@ export const CATALOGUE: CatalogueTool[] = [
   },
 ];
 
+// Maps Integration.name (from scanner) to a catalogue ToolId.
+export const INTEGRATION_TO_TOOL: Record<string, ToolId> = {
+  "MemPalace": "mempalace",
+  "Caveman": "caveman",
+  "RTK (Rust Token Killer)": "rtk",
+  "Headroom": "headroom",
+  "ECC": "ecc",
+  "SocratiCode": "socraticode",
+};
+
+// Default pick per conflict group when nothing is detected (easiest / least infra first).
+const GROUP_DEFAULTS: Record<string, ToolId> = {
+  token: "caveman",
+  memory: "mempalace",
+};
+
+export function suggestMissing(detectedNames: string[]): ToolId[] {
+  const detectedIds = new Set(
+    detectedNames
+      .map((n) => INTEGRATION_TO_TOOL[n])
+      .filter((id): id is ToolId => id !== undefined)
+  );
+
+  const suggested: ToolId[] = [];
+
+  for (const group of CONFLICT_GROUPS) {
+    const groupTools = CATALOGUE.filter((t) => t.conflictGroup === group.id);
+    const alreadyHasOne = groupTools.some((t) => detectedIds.has(t.id));
+    if (!alreadyHasOne) {
+      const defaultPick = GROUP_DEFAULTS[group.id];
+      if (defaultPick) suggested.push(defaultPick);
+    }
+  }
+
+  return suggested;
+}
+
 export function getToolById(id: string): CatalogueTool | undefined {
   return CATALOGUE.find((t) => t.id === id);
 }
