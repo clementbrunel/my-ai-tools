@@ -9,7 +9,7 @@
 | Backend | Java 21 + Spring Boot 3 + Spring Security JWT |
 | Base de données | PostgreSQL 16 + Flyway |
 | Frontend | React 18 + TypeScript + Vite + Tailwind CSS |
-| Déploiement | Docker Compose (dev) / Registry NAS Synology (prod) |
+| Déploiement | Docker Compose (dev) / Registry Docker privé (prod) |
 
 ---
 
@@ -59,16 +59,15 @@ Connexion à configurer dans pgAdmin :
 | Username | valeur de `DB_USER` |
 | Password | valeur de `DB_PASS` |
 
-### En production (NAS Synology)
+### En production
 
 pgAdmin n'est **pas démarré par défaut**. Pour l'activer ponctuellement :
 
 ```bash
-# Sur le NAS (SSH)
 docker compose -f docker-compose.prod.yml --profile tools up -d pgadmin
 ```
 
-Accessible sur http://<IP-NAS>:5050 — **penser à le couper une fois terminé** :
+Accessible sur http://&lt;HOST&gt;:5050 — **penser à le couper une fois terminé** :
 
 ```bash
 docker compose -f docker-compose.prod.yml --profile tools stop pgadmin
@@ -76,16 +75,16 @@ docker compose -f docker-compose.prod.yml --profile tools stop pgadmin
 
 ---
 
-## Déploiement production (NAS Synology)
+## Déploiement production
 
-Le déploiement repose sur un registry Docker privé tournant sur le NAS (`192.168.68.112:5000`).
-Les images sont buildées en local et poussées sur le NAS — **aucune compilation sur le NAS**.
+Le déploiement repose sur un registry Docker privé.
+Les images sont buildées en local et poussées vers le registry — **aucune compilation sur le serveur de prod**.
 
 ### Prérequis (une seule fois)
 
-- Registry `registry:2` lancé sur le NAS via Container Manager
-- `192.168.68.112:5000` déclaré comme insecure registry dans Docker Desktop
-- `docker-compose.prod.yml` et un fichier `.env` copiés sur le NAS dans le même dossier
+- Registry Docker privé accessible depuis ta machine de dev
+- Variable `REGISTRY` définie (ex: `export REGISTRY=myregistry:5000`)
+- `docker-compose.prod.yml` et un fichier `.env` déposés sur le serveur de prod
 
 ### Déployer une nouvelle version
 
@@ -93,11 +92,12 @@ Les images sont buildées en local et poussées sur le NAS — **aucune compilat
 
 ```bash
 cd prono-core
-./build-and-push.sh          # build + push backend & frontend sur le NAS
+export REGISTRY=myregistry:5000
+./build-and-push.sh          # build + push backend & frontend
 # optionnel : ./build-and-push.sh v1.2.0  pour tagger une version spécifique
 ```
 
-**Sur le NAS (SSH ou tâche planifiée) :**
+**Sur le serveur de prod :**
 
 ```bash
 docker compose -f docker-compose.prod.yml pull
@@ -109,8 +109,8 @@ docker compose -f docker-compose.prod.yml up -d
 | Fichier | Usage |
 |---------|-------|
 | `docker-compose.yml` | Dev local (build à la volée) |
-| `docker-compose.prod.yml` | Production NAS (images pré-buildées) |
-| `build-and-push.sh` | Build + push vers le registry NAS |
+| `docker-compose.prod.yml` | Production (images pré-buildées) |
+| `build-and-push.sh` | Build + push vers le registry privé |
 | `.env.example` | Template des variables d'environnement |
 
 ---
