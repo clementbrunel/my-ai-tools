@@ -22,6 +22,8 @@ const Profile: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [completingId, setCompletingId] = useState<number | null>(null);
   const [showEdit, setShowEdit] = useState(false);
+  const [showDoneForfeits, setShowDoneForfeits] = useState(false);
+  const [showPronostics, setShowPronostics] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -183,29 +185,37 @@ const Profile: React.FC = () => {
       {/* Completed Forfeits */}
       {doneForfeits.length > 0 && (
         <div className="card">
-          <h3 className="font-bold text-gray-900 dark:text-white mb-4">
-            ✅ Gages effectués ({doneForfeits.length})
-          </h3>
-          <div className="space-y-2">
-            {doneForfeits.map((uf) => (
-              <div
-                key={uf.id}
-                className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg opacity-70"
-              >
-                <div>
-                  <div className="text-sm font-medium text-gray-700 dark:text-gray-300 line-through">
-                    {uf.forfeit.title}
-                  </div>
-                  {uf.completedAt && (
-                    <div className="text-xs text-gray-400">
-                      Effectué le {formatDate(uf.completedAt)}
+          <button
+            onClick={() => setShowDoneForfeits((v) => !v)}
+            className="w-full flex items-center justify-between text-left"
+          >
+            <h3 className="font-bold text-gray-900 dark:text-white">
+              ✅ Gages effectués ({doneForfeits.length})
+            </h3>
+            <span className="text-gray-400 text-sm">{showDoneForfeits ? '▲' : '▼'}</span>
+          </button>
+          {showDoneForfeits && (
+            <div className="space-y-2 mt-4">
+              {doneForfeits.map((uf) => (
+                <div
+                  key={uf.id}
+                  className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg opacity-70"
+                >
+                  <div>
+                    <div className="text-sm font-medium text-gray-700 dark:text-gray-300 line-through">
+                      {uf.forfeit.title}
                     </div>
-                  )}
+                    {uf.completedAt && (
+                      <div className="text-xs text-gray-400">
+                        Effectué le {formatDate(uf.completedAt)}
+                      </div>
+                    )}
+                  </div>
+                  <span className="text-green-500 text-lg">✅</span>
                 </div>
-                <span className="text-green-500 text-lg">✅</span>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -218,10 +228,20 @@ const Profile: React.FC = () => {
 
       {/* My bets */}
       <div className="card">
-        <h3 className="font-bold text-gray-900 dark:text-white mb-4">
-          🎯 Mes pronostics ({myParticipations.length})
-        </h3>
-        <UserBetList bets={myParticipations} showOpen />
+        <button
+          onClick={() => setShowPronostics((v) => !v)}
+          className="w-full flex items-center justify-between text-left"
+        >
+          <h3 className="font-bold text-gray-900 dark:text-white">
+            🎯 Mes pronostics ({myParticipations.length})
+          </h3>
+          <span className="text-gray-400 text-sm">{showPronostics ? '▲' : '▼'}</span>
+        </button>
+        {showPronostics && (
+          <div className="mt-4">
+            <UserBetList bets={myParticipations} showOpen />
+          </div>
+        )}
       </div>
 
       {user?.createdAt && (
