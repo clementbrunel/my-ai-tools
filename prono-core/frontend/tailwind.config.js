@@ -8,11 +8,11 @@ export default {
   theme: {
     extend: {
       colors: {
-        'wc-gold': '#FFD700',
-        'wc-green': '#009900',
-        'wc-red': '#CC0000',
-        'wc-dark': '#0a1628',
-        'wc-dark-secondary': '#112240',
+        'wc-gold': 'var(--theme-accent)',
+        'wc-green': 'var(--theme-primary)',
+        'wc-red': 'var(--theme-danger)',
+        'wc-dark': 'var(--theme-dark)',
+        'wc-dark-secondary': 'var(--theme-dark-secondary)',
       },
       backgroundImage: {
         'pitch': "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Crect width='40' height='40' fill='%23006600'/%3E%3Crect x='0' y='0' width='40' height='20' fill='%23007700' opacity='0.5'/%3E%3C/svg%3E\")",
