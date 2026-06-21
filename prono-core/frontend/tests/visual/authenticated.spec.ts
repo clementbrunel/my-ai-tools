@@ -99,7 +99,7 @@ test.describe('Profile', () => {
   test('light mode', async ({ page }) => {
     await page.goto('/profile');
     // Wait for profile content (username heading)
-    await page.waitForSelector('text=testuser');
+    await page.waitForSelector('h2:has-text("Test User")');
     await expect(page).toHaveScreenshot('profile-light.png', { fullPage: true });
   });
 });
