@@ -1,15 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigationType } from 'react-router-dom';
 import { useEffect } from 'react';
-
-function ScrollToTop() {
-  const { pathname } = useLocation();
-  const navigationType = useNavigationType();
-  useEffect(() => {
-    if (navigationType === 'POP') return;
-    window.scrollTo(0, 0);
-  }, [pathname, navigationType]);
-  return null;
-}
+import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider } from './context/AuthContext';
 import { GroupAdminCountsProvider } from './context/GroupAdminCountsContext';
 import { UserCountsProvider } from './context/UserCountsContext';
@@ -31,8 +22,19 @@ import Gages from './pages/Gages';
 import GroupPage from './pages/GroupPage';
 import OpenBetting from './pages/OpenBetting';
 
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  const navigationType = useNavigationType();
+  useEffect(() => {
+    if (navigationType === 'POP') return;
+    window.scrollTo(0, 0);
+  }, [pathname, navigationType]);
+  return null;
+}
+
 function App() {
   return (
+    <ThemeProvider>
     <AuthProvider>
       <GroupAdminCountsProvider>
       <UserCountsProvider>
@@ -77,6 +79,7 @@ function App() {
       </UserCountsProvider>
       </GroupAdminCountsProvider>
     </AuthProvider>
+    </ThemeProvider>
   );
 }
 

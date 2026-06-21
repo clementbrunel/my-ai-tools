@@ -3,6 +3,16 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --theme-primary: #009900;
+    --theme-primary-dark: #006400;
+    --theme-accent: #FFD700;
+    --theme-accent-mid: #FFA500;
+    --theme-danger: #CC0000;
+    --theme-dark: #0a1628;
+    --theme-dark-secondary: #112240;
+  }
+
   * {
     box-sizing: border-box;
   }
@@ -39,7 +49,7 @@
            focus:outline-none focus:ring-2 focus:ring-wc-green focus:border-transparent
            placeholder-gray-400 dark:placeholder-gray-500;
     /* Date pickers: align the native "today" highlight with the app's color */
-    accent-color: #009900;
+    accent-color: var(--theme-primary);
   }
 
   /* Hide native spinners on number inputs — ScoreInput provides its own +/− buttons */
@@ -105,14 +115,14 @@
   }
 }
 
-/* World Cup gradient header */
+/* Sport header gradient — colors driven by active theme */
 .wc-header {
-  background: linear-gradient(135deg, #006400 0%, #009900 50%, #006400 100%);
+  background: linear-gradient(135deg, var(--theme-primary-dark) 0%, var(--theme-primary) 50%, var(--theme-primary-dark) 100%);
 }
 
-/* Gold shimmer effect */
+/* Accent shimmer effect — colors driven by active theme */
 .gold-shimmer {
-  background: linear-gradient(90deg, #FFD700, #FFA500, #FFD700);
+  background: linear-gradient(90deg, var(--theme-accent), var(--theme-accent-mid), var(--theme-accent));
   background-size: 200% auto;
   animation: shimmer 2s linear infinite;
 }
