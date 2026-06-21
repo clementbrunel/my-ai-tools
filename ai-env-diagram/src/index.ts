@@ -4,12 +4,7 @@ import { Command } from "commander";
 import chalk from "chalk";
 import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { scanMcpServers } from "./scanner/mcp.js";
-import { scanContextFiles } from "./scanner/context.js";
-import { scanHooks } from "./scanner/hooks.js";
-import { scanModel } from "./scanner/model.js";
-import { scanIntegrations } from "./scanner/integrations/index.js";
-import { summarizeEnvVars } from "./scanner/env.js";
+import { runScan } from "./scanner/run.js";
 import { renderConsole } from "./diagram/console.js";
 import { renderMarkdown } from "./diagram/markdown.js";
 import { checkAndMarkUpdates, runUpdates } from "./updater/index.js";
@@ -17,8 +12,6 @@ import { CATALOGUE, getToolById, getConflicts, suggestMissing, INTEGRATION_TO_TO
 import type { ToolId } from "./prepare/catalogue.js";
 import { renderCatalogue, renderInstallPlan, renderSuggestion } from "./prepare/render.js";
 import { runInstall } from "./prepare/installer.js";
-import type { ScanResult } from "./types.js";
-
 
 const program = new Command();
 
@@ -31,19 +24,9 @@ program
   .option("-p, --path <dir>", "project directory to scan", ".")
   .option("-o, --output <file>", "write markdown report to a file")
   .action((options: { path: string; output?: string }) => {
-    const projectPath = resolve(options.path);
+    const result = runScan(options.path);
 
-    console.log(chalk.blue(`\n🔍 Scanning AI environment in: ${projectPath}\n`));
-
-    const model = scanModel(projectPath);
-    const mcpServers = scanMcpServers(projectPath);
-    const contextFiles = scanContextFiles(projectPath);
-    const hooks = scanHooks(projectPath);
-    const integrations = scanIntegrations(projectPath, mcpServers, hooks);
-    const envVarSummary = summarizeEnvVars(mcpServers);
-
-    const result: ScanResult = { projectPath, model, mcpServers, contextFiles, hooks, integrations, envVarSummary };
-
+    console.log(chalk.blue(`\n🔍 Scanning AI environment in: ${result.projectPath}\n`));
     process.stdout.write(renderConsole(result));
 
     if (options.output) {
@@ -54,55 +37,35 @@ program
 
 program
   .command("update")
-  .description(
-    "Check for updates on all detected AI tools and apply them"
-  )
+  .description("Check for updates on all detected AI tools and apply them")
   .option("-p, --path <dir>", "project directory to scan", ".")
   .action((options: { path: string }) => {
-    const projectPath = resolve(options.path);
+    const result = runScan(options.path);
 
-    console.log(chalk.blue(`\n🔍 Scanning AI environment in: ${projectPath}\n`));
-
-    const model = scanModel(projectPath);
-    const mcpServers = scanMcpServers(projectPath);
-    const contextFiles = scanContextFiles(projectPath);
-    const hooks = scanHooks(projectPath);
-    const integrations = scanIntegrations(projectPath, mcpServers, hooks);
-    const envVarSummary = summarizeEnvVars(mcpServers);
-
-    const result: ScanResult = { projectPath, model, mcpServers, contextFiles, hooks, integrations, envVarSummary };
-
+    console.log(chalk.blue(`\n🔍 Scanning AI environment in: ${result.projectPath}\n`));
     console.log(chalk.blue("\n🔎 Checking for updates...\n"));
     const targets = checkAndMarkUpdates(result);
 
     process.stdout.write(renderConsole(result));
-
     runUpdates(targets);
   });
 
 program
   .command("prepare")
-  .description(
-    "Affiche le catalogue des outils recommandés et génère un plan d'installation"
-  )
-  .option(
-    "--with <tools>",
-    "outils à installer, séparés par des virgules (ex: rtk,mempalace)",
-  )
+  .description("Affiche le catalogue des outils recommandés et génère un plan d'installation")
+  .option("-p, --path <dir>", "project directory to scan", ".")
+  .option("--with <tools>", "outils à installer, séparés par des virgules (ex: rtk,mempalace)")
   .option("--install", "exécuter les commandes shell automatiquement")
   .option("--verbose", "afficher les descriptions complètes des outils")
-  .action((options: { with?: string; install?: boolean; verbose?: boolean; path: string }) => {
+  .action((options: { path: string; with?: string; install?: boolean; verbose?: boolean }) => {
     if (!options.with) {
-      const projectPath = resolve(options.path);
-      const mcpServers = scanMcpServers(projectPath);
-      const hooks = scanHooks(projectPath);
-      const integrations = scanIntegrations(projectPath, mcpServers, hooks);
-      const detectedNames = integrations.filter((i) => i.detected).map((i) => i.name);
+      const result = runScan(options.path);
+      const detectedNames = result.integrations.filter((i) => i.detected).map((i) => i.name);
       const detectedIds = new Set(detectedNames.map((n) => INTEGRATION_TO_TOOL[n]).filter(Boolean));
       const suggested = suggestMissing(detectedNames);
 
       process.stdout.write(renderCatalogue(options.verbose ?? false, detectedIds));
-      process.stdout.write(renderSuggestion(suggested, projectPath));
+      process.stdout.write(renderSuggestion(suggested, result.projectPath));
       return;
     }
 

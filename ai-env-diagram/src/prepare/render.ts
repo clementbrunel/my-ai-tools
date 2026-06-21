@@ -60,13 +60,9 @@ export function renderCatalogue(verbose = false, detectedIds: Set<string> = new 
 
   lines.push(RULE);
   lines.push(chalk.bold("\n  UTILISATION"));
-  lines.push(chalk.dim("  Choisir les outils et générer les étapes d'installation :\n"));
-  lines.push(`    ${chalk.cyan("ai-env-diagram prepare --with rtk,mempalace")}`);
-  lines.push(`    ${chalk.cyan("ai-env-diagram prepare --with headroom,socraticode")}`);
-  lines.push(`    ${chalk.cyan("ai-env-diagram prepare --with ecc,socraticode")}`);
-  lines.push("");
-  lines.push(chalk.dim("  Ajouter --install pour exécuter automatiquement les commandes shell."));
-  lines.push(chalk.dim("  Ajouter --verbose pour afficher les descriptions complètes.\n"));
+  lines.push(`    ${chalk.cyan("ai-env-diagram prepare --with <tool1,tool2>")}  ${chalk.dim("voir les étapes d'installation")}`);
+  lines.push(`    ${chalk.cyan("                         --install")}           ${chalk.dim("exécuter les commandes shell")}`);
+  lines.push(`    ${chalk.cyan("                         --verbose")}           ${chalk.dim("descriptions complètes")}\n`);
 
   return lines.join("\n");
 }
