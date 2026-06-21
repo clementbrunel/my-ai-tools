@@ -7,6 +7,7 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/setupTests.ts'],
+    exclude: ['tests/visual/**', 'node_modules/**'],
   },
   cacheDir: 'node_modules/.vite',
   server: {
