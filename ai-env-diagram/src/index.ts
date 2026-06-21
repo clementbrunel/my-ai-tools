@@ -13,7 +13,7 @@ import { summarizeEnvVars } from "./scanner/env.js";
 import { renderConsole } from "./diagram/console.js";
 import { renderMarkdown } from "./diagram/markdown.js";
 import { checkAndMarkUpdates, runUpdates } from "./updater/index.js";
-import { CATALOGUE, getToolById, getConflicts, suggestMissing } from "./prepare/catalogue.js";
+import { CATALOGUE, getToolById, getConflicts, suggestMissing, INTEGRATION_TO_TOOL } from "./prepare/catalogue.js";
 import type { ToolId } from "./prepare/catalogue.js";
 import { renderCatalogue, renderInstallPlan, renderSuggestion } from "./prepare/render.js";
 import { runInstall } from "./prepare/installer.js";
@@ -98,9 +98,10 @@ program
       const hooks = scanHooks(projectPath);
       const integrations = scanIntegrations(projectPath, mcpServers, hooks);
       const detectedNames = integrations.filter((i) => i.detected).map((i) => i.name);
+      const detectedIds = new Set(detectedNames.map((n) => INTEGRATION_TO_TOOL[n]).filter(Boolean));
       const suggested = suggestMissing(detectedNames);
 
-      process.stdout.write(renderCatalogue(options.verbose ?? false));
+      process.stdout.write(renderCatalogue(options.verbose ?? false, detectedIds));
       process.stdout.write(renderSuggestion(suggested, projectPath));
       return;
     }

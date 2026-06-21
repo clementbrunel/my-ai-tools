@@ -14,9 +14,10 @@ function groupedCatalogue(): Map<string | undefined, CatalogueTool[]> {
   return groups;
 }
 
-function renderToolEntry(tool: CatalogueTool, verbose: boolean): string {
+function renderToolEntry(tool: CatalogueTool, verbose: boolean, detected: boolean): string {
   const lines: string[] = [];
-  lines.push(`  ${chalk.bold.cyan(tool.id.padEnd(14))} ${chalk.white(tool.name)}`);
+  const badge = detected ? chalk.green(" ✓ déjà installé") : "";
+  lines.push(`  ${chalk.bold.cyan(tool.id.padEnd(14))} ${chalk.white(tool.name)}${badge}`);
   lines.push(`  ${" ".repeat(14)} ${chalk.dim(tool.tagline)}`);
   if (verbose) {
     lines.push(`  ${" ".repeat(14)} ${tool.why}`);
@@ -29,7 +30,7 @@ function renderGroupHeader(group: ConflictGroup): string {
   return `\n  ${chalk.bold(group.label.toUpperCase())}  ${chalk.dim(`(${maxLabel})`)}\n  ${chalk.dim(group.note)}\n`;
 }
 
-export function renderCatalogue(verbose = false): string {
+export function renderCatalogue(verbose = false, detectedIds: Set<string> = new Set()): string {
   const lines: string[] = [];
   lines.push("");
   lines.push(chalk.bold.white("CATALOGUE — outils recommandés pour l'environnement IA"));
@@ -42,7 +43,7 @@ export function renderCatalogue(verbose = false): string {
     if (tools.length === 0) continue;
     lines.push(renderGroupHeader(cg));
     for (const tool of tools) {
-      lines.push(renderToolEntry(tool, verbose));
+      lines.push(renderToolEntry(tool, verbose, detectedIds.has(tool.id)));
       lines.push("");
     }
   }
@@ -52,7 +53,7 @@ export function renderCatalogue(verbose = false): string {
   if (standalone.length > 0) {
     lines.push(`\n  ${chalk.bold("FRAMEWORK TOUT-EN-UN")}\n  ${chalk.dim("Remplace les outils individuels — ne pas combiner avec caveman.")}\n`);
     for (const tool of standalone) {
-      lines.push(renderToolEntry(tool, verbose));
+      lines.push(renderToolEntry(tool, verbose, detectedIds.has(tool.id)));
       lines.push("");
     }
   }
