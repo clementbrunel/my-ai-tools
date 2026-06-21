@@ -150,6 +150,8 @@ Le frontend écoute sur http://localhost:5173 avec proxy vers le backend.
 ```
 prono-core/
 ├── docker-compose.yml
+├── docs/
+│   └── data-model.md             # Modèle de données (ERD + descriptions des tables)
 ├── backend/
 │   ├── Dockerfile
 │   ├── pom.xml
@@ -160,6 +162,12 @@ prono-core/
     ├── Dockerfile
     └── src/                      # api, components, context, pages, types
 ```
+
+### Modèle de données
+
+Le schéma complet (ERD Mermaid + description des 13 tables) est documenté dans [`docs/data-model.md`](docs/data-model.md).
+
+Tables principales : `users`, `groups`, `group_members`, `matches`, `bets`, `bet_participations`, `forfeits`, `forfeit_votes`, `user_forfeits`, `daily_gages`, `daily_gage_candidates`, `daily_gage_votes`, `password_reset_tokens`.
 
 ---
 
