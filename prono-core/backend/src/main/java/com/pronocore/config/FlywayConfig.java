@@ -1,21 +1,22 @@
 package com.pronocore.config;
 
-import org.flywaydb.core.Flyway;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.flyway.FlywayMigrationStrategy;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class FlywayConfig {
 
-    // Activated by env var APP_FLYWAY_REPAIR=true — run once when a checksum
-    // mismatch occurs (edited migration), then remove the var and restart.
+    // Set env var APP_FLYWAY_REPAIR=true to repair checksum mismatches on startup
+    // (e.g. after editing an already-applied migration), then remove it.
     @Bean
-    @ConditionalOnProperty(name = "app.flyway.repair", havingValue = "true")
-    public FlywayMigrationStrategy repairBeforeMigrate() {
+    public FlywayMigrationStrategy migrationStrategy(
+            @Value("${app.flyway.repair:false}") boolean repair) {
         return flyway -> {
-            flyway.repair();
+            if (repair) {
+                flyway.repair();
+            }
             flyway.migrate();
         };
     }
