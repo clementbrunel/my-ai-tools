@@ -29,6 +29,7 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       RESEND_API_KEY: ${RESEND_API_KEY}
       FRONTEND_URL: ${FRONTEND_URL}
+      TZ: Europe/Paris
     depends_on:
       postgres:
         condition: service_healthy
