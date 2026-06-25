@@ -66,7 +66,9 @@ const Matches: React.FC = () => {
     return acc;
   }, {});
 
-  const sortedDays = Object.keys(matchesByDay).sort();
+  const sortedDays = Object.keys(matchesByDay).sort(
+    filter === 'UPCOMING' ? undefined : (a, b) => b.localeCompare(a)
+  );
 
   return (
     <div>
