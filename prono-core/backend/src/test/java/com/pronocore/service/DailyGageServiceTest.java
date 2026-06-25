@@ -58,7 +58,6 @@ class DailyGageServiceTest {
         adminUser = User.builder()
                 .id(1L).username("admin").email("admin@test.com")
                 .password("encoded").role(User.Role.PLATFORM_ADMIN)
-                .globalScore(0).betsWon(0).forfeitsReceived(0)
                 .build();
 
         group = Group.builder().id(GROUP_ID).name("Les Potes").build();
@@ -394,7 +393,7 @@ class DailyGageServiceTest {
         Forfeit forfeit = buildForfeit(1L, "Do pushups");
         User loser = User.builder().id(3L).username("loser").email("l@test.com")
                 .password("encoded").role(User.Role.USER)
-                .globalScore(0).betsWon(0).forfeitsReceived(0).build();
+                .build();
 
         DailyGage dg = gage(1L, DailyGage.Mode.DIRECT, DailyGage.Status.ACTIVE);
         dg.setForfeit(forfeit);
@@ -413,7 +412,6 @@ class DailyGageServiceTest {
 
         assertThat(dg.getStatus()).isEqualTo(DailyGage.Status.SETTLED);
         assertThat(dg.getAssignedTo()).isEqualTo(loser);
-        assertThat(loser.getForfeitsReceived()).isEqualTo(1);
 
         ArgumentCaptor<UserForfeit> captor = ArgumentCaptor.forClass(UserForfeit.class);
         verify(userForfeitRepository).save(captor.capture());
@@ -437,7 +435,7 @@ class DailyGageServiceTest {
 
         User loser = User.builder().id(3L).username("loser").email("l@test.com")
                 .password("encoded").role(User.Role.USER)
-                .globalScore(0).betsWon(0).forfeitsReceived(0).build();
+                .build();
 
         DailyGage dg = gage(1L, DailyGage.Mode.VOTE, DailyGage.Status.ACTIVE);
         dg.getCandidates().addAll(List.of(candidateA, candidateB));
@@ -509,7 +507,7 @@ class DailyGageServiceTest {
         Forfeit forfeit = buildForfeit(1L, "Do pushups");
         User loser = User.builder().id(3L).username("loser").email("l@test.com")
                 .password("encoded").role(User.Role.USER)
-                .globalScore(0).betsWon(0).forfeitsReceived(0).build();
+                .build();
 
         DailyGage dg = gage(1L, DailyGage.Mode.DIRECT, DailyGage.Status.ACTIVE);
         dg.setForfeit(forfeit);
@@ -528,7 +526,6 @@ class DailyGageServiceTest {
         assertThat(result.getStatus()).isEqualTo("SETTLED");
         assertThat(result.getAssignedToUsername()).isEqualTo("loser");
         assertThat(dg.getAssignedTo()).isEqualTo(loser);
-        assertThat(loser.getForfeitsReceived()).isEqualTo(1);
 
         ArgumentCaptor<UserForfeit> captor = ArgumentCaptor.forClass(UserForfeit.class);
         verify(userForfeitRepository).save(captor.capture());
@@ -543,7 +540,7 @@ class DailyGageServiceTest {
 
         User loser = User.builder().id(3L).username("loser").email("l@test.com")
                 .password("encoded").role(User.Role.USER)
-                .globalScore(0).betsWon(0).forfeitsReceived(0).build();
+                .build();
 
         // votes must carry a user so toResponse() can compute per-user vote
         DailyGageCandidate candidateA = DailyGageCandidate.builder().id(1L).forfeit(forfeitA)

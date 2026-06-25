@@ -55,9 +55,6 @@ class AuthServiceTest {
             .email("test@example.com")
             .password("encodedPassword")
             .role(User.Role.USER)
-            .globalScore(0)
-            .betsWon(0)
-            .forfeitsReceived(0)
             .build();
     }
 

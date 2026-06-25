@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getLeaderboard, getGroupLeaderboard } from '../api/leaderboard';
+import { getGroupLeaderboard } from '../api/leaderboard';
 import { getMyGroups } from '../api/groups';
 import { getGroupAssignments } from '../api/forfeits';
 import type { GroupUserForfeit, LeaderboardEntry, Group } from '../types';
@@ -125,11 +125,14 @@ const Leaderboard: React.FC = () => {
       .catch(console.error);
   }, []);
 
-  // Load the leaderboard for the selected group (or global if the user has none)
+  // Load the leaderboard for the selected group
   useEffect(() => {
+    if (selectedGroupId == null) {
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
-    const load = selectedGroupId != null ? getGroupLeaderboard(selectedGroupId) : getLeaderboard();
-    load.then(setEntries).catch(console.error).finally(() => setIsLoading(false));
+    getGroupLeaderboard(selectedGroupId).then(setEntries).catch(console.error).finally(() => setIsLoading(false));
 
     if (selectedGroupId != null) {
       getGroupAssignments(selectedGroupId).then(setAllGages).catch(console.error);
@@ -167,7 +170,7 @@ const Leaderboard: React.FC = () => {
             </select>
           </div>
         ) : (
-          <p className="text-sm text-gray-500 dark:text-gray-400">Classement global</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Rejoins un groupe pour voir le classement</p>
         )}
       </div>
 

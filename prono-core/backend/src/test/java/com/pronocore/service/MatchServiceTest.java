@@ -155,16 +155,6 @@ class MatchServiceTest {
 
         matchService.updateMatchScore(1L, req);
 
-        // Points
-        assertThat(exactUser.getGlobalScore()).isEqualTo(15);   // 10 + 5
-        assertThat(correctUser.getGlobalScore()).isEqualTo(13); // 10 + 3
-        assertThat(wrongUser.getGlobalScore()).isEqualTo(10);   // no change
-
-        // betsWon incremented for any positive result (+3 or +5)
-        assertThat(exactUser.getBetsWon()).isEqualTo(1);
-        assertThat(correctUser.getBetsWon()).isEqualTo(1);
-        assertThat(wrongUser.getBetsWon()).isEqualTo(0);
-
         // Winning option recorded on the bet
         assertThat(bet.getStatus()).isEqualTo(Bet.Status.VALIDATED);
         assertThat(bet.getWinningOption()).isEqualTo("Victoire France 2-1");
@@ -284,10 +274,7 @@ class MatchServiceTest {
 
         matchService.forceSettleBet(1L, 10L);
 
-        assertThat(user.getGlobalScore()).isEqualTo(3);  // 0 + delta(3)
-        assertThat(user.getBetsWon()).isEqualTo(1);      // 0→3, so betsWon++
         assertThat(p.getPointsEarned()).isEqualTo(3);
-        verify(userRepository).save(user);
         verify(betParticipationRepository).save(p);
     }
 
@@ -307,8 +294,6 @@ class MatchServiceTest {
 
         matchService.forceSettleBet(1L, 10L);
 
-        assertThat(user.getGlobalScore()).isEqualTo(13); // unchanged
-        assertThat(user.getBetsWon()).isEqualTo(0);      // unchanged
         verifyNoInteractions(userRepository);
         verify(betParticipationRepository, never()).save(any());
     }
@@ -328,8 +313,6 @@ class MatchServiceTest {
 
         matchService.forceSettleBet(1L, 10L);
 
-        assertThat(user.getGlobalScore()).isEqualTo(5); // unchanged
-        assertThat(user.getBetsWon()).isEqualTo(0);
         verifyNoInteractions(userRepository);
     }
 
@@ -354,17 +337,7 @@ class MatchServiceTest {
 
         matchService.forceSettleBet(1L, 10L);
 
-        assertThat(exactUser.getGlobalScore()).isEqualTo(15);   // no change (delta=0)
-        assertThat(correctUser.getGlobalScore()).isEqualTo(13); // +3 delta applied
-        assertThat(wrongUser.getGlobalScore()).isEqualTo(10);   // no change (delta=0)
-
-        assertThat(exactUser.getBetsWon()).isEqualTo(0);   // already counted, not re-incremented
-        assertThat(correctUser.getBetsWon()).isEqualTo(1); // was 0→3, so betsWon++
-        assertThat(wrongUser.getBetsWon()).isEqualTo(0);
-
-        verify(userRepository, times(1)).save(correctUser);
-        verify(userRepository, never()).save(exactUser);
-        verify(userRepository, never()).save(wrongUser);
+        verify(userRepository, never()).save(any());
     }
 
     /**
@@ -466,7 +439,6 @@ class MatchServiceTest {
     private User user(Long id, String username, int score) {
         return User.builder()
                 .id(id).username(username)
-                .globalScore(score).betsWon(0).forfeitsReceived(0)
                 .build();
     }
 

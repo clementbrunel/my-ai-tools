@@ -316,16 +316,9 @@ public class BetService {
         bet.setStatus(Bet.Status.VALIDATED);
         bet.setWinningOption(winningOption);
 
-        // Award points to winners
+        // Award points to winners (pointsEarned drives the group leaderboard)
         List<BetParticipation> winners = participationRepository.findByBetIdAndChosenOption(betId, winningOption);
         for (BetParticipation winner : winners) {
-            User user = winner.getUser();
-            user.setGlobalScore(user.getGlobalScore() + bet.getPoints());
-            user.setBetsWon(user.getBetsWon() + 1);
-            userRepository.save(user);
-
-            // Persist pointsEarned so the group leaderboard / dashboard (which sum
-            // pointsEarned per group) stay consistent with the auto-settlement path.
             winner.setPointsEarned(bet.getPoints());
             participationRepository.save(winner);
         }
@@ -346,12 +339,8 @@ public class BetService {
 
                 User betCreator = bet.getCreator();
                 for (BetParticipation loser : losers) {
-                    User loserUser = loser.getUser();
-                    loserUser.setForfeitsReceived(loserUser.getForfeitsReceived() + 1);
-                    userRepository.save(loserUser);
-
                     UserForfeit userForfeit = UserForfeit.builder()
-                        .user(loserUser)
+                        .user(loser.getUser())
                         .forfeit(randomForfeit)
                         .assignedBy(betCreator)
                         .bet(bet)

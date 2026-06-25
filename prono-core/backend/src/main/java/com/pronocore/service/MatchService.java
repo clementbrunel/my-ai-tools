@@ -177,10 +177,6 @@ public class MatchService {
                 betParticipationRepository.save(p);
 
                 if (earned > 0) {
-                    user.setGlobalScore(user.getGlobalScore() + earned);
-                    // Both +3 (correct result) and +5 (exact score) count as a won bet
-                    user.setBetsWon(user.getBetsWon() + 1);
-                    userRepository.save(user);
                     log.info("  +{} pts → {} ({}) [group: {}]",
                             earned, user.getUsername(), p.getChosenOption(), groupName);
                 } else {
@@ -245,16 +241,9 @@ public class MatchService {
             int shouldBe = computeEarnedPoints(p.getChosenOption().trim(), winningOption);
             int delta = shouldBe - p.getPointsEarned();
             if (delta != 0) {
-                User user = p.getUser();
-                user.setGlobalScore(user.getGlobalScore() + delta);
-                // Credit betsWon only if this participation wasn't already counted
-                if (shouldBe > 0 && p.getPointsEarned() == 0) {
-                    user.setBetsWon(user.getBetsWon() + 1);
-                }
-                userRepository.save(user);
                 p.setPointsEarned(shouldBe);
                 betParticipationRepository.save(p);
-                log.info("  {} → {} pts (delta {})", user.getUsername(), shouldBe, delta > 0 ? "+" + delta : delta);
+                log.info("  {} → {} pts (delta {})", p.getUser().getUsername(), shouldBe, delta > 0 ? "+" + delta : delta);
             } else {
                 log.info("  {} → {} pts (no change)", p.getUser().getUsername(), shouldBe);
             }

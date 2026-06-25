@@ -180,7 +180,6 @@ class DashboardServiceTest {
         return User.builder()
                 .id(id).username(username).email(username + "@test.com")
                 .password("encoded").role(User.Role.USER)
-                .globalScore(0).betsWon(0).forfeitsReceived(0)
                 .build();
     }
 

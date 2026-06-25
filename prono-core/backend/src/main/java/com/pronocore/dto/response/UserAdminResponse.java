@@ -21,9 +21,6 @@ public class UserAdminResponse {
     private boolean emailVerified;
     private User.Role role;
     private String avatarUrl;
-    private int globalScore;
-    private int betsWon;
-    private int forfeitsReceived;
     private LocalDateTime createdAt;
     private List<UserGroupSummary> groups;
 }
