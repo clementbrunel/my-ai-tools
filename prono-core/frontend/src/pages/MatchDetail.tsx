@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import type { Match, Bet, BetParticipation, DailyGage } from '../types';
 import { formatDate, formatDateTime } from '../utils/dates';
 import { useToast } from '../components/Toast';
+import { useMatches } from '../context/MatchesContext';
 import { getFlagUrl } from '../utils/countryFlags';
 import { extractResult, computePoints, parseOption } from '../utils/matchCalculations';
 import DailyGageCard from '../components/DailyGageCard';
@@ -18,6 +19,7 @@ const MatchDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const { showToast } = useToast();
+  const { markParticipated } = useMatches();
 
   const [match, setMatch] = useState<Match | null>(null);
   const [bet, setBet] = useState<Bet | null>(null);
@@ -125,6 +127,7 @@ const MatchDetail: React.FC = () => {
     try {
       await upsertParticipateByMatch(parseInt(id), previewOption, comment || undefined);
       await refreshParticipations();
+      markParticipated(parseInt(id));
       setSaveMsg(alreadyVoted ? '✅ Pronostic mis à jour !' : '✅ Pronostic enregistré !');
       setTimeout(() => setSaveMsg(''), 3000);
     } catch (err: unknown) {

@@ -1,14 +1,11 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useScrollRestoration } from '../hooks/useScrollRestoration';
-import { getMatchesForMyGroups } from '../api/matches';
-import { getMyGroups } from '../api/groups';
-import type { Match } from '../types';
 import { isAdmin } from '../types';
 import MatchCard from '../components/MatchCard';
 import MatchRow from '../components/MatchRow';
 import { useAuth } from '../context/AuthContext';
-
+import { useMatches } from '../context/MatchesContext';
 import { formatDate } from '../utils/dates';
 
 type FilterStatus = 'ALL' | 'UPCOMING' | 'FINISHED';
@@ -16,11 +13,9 @@ type ViewMode = 'grid' | 'list';
 
 const Matches: React.FC = () => {
   const { user } = useAuth();
-  const [matches, setMatches] = useState<Match[]>([]);
+  const { matches, hasGroups, isLoading, fetchIfNeeded } = useMatches();
   const [filter, setFilter] = useState<FilterStatus>('UPCOMING');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
-  const [isLoading, setIsLoading] = useState(true);
-  const [hasGroups, setHasGroups] = useState(true);
   const [search, setSearch] = useState('');
 
   useScrollRestoration('matches-scroll-y', !isLoading);
@@ -28,20 +23,8 @@ const Matches: React.FC = () => {
   const today = new Date().toISOString().slice(0, 10);
 
   useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      try {
-        const [groups, matchesData] = await Promise.all([getMyGroups(), getMatchesForMyGroups()]);
-        setHasGroups(groups.length > 0);
-        setMatches(matchesData);
-      } catch (err) {
-        console.error('Error loading data:', err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
+    fetchIfNeeded();
+  }, [fetchIfNeeded]);
 
   const filtered = useMemo(() => {
     if (!hasGroups) return [];
