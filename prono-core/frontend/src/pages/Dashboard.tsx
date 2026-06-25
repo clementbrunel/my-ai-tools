@@ -17,6 +17,7 @@ const Dashboard: React.FC = () => {
   const [todayGages, setTodayGages] = useState<DailyGage[]>([]);
   const [upcomingMatchCount, setUpcomingMatchCount] = useState<number>(0);
   const [groupRanks, setGroupRanks] = useState<GroupRankEntry[]>([]);
+  const [selectedGroupIdx, setSelectedGroupIdx] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
   const today = new Date().toISOString().split('T')[0]; // "2026-06-11"
@@ -93,31 +94,36 @@ const Dashboard: React.FC = () => {
         <Link to="/leaderboard" className="stat-card sm:col-span-2 block hover:ring-2 hover:ring-wc-green transition-all cursor-pointer">
           {groupRanks.length === 0 ? (
             <div className="text-gray-400 dark:text-gray-500 text-sm">Rejoins un groupe pour voir ton classement</div>
-          ) : groupRanks.length === 1 ? (
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="stat-value text-wc-gold">#{groupRanks[0].rank}<span className="text-base font-normal text-gray-400">/{groupRanks[0].total}</span></div>
-                <div className="stat-label">🏅 Classement · {groupRanks[0].groupName}</div>
-              </div>
-              <div>
-                <div className="stat-value">{groupRanks[0].points}</div>
-                <div className="stat-label">⭐ Points</div>
-              </div>
-            </div>
-          ) : (
-            <>
-              <div className="stat-label mb-2">🏅 Classement & Points</div>
-              <div className="space-y-1">
-                {groupRanks.map((gr) => (
-                  <div key={gr.groupId} className="flex items-center justify-between text-sm">
-                    <span className="text-gray-500 dark:text-gray-400 truncate max-w-[50%]">{gr.groupName}</span>
-                    <span className="font-bold text-wc-gold">#{gr.rank}<span className="text-xs text-gray-400 font-normal">/{gr.total}</span></span>
-                    <span className="font-bold">{gr.points} pts</span>
+          ) : (() => {
+            const gr = groupRanks[selectedGroupIdx] ?? groupRanks[0];
+            return (
+              <>
+                {groupRanks.length > 1 && (
+                  <div className="mb-3" onClick={(e) => e.preventDefault()}>
+                    <select
+                      value={selectedGroupIdx}
+                      onChange={(e) => setSelectedGroupIdx(Number(e.target.value))}
+                      className="input-field text-sm py-1"
+                    >
+                      {groupRanks.map((g, i) => (
+                        <option key={g.groupId} value={i}>{g.groupName}</option>
+                      ))}
+                    </select>
                   </div>
-                ))}
-              </div>
-            </>
-          )}
+                )}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="stat-value text-wc-gold">#{gr.rank}<span className="text-base font-normal text-gray-400">/{gr.total}</span></div>
+                    <div className="stat-label">🏅 Classement{groupRanks.length === 1 ? ` · ${gr.groupName}` : ''}</div>
+                  </div>
+                  <div>
+                    <div className="stat-value">{gr.points}</div>
+                    <div className="stat-label">⭐ Points</div>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
           <div className="text-xs text-wc-green dark:text-green-400 mt-2">Voir le classement complet →</div>
         </Link>
       </div>
