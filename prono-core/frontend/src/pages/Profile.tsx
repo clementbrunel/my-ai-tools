@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getMyParticipations } from '../api/bets';
 import UserBetList from '../components/UserBetList';
+import Pagination from '../components/Pagination';
 import { getLeaderboard } from '../api/leaderboard';
 import { getMyForfeits, completeForfeit } from '../api/forfeits';
 import type { UserBetSummary, LeaderboardEntry, UserForfeitEntry } from '../types';
@@ -11,6 +12,8 @@ import { useToast } from '../components/Toast';
 import { useUserCounts } from '../context/UserCountsContext';
 import ProfileInfoForm from './profile/ProfileInfoForm';
 import PasswordForm from './profile/PasswordForm';
+
+const FORFEITS_PAGE_SIZE = 5;
 
 const Profile: React.FC = () => {
   const { user } = useAuth();
@@ -23,6 +26,7 @@ const Profile: React.FC = () => {
   const [completingId, setCompletingId] = useState<number | null>(null);
   const [showEdit, setShowEdit] = useState(false);
   const [showDoneForfeits, setShowDoneForfeits] = useState(false);
+  const [doneForfeitsPageRaw, setDoneForfeitsPage] = useState(1);
   const [showPronostics, setShowPronostics] = useState(false);
 
   useEffect(() => {
@@ -76,6 +80,12 @@ const Profile: React.FC = () => {
 
   const pendingForfeits = myForfeits.filter((f) => !f.completed);
   const doneForfeits = myForfeits.filter((f) => f.completed);
+  const doneForfeitsTotal = Math.max(1, Math.ceil(doneForfeits.length / FORFEITS_PAGE_SIZE));
+  const doneForfeitsPage = Math.min(doneForfeitsPageRaw, doneForfeitsTotal);
+  const doneForfeitsVisible = doneForfeits.slice(
+    (doneForfeitsPage - 1) * FORFEITS_PAGE_SIZE,
+    doneForfeitsPage * FORFEITS_PAGE_SIZE
+  );
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -186,7 +196,7 @@ const Profile: React.FC = () => {
       {doneForfeits.length > 0 && (
         <div className="card">
           <button
-            onClick={() => setShowDoneForfeits((v) => !v)}
+            onClick={() => { setShowDoneForfeits((v) => !v); setDoneForfeitsPage(1); }}
             className="w-full flex items-center justify-between text-left"
           >
             <h3 className="font-bold text-gray-900 dark:text-white">
@@ -195,26 +205,33 @@ const Profile: React.FC = () => {
             <span className="text-gray-400 text-sm">{showDoneForfeits ? '▲' : '▼'}</span>
           </button>
           {showDoneForfeits && (
-            <div className="space-y-2 mt-4">
-              {doneForfeits.map((uf) => (
-                <div
-                  key={uf.id}
-                  className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg opacity-70"
-                >
-                  <div>
-                    <div className="text-sm font-medium text-gray-700 dark:text-gray-300 line-through">
-                      {uf.forfeit.title}
-                    </div>
-                    {uf.completedAt && (
-                      <div className="text-xs text-gray-400">
-                        Effectué le {formatDate(uf.completedAt)}
+            <>
+              <div className="space-y-2 mt-4">
+                {doneForfeitsVisible.map((uf) => (
+                  <div
+                    key={uf.id}
+                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg opacity-70"
+                  >
+                    <div>
+                      <div className="text-sm font-medium text-gray-700 dark:text-gray-300 line-through">
+                        {uf.forfeit.title}
                       </div>
-                    )}
+                      {uf.completedAt && (
+                        <div className="text-xs text-gray-400">
+                          Effectué le {formatDate(uf.completedAt)}
+                        </div>
+                      )}
+                    </div>
+                    <span className="text-green-500 text-lg">✅</span>
                   </div>
-                  <span className="text-green-500 text-lg">✅</span>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+              <Pagination
+                currentPage={doneForfeitsPage}
+                totalPages={doneForfeitsTotal}
+                onPageChange={setDoneForfeitsPage}
+              />
+            </>
           )}
         </div>
       )}
