@@ -5,6 +5,7 @@ import { AuthProvider } from './context/AuthContext';
 import { GroupAdminCountsProvider } from './context/GroupAdminCountsContext';
 import { UserCountsProvider } from './context/UserCountsContext';
 import { ToastProvider } from './components/Toast';
+import { MatchesProvider } from './context/MatchesContext';
 import PrivateRoute from './components/PrivateRoute';
 import Navbar from './components/Navbar';
 import Login from './pages/Login';
@@ -39,6 +40,7 @@ function App() {
       <GroupAdminCountsProvider>
       <UserCountsProvider>
       <ToastProvider>
+      <MatchesProvider>
       <BrowserRouter>
         <ScrollToTop />
         <div className="min-h-screen bg-gray-50 dark:bg-wc-dark">
@@ -75,6 +77,7 @@ function App() {
           </Routes>
         </div>
       </BrowserRouter>
+      </MatchesProvider>
       </ToastProvider>
       </UserCountsProvider>
       </GroupAdminCountsProvider>
