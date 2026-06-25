@@ -15,7 +15,6 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
-    repair-on-migrate: true   # auto-repair checksum mismatches (safe for dev; migrations were edited after apply)
 
 resend:
   api-key: ${RESEND_API_KEY:}
