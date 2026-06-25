@@ -4,6 +4,7 @@ import { getMyGroups } from '../api/groups';
 import { getGroupAssignments } from '../api/forfeits';
 import type { GroupUserForfeit, LeaderboardEntry, Group } from '../types';
 import LeaderboardRow from '../components/LeaderboardRow';
+import NoGroupBanner from '../components/NoGroupBanner';
 import ScrollableTableWrapper from '../components/ScrollableTableWrapper';
 import { useAuth } from '../context/AuthContext';
 
@@ -170,7 +171,7 @@ const Leaderboard: React.FC = () => {
             </select>
           </div>
         ) : (
-          <p className="text-sm text-gray-500 dark:text-gray-400">Rejoins un groupe pour voir le classement</p>
+          <NoGroupBanner message="Rejoins ou crée un groupe pour voir le classement." />
         )}
       </div>
 

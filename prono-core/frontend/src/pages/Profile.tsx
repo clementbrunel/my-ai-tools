@@ -138,22 +138,6 @@ const Profile: React.FC = () => {
         )}
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="stat-card">
-          <div className="stat-value">{leaderboardEntry?.totalPoints ?? 0}</div>
-          <div className="stat-label">⭐ Points</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-value">{leaderboardEntry?.betsWon ?? 0}</div>
-          <div className="stat-label">🏆 Paris gagnés</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-value text-wc-red">{leaderboardEntry?.forfeitsReceived ?? 0}</div>
-          <div className="stat-label">🃏 Gages reçus</div>
-        </div>
-      </div>
-
       {/* Pending Forfeits */}
       {pendingForfeits.length > 0 && (
         <div className="card border-2 border-wc-red">
