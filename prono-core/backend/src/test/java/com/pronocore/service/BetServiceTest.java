@@ -86,7 +86,9 @@ class BetServiceTest {
 
     @Test
     void openMatchForBetting_groupAdminCreatesScoreBet() {
-        Match match = Match.builder().id(5L).teamA("France").teamB("Brésil")
+        Match match = Match.builder().id(5L)
+            .teamA(Team.builder().id(1L).name("France").build())
+            .teamB(Team.builder().id(2L).name("Brésil").build())
             .matchDate(LocalDateTime.now().plusHours(2)).status(Match.Status.UPCOMING).build();
 
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
@@ -120,7 +122,9 @@ class BetServiceTest {
 
     @Test
     void openMatchForBetting_conflictWhenMatchAlreadyOpenInGroup() {
-        Match match = Match.builder().id(5L).teamA("France").teamB("Brésil")
+        Match match = Match.builder().id(5L)
+            .teamA(Team.builder().id(1L).name("France").build())
+            .teamB(Team.builder().id(2L).name("Brésil").build())
             .matchDate(LocalDateTime.now().plusHours(2)).status(Match.Status.UPCOMING).build();
 
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
@@ -137,9 +141,13 @@ class BetServiceTest {
 
     @Test
     void openCompetitionForBetting_opensOnlyMatchesNotYetOpenInGroup() {
-        Match m1 = Match.builder().id(10L).teamA("France").teamB("Brésil")
+        Match m1 = Match.builder().id(10L)
+            .teamA(Team.builder().id(1L).name("France").build())
+            .teamB(Team.builder().id(2L).name("Brésil").build())
             .matchDate(LocalDateTime.now().plusHours(2)).competition("World Cup").build();
-        Match m2 = Match.builder().id(11L).teamA("Italie").teamB("Espagne")
+        Match m2 = Match.builder().id(11L)
+            .teamA(Team.builder().id(3L).name("Italie").build())
+            .teamB(Team.builder().id(4L).name("Espagne").build())
             .matchDate(LocalDateTime.now().plusHours(4)).competition("World Cup").build();
 
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
@@ -174,7 +182,9 @@ class BetServiceTest {
 
     @Test
     void createBet_groupAdminCreatesBetSuccessfully() {
-        Match testMatch = Match.builder().id(1L).teamA("France").teamB("Brésil")
+        Match testMatch = Match.builder().id(1L)
+            .teamA(Team.builder().id(1L).name("France").build())
+            .teamB(Team.builder().id(2L).name("Brésil").build())
             .matchDate(LocalDateTime.now().plusHours(2)).status(Match.Status.UPCOMING).build();
 
         CreateBetRequest request = new CreateBetRequest();

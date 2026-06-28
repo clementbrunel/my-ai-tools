@@ -2,8 +2,8 @@ package com.pronocore.service;
 
 import com.pronocore.dto.request.EmailType;
 import com.pronocore.entity.Match;
+import com.pronocore.entity.Team;
 import com.pronocore.entity.User;
-import com.pronocore.entity.DailyGage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
@@ -42,11 +42,15 @@ public class EmailService {
             case MATCH_REMINDER -> {
                 User fakeUser = User.builder().username("joueur_test").email(to).emailReminderEnabled(true).build();
                 List<Match> fakeMatches = List.of(
-                    Match.builder().id(0L).teamA("France").teamB("Brésil")
+                    Match.builder().id(0L)
+                        .teamA(Team.builder().id(1L).name("France").iso2("fr").build())
+                        .teamB(Team.builder().id(2L).name("Brésil").iso2("br").build())
                         .matchDate(LocalDateTime.now().plusHours(1))
                         .competition("FIFA World Cup 2026").round("Finale")
                         .reminderSent(false).build(),
-                    Match.builder().id(1L).teamA("Espagne").teamB("Allemagne")
+                    Match.builder().id(1L)
+                        .teamA(Team.builder().id(3L).name("Espagne").iso2("es").build())
+                        .teamB(Team.builder().id(4L).name("Allemagne").iso2("de").build())
                         .matchDate(LocalDateTime.now().plusMinutes(65))
                         .competition("FIFA World Cup 2026").round("Demi-finale")
                         .reminderSent(false).build()
@@ -67,10 +71,14 @@ public class EmailService {
                 User fakeRecipient = User.builder().username("joueur_test").displayName("Joueur Test").email(to).build();
                 User fakeLeader = User.builder().username("chef_test").displayName("Le Chef").build();
                 List<Match> fakeNewMatches = List.of(
-                    Match.builder().id(0L).teamA("Portugal").teamB("Argentine")
+                    Match.builder().id(0L)
+                        .teamA(Team.builder().id(5L).name("Portugal").iso2("pt").build())
+                        .teamB(Team.builder().id(6L).name("Argentine").iso2("ar").build())
                         .matchDate(LocalDateTime.now().plusDays(2)).competition("FIFA World Cup 2026")
                         .round("Quart de finale").build(),
-                    Match.builder().id(1L).teamA("Angleterre").teamB("Pays-Bas")
+                    Match.builder().id(1L)
+                        .teamA(Team.builder().id(7L).name("Angleterre").iso2("gb-eng").build())
+                        .teamB(Team.builder().id(8L).name("Pays-Bas").iso2("nl").build())
                         .matchDate(LocalDateTime.now().plusDays(3)).competition("FIFA World Cup 2026")
                         .round("Quart de finale").build()
                 );
@@ -127,7 +135,7 @@ public class EmailService {
     public void sendMatchReminder(User user, List<Match> matches) {
         if (matches.isEmpty()) return;
         String subject = matches.size() == 1
-            ? "⚽ Rappel : " + matches.get(0).getTeamA() + " – " + matches.get(0).getTeamB() + " dans 4h !"
+            ? "⚽ Rappel : " + matches.get(0).getTeamA().getName() + " – " + matches.get(0).getTeamB().getName() + " dans 4h !"
             : "⚽ Rappel : " + matches.size() + " matchs à pronostiquer dans 4h !";
         try {
             restClient.post()
@@ -417,7 +425,7 @@ public class EmailService {
                     ⚽ Parier
                   </a>
                 </div>
-                """.formatted(m.getTeamA(), m.getTeamB(),
+                """.formatted(m.getTeamA().getName(), m.getTeamB().getName(),
                               m.getMatchDate().format(fmt), m.getRound(),
                               appUrl);
         }).collect(Collectors.joining());

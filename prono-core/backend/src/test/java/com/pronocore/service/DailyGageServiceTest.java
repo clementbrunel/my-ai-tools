@@ -63,7 +63,9 @@ class DailyGageServiceTest {
         group = Group.builder().id(GROUP_ID).name("Les Potes").build();
 
         sampleMatch = Match.builder()
-                .id(1L).teamA("France").teamB("Brésil")
+                .id(1L)
+                .teamA(Team.builder().id(1L).name("France").build())
+                .teamB(Team.builder().id(2L).name("Brésil").build())
                 .matchDate(MATCH_DAY.atTime(20, 0)).status(Match.Status.UPCOMING)
                 .competition("FIFA World Cup 2026").round("Group Stage")
                 .build();

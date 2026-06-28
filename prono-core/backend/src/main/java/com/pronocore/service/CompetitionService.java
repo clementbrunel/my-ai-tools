@@ -28,7 +28,7 @@ public class CompetitionService {
     public List<TeamResponse> getTeamsForCompetition(String competitionName) {
         return competitionRepository.findByName(competitionName)
                 .map(c -> c.getTeams().stream()
-                        .map(t -> new TeamResponse(t.getName(), t.getIso2())).toList())
+                        .map(t -> new TeamResponse(t.getId(), t.getName(), t.getIso2())).toList())
                 .orElse(List.of());
     }
 

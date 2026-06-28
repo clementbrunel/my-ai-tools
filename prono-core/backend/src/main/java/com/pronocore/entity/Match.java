@@ -18,11 +18,13 @@ public class Match {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "team_a", nullable = false, length = 100)
-    private String teamA;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "team_a_id", nullable = false)
+    private Team teamA;
 
-    @Column(name = "team_b", nullable = false, length = 100)
-    private String teamB;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "team_b_id", nullable = false)
+    private Team teamB;
 
     @Column(name = "match_date", nullable = false)
     private LocalDateTime matchDate;

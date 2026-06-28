@@ -75,8 +75,8 @@ public class BetService {
                 java.util.Comparator.reverseOrder()))
             .map(bp -> {
                 Bet bet = bp.getBet();
-                var matchTeamA = bet.getMatch() != null ? bet.getMatch().getTeamA() : null;
-                var matchTeamB = bet.getMatch() != null ? bet.getMatch().getTeamB() : null;
+                var matchTeamA = bet.getMatch() != null ? bet.getMatch().getTeamA().getName() : null;
+                var matchTeamB = bet.getMatch() != null ? bet.getMatch().getTeamB().getName() : null;
                 var matchDate  = bet.getMatch() != null ? bet.getMatch().getMatchDate() : null;
                 return UserBetSummaryResponse.builder()
                     .participationId(bp.getId())
@@ -103,8 +103,8 @@ public class BetService {
         return participationRepository.findByUserIdAndGroupId(userId, groupId, java.time.LocalDateTime.now()).stream()
             .map(bp -> {
                 Bet bet = bp.getBet();
-                var matchTeamA = bet.getMatch() != null ? bet.getMatch().getTeamA() : null;
-                var matchTeamB = bet.getMatch() != null ? bet.getMatch().getTeamB() : null;
+                var matchTeamA = bet.getMatch() != null ? bet.getMatch().getTeamA().getName() : null;
+                var matchTeamB = bet.getMatch() != null ? bet.getMatch().getTeamB().getName() : null;
                 var matchDate  = bet.getMatch() != null ? bet.getMatch().getMatchDate() : null;
                 return UserBetSummaryResponse.builder()
                     .participationId(bp.getId())
@@ -200,7 +200,7 @@ public class BetService {
 
     private Bet buildScoreBet(Match match, Group group, User creator) {
         return Bet.builder()
-            .title(match.getTeamA() + " vs " + match.getTeamB())
+            .title(match.getTeamA().getName() + " vs " + match.getTeamB().getName())
             .betType(Bet.BetType.SCORE)
             .points(10)
             .deadline(match.getMatchDate())   // deadline = kick-off time

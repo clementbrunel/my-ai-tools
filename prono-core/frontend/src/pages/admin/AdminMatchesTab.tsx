@@ -3,7 +3,7 @@ import { useToast } from '../../components/Toast';
 import { getMatches, createMatch, updateMatchScore, deleteMatch, forceSettleMatch } from '../../api/matches';
 import { getCompetitions as fetchAllCompetitions, getCompetitionTeams } from '../../api/competitions';
 import { useFormMessages } from '../../hooks/useFormMessages';
-import type { Match, MatchPhase } from '../../types';
+import type { Match, MatchPhase, TeamDto } from '../../types';
 import { formatDate } from '../../utils/dates';
 import ScrollableTableWrapper from '../../components/ScrollableTableWrapper';
 import ScoreInput from '../../components/ScoreInput';
@@ -25,7 +25,7 @@ const AdminMatchesTab: React.FC = () => {
 
   const [matches, setMatches] = useState<Match[]>([]);
   const [competitions, setCompetitions] = useState<string[]>([]);
-  const [competitionTeams, setCompetitionTeams] = useState<string[]>([]);
+  const [competitionTeams, setCompetitionTeams] = useState<TeamDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const [newTeamA, setNewTeamA] = useState('');
@@ -63,7 +63,7 @@ const AdminMatchesTab: React.FC = () => {
           setNewCompetition(first);
           try {
             const initialTeams = await getCompetitionTeams(first);
-            setCompetitionTeams(initialTeams.map(t => t.name));
+            setCompetitionTeams(initialTeams);
           } catch {
             setCompetitionTeams([]);
           }
@@ -82,7 +82,7 @@ const AdminMatchesTab: React.FC = () => {
     if (value) {
       try {
         const teams = await getCompetitionTeams(value);
-        setCompetitionTeams(teams.map(t => t.name));
+        setCompetitionTeams(teams);
       } catch {
         setCompetitionTeams([]);
       }
@@ -96,7 +96,7 @@ const AdminMatchesTab: React.FC = () => {
     clearMatchMessages();
     try {
       const newMatch = await createMatch({
-        teamA: newTeamA, teamB: newTeamB,
+        teamAId: parseInt(newTeamA), teamBId: parseInt(newTeamB),
         matchDate: new Date(newMatchDate).toISOString(),
         competition: newCompetition, round: newRound,
         phase: newPhase,
@@ -186,7 +186,7 @@ const AdminMatchesTab: React.FC = () => {
             {competitionTeams.length > 0 ? (
               <select value={newTeamA} onChange={(e) => setNewTeamA(e.target.value)} className="input-field" required>
                 <option value="">-- Choisir --</option>
-                {competitionTeams.filter((t) => t !== newTeamB).map((t) => <option key={t} value={t}>{t}</option>)}
+                {competitionTeams.filter((t) => String(t.id) !== newTeamB).map((t) => <option key={t.id} value={String(t.id)}>{t.name}</option>)}
               </select>
             ) : (
               <p className="text-xs text-amber-500 mt-1">Ajoutez d'abord des équipes dans l'onglet Compétitions.</p>
@@ -197,7 +197,7 @@ const AdminMatchesTab: React.FC = () => {
             {competitionTeams.length > 0 ? (
               <select value={newTeamB} onChange={(e) => setNewTeamB(e.target.value)} className="input-field" required>
                 <option value="">-- Choisir --</option>
-                {competitionTeams.filter((t) => t !== newTeamA).map((t) => <option key={t} value={t}>{t}</option>)}
+                {competitionTeams.filter((t) => String(t.id) !== newTeamA).map((t) => <option key={t.id} value={String(t.id)}>{t.name}</option>)}
               </select>
             ) : (
               <p className="text-xs text-amber-500 mt-1">Ajoutez d'abord des équipes dans l'onglet Compétitions.</p>

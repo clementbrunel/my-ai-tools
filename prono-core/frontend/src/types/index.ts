@@ -78,6 +78,7 @@ export interface JoinGroupRequest {
 }
 
 export interface TeamDto {
+  id: number;
   name: string;
   iso2: string | null;
 }
@@ -104,8 +105,8 @@ export interface Match {
 }
 
 export interface CreateMatchRequest {
-  teamA: string;
-  teamB: string;
+  teamAId: number;
+  teamBId: number;
   matchDate: string;
   competition: string;
   round: string;
