@@ -29,7 +29,6 @@ const MatchDetail: React.FC = () => {
   // Prediction form state
   const [scoreA, setScoreA] = useState('0');
   const [scoreB, setScoreB] = useState('0');
-  const [isPenalties, setIsPenalties] = useState(false);
   const [penaltyTeam, setPenaltyTeam] = useState<'A' | 'B'>('A');
   const [penScoreWinner, setPenScoreWinner] = useState('');
   const [penScoreLoser, setPenScoreLoser] = useState('');
@@ -88,18 +87,16 @@ const MatchDetail: React.FC = () => {
     setScoreB(sB);
     setComment(myPart.comment || '');
     if (option.includes(' t.a.b. ')) {
-      setIsPenalties(true);
       setPenaltyTeam(option.startsWith(`Victoire ${match.teamA} t.a.b.`) ? 'A' : 'B');
       const penMatch = option.match(/\((\d+)-(\d+)\)$/);
       if (penMatch) { setPenScoreWinner(penMatch[1]); setPenScoreLoser(penMatch[2]); }
     }
   }, [participations, match, user]);
 
-  // Reset TAB state when scores are no longer equal
+  // Reset penalty scores when scores are no longer equal
   useEffect(() => {
     const a = parseInt(scoreA), b = parseInt(scoreB);
     if (!isNaN(a) && !isNaN(b) && a !== b) {
-      setIsPenalties(false);
       setPenScoreWinner('');
       setPenScoreLoser('');
     }
@@ -127,7 +124,7 @@ const MatchDetail: React.FC = () => {
     if (!match) return '';
     if (a > b) return `Victoire ${match.teamA} ${a}-${b}`;
     if (b > a) return `Victoire ${match.teamB} ${b}-${a}`;
-    if (isKnockout && isPenalties) {
+    if (isKnockout && a === b) {
       const winner = penaltyTeam === 'A' ? match.teamA : match.teamB;
       const penSuffix = penScoreWinner && penScoreLoser ? ` (${penScoreWinner}-${penScoreLoser})` : '';
       return `Victoire ${winner} t.a.b. ${a}-${b}${penSuffix}`;
@@ -319,77 +316,62 @@ const MatchDetail: React.FC = () => {
                 </div>
               </div>
 
-              {/* TAB option — only for KNOCKOUT matches with equal scores */}
+              {/* TAB — mandatory for KNOCKOUT matches with equal scores */}
               {showTabOption && (
                 <div className="rounded-lg bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 p-3 space-y-3">
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={isPenalties}
-                      onChange={(e) => setIsPenalties(e.target.checked)}
-                      className="w-4 h-4 accent-orange-500"
-                    />
-                    <span className="text-sm font-medium text-orange-800 dark:text-orange-300">
-                      Décidé aux tirs au but (t.a.b.)
-                    </span>
-                  </label>
-                  {isPenalties && (
-                    <>
-                      <div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Vainqueur aux t.a.b. :</p>
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setPenaltyTeam('A')}
-                            className={`flex-1 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
-                              penaltyTeam === 'A'
-                                ? 'bg-orange-500 text-white border-orange-500'
-                                : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600'
-                            }`}
-                          >
-                            {match.teamA}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setPenaltyTeam('B')}
-                            className={`flex-1 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
-                              penaltyTeam === 'B'
-                                ? 'bg-orange-500 text-white border-orange-500'
-                                : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600'
-                            }`}
-                          >
-                            {match.teamB}
-                          </button>
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                          Score aux t.a.b. <span className="text-orange-500 font-medium">(optionnel — +2 pts si exact)</span>
-                        </p>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="number"
-                            value={penScoreWinner}
-                            onChange={(e) => setPenScoreWinner(e.target.value)}
-                            min={0}
-                            max={20}
-                            className="input-field w-16 text-center"
-                            placeholder="5"
-                          />
-                          <span className="text-gray-400 font-bold">-</span>
-                          <input
-                            type="number"
-                            value={penScoreLoser}
-                            onChange={(e) => setPenScoreLoser(e.target.value)}
-                            min={0}
-                            max={20}
-                            className="input-field w-16 text-center"
-                            placeholder="4"
-                          />
-                        </div>
-                      </div>
-                    </>
-                  )}
+                  <p className="text-sm font-medium text-orange-800 dark:text-orange-300">⚡ Tirs au but — qui gagne ?</p>
+                  <div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPenaltyTeam('A')}
+                        className={`flex-1 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                          penaltyTeam === 'A'
+                            ? 'bg-orange-500 text-white border-orange-500'
+                            : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600'
+                        }`}
+                      >
+                        {match.teamA}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPenaltyTeam('B')}
+                        className={`flex-1 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                          penaltyTeam === 'B'
+                            ? 'bg-orange-500 text-white border-orange-500'
+                            : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600'
+                        }`}
+                      >
+                        {match.teamB}
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                      Score aux t.a.b. <span className="text-orange-500 font-medium">(optionnel — +2 pts si exact)</span>
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        value={penScoreWinner}
+                        onChange={(e) => setPenScoreWinner(e.target.value)}
+                        min={0}
+                        max={20}
+                        className="input-field w-16 text-center"
+                        placeholder="5"
+                      />
+                      <span className="text-gray-400 font-bold">-</span>
+                      <input
+                        type="number"
+                        value={penScoreLoser}
+                        onChange={(e) => setPenScoreLoser(e.target.value)}
+                        min={0}
+                        max={20}
+                        className="input-field w-16 text-center"
+                        placeholder="4"
+                      />
+                    </div>
+                  </div>
                 </div>
               )}
 
