@@ -215,8 +215,8 @@ const MatchDetail: React.FC = () => {
         <div className="flex items-center justify-between gap-4 py-6">
           <div className="flex-1 text-center">
             <div className="flex justify-center mb-3">
-              {getFlagUrl(match.teamA)
-                ? <img src={getFlagUrl(match.teamA)!} alt={match.teamA} className="w-16 h-12 object-contain rounded shadow" />
+              {getFlagUrl(match.teamAIso2)
+                ? <img src={getFlagUrl(match.teamAIso2)!} alt={match.teamA} className="w-16 h-12 object-contain rounded shadow" />
                 : <span className="text-5xl">🏳️</span>}
             </div>
             <div className="text-2xl font-black text-gray-900 dark:text-white">{match.teamA}</div>
@@ -249,8 +249,8 @@ const MatchDetail: React.FC = () => {
 
           <div className="flex-1 text-center">
             <div className="flex justify-center mb-3">
-              {getFlagUrl(match.teamB)
-                ? <img src={getFlagUrl(match.teamB)!} alt={match.teamB} className="w-16 h-12 object-contain rounded shadow" />
+              {getFlagUrl(match.teamBIso2)
+                ? <img src={getFlagUrl(match.teamBIso2)!} alt={match.teamB} className="w-16 h-12 object-contain rounded shadow" />
                 : <span className="text-5xl">🏳️</span>}
             </div>
             <div className="text-2xl font-black text-gray-900 dark:text-white">{match.teamB}</div>

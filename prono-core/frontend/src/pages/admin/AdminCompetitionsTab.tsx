@@ -43,7 +43,7 @@ const AdminCompetitionsTab: React.FC = () => {
     try {
       const teams = await getCompetitionTeams(competition);
       if (loadingForRef.current !== competition) return;
-      setRosterTeams(new Set(teams));
+      setRosterTeams(new Set(teams.map(t => t.name)));
     } finally {
       if (loadingForRef.current === competition) setIsLoadingTeams(false);
     }

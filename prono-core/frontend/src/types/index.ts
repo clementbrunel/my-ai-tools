@@ -76,12 +76,19 @@ export interface JoinGroupRequest {
   inviteCode: string;
 }
 
+export interface TeamDto {
+  name: string;
+  iso2: string | null;
+}
+
 export type MatchPhase = 'POOL' | 'KNOCKOUT';
 
 export interface Match {
   id: number;
   teamA: string;
   teamB: string;
+  teamAIso2?: string | null;
+  teamBIso2?: string | null;
   matchDate: string;
   scoreA?: number;
   scoreB?: number;

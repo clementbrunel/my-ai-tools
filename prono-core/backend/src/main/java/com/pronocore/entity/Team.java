@@ -18,4 +18,7 @@ public class Team {
 
     @Column(nullable = false, length = 100, unique = true)
     private String name;
+
+    @Column(length = 10)
+    private String iso2;
 }

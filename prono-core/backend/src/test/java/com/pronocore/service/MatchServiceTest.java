@@ -37,6 +37,7 @@ class MatchServiceTest {
     @Mock private BetParticipationRepository betParticipationRepository;
     @Mock private GroupMemberRepository      groupMemberRepository;
     @Mock private UserRepository             userRepository;
+    @Mock private TeamRepository             teamRepository;
     @Mock private DailyGageService           dailyGageService;
     @Mock private CompetitionService         competitionService;
 

@@ -14,8 +14,8 @@ const statusEmoji: Record<string, string> = {
   FINISHED: '✅',
 };
 
-const TeamFlag: React.FC<{ name: string; size?: string }> = ({ name, size = 'w-8 h-6' }) => {
-  const url = getFlagUrl(name);
+const TeamFlag: React.FC<{ name: string; iso2?: string | null; size?: string }> = ({ name, iso2, size = 'w-8 h-6' }) => {
+  const url = getFlagUrl(iso2);
   return url
     ? <img src={url} alt={name} className={`${size} object-contain rounded-sm shadow-sm`} />
     : <span className="text-2xl">🏳️</span>;
@@ -45,7 +45,7 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, pronoStatus }) => {
         <div className="flex items-center justify-between gap-2 my-4">
           <div className="flex-1 text-center">
             <div className="flex justify-center mb-1">
-              <TeamFlag name={match.teamA} />
+              <TeamFlag name={match.teamA} iso2={match.teamAIso2} />
             </div>
             <div className="font-bold text-gray-900 dark:text-white text-sm">{match.teamA}</div>
           </div>
@@ -72,7 +72,7 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, pronoStatus }) => {
 
           <div className="flex-1 text-center">
             <div className="flex justify-center mb-1">
-              <TeamFlag name={match.teamB} />
+              <TeamFlag name={match.teamB} iso2={match.teamBIso2} />
             </div>
             <div className="font-bold text-gray-900 dark:text-white text-sm">{match.teamB}</div>
           </div>

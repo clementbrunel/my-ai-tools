@@ -1,5 +1,6 @@
 package com.pronocore.service;
 
+import com.pronocore.dto.response.TeamResponse;
 import com.pronocore.entity.Competition;
 import com.pronocore.entity.Team;
 import com.pronocore.repository.CompetitionRepository;
@@ -24,9 +25,10 @@ public class CompetitionService {
     }
 
     @Transactional(readOnly = true)
-    public List<String> getTeamsForCompetition(String competitionName) {
+    public List<TeamResponse> getTeamsForCompetition(String competitionName) {
         return competitionRepository.findByName(competitionName)
-                .map(c -> c.getTeams().stream().map(Team::getName).toList())
+                .map(c -> c.getTeams().stream()
+                        .map(t -> new TeamResponse(t.getName(), t.getIso2())).toList())
                 .orElse(List.of());
     }
 

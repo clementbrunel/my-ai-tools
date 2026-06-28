@@ -1,5 +1,6 @@
 package com.pronocore.controller;
 
+import com.pronocore.dto.response.TeamResponse;
 import com.pronocore.service.CompetitionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -26,7 +27,7 @@ public class CompetitionController {
 
     @GetMapping("/{competition}/teams")
     @Operation(summary = "Teams in a competition roster")
-    public ResponseEntity<List<String>> getTeams(@PathVariable String competition) {
+    public ResponseEntity<List<TeamResponse>> getTeams(@PathVariable String competition) {
         return ResponseEntity.ok(competitionService.getTeamsForCompetition(competition));
     }
 
