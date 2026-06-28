@@ -80,6 +80,20 @@ public class MatchService {
         return matchRepository.findActiveCompetitions();
     }
 
+    @Transactional(readOnly = true)
+    public List<String> getAllCompetitions() {
+        return matchRepository.findAllDistinctCompetitions();
+    }
+
+    @Transactional(readOnly = true)
+    public List<String> getTeamsForCompetition(String competition) {
+        return matchRepository.findByCompetitionOrderByMatchDateAsc(competition).stream()
+                .flatMap(m -> java.util.stream.Stream.of(m.getTeamA(), m.getTeamB()))
+                .distinct()
+                .sorted()
+                .toList();
+    }
+
     // ---------------------------------------------------------------
     // Commands
     // ---------------------------------------------------------------

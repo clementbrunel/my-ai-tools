@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useToast } from '../../components/Toast';
-import { getMatches, createMatch, updateMatchScore, getCompetitions, forceSettleMatch } from '../../api/matches';
+import { getMatches, createMatch, updateMatchScore, getAllCompetitions, getCompetitionTeams, forceSettleMatch } from '../../api/matches';
 import { useFormMessages } from '../../hooks/useFormMessages';
 import type { Match, MatchPhase } from '../../types';
 import { formatDate } from '../../utils/dates';
@@ -23,6 +23,7 @@ const AdminMatchesTab: React.FC = () => {
 
   const [matches, setMatches] = useState<Match[]>([]);
   const [competitions, setCompetitions] = useState<string[]>([]);
+  const [competitionTeams, setCompetitionTeams] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const [newTeamA, setNewTeamA] = useState('');
@@ -50,16 +51,38 @@ const AdminMatchesTab: React.FC = () => {
         setIsLoading(false);
       }
       try {
-        const competitionsData = await getCompetitions();
+        const competitionsData = await getAllCompetitions();
         setCompetitions(competitionsData);
-        if (competitionsData.length > 0) setNewCompetition(competitionsData[0]);
-        else setIsNewCompetition(true);
+        if (competitionsData.length > 0) {
+          const first = competitionsData[0];
+          setNewCompetition(first);
+          const teams = await getCompetitionTeams(first);
+          setCompetitionTeams(teams);
+        } else {
+          setIsNewCompetition(true);
+        }
       } catch {
         setIsNewCompetition(true);
       }
     };
     loadData();
   }, []);
+
+  const handleCompetitionChange = async (value: string) => {
+    setNewCompetition(value);
+    setNewTeamA('');
+    setNewTeamB('');
+    if (value) {
+      try {
+        const teams = await getCompetitionTeams(value);
+        setCompetitionTeams(teams);
+      } catch {
+        setCompetitionTeams([]);
+      }
+    } else {
+      setCompetitionTeams([]);
+    }
+  };
 
   const handleCreateMatch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,6 +101,8 @@ const AdminMatchesTab: React.FC = () => {
       setMatches([...matches, newMatch]);
       setNewTeamA(''); setNewTeamB(''); setNewMatchDate('');
       setIsNewCompetition(false);
+      const teams = await getCompetitionTeams(newCompetition);
+      setCompetitionTeams(teams);
       setMatchSuccess('Match créé avec succès !');
     } catch { setMatchError('Erreur lors de la création du match'); }
   };
@@ -122,14 +147,31 @@ const AdminMatchesTab: React.FC = () => {
         <form onSubmit={handleCreateMatch} className="grid grid-cols-2 gap-3">
           <div>
             <label className="label">Équipe A</label>
-            <input type="text" value={newTeamA} onChange={(e) => setNewTeamA(e.target.value)}
-              className="input-field" placeholder="Ex: France" required />
+            <input
+              type="text"
+              list="teams-datalist"
+              value={newTeamA}
+              onChange={(e) => setNewTeamA(e.target.value)}
+              className="input-field"
+              placeholder={competitionTeams.length > 0 ? 'Sélectionner ou saisir...' : 'Ex: France'}
+              required
+            />
           </div>
           <div>
             <label className="label">Équipe B</label>
-            <input type="text" value={newTeamB} onChange={(e) => setNewTeamB(e.target.value)}
-              className="input-field" placeholder="Ex: Brésil" required />
+            <input
+              type="text"
+              list="teams-datalist"
+              value={newTeamB}
+              onChange={(e) => setNewTeamB(e.target.value)}
+              className="input-field"
+              placeholder={competitionTeams.length > 0 ? 'Sélectionner ou saisir...' : 'Ex: Brésil'}
+              required
+            />
           </div>
+          <datalist id="teams-datalist">
+            {competitionTeams.map((t) => <option key={t} value={t} />)}
+          </datalist>
           <div>
             <label className="label">Date & heure</label>
             <input type="datetime-local" value={newMatchDate} onChange={(e) => setNewMatchDate(e.target.value)}
@@ -171,8 +213,9 @@ const AdminMatchesTab: React.FC = () => {
                     if (e.target.value === '__new__') {
                       setIsNewCompetition(true);
                       setNewCompetition('');
+                      setCompetitionTeams([]);
                     } else {
-                      setNewCompetition(e.target.value);
+                      handleCompetitionChange(e.target.value);
                     }
                   }}
                   className="input-field flex-1"
@@ -198,7 +241,7 @@ const AdminMatchesTab: React.FC = () => {
                 {competitions.length > 0 && (
                   <button
                     type="button"
-                    onClick={() => { setIsNewCompetition(false); setNewCompetition(competitions[0]); }}
+                    onClick={() => { setIsNewCompetition(false); handleCompetitionChange(competitions[0]); }}
                     className="btn-secondary text-sm whitespace-nowrap"
                   >
                     ← Retour

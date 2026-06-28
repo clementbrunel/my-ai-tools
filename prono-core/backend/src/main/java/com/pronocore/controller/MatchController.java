@@ -42,9 +42,16 @@ public class MatchController {
     }
 
     @GetMapping("/competitions")
-    @Operation(summary = "Get active competitions (at least one non-finished match)")
-    public ResponseEntity<List<String>> getActiveCompetitions() {
-        return ResponseEntity.ok(matchService.getActiveCompetitions());
+    @Operation(summary = "Get competitions — active only by default, all with ?all=true")
+    public ResponseEntity<List<String>> getCompetitions(
+            @RequestParam(required = false, defaultValue = "false") boolean all) {
+        return ResponseEntity.ok(all ? matchService.getAllCompetitions() : matchService.getActiveCompetitions());
+    }
+
+    @GetMapping("/competitions/{competition}/teams")
+    @Operation(summary = "Get distinct team names for a competition")
+    public ResponseEntity<List<String>> getTeamsForCompetition(@PathVariable String competition) {
+        return ResponseEntity.ok(matchService.getTeamsForCompetition(competition));
     }
 
     @GetMapping("/{id}")

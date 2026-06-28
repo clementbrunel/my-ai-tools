@@ -36,6 +36,16 @@ export const getCompetitions = async (): Promise<string[]> => {
   return response.data;
 };
 
+export const getAllCompetitions = async (): Promise<string[]> => {
+  const response = await apiClient.get<string[]>('/matches/competitions', { params: { all: true } });
+  return response.data;
+};
+
+export const getCompetitionTeams = async (competition: string): Promise<string[]> => {
+  const response = await apiClient.get<string[]>(`/matches/competitions/${encodeURIComponent(competition)}/teams`);
+  return response.data;
+};
+
 export const forceSettleMatch = async (id: number): Promise<void> => {
   await apiClient.post(`/matches/${id}/force-settle-all`);
 };
