@@ -324,7 +324,7 @@ const MatchDetail: React.FC = () => {
                     <div className="flex gap-2">
                       <button
                         type="button"
-                        onClick={() => setPenaltyTeam('A')}
+                        onClick={() => { if (penaltyTeam !== 'A') { setPenaltyTeam('A'); setPenScoreWinner(''); setPenScoreLoser(''); } }}
                         className={`flex-1 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
                           penaltyTeam === 'A'
                             ? 'bg-orange-500 text-white border-orange-500'
@@ -335,7 +335,7 @@ const MatchDetail: React.FC = () => {
                       </button>
                       <button
                         type="button"
-                        onClick={() => setPenaltyTeam('B')}
+                        onClick={() => { if (penaltyTeam !== 'B') { setPenaltyTeam('B'); setPenScoreWinner(''); setPenScoreLoser(''); } }}
                         className={`flex-1 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
                           penaltyTeam === 'B'
                             ? 'bg-orange-500 text-white border-orange-500'
