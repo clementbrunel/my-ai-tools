@@ -102,10 +102,12 @@ const AdminMatchesTab: React.FC = () => {
       setMatches([...matches, newMatch]);
       setNewTeamA(''); setNewTeamB(''); setNewMatchDate('');
       setIsNewCompetition(false);
+      setMatchSuccess('Match créé avec succès !');
+    } catch { setMatchError('Erreur lors de la création du match'); return; }
+    try {
       const teams = await getCompetitionTeams(newCompetition);
       setCompetitionTeams(teams);
-      setMatchSuccess('Match créé avec succès !');
-    } catch { setMatchError('Erreur lors de la création du match'); }
+    } catch { /* non-critical: list stays as-is */ }
   };
 
   const handleUpdateScore = async () => {

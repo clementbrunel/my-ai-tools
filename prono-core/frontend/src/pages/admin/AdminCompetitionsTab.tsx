@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useToast } from '../../components/Toast';
 import {
   getCompetitions,
@@ -21,6 +21,7 @@ const AdminCompetitionsTab: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [isLoadingTeams, setIsLoadingTeams] = useState(false);
+  const loadingForRef = useRef<string>('');
 
   useEffect(() => {
     (async () => {
@@ -34,14 +35,16 @@ const AdminCompetitionsTab: React.FC = () => {
   }, []);
 
   const loadRoster = async (competition: string) => {
+    loadingForRef.current = competition;
     setSelectedCompetition(competition);
     setIsDirty(false);
     setIsLoadingTeams(true);
     try {
       const teams = await getCompetitionTeams(competition);
+      if (loadingForRef.current !== competition) return;
       setRosterTeams(new Set(teams));
     } finally {
-      setIsLoadingTeams(false);
+      if (loadingForRef.current === competition) setIsLoadingTeams(false);
     }
   };
 
