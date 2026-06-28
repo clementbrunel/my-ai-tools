@@ -10,10 +10,13 @@ import ScrollableTableWrapper from '../../components/ScrollableTableWrapper';
 
 const FORFEIT_CATEGORIES = ['General', 'Nourriture', 'Humiliation', 'Spectacle', 'Réseaux sociaux', 'Boissons'];
 
+type SubTab = 'bibliotheque' | 'gages-par-groupe';
+
 const AdminForfeitsTab: React.FC = () => {
   const { showToast } = useToast();
   const { msg: forfeitMsg, setError: setForfeitError, setSuccess: setForfeitSuccess, clear: clearForfeitMessages } = useFormMessages();
 
+  const [activeSubTab, setActiveSubTab] = useState<SubTab>('bibliotheque');
   const [forfeits, setForfeits] = useState<Forfeit[]>([]);
   const [adminGroups, setAdminGroups] = useState<Group[]>([]);
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -84,32 +87,35 @@ const AdminForfeitsTab: React.FC = () => {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
 
-      {/* Daily Gage per admin group */}
-      <section className="space-y-4">
-        <h2 className="text-xl font-bold text-gray-900 dark:text-white">📅 Gage du Jour</h2>
-        {adminGroups.length === 0 ? (
-          <div className="card text-center py-6 text-gray-500">
-            Vous n'administrez aucun groupe.
-          </div>
-        ) : (
-          adminGroups.map((g) => (
-            <div key={g.id} className="card space-y-3">
-              <h3 className="font-semibold text-gray-800 dark:text-white flex items-center gap-2">
-                <span className="text-sm bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full font-medium">
-                  👥 {g.name}
-                </span>
-              </h3>
-              <DailyGagePanel groupId={g.id} />
-            </div>
-          ))
-        )}
-      </section>
+      {/* Sub-tabs */}
+      <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700">
+        <button
+          onClick={() => setActiveSubTab('bibliotheque')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeSubTab === 'bibliotheque'
+              ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+              : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+          }`}
+        >
+          📚 Bibliothèque de gages
+        </button>
+        <button
+          onClick={() => setActiveSubTab('gages-par-groupe')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeSubTab === 'gages-par-groupe'
+              ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+              : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+          }`}
+        >
+          📅 Gages par groupe
+        </button>
+      </div>
 
-      {/* Shared forfeit library */}
+      {/* Bibliothèque de gages */}
+      {activeSubTab === 'bibliotheque' && (
       <section className="space-y-4">
-        <h2 className="text-xl font-bold text-gray-900 dark:text-white">📚 Bibliothèque de gages</h2>
         <p className="text-sm text-gray-500 dark:text-gray-400">
           Ces gages sont partagés entre tous les groupes. Les gages proposés par les joueurs sont gérés par l'admin de leur groupe.
         </p>
@@ -195,6 +201,29 @@ const AdminForfeitsTab: React.FC = () => {
           </ScrollableTableWrapper>
         </div>
       </section>
+      )}
+
+      {/* Gages par groupe */}
+      {activeSubTab === 'gages-par-groupe' && (
+      <section className="space-y-4">
+        {adminGroups.length === 0 ? (
+          <div className="card text-center py-6 text-gray-500">
+            Vous n'administrez aucun groupe.
+          </div>
+        ) : (
+          adminGroups.map((g) => (
+            <div key={g.id} className="card space-y-3">
+              <h3 className="font-semibold text-gray-800 dark:text-white flex items-center gap-2">
+                <span className="text-sm bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full font-medium">
+                  👥 {g.name}
+                </span>
+              </h3>
+              <DailyGagePanel groupId={g.id} />
+            </div>
+          ))
+        )}
+      </section>
+      )}
 
       <ConfirmModal
         isOpen={confirmDialog !== null}
