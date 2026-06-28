@@ -1,4 +1,5 @@
 import apiClient from './axios';
+import type { TeamDto } from '../types';
 
 export const createCompetition = async (name: string): Promise<void> => {
   await apiClient.post('/competitions', name, {
@@ -11,8 +12,8 @@ export const getCompetitions = async (): Promise<string[]> => {
   return response.data;
 };
 
-export const getCompetitionTeams = async (competition: string): Promise<string[]> => {
-  const response = await apiClient.get<string[]>(`/competitions/${encodeURIComponent(competition)}/teams`);
+export const getCompetitionTeams = async (competition: string): Promise<TeamDto[]> => {
+  const response = await apiClient.get<TeamDto[]>(`/competitions/${encodeURIComponent(competition)}/teams`);
   return response.data;
 };
 

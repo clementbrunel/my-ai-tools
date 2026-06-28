@@ -56,8 +56,7 @@ const AdminMatchesTab: React.FC = () => {
         if (competitionsData.length > 0) {
           const first = competitionsData[0];
           setNewCompetition(first);
-          const teams = await getCompetitionTeams(first);
-          setCompetitionTeams(teams);
+          setCompetitionTeams(teams.map(t => t.name));
         }
       } catch {
         // competitions unavailable, form will show empty state
@@ -73,7 +72,7 @@ const AdminMatchesTab: React.FC = () => {
     if (value) {
       try {
         const teams = await getCompetitionTeams(value);
-        setCompetitionTeams(teams);
+        setCompetitionTeams(teams.map(t => t.name));
       } catch {
         setCompetitionTeams([]);
       }

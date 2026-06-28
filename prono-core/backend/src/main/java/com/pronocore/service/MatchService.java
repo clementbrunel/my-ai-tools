@@ -26,6 +26,7 @@ public class MatchService {
     private final BetParticipationRepository betParticipationRepository;
     private final GroupMemberRepository      groupMemberRepository;
     private final UserRepository             userRepository;
+    private final TeamRepository             teamRepository;
     private final DailyGageService           dailyGageService;
     private final CompetitionService         competitionService;
 
@@ -47,18 +48,18 @@ public class MatchService {
     @Transactional(readOnly = true)
     public List<MatchResponse> getAllMatches() {
         return matchRepository.findAllByOrderByMatchDateAsc().stream()
-                .map(matchMapper::toResponse).toList();
+                .map(this::toEnrichedResponse).toList();
     }
 
     @Transactional(readOnly = true)
     public List<MatchResponse> getMatchesByStatus(Match.Status status) {
         return matchRepository.findByStatusOrderByMatchDateAsc(status).stream()
-                .map(matchMapper::toResponse).toList();
+                .map(this::toEnrichedResponse).toList();
     }
 
     @Transactional(readOnly = true)
     public MatchResponse getMatchById(Long id) {
-        return matchMapper.toResponse(requireMatch(id));
+        return toEnrichedResponse(requireMatch(id));
     }
 
     @Transactional(readOnly = true)
@@ -69,7 +70,7 @@ public class MatchService {
         Set<Long> participatedIds = betParticipationRepository.findParticipatedMatchIdsByUserId(user.getId());
         return matches.stream()
                 .map(match -> {
-                    MatchResponse response = matchMapper.toResponse(match);
+                    MatchResponse response = toEnrichedResponse(match);
                     response.setUserParticipated(participatedIds.contains(match.getId()));
                     return response;
                 })
@@ -92,7 +93,7 @@ public class MatchService {
                 .status(Match.Status.UPCOMING)
                 .build();
         match = matchRepository.save(match);
-        return matchMapper.toResponse(match);
+        return toEnrichedResponse(match);
     }
 
     @Transactional
@@ -121,7 +122,7 @@ public class MatchService {
             dailyGageService.onMatchSettled(match.getMatchDate().toLocalDate());
         }
 
-        return matchMapper.toResponse(match);
+        return toEnrichedResponse(match);
     }
 
     @Transactional
@@ -386,5 +387,12 @@ public class MatchService {
     private Match requireMatch(Long id) {
         return matchRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Match not found: " + id));
+    }
+
+    private MatchResponse toEnrichedResponse(Match match) {
+        MatchResponse response = matchMapper.toResponse(match);
+        response.setTeamAIso2(teamRepository.findByName(match.getTeamA()).map(Team::getIso2).orElse(null));
+        response.setTeamBIso2(teamRepository.findByName(match.getTeamB()).map(Team::getIso2).orElse(null));
+        return response;
     }
 }

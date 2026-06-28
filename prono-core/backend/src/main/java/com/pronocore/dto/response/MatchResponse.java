@@ -28,4 +28,6 @@ public class MatchResponse {
     private Integer penaltyScoreA;
     private Integer penaltyScoreB;
     private Boolean userParticipated;
+    private String teamAIso2;
+    private String teamBIso2;
 }
