@@ -47,6 +47,7 @@ class CompetitionServiceTest {
         when(competitionRepository.findByName("FIFA World Cup 2026")).thenReturn(Optional.of(comp));
 
         assertThat(competitionService.getTeamsForCompetition("FIFA World Cup 2026"))
+                .extracting("name")
                 .containsExactly("France", "Brésil");
     }
 
