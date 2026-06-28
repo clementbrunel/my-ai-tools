@@ -18,7 +18,7 @@ interface Props {
 }
 
 const GroupAdminSettings: React.FC<Props> = ({ group, onGroupUpdate }) => {
-  const { pendingForfeitsPerGroup, missingGagesPerGroup, groupsWithNoBets, refresh: refreshCounts } = useGroupAdminCounts();
+  const { pendingForfeitsPerGroup, missingGagesPerGroup, groupsWithNoBets, matchesWithoutBetsPerGroup, refresh: refreshCounts } = useGroupAdminCounts();
 
   const [openSection, setOpenSection] = useState<AdminSection | null>(null);
   const [pendingForfeits, setPendingForfeits] = useState<Forfeit[] | null>(null);
@@ -171,9 +171,9 @@ const GroupAdminSettings: React.FC<Props> = ({ group, onGroupUpdate }) => {
           <p>1. Ouvrez les matchs aux paris pour la journée.</p>
           <Link to="/open-betting" className="relative btn-primary text-xs whitespace-nowrap inline-flex items-center gap-1.5 shrink-0">
             🎲 Ouvrir aux paris
-            {groupsWithNoBets[group.id] && (
+            {(matchesWithoutBetsPerGroup[group.id] ?? 0) > 0 && (
               <span className="inline-flex items-center justify-center bg-red-500 text-white text-[10px] font-bold leading-none rounded-full min-w-[16px] h-4 px-1">
-                !
+                {matchesWithoutBetsPerGroup[group.id]}
               </span>
             )}
           </Link>

@@ -7,6 +7,7 @@ interface GroupAdminCountsContextType {
   pendingForfeitsPerGroup: Record<number, number>;
   missingGagesPerGroup: Record<number, number>;
   groupsWithNoBets: Record<number, boolean>;
+  matchesWithoutBetsPerGroup: Record<number, number>;
   refresh: () => void;
 }
 
@@ -15,6 +16,7 @@ const GroupAdminCountsContext = createContext<GroupAdminCountsContextType>({
   pendingForfeitsPerGroup: {},
   missingGagesPerGroup: {},
   groupsWithNoBets: {},
+  matchesWithoutBetsPerGroup: {},
   refresh: () => {},
 });
 
@@ -24,6 +26,7 @@ export const GroupAdminCountsProvider: React.FC<{ children: React.ReactNode }> =
   const [pendingForfeitsPerGroup, setPendingForfeitsPerGroup] = useState<Record<number, number>>({});
   const [missingGagesPerGroup, setMissingGagesPerGroup] = useState<Record<number, number>>({});
   const [groupsWithNoBets, setGroupsWithNoBets] = useState<Record<number, boolean>>({});
+  const [matchesWithoutBetsPerGroup, setMatchesWithoutBetsPerGroup] = useState<Record<number, number>>({});
   const [tick, setTick] = useState(0);
 
   const refresh = useCallback(() => setTick((t) => t + 1), []);
@@ -45,12 +48,13 @@ export const GroupAdminCountsProvider: React.FC<{ children: React.ReactNode }> =
 
         const pendingForfeits = Object.values(counts.pendingForfeitsPerGroup).reduce((s, v) => s + v, 0);
         const missingGages = Object.values(counts.missingGagesPerGroup).reduce((s, v) => s + v, 0);
-        const groupsNoBetsCount = Object.values(counts.groupsWithNoBets).filter(Boolean).length;
+        const matchesWithoutBets = Object.values(counts.matchesWithoutBetsPerGroup ?? {}).reduce((s, v) => s + v, 0);
 
         setPendingForfeitsPerGroup(counts.pendingForfeitsPerGroup);
         setMissingGagesPerGroup(counts.missingGagesPerGroup);
         setGroupsWithNoBets(counts.groupsWithNoBets);
-        setTotalBadge(counts.pendingApplications + pendingForfeits + missingGages + groupsNoBetsCount);
+        setMatchesWithoutBetsPerGroup(counts.matchesWithoutBetsPerGroup ?? {});
+        setTotalBadge(counts.pendingApplications + pendingForfeits + missingGages + matchesWithoutBets);
       } catch {
         // badge errors are non-blocking
       }
@@ -60,7 +64,7 @@ export const GroupAdminCountsProvider: React.FC<{ children: React.ReactNode }> =
   }, [user, tick]);
 
   return (
-    <GroupAdminCountsContext.Provider value={{ totalBadge, pendingForfeitsPerGroup, missingGagesPerGroup, groupsWithNoBets, refresh }}>
+    <GroupAdminCountsContext.Provider value={{ totalBadge, pendingForfeitsPerGroup, missingGagesPerGroup, groupsWithNoBets, matchesWithoutBetsPerGroup, refresh }}>
       {children}
     </GroupAdminCountsContext.Provider>
   );

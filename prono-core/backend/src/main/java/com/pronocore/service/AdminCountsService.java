@@ -23,7 +23,6 @@ public class AdminCountsService {
     private final GroupMemberRepository groupMemberRepository;
     private final ForfeitRepository forfeitRepository;
     private final BetRepository betRepository;
-    private final MatchRepository matchRepository;
     private final DailyGageRepository dailyGageRepository;
 
     @Transactional(readOnly = true)
@@ -42,6 +41,7 @@ public class AdminCountsService {
                     .pendingForfeitsPerGroup(Map.of())
                     .missingGagesPerGroup(Map.of())
                     .groupsWithNoBets(Map.of())
+                    .matchesWithoutBetsPerGroup(Map.of())
                     .build();
         }
 
@@ -61,12 +61,7 @@ public class AdminCountsService {
                         gid -> forfeitRepository.findByActiveFalseAndGroupIdOrderById(gid).size()
                 ));
 
-        // missingGagesPerGroup
-        List<LocalDate> allMatchDates = matchRepository.findAllByOrderByMatchDateAsc().stream()
-                .map(m -> m.getMatchDate().toLocalDate())
-                .distinct()
-                .toList();
-
+        // missingGagesPerGroup — only counts days that have at least one OPEN bet in the group
         Map<Long, Set<LocalDate>> configuredDatesPerGroup = dailyGageRepository
                 .findByGroupIdInOrderByMatchDateDesc(adminGroupIds).stream()
                 .filter(dg -> dg.getMode() == DailyGage.Mode.VOTE || dg.getForfeit() != null)
@@ -78,9 +73,17 @@ public class AdminCountsService {
         Map<Long, Integer> missingGagesPerGroup = adminGroupIds.stream()
                 .collect(Collectors.toMap(
                         gid -> gid,
-                        gid -> (int) allMatchDates.stream()
-                                .filter(d -> !configuredDatesPerGroup.getOrDefault(gid, Set.of()).contains(d))
-                                .count()
+                        gid -> {
+                            List<LocalDate> datesWithOpenBets = betRepository
+                                    .findDistinctMatchesWithOpenBetsForGroup(gid).stream()
+                                    .map(m -> m.getMatchDate().toLocalDate())
+                                    .distinct()
+                                    .toList();
+                            Set<LocalDate> configured = configuredDatesPerGroup.getOrDefault(gid, Set.of());
+                            return (int) datesWithOpenBets.stream()
+                                    .filter(d -> !configured.contains(d))
+                                    .count();
+                        }
                 ));
 
         // groupsWithNoBets
@@ -90,11 +93,19 @@ public class AdminCountsService {
                         gid -> !betRepository.existsByGroupIdAndStatus(gid, Bet.Status.OPEN)
                 ));
 
+        // matchesWithoutBetsPerGroup — UPCOMING matches not yet opened to betting in the group
+        Map<Long, Integer> matchesWithoutBetsPerGroup = adminGroupIds.stream()
+                .collect(Collectors.toMap(
+                        gid -> gid,
+                        gid -> (int) betRepository.countUpcomingMatchesWithoutBetsForGroup(gid)
+                ));
+
         return AdminCountsResponse.builder()
                 .pendingApplications(pendingApplications)
                 .pendingForfeitsPerGroup(pendingForfeitsPerGroup)
                 .missingGagesPerGroup(missingGagesPerGroup)
                 .groupsWithNoBets(groupsWithNoBets)
+                .matchesWithoutBetsPerGroup(matchesWithoutBetsPerGroup)
                 .build();
     }
 }

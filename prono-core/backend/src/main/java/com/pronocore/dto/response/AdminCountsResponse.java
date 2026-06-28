@@ -16,4 +16,5 @@ public class AdminCountsResponse {
     private Map<Long, Integer> pendingForfeitsPerGroup;
     private Map<Long, Integer> missingGagesPerGroup;
     private Map<Long, Boolean> groupsWithNoBets;
+    private Map<Long, Integer> matchesWithoutBetsPerGroup;
 }
