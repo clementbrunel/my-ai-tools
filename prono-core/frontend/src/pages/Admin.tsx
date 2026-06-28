@@ -8,12 +8,12 @@ import AdminForfeitsTab from './admin/AdminForfeitsTab';
 import AdminUsersTab from './admin/AdminUsersTab';
 import AdminEmailsTab from './admin/AdminEmailsTab';
 
-type AdminTab = 'matches' | 'competitions' | 'forfeits' | 'users' | 'emails';
+type AdminTab = 'competitions' | 'matches' | 'forfeits' | 'users' | 'emails';
 
 const Admin: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<AdminTab>('matches');
+  const [activeTab, setActiveTab] = useState<AdminTab>('competitions');
 
   useEffect(() => {
     if (!isAdmin(user)) navigate('/dashboard');
@@ -22,8 +22,8 @@ const Admin: React.FC = () => {
   if (!isAdmin(user)) return null;
 
   const tabs: { id: AdminTab; label: string }[] = [
-    { id: 'matches', label: '⚽ Matchs' },
     { id: 'competitions', label: '🏆 Compétitions' },
+    { id: 'matches', label: '⚽ Matchs' },
     { id: 'forfeits', label: '🃏 Gages' },
     { id: 'users', label: '👥 Utilisateurs' },
     { id: 'emails', label: '📧 Emails' },
@@ -66,8 +66,8 @@ const Admin: React.FC = () => {
         ))}
       </div>
 
-      {activeTab === 'matches' && <AdminMatchesTab />}
       {activeTab === 'competitions' && <AdminCompetitionsTab />}
+      {activeTab === 'matches' && <AdminMatchesTab />}
       {activeTab === 'forfeits' && <AdminForfeitsTab />}
       {activeTab === 'users' && <AdminUsersTab />}
       {activeTab === 'emails' && <AdminEmailsTab />}
