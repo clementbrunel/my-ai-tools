@@ -296,6 +296,30 @@ class MatchServiceTest {
         verifyNoInteractions(betRepository);
     }
 
+    @Test
+    void createMatch_shouldRegisterBothTeamsInCompetitionRoster() {
+        LocalDateTime matchDate = LocalDateTime.of(2026, 6, 14, 20, 0);
+
+        CreateMatchRequest req = new CreateMatchRequest();
+        req.setTeamA("France");
+        req.setTeamB("Brésil");
+        req.setMatchDate(matchDate);
+        req.setCompetition("FIFA World Cup 2026");
+
+        Match savedMatch = Match.builder()
+                .id(1L).teamA("France").teamB("Brésil").matchDate(matchDate)
+                .competition("FIFA World Cup 2026").round("Phase de poules")
+                .status(Match.Status.UPCOMING).build();
+
+        when(matchRepository.save(any(Match.class))).thenReturn(savedMatch);
+        when(matchMapper.toResponse(any(Match.class))).thenReturn(MatchResponse.builder().build());
+
+        matchService.createMatch(req);
+
+        verify(competitionService).addTeam("FIFA World Cup 2026", "France");
+        verify(competitionService).addTeam("FIFA World Cup 2026", "Brésil");
+    }
+
     // ── deleteMatch ───────────────────────────────────────────────────────────
 
     @Test

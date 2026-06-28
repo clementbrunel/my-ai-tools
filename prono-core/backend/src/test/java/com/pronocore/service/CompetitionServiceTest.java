@@ -1,9 +1,7 @@
 package com.pronocore.service;
 
 import com.pronocore.entity.CompetitionTeam;
-import com.pronocore.entity.Match;
 import com.pronocore.repository.CompetitionTeamRepository;
-import com.pronocore.repository.MatchRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -11,7 +9,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -22,7 +19,6 @@ import static org.mockito.Mockito.*;
 class CompetitionServiceTest {
 
     @Mock private CompetitionTeamRepository competitionTeamRepository;
-    @Mock private MatchRepository           matchRepository;
 
     @InjectMocks
     private CompetitionService competitionService;
@@ -30,91 +26,45 @@ class CompetitionServiceTest {
     // ── getAllCompetitions ──────────────────────────────────────────────────────
 
     @Test
-    void getAllCompetitions_mergesRosterAndMatchSources() {
+    void getAllCompetitions_delegatesToRepository() {
         when(competitionTeamRepository.findAllDistinctCompetitions())
                 .thenReturn(List.of("Copa América 2026", "FIFA World Cup 2026"));
-        when(matchRepository.findAllDistinctCompetitions())
-                .thenReturn(List.of("FIFA World Cup 2026", "UEFA Euro 2028"));
 
         List<String> result = competitionService.getAllCompetitions();
 
-        assertThat(result).containsExactly("Copa América 2026", "FIFA World Cup 2026", "UEFA Euro 2028");
-    }
-
-    @Test
-    void getAllCompetitions_deduplicatesAcrossSources() {
-        when(competitionTeamRepository.findAllDistinctCompetitions())
-                .thenReturn(List.of("FIFA World Cup 2026"));
-        when(matchRepository.findAllDistinctCompetitions())
-                .thenReturn(List.of("FIFA World Cup 2026"));
-
-        List<String> result = competitionService.getAllCompetitions();
-
-        assertThat(result).containsExactly("FIFA World Cup 2026");
+        assertThat(result).containsExactly("Copa América 2026", "FIFA World Cup 2026");
     }
 
     // ── getTeamsForCompetition ─────────────────────────────────────────────────
 
     @Test
-    void getTeamsForCompetition_mergesRosterAndMatchTeams() {
+    void getTeamsForCompetition_returnsTeamNamesInRosterOrder() {
         when(competitionTeamRepository.findByCompetitionOrderByTeamNameAsc("FIFA World Cup 2026"))
-                .thenReturn(List.of(ct("Allemagne"), ct("France")));
-        when(matchRepository.findByCompetitionOrderByMatchDateAsc("FIFA World Cup 2026"))
-                .thenReturn(List.of(match("Brésil", "Argentine"), match("France", "Maroc")));
+                .thenReturn(List.of(ct("Allemagne"), ct("Brésil"), ct("France")));
 
         List<String> result = competitionService.getTeamsForCompetition("FIFA World Cup 2026");
 
-        assertThat(result).containsExactly("Allemagne", "Argentine", "Brésil", "France", "Maroc");
+        assertThat(result).containsExactly("Allemagne", "Brésil", "France");
     }
 
     @Test
-    void getTeamsForCompetition_deduplicatesTeamsAcrossSources() {
+    void getTeamsForCompetition_returnsEmptyListWhenNoRoster() {
         when(competitionTeamRepository.findByCompetitionOrderByTeamNameAsc("FIFA World Cup 2026"))
-                .thenReturn(List.of(ct("France")));
-        when(matchRepository.findByCompetitionOrderByMatchDateAsc("FIFA World Cup 2026"))
-                .thenReturn(List.of(match("France", "Brésil")));
-
-        List<String> result = competitionService.getTeamsForCompetition("FIFA World Cup 2026");
-
-        assertThat(result).containsExactly("Brésil", "France");
-    }
-
-    @Test
-    void getTeamsForCompetition_returnsAlphabeticallySorted() {
-        when(competitionTeamRepository.findByCompetitionOrderByTeamNameAsc("FIFA World Cup 2026"))
-                .thenReturn(List.of(ct("Sénégal"), ct("Mexique")));
-        when(matchRepository.findByCompetitionOrderByMatchDateAsc("FIFA World Cup 2026"))
                 .thenReturn(List.of());
 
-        List<String> result = competitionService.getTeamsForCompetition("FIFA World Cup 2026");
-
-        assertThat(result).containsExactly("Mexique", "Sénégal");
+        assertThat(competitionService.getTeamsForCompetition("FIFA World Cup 2026")).isEmpty();
     }
 
     // ── getAllKnownTeams ───────────────────────────────────────────────────────
 
     @Test
-    void getAllKnownTeams_mergesRosterAndMatchTeams() {
+    void getAllKnownTeams_delegatesToRepository() {
         when(competitionTeamRepository.findAllDistinctTeamNames())
-                .thenReturn(List.of("Allemagne", "France"));
-        when(matchRepository.findAllByOrderByMatchDateAsc())
-                .thenReturn(List.of(match("Brésil", "Argentine")));
+                .thenReturn(List.of("Allemagne", "Argentine", "Brésil", "France"));
 
         List<String> result = competitionService.getAllKnownTeams();
 
         assertThat(result).containsExactly("Allemagne", "Argentine", "Brésil", "France");
-    }
-
-    @Test
-    void getAllKnownTeams_deduplicatesAcrossSources() {
-        when(competitionTeamRepository.findAllDistinctTeamNames())
-                .thenReturn(List.of("France"));
-        when(matchRepository.findAllByOrderByMatchDateAsc())
-                .thenReturn(List.of(match("France", "Brésil")));
-
-        List<String> result = competitionService.getAllKnownTeams();
-
-        assertThat(result).containsExactly("Brésil", "France");
     }
 
     // ── addTeam ───────────────────────────────────────────────────────────────
@@ -155,7 +105,7 @@ class CompetitionServiceTest {
 
     @Test
     void setTeams_removesTeamsNotInDesiredList() {
-        CompetitionTeam france  = ct("France");
+        CompetitionTeam france    = ct("France");
         CompetitionTeam allemagne = ct("Allemagne");
         when(competitionTeamRepository.findByCompetitionOrderByTeamNameAsc("FIFA World Cup 2026"))
                 .thenReturn(List.of(france, allemagne));
@@ -203,16 +153,6 @@ class CompetitionServiceTest {
         return CompetitionTeam.builder()
                 .competition("FIFA World Cup 2026")
                 .teamName(teamName)
-                .build();
-    }
-
-    private static Match match(String teamA, String teamB) {
-        return Match.builder()
-                .teamA(teamA)
-                .teamB(teamB)
-                .matchDate(LocalDateTime.now())
-                .competition("FIFA World Cup 2026")
-                .round("Phase de poules")
                 .build();
     }
 }

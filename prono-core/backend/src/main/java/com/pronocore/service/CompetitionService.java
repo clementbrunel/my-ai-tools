@@ -2,7 +2,6 @@ package com.pronocore.service;
 
 import com.pronocore.entity.CompetitionTeam;
 import com.pronocore.repository.CompetitionTeamRepository;
-import com.pronocore.repository.MatchRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -10,47 +9,27 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.TreeSet;
 
 @Service
 @RequiredArgsConstructor
 public class CompetitionService {
 
     private final CompetitionTeamRepository competitionTeamRepository;
-    private final MatchRepository           matchRepository;
 
-    /** All competition names — from the roster table AND from existing matches. */
     @Transactional(readOnly = true)
     public List<String> getAllCompetitions() {
-        Set<String> result = new TreeSet<>(competitionTeamRepository.findAllDistinctCompetitions());
-        result.addAll(matchRepository.findAllDistinctCompetitions());
-        return result.stream().toList();
+        return competitionTeamRepository.findAllDistinctCompetitions();
     }
 
-    /**
-     * Teams registered for a competition (roster table), merged with teams already present
-     * in existing matches — so pool matches already played are never lost.
-     */
     @Transactional(readOnly = true)
     public List<String> getTeamsForCompetition(String competition) {
-        Set<String> result = new TreeSet<>();
-        competitionTeamRepository.findByCompetitionOrderByTeamNameAsc(competition)
-                .forEach(ct -> result.add(ct.getTeamName()));
-        matchRepository.findByCompetitionOrderByMatchDateAsc(competition)
-                .forEach(m -> { result.add(m.getTeamA()); result.add(m.getTeamB()); });
-        return result.stream().toList();
+        return competitionTeamRepository.findByCompetitionOrderByTeamNameAsc(competition)
+                .stream().map(CompetitionTeam::getTeamName).toList();
     }
 
-    /**
-     * All distinct team names known across the whole platform (roster + matches),
-     * used to populate the picker when initialising a new competition.
-     */
     @Transactional(readOnly = true)
     public List<String> getAllKnownTeams() {
-        Set<String> result = new TreeSet<>(competitionTeamRepository.findAllDistinctTeamNames());
-        matchRepository.findAllByOrderByMatchDateAsc()
-                .forEach(m -> { result.add(m.getTeamA()); result.add(m.getTeamB()); });
-        return result.stream().toList();
+        return competitionTeamRepository.findAllDistinctTeamNames();
     }
 
     @Transactional

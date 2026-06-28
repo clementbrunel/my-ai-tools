@@ -76,21 +76,6 @@ public class MatchService {
                 .toList();
     }
 
-    @Transactional(readOnly = true)
-    public List<String> getActiveCompetitions() {
-        return matchRepository.findActiveCompetitions();
-    }
-
-    @Transactional(readOnly = true)
-    public List<String> getAllCompetitions() {
-        return competitionService.getAllCompetitions();
-    }
-
-    @Transactional(readOnly = true)
-    public List<String> getTeamsForCompetition(String competition) {
-        return competitionService.getTeamsForCompetition(competition);
-    }
-
     // ---------------------------------------------------------------
     // Commands
     // ---------------------------------------------------------------
@@ -107,8 +92,8 @@ public class MatchService {
                 .status(Match.Status.UPCOMING)
                 .build();
         match = matchRepository.save(match);
-        // A match is global and starts CLOSED to betting. Each group's admin opens it
-        // for their group via BetService.openMatchForBetting → no auto-created bet here.
+        competitionService.addTeam(match.getCompetition(), match.getTeamA());
+        competitionService.addTeam(match.getCompetition(), match.getTeamB());
         return matchMapper.toResponse(match);
     }
 

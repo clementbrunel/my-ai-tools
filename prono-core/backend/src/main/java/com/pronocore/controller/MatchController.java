@@ -41,19 +41,6 @@ public class MatchController {
         return ResponseEntity.ok(matchService.getMatchesForUserGroups(authentication.getName()));
     }
 
-    @GetMapping("/competitions")
-    @Operation(summary = "Get competitions — active only by default, all with ?all=true")
-    public ResponseEntity<List<String>> getCompetitions(
-            @RequestParam(required = false, defaultValue = "false") boolean all) {
-        return ResponseEntity.ok(all ? matchService.getAllCompetitions() : matchService.getActiveCompetitions());
-    }
-
-    @GetMapping("/competitions/{competition}/teams")
-    @Operation(summary = "Get distinct team names for a competition")
-    public ResponseEntity<List<String>> getTeamsForCompetition(@PathVariable String competition) {
-        return ResponseEntity.ok(matchService.getTeamsForCompetition(competition));
-    }
-
     @GetMapping("/{id}")
     @Operation(summary = "Get match by ID")
     public ResponseEntity<MatchResponse> getMatch(@PathVariable Long id) {
