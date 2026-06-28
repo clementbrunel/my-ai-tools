@@ -115,8 +115,8 @@ class MatchServiceTest {
      * France 2-1 Brésil.
      *
      * Three participants:
-     *   exactUser   → "Victoire France 2-1"  → +5 pts, betsWon++
-     *   correctUser → "Victoire France 3-0"  → +3 pts, betsWon unchanged
+     *   exactUser   → "Victoire France 2-1"  → +5 pts
+     *   correctUser → "Victoire France 3-0"  → +3 pts
      *   wrongUser   → "Match nul 0-0"        → +0 pts
      *
      * Winner option format: winner's score always first
@@ -280,7 +280,7 @@ class MatchServiceTest {
 
     /**
      * Idempotency: if the participation already has the correct points,
-     * forceSettleBet must not touch the user's score or betsWon.
+     * forceSettleBet must not double-count points.
      */
     @Test
     void forceSettleBet_shouldNotDoubleCountIfAlreadyCorrect() {
