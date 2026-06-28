@@ -7,6 +7,16 @@ import { formatDate } from '../../utils/dates';
 import ScrollableTableWrapper from '../../components/ScrollableTableWrapper';
 import ScoreInput from '../../components/ScoreInput';
 
+const KNOCKOUT_ROUNDS = [
+  '1/32 de finale',
+  '1/16 de finale',
+  '1/8 de finale',
+  '1/4 de finale',
+  '1/2 finale',
+  'Petite finale',
+  'Finale',
+];
+
 const AdminMatchesTab: React.FC = () => {
   const { showToast } = useToast();
   const { msg: matchMsg, setError: setMatchError, setSuccess: setMatchSuccess, clear: clearMatchMessages } = useFormMessages();
@@ -132,7 +142,7 @@ const AdminMatchesTab: React.FC = () => {
               onChange={(e) => {
                 const phase = e.target.value as MatchPhase;
                 setNewPhase(phase);
-                setNewRound(phase === 'POOL' ? 'Phase de poules' : '');
+                setNewRound(phase === 'POOL' ? 'Phase de poules' : KNOCKOUT_ROUNDS[0]);
               }}
               className="input-field"
             >
@@ -142,8 +152,14 @@ const AdminMatchesTab: React.FC = () => {
           </div>
           <div>
             <label className="label">Label du tour</label>
-            <input type="text" value={newRound} onChange={(e) => setNewRound(e.target.value)}
-              className="input-field" placeholder="Ex: 8ème de finale, Quarts..." />
+            {newPhase === 'KNOCKOUT' ? (
+              <select value={newRound} onChange={(e) => setNewRound(e.target.value)} className="input-field">
+                {KNOCKOUT_ROUNDS.map((r) => <option key={r} value={r}>{r}</option>)}
+              </select>
+            ) : (
+              <input type="text" value={newRound} onChange={(e) => setNewRound(e.target.value)}
+                className="input-field" placeholder="Ex: Phase de poules, Groupe A..." />
+            )}
           </div>
           <div className="col-span-2">
             <label className="label">Compétition</label>
