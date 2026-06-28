@@ -27,6 +27,7 @@ public class MatchService {
     private final GroupMemberRepository      groupMemberRepository;
     private final UserRepository             userRepository;
     private final DailyGageService           dailyGageService;
+    private final CompetitionService         competitionService;
 
     // ---------------------------------------------------------------
     // Scoring constants
@@ -82,16 +83,12 @@ public class MatchService {
 
     @Transactional(readOnly = true)
     public List<String> getAllCompetitions() {
-        return matchRepository.findAllDistinctCompetitions();
+        return competitionService.getAllCompetitions();
     }
 
     @Transactional(readOnly = true)
     public List<String> getTeamsForCompetition(String competition) {
-        return matchRepository.findByCompetitionOrderByMatchDateAsc(competition).stream()
-                .flatMap(m -> java.util.stream.Stream.of(m.getTeamA(), m.getTeamB()))
-                .distinct()
-                .sorted()
-                .toList();
+        return competitionService.getTeamsForCompetition(competition);
     }
 
     // ---------------------------------------------------------------

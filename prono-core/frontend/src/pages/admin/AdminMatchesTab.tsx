@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useToast } from '../../components/Toast';
-import { getMatches, createMatch, updateMatchScore, getAllCompetitions, getCompetitionTeams, forceSettleMatch } from '../../api/matches';
+import { getMatches, createMatch, updateMatchScore, forceSettleMatch } from '../../api/matches';
+import { getAllCompetitions as fetchAllCompetitions, getCompetitionTeams } from '../../api/competitions';
 import { useFormMessages } from '../../hooks/useFormMessages';
 import type { Match, MatchPhase } from '../../types';
 import { formatDate } from '../../utils/dates';
@@ -51,7 +52,7 @@ const AdminMatchesTab: React.FC = () => {
         setIsLoading(false);
       }
       try {
-        const competitionsData = await getAllCompetitions();
+        const competitionsData = await fetchAllCompetitions();
         setCompetitions(competitionsData);
         if (competitionsData.length > 0) {
           const first = competitionsData[0];

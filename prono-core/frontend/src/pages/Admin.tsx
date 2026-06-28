@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { isAdmin } from '../types';
 import AdminMatchesTab from './admin/AdminMatchesTab';
+import AdminCompetitionsTab from './admin/AdminCompetitionsTab';
 import AdminForfeitsTab from './admin/AdminForfeitsTab';
 import AdminUsersTab from './admin/AdminUsersTab';
 import AdminEmailsTab from './admin/AdminEmailsTab';
 
-type AdminTab = 'matches' | 'forfeits' | 'users' | 'emails';
+type AdminTab = 'matches' | 'competitions' | 'forfeits' | 'users' | 'emails';
 
 const Admin: React.FC = () => {
   const { user } = useAuth();
@@ -22,6 +23,7 @@ const Admin: React.FC = () => {
 
   const tabs: { id: AdminTab; label: string }[] = [
     { id: 'matches', label: '⚽ Matchs' },
+    { id: 'competitions', label: '🏆 Compétitions' },
     { id: 'forfeits', label: '🃏 Gages' },
     { id: 'users', label: '👥 Utilisateurs' },
     { id: 'emails', label: '📧 Emails' },
@@ -65,6 +67,7 @@ const Admin: React.FC = () => {
       </div>
 
       {activeTab === 'matches' && <AdminMatchesTab />}
+      {activeTab === 'competitions' && <AdminCompetitionsTab />}
       {activeTab === 'forfeits' && <AdminForfeitsTab />}
       {activeTab === 'users' && <AdminUsersTab />}
       {activeTab === 'emails' && <AdminEmailsTab />}
