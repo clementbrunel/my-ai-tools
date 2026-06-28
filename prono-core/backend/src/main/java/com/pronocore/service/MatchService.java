@@ -32,10 +32,12 @@ public class MatchService {
     // Scoring constants
     // ---------------------------------------------------------------
 
-    /** Exact score. */
+    /** Exact score (normal match) or correct winner via penalties. */
     static final int POINTS_EXACT_SCORE    = 5;
-    /** Correct result (right winner or right draw), wrong score. */
+    /** Correct result (right winner or right draw), wrong score / wrong mode. */
     static final int POINTS_CORRECT_RESULT = 3;
+    /** Bonus for also predicting the exact penalty-shootout score. */
+    static final int POINTS_TAB_BONUS      = 2;
 
     // ---------------------------------------------------------------
     // Queries
@@ -90,6 +92,7 @@ public class MatchService {
                 .matchDate(request.getMatchDate())
                 .competition(request.getCompetition() != null ? request.getCompetition() : "FIFA World Cup 2026")
                 .round(request.getRound() != null ? request.getRound() : "Group Stage")
+                .phase(request.getPhase() != null ? request.getPhase() : Match.MatchPhase.POOL)
                 .status(Match.Status.UPCOMING)
                 .build();
         match = matchRepository.save(match);
@@ -109,6 +112,9 @@ public class MatchService {
         match.setScoreA(request.getScoreA());
         match.setScoreB(request.getScoreB());
         match.setStatus(request.getStatus());
+        match.setPenaltyWinner(request.getPenaltyWinner());
+        match.setPenaltyScoreA(request.getPenaltyScoreA());
+        match.setPenaltyScoreB(request.getPenaltyScoreB());
         match = matchRepository.save(match);
 
         if (transitionsToFinished && request.getScoreA() != null && request.getScoreB() != null) {
@@ -289,28 +295,88 @@ public class MatchService {
     }
 
     /**
-     * Points for a single participation:
-     * +5 exact score | +3 correct result | 0 wrong
+     * Points for a single participation.
+     *
+     * Normal match:
+     *   +5 exact score | +3 correct result | 0 wrong
+     *
+     * Penalty-shootout (t.a.b.) match (winning option contains " t.a.b. "):
+     *   +7 correct winner via TAB + exact penalty score  (bonus only when admin stored a pen score)
+     *   +5 correct winner via TAB (any score / no pen score)
+     *   +3 correct winner but wrong mode (predicted normal win, actual TAB, or vice-versa)
+     *   0  wrong winner
      */
     int computeEarnedPoints(String chosenOption, String winningOption) {
-        if (chosenOption.equals(winningOption)) return POINTS_EXACT_SCORE;
-        if (extractResult(chosenOption).equals(extractResult(winningOption))) return POINTS_CORRECT_RESULT;
+        String c = chosenOption.trim();
+        String w = winningOption.trim();
+        boolean winningIsTab = w.contains(" t.a.b. ");
+        if (winningIsTab) {
+            boolean winningHasPenScore = w.matches(".*\\(\\d+-\\d+\\)$");
+            if (c.equals(w) && winningHasPenScore) return POINTS_EXACT_SCORE + POINTS_TAB_BONUS;
+            if (extractResultWithMode(c).equals(extractResultWithMode(w))) return POINTS_EXACT_SCORE;
+            if (extractResult(c).equals(extractResult(w))) return POINTS_CORRECT_RESULT;
+            return 0;
+        }
+        if (c.equals(w)) return POINTS_EXACT_SCORE;
+        if (extractResult(c).equals(extractResult(w))) return POINTS_CORRECT_RESULT;
         return 0;
     }
 
-    /** "Victoire France 2-1" → "Victoire France" | "Match nul 1-1" → "Match nul" */
+    /**
+     * Strips score and t.a.b. marker — used to compare winners regardless of mode.
+     * "Victoire France t.a.b. 1-1 (5-4)" → "Victoire France"
+     * "Victoire France 2-1"               → "Victoire France"
+     * "Match nul 1-1"                     → "Match nul"
+     */
     private String extractResult(String option) {
-        if (option.startsWith("Match nul")) return "Match nul";
-        if (option.startsWith("Victoire ")) {
-            int lastSpace = option.lastIndexOf(' ');
-            if (lastSpace > 0) return option.substring(0, lastSpace);
+        String s = option.replaceAll("\\s*\\(\\d+-\\d+\\)$", "");
+        s = s.replace(" t.a.b.", "");
+        if (s.startsWith("Match nul")) return "Match nul";
+        if (s.startsWith("Victoire ")) {
+            int lastSpace = s.lastIndexOf(' ');
+            if (lastSpace > 0) return s.substring(0, lastSpace);
         }
         return option;
     }
 
-    /** Winner's score always first. France 0–1 Sénégal → "Victoire Sénégal 1-0" */
+    /**
+     * Strips only the penalty score suffix — keeps t.a.b. marker for mode comparison.
+     * "Victoire France t.a.b. 1-1 (5-4)" → "Victoire France t.a.b."
+     * "Victoire France t.a.b. 0-0"        → "Victoire France t.a.b."
+     * "Victoire France 2-1"               → "Victoire France"
+     */
+    private String extractResultWithMode(String option) {
+        String s = option.replaceAll("\\s*\\(\\d+-\\d+\\)$", "");
+        if (s.startsWith("Match nul")) return "Match nul";
+        if (s.startsWith("Victoire ")) {
+            int lastSpace = s.lastIndexOf(' ');
+            if (lastSpace > 0) return s.substring(0, lastSpace);
+        }
+        return option;
+    }
+
+    /**
+     * Winner's score always first.
+     * France 0–1 Sénégal → "Victoire Sénégal 1-0"
+     * TAB (France wins, pen 5-4, draw 1-1) → "Victoire France t.a.b. 1-1 (5-4)"
+     * TAB without pen score stored → "Victoire France t.a.b. 1-1"
+     */
     private String computeWinningOption(Match match) {
         int sA = match.getScoreA(), sB = match.getScoreB();
+        if (match.getPenaltyWinner() != null) {
+            String winner;
+            String penScore = "";
+            if (match.getPenaltyWinner().equals("A")) {
+                winner = match.getTeamA();
+                if (match.getPenaltyScoreA() != null && match.getPenaltyScoreB() != null)
+                    penScore = " (" + match.getPenaltyScoreA() + "-" + match.getPenaltyScoreB() + ")";
+            } else {
+                winner = match.getTeamB();
+                if (match.getPenaltyScoreA() != null && match.getPenaltyScoreB() != null)
+                    penScore = " (" + match.getPenaltyScoreB() + "-" + match.getPenaltyScoreA() + ")";
+            }
+            return "Victoire " + winner + " t.a.b. " + sA + "-" + sB + penScore;
+        }
         if (sA > sB) return "Victoire " + match.getTeamA() + " " + sA + "-" + sB;
         if (sB > sA) return "Victoire " + match.getTeamB() + " " + sB + "-" + sA;
         return "Match nul " + sA + "-" + sB;

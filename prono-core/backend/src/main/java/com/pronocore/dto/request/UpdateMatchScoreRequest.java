@@ -18,4 +18,10 @@ public class UpdateMatchScoreRequest {
 
     @NotNull(message = "Status is required")
     private Match.Status status;
+
+    private String penaltyWinner;
+
+    private Integer penaltyScoreA;
+
+    private Integer penaltyScoreB;
 }

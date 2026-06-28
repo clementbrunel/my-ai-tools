@@ -1,0 +1,4 @@
+ALTER TABLE matches ADD COLUMN phase VARCHAR(20) NOT NULL DEFAULT 'POOL';
+ALTER TABLE matches ADD COLUMN penalty_winner VARCHAR(1);
+ALTER TABLE matches ADD COLUMN penalty_score_a INTEGER;
+ALTER TABLE matches ADD COLUMN penalty_score_b INTEGER;

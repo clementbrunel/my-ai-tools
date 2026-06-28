@@ -109,6 +109,58 @@ class MatchServiceTest {
                 .isEqualTo(0);
     }
 
+    // ── TAB (tirs au but) scoring ──────────────────────────────────────────────
+
+    @Test
+    void computeEarnedPoints_tab_exactWithPenScore_shouldReturn7() {
+        assertThat(matchService.computeEarnedPoints(
+                "Victoire France t.a.b. 1-1 (5-4)", "Victoire France t.a.b. 1-1 (5-4)"))
+                .isEqualTo(7);
+    }
+
+    @Test
+    void computeEarnedPoints_tab_rightWinnerRightModeNoScore_shouldReturn5() {
+        assertThat(matchService.computeEarnedPoints(
+                "Victoire France t.a.b. 1-1", "Victoire France t.a.b. 1-1 (5-4)"))
+                .isEqualTo(5);
+    }
+
+    @Test
+    void computeEarnedPoints_tab_rightWinnerRightModeWrongScore_shouldReturn5() {
+        assertThat(matchService.computeEarnedPoints(
+                "Victoire France t.a.b. 0-0", "Victoire France t.a.b. 1-1 (5-4)"))
+                .isEqualTo(5);
+    }
+
+    @Test
+    void computeEarnedPoints_tab_rightWinnerWrongPenScore_shouldReturn5() {
+        assertThat(matchService.computeEarnedPoints(
+                "Victoire France t.a.b. 1-1 (4-5)", "Victoire France t.a.b. 1-1 (5-4)"))
+                .isEqualTo(5);
+    }
+
+    @Test
+    void computeEarnedPoints_tab_rightWinnerWrongMode_shouldReturn3() {
+        assertThat(matchService.computeEarnedPoints(
+                "Victoire France 2-1", "Victoire France t.a.b. 1-1"))
+                .isEqualTo(3);
+    }
+
+    @Test
+    void computeEarnedPoints_tab_wrongWinner_shouldReturn0() {
+        assertThat(matchService.computeEarnedPoints(
+                "Victoire Angleterre t.a.b. 1-1", "Victoire France t.a.b. 1-1"))
+                .isEqualTo(0);
+    }
+
+    @Test
+    void computeEarnedPoints_tab_exactWithoutPenScore_shouldReturn5() {
+        // No pen score stored in winning option → max is +5
+        assertThat(matchService.computeEarnedPoints(
+                "Victoire France t.a.b. 1-1", "Victoire France t.a.b. 1-1"))
+                .isEqualTo(5);
+    }
+
     // ── settlement triggered by updateMatchScore ───────────────────────────────
 
     /**

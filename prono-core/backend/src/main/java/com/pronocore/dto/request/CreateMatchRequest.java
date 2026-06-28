@@ -1,5 +1,6 @@
 package com.pronocore.dto.request;
 
+import com.pronocore.entity.Match;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
@@ -22,4 +23,6 @@ public class CreateMatchRequest {
     private String competition = "FIFA World Cup 2026";
 
     private String round = "Group Stage";
+
+    private Match.MatchPhase phase = Match.MatchPhase.POOL;
 }
