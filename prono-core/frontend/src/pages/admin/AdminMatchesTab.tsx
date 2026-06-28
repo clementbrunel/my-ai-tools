@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useToast } from '../../components/Toast';
 import { getMatches, createMatch, updateMatchScore, forceSettleMatch } from '../../api/matches';
-import { getAllCompetitions as fetchAllCompetitions, getCompetitionTeams } from '../../api/competitions';
+import { getCompetitions as fetchAllCompetitions, getCompetitionTeams } from '../../api/competitions';
 import { useFormMessages } from '../../hooks/useFormMessages';
 import type { Match, MatchPhase } from '../../types';
 import { formatDate } from '../../utils/dates';
