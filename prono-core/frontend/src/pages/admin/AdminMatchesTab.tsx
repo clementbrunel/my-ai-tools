@@ -31,7 +31,6 @@ const AdminMatchesTab: React.FC = () => {
   const [newTeamB, setNewTeamB] = useState('');
   const [newMatchDate, setNewMatchDate] = useState('');
   const [newCompetition, setNewCompetition] = useState('');
-  const [isNewCompetition, setIsNewCompetition] = useState(false);
   const [newRound, setNewRound] = useState('Phase de poules');
   const [newPhase, setNewPhase] = useState<MatchPhase>('POOL');
 
@@ -59,11 +58,9 @@ const AdminMatchesTab: React.FC = () => {
           setNewCompetition(first);
           const teams = await getCompetitionTeams(first);
           setCompetitionTeams(teams);
-        } else {
-          setIsNewCompetition(true);
         }
       } catch {
-        setIsNewCompetition(true);
+        // competitions unavailable, form will show empty state
       }
     };
     loadData();
@@ -95,13 +92,8 @@ const AdminMatchesTab: React.FC = () => {
         competition: newCompetition, round: newRound,
         phase: newPhase,
       });
-      const updatedCompetitions = competitions.includes(newCompetition)
-        ? competitions
-        : [...competitions, newCompetition].sort();
-      setCompetitions(updatedCompetitions);
       setMatches([...matches, newMatch]);
       setNewTeamA(''); setNewTeamB(''); setNewMatchDate('');
-      setIsNewCompetition(false);
       setMatchSuccess('Match créé avec succès !');
     } catch { setMatchError('Erreur lors de la création du match'); }
   };
@@ -199,49 +191,19 @@ const AdminMatchesTab: React.FC = () => {
           </div>
           <div className="col-span-2">
             <label className="label">Compétition</label>
-            {competitions.length > 0 && !isNewCompetition ? (
-              <div className="flex gap-2">
-                <select
-                  value={newCompetition}
-                  onChange={(e) => {
-                    if (e.target.value === '__new__') {
-                      setIsNewCompetition(true);
-                      setNewCompetition('');
-                      setCompetitionTeams([]);
-                    } else {
-                      handleCompetitionChange(e.target.value);
-                    }
-                  }}
-                  className="input-field flex-1"
-                  required
-                >
-                  {competitions.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                  <option value="__new__">➕ Nouvelle compétition...</option>
-                </select>
-              </div>
+            {competitions.length > 0 ? (
+              <select
+                value={newCompetition}
+                onChange={(e) => handleCompetitionChange(e.target.value)}
+                className="input-field"
+                required
+              >
+                {competitions.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
             ) : (
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={newCompetition}
-                  onChange={(e) => setNewCompetition(e.target.value)}
-                  className="input-field flex-1"
-                  placeholder="Ex: FIFA World Cup 2026"
-                  required
-                  autoFocus
-                />
-                {competitions.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => { setIsNewCompetition(false); handleCompetitionChange(competitions[0]); }}
-                    className="btn-secondary text-sm whitespace-nowrap"
-                  >
-                    ← Retour
-                  </button>
-                )}
-              </div>
+              <p className="text-xs text-amber-500 mt-1">Aucune compétition — créez-en une dans l'onglet Compétitions.</p>
             )}
           </div>
           {matchMsg?.type === 'error' && <p className="col-span-2 text-red-500 text-sm">{matchMsg.text}</p>}
