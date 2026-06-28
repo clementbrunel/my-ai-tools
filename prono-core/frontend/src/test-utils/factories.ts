@@ -36,6 +36,7 @@ export const makeMatch = (overrides?: Partial<Match> & { id?: number }): Match =
   teamB: 'Brésil',
   matchDate: '2026-07-01T20:00:00Z',
   status: 'UPCOMING',
+  phase: 'KNOCKOUT',
   competition: 'Coupe du Monde 2026',
   round: 'Finale',
   ...overrides,
