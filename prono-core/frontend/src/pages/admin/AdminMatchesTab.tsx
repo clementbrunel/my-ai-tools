@@ -135,6 +135,23 @@ const AdminMatchesTab: React.FC = () => {
       <div className="card">
         <h3 className="font-bold text-gray-900 dark:text-white mb-4">+ Créer un match</h3>
         <form onSubmit={handleCreateMatch} className="grid grid-cols-2 gap-3">
+          <div className="col-span-2">
+            <label className="label">Compétition</label>
+            {competitions.length > 0 ? (
+              <select
+                value={newCompetition}
+                onChange={(e) => handleCompetitionChange(e.target.value)}
+                className="input-field"
+                required
+              >
+                {competitions.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            ) : (
+              <p className="text-xs text-amber-500 mt-1">Aucune compétition — créez-en une dans l'onglet Compétitions.</p>
+            )}
+          </div>
           <div>
             <label className="label">Équipe A</label>
             {competitionTeams.length > 0 ? (
@@ -186,23 +203,6 @@ const AdminMatchesTab: React.FC = () => {
             ) : (
               <input type="text" value={newRound} onChange={(e) => setNewRound(e.target.value)}
                 className="input-field" placeholder="Ex: Phase de poules, Groupe A..." />
-            )}
-          </div>
-          <div className="col-span-2">
-            <label className="label">Compétition</label>
-            {competitions.length > 0 ? (
-              <select
-                value={newCompetition}
-                onChange={(e) => handleCompetitionChange(e.target.value)}
-                className="input-field"
-                required
-              >
-                {competitions.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            ) : (
-              <p className="text-xs text-amber-500 mt-1">Aucune compétition — créez-en une dans l'onglet Compétitions.</p>
             )}
           </div>
           {matchMsg?.type === 'error' && <p className="col-span-2 text-red-500 text-sm">{matchMsg.text}</p>}
