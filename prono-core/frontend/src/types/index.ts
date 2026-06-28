@@ -76,6 +76,8 @@ export interface JoinGroupRequest {
   inviteCode: string;
 }
 
+export type MatchPhase = 'POOL' | 'KNOCKOUT';
+
 export interface Match {
   id: number;
   teamA: string;
@@ -86,7 +88,29 @@ export interface Match {
   status: 'UPCOMING' | 'ONGOING' | 'FINISHED';
   competition: string;
   round: string;
+  phase: MatchPhase;
+  penaltyWinner?: 'A' | 'B';
+  penaltyScoreA?: number;
+  penaltyScoreB?: number;
   userParticipated?: boolean;
+}
+
+export interface CreateMatchRequest {
+  teamA: string;
+  teamB: string;
+  matchDate: string;
+  competition: string;
+  round: string;
+  phase?: MatchPhase;
+}
+
+export interface UpdateMatchScoreRequest {
+  scoreA: number;
+  scoreB: number;
+  status: 'FINISHED' | 'ONGOING' | 'UPCOMING';
+  penaltyWinner?: 'A' | 'B';
+  penaltyScoreA?: number;
+  penaltyScoreB?: number;
 }
 
 export interface Bet {
@@ -242,20 +266,6 @@ export interface OpenBettingRequest {
 export interface OpenCompetitionRequest {
   groupId: number;
   competition: string;
-}
-
-export interface CreateMatchRequest {
-  teamA: string;
-  teamB: string;
-  matchDate: string;
-  competition: string;
-  round: string;
-}
-
-export interface UpdateMatchScoreRequest {
-  scoreA: number;
-  scoreB: number;
-  status: 'UPCOMING' | 'ONGOING' | 'FINISHED';
 }
 
 export interface DecodedToken {

@@ -19,9 +19,15 @@ describe('extractResult', () => {
   });
 
   it('handles "Victoire " prefix with no trailing space (no score)', () => {
-    // lastSpace === 8 (the space after "Victoire") — lastSpace > 0, substring strips nothing useful
-    // but the function still runs; result is "Victoire" (everything before last space = index 8)
     expect(extractResult('Victoire France')).toBe('Victoire');
+  });
+
+  it('strips t.a.b. marker and returns team name', () => {
+    expect(extractResult('Victoire France t.a.b. 1-1')).toBe('Victoire France');
+  });
+
+  it('strips t.a.b. marker and penalty score suffix', () => {
+    expect(extractResult('Victoire France t.a.b. 1-1 (5-4)')).toBe('Victoire France');
   });
 });
 
@@ -52,6 +58,36 @@ describe('computePoints', () => {
 
   it('trims whitespace before comparing', () => {
     expect(computePoints('  Victoire France 2-1  ', 'Victoire France 2-1')).toBe(5);
+  });
+
+  // ── TAB (tirs au but) scoring ──────────────────────────────────────────────
+
+  it('returns 7 for exact TAB match including penalty score', () => {
+    expect(computePoints('Victoire France t.a.b. 1-1 (5-4)', 'Victoire France t.a.b. 1-1 (5-4)')).toBe(7);
+  });
+
+  it('returns 5 for correct winner + TAB mode, no penalty score in prediction', () => {
+    expect(computePoints('Victoire France t.a.b. 1-1', 'Victoire France t.a.b. 1-1 (5-4)')).toBe(5);
+  });
+
+  it('returns 5 for correct winner + TAB mode, wrong regular score', () => {
+    expect(computePoints('Victoire France t.a.b. 0-0', 'Victoire France t.a.b. 1-1 (5-4)')).toBe(5);
+  });
+
+  it('returns 5 for correct winner + TAB mode, wrong penalty score', () => {
+    expect(computePoints('Victoire France t.a.b. 1-1 (4-5)', 'Victoire France t.a.b. 1-1 (5-4)')).toBe(5);
+  });
+
+  it('returns 5 for exact TAB match when no penalty score stored in winning option', () => {
+    expect(computePoints('Victoire France t.a.b. 1-1', 'Victoire France t.a.b. 1-1')).toBe(5);
+  });
+
+  it('returns 3 for correct winner but predicted normal win on a TAB match', () => {
+    expect(computePoints('Victoire France 2-1', 'Victoire France t.a.b. 1-1')).toBe(3);
+  });
+
+  it('returns 0 for wrong winner on a TAB match', () => {
+    expect(computePoints('Victoire Angleterre t.a.b. 1-1', 'Victoire France t.a.b. 1-1')).toBe(0);
   });
 });
 
@@ -90,5 +126,17 @@ describe('parseOption', () => {
 
   it('handles multi-word team names for teamB', () => {
     expect(parseOption('Victoire Corée du Sud 1-0', 'Brésil', 'Corée du Sud')).toEqual(['0', '1']);
+  });
+
+  it('parses a TAB victory for teamA — returns draw score', () => {
+    expect(parseOption('Victoire France t.a.b. 1-1', teamA, teamB)).toEqual(['1', '1']);
+  });
+
+  it('parses a TAB victory for teamB — returns draw score', () => {
+    expect(parseOption('Victoire Maroc t.a.b. 0-0', teamA, teamB)).toEqual(['0', '0']);
+  });
+
+  it('parses a TAB victory with penalty score suffix', () => {
+    expect(parseOption('Victoire France t.a.b. 1-1 (5-4)', teamA, teamB)).toEqual(['1', '1']);
   });
 });

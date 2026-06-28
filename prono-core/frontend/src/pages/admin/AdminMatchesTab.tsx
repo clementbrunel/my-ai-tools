@@ -2,10 +2,20 @@ import React, { useEffect, useState } from 'react';
 import { useToast } from '../../components/Toast';
 import { getMatches, createMatch, updateMatchScore, getCompetitions, forceSettleMatch } from '../../api/matches';
 import { useFormMessages } from '../../hooks/useFormMessages';
-import type { Match } from '../../types';
+import type { Match, MatchPhase } from '../../types';
 import { formatDate } from '../../utils/dates';
 import ScrollableTableWrapper from '../../components/ScrollableTableWrapper';
 import ScoreInput from '../../components/ScoreInput';
+
+const KNOCKOUT_ROUNDS = [
+  '1/32 de finale',
+  '1/16 de finale',
+  '1/8 de finale',
+  '1/4 de finale',
+  '1/2 finale',
+  'Petite finale',
+  'Finale',
+];
 
 const AdminMatchesTab: React.FC = () => {
   const { showToast } = useToast();
@@ -20,11 +30,15 @@ const AdminMatchesTab: React.FC = () => {
   const [newMatchDate, setNewMatchDate] = useState('');
   const [newCompetition, setNewCompetition] = useState('');
   const [isNewCompetition, setIsNewCompetition] = useState(false);
-  const [newRound, setNewRound] = useState('Group Stage');
+  const [newRound, setNewRound] = useState('Phase de poules');
+  const [newPhase, setNewPhase] = useState<MatchPhase>('POOL');
 
   const [editingMatch, setEditingMatch] = useState<Match | null>(null);
   const [scoreA, setScoreA] = useState('');
   const [scoreB, setScoreB] = useState('');
+  const [penaltyWinner, setPenaltyWinner] = useState('');
+  const [penScoreA, setPenScoreA] = useState('');
+  const [penScoreB, setPenScoreB] = useState('');
   const [recalculatingMatchId, setRecalculatingMatchId] = useState<number | null>(null);
 
   useEffect(() => {
@@ -55,6 +69,7 @@ const AdminMatchesTab: React.FC = () => {
         teamA: newTeamA, teamB: newTeamB,
         matchDate: new Date(newMatchDate).toISOString(),
         competition: newCompetition, round: newRound,
+        phase: newPhase,
       });
       const updatedCompetitions = competitions.includes(newCompetition)
         ? competitions
@@ -71,10 +86,16 @@ const AdminMatchesTab: React.FC = () => {
     if (!editingMatch) return;
     try {
       const updated = await updateMatchScore(editingMatch.id, {
-        scoreA: parseInt(scoreA), scoreB: parseInt(scoreB), status: 'FINISHED',
+        scoreA: parseInt(scoreA),
+        scoreB: parseInt(scoreB),
+        status: 'FINISHED',
+        penaltyWinner: penaltyWinner ? (penaltyWinner as 'A' | 'B') : undefined,
+        penaltyScoreA: penScoreA ? parseInt(penScoreA) : undefined,
+        penaltyScoreB: penScoreB ? parseInt(penScoreB) : undefined,
       });
       setMatches(matches.map((m) => (m.id === updated.id ? updated : m)));
       setEditingMatch(null);
+      setPenaltyWinner(''); setPenScoreA(''); setPenScoreB('');
     } catch { showToast('Erreur lors de la mise à jour du score'); }
   };
 
@@ -115,9 +136,30 @@ const AdminMatchesTab: React.FC = () => {
               className="input-field" required />
           </div>
           <div>
-            <label className="label">Stade / Tour</label>
-            <input type="text" value={newRound} onChange={(e) => setNewRound(e.target.value)}
-              className="input-field" placeholder="Ex: Finale" />
+            <label className="label">Phase</label>
+            <select
+              value={newPhase}
+              onChange={(e) => {
+                const phase = e.target.value as MatchPhase;
+                setNewPhase(phase);
+                setNewRound(phase === 'POOL' ? 'Phase de poules' : KNOCKOUT_ROUNDS[0]);
+              }}
+              className="input-field"
+            >
+              <option value="POOL">Phase de poules</option>
+              <option value="KNOCKOUT">Phase éliminatoire</option>
+            </select>
+          </div>
+          <div>
+            <label className="label">Label du tour</label>
+            {newPhase === 'KNOCKOUT' ? (
+              <select value={newRound} onChange={(e) => setNewRound(e.target.value)} className="input-field">
+                {KNOCKOUT_ROUNDS.map((r) => <option key={r} value={r}>{r}</option>)}
+              </select>
+            ) : (
+              <input type="text" value={newRound} onChange={(e) => setNewRound(e.target.value)}
+                className="input-field" placeholder="Ex: Phase de poules, Groupe A..." />
+            )}
           </div>
           <div className="col-span-2">
             <label className="label">Compétition</label>
@@ -211,6 +253,9 @@ const AdminMatchesTab: React.FC = () => {
                           setEditingMatch(match);
                           setScoreA(match.scoreA?.toString() ?? '0');
                           setScoreB(match.scoreB?.toString() ?? '0');
+                          setPenaltyWinner(match.penaltyWinner ?? '');
+                          setPenScoreA(match.penaltyScoreA?.toString() ?? '');
+                          setPenScoreB(match.penaltyScoreB?.toString() ?? '');
                         }}
                         className="text-xs btn-secondary py-1 px-2"
                       >
@@ -263,8 +308,34 @@ const AdminMatchesTab: React.FC = () => {
                 />
               </div>
             </div>
+            {/* Penalty fields — only for KNOCKOUT with equal scores */}
+            {editingMatch.phase === 'KNOCKOUT' &&
+              scoreA !== '' && scoreB !== '' &&
+              parseInt(scoreA) === parseInt(scoreB) && !isNaN(parseInt(scoreA)) && (
+              <div className="mb-4 p-3 rounded-lg bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 space-y-2">
+                <p className="text-xs font-medium text-orange-800 dark:text-orange-300">Tirs au but</p>
+                <div>
+                  <label className="label text-xs">Vainqueur</label>
+                  <select value={penaltyWinner} onChange={(e) => { setPenaltyWinner(e.target.value); if (!e.target.value) { setPenScoreA(''); setPenScoreB(''); } }} className="input-field">
+                    <option value="">-- Fin réglementaire (nul) --</option>
+                    <option value="A">{editingMatch.teamA}</option>
+                    <option value="B">{editingMatch.teamB}</option>
+                  </select>
+                </div>
+                {penaltyWinner && (
+                  <div>
+                    <label className="label text-xs">Score t.a.b. (optionnel)</label>
+                    <div className="flex items-center gap-2">
+                      <input type="number" value={penScoreA} onChange={(e) => setPenScoreA(e.target.value)} min={0} className="input-field w-16 text-center" placeholder={editingMatch.teamA} />
+                      <span className="text-gray-400">-</span>
+                      <input type="number" value={penScoreB} onChange={(e) => setPenScoreB(e.target.value)} min={0} className="input-field w-16 text-center" placeholder={editingMatch.teamB} />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
             <div className="flex gap-3">
-              <button onClick={() => setEditingMatch(null)} className="btn-secondary flex-1">Annuler</button>
+              <button onClick={() => { setEditingMatch(null); setPenaltyWinner(''); setPenScoreA(''); setPenScoreB(''); }} className="btn-secondary flex-1">Annuler</button>
               <button onClick={handleUpdateScore} className="btn-primary flex-1">Sauvegarder</button>
             </div>
           </div>

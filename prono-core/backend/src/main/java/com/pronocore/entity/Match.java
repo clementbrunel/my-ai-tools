@@ -44,7 +44,21 @@ public class Match {
 
     @Column(nullable = false, length = 100)
     @Builder.Default
-    private String round = "Group Stage";
+    private String round = "";
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private MatchPhase phase = MatchPhase.POOL;
+
+    @Column(name = "penalty_winner", length = 1)
+    private String penaltyWinner;
+
+    @Column(name = "penalty_score_a")
+    private Integer penaltyScoreA;
+
+    @Column(name = "penalty_score_b")
+    private Integer penaltyScoreB;
 
     @Column(name = "reminder_sent", nullable = false)
     @Builder.Default
@@ -52,5 +66,9 @@ public class Match {
 
     public enum Status {
         UPCOMING, ONGOING, FINISHED
+    }
+
+    public enum MatchPhase {
+        POOL, KNOCKOUT
     }
 }

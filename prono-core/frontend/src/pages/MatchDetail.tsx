@@ -29,6 +29,9 @@ const MatchDetail: React.FC = () => {
   // Prediction form state
   const [scoreA, setScoreA] = useState('0');
   const [scoreB, setScoreB] = useState('0');
+  const [penaltyTeam, setPenaltyTeam] = useState<'A' | 'B'>('A');
+  const [penScoreWinner, setPenScoreWinner] = useState('');
+  const [penScoreLoser, setPenScoreLoser] = useState('');
   const [comment, setComment] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
@@ -78,11 +81,26 @@ const MatchDetail: React.FC = () => {
     if (!match || !user) return;
     const myPart = participations.find((p) => p.user.username === user.username);
     if (!myPart) return;
-    const [sA, sB] = parseOption(myPart.chosenOption, match.teamA, match.teamB);
+    const option = myPart.chosenOption;
+    const [sA, sB] = parseOption(option, match.teamA, match.teamB);
     setScoreA(sA);
     setScoreB(sB);
     setComment(myPart.comment || '');
+    if (option.includes(' t.a.b. ')) {
+      setPenaltyTeam(option.startsWith(`Victoire ${match.teamA} t.a.b.`) ? 'A' : 'B');
+      const penMatch = option.match(/\((\d+)-(\d+)\)$/);
+      if (penMatch) { setPenScoreWinner(penMatch[1]); setPenScoreLoser(penMatch[2]); }
+    }
   }, [participations, match, user]);
+
+  // Reset penalty scores when scores are no longer equal
+  useEffect(() => {
+    const a = parseInt(scoreA), b = parseInt(scoreB);
+    if (!isNaN(a) && !isNaN(b) && a !== b) {
+      setPenScoreWinner('');
+      setPenScoreLoser('');
+    }
+  }, [scoreA, scoreB]);
 
   // ── gage vote handler ─────────────────────────────────────────────────────
 
@@ -97,6 +115,8 @@ const MatchDetail: React.FC = () => {
 
   // ── derived ────────────────────────────────────────────────────────────────
 
+  const isKnockout = match?.phase === 'KNOCKOUT';
+
   const computeOption = (): string => {
     if (scoreA === '' || scoreB === '') return '';
     const a = parseInt(scoreA), b = parseInt(scoreB);
@@ -104,10 +124,17 @@ const MatchDetail: React.FC = () => {
     if (!match) return '';
     if (a > b) return `Victoire ${match.teamA} ${a}-${b}`;
     if (b > a) return `Victoire ${match.teamB} ${b}-${a}`;
+    if (isKnockout && a === b) {
+      const winner = penaltyTeam === 'A' ? match.teamA : match.teamB;
+      const penSuffix = penScoreWinner && penScoreLoser ? ` (${penScoreWinner}-${penScoreLoser})` : '';
+      return `Victoire ${winner} t.a.b. ${a}-${b}${penSuffix}`;
+    }
     return `Match nul ${a}-${b}`;
   };
 
   const previewOption = computeOption();
+  const scoresEqual = scoreA !== '' && scoreB !== '' && parseInt(scoreA) === parseInt(scoreB) && !isNaN(parseInt(scoreA));
+  const showTabOption = isKnockout && scoresEqual;
   const isDeadlinePassed = match ? new Date() > new Date(match.matchDate) : false;
   const myParticipation = participations.find((p) => p.user.username === user?.username);
   const alreadyVoted = !!myParticipation;
@@ -288,6 +315,77 @@ const MatchDetail: React.FC = () => {
                   />
                 </div>
               </div>
+              {!showTabOption && (
+                <div className="flex flex-wrap gap-3 text-xs text-gray-500 dark:text-gray-400">
+                  <span>❌ Raté → <strong>0 pt</strong></span>
+                  <span>🥈 Bon résultat → <strong className="text-yellow-600 dark:text-yellow-400">+3 pts</strong></span>
+                  <span>🥇 Score exact → <strong className="text-green-600 dark:text-green-400">+5 pts</strong></span>
+                </div>
+              )}
+
+              {/* TAB — mandatory for KNOCKOUT matches with equal scores */}
+              {showTabOption && (
+                <div className="rounded-lg bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 p-3 space-y-3">
+                  <p className="text-sm font-medium text-orange-800 dark:text-orange-300">⚡ Tirs au but — qui gagne ?</p>
+                  <div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => { if (penaltyTeam !== 'A') { setPenaltyTeam('A'); setPenScoreWinner(''); setPenScoreLoser(''); } }}
+                        className={`flex-1 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                          penaltyTeam === 'A'
+                            ? 'bg-orange-500 text-white border-orange-500'
+                            : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600'
+                        }`}
+                      >
+                        {match.teamA}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { if (penaltyTeam !== 'B') { setPenaltyTeam('B'); setPenScoreWinner(''); setPenScoreLoser(''); } }}
+                        className={`flex-1 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                          penaltyTeam === 'B'
+                            ? 'bg-orange-500 text-white border-orange-500'
+                            : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600'
+                        }`}
+                      >
+                        {match.teamB}
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                      Score aux t.a.b. <span className="text-orange-500 font-medium">(optionnel — +2 pts si exact)</span>
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        value={penScoreWinner}
+                        onChange={(e) => setPenScoreWinner(e.target.value)}
+                        min={0}
+                        max={20}
+                        className="input-field w-16 text-center"
+                        placeholder="5"
+                      />
+                      <span className="text-gray-400 font-bold">-</span>
+                      <input
+                        type="number"
+                        value={penScoreLoser}
+                        onChange={(e) => setPenScoreLoser(e.target.value)}
+                        min={0}
+                        max={20}
+                        className="input-field w-16 text-center"
+                        placeholder="4"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-3 text-xs text-gray-500 dark:text-gray-400">
+                    <span>❌ Mauvais gagnant → <strong>0 pt</strong></span>
+                    <span>⚡ Bon gagnant → <strong className="text-orange-500">+5 pts</strong></span>
+                    <span>🎯 Bon score aux t.a.b. → <strong className="text-orange-600">+7 pts</strong></span>
+                  </div>
+                </div>
+              )}
 
               {/* Live preview */}
               {previewOption && (
@@ -308,19 +406,6 @@ const MatchDetail: React.FC = () => {
                   placeholder="Tu te sens chaud ce soir ? 🔥"
                   maxLength={200}
                 />
-              </div>
-
-              {/* Points reminder */}
-              <div className="flex flex-wrap gap-4 text-xs text-gray-500 dark:text-gray-400">
-                <span>
-                  🥇 Score exact → <strong className="text-green-600 dark:text-green-400">+5 pts</strong>
-                </span>
-                <span>
-                  🥈 Bon résultat → <strong className="text-yellow-600 dark:text-yellow-400">+3 pts</strong>
-                </span>
-                <span>
-                  ❌ Raté → <strong>0 pt</strong>
-                </span>
               </div>
 
               {saveMsg && (
@@ -364,9 +449,13 @@ const MatchDetail: React.FC = () => {
                     <div className="mt-3">
                       {(() => {
                         const pts = computePoints(myParticipation.chosenOption, bet.winningOption);
-                        return pts === 5 ? (
+                        return pts === 7 ? (
+                          <span className="font-bold text-orange-600 dark:text-orange-400">
+                            🎯 T.a.b. exact ! +7 pts
+                          </span>
+                        ) : pts === 5 ? (
                           <span className="font-bold text-green-600 dark:text-green-400">
-                            🏆 Score exact ! +5 pts
+                            🏆 Score exact / bon gagnant t.a.b. ! +5 pts
                           </span>
                         ) : pts === 3 ? (
                           <span className="font-bold text-yellow-600 dark:text-yellow-400">
@@ -450,14 +539,16 @@ const MatchDetail: React.FC = () => {
                     {pts !== null && (
                       <p
                         className={`text-xs font-bold ${
-                          pts === 5
+                          pts === 7
+                            ? 'text-orange-600 dark:text-orange-400'
+                            : pts === 5
                             ? 'text-green-600 dark:text-green-400'
                             : pts === 3
                             ? 'text-yellow-600 dark:text-yellow-400'
                             : 'text-red-500'
                         }`}
                       >
-                        {pts === 5 ? '🏆 +5 pts' : pts === 3 ? '👍 +3 pts' : '❌ 0 pt'}
+                        {pts === 7 ? '🎯 +7 pts' : pts === 5 ? '🏆 +5 pts' : pts === 3 ? '👍 +3 pts' : '❌ 0 pt'}
                       </p>
                     )}
                   </div>
