@@ -92,8 +92,6 @@ public class MatchService {
                 .status(Match.Status.UPCOMING)
                 .build();
         match = matchRepository.save(match);
-        competitionService.addTeam(match.getCompetition(), match.getTeamA());
-        competitionService.addTeam(match.getCompetition(), match.getTeamB());
         return matchMapper.toResponse(match);
     }
 

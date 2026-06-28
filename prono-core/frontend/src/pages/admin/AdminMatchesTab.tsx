@@ -148,31 +148,26 @@ const AdminMatchesTab: React.FC = () => {
         <form onSubmit={handleCreateMatch} className="grid grid-cols-2 gap-3">
           <div>
             <label className="label">Équipe A</label>
-            <input
-              type="text"
-              list="teams-datalist"
-              value={newTeamA}
-              onChange={(e) => setNewTeamA(e.target.value)}
-              className="input-field"
-              placeholder={competitionTeams.length > 0 ? 'Sélectionner ou saisir...' : 'Ex: France'}
-              required
-            />
+            {competitionTeams.length > 0 ? (
+              <select value={newTeamA} onChange={(e) => setNewTeamA(e.target.value)} className="input-field" required>
+                <option value="">-- Choisir --</option>
+                {competitionTeams.filter((t) => t !== newTeamB).map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            ) : (
+              <p className="text-xs text-amber-500 mt-1">Ajoutez d'abord des équipes dans l'onglet Compétitions.</p>
+            )}
           </div>
           <div>
             <label className="label">Équipe B</label>
-            <input
-              type="text"
-              list="teams-datalist"
-              value={newTeamB}
-              onChange={(e) => setNewTeamB(e.target.value)}
-              className="input-field"
-              placeholder={competitionTeams.length > 0 ? 'Sélectionner ou saisir...' : 'Ex: Brésil'}
-              required
-            />
+            {competitionTeams.length > 0 ? (
+              <select value={newTeamB} onChange={(e) => setNewTeamB(e.target.value)} className="input-field" required>
+                <option value="">-- Choisir --</option>
+                {competitionTeams.filter((t) => t !== newTeamA).map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            ) : (
+              <p className="text-xs text-amber-500 mt-1">Ajoutez d'abord des équipes dans l'onglet Compétitions.</p>
+            )}
           </div>
-          <datalist id="teams-datalist">
-            {competitionTeams.map((t) => <option key={t} value={t} />)}
-          </datalist>
           <div>
             <label className="label">Date & heure</label>
             <input type="datetime-local" value={newMatchDate} onChange={(e) => setNewMatchDate(e.target.value)}
