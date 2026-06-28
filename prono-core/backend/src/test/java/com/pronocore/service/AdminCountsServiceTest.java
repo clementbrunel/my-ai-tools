@@ -45,7 +45,6 @@ class AdminCountsServiceTest {
         user = User.builder()
                 .id(1L).username("alice").email("alice@test.com")
                 .password("encoded").role(User.Role.USER)
-                .globalScore(0).betsWon(0).forfeitsReceived(0)
                 .build();
 
         groupA = Group.builder().id(12L).name("Groupe A").build();

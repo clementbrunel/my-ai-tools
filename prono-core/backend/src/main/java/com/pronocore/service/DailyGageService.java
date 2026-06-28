@@ -325,9 +325,6 @@ public class DailyGageService {
                 .build();
         userForfeitRepository.save(uf);
 
-        unlucky.setForfeitsReceived(unlucky.getForfeitsReceived() + 1);
-        userRepository.save(unlucky);
-
         dg.setForfeit(forfeit);
         dg.setAssignedTo(unlucky);
         dg.setAssignedAt(LocalDateTime.now());

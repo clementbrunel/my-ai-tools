@@ -51,7 +51,6 @@ class BetServiceTest {
         testUser = User.builder()
             .id(1L).username("testuser").email("test@example.com")
             .password("encoded").role(User.Role.USER)
-            .globalScore(0).betsWon(0).forfeitsReceived(0)
             .build();
 
         testGroup = Group.builder().id(7L).name("Les Potes").build();
@@ -363,8 +362,7 @@ class BetServiceTest {
 
     @Test
     void validateBet_shouldAwardPointsToWinners() {
-        User winner = User.builder().id(2L).username("winner")
-            .globalScore(0).betsWon(0).forfeitsReceived(0).build();
+        User winner = User.builder().id(2L).username("winner").build();
 
         BetParticipation participation = BetParticipation.builder()
             .id(1L).bet(testBet).user(winner).chosenOption("France").build();
@@ -379,11 +377,8 @@ class BetServiceTest {
         BetResponse result = betService.validateBet(1L, "France");
 
         assertThat(result.getStatus()).isEqualTo(Bet.Status.VALIDATED);
-        assertThat(winner.getGlobalScore()).isEqualTo(10);
-        assertThat(winner.getBetsWon()).isEqualTo(1);
-        // pointsEarned must be persisted so the group leaderboard counts this win
         assertThat(participation.getPointsEarned()).isEqualTo(10);
-        verify(userRepository).save(winner);
+        verify(userRepository, never()).save(winner);
         verify(participationRepository).save(participation);
     }
 

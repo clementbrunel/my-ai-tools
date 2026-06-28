@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getMyParticipations } from '../api/bets';
 import UserBetList from '../components/UserBetList';
-import { getLeaderboard } from '../api/leaderboard';
+import { getGroupLeaderboard } from '../api/leaderboard';
+import { getDashboardStats } from '../api/dashboard';
 import { getMyForfeits, completeForfeit } from '../api/forfeits';
 import type { UserBetSummary, LeaderboardEntry, UserForfeitEntry } from '../types';
 import { isAdmin } from '../types';
@@ -28,15 +29,19 @@ const Profile: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [participationsData, leaderboardData, forfeitsData] = await Promise.all([
+        const [participationsData, statsData, forfeitsData] = await Promise.all([
           getMyParticipations(),
-          getLeaderboard(),
+          getDashboardStats(),
           getMyForfeits(),
         ]);
         setMyParticipations(participationsData);
-        const entry = leaderboardData.find((e) => e.user.username === user?.username);
-        setLeaderboardEntry(entry || null);
         setMyForfeits(forfeitsData);
+        const firstGroup = statsData.groupRanks[0];
+        if (firstGroup) {
+          const groupLeaderboard = await getGroupLeaderboard(firstGroup.groupId);
+          const entry = groupLeaderboard.find((e) => e.user.username === user?.username);
+          setLeaderboardEntry(entry || null);
+        }
       } catch (err) {
         console.error('Error loading profile:', err);
       } finally {
@@ -131,22 +136,6 @@ const Profile: React.FC = () => {
             </div>
           </div>
         )}
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="stat-card">
-          <div className="stat-value">{leaderboardEntry?.totalPoints ?? user?.globalScore ?? 0}</div>
-          <div className="stat-label">⭐ Points</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-value">{leaderboardEntry?.betsWon ?? user?.betsWon ?? 0}</div>
-          <div className="stat-label">🏆 Paris gagnés</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-value text-wc-red">{leaderboardEntry?.forfeitsReceived ?? user?.forfeitsReceived ?? 0}</div>
-          <div className="stat-label">🃏 Gages reçus</div>
-        </div>
       </div>
 
       {/* Pending Forfeits */}

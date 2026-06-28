@@ -7,6 +7,7 @@ import type { Match } from '../types';
 import { isAdmin } from '../types';
 import MatchCard from '../components/MatchCard';
 import MatchRow from '../components/MatchRow';
+import NoGroupBanner from '../components/NoGroupBanner';
 import { useAuth } from '../context/AuthContext';
 
 import { formatDate } from '../utils/dates';
@@ -82,20 +83,7 @@ const Matches: React.FC = () => {
       </div>
 
       {/* No-group alert */}
-      {!isLoading && !hasGroups && (
-        <div className="mb-6 flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-900/30 px-4 py-3 text-amber-800 dark:text-amber-300">
-          <span className="text-xl mt-0.5">⚠️</span>
-          <div className="text-sm leading-snug">
-            <p className="font-semibold mb-1">Tu n'es membre d'aucun groupe</p>
-            <p>
-              Rejoins ou crée un groupe pour accéder aux paris.{' '}
-              <Link to="/groups" className="underline font-medium hover:opacity-80">
-                Gérer mes groupes →
-              </Link>
-            </p>
-          </div>
-        </div>
-      )}
+      {!isLoading && !hasGroups && <NoGroupBanner />}
 
       {/* Filters + view toggle — hidden when no group */}
       {hasGroups && (

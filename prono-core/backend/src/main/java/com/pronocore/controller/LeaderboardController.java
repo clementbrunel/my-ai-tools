@@ -20,13 +20,6 @@ public class LeaderboardController {
 
     private final LeaderboardService leaderboardService;
 
-    @GetMapping
-    @Operation(summary = "Get full leaderboard")
-    @LoggedAt(Level.INFO)
-    public ResponseEntity<List<LeaderboardEntryResponse>> getLeaderboard() {
-        return ResponseEntity.ok(leaderboardService.getLeaderboard());
-    }
-
     @GetMapping("/group/{groupId}")
     @Operation(summary = "Get leaderboard for a specific group")
     @LoggedAt(Level.INFO)

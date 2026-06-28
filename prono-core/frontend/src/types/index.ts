@@ -6,9 +6,6 @@ export interface User {
   emailVerified: boolean;
   role: 'PLATFORM_ADMIN' | 'USER';
   avatarUrl?: string;
-  globalScore: number;
-  betsWon: number;
-  forfeitsReceived: number;
   emailReminderEnabled: boolean;
   emailGageEnabled: boolean;
   createdAt?: string;

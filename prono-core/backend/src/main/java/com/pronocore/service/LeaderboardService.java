@@ -26,13 +26,8 @@ public class LeaderboardService {
     private final UserMapper userMapper;
 
     @Transactional(readOnly = true)
-    public List<LeaderboardEntryResponse> getLeaderboard() {
-        return buildLeaderboard(userRepository.findAllOrderByGlobalScoreDesc());
-    }
-
-    @Transactional(readOnly = true)
     public List<LeaderboardEntryResponse> getGroupLeaderboard(Long groupId) {
-        List<User> members = userRepository.findAllByGroupIdOrderByGlobalScoreDesc(groupId);
+        List<User> members = userRepository.findAllByGroupId(groupId);
 
         Map<Long, Integer> pointsByUser = new HashMap<>();
         for (Object[] row : betParticipationRepository.sumPointsEarnedByGroupId(groupId)) {
@@ -62,21 +57,6 @@ public class LeaderboardService {
                 .betsWon(betsWonByUser.getOrDefault(user.getId(), 0))
                 .totalPoints(pointsByUser.getOrDefault(user.getId(), 0))
                 .forfeitsReceived(forfeitsByUser.getOrDefault(user.getId(), 0))
-                .build());
-        }
-        return leaderboard;
-    }
-
-    private List<LeaderboardEntryResponse> buildLeaderboard(List<User> users) {
-        List<LeaderboardEntryResponse> leaderboard = new ArrayList<>();
-        for (int i = 0; i < users.size(); i++) {
-            User user = users.get(i);
-            leaderboard.add(LeaderboardEntryResponse.builder()
-                .rank(i + 1)
-                .user(userMapper.toResponse(user))
-                .betsWon(user.getBetsWon())
-                .totalPoints(user.getGlobalScore())
-                .forfeitsReceived(user.getForfeitsReceived())
                 .build());
         }
         return leaderboard;

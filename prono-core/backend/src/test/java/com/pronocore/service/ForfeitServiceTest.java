@@ -53,13 +53,11 @@ class ForfeitServiceTest {
         adminUser = User.builder()
                 .id(1L).username("admin").email("admin@test.com")
                 .password("encoded").role(User.Role.PLATFORM_ADMIN)
-                .globalScore(0).betsWon(0).forfeitsReceived(0)
                 .build();
 
         regularUser = User.builder()
                 .id(2L).username("player").email("player@test.com")
                 .password("encoded").role(User.Role.USER)
-                .globalScore(0).betsWon(0).forfeitsReceived(0)
                 .build();
 
         forfeit = Forfeit.builder()
@@ -219,8 +217,7 @@ class ForfeitServiceTest {
 
         forfeitService.assignForfeit(2L, 10L, 1L);
 
-        assertThat(regularUser.getForfeitsReceived()).isEqualTo(1);
-        verify(userRepository).save(regularUser);
+        verify(userRepository, never()).save(regularUser);
 
         ArgumentCaptor<UserForfeit> captor = ArgumentCaptor.forClass(UserForfeit.class);
         verify(userForfeitRepository).save(captor.capture());
@@ -293,7 +290,6 @@ class ForfeitServiceTest {
         User stranger = User.builder()
                 .id(99L).username("stranger").email("s@test.com")
                 .password("encoded").role(User.Role.USER)
-                .globalScore(0).betsWon(0).forfeitsReceived(0)
                 .build();
         setCurrentUser("stranger");
 
