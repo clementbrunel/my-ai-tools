@@ -1,67 +1,82 @@
 package com.pronocore.service;
 
-import com.pronocore.entity.CompetitionTeam;
-import com.pronocore.repository.CompetitionTeamRepository;
+import com.pronocore.entity.Competition;
+import com.pronocore.entity.Team;
+import com.pronocore.repository.CompetitionRepository;
+import com.pronocore.repository.TeamRepository;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 public class CompetitionService {
 
-    private final CompetitionTeamRepository competitionTeamRepository;
+    private final CompetitionRepository competitionRepository;
+    private final TeamRepository        teamRepository;
 
     @Transactional(readOnly = true)
     public List<String> getAllCompetitions() {
-        return competitionTeamRepository.findAllDistinctCompetitions();
+        return competitionRepository.findAllByOrderByNameAsc()
+                .stream().map(Competition::getName).toList();
     }
 
     @Transactional(readOnly = true)
-    public List<String> getTeamsForCompetition(String competition) {
-        return competitionTeamRepository.findByCompetitionOrderByTeamNameAsc(competition)
-                .stream().map(CompetitionTeam::getTeamName).toList();
+    public List<String> getTeamsForCompetition(String competitionName) {
+        return requireCompetition(competitionName).getTeams()
+                .stream().map(Team::getName).toList();
     }
 
     @Transactional(readOnly = true)
     public List<String> getAllKnownTeams() {
-        return competitionTeamRepository.findAllDistinctTeamNames();
+        return teamRepository.findAllByOrderByNameAsc()
+                .stream().map(Team::getName).toList();
     }
 
     @Transactional
-    public void addTeam(String competition, String teamName) {
-        if (!competitionTeamRepository.existsByCompetitionAndTeamName(competition, teamName)) {
-            competitionTeamRepository.save(
-                    CompetitionTeam.builder().competition(competition).teamName(teamName).build());
+    public void addTeam(String competitionName, String teamName) {
+        Competition competition = findOrCreateCompetition(competitionName);
+        Team team = findOrCreateTeam(teamName);
+        if (!competition.getTeams().contains(team)) {
+            competition.getTeams().add(team);
         }
     }
 
     @Transactional
-    public void removeTeam(String competition, String teamName) {
-        competitionTeamRepository.deleteByCompetitionAndTeamName(competition, teamName);
+    public void removeTeam(String competitionName, String teamName) {
+        Competition competition = requireCompetition(competitionName);
+        competition.getTeams().removeIf(t -> t.getName().equals(teamName));
     }
 
-    /** Replace the full roster for a competition in one go. */
     @Transactional
-    public void setTeams(String competition, List<String> teamNames) {
-        List<CompetitionTeam> existing = competitionTeamRepository
-                .findByCompetitionOrderByTeamNameAsc(competition);
+    public void setTeams(String competitionName, List<String> teamNames) {
+        Competition competition = findOrCreateCompetition(competitionName);
+        List<Team> desired = teamNames.stream()
+                .map(this::findOrCreateTeam)
+                .toList();
+        competition.getTeams().clear();
+        competition.getTeams().addAll(desired);
+    }
 
-        Set<String> desired = new LinkedHashSet<>(teamNames);
+    // ── helpers ───────────────────────────────────────────────────────────────
 
-        existing.stream()
-                .filter(ct -> !desired.contains(ct.getTeamName()))
-                .forEach(competitionTeamRepository::delete);
+    private Competition requireCompetition(String name) {
+        return competitionRepository.findByName(name)
+                .orElseThrow(() -> new EntityNotFoundException("Competition not found: " + name));
+    }
 
-        desired.forEach(name -> {
-            if (!competitionTeamRepository.existsByCompetitionAndTeamName(competition, name)) {
-                competitionTeamRepository.save(
-                        CompetitionTeam.builder().competition(competition).teamName(name).build());
-            }
-        });
+    private Competition findOrCreateCompetition(String name) {
+        return competitionRepository.findByName(name)
+                .orElseGet(() -> competitionRepository.save(
+                        Competition.builder().name(name).build()));
+    }
+
+    private Team findOrCreateTeam(String name) {
+        return teamRepository.findByName(name)
+                .orElseGet(() -> teamRepository.save(
+                        Team.builder().name(name).build()));
     }
 }

@@ -1,24 +1,30 @@
 package com.pronocore.service;
 
-import com.pronocore.entity.CompetitionTeam;
-import com.pronocore.repository.CompetitionTeamRepository;
+import com.pronocore.entity.Competition;
+import com.pronocore.entity.Team;
+import com.pronocore.repository.CompetitionRepository;
+import com.pronocore.repository.TeamRepository;
+import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class CompetitionServiceTest {
 
-    @Mock private CompetitionTeamRepository competitionTeamRepository;
+    @Mock private CompetitionRepository competitionRepository;
+    @Mock private TeamRepository        teamRepository;
 
     @InjectMocks
     private CompetitionService competitionService;
@@ -26,133 +32,156 @@ class CompetitionServiceTest {
     // ── getAllCompetitions ──────────────────────────────────────────────────────
 
     @Test
-    void getAllCompetitions_delegatesToRepository() {
-        when(competitionTeamRepository.findAllDistinctCompetitions())
-                .thenReturn(List.of("Copa América 2026", "FIFA World Cup 2026"));
+    void getAllCompetitions_returnsNamesInOrder() {
+        when(competitionRepository.findAllByOrderByNameAsc())
+                .thenReturn(List.of(competition("Copa América 2026"), competition("FIFA World Cup 2026")));
 
-        List<String> result = competitionService.getAllCompetitions();
-
-        assertThat(result).containsExactly("Copa América 2026", "FIFA World Cup 2026");
+        assertThat(competitionService.getAllCompetitions())
+                .containsExactly("Copa América 2026", "FIFA World Cup 2026");
     }
 
     // ── getTeamsForCompetition ─────────────────────────────────────────────────
 
     @Test
-    void getTeamsForCompetition_returnsTeamNamesInRosterOrder() {
-        when(competitionTeamRepository.findByCompetitionOrderByTeamNameAsc("FIFA World Cup 2026"))
-                .thenReturn(List.of(ct("Allemagne"), ct("Brésil"), ct("France")));
+    void getTeamsForCompetition_returnsTeamNames() {
+        Competition comp = competition("FIFA World Cup 2026", team("France"), team("Brésil"));
+        when(competitionRepository.findByName("FIFA World Cup 2026")).thenReturn(Optional.of(comp));
 
-        List<String> result = competitionService.getTeamsForCompetition("FIFA World Cup 2026");
-
-        assertThat(result).containsExactly("Allemagne", "Brésil", "France");
+        assertThat(competitionService.getTeamsForCompetition("FIFA World Cup 2026"))
+                .containsExactly("France", "Brésil");
     }
 
     @Test
-    void getTeamsForCompetition_returnsEmptyListWhenNoRoster() {
-        when(competitionTeamRepository.findByCompetitionOrderByTeamNameAsc("FIFA World Cup 2026"))
-                .thenReturn(List.of());
+    void getTeamsForCompetition_throwsWhenNotFound() {
+        when(competitionRepository.findByName("Unknown")).thenReturn(Optional.empty());
 
-        assertThat(competitionService.getTeamsForCompetition("FIFA World Cup 2026")).isEmpty();
+        assertThatThrownBy(() -> competitionService.getTeamsForCompetition("Unknown"))
+                .isInstanceOf(EntityNotFoundException.class);
     }
 
     // ── getAllKnownTeams ───────────────────────────────────────────────────────
 
     @Test
-    void getAllKnownTeams_delegatesToRepository() {
-        when(competitionTeamRepository.findAllDistinctTeamNames())
-                .thenReturn(List.of("Allemagne", "Argentine", "Brésil", "France"));
+    void getAllKnownTeams_returnsAllTeamNamesInOrder() {
+        when(teamRepository.findAllByOrderByNameAsc())
+                .thenReturn(List.of(team("Allemagne"), team("France")));
 
-        List<String> result = competitionService.getAllKnownTeams();
-
-        assertThat(result).containsExactly("Allemagne", "Argentine", "Brésil", "France");
+        assertThat(competitionService.getAllKnownTeams())
+                .containsExactly("Allemagne", "France");
     }
 
     // ── addTeam ───────────────────────────────────────────────────────────────
 
     @Test
-    void addTeam_savesWhenTeamDoesNotExist() {
-        when(competitionTeamRepository.existsByCompetitionAndTeamName("FIFA World Cup 2026", "Japon"))
-                .thenReturn(false);
+    void addTeam_addsTeamToExistingCompetition() {
+        Competition comp = competition("FIFA World Cup 2026");
+        Team japon = team("Japon");
+        when(competitionRepository.findByName("FIFA World Cup 2026")).thenReturn(Optional.of(comp));
+        when(teamRepository.findByName("Japon")).thenReturn(Optional.of(japon));
 
         competitionService.addTeam("FIFA World Cup 2026", "Japon");
 
-        ArgumentCaptor<CompetitionTeam> captor = ArgumentCaptor.forClass(CompetitionTeam.class);
-        verify(competitionTeamRepository).save(captor.capture());
-        assertThat(captor.getValue().getCompetition()).isEqualTo("FIFA World Cup 2026");
-        assertThat(captor.getValue().getTeamName()).isEqualTo("Japon");
+        assertThat(comp.getTeams()).contains(japon);
     }
 
     @Test
-    void addTeam_doesNotSaveWhenTeamAlreadyExists() {
-        when(competitionTeamRepository.existsByCompetitionAndTeamName("FIFA World Cup 2026", "France"))
-                .thenReturn(true);
+    void addTeam_createsCompetitionIfAbsent() {
+        Competition newComp = competition("Nouvelle Compétition");
+        Team team = team("France");
+        when(competitionRepository.findByName("Nouvelle Compétition")).thenReturn(Optional.empty());
+        when(competitionRepository.save(any())).thenReturn(newComp);
+        when(teamRepository.findByName("France")).thenReturn(Optional.of(team));
+
+        competitionService.addTeam("Nouvelle Compétition", "France");
+
+        verify(competitionRepository).save(any(Competition.class));
+    }
+
+    @Test
+    void addTeam_createsTeamIfAbsent() {
+        Competition comp = competition("FIFA World Cup 2026");
+        Team newTeam = team("Inconnue");
+        when(competitionRepository.findByName("FIFA World Cup 2026")).thenReturn(Optional.of(comp));
+        when(teamRepository.findByName("Inconnue")).thenReturn(Optional.empty());
+        when(teamRepository.save(any())).thenReturn(newTeam);
+
+        competitionService.addTeam("FIFA World Cup 2026", "Inconnue");
+
+        verify(teamRepository).save(any(Team.class));
+        assertThat(comp.getTeams()).contains(newTeam);
+    }
+
+    @Test
+    void addTeam_doesNotDuplicateIfAlreadyInRoster() {
+        Team france = team("France");
+        Competition comp = competition("FIFA World Cup 2026", france);
+        when(competitionRepository.findByName("FIFA World Cup 2026")).thenReturn(Optional.of(comp));
+        when(teamRepository.findByName("France")).thenReturn(Optional.of(france));
 
         competitionService.addTeam("FIFA World Cup 2026", "France");
 
-        verify(competitionTeamRepository, never()).save(any());
+        assertThat(comp.getTeams()).hasSize(1);
     }
 
     // ── removeTeam ────────────────────────────────────────────────────────────
 
     @Test
-    void removeTeam_delegatesToRepository() {
+    void removeTeam_removesMatchingTeam() {
+        Team france = team("France");
+        Competition comp = competition("FIFA World Cup 2026", france);
+        when(competitionRepository.findByName("FIFA World Cup 2026")).thenReturn(Optional.of(comp));
+
         competitionService.removeTeam("FIFA World Cup 2026", "France");
 
-        verify(competitionTeamRepository).deleteByCompetitionAndTeamName("FIFA World Cup 2026", "France");
+        assertThat(comp.getTeams()).isEmpty();
+    }
+
+    @Test
+    void removeTeam_throwsWhenCompetitionNotFound() {
+        when(competitionRepository.findByName("Unknown")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> competitionService.removeTeam("Unknown", "France"))
+                .isInstanceOf(EntityNotFoundException.class);
     }
 
     // ── setTeams ──────────────────────────────────────────────────────────────
 
     @Test
-    void setTeams_removesTeamsNotInDesiredList() {
-        CompetitionTeam france    = ct("France");
-        CompetitionTeam allemagne = ct("Allemagne");
-        when(competitionTeamRepository.findByCompetitionOrderByTeamNameAsc("FIFA World Cup 2026"))
-                .thenReturn(List.of(france, allemagne));
-        when(competitionTeamRepository.existsByCompetitionAndTeamName(any(), any())).thenReturn(true);
+    void setTeams_replacesRosterCompletely() {
+        Team france = team("France");
+        Team bresil = team("Brésil");
+        Team allemagne = team("Allemagne");
+        Competition comp = competition("FIFA World Cup 2026", france, bresil);
+        when(competitionRepository.findByName("FIFA World Cup 2026")).thenReturn(Optional.of(comp));
+        when(teamRepository.findByName("Allemagne")).thenReturn(Optional.of(allemagne));
 
-        competitionService.setTeams("FIFA World Cup 2026", List.of("France"));
+        competitionService.setTeams("FIFA World Cup 2026", List.of("Allemagne"));
 
-        verify(competitionTeamRepository).delete(allemagne);
-        verify(competitionTeamRepository, never()).delete(france);
+        assertThat(comp.getTeams()).containsExactly(allemagne);
     }
 
     @Test
-    void setTeams_addsTeamsNotYetInRoster() {
-        when(competitionTeamRepository.findByCompetitionOrderByTeamNameAsc("FIFA World Cup 2026"))
-                .thenReturn(List.of(ct("France")));
-        when(competitionTeamRepository.existsByCompetitionAndTeamName("FIFA World Cup 2026", "France"))
-                .thenReturn(true);
-        when(competitionTeamRepository.existsByCompetitionAndTeamName("FIFA World Cup 2026", "Brésil"))
-                .thenReturn(false);
+    void setTeams_createsCompetitionIfAbsent() {
+        Competition newComp = competition("Nouvelle");
+        Team team = team("France");
+        when(competitionRepository.findByName("Nouvelle")).thenReturn(Optional.empty());
+        when(competitionRepository.save(any())).thenReturn(newComp);
+        when(teamRepository.findByName("France")).thenReturn(Optional.of(team));
 
-        competitionService.setTeams("FIFA World Cup 2026", List.of("France", "Brésil"));
+        competitionService.setTeams("Nouvelle", List.of("France"));
 
-        ArgumentCaptor<CompetitionTeam> captor = ArgumentCaptor.forClass(CompetitionTeam.class);
-        verify(competitionTeamRepository).save(captor.capture());
-        assertThat(captor.getValue().getTeamName()).isEqualTo("Brésil");
-    }
-
-    @Test
-    void setTeams_doesNotAddAlreadyExistingTeams() {
-        CompetitionTeam france = ct("France");
-        when(competitionTeamRepository.findByCompetitionOrderByTeamNameAsc("FIFA World Cup 2026"))
-                .thenReturn(List.of(france));
-        when(competitionTeamRepository.existsByCompetitionAndTeamName("FIFA World Cup 2026", "France"))
-                .thenReturn(true);
-
-        competitionService.setTeams("FIFA World Cup 2026", List.of("France"));
-
-        verify(competitionTeamRepository, never()).save(any());
-        verify(competitionTeamRepository, never()).delete(any(CompetitionTeam.class));
+        verify(competitionRepository).save(any(Competition.class));
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────
 
-    private static CompetitionTeam ct(String teamName) {
-        return CompetitionTeam.builder()
-                .competition("FIFA World Cup 2026")
-                .teamName(teamName)
-                .build();
+    private static Competition competition(String name, Team... teams) {
+        Competition c = Competition.builder().name(name).build();
+        c.setTeams(new ArrayList<>(List.of(teams)));
+        return c;
+    }
+
+    private static Team team(String name) {
+        return Team.builder().name(name).build();
     }
 }

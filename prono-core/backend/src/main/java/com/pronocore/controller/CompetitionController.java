@@ -19,19 +19,20 @@ public class CompetitionController {
     private final CompetitionService competitionService;
 
     @GetMapping
-    @Operation(summary = "All competition names (roster + matches)")
+    @Operation(summary = "All competition names")
     public ResponseEntity<List<String>> getAllCompetitions() {
         return ResponseEntity.ok(competitionService.getAllCompetitions());
     }
 
     @GetMapping("/{competition}/teams")
-    @Operation(summary = "Teams registered for a competition (roster + match history)")
+    @Operation(summary = "Teams in a competition roster")
     public ResponseEntity<List<String>> getTeams(@PathVariable String competition) {
         return ResponseEntity.ok(competitionService.getTeamsForCompetition(competition));
     }
 
     @GetMapping("/known-teams")
-    @Operation(summary = "All distinct team names known across every competition")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+    @Operation(summary = "All distinct team names across every competition (Admin only)")
     public ResponseEntity<List<String>> getAllKnownTeams() {
         return ResponseEntity.ok(competitionService.getAllKnownTeams());
     }
