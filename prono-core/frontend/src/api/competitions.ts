@@ -1,5 +1,11 @@
 import apiClient from './axios';
 
+export const createCompetition = async (name: string): Promise<void> => {
+  await apiClient.post('/competitions', name, {
+    headers: { 'Content-Type': 'text/plain' },
+  });
+};
+
 export const getCompetitions = async (): Promise<string[]> => {
   const response = await apiClient.get<string[]>('/competitions');
   return response.data;

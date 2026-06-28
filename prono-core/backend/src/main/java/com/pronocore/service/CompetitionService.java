@@ -4,7 +4,6 @@ import com.pronocore.entity.Competition;
 import com.pronocore.entity.Team;
 import com.pronocore.repository.CompetitionRepository;
 import com.pronocore.repository.TeamRepository;
-import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,14 +25,22 @@ public class CompetitionService {
 
     @Transactional(readOnly = true)
     public List<String> getTeamsForCompetition(String competitionName) {
-        return requireCompetition(competitionName).getTeams()
-                .stream().map(Team::getName).toList();
+        return competitionRepository.findByName(competitionName)
+                .map(c -> c.getTeams().stream().map(Team::getName).toList())
+                .orElse(List.of());
     }
 
     @Transactional(readOnly = true)
     public List<String> getAllKnownTeams() {
         return teamRepository.findAllByOrderByNameAsc()
                 .stream().map(Team::getName).toList();
+    }
+
+    @Transactional
+    public void createCompetition(String name) {
+        if (competitionRepository.findByName(name).isEmpty()) {
+            competitionRepository.save(Competition.builder().name(name).build());
+        }
     }
 
     @Transactional
@@ -47,8 +54,8 @@ public class CompetitionService {
 
     @Transactional
     public void removeTeam(String competitionName, String teamName) {
-        Competition competition = requireCompetition(competitionName);
-        competition.getTeams().removeIf(t -> t.getName().equals(teamName));
+        competitionRepository.findByName(competitionName)
+                .ifPresent(c -> c.getTeams().removeIf(t -> t.getName().equals(teamName)));
     }
 
     @Transactional
@@ -62,11 +69,6 @@ public class CompetitionService {
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────
-
-    private Competition requireCompetition(String name) {
-        return competitionRepository.findByName(name)
-                .orElseThrow(() -> new EntityNotFoundException("Competition not found: " + name));
-    }
 
     private Competition findOrCreateCompetition(String name) {
         return competitionRepository.findByName(name)

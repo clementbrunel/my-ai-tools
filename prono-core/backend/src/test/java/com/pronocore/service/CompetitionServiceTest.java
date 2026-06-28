@@ -4,7 +4,6 @@ import com.pronocore.entity.Competition;
 import com.pronocore.entity.Team;
 import com.pronocore.repository.CompetitionRepository;
 import com.pronocore.repository.TeamRepository;
-import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -16,8 +15,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -52,11 +51,10 @@ class CompetitionServiceTest {
     }
 
     @Test
-    void getTeamsForCompetition_throwsWhenNotFound() {
+    void getTeamsForCompetition_returnsEmptyListWhenCompetitionUnknown() {
         when(competitionRepository.findByName("Unknown")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> competitionService.getTeamsForCompetition("Unknown"))
-                .isInstanceOf(EntityNotFoundException.class);
+        assertThat(competitionService.getTeamsForCompetition("Unknown")).isEmpty();
     }
 
     // ── getAllKnownTeams ───────────────────────────────────────────────────────
@@ -137,11 +135,29 @@ class CompetitionServiceTest {
     }
 
     @Test
-    void removeTeam_throwsWhenCompetitionNotFound() {
+    void removeTeam_isNoOpWhenCompetitionUnknown() {
         when(competitionRepository.findByName("Unknown")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> competitionService.removeTeam("Unknown", "France"))
-                .isInstanceOf(EntityNotFoundException.class);
+        competitionService.removeTeam("Unknown", "France"); // must not throw
+    }
+
+    @Test
+    void createCompetition_persistsWhenNew() {
+        when(competitionRepository.findByName("Copa América 2026")).thenReturn(Optional.empty());
+
+        competitionService.createCompetition("Copa América 2026");
+
+        verify(competitionRepository).save(argThat(c -> "Copa América 2026".equals(c.getName())));
+    }
+
+    @Test
+    void createCompetition_isNoOpWhenAlreadyExists() {
+        when(competitionRepository.findByName("FIFA World Cup 2026"))
+                .thenReturn(Optional.of(competition("FIFA World Cup 2026")));
+
+        competitionService.createCompetition("FIFA World Cup 2026");
+
+        verify(competitionRepository, never()).save(any());
     }
 
     // ── setTeams ──────────────────────────────────────────────────────────────

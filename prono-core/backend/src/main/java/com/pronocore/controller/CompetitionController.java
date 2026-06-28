@@ -30,6 +30,14 @@ public class CompetitionController {
         return ResponseEntity.ok(competitionService.getTeamsForCompetition(competition));
     }
 
+    @PostMapping
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+    @Operation(summary = "Create a competition (Admin only)")
+    public ResponseEntity<Void> createCompetition(@RequestBody String name) {
+        competitionService.createCompetition(name.trim());
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/known-teams")
     @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     @Operation(summary = "All distinct team names across every competition (Admin only)")

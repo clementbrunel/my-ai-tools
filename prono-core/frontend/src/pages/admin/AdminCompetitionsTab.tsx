@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useToast } from '../../components/Toast';
 import {
+  createCompetition,
   getCompetitions,
   getCompetitionTeams,
   getAllKnownTeams,
@@ -87,6 +88,7 @@ const AdminCompetitionsTab: React.FC = () => {
     e.preventDefault();
     const name = newCompetitionName.trim();
     if (!name || competitions.includes(name)) return;
+    await createCompetition(name);
     const updated = [...competitions, name].sort();
     setCompetitions(updated);
     setNewCompetitionName('');
