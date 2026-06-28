@@ -44,7 +44,7 @@ public class Match {
 
     @Column(nullable = false, length = 100)
     @Builder.Default
-    private String round = "Group Stage";
+    private String round = "";
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)

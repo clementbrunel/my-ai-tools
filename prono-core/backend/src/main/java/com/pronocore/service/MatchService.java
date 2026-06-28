@@ -91,7 +91,7 @@ public class MatchService {
                 .teamB(request.getTeamB())
                 .matchDate(request.getMatchDate())
                 .competition(request.getCompetition() != null ? request.getCompetition() : "FIFA World Cup 2026")
-                .round(request.getRound() != null ? request.getRound() : "Group Stage")
+                .round(request.getRound() != null ? request.getRound() : "")
                 .phase(request.getPhase() != null ? request.getPhase() : Match.MatchPhase.POOL)
                 .status(Match.Status.UPCOMING)
                 .build();

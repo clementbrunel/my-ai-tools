@@ -22,7 +22,7 @@ public class CreateMatchRequest {
     @NotBlank(message = "Competition is required")
     private String competition = "FIFA World Cup 2026";
 
-    private String round = "Group Stage";
+    private String round = "";
 
     private Match.MatchPhase phase = Match.MatchPhase.POOL;
 }

@@ -20,7 +20,7 @@ const AdminMatchesTab: React.FC = () => {
   const [newMatchDate, setNewMatchDate] = useState('');
   const [newCompetition, setNewCompetition] = useState('');
   const [isNewCompetition, setIsNewCompetition] = useState(false);
-  const [newRound, setNewRound] = useState('');
+  const [newRound, setNewRound] = useState('Phase de poules');
   const [newPhase, setNewPhase] = useState<MatchPhase>('POOL');
 
   const [editingMatch, setEditingMatch] = useState<Match | null>(null);
@@ -127,7 +127,15 @@ const AdminMatchesTab: React.FC = () => {
           </div>
           <div>
             <label className="label">Phase</label>
-            <select value={newPhase} onChange={(e) => setNewPhase(e.target.value as MatchPhase)} className="input-field">
+            <select
+              value={newPhase}
+              onChange={(e) => {
+                const phase = e.target.value as MatchPhase;
+                setNewPhase(phase);
+                setNewRound(phase === 'POOL' ? 'Phase de poules' : '');
+              }}
+              className="input-field"
+            >
               <option value="POOL">Phase de poules</option>
               <option value="KNOCKOUT">Phase éliminatoire</option>
             </select>
