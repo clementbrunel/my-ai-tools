@@ -19,6 +19,7 @@ erDiagram
         varchar verification_token
         timestamp token_expiry
         boolean email_reminder_enabled
+        date reminder_sent_date
         boolean email_gage_enabled
         timestamp created_at
     }
@@ -110,6 +111,30 @@ erDiagram
         timestamp assigned_at
     }
 
+    group_forfeits {
+        bigserial id PK
+        bigint group_id FK
+        varchar title
+        text description
+        varchar category
+        boolean is_active
+        int times_completed
+        bigint proposed_by_id FK
+        timestamp created_at
+    }
+
+    group_user_forfeits {
+        bigserial id PK
+        bigint group_id FK
+        bigint user_id FK
+        bigint forfeit_id FK
+        bigint assigned_by_id FK
+        bigint bet_id FK
+        boolean is_completed
+        timestamp completed_at
+        timestamp assigned_at
+    }
+
     daily_gages {
         bigserial id PK
         bigint group_id FK
@@ -161,6 +186,13 @@ erDiagram
     users ||--o{ user_forfeits : "assigne"
     bets }o--o{ user_forfeits : "déclenche"
     groups }o--o{ user_forfeits : "dans"
+    groups ||--o{ group_forfeits : "possède"
+    users }o--o| group_forfeits : "proposé par"
+    groups ||--o{ group_user_forfeits : "dans"
+    users ||--o{ group_user_forfeits : "reçoit"
+    group_forfeits ||--o{ group_user_forfeits : "assigné via"
+    users ||--o{ group_user_forfeits : "assigne"
+    bets }o--o{ group_user_forfeits : "déclenche"
     groups ||--o{ daily_gages : "possède"
     forfeits }o--o| daily_gages : "sélectionné pour"
     users }o--o| daily_gages : "assigné à"
@@ -195,6 +227,7 @@ Compte joueur sur la plateforme.
 | `verification_token` | VARCHAR(255) | Token de vérification e-mail |
 | `token_expiry` | TIMESTAMP | Expiration du token de vérification |
 | `email_reminder_enabled` | BOOLEAN | Rappels par e-mail activés |
+| `reminder_sent_date` | DATE | Date du dernier rappel envoyé |
 | `email_gage_enabled` | BOOLEAN | Notifications de gage par e-mail |
 | `created_at` | TIMESTAMP | Date de création |
 
@@ -293,9 +326,9 @@ Contrainte unique : `(bet_id, user_id)`
 
 ---
 
-### `forfeits` — Gages
+### `forfeits` — Gages partagés
 
-Gage pouvant être assigné aux perdants. Partagé (global) ou privé (par groupe).
+Gage global ou appartenant à un groupe, pouvant être assigné aux perdants.
 
 | Colonne | Type | Description |
 |---------|------|-------------|
@@ -312,7 +345,7 @@ Gage pouvant être assigné aux perdants. Partagé (global) ou privé (par group
 
 ### `forfeit_votes` — Votes sur les gages
 
-Vote d'approbation / rejet d'un gage par un joueur.
+Vote d'approbation / rejet d'un gage partagé par un joueur.
 
 | Colonne | Type | Description |
 |---------|------|-------------|
@@ -325,9 +358,9 @@ Contrainte unique : `(forfeit_id, user_id)`
 
 ---
 
-### `user_forfeits` — Gages assignés
+### `user_forfeits` — Gages assignés (global)
 
-Association entre un joueur et un gage qui lui a été attribué.
+Association entre un joueur et un gage partagé qui lui a été attribué.
 
 | Colonne | Type | Description |
 |---------|------|-------------|
@@ -337,6 +370,42 @@ Association entre un joueur et un gage qui lui a été attribué.
 | `assigned_by_id` | BIGINT FK → users | Joueur qui assigne le gage |
 | `bet_id` | BIGINT FK → bets | Pari déclencheur (optionnel) |
 | `group_id` | BIGINT FK → groups | Groupe concerné (optionnel) |
+| `is_completed` | BOOLEAN | Gage accompli |
+| `completed_at` | TIMESTAMP | Date d'accomplissement |
+| `assigned_at` | TIMESTAMP | Date d'assignation |
+
+---
+
+### `group_forfeits` — Gages de groupe
+
+Catalogue de gages propre à un groupe (distinct des gages partagés).
+
+| Colonne | Type | Description |
+|---------|------|-------------|
+| `id` | BIGSERIAL PK | Identifiant unique |
+| `group_id` | BIGINT FK → groups | Groupe propriétaire (CASCADE DELETE) |
+| `title` | VARCHAR(200) | Intitulé du gage |
+| `description` | TEXT | Description |
+| `category` | VARCHAR(100) | Catégorie |
+| `is_active` | BOOLEAN | Gage disponible pour assignation |
+| `times_completed` | INT | Nombre de fois accompli |
+| `proposed_by_id` | BIGINT FK → users | Proposé par (null = créé par admin) |
+| `created_at` | TIMESTAMP | Date de création |
+
+---
+
+### `group_user_forfeits` — Gages assignés dans un groupe
+
+Association entre un joueur et un gage de groupe qui lui a été attribué.
+
+| Colonne | Type | Description |
+|---------|------|-------------|
+| `id` | BIGSERIAL PK | Identifiant unique |
+| `group_id` | BIGINT FK → groups | Groupe concerné (CASCADE DELETE) |
+| `user_id` | BIGINT FK → users | Joueur qui reçoit le gage |
+| `forfeit_id` | BIGINT FK → group_forfeits | Gage de groupe concerné |
+| `assigned_by_id` | BIGINT FK → users | Joueur qui assigne le gage |
+| `bet_id` | BIGINT FK → bets | Pari déclencheur (optionnel) |
 | `is_completed` | BOOLEAN | Gage accompli |
 | `completed_at` | TIMESTAMP | Date d'accomplissement |
 | `assigned_at` | TIMESTAMP | Date d'assignation |
@@ -429,8 +498,28 @@ Les migrations sont dans `backend/src/main/resources/db/migration/`.
 | Version | Description |
 |---------|-------------|
 | V1 | Schéma initial : `users`, `matches`, `bets`, `bet_participations`, `forfeits`, `user_forfeits` |
-| V2–V8 | Données de démo, correctifs, attachement des gages aux matchs, contrainte un-pari-par-match |
-| V9 | Système de gage quotidien : `daily_gages`, `daily_gage_candidates`, `daily_gage_votes` |
-| V12–V15 | Gestion des groupes : `groups`, `group_members`, confidentialité, statut des membres |
-| V16–V19 | Portée par groupe : paris, gages et gages quotidiens liés aux groupes |
-| V21–V29 | Améliorations utilisateur : `display_name`, vérification e-mail, `password_reset_tokens`, rappels e-mail, préférences gage |
+| V2–V3 | Données de démo, correctifs mots de passe |
+| V4 | Ajout `matches.forfeit_id` et `bettor_bonus` (supprimés en V9/V19) |
+| V5–V6 | Données de démo supplémentaires, correctifs |
+| V7 | Score de départ de 10 points (revert en V11) |
+| V8 | Contrainte un-pari-par-match (`uq_bets_match_id`) |
+| V9 | Système de gage quotidien : `daily_gages`, `daily_gage_candidates`, `daily_gage_votes` ; suppression `matches.forfeit_id` |
+| V10 | Nettoyage des `daily_gages` orphelins (sans match correspondant) |
+| V11 | Suppression du score de départ (10 pts) |
+| V12 | Gestion des groupes : `groups`, `group_members` |
+| V13 | Gages et gages utilisateur par groupe : `group_forfeits`, `group_user_forfeits` ; portée groupe sur `bets` et `daily_gages` |
+| V14 | Seed du groupe initial et gages de groupe |
+| V15 | Confidentialité des groupes (`is_private`) ; statut des membres (`ACTIVE`/`PENDING`) |
+| V16 | Contrainte un-pari-par-(match, groupe) |
+| V17 | `forfeits.group_id` — gages partagés ou appartenant à un groupe |
+| V18 | Contrainte un-gage-du-jour-par-(groupe, date) |
+| V19 | `user_forfeits.group_id` pour le classement par groupe ; suppression de `bettor_bonus` |
+| V20 | Migration du rôle `ADMIN` → `PLATFORM_ADMIN` |
+| V21 | `users.display_name` |
+| V22–V23 | `forfeit_votes` : votes sur les gages partagés |
+| V24 | Vérification e-mail : `email_verified`, `verification_token`, `token_expiry` |
+| V25 | `password_reset_tokens` |
+| V26 | `users.email_reminder_enabled`, `matches.reminder_sent` |
+| V27 | `users.reminder_sent_date` |
+| V28 | Seed du groupe GU |
+| V29 | `users.email_gage_enabled` |
