@@ -27,6 +27,7 @@ public class MatchService {
     private final GroupMemberRepository      groupMemberRepository;
     private final UserRepository             userRepository;
     private final DailyGageService           dailyGageService;
+    private final CompetitionService         competitionService;
 
     // ---------------------------------------------------------------
     // Scoring constants
@@ -75,11 +76,6 @@ public class MatchService {
                 .toList();
     }
 
-    @Transactional(readOnly = true)
-    public List<String> getActiveCompetitions() {
-        return matchRepository.findActiveCompetitions();
-    }
-
     // ---------------------------------------------------------------
     // Commands
     // ---------------------------------------------------------------
@@ -96,8 +92,6 @@ public class MatchService {
                 .status(Match.Status.UPCOMING)
                 .build();
         match = matchRepository.save(match);
-        // A match is global and starts CLOSED to betting. Each group's admin opens it
-        // for their group via BetService.openMatchForBetting → no auto-created bet here.
         return matchMapper.toResponse(match);
     }
 

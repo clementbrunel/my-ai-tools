@@ -38,6 +38,7 @@ class MatchServiceTest {
     @Mock private GroupMemberRepository      groupMemberRepository;
     @Mock private UserRepository             userRepository;
     @Mock private DailyGageService           dailyGageService;
+    @Mock private CompetitionService         competitionService;
 
     @InjectMocks
     private MatchService matchService;

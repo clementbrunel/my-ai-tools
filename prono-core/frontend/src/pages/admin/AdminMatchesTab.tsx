@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useToast } from '../../components/Toast';
-import { getMatches, createMatch, updateMatchScore, getCompetitions, forceSettleMatch } from '../../api/matches';
+import { getMatches, createMatch, updateMatchScore, forceSettleMatch } from '../../api/matches';
+import { getCompetitions as fetchAllCompetitions, getCompetitionTeams } from '../../api/competitions';
 import { useFormMessages } from '../../hooks/useFormMessages';
 import type { Match, MatchPhase } from '../../types';
 import { formatDate } from '../../utils/dates';
@@ -23,13 +24,13 @@ const AdminMatchesTab: React.FC = () => {
 
   const [matches, setMatches] = useState<Match[]>([]);
   const [competitions, setCompetitions] = useState<string[]>([]);
+  const [competitionTeams, setCompetitionTeams] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const [newTeamA, setNewTeamA] = useState('');
   const [newTeamB, setNewTeamB] = useState('');
   const [newMatchDate, setNewMatchDate] = useState('');
   const [newCompetition, setNewCompetition] = useState('');
-  const [isNewCompetition, setIsNewCompetition] = useState(false);
   const [newRound, setNewRound] = useState('Phase de poules');
   const [newPhase, setNewPhase] = useState<MatchPhase>('POOL');
 
@@ -50,16 +51,36 @@ const AdminMatchesTab: React.FC = () => {
         setIsLoading(false);
       }
       try {
-        const competitionsData = await getCompetitions();
+        const competitionsData = await fetchAllCompetitions();
         setCompetitions(competitionsData);
-        if (competitionsData.length > 0) setNewCompetition(competitionsData[0]);
-        else setIsNewCompetition(true);
+        if (competitionsData.length > 0) {
+          const first = competitionsData[0];
+          setNewCompetition(first);
+          const teams = await getCompetitionTeams(first);
+          setCompetitionTeams(teams);
+        }
       } catch {
-        setIsNewCompetition(true);
+        // competitions unavailable, form will show empty state
       }
     };
     loadData();
   }, []);
+
+  const handleCompetitionChange = async (value: string) => {
+    setNewCompetition(value);
+    setNewTeamA('');
+    setNewTeamB('');
+    if (value) {
+      try {
+        const teams = await getCompetitionTeams(value);
+        setCompetitionTeams(teams);
+      } catch {
+        setCompetitionTeams([]);
+      }
+    } else {
+      setCompetitionTeams([]);
+    }
+  };
 
   const handleCreateMatch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,13 +92,8 @@ const AdminMatchesTab: React.FC = () => {
         competition: newCompetition, round: newRound,
         phase: newPhase,
       });
-      const updatedCompetitions = competitions.includes(newCompetition)
-        ? competitions
-        : [...competitions, newCompetition].sort();
-      setCompetitions(updatedCompetitions);
       setMatches([...matches, newMatch]);
       setNewTeamA(''); setNewTeamB(''); setNewMatchDate('');
-      setIsNewCompetition(false);
       setMatchSuccess('Match créé avec succès !');
     } catch { setMatchError('Erreur lors de la création du match'); }
   };
@@ -122,13 +138,25 @@ const AdminMatchesTab: React.FC = () => {
         <form onSubmit={handleCreateMatch} className="grid grid-cols-2 gap-3">
           <div>
             <label className="label">Équipe A</label>
-            <input type="text" value={newTeamA} onChange={(e) => setNewTeamA(e.target.value)}
-              className="input-field" placeholder="Ex: France" required />
+            {competitionTeams.length > 0 ? (
+              <select value={newTeamA} onChange={(e) => setNewTeamA(e.target.value)} className="input-field" required>
+                <option value="">-- Choisir --</option>
+                {competitionTeams.filter((t) => t !== newTeamB).map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            ) : (
+              <p className="text-xs text-amber-500 mt-1">Ajoutez d'abord des équipes dans l'onglet Compétitions.</p>
+            )}
           </div>
           <div>
             <label className="label">Équipe B</label>
-            <input type="text" value={newTeamB} onChange={(e) => setNewTeamB(e.target.value)}
-              className="input-field" placeholder="Ex: Brésil" required />
+            {competitionTeams.length > 0 ? (
+              <select value={newTeamB} onChange={(e) => setNewTeamB(e.target.value)} className="input-field" required>
+                <option value="">-- Choisir --</option>
+                {competitionTeams.filter((t) => t !== newTeamA).map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            ) : (
+              <p className="text-xs text-amber-500 mt-1">Ajoutez d'abord des équipes dans l'onglet Compétitions.</p>
+            )}
           </div>
           <div>
             <label className="label">Date & heure</label>
@@ -163,48 +191,19 @@ const AdminMatchesTab: React.FC = () => {
           </div>
           <div className="col-span-2">
             <label className="label">Compétition</label>
-            {competitions.length > 0 && !isNewCompetition ? (
-              <div className="flex gap-2">
-                <select
-                  value={newCompetition}
-                  onChange={(e) => {
-                    if (e.target.value === '__new__') {
-                      setIsNewCompetition(true);
-                      setNewCompetition('');
-                    } else {
-                      setNewCompetition(e.target.value);
-                    }
-                  }}
-                  className="input-field flex-1"
-                  required
-                >
-                  {competitions.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                  <option value="__new__">➕ Nouvelle compétition...</option>
-                </select>
-              </div>
+            {competitions.length > 0 ? (
+              <select
+                value={newCompetition}
+                onChange={(e) => handleCompetitionChange(e.target.value)}
+                className="input-field"
+                required
+              >
+                {competitions.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
             ) : (
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={newCompetition}
-                  onChange={(e) => setNewCompetition(e.target.value)}
-                  className="input-field flex-1"
-                  placeholder="Ex: FIFA World Cup 2026"
-                  required
-                  autoFocus
-                />
-                {competitions.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => { setIsNewCompetition(false); setNewCompetition(competitions[0]); }}
-                    className="btn-secondary text-sm whitespace-nowrap"
-                  >
-                    ← Retour
-                  </button>
-                )}
-              </div>
+              <p className="text-xs text-amber-500 mt-1">Aucune compétition — créez-en une dans l'onglet Compétitions.</p>
             )}
           </div>
           {matchMsg?.type === 'error' && <p className="col-span-2 text-red-500 text-sm">{matchMsg.text}</p>}
