@@ -315,6 +315,13 @@ const MatchDetail: React.FC = () => {
                   />
                 </div>
               </div>
+              {!showTabOption && (
+                <div className="flex flex-wrap gap-3 text-xs text-gray-500 dark:text-gray-400">
+                  <span>❌ Raté → <strong>0 pt</strong></span>
+                  <span>🥈 Bon résultat → <strong className="text-yellow-600 dark:text-yellow-400">+3 pts</strong></span>
+                  <span>🥇 Score exact → <strong className="text-green-600 dark:text-green-400">+5 pts</strong></span>
+                </div>
+              )}
 
               {/* TAB — mandatory for KNOCKOUT matches with equal scores */}
               {showTabOption && (
@@ -372,6 +379,11 @@ const MatchDetail: React.FC = () => {
                       />
                     </div>
                   </div>
+                  <div className="flex flex-wrap gap-3 text-xs text-gray-500 dark:text-gray-400">
+                    <span>❌ Mauvais gagnant → <strong>0 pt</strong></span>
+                    <span>⚡ Bon gagnant → <strong className="text-orange-500">+5 pts</strong></span>
+                    <span>🎯 Bon score aux t.a.b. → <strong className="text-orange-600">+7 pts</strong></span>
+                  </div>
                 </div>
               )}
 
@@ -394,19 +406,6 @@ const MatchDetail: React.FC = () => {
                   placeholder="Tu te sens chaud ce soir ? 🔥"
                   maxLength={200}
                 />
-              </div>
-
-              {/* Points reminder */}
-              <div className="flex flex-wrap gap-3 text-xs text-gray-500 dark:text-gray-400">
-                <span>🥇 Score exact → <strong className="text-green-600 dark:text-green-400">+5 pts</strong></span>
-                <span>🥈 Bon résultat → <strong className="text-yellow-600 dark:text-yellow-400">+3 pts</strong></span>
-                {isKnockout && (
-                  <>
-                    <span>⚡ Bon gagnant t.a.b. → <strong className="text-orange-500">+5 pts</strong></span>
-                    <span>🎯 + bon score t.a.b. → <strong className="text-orange-600">+7 pts</strong></span>
-                  </>
-                )}
-                <span>❌ Raté → <strong>0 pt</strong></span>
               </div>
 
               {saveMsg && (
