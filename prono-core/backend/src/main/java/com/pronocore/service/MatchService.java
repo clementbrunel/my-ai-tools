@@ -105,6 +105,10 @@ public class MatchService {
     public MatchResponse updateMatchScore(Long id, UpdateMatchScoreRequest request) {
         Match match = requireMatch(id);
 
+        if (request.getPenaltyWinner() != null && match.getPhase() == Match.MatchPhase.POOL) {
+            throw new IllegalArgumentException("Penalty shootout cannot be set on POOL phase matches");
+        }
+
         boolean transitionsToFinished =
                 match.getStatus() != Match.Status.FINISHED
                         && request.getStatus() == Match.Status.FINISHED;
@@ -362,6 +366,9 @@ public class MatchService {
      * TAB without pen score stored → "Victoire France t.a.b. 1-1"
      */
     private String computeWinningOption(Match match) {
+        if (match.getScoreA() == null || match.getScoreB() == null) {
+            throw new IllegalStateException("Cannot compute winning option: scores are null for match " + match.getId());
+        }
         int sA = match.getScoreA(), sB = match.getScoreB();
         if (match.getPenaltyWinner() != null) {
             String winner;

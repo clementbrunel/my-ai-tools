@@ -268,20 +268,6 @@ export interface OpenCompetitionRequest {
   competition: string;
 }
 
-export interface CreateMatchRequest {
-  teamA: string;
-  teamB: string;
-  matchDate: string;
-  competition: string;
-  round: string;
-}
-
-export interface UpdateMatchScoreRequest {
-  scoreA: number;
-  scoreB: number;
-  status: 'UPCOMING' | 'ONGOING' | 'FINISHED';
-}
-
 export interface DecodedToken {
   sub: string;
   iat: number;

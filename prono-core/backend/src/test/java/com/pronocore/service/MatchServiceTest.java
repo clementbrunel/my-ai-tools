@@ -37,7 +37,6 @@ class MatchServiceTest {
     @Mock private BetParticipationRepository betParticipationRepository;
     @Mock private GroupMemberRepository      groupMemberRepository;
     @Mock private UserRepository             userRepository;
-    @Mock private UserForfeitRepository      userForfeitRepository;
     @Mock private DailyGageService           dailyGageService;
 
     @InjectMocks
@@ -427,9 +426,9 @@ class MatchServiceTest {
 
         matchService.forceSettleBet(1L, 20L);
 
-        verify(betParticipationRepository, times(2)).save(any(BetParticipation.class)); // backfill + settle
-        assertThat(alice.getGlobalScore()).isEqualTo(5);
-        assertThat(alice.getBetsWon()).isEqualTo(1);
+        // backfill save + points correction save
+        verify(betParticipationRepository, times(2)).save(any(BetParticipation.class));
+        assertThat(backfilled.getPointsEarned()).isEqualTo(5);
     }
 
     @Test

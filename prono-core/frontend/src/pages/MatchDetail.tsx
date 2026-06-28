@@ -98,7 +98,11 @@ const MatchDetail: React.FC = () => {
   // Reset TAB state when scores are no longer equal
   useEffect(() => {
     const a = parseInt(scoreA), b = parseInt(scoreB);
-    if (!isNaN(a) && !isNaN(b) && a !== b) setIsPenalties(false);
+    if (!isNaN(a) && !isNaN(b) && a !== b) {
+      setIsPenalties(false);
+      setPenScoreWinner('');
+      setPenScoreLoser('');
+    }
   }, [scoreA, scoreB]);
 
   // ── gage vote handler ─────────────────────────────────────────────────────
