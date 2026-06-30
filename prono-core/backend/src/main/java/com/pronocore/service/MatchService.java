@@ -291,17 +291,17 @@ public class MatchService {
     }
 
     /**
-     * Points for a single participation.
+     * Points for a single participation — scoring additif GOOD_WINNER(3) + GOOD_SCORE(2) + TAB_BONUS(2).
      *
-     * Normal match (Groupe 1):
-     *   +5 bon gagnant + bon score  |  +3 bon gagnant  |  0 mauvais gagnant
+     * Normal :  GOOD_WINNER + GOOD_SCORE = 5  (exact)
+     *           GOOD_WINNER             = 3  (bon gagnant, mauvais score)
+     *           0                            (mauvais gagnant)
      *
-     * TAB match (Groupe 2) — scoring additif gagnant(3) + score rég.(2) + score pén.(2) :
-     *   +7 bon gagnant + bon score réglementaire + bon score pénalty
-     *   +5 bon gagnant + bon score réglementaire (mauvais/absent score pénalty)
-     *   +3 bon gagnant + mauvais score réglementaire
-     *   +2 mauvais gagnant + bon score réglementaire
-     *    0 mauvais gagnant + mauvais score réglementaire
+     * TAB :     GOOD_WINNER + GOOD_SCORE + TAB_BONUS = 7  (exact + bon score pénalty)
+     *           GOOD_WINNER + GOOD_SCORE             = 5  (bon gagnant + bon score rég)
+     *           GOOD_WINNER                          = 3  (bon gagnant, mauvais score rég)
+     *           GOOD_SCORE                           = 2  (mauvais gagnant, bon score rég)
+     *           0                                         (mauvais gagnant, mauvais score rég)
      */
     int computeEarnedPoints(String chosenOption, String winningOption) {
         String c = chosenOption.trim();

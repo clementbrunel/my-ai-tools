@@ -31,14 +31,17 @@ const extractRegulationScore = (option: string): string => {
 };
 
 /**
- * Mirror of Java computeEarnedPoints() — scoring additif gagnant/score/pénalty.
+ * Mirror of Java computeEarnedPoints() — scoring additif GOOD_WINNER(3) + GOOD_SCORE(2) + TAB_BONUS(2).
  *
- * Normal :  +5 bon gagnant + bon score  |  +3 bon gagnant  |  0 mauvais gagnant
- * TAB :     +7 bon gagnant + bon score rég + bon score pén
- *           +5 bon gagnant + bon score rég (sans/mauvais score pén)
- *           +3 bon gagnant + mauvais score rég
- *           +2 mauvais gagnant + bon score rég
- *            0 mauvais gagnant + mauvais score rég
+ * Normal :  GOOD_WINNER + GOOD_SCORE = 5  (exact)
+ *           GOOD_WINNER             = 3  (bon gagnant, mauvais score)
+ *           0                            (mauvais gagnant)
+ *
+ * TAB :     GOOD_WINNER + GOOD_SCORE + TAB_BONUS = 7  (exact + bon score pénalty)
+ *           GOOD_WINNER + GOOD_SCORE             = 5  (bon gagnant + bon score rég)
+ *           GOOD_WINNER                          = 3  (bon gagnant, mauvais score rég)
+ *           GOOD_SCORE                           = 2  (mauvais gagnant, bon score rég)
+ *           0                                         (mauvais gagnant, mauvais score rég)
  */
 const POINTS_GOOD_WINNER = 3;
 const POINTS_GOOD_SCORE  = 2;
