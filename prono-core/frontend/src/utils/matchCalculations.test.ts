@@ -86,6 +86,10 @@ describe('computePoints', () => {
     expect(computePoints('Victoire France 2-1', 'Victoire France t.a.b. 1-1')).toBe(3);
   });
 
+  it('returns 3 for correct winner but predicted TAB on a normal win match', () => {
+    expect(computePoints('Victoire France t.a.b. 1-1', 'Victoire France 2-1')).toBe(3);
+  });
+
   it('returns 0 for wrong winner on a TAB match', () => {
     expect(computePoints('Victoire Angleterre t.a.b. 1-1', 'Victoire France t.a.b. 1-1')).toBe(0);
   });

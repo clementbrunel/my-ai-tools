@@ -148,6 +148,14 @@ class MatchServiceTest {
     }
 
     @Test
+    void computeEarnedPoints_predictedTab_actualNormalWin_shouldReturn3() {
+        // Predicted TAB win, but match was decided in normal time → still correct winner → +3
+        assertThat(matchService.computeEarnedPoints(
+                "Victoire France t.a.b. 1-1", "Victoire France 2-1"))
+                .isEqualTo(3);
+    }
+
+    @Test
     void computeEarnedPoints_tab_wrongWinner_shouldReturn0() {
         assertThat(matchService.computeEarnedPoints(
                 "Victoire Angleterre t.a.b. 1-1", "Victoire France t.a.b. 1-1"))
