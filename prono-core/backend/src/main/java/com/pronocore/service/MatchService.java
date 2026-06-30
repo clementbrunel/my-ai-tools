@@ -36,10 +36,12 @@ public class MatchService {
 
     /** Exact score (normal match) or correct winner via penalties. */
     static final int POINTS_EXACT_SCORE    = 5;
-    /** Correct result (right winner or right draw), wrong score / wrong mode. */
+    /** Correct result (right winner or right draw), wrong score. */
     static final int POINTS_CORRECT_RESULT = 3;
     /** Bonus for also predicting the exact penalty-shootout score. */
     static final int POINTS_TAB_BONUS      = 2;
+    /** TAB match: wrong TAB winner but correct regulation draw score. */
+    static final int POINTS_TAB_REG_SCORE  = 2;
 
     // ---------------------------------------------------------------
     // Queries
@@ -296,14 +298,15 @@ public class MatchService {
     /**
      * Points for a single participation.
      *
-     * Normal match:
-     *   +5 exact score | +3 correct result | 0 wrong
+     * Normal match (Groupe 1):
+     *   +5 bon gagnant + bon score  |  +3 bon gagnant  |  0 mauvais gagnant
      *
-     * Penalty-shootout (t.a.b.) match (winning option contains " t.a.b. "):
-     *   +7 correct winner via TAB + exact penalty score  (bonus only when admin stored a pen score)
-     *   +5 correct winner via TAB (any score / no pen score)
-     *   +3 correct winner but wrong mode (predicted normal win, actual TAB, or vice-versa)
-     *   0  wrong winner
+     * TAB match (Groupe 2) — scoring additif gagnant(3) + score rég.(2) + score pén.(2) :
+     *   +7 bon gagnant + bon score réglementaire + bon score pénalty
+     *   +5 bon gagnant + bon score réglementaire (mauvais/absent score pénalty)
+     *   +3 bon gagnant + mauvais score réglementaire
+     *   +2 mauvais gagnant + bon score réglementaire
+     *    0 mauvais gagnant + mauvais score réglementaire
      */
     int computeEarnedPoints(String chosenOption, String winningOption) {
         String c = chosenOption.trim();
@@ -312,8 +315,12 @@ public class MatchService {
         if (winningIsTab) {
             boolean winningHasPenScore = w.matches(".*\\(\\d+-\\d+\\)$");
             if (c.equals(w) && winningHasPenScore) return POINTS_EXACT_SCORE + POINTS_TAB_BONUS;
-            if (extractResultWithMode(c).equals(extractResultWithMode(w))) return POINTS_EXACT_SCORE;
-            if (extractResult(c).equals(extractResult(w))) return POINTS_CORRECT_RESULT;
+            String wReg = extractRegulationScore(w);
+            boolean sameWinner   = extractResult(c).equals(extractResult(w));
+            boolean sameRegScore = !wReg.isEmpty() && wReg.equals(extractRegulationScore(c));
+            if (sameWinner && sameRegScore) return POINTS_EXACT_SCORE;
+            if (sameWinner)                 return POINTS_CORRECT_RESULT;
+            if (sameRegScore)               return POINTS_TAB_REG_SCORE;
             return 0;
         }
         if (c.equals(w)) return POINTS_EXACT_SCORE;
@@ -339,19 +346,18 @@ public class MatchService {
     }
 
     /**
-     * Strips only the penalty score suffix — keeps t.a.b. marker for mode comparison.
-     * "Victoire France t.a.b. 1-1 (5-4)" → "Victoire France t.a.b."
-     * "Victoire France t.a.b. 0-0"        → "Victoire France t.a.b."
-     * "Victoire France 2-1"               → "Victoire France"
+     * Extracts the regulation score (last "X-Y" token after stripping penalty suffix).
+     * "Victoire France t.a.b. 1-1 (5-4)" → "1-1"
+     * "Victoire France t.a.b. 0-0"        → "0-0"
+     * "Victoire France 2-1"               → "2-1"
+     * "Victoire France"                   → ""
      */
-    private String extractResultWithMode(String option) {
+    private String extractRegulationScore(String option) {
         String s = option.replaceAll("\\s*\\(\\d+-\\d+\\)$", "");
-        if (s.startsWith("Match nul")) return "Match nul";
-        if (s.startsWith("Victoire ")) {
-            int lastSpace = s.lastIndexOf(' ');
-            if (lastSpace > 0) return s.substring(0, lastSpace);
-        }
-        return option;
+        int i = s.lastIndexOf(' ');
+        if (i < 0) return "";
+        String tail = s.substring(i + 1);
+        return tail.matches("\\d+-\\d+") ? tail : "";
     }
 
     /**
