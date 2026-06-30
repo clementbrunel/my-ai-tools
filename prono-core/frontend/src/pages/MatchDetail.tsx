@@ -100,14 +100,15 @@ const MatchDetail: React.FC = () => {
     }
   }, [participations, match, user]);
 
-  // Reset penalty scores when scores are no longer equal
+  // When scores become unequal, auto-correct winner and reset penalty scores.
+  // Equal scores (draw/TAB) are left untouched — the TAB section handles them.
   useEffect(() => {
     const a = parseInt(scoreA), b = parseInt(scoreB);
-    if (!isNaN(a) && !isNaN(b) && a !== b) {
-      setPenScoreWinner('');
-      setPenScoreLoser('');
-    }
-  }, [scoreA, scoreB]);
+    if (isNaN(a) || isNaN(b) || a === b) return;
+    setPenScoreWinner('');
+    setPenScoreLoser('');
+    if (isKnockout) setKnockoutWinner(a > b ? 'A' : 'B');
+  }, [scoreA, scoreB, isKnockout]);
 
   // ── gage vote handler ─────────────────────────────────────────────────────
 
@@ -308,7 +309,11 @@ const MatchDetail: React.FC = () => {
                   <div className="flex gap-2">
                     <button
                       type="button"
-                      onClick={() => { if (knockoutWinner !== 'A') { setKnockoutWinner('A'); setPenScoreWinner(''); setPenScoreLoser(''); } }}
+                      onClick={() => {
+                        setPenScoreWinner(''); setPenScoreLoser('');
+                        if (parseInt(scoreA) === parseInt(scoreB)) { setKnockoutWinner('A'); setScoreA('1'); setScoreB('0'); }
+                        else { setKnockoutWinner('A'); setScoreA(scoreB); setScoreB(scoreA); }
+                      }}
                       className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${
                         knockoutWinner === 'A'
                           ? 'bg-wc-green text-white border-wc-green'
@@ -319,7 +324,11 @@ const MatchDetail: React.FC = () => {
                     </button>
                     <button
                       type="button"
-                      onClick={() => { if (knockoutWinner !== 'B') { setKnockoutWinner('B'); setPenScoreWinner(''); setPenScoreLoser(''); } }}
+                      onClick={() => {
+                        setPenScoreWinner(''); setPenScoreLoser('');
+                        if (parseInt(scoreA) === parseInt(scoreB)) { setKnockoutWinner('B'); setScoreA('0'); setScoreB('1'); }
+                        else { setKnockoutWinner('B'); setScoreA(scoreB); setScoreB(scoreA); }
+                      }}
                       className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${
                         knockoutWinner === 'B'
                           ? 'bg-wc-green text-white border-wc-green'
