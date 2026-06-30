@@ -118,6 +118,7 @@ export interface UpdateMatchScoreRequest {
   penaltyWinner?: 'A' | 'B';
   penaltyScoreA?: number;
   penaltyScoreB?: number;
+  penaltyCleared?: boolean;
 }
 
 export interface Bet {

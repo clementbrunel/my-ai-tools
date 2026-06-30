@@ -8,7 +8,7 @@ import type { Match, Bet, BetParticipation, DailyGage } from '../types';
 import { formatDate, formatDateTime } from '../utils/dates';
 import { useToast } from '../components/Toast';
 import { getFlagUrl } from '../utils/countryFlags';
-import { extractResult, computePoints, parseOption } from '../utils/matchCalculations';
+import { computePoints, parseOption } from '../utils/matchCalculations';
 import DailyGageCard from '../components/DailyGageCard';
 import ScoreInput from '../components/ScoreInput';
 
@@ -411,8 +411,9 @@ const MatchDetail: React.FC = () => {
                   </div>
                   <div className="flex flex-wrap gap-3 text-xs text-gray-500 dark:text-gray-400">
                     <span>❌ Mauvais gagnant → <strong>0 pt</strong></span>
-                    <span>⚡ Bon gagnant → <strong className="text-orange-500">+5 pts</strong></span>
-                    <span>🎯 Bon score aux t.a.b. → <strong className="text-orange-600">+7 pts</strong></span>
+                    <span>⚡ Bon gagnant → <strong className="text-yellow-600 dark:text-yellow-400">+3 pts</strong></span>
+                    <span>⚡ Bon gagnant + bon score rég → <strong className="text-orange-500">+5 pts</strong></span>
+                    <span>🎯 + bon score t.a.b. → <strong className="text-orange-600">+7 pts</strong></span>
                   </div>
                 </div>
               )}
@@ -490,6 +491,10 @@ const MatchDetail: React.FC = () => {
                         ) : pts === 3 ? (
                           <span className="font-bold text-yellow-600 dark:text-yellow-400">
                             👍 Bon résultat ! +3 pts
+                          </span>
+                        ) : pts === 2 ? (
+                          <span className="font-bold text-blue-500 dark:text-blue-400">
+                            ⚡ Bon score rég. t.a.b. ! +2 pts
                           </span>
                         ) : (
                           <span className="font-bold text-red-500">❌ Raté — 0 pt</span>
@@ -578,7 +583,7 @@ const MatchDetail: React.FC = () => {
                             : 'text-red-500'
                         }`}
                       >
-                        {pts === 7 ? '🎯 +7 pts' : pts === 5 ? '🏆 +5 pts' : pts === 3 ? '👍 +3 pts' : '❌ 0 pt'}
+                        {pts === 7 ? '🎯 +7 pts' : pts === 5 ? '🏆 +5 pts' : pts === 3 ? '👍 +3 pts' : pts === 2 ? '⚡ +2 pts' : '❌ 0 pt'}
                       </p>
                     )}
                   </div>

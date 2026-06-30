@@ -98,6 +98,7 @@ const AdminMatchesTab: React.FC = () => {
       });
       setMatches([...matches, newMatch]);
       setNewTeamA(''); setNewTeamB(''); setNewMatchDate('');
+      setNewRound('Phase de poules'); setNewPhase('POOL');
       setMatchSuccess('Match créé avec succès !');
     } catch { setMatchError('Erreur lors de la création du match'); }
   };
@@ -112,6 +113,7 @@ const AdminMatchesTab: React.FC = () => {
         penaltyWinner: penaltyWinner ? (penaltyWinner as 'A' | 'B') : undefined,
         penaltyScoreA: penScoreA ? parseInt(penScoreA) : undefined,
         penaltyScoreB: penScoreB ? parseInt(penScoreB) : undefined,
+        penaltyCleared: !penaltyWinner && !!editingMatch.penaltyWinner,
       });
       setMatches(matches.map((m) => (m.id === updated.id ? updated : m)));
       setEditingMatch(null);

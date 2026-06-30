@@ -100,6 +100,11 @@ public class MatchService {
         if (request.getPenaltyWinner() != null && match.getPhase() == Match.MatchPhase.POOL) {
             throw new IllegalArgumentException("Penalty shootout cannot be set on POOL phase matches");
         }
+        if (request.getPenaltyWinner() != null
+                && request.getScoreA() != null && request.getScoreB() != null
+                && !request.getScoreA().equals(request.getScoreB())) {
+            throw new IllegalArgumentException("Penalty shootout requires equal regulation scores (scores must be tied)");
+        }
 
         boolean transitionsToFinished =
                 match.getStatus() != Match.Status.FINISHED
@@ -108,9 +113,15 @@ public class MatchService {
         match.setScoreA(request.getScoreA());
         match.setScoreB(request.getScoreB());
         match.setStatus(request.getStatus());
-        match.setPenaltyWinner(request.getPenaltyWinner());
-        match.setPenaltyScoreA(request.getPenaltyScoreA());
-        match.setPenaltyScoreB(request.getPenaltyScoreB());
+        if (request.getPenaltyWinner() != null) {
+            match.setPenaltyWinner(request.getPenaltyWinner());
+            match.setPenaltyScoreA(request.getPenaltyScoreA());
+            match.setPenaltyScoreB(request.getPenaltyScoreB());
+        } else if (request.isPenaltyCleared()) {
+            match.setPenaltyWinner(null);
+            match.setPenaltyScoreA(null);
+            match.setPenaltyScoreB(null);
+        }
         match = matchRepository.save(match);
 
         if (transitionsToFinished && request.getScoreA() != null && request.getScoreB() != null) {
@@ -137,17 +148,17 @@ public class MatchService {
     /**
      * When admin marks a match as FINISHED:
      * 1. Compute the winning option string.
-     * 2. Award +5 (exact score) or +3 (correct result) to each participant.
-     *    Both +5 and +3 count as a "won bet" (betsWon++).
+     * 2. Award points to each participant — scoring additif: see computeEarnedPoints().
      * 3. Store pointsEarned on each participation (used by daily gage loser logic).
      *
      * Note: per-match forfeit assignment has been removed.
      * Gages are now assigned per day via DailyGageService.onMatchSettled().
      *
      * Winning-option format (winner's score always first):
-     *   teamA wins 2-1  → "Victoire France 2-1"
-     *   teamB wins 1-0  → "Victoire Sénégal 1-0"
-     *   draw 0-0        → "Match nul 0-0"
+     *   teamA wins 2-1          → "Victoire France 2-1"
+     *   teamB wins 1-0          → "Victoire Sénégal 1-0"
+     *   draw 0-0                → "Match nul 0-0"
+     *   TAB France wins (5-4)   → "Victoire France t.a.b. 1-1 (5-4)"
      */
     private void settleBetsForMatch(Match match) {
         String winningOption = computeWinningOption(match);
