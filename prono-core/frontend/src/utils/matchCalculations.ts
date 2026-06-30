@@ -40,23 +40,27 @@ const extractRegulationScore = (option: string): string => {
  *           +2 mauvais gagnant + bon score rég
  *            0 mauvais gagnant + mauvais score rég
  */
+const POINTS_GOOD_WINNER = 3;
+const POINTS_GOOD_SCORE  = 2;
+const POINTS_TAB_BONUS   = 2;
+
 export const computePoints = (chosen: string, winning: string): number => {
   const c = chosen.trim();
   const w = winning.trim();
   const winningIsTab = w.includes(' t.a.b. ');
   if (winningIsTab) {
     const winningHasPenScore = /\(\d+-\d+\)$/.test(w);
-    if (c === w && winningHasPenScore) return 7;
+    if (c === w && winningHasPenScore) return POINTS_GOOD_WINNER + POINTS_GOOD_SCORE + POINTS_TAB_BONUS;
     const wReg = extractRegulationScore(w);
     const sameWinner   = extractResult(c) === extractResult(w);
     const sameRegScore = wReg !== '' && wReg === extractRegulationScore(c);
-    if (sameWinner && sameRegScore) return 5;
-    if (sameWinner)                 return 3;
-    if (sameRegScore)               return 2;
+    if (sameWinner && sameRegScore) return POINTS_GOOD_WINNER + POINTS_GOOD_SCORE;
+    if (sameWinner)                 return POINTS_GOOD_WINNER;
+    if (sameRegScore)               return POINTS_GOOD_SCORE;
     return 0;
   }
-  if (c === w) return 5;
-  if (extractResult(c) === extractResult(w)) return 3;
+  if (c === w) return POINTS_GOOD_WINNER + POINTS_GOOD_SCORE;
+  if (extractResult(c) === extractResult(w)) return POINTS_GOOD_WINNER;
   return 0;
 };
 

@@ -34,12 +34,9 @@ public class MatchService {
     // Scoring constants
     // ---------------------------------------------------------------
 
-    /** Exact score (normal match) or correct winner via penalties. */
-    static final int POINTS_EXACT_SCORE    = 5;
-    /** Correct result (right winner or right draw), wrong score. */
-    static final int POINTS_CORRECT_RESULT = 3;
-    /** TAB: bonus added to reach +7 (exact pen score), or standalone +2 (right reg score, wrong winner). */
-    static final int POINTS_TAB_BONUS      = 2;
+    static final int POINTS_GOOD_WINNER = 3;
+    static final int POINTS_GOOD_SCORE  = 2;
+    static final int POINTS_TAB_BONUS   = 2;
 
     // ---------------------------------------------------------------
     // Queries
@@ -312,17 +309,17 @@ public class MatchService {
         boolean winningIsTab = w.contains(" t.a.b. ");
         if (winningIsTab) {
             boolean winningHasPenScore = w.matches(".*\\(\\d+-\\d+\\)$");
-            if (c.equals(w) && winningHasPenScore) return POINTS_EXACT_SCORE + POINTS_TAB_BONUS;
+            if (c.equals(w) && winningHasPenScore) return POINTS_GOOD_WINNER + POINTS_GOOD_SCORE + POINTS_TAB_BONUS;
             String wReg = extractRegulationScore(w);
             boolean sameWinner   = extractResult(c).equals(extractResult(w));
             boolean sameRegScore = !wReg.isEmpty() && wReg.equals(extractRegulationScore(c));
-            if (sameWinner && sameRegScore) return POINTS_EXACT_SCORE;
-            if (sameWinner)                 return POINTS_CORRECT_RESULT;
-            if (sameRegScore)               return POINTS_TAB_BONUS;
+            if (sameWinner && sameRegScore) return POINTS_GOOD_WINNER + POINTS_GOOD_SCORE;
+            if (sameWinner)                 return POINTS_GOOD_WINNER;
+            if (sameRegScore)               return POINTS_GOOD_SCORE;
             return 0;
         }
-        if (c.equals(w)) return POINTS_EXACT_SCORE;
-        if (extractResult(c).equals(extractResult(w))) return POINTS_CORRECT_RESULT;
+        if (c.equals(w)) return POINTS_GOOD_WINNER + POINTS_GOOD_SCORE;
+        if (extractResult(c).equals(extractResult(w))) return POINTS_GOOD_WINNER;
         return 0;
     }
 
