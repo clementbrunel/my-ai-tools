@@ -16,29 +16,29 @@ export const extractResult = (option: string): string => {
 };
 
 /**
- * Strips only the penalty score suffix — keeps t.a.b. for mode comparison.
- * "Victoire France t.a.b. 1-1 (5-4)" → "Victoire France t.a.b."
- * "Victoire France t.a.b. 0-0"        → "Victoire France t.a.b."
- * "Victoire France 2-1"               → "Victoire France"
+ * Extracts the regulation score (last "X-Y" token after stripping penalty suffix).
+ * "Victoire France t.a.b. 1-1 (5-4)" → "1-1"
+ * "Victoire France t.a.b. 0-0"        → "0-0"
+ * "Victoire France 2-1"               → "2-1"
+ * "Victoire France"                   → ""
  */
-const extractResultWithMode = (option: string): string => {
+const extractRegulationScore = (option: string): string => {
   const s = option.replace(/\s*\(\d+-\d+\)$/, '');
-  if (s.startsWith('Match nul')) return 'Match nul';
-  if (s.startsWith('Victoire ')) {
-    const lastSpace = s.lastIndexOf(' ');
-    if (lastSpace > 0) return s.substring(0, lastSpace);
-  }
-  return option;
+  const i = s.lastIndexOf(' ');
+  if (i < 0) return '';
+  const tail = s.substring(i + 1);
+  return /^\d+-\d+$/.test(tail) ? tail : '';
 };
 
 /**
- * Mirror of Java computeEarnedPoints() with TAB support.
+ * Mirror of Java computeEarnedPoints() — scoring additif gagnant/score/pénalty.
  *
- * Normal match: +5 exact | +3 correct result | 0 wrong
- * TAB match:    +7 right winner via TAB + exact pen score
- *               +5 right winner via TAB (wrong score or no pen score)
- *               +3 right winner but wrong mode
- *               0  wrong winner
+ * Normal :  +5 bon gagnant + bon score  |  +3 bon gagnant  |  0 mauvais gagnant
+ * TAB :     +7 bon gagnant + bon score rég + bon score pén
+ *           +5 bon gagnant + bon score rég (sans/mauvais score pén)
+ *           +3 bon gagnant + mauvais score rég
+ *           +2 mauvais gagnant + bon score rég
+ *            0 mauvais gagnant + mauvais score rég
  */
 export const computePoints = (chosen: string, winning: string): number => {
   const c = chosen.trim();
@@ -47,8 +47,12 @@ export const computePoints = (chosen: string, winning: string): number => {
   if (winningIsTab) {
     const winningHasPenScore = /\(\d+-\d+\)$/.test(w);
     if (c === w && winningHasPenScore) return 7;
-    if (extractResultWithMode(c) === extractResultWithMode(w)) return 5;
-    if (extractResult(c) === extractResult(w)) return 3;
+    const wReg = extractRegulationScore(w);
+    const sameWinner   = extractResult(c) === extractResult(w);
+    const sameRegScore = wReg !== '' && wReg === extractRegulationScore(c);
+    if (sameWinner && sameRegScore) return 5;
+    if (sameWinner)                 return 3;
+    if (sameRegScore)               return 2;
     return 0;
   }
   if (c === w) return 5;
