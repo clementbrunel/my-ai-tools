@@ -7,4 +7,7 @@ services:
       - NOTIFY_EMAIL=${NOTIFY_EMAIL:-your@email.com}
       - DATA_DIR=/app/data
     volumes:
-      - ./data:/app/data
+      - mottaret-data:/app/data
+
+volumes:
+  mottaret-data:
