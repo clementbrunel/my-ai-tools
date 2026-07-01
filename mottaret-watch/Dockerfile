@@ -7,4 +7,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY check_availability.py .
 
+USER nobody
+
 CMD ["python", "-u", "check_availability.py"]
