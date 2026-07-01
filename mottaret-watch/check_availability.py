@@ -47,9 +47,9 @@ MAEVA_URL_TEMPLATE = (
 
 # Variables d'environnement (à définir dans GitHub Actions Secrets)
 RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
-NOTIFY_EMAIL   = os.getenv("NOTIFY_EMAIL", "hasto88@gmail.com")
+NOTIFY_EMAIL   = os.getenv("NOTIFY_EMAIL", "your@email.com")
 
-CACHE_FILE = "last_results.json"
+CACHE_FILE = os.path.join(os.getenv("DATA_DIR", "."), "last_results.json")
 # ─────────────────────────────────────────────────────────────────────────────
 
 HEADERS = {
