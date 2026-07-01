@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { getMatch } from '../api/matches';
 import { getBetsByMatch, getParticipationsByMatch, upsertParticipateByMatch } from '../api/bets';
 import { getDailyGagesByDate, voteOnCandidate } from '../api/dailyGages';
@@ -18,6 +18,10 @@ const MatchDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const { showToast } = useToast();
+  const navigate = useNavigate();
+  const location = useLocation();
+  // location.key is 'default' when the page was opened directly (no in-app history)
+  const goBack = () => location.key === 'default' ? navigate('/matches') : navigate(-1);
 
   const [match, setMatch] = useState<Match | null>(null);
   const [bet, setBet] = useState<Bet | null>(null);
@@ -178,9 +182,9 @@ const MatchDetail: React.FC = () => {
       <div className="card text-center py-12">
         <div className="text-4xl mb-3">😕</div>
         <p className="text-gray-600 dark:text-gray-400">{error || 'Match introuvable'}</p>
-        <Link to="/matches" className="btn-primary mt-4 inline-block">
+        <button onClick={goBack} className="btn-primary mt-4 inline-block">
           Retour aux matchs
-        </Link>
+        </button>
       </div>
     );
   }
@@ -191,9 +195,9 @@ const MatchDetail: React.FC = () => {
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
-      <Link to="/matches" className="text-sm text-wc-green dark:text-green-400 hover:underline">
+      <button onClick={goBack} className="text-sm text-wc-green dark:text-green-400 hover:underline">
         ← Retour aux matchs
-      </Link>
+      </button>
 
       {/* ── Match header ── */}
       <div className="card">
