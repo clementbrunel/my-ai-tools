@@ -169,8 +169,11 @@ def _maeva_product_to_dict(p: dict, date_debut: str, date_fin: str, booking_url:
         dispo_int = int(dispo) if dispo is not None else None
     except (ValueError, TypeError):
         dispo_int = None
+    # Ignore les entrées sans données utiles (doublons incomplets de l'API)
+    if price == "–" and dispo_int is None:
+        return None
     return {
-        "title": p.get("produit_libe") or p.get("nom") or "Logement",
+        "title": (p.get("produit_libe") or p.get("nom") or "Logement").strip(),
         "start": date_debut,
         "end":   date_fin,
         "price": price,
@@ -520,10 +523,10 @@ def detect_changes(
     prev_bleuets_refs = {l["title"] for l in previous.get("bleuets", [])}
     new_bleuets = [l for l in bleuets_available if l["title"] not in prev_bleuets_refs]
 
-    prev_maeva = {(l["title"], l.get("start")): l for l in previous.get("maeva", [])}
+    prev_maeva = {(l["title"].lower(), l.get("start")): l for l in previous.get("maeva", [])}
     maeva_changes: list[dict] = []
     for l in maeva_listings:
-        key = (l["title"], l.get("start"))
+        key = (l["title"].lower(), l.get("start"))
         if key not in prev_maeva:
             maeva_changes.append({
                 "listing":       l,
