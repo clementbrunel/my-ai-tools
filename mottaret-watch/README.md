@@ -10,7 +10,7 @@ Période ciblée : **16 juillet – 31 juillet 2026**.
 
 ## Déploiement sur Synology (Docker)
 
-Le script tourne dans un container Docker déclenché toutes les heures par le **Task Scheduler** du Synology. Ça contourne le blocage IP des runners GitHub Actions par les sites cibles.
+Le script tourne dans un container Docker déclenché toutes les heures par le **Task Scheduler** du Synology.
 
 ### 1. Copier les fichiers sur le NAS
 
@@ -42,7 +42,13 @@ docker compose build
 docker compose run --rm mottaret-watch
 ```
 
-Le cache `last_results.json` est persisté dans `./data/` sur le NAS.
+Le cache est persisté dans le volume Docker nommé `mottaret-data` (géré automatiquement).
+
+Pour réinitialiser le cache (repart de zéro, renvoie un email complet au prochain run) :
+
+```bash
+docker volume rm mottaret-watch_mottaret-data
+```
 
 ### 5. Planifier toutes les heures
 
@@ -59,10 +65,10 @@ Fréquence : toutes les heures.
 ## Fonctionnement
 
 - Scrape le tableau HTML du site officiel Les Bleuets (logements chevauchant 16/07–31/07)
-- Appelle l'API Maeva pour 2 semaines (16-22/07 et 23-29/07)
-- Compare avec le cache `data/last_results.json`
-- **Email envoyé uniquement si** : disponibilités trouvées ET nouvelles annonces depuis la dernière vérification (ou première exécution)
-- Si l'API Maeva est indisponible : une seule alerte email, pas de spam
+- Ouvre une session Maeva, extrait le CSRF token depuis la page de la résidence, puis interroge l'API pour 2 semaines (16-22/07 et 23-29/07) — chaque semaine est une entrée distincte avec son propre prix
+- Compare avec le cache JSON persisté entre les runs
+- **Email envoyé uniquement si** : disponibilités trouvées ET nouvelles annonces ou changements depuis la dernière vérification (ou première exécution)
+- Si l'API Maeva est indisponible : une seule alerte email, pas de spam à chaque run
 
 ---
 
