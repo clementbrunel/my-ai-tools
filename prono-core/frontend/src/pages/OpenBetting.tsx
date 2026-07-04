@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { getMyGroups } from '../api/groups';
 import { getMatches } from '../api/matches';
 import { getBets, openMatchForBetting, openCompetitionForBetting, closeMatchForBetting } from '../api/bets';
+import { getCompetitions } from '../api/competitions';
 import type { Group, Match, MatchPhase } from '../types';
 import { formatDate } from '../utils/dates';
 import ConfirmModal from '../components/ConfirmModal';
@@ -29,6 +30,7 @@ const OpenBetting: React.FC = () => {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [matchToClose, setMatchToClose] = useState<Match | null>(null);
+  const [allCompetitions, setAllCompetitions] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('CLOSED');
   const [competitionFilter, setCompetitionFilter] = useState('');
   const [phaseFilter, setPhaseFilter] = useState<MatchPhase | ''>('');
@@ -43,6 +45,13 @@ const OpenBetting: React.FC = () => {
       })
       .catch(() => setError('Impossible de charger vos groupes'))
       .finally(() => setIsLoading(false));
+  }, []);
+
+  // Load the full list of registered competitions for the filter dropdown
+  useEffect(() => {
+    getCompetitions()
+      .then(setAllCompetitions)
+      .catch(() => setError('Impossible de charger les compétitions'));
   }, []);
 
   // Load matches + which ones are already open in the selected group
@@ -62,12 +71,6 @@ const OpenBetting: React.FC = () => {
       })
       .catch(() => setError('Impossible de charger les matchs'));
   }, [selectedGroupId]);
-
-  // All competitions available in the loaded matches, regardless of active filters
-  const allCompetitions = useMemo(
-    () => Array.from(new Set(matches.map((m) => m.competition))).sort(),
-    [matches]
-  );
 
   const filteredMatches = useMemo(() => {
     return matches.filter((match) => {
