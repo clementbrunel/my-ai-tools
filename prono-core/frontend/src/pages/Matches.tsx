@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useScrollRestoration } from '../hooks/useScrollRestoration';
 import { isAdmin } from '../types';
+import type { Match } from '../types';
 import MatchCard from '../components/MatchCard';
 import MatchRow from '../components/MatchRow';
 import NoGroupBanner from '../components/NoGroupBanner';
