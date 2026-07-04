@@ -180,6 +180,7 @@ export interface GroupUserForfeit {
   id: number;
   username: string;
   displayName?: string;
+  avatarUrl?: string;
   forfeit: Forfeit;
   assignedByUsername: string;
   assignedByDisplayName?: string;

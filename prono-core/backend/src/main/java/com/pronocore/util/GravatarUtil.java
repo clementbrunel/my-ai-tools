@@ -14,7 +14,9 @@ public final class GravatarUtil {
 
     public static String urlFor(String email) {
         String hash = md5Hex(email.trim().toLowerCase(Locale.ROOT));
-        return BASE_URL + hash + "?d=identicon&s=200";
+        // d=404 makes Gravatar return HTTP 404 when the email has no custom avatar,
+        // instead of a generated identicon — the frontend falls back to the initial then.
+        return BASE_URL + hash + "?d=404&s=200";
     }
 
     private static String md5Hex(String value) {
