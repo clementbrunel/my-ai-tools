@@ -2,9 +2,11 @@ package com.pronocore.controller;
 
 import com.pronocore.dto.request.CreateGroupRequest;
 import com.pronocore.dto.request.JoinGroupRequest;
+import com.pronocore.dto.request.NotifyNewMatchesRequest;
 import com.pronocore.dto.request.UpdateGroupPrivacyRequest;
 import com.pronocore.dto.response.GroupMemberResponse;
 import com.pronocore.dto.response.GroupResponse;
+import com.pronocore.dto.response.MatchResponse;
 import com.pronocore.dto.response.PublicGroupResponse;
 import com.pronocore.service.GroupService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -127,6 +129,21 @@ public class GroupController {
                                               @PathVariable Long userId,
                                               Authentication auth) {
         groupService.removeMember(groupId, userId, auth.getName());
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{groupId}/future-open-matches")
+    @Operation(summary = "List future matches open for pronostics in this group (Group admin only)")
+    public ResponseEntity<List<MatchResponse>> getFutureOpenMatches(@PathVariable Long groupId, Authentication auth) {
+        return ResponseEntity.ok(groupService.getFutureOpenMatches(groupId, auth.getName()));
+    }
+
+    @PostMapping("/{groupId}/notify-new-matches")
+    @Operation(summary = "Notify active group members by email about newly opened future matches (Group admin only)")
+    public ResponseEntity<Void> notifyNewMatches(@PathVariable Long groupId,
+                                                  @Valid @RequestBody NotifyNewMatchesRequest request,
+                                                  Authentication auth) {
+        groupService.notifyNewMatches(groupId, request.getMatchIds(), auth.getName());
         return ResponseEntity.noContent().build();
     }
 }

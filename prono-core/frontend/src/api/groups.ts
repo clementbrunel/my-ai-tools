@@ -1,5 +1,5 @@
 import apiClient from './axios';
-import type { Group, GroupMember, PublicGroup, CreateGroupRequest, JoinGroupRequest } from '../types';
+import type { Group, GroupMember, PublicGroup, CreateGroupRequest, JoinGroupRequest, Match } from '../types';
 
 export const getAllGroups = async (): Promise<Group[]> => {
   const response = await apiClient.get<Group[]>('/groups');
@@ -66,4 +66,13 @@ export const demoteMember = async (groupId: number, userId: number): Promise<Gro
 
 export const removeMember = async (groupId: number, userId: number): Promise<void> => {
   await apiClient.delete(`/groups/${groupId}/members/${userId}`);
+};
+
+export const getFutureOpenMatches = async (groupId: number): Promise<Match[]> => {
+  const response = await apiClient.get<Match[]>(`/groups/${groupId}/future-open-matches`);
+  return response.data;
+};
+
+export const notifyNewMatches = async (groupId: number, matchIds: number[]): Promise<void> => {
+  await apiClient.post(`/groups/${groupId}/notify-new-matches`, { matchIds });
 };

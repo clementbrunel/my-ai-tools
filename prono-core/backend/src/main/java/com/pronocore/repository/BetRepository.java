@@ -112,6 +112,17 @@ public interface BetRepository extends JpaRepository<Bet, Long> {
             """)
     List<Match> findDistinctMatchesWithOpenBetsForGroup(@Param("groupId") Long groupId);
 
+    /** Distinct future matches (kick-off after now) with at least one OPEN bet for a group, ordered by date. */
+    @Query("""
+            SELECT DISTINCT b.match FROM Bet b
+            WHERE b.group.id = :groupId
+              AND b.status = com.pronocore.entity.Bet.Status.OPEN
+              AND b.match IS NOT NULL
+              AND b.match.matchDate > :now
+            ORDER BY b.match.matchDate ASC
+            """)
+    List<Match> findFutureDistinctMatchesWithOpenBetsForGroup(@Param("groupId") Long groupId, @Param("now") LocalDateTime now);
+
     /** Count of UPCOMING matches that have no bet (any status) in the given group. */
     @Query("""
             SELECT COUNT(m) FROM Match m

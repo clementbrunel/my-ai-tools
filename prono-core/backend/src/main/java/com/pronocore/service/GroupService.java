@@ -4,10 +4,14 @@ import com.pronocore.dto.request.CreateGroupRequest;
 import com.pronocore.dto.request.JoinGroupRequest;
 import com.pronocore.dto.response.GroupMemberResponse;
 import com.pronocore.dto.response.GroupResponse;
+import com.pronocore.dto.response.MatchResponse;
 import com.pronocore.dto.response.PublicGroupResponse;
 import com.pronocore.entity.Group;
 import com.pronocore.entity.GroupMember;
+import com.pronocore.entity.Match;
 import com.pronocore.entity.User;
+import com.pronocore.mapper.MatchMapper;
+import com.pronocore.repository.BetRepository;
 import com.pronocore.repository.GroupMemberRepository;
 import com.pronocore.repository.GroupRepository;
 import com.pronocore.repository.UserRepository;
@@ -16,9 +20,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -29,6 +35,9 @@ public class GroupService {
     private final GroupRepository groupRepository;
     private final GroupMemberRepository groupMemberRepository;
     private final UserRepository userRepository;
+    private final BetRepository betRepository;
+    private final MatchMapper matchMapper;
+    private final EmailService emailService;
 
     @Transactional
     public GroupResponse createGroup(CreateGroupRequest request, String username) {
@@ -285,6 +294,41 @@ public class GroupService {
 
         groupMemberRepository.delete(member);
         log.info("User {} removed from group {} by {}", targetUserId, groupId, requesterUsername);
+    }
+
+    /** Future matches (kick-off not yet passed) open for pronostics in this group (Group admin only). */
+    @Transactional(readOnly = true)
+    public List<MatchResponse> getFutureOpenMatches(Long groupId, String username) {
+        assertGroupAdmin(groupId, username);
+        return betRepository.findFutureDistinctMatchesWithOpenBetsForGroup(groupId, LocalDateTime.now()).stream()
+            .map(matchMapper::toResponse)
+            .toList();
+    }
+
+    /** Notify all active members of the group that the given future open matches were added (Group admin only). */
+    @Transactional(readOnly = true)
+    public void notifyNewMatches(Long groupId, List<Long> matchIds, String leaderUsername) {
+        User leader = findUser(leaderUsername);
+        assertGroupAdmin(groupId, leaderUsername);
+        Group group = findGroup(groupId);
+
+        Set<Long> requestedIds = Set.copyOf(matchIds);
+        List<Match> matches = betRepository.findFutureDistinctMatchesWithOpenBetsForGroup(groupId, LocalDateTime.now()).stream()
+            .filter(m -> requestedIds.contains(m.getId()))
+            .toList();
+        if (matches.isEmpty()) {
+            throw new IllegalArgumentException("No matching future open matches found for this group");
+        }
+
+        List<User> recipients = groupMemberRepository.findByGroupIdAndStatus(groupId, GroupMember.MemberStatus.ACTIVE).stream()
+            .map(GroupMember::getUser)
+            .toList();
+
+        for (User recipient : recipients) {
+            emailService.sendGroupNewMatchesEmail(recipient, group.getName(), leader, matches);
+        }
+        log.info("Group {} leader {} notified {} member(s) about {} new match(es)",
+            groupId, leaderUsername, recipients.size(), matches.size());
     }
 
     // -------------------------------------------------------------------------
