@@ -63,103 +63,86 @@ class MatchServiceTest {
         SecurityContextHolder.clearContext();
     }
 
-    // ── computeEarnedPoints (package-private — directly testable) ─────────────
+    // ── Groupe 1 : résultat final Victoire France 1-0 ────────────────────────
 
     @Test
-    void computeEarnedPoints_shouldReturn5ForExactScore() {
+    void computeEarnedPoints_1_1_exactScore_shouldReturn5() {
         assertThat(matchService.computeEarnedPoints(
-                "Victoire France 2-1", "Victoire France 2-1"))
-                .isEqualTo(5);
+                "Victoire France 1-0", "Victoire France 1-0")).isEqualTo(5);
     }
 
     @Test
-    void computeEarnedPoints_shouldReturn3ForCorrectWinnerWrongScore() {
-        // Right winner, wrong score → correct result only
+    void computeEarnedPoints_1_2_rightWinnerWrongScore_shouldReturn3() {
         assertThat(matchService.computeEarnedPoints(
-                "Victoire France 3-0", "Victoire France 2-1"))
-                .isEqualTo(3);
+                "Victoire France 2-1", "Victoire France 1-0")).isEqualTo(3);
     }
 
     @Test
-    void computeEarnedPoints_shouldReturn3ForCorrectDrawWrongScore() {
-        // Predicted draw at 0-0, actual draw at 1-1 → correct result
+    void computeEarnedPoints_1_3_predictedTabRightWinner_shouldReturn3() {
         assertThat(matchService.computeEarnedPoints(
-                "Match nul 0-0", "Match nul 1-1"))
-                .isEqualTo(3);
+                "Victoire France t.a.b. 1-1", "Victoire France 1-0")).isEqualTo(3);
     }
 
     @Test
-    void computeEarnedPoints_shouldReturn0ForWrongWinner() {
-        // Predicted France wins, Brésil actually wins
+    void computeEarnedPoints_1_4_wrongWinner_shouldReturn0() {
         assertThat(matchService.computeEarnedPoints(
-                "Victoire France 2-0", "Victoire Brésil 1-0"))
-                .isEqualTo(0);
+                "Victoire Maroc 1-0", "Victoire France 1-0")).isEqualTo(0);
     }
 
     @Test
-    void computeEarnedPoints_shouldReturn0ForPredictedWinButActualDraw() {
+    void computeEarnedPoints_1_5_wrongWinnerTab_shouldReturn0() {
         assertThat(matchService.computeEarnedPoints(
-                "Victoire France 2-0", "Match nul 0-0"))
-                .isEqualTo(0);
+                "Victoire Maroc t.a.b. 1-1", "Victoire France 1-0")).isEqualTo(0);
+    }
+
+    // ── Groupe 2 : résultat final Victoire France t.a.b. 1-1 (5-4) ──────────
+
+    @Test
+    void computeEarnedPoints_2_1_exactTabWithPenScore_shouldReturn7() {
+        assertThat(matchService.computeEarnedPoints(
+                "Victoire France t.a.b. 1-1 (5-4)", "Victoire France t.a.b. 1-1 (5-4)")).isEqualTo(7);
     }
 
     @Test
-    void computeEarnedPoints_shouldReturn0ForPredictedDrawButActualWin() {
+    void computeEarnedPoints_2_2_rightWinnerRightRegScoreWrongPen_shouldReturn5() {
         assertThat(matchService.computeEarnedPoints(
-                "Match nul 1-1", "Victoire France 2-1"))
-                .isEqualTo(0);
-    }
-
-    // ── TAB (tirs au but) scoring ──────────────────────────────────────────────
-
-    @Test
-    void computeEarnedPoints_tab_exactWithPenScore_shouldReturn7() {
-        assertThat(matchService.computeEarnedPoints(
-                "Victoire France t.a.b. 1-1 (5-4)", "Victoire France t.a.b. 1-1 (5-4)"))
-                .isEqualTo(7);
+                "Victoire France t.a.b. 1-1 (3-2)", "Victoire France t.a.b. 1-1 (5-4)")).isEqualTo(5);
     }
 
     @Test
-    void computeEarnedPoints_tab_rightWinnerRightModeNoScore_shouldReturn5() {
+    void computeEarnedPoints_2_3_rightWinnerRightRegScoreNoPen_shouldReturn5() {
         assertThat(matchService.computeEarnedPoints(
-                "Victoire France t.a.b. 1-1", "Victoire France t.a.b. 1-1 (5-4)"))
-                .isEqualTo(5);
+                "Victoire France t.a.b. 1-1", "Victoire France t.a.b. 1-1 (5-4)")).isEqualTo(5);
     }
 
     @Test
-    void computeEarnedPoints_tab_rightWinnerRightModeWrongScore_shouldReturn5() {
+    void computeEarnedPoints_2_4_rightWinnerWrongRegScore_shouldReturn3() {
         assertThat(matchService.computeEarnedPoints(
-                "Victoire France t.a.b. 0-0", "Victoire France t.a.b. 1-1 (5-4)"))
-                .isEqualTo(5);
+                "Victoire France t.a.b. 0-0", "Victoire France t.a.b. 1-1 (5-4)")).isEqualTo(3);
     }
 
     @Test
-    void computeEarnedPoints_tab_rightWinnerWrongPenScore_shouldReturn5() {
+    void computeEarnedPoints_2_5_rightWinnerPredictedNormalVsTab_shouldReturn3() {
         assertThat(matchService.computeEarnedPoints(
-                "Victoire France t.a.b. 1-1 (4-5)", "Victoire France t.a.b. 1-1 (5-4)"))
-                .isEqualTo(5);
+                "Victoire France 2-1", "Victoire France t.a.b. 1-1 (5-4)")).isEqualTo(3);
     }
 
     @Test
-    void computeEarnedPoints_tab_rightWinnerWrongMode_shouldReturn3() {
+    void computeEarnedPoints_2_6_wrongWinnerRightRegScore_shouldReturn2() {
         assertThat(matchService.computeEarnedPoints(
-                "Victoire France 2-1", "Victoire France t.a.b. 1-1"))
-                .isEqualTo(3);
+                "Victoire Maroc t.a.b. 1-1", "Victoire France t.a.b. 1-1 (5-4)")).isEqualTo(2);
     }
 
     @Test
-    void computeEarnedPoints_tab_wrongWinner_shouldReturn0() {
+    void computeEarnedPoints_2_7_wrongWinnerWrongRegScore_shouldReturn0() {
         assertThat(matchService.computeEarnedPoints(
-                "Victoire Angleterre t.a.b. 1-1", "Victoire France t.a.b. 1-1"))
-                .isEqualTo(0);
+                "Victoire Maroc t.a.b. 0-0", "Victoire France t.a.b. 1-1 (5-4)")).isEqualTo(0);
     }
 
     @Test
-    void computeEarnedPoints_tab_exactWithoutPenScore_shouldReturn5() {
-        // No pen score stored in winning option → max is +5
+    void computeEarnedPoints_2_8_wrongWinnerNormalVsTab_shouldReturn0() {
         assertThat(matchService.computeEarnedPoints(
-                "Victoire France t.a.b. 1-1", "Victoire France t.a.b. 1-1"))
-                .isEqualTo(5);
+                "Victoire Maroc 2-1", "Victoire France t.a.b. 1-1 (5-4)")).isEqualTo(0);
     }
 
     // ── settlement triggered by updateMatchScore ───────────────────────────────

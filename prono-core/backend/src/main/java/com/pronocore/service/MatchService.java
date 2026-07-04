@@ -34,12 +34,9 @@ public class MatchService {
     // Scoring constants
     // ---------------------------------------------------------------
 
-    /** Exact score (normal match) or correct winner via penalties. */
-    static final int POINTS_EXACT_SCORE    = 5;
-    /** Correct result (right winner or right draw), wrong score / wrong mode. */
-    static final int POINTS_CORRECT_RESULT = 3;
-    /** Bonus for also predicting the exact penalty-shootout score. */
-    static final int POINTS_TAB_BONUS      = 2;
+    static final int POINTS_GOOD_WINNER = 3;
+    static final int POINTS_GOOD_SCORE  = 2;
+    static final int POINTS_TAB_BONUS   = 2;
 
     // ---------------------------------------------------------------
     // Queries
@@ -103,6 +100,11 @@ public class MatchService {
         if (request.getPenaltyWinner() != null && match.getPhase() == Match.MatchPhase.POOL) {
             throw new IllegalArgumentException("Penalty shootout cannot be set on POOL phase matches");
         }
+        if (request.getPenaltyWinner() != null
+                && request.getScoreA() != null && request.getScoreB() != null
+                && !request.getScoreA().equals(request.getScoreB())) {
+            throw new IllegalArgumentException("Penalty shootout requires equal regulation scores (scores must be tied)");
+        }
 
         boolean transitionsToFinished =
                 match.getStatus() != Match.Status.FINISHED
@@ -111,9 +113,15 @@ public class MatchService {
         match.setScoreA(request.getScoreA());
         match.setScoreB(request.getScoreB());
         match.setStatus(request.getStatus());
-        match.setPenaltyWinner(request.getPenaltyWinner());
-        match.setPenaltyScoreA(request.getPenaltyScoreA());
-        match.setPenaltyScoreB(request.getPenaltyScoreB());
+        if (request.getPenaltyWinner() != null) {
+            match.setPenaltyWinner(request.getPenaltyWinner());
+            match.setPenaltyScoreA(request.getPenaltyScoreA());
+            match.setPenaltyScoreB(request.getPenaltyScoreB());
+        } else if (request.isPenaltyCleared()) {
+            match.setPenaltyWinner(null);
+            match.setPenaltyScoreA(null);
+            match.setPenaltyScoreB(null);
+        }
         match = matchRepository.save(match);
 
         if (transitionsToFinished && request.getScoreA() != null && request.getScoreB() != null) {
@@ -140,17 +148,17 @@ public class MatchService {
     /**
      * When admin marks a match as FINISHED:
      * 1. Compute the winning option string.
-     * 2. Award +5 (exact score) or +3 (correct result) to each participant.
-     *    Both +5 and +3 count as a "won bet" (betsWon++).
+     * 2. Award points to each participant — scoring additif: see computeEarnedPoints().
      * 3. Store pointsEarned on each participation (used by daily gage loser logic).
      *
      * Note: per-match forfeit assignment has been removed.
      * Gages are now assigned per day via DailyGageService.onMatchSettled().
      *
      * Winning-option format (winner's score always first):
-     *   teamA wins 2-1  → "Victoire France 2-1"
-     *   teamB wins 1-0  → "Victoire Sénégal 1-0"
-     *   draw 0-0        → "Match nul 0-0"
+     *   teamA wins 2-1          → "Victoire France 2-1"
+     *   teamB wins 1-0          → "Victoire Sénégal 1-0"
+     *   draw 0-0                → "Match nul 0-0"
+     *   TAB France wins (5-4)   → "Victoire France t.a.b. 1-1 (5-4)"
      */
     private void settleBetsForMatch(Match match) {
         String winningOption = computeWinningOption(match);
@@ -294,16 +302,17 @@ public class MatchService {
     }
 
     /**
-     * Points for a single participation.
+     * Points for a single participation — scoring additif GOOD_WINNER(3) + GOOD_SCORE(2) + TAB_BONUS(2).
      *
-     * Normal match:
-     *   +5 exact score | +3 correct result | 0 wrong
+     * Normal :  GOOD_WINNER + GOOD_SCORE = 5  (exact)
+     *           GOOD_WINNER             = 3  (bon gagnant, mauvais score)
+     *           0                            (mauvais gagnant)
      *
-     * Penalty-shootout (t.a.b.) match (winning option contains " t.a.b. "):
-     *   +7 correct winner via TAB + exact penalty score  (bonus only when admin stored a pen score)
-     *   +5 correct winner via TAB (any score / no pen score)
-     *   +3 correct winner but wrong mode (predicted normal win, actual TAB, or vice-versa)
-     *   0  wrong winner
+     * TAB :     GOOD_WINNER + GOOD_SCORE + TAB_BONUS = 7  (exact + bon score pénalty)
+     *           GOOD_WINNER + GOOD_SCORE             = 5  (bon gagnant + bon score rég)
+     *           GOOD_WINNER                          = 3  (bon gagnant, mauvais score rég)
+     *           GOOD_SCORE                           = 2  (mauvais gagnant, bon score rég)
+     *           0                                         (mauvais gagnant, mauvais score rég)
      */
     int computeEarnedPoints(String chosenOption, String winningOption) {
         String c = chosenOption.trim();
@@ -311,13 +320,17 @@ public class MatchService {
         boolean winningIsTab = w.contains(" t.a.b. ");
         if (winningIsTab) {
             boolean winningHasPenScore = w.matches(".*\\(\\d+-\\d+\\)$");
-            if (c.equals(w) && winningHasPenScore) return POINTS_EXACT_SCORE + POINTS_TAB_BONUS;
-            if (extractResultWithMode(c).equals(extractResultWithMode(w))) return POINTS_EXACT_SCORE;
-            if (extractResult(c).equals(extractResult(w))) return POINTS_CORRECT_RESULT;
+            if (c.equals(w) && winningHasPenScore) return POINTS_GOOD_WINNER + POINTS_GOOD_SCORE + POINTS_TAB_BONUS;
+            String wReg = extractRegulationScore(w);
+            boolean sameWinner   = extractResult(c).equals(extractResult(w));
+            boolean sameRegScore = !wReg.isEmpty() && wReg.equals(extractRegulationScore(c));
+            if (sameWinner && sameRegScore) return POINTS_GOOD_WINNER + POINTS_GOOD_SCORE;
+            if (sameWinner)                 return POINTS_GOOD_WINNER;
+            if (sameRegScore)               return POINTS_GOOD_SCORE;
             return 0;
         }
-        if (c.equals(w)) return POINTS_EXACT_SCORE;
-        if (extractResult(c).equals(extractResult(w))) return POINTS_CORRECT_RESULT;
+        if (c.equals(w)) return POINTS_GOOD_WINNER + POINTS_GOOD_SCORE;
+        if (extractResult(c).equals(extractResult(w))) return POINTS_GOOD_WINNER;
         return 0;
     }
 
@@ -339,19 +352,18 @@ public class MatchService {
     }
 
     /**
-     * Strips only the penalty score suffix — keeps t.a.b. marker for mode comparison.
-     * "Victoire France t.a.b. 1-1 (5-4)" → "Victoire France t.a.b."
-     * "Victoire France t.a.b. 0-0"        → "Victoire France t.a.b."
-     * "Victoire France 2-1"               → "Victoire France"
+     * Extracts the regulation score (last "X-Y" token after stripping penalty suffix).
+     * "Victoire France t.a.b. 1-1 (5-4)" → "1-1"
+     * "Victoire France t.a.b. 0-0"        → "0-0"
+     * "Victoire France 2-1"               → "2-1"
+     * "Victoire France"                   → ""
      */
-    private String extractResultWithMode(String option) {
+    private String extractRegulationScore(String option) {
         String s = option.replaceAll("\\s*\\(\\d+-\\d+\\)$", "");
-        if (s.startsWith("Match nul")) return "Match nul";
-        if (s.startsWith("Victoire ")) {
-            int lastSpace = s.lastIndexOf(' ');
-            if (lastSpace > 0) return s.substring(0, lastSpace);
-        }
-        return option;
+        int i = s.lastIndexOf(' ');
+        if (i < 0) return "";
+        String tail = s.substring(i + 1);
+        return tail.matches("\\d+-\\d+") ? tail : "";
     }
 
     /**

@@ -28,4 +28,7 @@ public class UpdateMatchScoreRequest {
 
     @Min(value = 0, message = "Penalty score cannot be negative")
     private Integer penaltyScoreB;
+
+    /** Explicit flag to clear all penalty data (penaltyWinner + scores). */
+    private boolean penaltyCleared;
 }

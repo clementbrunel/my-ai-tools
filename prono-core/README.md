@@ -183,6 +183,33 @@ Documentation API complète : http://localhost:8090/swagger-ui.html
 
 ---
 
+## Barème des points
+
+Le scoring est **additif** : chaque élément correct rapporte des points indépendamment.
+
+### Match normal (phase de groupes)
+
+| Prédiction | Points |
+|---|:---:|
+| Bon gagnant + bon score | **5** |
+| Bon gagnant, mauvais score | **3** |
+| Mauvais gagnant | **0** |
+
+### Match avec tirs au but — TAB (phase éliminatoire)
+
+| Prédiction | Points |
+|---|:---:|
+| Bon gagnant + bon score réglementaire + bon score pénalty | **7** |
+| Bon gagnant + bon score réglementaire | **5** |
+| Bon gagnant, mauvais score réglementaire | **3** |
+| Mauvais gagnant, bon score réglementaire | **2** |
+| Mauvais gagnant | **0** |
+
+> Le score réglementaire est le score nul à l'issue des prolongations (ex. 1-1) qui déclenche les tirs au but.
+> Le score pénalty n'est pris en compte que si l'administrateur l'a saisi lors de la validation du match.
+
+---
+
 ## Configuration
 
 Variables d'environnement (backend) :

@@ -32,62 +32,60 @@ describe('extractResult', () => {
 });
 
 describe('computePoints', () => {
-  it('returns 5 for an exact match', () => {
-    expect(computePoints('Victoire France 2-1', 'Victoire France 2-1')).toBe(5);
+  // ── Groupe 1 : résultat final Victoire France 1-0 ─────────────────────────
+
+  it('1.1 — exact score → 5', () => {
+    expect(computePoints('Victoire France 1-0', 'Victoire France 1-0')).toBe(5);
   });
 
-  it('returns 3 when the winner is correct but the score differs', () => {
-    expect(computePoints('Victoire France 2-1', 'Victoire France 3-0')).toBe(3);
+  it('1.2 — bon gagnant, mauvais score → 3', () => {
+    expect(computePoints('Victoire France 2-1', 'Victoire France 1-0')).toBe(3);
   });
 
-  it('returns 0 when the winner is wrong', () => {
-    expect(computePoints('Victoire France 2-1', 'Victoire Maroc 1-0')).toBe(0);
+  it('1.3 — prédit TAB France, résultat normal France → 3', () => {
+    expect(computePoints('Victoire France t.a.b. 1-1', 'Victoire France 1-0')).toBe(3);
   });
 
-  it('returns 5 for an exact draw match', () => {
-    expect(computePoints('Match nul 1-1', 'Match nul 1-1')).toBe(5);
+  it('1.4 — mauvais gagnant → 0', () => {
+    expect(computePoints('Victoire Maroc 1-0', 'Victoire France 1-0')).toBe(0);
   });
 
-  it('returns 3 when both predict a draw but different scores', () => {
-    expect(computePoints('Match nul 0-0', 'Match nul 2-2')).toBe(3);
+  it('1.5 — mauvais gagnant TAB → 0', () => {
+    expect(computePoints('Victoire Maroc t.a.b. 1-1', 'Victoire France 1-0')).toBe(0);
   });
 
-  it('returns 0 when one predicts draw and other predicts victory', () => {
-    expect(computePoints('Match nul 0-0', 'Victoire France 1-0')).toBe(0);
-  });
+  // ── Groupe 2 : résultat final Victoire France t.a.b. 1-1 (5-4) ───────────
 
-  it('trims whitespace before comparing', () => {
-    expect(computePoints('  Victoire France 2-1  ', 'Victoire France 2-1')).toBe(5);
-  });
-
-  // ── TAB (tirs au but) scoring ──────────────────────────────────────────────
-
-  it('returns 7 for exact TAB match including penalty score', () => {
+  it('2.1 — exact TAB avec score pénalty → 7', () => {
     expect(computePoints('Victoire France t.a.b. 1-1 (5-4)', 'Victoire France t.a.b. 1-1 (5-4)')).toBe(7);
   });
 
-  it('returns 5 for correct winner + TAB mode, no penalty score in prediction', () => {
+  it('2.2 — bon gagnant + bon score rég + mauvais score pén → 5', () => {
+    expect(computePoints('Victoire France t.a.b. 1-1 (3-2)', 'Victoire France t.a.b. 1-1 (5-4)')).toBe(5);
+  });
+
+  it('2.3 — bon gagnant + bon score rég + pas de score pén → 5', () => {
     expect(computePoints('Victoire France t.a.b. 1-1', 'Victoire France t.a.b. 1-1 (5-4)')).toBe(5);
   });
 
-  it('returns 5 for correct winner + TAB mode, wrong regular score', () => {
-    expect(computePoints('Victoire France t.a.b. 0-0', 'Victoire France t.a.b. 1-1 (5-4)')).toBe(5);
+  it('2.4 — bon gagnant + mauvais score rég → 3', () => {
+    expect(computePoints('Victoire France t.a.b. 0-0', 'Victoire France t.a.b. 1-1 (5-4)')).toBe(3);
   });
 
-  it('returns 5 for correct winner + TAB mode, wrong penalty score', () => {
-    expect(computePoints('Victoire France t.a.b. 1-1 (4-5)', 'Victoire France t.a.b. 1-1 (5-4)')).toBe(5);
+  it('2.5 — bon gagnant, prédit normal vs TAB → 3', () => {
+    expect(computePoints('Victoire France 2-1', 'Victoire France t.a.b. 1-1 (5-4)')).toBe(3);
   });
 
-  it('returns 5 for exact TAB match when no penalty score stored in winning option', () => {
-    expect(computePoints('Victoire France t.a.b. 1-1', 'Victoire France t.a.b. 1-1')).toBe(5);
+  it('2.6 — mauvais gagnant + bon score rég → 2', () => {
+    expect(computePoints('Victoire Maroc t.a.b. 1-1', 'Victoire France t.a.b. 1-1 (5-4)')).toBe(2);
   });
 
-  it('returns 3 for correct winner but predicted normal win on a TAB match', () => {
-    expect(computePoints('Victoire France 2-1', 'Victoire France t.a.b. 1-1')).toBe(3);
+  it('2.7 — mauvais gagnant + mauvais score rég → 0', () => {
+    expect(computePoints('Victoire Maroc t.a.b. 0-0', 'Victoire France t.a.b. 1-1 (5-4)')).toBe(0);
   });
 
-  it('returns 0 for wrong winner on a TAB match', () => {
-    expect(computePoints('Victoire Angleterre t.a.b. 1-1', 'Victoire France t.a.b. 1-1')).toBe(0);
+  it('2.8 — mauvais gagnant normal vs TAB → 0', () => {
+    expect(computePoints('Victoire Maroc 2-1', 'Victoire France t.a.b. 1-1 (5-4)')).toBe(0);
   });
 });
 

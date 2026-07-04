@@ -16,43 +16,54 @@ export const extractResult = (option: string): string => {
 };
 
 /**
- * Strips only the penalty score suffix — keeps t.a.b. for mode comparison.
- * "Victoire France t.a.b. 1-1 (5-4)" → "Victoire France t.a.b."
- * "Victoire France t.a.b. 0-0"        → "Victoire France t.a.b."
- * "Victoire France 2-1"               → "Victoire France"
+ * Extracts the regulation score (last "X-Y" token after stripping penalty suffix).
+ * "Victoire France t.a.b. 1-1 (5-4)" → "1-1"
+ * "Victoire France t.a.b. 0-0"        → "0-0"
+ * "Victoire France 2-1"               → "2-1"
+ * "Victoire France"                   → ""
  */
-const extractResultWithMode = (option: string): string => {
+const extractRegulationScore = (option: string): string => {
   const s = option.replace(/\s*\(\d+-\d+\)$/, '');
-  if (s.startsWith('Match nul')) return 'Match nul';
-  if (s.startsWith('Victoire ')) {
-    const lastSpace = s.lastIndexOf(' ');
-    if (lastSpace > 0) return s.substring(0, lastSpace);
-  }
-  return option;
+  const i = s.lastIndexOf(' ');
+  if (i < 0) return '';
+  const tail = s.substring(i + 1);
+  return /^\d+-\d+$/.test(tail) ? tail : '';
 };
 
 /**
- * Mirror of Java computeEarnedPoints() with TAB support.
+ * Mirror of Java computeEarnedPoints() — scoring additif GOOD_WINNER(3) + GOOD_SCORE(2) + TAB_BONUS(2).
  *
- * Normal match: +5 exact | +3 correct result | 0 wrong
- * TAB match:    +7 right winner via TAB + exact pen score
- *               +5 right winner via TAB (wrong score or no pen score)
- *               +3 right winner but wrong mode
- *               0  wrong winner
+ * Normal :  GOOD_WINNER + GOOD_SCORE = 5  (exact)
+ *           GOOD_WINNER             = 3  (bon gagnant, mauvais score)
+ *           0                            (mauvais gagnant)
+ *
+ * TAB :     GOOD_WINNER + GOOD_SCORE + TAB_BONUS = 7  (exact + bon score pénalty)
+ *           GOOD_WINNER + GOOD_SCORE             = 5  (bon gagnant + bon score rég)
+ *           GOOD_WINNER                          = 3  (bon gagnant, mauvais score rég)
+ *           GOOD_SCORE                           = 2  (mauvais gagnant, bon score rég)
+ *           0                                         (mauvais gagnant, mauvais score rég)
  */
+const POINTS_GOOD_WINNER = 3;
+const POINTS_GOOD_SCORE  = 2;
+const POINTS_TAB_BONUS   = 2;
+
 export const computePoints = (chosen: string, winning: string): number => {
   const c = chosen.trim();
   const w = winning.trim();
   const winningIsTab = w.includes(' t.a.b. ');
   if (winningIsTab) {
     const winningHasPenScore = /\(\d+-\d+\)$/.test(w);
-    if (c === w && winningHasPenScore) return 7;
-    if (extractResultWithMode(c) === extractResultWithMode(w)) return 5;
-    if (extractResult(c) === extractResult(w)) return 3;
+    if (c === w && winningHasPenScore) return POINTS_GOOD_WINNER + POINTS_GOOD_SCORE + POINTS_TAB_BONUS;
+    const wReg = extractRegulationScore(w);
+    const sameWinner   = extractResult(c) === extractResult(w);
+    const sameRegScore = wReg !== '' && wReg === extractRegulationScore(c);
+    if (sameWinner && sameRegScore) return POINTS_GOOD_WINNER + POINTS_GOOD_SCORE;
+    if (sameWinner)                 return POINTS_GOOD_WINNER;
+    if (sameRegScore)               return POINTS_GOOD_SCORE;
     return 0;
   }
-  if (c === w) return 5;
-  if (extractResult(c) === extractResult(w)) return 3;
+  if (c === w) return POINTS_GOOD_WINNER + POINTS_GOOD_SCORE;
+  if (extractResult(c) === extractResult(w)) return POINTS_GOOD_WINNER;
   return 0;
 };
 
