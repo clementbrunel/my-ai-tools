@@ -5,5 +5,6 @@ public enum EmailType {
     PASSWORD_RESET,
     MATCH_REMINDER,
     GAGE_RESOLUTION,
+    GROUP_NEW_MATCHES,
     TEST_CEDRIC
 }
