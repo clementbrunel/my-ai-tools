@@ -13,6 +13,7 @@ import { useToast } from '../components/Toast';
 import { useUserCounts } from '../context/UserCountsContext';
 import ProfileInfoForm from './profile/ProfileInfoForm';
 import PasswordForm from './profile/PasswordForm';
+import Avatar from '../components/Avatar';
 import { logger } from '../utils/logger';
 
 const FORFEITS_PAGE_SIZE = 5;
@@ -100,13 +101,13 @@ const Profile: React.FC = () => {
       {/* Profile Card */}
       <div className="card">
         <div className="flex items-center gap-4">
-          <div className="w-20 h-20 rounded-full bg-wc-green text-white flex items-center justify-center font-black text-3xl">
-            {user?.avatarUrl ? (
-              <img src={user.avatarUrl} alt={user.username} className="w-20 h-20 rounded-full object-cover" />
-            ) : (
-              user?.username[0].toUpperCase()
-            )}
-          </div>
+          <Avatar
+            src={user?.avatarUrl}
+            alt={user?.username || ''}
+            fallbackText={user?.username[0].toUpperCase() || ''}
+            sizeClassName="w-20 h-20"
+            containerClassName="bg-wc-green text-white font-black text-3xl"
+          />
           <div className="flex-1">
             <h2 className="text-2xl font-black text-gray-900 dark:text-white">
               {user?.displayName || user?.username}
