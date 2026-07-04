@@ -26,6 +26,8 @@ public interface DailyGageRepository extends JpaRepository<DailyGage, Long> {
             JOIN FETCH dg.group
             LEFT JOIN FETCH dg.forfeit
             LEFT JOIN FETCH dg.assignedTo
+            LEFT JOIN FETCH dg.candidates c
+            LEFT JOIN FETCH c.forfeit
             WHERE dg.matchDate = :date AND dg.group.id IN :groupIds
             """)
     List<DailyGage> findByMatchDateAndGroupIdIn(@Param("date") LocalDate date, @Param("groupIds") List<Long> groupIds);
@@ -35,6 +37,8 @@ public interface DailyGageRepository extends JpaRepository<DailyGage, Long> {
             JOIN FETCH dg.group
             LEFT JOIN FETCH dg.forfeit
             LEFT JOIN FETCH dg.assignedTo
+            LEFT JOIN FETCH dg.candidates c
+            LEFT JOIN FETCH c.forfeit
             WHERE dg.group.id IN :groupIds
             ORDER BY dg.matchDate DESC
             """)

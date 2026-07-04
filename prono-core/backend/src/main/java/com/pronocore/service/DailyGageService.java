@@ -49,18 +49,14 @@ public class DailyGageService {
         if (user == null) return List.of();
         List<Long> groupIds = activeGroupIds(user.getId());
         if (groupIds.isEmpty()) return List.of();
-        return dailyGageRepository.findByGroupIdInOrderByMatchDateDesc(groupIds).stream()
-                .map(dg -> toResponse(dg, user))
-                .toList();
+        return toResponseList(dailyGageRepository.findByGroupIdInOrderByMatchDateDesc(groupIds), user);
     }
 
     @Transactional(readOnly = true)
     public List<DailyGageResponse> getDailyGagesByGroup(Long groupId) {
         User user = currentUser();
         groupMemberGuard.requireActiveMembership(groupId, user.getId());
-        return dailyGageRepository.findByGroupIdInOrderByMatchDateDesc(List.of(groupId)).stream()
-                .map(dg -> toResponse(dg, user))
-                .toList();
+        return toResponseList(dailyGageRepository.findByGroupIdInOrderByMatchDateDesc(List.of(groupId)), user);
     }
 
     @Transactional(readOnly = true)
@@ -69,9 +65,7 @@ public class DailyGageService {
         if (user == null) return List.of();
         List<Long> groupIds = activeGroupIds(user.getId());
         if (groupIds.isEmpty()) return List.of();
-        return dailyGageRepository.findByMatchDateAndGroupIdIn(date, groupIds).stream()
-                .map(dg -> toResponse(dg, user))
-                .toList();
+        return toResponseList(dailyGageRepository.findByMatchDateAndGroupIdIn(date, groupIds), user);
     }
 
     @Transactional(readOnly = true)
@@ -446,16 +440,75 @@ public class DailyGageService {
     // Mapping
     // ---------------------------------------------------------------
 
+    /**
+     * Maps a whole list of gages in one shot: batches vote lookups for every candidate
+     * across all gages, and the "all matches finished that day" check per distinct date,
+     * instead of issuing per-gage queries (the previous source of N+1 slowness).
+     */
+    private List<DailyGageResponse> toResponseList(List<DailyGage> gages, User user) {
+        if (gages.isEmpty()) return List.of();
+
+        List<Long> allCandidateIds = gages.stream()
+                .flatMap(dg -> dg.getCandidates().stream())
+                .map(DailyGageCandidate::getId)
+                .toList();
+        Map<Long, List<DailyGageVote>> votesByCandidate = allCandidateIds.isEmpty()
+                ? Map.of()
+                : voteRepository.findByCandidateIdIn(allCandidateIds).stream()
+                        .collect(Collectors.groupingBy(v -> v.getCandidate().getId()));
+
+        Map<LocalDate, Boolean> finishedByDay = computeFinishedByDay(gages);
+
+        return gages.stream()
+                .map(dg -> toResponse(dg, user, votesByCandidate, finishedByDay))
+                .toList();
+    }
+
+    /** For every distinct gage day, whether all of that calendar day's matches are FINISHED —
+     *  computed with a single ranged query instead of one COUNT query per gage. */
+    private Map<LocalDate, Boolean> computeFinishedByDay(List<DailyGage> gages) {
+        List<LocalDate> dates = gages.stream().map(DailyGage::getMatchDate).distinct().toList();
+        if (dates.isEmpty()) return Map.of();
+
+        LocalDate min = Collections.min(dates);
+        LocalDate max = Collections.max(dates);
+        List<Object[]> rows = matchRepository.findMatchDatesAndStatusesInRange(
+                min.atStartOfDay(), max.plusDays(1).atStartOfDay());
+
+        Map<LocalDate, Long> unfinishedCountByDay = rows.stream()
+                .filter(r -> r[1] != Match.Status.FINISHED)
+                .collect(Collectors.groupingBy(
+                        r -> ((LocalDateTime) r[0]).toLocalDate(),
+                        Collectors.counting()));
+
+        Map<LocalDate, Boolean> result = new HashMap<>();
+        for (LocalDate d : dates) {
+            result.put(d, unfinishedCountByDay.getOrDefault(d, 0L) == 0);
+        }
+        return result;
+    }
+
     private DailyGageResponse toResponse(DailyGage dg, User currentUser) {
+        return toResponse(dg, currentUser, null, null);
+    }
+
+    private DailyGageResponse toResponse(DailyGage dg, User currentUser,
+                                          Map<Long, List<DailyGageVote>> votesByCandidate,
+                                          Map<LocalDate, Boolean> finishedByDayMap) {
         Long currentUserId = currentUser != null ? currentUser.getId() : null;
 
         List<DailyGageCandidate> candidates = dg.getCandidates();
-        // Batch-load all votes for all candidates in a single query, then build a lookup map
+        // Votes are either taken from the pre-batched map (list endpoints) or fetched
+        // in a single query scoped to this gage's own candidates (single-gage endpoints).
         Map<Long, Integer> userVoteByCandidate = Map.of();
         Map<Long, Integer> voteScoreByCandidate = Map.of();
         if (!candidates.isEmpty()) {
             List<Long> candidateIds = candidates.stream().map(DailyGageCandidate::getId).toList();
-            List<DailyGageVote> allVotes = voteRepository.findByCandidateIdIn(candidateIds);
+            List<DailyGageVote> allVotes = votesByCandidate != null
+                    ? candidateIds.stream()
+                            .flatMap(id -> votesByCandidate.getOrDefault(id, List.of()).stream())
+                            .toList()
+                    : voteRepository.findByCandidateIdIn(candidateIds);
             voteScoreByCandidate = allVotes.stream()
                     .collect(Collectors.groupingBy(
                             v -> v.getCandidate().getId(),
@@ -480,7 +533,9 @@ public class DailyGageService {
                 .toList();
 
         boolean canForceSettle = dg.getStatus() == DailyGage.Status.ACTIVE
-                && allMatchesFinishedOnDay(dg.getMatchDate());
+                && (finishedByDayMap != null
+                        ? finishedByDayMap.getOrDefault(dg.getMatchDate(), false)
+                        : allMatchesFinishedOnDay(dg.getMatchDate()));
 
         return DailyGageResponse.builder()
                 .id(dg.getId())
