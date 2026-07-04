@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { jwtDecode } from 'jwt-decode';
 import type { User, LoginRequest, RegisterRequest, AuthResponse, DecodedToken } from '../types';
 import { login as apiLogin, register as apiRegister } from '../api/auth';
+import { LocalStorageService, StorageKey } from '../utils/localStorage';
 
 interface AuthContextType {
   user: User | null;
@@ -23,8 +24,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
 
   const logout = useCallback(() => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    LocalStorageService.remove(StorageKey.Token);
+    LocalStorageService.remove(StorageKey.User);
     setToken(null);
     setUser(null);
   }, []);
@@ -39,15 +40,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
-    const storedToken = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
+    const storedToken = LocalStorageService.getString(StorageKey.Token);
+    const storedUser = LocalStorageService.getJSON<User | null>(StorageKey.User, null);
 
     if (storedToken && storedUser) {
       if (isTokenExpired(storedToken)) {
         logout();
       } else {
         setToken(storedToken);
-        setUser(JSON.parse(storedUser));
+        setUser(storedUser);
       }
     }
     setIsLoading(false);
@@ -65,14 +66,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const setSession = (response: AuthResponse) => {
-    localStorage.setItem('token', response.token);
-    localStorage.setItem('user', JSON.stringify(response.user));
+    LocalStorageService.setString(StorageKey.Token, response.token);
+    LocalStorageService.setJSON(StorageKey.User, response.user);
     setToken(response.token);
     setUser(response.user);
   };
 
   const updateUser = (updated: User) => {
-    localStorage.setItem('user', JSON.stringify(updated));
+    LocalStorageService.setJSON(StorageKey.User, updated);
     setUser(updated);
   };
 
