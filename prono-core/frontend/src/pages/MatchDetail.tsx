@@ -388,29 +388,31 @@ const MatchDetail: React.FC = () => {
                     ⚡ Égalité — {knockoutWinner === 'A' ? match.teamA : match.teamB} gagne aux t.a.b.
                   </p>
                   <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                      Score aux t.a.b. <span className="text-orange-500 font-medium">(optionnel — +2 pts si exact)</span>
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        value={penScoreWinner}
-                        onChange={(e) => setPenScoreWinner(e.target.value)}
-                        min={0}
-                        max={20}
-                        className="input-field w-16 text-center"
-                        placeholder="5"
-                      />
-                      <span className="text-gray-400 font-bold">-</span>
-                      <input
-                        type="number"
-                        value={penScoreLoser}
-                        onChange={(e) => setPenScoreLoser(e.target.value)}
-                        min={0}
-                        max={20}
-                        className="input-field w-16 text-center"
-                        placeholder="4"
-                      />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Score aux t.a.b.</p>
+                    <div className="flex items-end gap-4">
+                      <div className="flex-1 text-center">
+                        <input
+                          type="number"
+                          value={penScoreWinner}
+                          onChange={(e) => setPenScoreWinner(e.target.value)}
+                          min={0}
+                          max={20}
+                          className="input-field text-center text-sm w-full py-1.5"
+                          placeholder="5"
+                        />
+                      </div>
+                      <div className="text-sm font-black text-gray-400 dark:text-gray-500 pb-2">—</div>
+                      <div className="flex-1 text-center">
+                        <input
+                          type="number"
+                          value={penScoreLoser}
+                          onChange={(e) => setPenScoreLoser(e.target.value)}
+                          min={0}
+                          max={20}
+                          className="input-field text-center text-sm w-full py-1.5"
+                          placeholder="4"
+                        />
+                      </div>
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-3 text-xs text-gray-500 dark:text-gray-400">
