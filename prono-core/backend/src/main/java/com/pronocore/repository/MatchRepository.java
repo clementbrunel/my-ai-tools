@@ -33,6 +33,12 @@ public interface MatchRepository extends JpaRepository<Match, Long> {
                                      @Param("endOfDay")       LocalDateTime endOfDay,
                                      @Param("finishedStatus") Match.Status  finishedStatus);
 
+    /** Kick-off datetime + status of every match in [start, end) — used to batch-compute
+     *  "all matches finished" per calendar day for a whole list of gages in a single query. */
+    @Query("SELECT m.matchDate, m.status FROM Match m WHERE m.matchDate >= :start AND m.matchDate < :end")
+    List<Object[]> findMatchDatesAndStatusesInRange(@Param("start") LocalDateTime start,
+                                                     @Param("end")   LocalDateTime end);
+
     /** Upcoming matches whose kick-off falls in [from, to] and for which no reminder has been sent yet. */
     @Query("""
             SELECT m FROM Match m
