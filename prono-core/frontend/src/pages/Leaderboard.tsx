@@ -5,6 +5,7 @@ import { getGroupAssignments } from '../api/forfeits';
 import type { GroupUserForfeit, LeaderboardEntry, Group } from '../types';
 import LeaderboardRow from '../components/LeaderboardRow';
 import NoGroupBanner from '../components/NoGroupBanner';
+import Avatar from '../components/Avatar';
 import ScrollableTableWrapper from '../components/ScrollableTableWrapper';
 import { useAuth } from '../context/AuthContext';
 import { logger } from '../utils/logger';
@@ -61,9 +62,13 @@ const GagesSection: React.FC<GagesSectionProps> = ({ gages, currentUsername, com
               className={`card p-4 border-l-4 ${borderColor}`}
             >
               <div className="flex items-center gap-2 mb-3">
-                <div className={`w-8 h-8 rounded-full ${avatarColor} text-white flex items-center justify-center font-bold text-sm shrink-0`}>
-                  {displayName[0].toUpperCase()}
-                </div>
+                <Avatar
+                  src={first.avatarUrl}
+                  alt={displayName}
+                  fallbackText={displayName[0].toUpperCase()}
+                  sizeClassName="w-8 h-8 shrink-0"
+                  containerClassName={`${avatarColor} text-white font-bold text-sm`}
+                />
                 <span className="font-semibold text-gray-900 dark:text-white text-sm">
                   {displayName}
                   {isMe && <span className="ml-2 text-xs text-wc-red">(vous)</span>}

@@ -396,6 +396,7 @@ public class ForfeitService {
                 .id(uf.getId())
                 .username(uf.getUser().getUsername())
                 .displayName(uf.getUser().getDisplayName())
+                .avatarUrl(uf.getUser().getEffectiveAvatarUrl())
                 .forfeit(toForfeitResponse(uf.getForfeit()))
                 .assignedByUsername(uf.getAssignedBy().getUsername())
                 .assignedByDisplayName(uf.getAssignedBy().getDisplayName())
