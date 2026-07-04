@@ -35,7 +35,7 @@ const MatchDetail: React.FC = () => {
   // Prediction form state
   const [scoreA, setScoreA] = useState('0');
   const [scoreB, setScoreB] = useState('0');
-  const [knockoutWinner, setKnockoutWinner] = useState<'A' | 'B'>('A');
+  const [knockoutWinner, setKnockoutWinner] = useState<'A' | 'B' | ''>('');
   const [penScoreWinner, setPenScoreWinner] = useState('');
   const [penScoreLoser, setPenScoreLoser] = useState('');
   const [comment, setComment] = useState('');
@@ -133,6 +133,7 @@ const MatchDetail: React.FC = () => {
     if (isNaN(a) || isNaN(b) || a < 0 || b < 0) return '';
     if (!match) return '';
     if (isKnockout) {
+      if (!knockoutWinner) return '';
       const winner = knockoutWinner === 'A' ? match.teamA : match.teamB;
       if (a === b) {
         const penSuffix = penScoreWinner && penScoreLoser ? ` (${penScoreWinner}-${penScoreLoser})` : '';
@@ -151,7 +152,7 @@ const MatchDetail: React.FC = () => {
 
   const previewOption = computeOption();
   const scoresEqual = scoreA !== '' && scoreB !== '' && parseInt(scoreA) === parseInt(scoreB) && !isNaN(parseInt(scoreA));
-  const showTabOption = isKnockout && scoresEqual;
+  const showTabOption = isKnockout && scoresEqual && knockoutWinner !== '';
   const isDeadlinePassed = match ? new Date() > new Date(match.matchDate) : false;
   const myParticipation = participations.find((p) => p.user.username === user?.username);
   const alreadyVoted = !!myParticipation;
@@ -414,9 +415,9 @@ const MatchDetail: React.FC = () => {
                   </div>
                   <div className="flex flex-wrap gap-3 text-xs text-gray-500 dark:text-gray-400">
                     <span>❌ Mauvais gagnant → <strong>0 pt</strong></span>
-                    <span>⚡ Bon gagnant → <strong className="text-yellow-600 dark:text-yellow-400">+3 pts</strong></span>
-                    <span>⚡ Bon gagnant + bon score rég → <strong className="text-orange-500">+5 pts</strong></span>
-                    <span>🎯 + bon score t.a.b. → <strong className="text-orange-600">+7 pts</strong></span>
+                    <span>🥈 Bon gagnant → <strong className="text-yellow-600 dark:text-yellow-400">+3 pts</strong></span>
+                    <span>🥇 Bon gagnant + bon score rég → <strong className="text-orange-500">+5 pts</strong></span>
+                    <span>⚡ + bon score t.a.b. → <strong className="text-orange-600">+7 pts</strong></span>
                   </div>
                 </div>
               )}
