@@ -132,6 +132,23 @@ const Profile: React.FC = () => {
           </button>
         </div>
 
+        {!showEdit && (
+          <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-4 space-y-2 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-gray-500 dark:text-gray-400">🔔 Rappel par email avant chaque match</span>
+              <span className={user?.emailReminderEnabled ? 'text-wc-green font-semibold' : 'text-gray-400'}>
+                {user?.emailReminderEnabled ? 'Activé' : 'Désactivé'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-gray-500 dark:text-gray-400">🃏 Résolution du gage du jour</span>
+              <span className={user?.emailGageEnabled ? 'text-wc-green font-semibold' : 'text-gray-400'}>
+                {user?.emailGageEnabled ? 'Activé' : 'Désactivé'}
+              </span>
+            </div>
+          </div>
+        )}
+
         {showEdit && (
           <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-6 space-y-6">
             <ProfileInfoForm
