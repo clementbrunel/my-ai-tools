@@ -78,10 +78,16 @@ describe('MatchRow — pronoStatus', () => {
 
 describe('MatchRow — drapeaux', () => {
   it('rend les images de drapeau pour chaque équipe', () => {
-    renderRow(makeMatch({ teamA: 'Espagne', teamB: 'Allemagne' }));
+    renderRow(makeMatch({ teamA: 'Espagne', teamB: 'Allemagne', teamAIso2: 'es', teamBIso2: 'de' }));
     const imgs = screen.getAllByRole('img');
     const srcs = imgs.map((img) => (img as HTMLImageElement).src);
-    expect(srcs.some((s) => s.includes('Espagne'))).toBe(true);
-    expect(srcs.some((s) => s.includes('Allemagne'))).toBe(true);
+    expect(srcs.some((s) => s.includes('es'))).toBe(true);
+    expect(srcs.some((s) => s.includes('de'))).toBe(true);
+  });
+
+  it('affiche un drapeau générique si iso2 absent', () => {
+    renderRow(makeMatch({ teamAIso2: null, teamBIso2: null }));
+    expect(screen.queryByRole('img')).toBeNull();
+    expect(screen.getAllByText('🏳️').length).toBe(2);
   });
 });
