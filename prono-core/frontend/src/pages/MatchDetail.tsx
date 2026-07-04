@@ -102,6 +102,10 @@ const MatchDetail: React.FC = () => {
     }
   }, [participations, match, user]);
 
+  // ── derived ────────────────────────────────────────────────────────────────
+
+  const isKnockout = match?.phase === 'KNOCKOUT';
+
   // When scores become unequal, auto-correct winner and reset penalty scores.
   // Equal scores (draw/TAB) are left untouched — the TAB section handles them.
   useEffect(() => {
@@ -122,10 +126,6 @@ const MatchDetail: React.FC = () => {
       showToast('Erreur lors du vote');
     }
   };
-
-  // ── derived ────────────────────────────────────────────────────────────────
-
-  const isKnockout = match?.phase === 'KNOCKOUT';
 
   const computeOption = (): string => {
     if (scoreA === '' || scoreB === '') return '';
