@@ -370,7 +370,7 @@ public class GroupService {
             .userId(m.getUser().getId())
             .username(m.getUser().getUsername())
             .displayName(m.getUser().getDisplayName())
-            .avatarUrl(m.getUser().getAvatarUrl())
+            .avatarUrl(m.getUser().getEffectiveAvatarUrl())
             .role(m.getRole())
             .status(m.getStatus())
             .joinedAt(m.getJoinedAt())

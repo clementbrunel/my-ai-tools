@@ -1,5 +1,6 @@
 package com.pronocore.entity;
 
+import com.pronocore.util.GravatarUtil;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -63,6 +64,13 @@ public class User {
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    public String getEffectiveAvatarUrl() {
+        if (avatarUrl != null && !avatarUrl.isBlank()) {
+            return avatarUrl;
+        }
+        return GravatarUtil.urlFor(email);
+    }
 
     public enum Role {
         PLATFORM_ADMIN, USER

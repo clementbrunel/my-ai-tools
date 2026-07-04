@@ -153,7 +153,7 @@ const Profile: React.FC = () => {
           <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-6 space-y-6">
             <ProfileInfoForm
               initialDisplayName={user?.displayName || ''}
-              initialAvatarUrl={user?.avatarUrl || ''}
+              initialAvatarUrl={user?.customAvatarUrl || ''}
               initialEmail={user?.email || ''}
               initialEmailReminder={user?.emailReminderEnabled ?? true}
               initialEmailGage={user?.emailGageEnabled ?? false}
