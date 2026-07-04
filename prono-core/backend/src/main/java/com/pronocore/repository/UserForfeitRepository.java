@@ -11,9 +11,11 @@ import java.util.List;
 @Repository
 public interface UserForfeitRepository extends JpaRepository<UserForfeit, Long> {
 
-    List<UserForfeit> findByUserId(Long userId);
+    @Query("SELECT uf FROM UserForfeit uf JOIN FETCH uf.user JOIN FETCH uf.forfeit JOIN FETCH uf.assignedBy WHERE uf.user.id = :userId")
+    List<UserForfeit> findByUserId(@Param("userId") Long userId);
 
-    List<UserForfeit> findByUserIdAndCompletedFalse(Long userId);
+    @Query("SELECT uf FROM UserForfeit uf JOIN FETCH uf.user JOIN FETCH uf.forfeit JOIN FETCH uf.assignedBy WHERE uf.user.id = :userId AND uf.completed = false")
+    List<UserForfeit> findByUserIdAndCompletedFalse(@Param("userId") Long userId);
 
     List<UserForfeit> findByCompletedFalse();
 

@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 
 @Repository
 public interface BetRepository extends JpaRepository<Bet, Long> {
@@ -25,7 +26,10 @@ public interface BetRepository extends JpaRepository<Bet, Long> {
 
     /** Bets belonging to any group the user is an ACTIVE member of. */
     @Query("""
-            SELECT b FROM Bet b
+            SELECT DISTINCT b FROM Bet b
+            JOIN FETCH b.group g
+            JOIN FETCH b.creator
+            LEFT JOIN FETCH b.match
             JOIN GroupMember gm ON gm.group = b.group
             WHERE gm.user.id = :userId AND gm.status = com.pronocore.entity.GroupMember.MemberStatus.ACTIVE
             ORDER BY b.createdAt DESC
@@ -34,7 +38,10 @@ public interface BetRepository extends JpaRepository<Bet, Long> {
 
     /** Bets for a given match, restricted to the user's ACTIVE groups. */
     @Query("""
-            SELECT b FROM Bet b
+            SELECT DISTINCT b FROM Bet b
+            JOIN FETCH b.group g
+            JOIN FETCH b.creator
+            LEFT JOIN FETCH b.match
             JOIN GroupMember gm ON gm.group = b.group
             WHERE b.match.id = :matchId
               AND gm.user.id = :userId
@@ -53,6 +60,10 @@ public interface BetRepository extends JpaRepository<Bet, Long> {
     @Query("SELECT COUNT(bp) FROM BetParticipation bp WHERE bp.bet.id = :betId")
     long countParticipationsByBetId(@Param("betId") Long betId);
 
+    /** Returns [betId, count] for multiple bets in a single query. */
+    @Query("SELECT bp.bet.id, COUNT(bp) FROM BetParticipation bp WHERE bp.bet.id IN :betIds GROUP BY bp.bet.id")
+    List<Object[]> countParticipationsByBetIds(@Param("betIds") List<Long> betIds);
+
     /** Distinct matches that have at least one bet (any status) in the user's active groups. */
     @Query("""
             SELECT DISTINCT b.match FROM Bet b
@@ -63,6 +74,10 @@ public interface BetRepository extends JpaRepository<Bet, Long> {
             ORDER BY b.match.matchDate ASC
             """)
     List<Match> findDistinctMatchesWithBetsInUserGroups(@Param("userId") Long userId);
+
+    /** Group IDs that have at least one OPEN bet, restricted to the given group IDs. */
+    @Query("SELECT DISTINCT b.group.id FROM Bet b WHERE b.group.id IN :groupIds AND b.status = com.pronocore.entity.Bet.Status.OPEN")
+    Set<Long> findGroupIdsWithOpenBets(@Param("groupIds") List<Long> groupIds);
 
     /** Returns true if at least one OPEN bet exists for the given group on the given calendar day. */
     @Query("""

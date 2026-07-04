@@ -12,19 +12,27 @@ import java.util.Optional;
 @Repository
 public interface GroupMemberRepository extends JpaRepository<GroupMember, Long> {
 
-    List<GroupMember> findByGroupId(Long groupId);
+    @Query("SELECT gm FROM GroupMember gm JOIN FETCH gm.user WHERE gm.group.id = :groupId")
+    List<GroupMember> findByGroupId(@Param("groupId") Long groupId);
 
-    List<GroupMember> findByUserId(Long userId);
+    @Query("SELECT gm FROM GroupMember gm JOIN FETCH gm.group WHERE gm.user.id = :userId")
+    List<GroupMember> findByUserId(@Param("userId") Long userId);
 
     Optional<GroupMember> findByGroupIdAndUserId(Long groupId, Long userId);
 
     boolean existsByGroupIdAndUserId(Long groupId, Long userId);
 
-    List<GroupMember> findByGroupIdAndStatus(Long groupId, GroupMember.MemberStatus status);
+    @Query("SELECT gm FROM GroupMember gm JOIN FETCH gm.user WHERE gm.group.id = :groupId AND gm.status = :status")
+    List<GroupMember> findByGroupIdAndStatus(@Param("groupId") Long groupId, @Param("status") GroupMember.MemberStatus status);
 
-    List<GroupMember> findByUserIdAndStatus(Long userId, GroupMember.MemberStatus status);
+    @Query("SELECT gm FROM GroupMember gm JOIN FETCH gm.group WHERE gm.user.id = :userId AND gm.status = :status")
+    List<GroupMember> findByUserIdAndStatus(@Param("userId") Long userId, @Param("status") GroupMember.MemberStatus status);
 
     long countByGroupIdAndStatus(Long groupId, GroupMember.MemberStatus status);
+
+    /** Returns [groupId, count] for pending applications across multiple groups (single batch query). */
+    @Query("SELECT gm.group.id, COUNT(gm) FROM GroupMember gm WHERE gm.group.id IN :groupIds AND gm.status = com.pronocore.entity.GroupMember.MemberStatus.PENDING GROUP BY gm.group.id")
+    List<Object[]> countPendingByGroupIds(@Param("groupIds") List<Long> groupIds);
 
     @Query("SELECT gm FROM GroupMember gm JOIN FETCH gm.group WHERE gm.group.id IN :groupIds")
     List<GroupMember> findByGroupIdIn(@Param("groupIds") List<Long> groupIds);

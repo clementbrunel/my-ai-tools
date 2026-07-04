@@ -23,7 +23,8 @@ public interface ForfeitVoteRepository extends JpaRepository<ForfeitVote, Long> 
            nativeQuery = true)
     void upsertVote(@Param("forfeitId") Long forfeitId, @Param("userId") Long userId, @Param("vote") int vote);
 
-    List<ForfeitVote> findByForfeitIdInAndUserId(List<Long> forfeitIds, Long userId);
+    @Query("SELECT fv FROM ForfeitVote fv JOIN FETCH fv.forfeit WHERE fv.forfeit.id IN :forfeitIds AND fv.user.id = :userId")
+    List<ForfeitVote> findByForfeitIdInAndUserId(@Param("forfeitIds") List<Long> forfeitIds, @Param("userId") Long userId);
 
     /** Returns [forfeitId, totalScore] rows for the given forfeit IDs. */
     @Query("SELECT fv.forfeit.id, COALESCE(SUM(fv.vote), 0) FROM ForfeitVote fv WHERE fv.forfeit.id IN :ids GROUP BY fv.forfeit.id")
