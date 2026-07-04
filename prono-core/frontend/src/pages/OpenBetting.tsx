@@ -2,10 +2,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { getMyGroups } from '../api/groups';
 import { getMatches } from '../api/matches';
 import { getBets, openMatchForBetting, openCompetitionForBetting, closeMatchForBetting } from '../api/bets';
-import type { Group, Match } from '../types';
+import { getCompetitions } from '../api/competitions';
+import type { Group, Match, MatchPhase } from '../types';
 import { formatDate } from '../utils/dates';
 import ConfirmModal from '../components/ConfirmModal';
 import { useGroupAdminCounts } from '../context/GroupAdminCountsContext';
+
+type StatusFilter = 'CLOSED' | 'OPEN';
 
 /**
  * Group-admin view to open matches for betting in a group.
@@ -27,6 +30,10 @@ const OpenBetting: React.FC = () => {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [matchToClose, setMatchToClose] = useState<Match | null>(null);
+  const [allCompetitions, setAllCompetitions] = useState<string[]>([]);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('CLOSED');
+  const [competitionFilter, setCompetitionFilter] = useState('');
+  const [phaseFilter, setPhaseFilter] = useState<MatchPhase | ''>('');
 
   // Load the groups the user administers
   useEffect(() => {
@@ -38,6 +45,13 @@ const OpenBetting: React.FC = () => {
       })
       .catch(() => setError('Impossible de charger vos groupes'))
       .finally(() => setIsLoading(false));
+  }, []);
+
+  // Load the full list of registered competitions for the filter dropdown
+  useEffect(() => {
+    getCompetitions()
+      .then(setAllCompetitions)
+      .catch(() => setError('Impossible de charger les compétitions'));
   }, []);
 
   // Load matches + which ones are already open in the selected group
@@ -58,13 +72,24 @@ const OpenBetting: React.FC = () => {
       .catch(() => setError('Impossible de charger les matchs'));
   }, [selectedGroupId]);
 
+  const filteredMatches = useMemo(() => {
+    return matches.filter((match) => {
+      const isOpen = openMatchIds.has(match.id);
+      if (statusFilter === 'OPEN' && !isOpen) return false;
+      if (statusFilter === 'CLOSED' && isOpen) return false;
+      if (competitionFilter && match.competition !== competitionFilter) return false;
+      if (phaseFilter && match.phase !== phaseFilter) return false;
+      return true;
+    });
+  }, [matches, openMatchIds, statusFilter, competitionFilter, phaseFilter]);
+
   // Group matches by competition, preserving date order within each competition
   const matchesByCompetition = useMemo(() => {
-    return matches.reduce<Record<string, Match[]>>((acc, match) => {
+    return filteredMatches.reduce<Record<string, Match[]>>((acc, match) => {
       (acc[match.competition] ??= []).push(match);
       return acc;
     }, {});
-  }, [matches]);
+  }, [filteredMatches]);
 
   const competitions = Object.keys(matchesByCompetition).sort();
 
@@ -158,6 +183,45 @@ const OpenBetting: React.FC = () => {
         </div>
       </div>
 
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2">
+          <label className="label mb-0">Statut</label>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+            className="input-field"
+          >
+            <option value="CLOSED">Fermés</option>
+            <option value="OPEN">Ouverts</option>
+          </select>
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="label mb-0">Compétition</label>
+          <select
+            value={competitionFilter}
+            onChange={(e) => setCompetitionFilter(e.target.value)}
+            className="input-field"
+          >
+            <option value="">Toutes</option>
+            {allCompetitions.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="label mb-0">Phase</label>
+          <select
+            value={phaseFilter}
+            onChange={(e) => setPhaseFilter(e.target.value as MatchPhase | '')}
+            className="input-field"
+          >
+            <option value="">Toutes</option>
+            <option value="POOL">Phase de poules</option>
+            <option value="KNOCKOUT">Phase éliminatoire</option>
+          </select>
+        </div>
+      </div>
+
       {error && (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 text-red-700 dark:text-red-400 text-sm">
           {error}
@@ -166,7 +230,7 @@ const OpenBetting: React.FC = () => {
       )}
 
       {competitions.length === 0 ? (
-        <div className="card text-center py-10 text-gray-500">Aucun match disponible.</div>
+        <div className="card text-center py-10 text-gray-500">Aucun match ne correspond aux filtres.</div>
       ) : (
         <div className="space-y-8">
           {competitions.map((competition) => {
