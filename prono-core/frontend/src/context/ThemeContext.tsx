@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { type Theme, defaultTheme, themes } from '../themes';
+import { LocalStorageService, StorageKey } from '../utils/localStorage';
 
 interface ThemeContextValue {
   theme: Theme;
@@ -22,7 +23,7 @@ function applyThemeVars(theme: Theme): void {
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => {
-    const saved = localStorage.getItem('app-theme');
+    const saved = LocalStorageService.getString(StorageKey.Theme);
     return saved && themes[saved] ? themes[saved] : defaultTheme;
   });
 
@@ -32,7 +33,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   function setTheme(id: string) {
     const next = themes[id] ?? defaultTheme;
-    localStorage.setItem('app-theme', next.id);
+    LocalStorageService.setString(StorageKey.Theme, next.id);
     setThemeState(next);
   }
 
