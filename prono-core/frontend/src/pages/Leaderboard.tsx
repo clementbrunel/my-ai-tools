@@ -194,9 +194,13 @@ const Leaderboard: React.FC = () => {
               return (
                 <div key={entry.user.id} className="flex items-center gap-3 card p-3">
                   <span className="text-2xl w-8 text-center">{medals[i]}</span>
-                  <div className={`w-9 h-9 rounded-full ${avatarColors[i]} text-white flex items-center justify-center font-black text-base shrink-0`}>
-                    {name[0].toUpperCase()}
-                  </div>
+                  <Avatar
+                    src={entry.user.avatarUrl}
+                    alt={name}
+                    fallbackText={name[0].toUpperCase()}
+                    sizeClassName="w-9 h-9 shrink-0"
+                    containerClassName={`${avatarColors[i]} text-white font-black text-base`}
+                  />
                   <span className="font-bold text-sm text-gray-900 dark:text-white flex-1 truncate">{name}</span>
                   <span className="font-black text-lg text-gray-800 dark:text-white">{entry.totalPoints}</span>
                   <span className="text-xs text-gray-500">pts</span>
@@ -211,8 +215,14 @@ const Leaderboard: React.FC = () => {
             {top3[1] && (
               <div className="flex flex-col items-center">
                 <div className="text-4xl mb-2">🥈</div>
-                <div className="w-16 h-16 rounded-full bg-gray-400 text-white flex items-center justify-center font-black text-xl mb-2">
-                  {(top3[1].user.displayName || top3[1].user.username)[0].toUpperCase()}
+                <div className="mb-2">
+                  <Avatar
+                    src={top3[1].user.avatarUrl}
+                    alt={top3[1].user.displayName || top3[1].user.username}
+                    fallbackText={(top3[1].user.displayName || top3[1].user.username)[0].toUpperCase()}
+                    sizeClassName="w-16 h-16"
+                    containerClassName="bg-gray-400 text-white font-black text-xl"
+                  />
                 </div>
                 <div className="font-bold text-sm text-gray-800 dark:text-gray-200 mb-1">{top3[1].user.displayName || top3[1].user.username}</div>
                 <div className="podium-2 rounded-t-lg w-20 h-20 flex items-center justify-center">
@@ -228,8 +238,14 @@ const Leaderboard: React.FC = () => {
             {top3[0] && (
               <div className="flex flex-col items-center">
                 <div className="text-4xl mb-2 animate-bounce-slow">🥇</div>
-                <div className="w-20 h-20 rounded-full bg-yellow-500 text-white flex items-center justify-center font-black text-2xl mb-2 ring-4 ring-yellow-300">
-                  {(top3[0].user.displayName || top3[0].user.username)[0].toUpperCase()}
+                <div className="mb-2 ring-4 ring-yellow-300 rounded-full">
+                  <Avatar
+                    src={top3[0].user.avatarUrl}
+                    alt={top3[0].user.displayName || top3[0].user.username}
+                    fallbackText={(top3[0].user.displayName || top3[0].user.username)[0].toUpperCase()}
+                    sizeClassName="w-20 h-20"
+                    containerClassName="bg-yellow-500 text-white font-black text-2xl"
+                  />
                 </div>
                 <div className="font-black text-base text-gray-800 dark:text-white mb-1">{top3[0].user.displayName || top3[0].user.username}</div>
                 <div className="podium-1 rounded-t-lg w-20 h-28 flex items-center justify-center">
@@ -245,8 +261,14 @@ const Leaderboard: React.FC = () => {
             {top3[2] && (
               <div className="flex flex-col items-center">
                 <div className="text-4xl mb-2">🥉</div>
-                <div className="w-16 h-16 rounded-full bg-orange-400 text-white flex items-center justify-center font-black text-xl mb-2">
-                  {(top3[2].user.displayName || top3[2].user.username)[0].toUpperCase()}
+                <div className="mb-2">
+                  <Avatar
+                    src={top3[2].user.avatarUrl}
+                    alt={top3[2].user.displayName || top3[2].user.username}
+                    fallbackText={(top3[2].user.displayName || top3[2].user.username)[0].toUpperCase()}
+                    sizeClassName="w-16 h-16"
+                    containerClassName="bg-orange-400 text-white font-black text-xl"
+                  />
                 </div>
                 <div className="font-bold text-sm text-gray-800 dark:text-gray-200 mb-1">{top3[2].user.displayName || top3[2].user.username}</div>
                 <div className="podium-3 rounded-t-lg w-20 h-14 flex items-center justify-center">

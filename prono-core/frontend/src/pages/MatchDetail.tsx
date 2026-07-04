@@ -12,6 +12,7 @@ import { getFlagUrl } from '../utils/countryFlags';
 import { computePoints, parseOption } from '../utils/matchCalculations';
 import DailyGageCard from '../components/DailyGageCard';
 import ScoreInput from '../components/ScoreInput';
+import Avatar from '../components/Avatar';
 
 // ── component ─────────────────────────────────────────────────────────────────
 
@@ -556,9 +557,13 @@ const MatchDetail: React.FC = () => {
                   }`}
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-8 h-8 rounded-full bg-wc-gold text-gray-900 flex items-center justify-center font-bold text-sm flex-shrink-0">
-                      {(p.user.displayName || p.user.username)[0].toUpperCase()}
-                    </div>
+                    <Avatar
+                      src={p.user.avatarUrl}
+                      alt={p.user.displayName || p.user.username}
+                      fallbackText={(p.user.displayName || p.user.username)[0].toUpperCase()}
+                      sizeClassName="w-8 h-8 flex-shrink-0"
+                      containerClassName="bg-wc-gold text-gray-900 font-bold text-sm"
+                    />
                     <div className="min-w-0">
                       <p className="font-medium text-gray-900 dark:text-white text-sm">
                         {p.user.displayName || p.user.username}{' '}
