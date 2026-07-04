@@ -11,6 +11,7 @@ import NoGroupBanner from '../components/NoGroupBanner';
 import { useAuth } from '../context/AuthContext';
 
 import { formatDate } from '../utils/dates';
+import { logger } from '../utils/logger';
 
 type FilterStatus = 'ALL' | 'UPCOMING' | 'FINISHED';
 type ViewMode = 'grid' | 'list';
@@ -36,7 +37,7 @@ const Matches: React.FC = () => {
         setHasGroups(groups.length > 0);
         setMatches(matchesData);
       } catch (err) {
-        console.error('Error loading data:', err);
+        logger.error('Error loading data:', err);
       } finally {
         setIsLoading(false);
       }

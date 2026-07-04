@@ -4,6 +4,7 @@ import { getAllUsersAdmin, adminUnlockUser } from '../../api/users';
 import type { UserAdminInfo } from '../../types';
 import { formatDate } from '../../utils/dates';
 import ScrollableTableWrapper from '../../components/ScrollableTableWrapper';
+import { logger } from '../../utils/logger';
 
 const AdminUsersTab: React.FC = () => {
   const { showToast } = useToast();
@@ -17,7 +18,7 @@ const AdminUsersTab: React.FC = () => {
   useEffect(() => {
     getAllUsersAdmin()
       .then(setPlatformUsers)
-      .catch(console.error)
+      .catch(logger.error)
       .finally(() => setIsLoading(false));
   }, []);
 

@@ -9,6 +9,7 @@ import type { Match, DailyGage } from '../types';
 import MatchCard from '../components/MatchCard';
 import DailyGageCard from '../components/DailyGageCard';
 import { useToast } from '../components/Toast';
+import { logger } from '../utils/logger';
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
@@ -40,7 +41,7 @@ const Dashboard: React.FC = () => {
           // No gage today — that's fine
         }
       } catch (err) {
-        console.error('Error loading dashboard:', err);
+        logger.error('Error loading dashboard:', err);
       } finally {
         setIsLoading(false);
       }

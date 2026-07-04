@@ -13,6 +13,7 @@ import { useToast } from '../components/Toast';
 import { useUserCounts } from '../context/UserCountsContext';
 import ProfileInfoForm from './profile/ProfileInfoForm';
 import PasswordForm from './profile/PasswordForm';
+import { logger } from '../utils/logger';
 
 const FORFEITS_PAGE_SIZE = 5;
 
@@ -47,7 +48,7 @@ const Profile: React.FC = () => {
           setLeaderboardEntry(entry || null);
         }
       } catch (err) {
-        console.error('Error loading profile:', err);
+        logger.error('Error loading profile:', err);
       } finally {
         setIsLoading(false);
       }

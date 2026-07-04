@@ -7,6 +7,7 @@ import DailyGagePanel from '../../components/DailyGagePanel';
 import { useFormMessages } from '../../hooks/useFormMessages';
 import type { Forfeit, Group } from '../../types';
 import ScrollableTableWrapper from '../../components/ScrollableTableWrapper';
+import { logger } from '../../utils/logger';
 
 const FORFEIT_CATEGORIES = ['General', 'Nourriture', 'Humiliation', 'Spectacle', 'Réseaux sociaux', 'Boissons'];
 
@@ -39,7 +40,7 @@ const AdminForfeitsTab: React.FC = () => {
         setForfeits(f);
         setAdminGroups(groups);
       })
-      .catch(console.error);
+      .catch(logger.error);
   }, []);
 
   const handleCreateForfeit = async (e: React.FormEvent) => {

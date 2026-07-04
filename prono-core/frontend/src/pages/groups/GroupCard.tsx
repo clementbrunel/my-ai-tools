@@ -7,6 +7,7 @@ import type { Group } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import ConfirmModal from '../../components/ConfirmModal';
 import GroupAdminSettings from './GroupAdminSettings';
+import { logger } from '../../utils/logger';
 
 interface Props {
   group: Group;
@@ -48,7 +49,7 @@ const GroupCard: React.FC<Props> = ({ group, onLeave, onUpdate }) => {
           onLeave(group.id);
         } catch (err: unknown) {
           // Leave failed — group stays in list
-          console.error('Failed to leave group', err);
+          logger.error('Failed to leave group', err);
         }
       },
     });
