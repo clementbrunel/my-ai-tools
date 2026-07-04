@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
 import { getAdminCounts } from '../api/adminCounts';
+import { LocalStorageService, StorageKey } from '../utils/localStorage';
 
 interface GroupAdminCountsContextType {
   totalBadge: number;
@@ -22,18 +23,12 @@ const GroupAdminCountsContext = createContext<GroupAdminCountsContextType>({
   clearMatchesWithoutBetsAlert: () => {},
 });
 
-const STORAGE_KEY = 'admin_matches_without_bets_ack';
-
 function readAck(): Record<number, number> {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}');
-  } catch {
-    return {};
-  }
+  return LocalStorageService.getJSON(StorageKey.AdminMatchesWithoutBetsAck, {});
 }
 
 function writeAck(ack: Record<number, number>) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(ack));
+  LocalStorageService.setJSON(StorageKey.AdminMatchesWithoutBetsAck, ack);
 }
 
 /** Returns per-group effective count: max(0, real - acknowledged). */

@@ -5,12 +5,11 @@ import Matches from './Matches';
 import { makeMatch } from '../test-utils/factories';
 import { renderWithRouter } from '../test-utils/render-helpers';
 
-vi.mock('../api/matches', () => ({
-  getMatchesForMyGroups: vi.fn(),
-}));
-
-vi.mock('../api/groups', () => ({
-  getMyGroups: vi.fn(),
+// Le composant lit ses données depuis MatchesContext — on le mocke directement
+// pour tester le comportement du composant en isolation.
+vi.mock('../context/MatchesContext', () => ({
+  MatchesProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  useMatches: vi.fn(),
 }));
 
 vi.mock('../context/AuthContext', () => ({
@@ -19,22 +18,33 @@ vi.mock('../context/AuthContext', () => ({
 
 vi.mock('../utils/countryFlags');
 
-import * as matchesApi from '../api/matches';
-import * as groupsApi from '../api/groups';
+import * as matchesCtx from '../context/MatchesContext';
+
+type CtxValue = ReturnType<typeof matchesCtx.useMatches>;
+
+const makeCtx = (overrides?: Partial<CtxValue>): CtxValue => ({
+  matches: [],
+  hasGroups: true,
+  isLoading: false,
+  fetchIfNeeded: vi.fn(),
+  markParticipated: vi.fn(),
+  ...overrides,
+});
 
 const renderPage = () => renderWithRouter(<Matches />);
 
 describe('Matches — filtrage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(groupsApi.getMyGroups).mockResolvedValue([{ id: 1 } as any]);
   });
 
   it("filtre UPCOMING : n'affiche que les matchs à venir", async () => {
-    vi.mocked(matchesApi.getMatchesForMyGroups).mockResolvedValue([
-      makeMatch({ id: 1, teamA: 'France', teamB: 'Brésil', status: 'UPCOMING' }),
-      makeMatch({ id: 2, teamA: 'Espagne', teamB: 'Italie', status: 'FINISHED', scoreA: 1, scoreB: 0 }),
-    ]);
+    vi.mocked(matchesCtx.useMatches).mockReturnValue(makeCtx({
+      matches: [
+        makeMatch({ id: 1, teamA: 'France', teamB: 'Brésil', status: 'UPCOMING' }),
+        makeMatch({ id: 2, teamA: 'Espagne', teamB: 'Italie', status: 'FINISHED', scoreA: 1, scoreB: 0 }),
+      ],
+    }));
 
     renderPage();
 
@@ -46,13 +56,14 @@ describe('Matches — filtrage', () => {
 
   it("filtre FINISHED : n'affiche que les matchs terminés", async () => {
     const user = userEvent.setup();
-    vi.mocked(matchesApi.getMatchesForMyGroups).mockResolvedValue([
-      makeMatch({ id: 1, teamA: 'France', teamB: 'Brésil', status: 'UPCOMING' }),
-      makeMatch({ id: 2, teamA: 'Espagne', teamB: 'Italie', status: 'FINISHED', scoreA: 1, scoreB: 0 }),
-    ]);
+    vi.mocked(matchesCtx.useMatches).mockReturnValue(makeCtx({
+      matches: [
+        makeMatch({ id: 1, teamA: 'France', teamB: 'Brésil', status: 'UPCOMING' }),
+        makeMatch({ id: 2, teamA: 'Espagne', teamB: 'Italie', status: 'FINISHED', scoreA: 1, scoreB: 0 }),
+      ],
+    }));
 
     renderPage();
-    await waitFor(() => screen.getByText(/Terminés/));
 
     await user.click(screen.getByText(/Terminés/));
 
@@ -64,13 +75,14 @@ describe('Matches — filtrage', () => {
 
   it('filtre ALL : affiche tous les matchs', async () => {
     const user = userEvent.setup();
-    vi.mocked(matchesApi.getMatchesForMyGroups).mockResolvedValue([
-      makeMatch({ id: 1, teamA: 'France', teamB: 'Brésil', status: 'UPCOMING' }),
-      makeMatch({ id: 2, teamA: 'Espagne', teamB: 'Italie', status: 'FINISHED', scoreA: 1, scoreB: 0 }),
-    ]);
+    vi.mocked(matchesCtx.useMatches).mockReturnValue(makeCtx({
+      matches: [
+        makeMatch({ id: 1, teamA: 'France', teamB: 'Brésil', status: 'UPCOMING' }),
+        makeMatch({ id: 2, teamA: 'Espagne', teamB: 'Italie', status: 'FINISHED', scoreA: 1, scoreB: 0 }),
+      ],
+    }));
 
     renderPage();
-    await waitFor(() => screen.getByText(/Tous/));
 
     await user.click(screen.getByText(/Tous/));
 
@@ -84,18 +96,17 @@ describe('Matches — filtrage', () => {
 describe('Matches — recherche', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(groupsApi.getMyGroups).mockResolvedValue([{ id: 1 } as any]);
-    vi.mocked(matchesApi.getMatchesForMyGroups).mockResolvedValue([
-      makeMatch({ id: 1, teamA: 'France', teamB: 'Brésil', status: 'UPCOMING' }),
-      makeMatch({ id: 2, teamA: 'Espagne', teamB: 'Italie', status: 'UPCOMING' }),
-    ]);
+    vi.mocked(matchesCtx.useMatches).mockReturnValue(makeCtx({
+      matches: [
+        makeMatch({ id: 1, teamA: 'France', teamB: 'Brésil', status: 'UPCOMING' }),
+        makeMatch({ id: 2, teamA: 'Espagne', teamB: 'Italie', status: 'UPCOMING' }),
+      ],
+    }));
   });
 
   it("filtre par nom d'équipe (case-insensitive)", async () => {
     const user = userEvent.setup();
     renderPage();
-
-    await waitFor(() => screen.getByPlaceholderText(/Rechercher/));
 
     await user.type(screen.getByPlaceholderText(/Rechercher/), 'france');
 
@@ -109,8 +120,6 @@ describe('Matches — recherche', () => {
     const user = userEvent.setup();
     renderPage();
 
-    await waitFor(() => screen.getByPlaceholderText(/Rechercher/));
-
     await user.type(screen.getByPlaceholderText(/Rechercher/), 'ital');
 
     await waitFor(() => {
@@ -123,21 +132,18 @@ describe('Matches — recherche', () => {
 describe('Matches — toggle grille/liste', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(groupsApi.getMyGroups).mockResolvedValue([{ id: 1 } as any]);
-    vi.mocked(matchesApi.getMatchesForMyGroups).mockResolvedValue([
-      makeMatch({ id: 1, teamA: 'France', teamB: 'Brésil', status: 'UPCOMING' }),
-    ]);
+    vi.mocked(matchesCtx.useMatches).mockReturnValue(makeCtx({
+      matches: [makeMatch({ id: 1, teamA: 'France', teamB: 'Brésil', status: 'UPCOMING' })],
+    }));
   });
 
-  it('bouton Vue tuiles visible', async () => {
+  it('bouton Vue tuiles visible', () => {
     renderPage();
-    await waitFor(() => screen.getByTitle('Vue tuiles'));
     expect(screen.getByTitle('Vue tuiles')).toBeDefined();
   });
 
-  it('bouton Vue liste visible', async () => {
+  it('bouton Vue liste visible', () => {
     renderPage();
-    await waitFor(() => screen.getByTitle('Vue liste'));
     expect(screen.getByTitle('Vue liste')).toBeDefined();
   });
 
@@ -145,7 +151,6 @@ describe('Matches — toggle grille/liste', () => {
     const user = userEvent.setup();
     renderPage();
 
-    await waitFor(() => screen.getByTitle('Vue liste'));
     await user.click(screen.getByTitle('Vue liste'));
 
     await waitFor(() => {
@@ -157,17 +162,17 @@ describe('Matches — toggle grille/liste', () => {
 describe('Matches — group-by-date', () => {
   it('regroupe les matchs par date', async () => {
     vi.clearAllMocks();
-    vi.mocked(groupsApi.getMyGroups).mockResolvedValue([{ id: 1 } as any]);
-    vi.mocked(matchesApi.getMatchesForMyGroups).mockResolvedValue([
-      makeMatch({ id: 1, teamA: 'France', teamB: 'Brésil', status: 'UPCOMING', matchDate: '2026-07-01T20:00:00Z' }),
-      makeMatch({ id: 2, teamA: 'Espagne', teamB: 'Italie', status: 'UPCOMING', matchDate: '2026-07-02T20:00:00Z' }),
-      makeMatch({ id: 3, teamA: 'Portugal', teamB: 'Angleterre', status: 'UPCOMING', matchDate: '2026-07-01T18:00:00Z' }),
-    ]);
-
     const user = userEvent.setup();
+    vi.mocked(matchesCtx.useMatches).mockReturnValue(makeCtx({
+      matches: [
+        makeMatch({ id: 1, teamA: 'France', teamB: 'Brésil', status: 'UPCOMING', matchDate: '2026-07-01T20:00:00Z' }),
+        makeMatch({ id: 2, teamA: 'Espagne', teamB: 'Italie', status: 'UPCOMING', matchDate: '2026-07-02T20:00:00Z' }),
+        makeMatch({ id: 3, teamA: 'Portugal', teamB: 'Angleterre', status: 'UPCOMING', matchDate: '2026-07-01T18:00:00Z' }),
+      ],
+    }));
+
     renderPage();
 
-    await waitFor(() => screen.getByText(/Tous/));
     await user.click(screen.getByText(/Tous/));
 
     await waitFor(() => {
@@ -178,15 +183,26 @@ describe('Matches — group-by-date', () => {
 });
 
 describe('Matches — sans groupe', () => {
-  it('affiche un avertissement si pas de groupe', async () => {
+  it('affiche un avertissement si pas de groupe', () => {
     vi.clearAllMocks();
-    vi.mocked(groupsApi.getMyGroups).mockResolvedValue([]);
-    vi.mocked(matchesApi.getMatchesForMyGroups).mockResolvedValue([]);
+    vi.mocked(matchesCtx.useMatches).mockReturnValue(makeCtx({
+      hasGroups: false,
+      matches: [],
+    }));
 
     renderPage();
 
-    await waitFor(() => {
-      expect(screen.getByText(/aucun groupe/i)).toBeDefined();
-    });
+    expect(screen.getByText(/aucun groupe/i)).toBeDefined();
+  });
+});
+
+describe('Matches — état de chargement', () => {
+  it('affiche le spinner pendant isLoading', () => {
+    vi.clearAllMocks();
+    vi.mocked(matchesCtx.useMatches).mockReturnValue(makeCtx({ isLoading: true }));
+
+    renderPage();
+
+    expect(screen.getByText(/Chargement/i)).toBeDefined();
   });
 });
