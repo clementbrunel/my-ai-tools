@@ -7,6 +7,7 @@ import LeaderboardRow from '../components/LeaderboardRow';
 import NoGroupBanner from '../components/NoGroupBanner';
 import ScrollableTableWrapper from '../components/ScrollableTableWrapper';
 import { useAuth } from '../context/AuthContext';
+import { logger } from '../utils/logger';
 
 // ─── Pending Gages Section ────────────────────────────────────────────────────
 
@@ -123,7 +124,7 @@ const Leaderboard: React.FC = () => {
         setGroups(g);
         if (g.length > 0) setSelectedGroupId(g[0].id);
       })
-      .catch(console.error);
+      .catch(logger.error);
   }, []);
 
   // Load the leaderboard for the selected group
@@ -133,10 +134,10 @@ const Leaderboard: React.FC = () => {
       return;
     }
     setIsLoading(true);
-    getGroupLeaderboard(selectedGroupId).then(setEntries).catch(console.error).finally(() => setIsLoading(false));
+    getGroupLeaderboard(selectedGroupId).then(setEntries).catch(logger.error).finally(() => setIsLoading(false));
 
     if (selectedGroupId != null) {
-      getGroupAssignments(selectedGroupId).then(setAllGages).catch(console.error);
+      getGroupAssignments(selectedGroupId).then(setAllGages).catch(logger.error);
     } else {
       setAllGages([]);
     }

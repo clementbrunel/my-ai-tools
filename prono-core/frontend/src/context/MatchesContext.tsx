@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useRef, useState } from 'react'
 import { getMatchesForMyGroups } from '../api/matches';
 import { getMyGroups } from '../api/groups';
 import type { Match } from '../types';
+import { logger } from '../utils/logger';
 
 const STALE_MS = 5 * 60 * 1000;
 
@@ -40,7 +41,7 @@ export function MatchesProvider({ children }: { children: React.ReactNode }) {
         setMatches(matchesData);
         fetchedAtRef.current = Date.now();
       } catch (err) {
-        console.error('Error loading matches:', err);
+        logger.error('Error loading matches:', err);
       } finally {
         setIsLoading(false);
         pendingRef.current = null;
