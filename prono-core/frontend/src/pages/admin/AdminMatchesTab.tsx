@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useToast } from '../../components/Toast';
-import { getMatches, createMatch, updateMatchScore, forceSettleMatch } from '../../api/matches';
+import { getMatches, createMatch, updateMatchScore, deleteMatch, forceSettleMatch } from '../../api/matches';
 import { getCompetitions as fetchAllCompetitions, getCompetitionTeams } from '../../api/competitions';
 import { useFormMessages } from '../../hooks/useFormMessages';
 import type { Match, MatchPhase } from '../../types';
 import { formatDate } from '../../utils/dates';
 import ScrollableTableWrapper from '../../components/ScrollableTableWrapper';
 import ScoreInput from '../../components/ScoreInput';
+import ConfirmModal from '../../components/ConfirmModal';
 
 const KNOCKOUT_ROUNDS = [
   '1/32 de finale',
@@ -41,6 +42,10 @@ const AdminMatchesTab: React.FC = () => {
   const [penScoreA, setPenScoreA] = useState('');
   const [penScoreB, setPenScoreB] = useState('');
   const [recalculatingMatchId, setRecalculatingMatchId] = useState<number | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    title: string; message: string; confirmLabel?: string;
+    variant?: 'danger' | 'default'; onConfirm: () => void;
+  } | null>(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -131,6 +136,23 @@ const AdminMatchesTab: React.FC = () => {
     } finally {
       setRecalculatingMatchId(null);
     }
+  };
+
+  const handleDeleteMatch = (match: Match) => {
+    setConfirmDialog({
+      title: 'Supprimer le match',
+      message: `Êtes-vous sûr de vouloir supprimer le match ${match.teamA} vs ${match.teamB} ? Cette action est irréversible et supprimera également les paris associés.`,
+      confirmLabel: 'Supprimer',
+      variant: 'danger',
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        try {
+          await deleteMatch(match.id);
+          setMatches((prev) => prev.filter((m) => m.id !== match.id));
+          showToast('Match supprimé');
+        } catch { showToast('Erreur lors de la suppression du match'); }
+      },
+    });
   };
 
   if (isLoading) {
@@ -275,6 +297,12 @@ const AdminMatchesTab: React.FC = () => {
                           {recalculatingMatchId === match.id ? '⏳' : '🔄'} Recalculer
                         </button>
                       )}
+                      <button
+                        onClick={() => handleDeleteMatch(match)}
+                        className="text-xs text-red-500 hover:text-red-700"
+                      >
+                        🗑️ Supprimer
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -346,6 +374,16 @@ const AdminMatchesTab: React.FC = () => {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={confirmDialog !== null}
+        title={confirmDialog?.title ?? ''}
+        message={confirmDialog?.message ?? ''}
+        confirmLabel={confirmDialog?.confirmLabel}
+        variant={confirmDialog?.variant}
+        onConfirm={() => confirmDialog?.onConfirm()}
+        onCancel={() => setConfirmDialog(null)}
+      />
     </div>
   );
 };
