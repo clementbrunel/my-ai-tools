@@ -5,6 +5,7 @@ import { getBets, openMatchForBetting, openCompetitionForBetting, closeMatchForB
 import type { Group, Match } from '../types';
 import { formatDate } from '../utils/dates';
 import ConfirmModal from '../components/ConfirmModal';
+import { useGroupAdminCounts } from '../context/GroupAdminCountsContext';
 
 /**
  * Group-admin view to open matches for betting in a group.
@@ -12,6 +13,12 @@ import ConfirmModal from '../components/ConfirmModal';
  * in a single action — minimising the number of admin clicks.
  */
 const OpenBetting: React.FC = () => {
+  const { clearMatchesWithoutBetsAlert } = useGroupAdminCounts();
+
+  useEffect(() => {
+    clearMatchesWithoutBetsAlert();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const [adminGroups, setAdminGroups] = useState<Group[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);

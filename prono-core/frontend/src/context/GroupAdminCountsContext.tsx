@@ -7,7 +7,9 @@ interface GroupAdminCountsContextType {
   pendingForfeitsPerGroup: Record<number, number>;
   missingGagesPerGroup: Record<number, number>;
   groupsWithNoBets: Record<number, boolean>;
+  matchesWithoutBetsPerGroup: Record<number, number>;
   refresh: () => void;
+  clearMatchesWithoutBetsAlert: () => void;
 }
 
 const GroupAdminCountsContext = createContext<GroupAdminCountsContextType>({
@@ -15,8 +17,34 @@ const GroupAdminCountsContext = createContext<GroupAdminCountsContextType>({
   pendingForfeitsPerGroup: {},
   missingGagesPerGroup: {},
   groupsWithNoBets: {},
+  matchesWithoutBetsPerGroup: {},
   refresh: () => {},
+  clearMatchesWithoutBetsAlert: () => {},
 });
+
+const STORAGE_KEY = 'admin_matches_without_bets_ack';
+
+function readAck(): Record<number, number> {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}');
+  } catch {
+    return {};
+  }
+}
+
+function writeAck(ack: Record<number, number>) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(ack));
+}
+
+/** Returns per-group effective count: max(0, real - acknowledged). */
+function applyAck(
+  real: Record<number, number>,
+  ack: Record<number, number>,
+): Record<number, number> {
+  return Object.fromEntries(
+    Object.entries(real).map(([k, v]) => [k, Math.max(0, v - (ack[Number(k)] ?? 0))]),
+  );
+}
 
 export const GroupAdminCountsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
@@ -24,15 +52,37 @@ export const GroupAdminCountsProvider: React.FC<{ children: React.ReactNode }> =
   const [pendingForfeitsPerGroup, setPendingForfeitsPerGroup] = useState<Record<number, number>>({});
   const [missingGagesPerGroup, setMissingGagesPerGroup] = useState<Record<number, number>>({});
   const [groupsWithNoBets, setGroupsWithNoBets] = useState<Record<number, boolean>>({});
+  const [matchesWithoutBetsPerGroup, setMatchesWithoutBetsPerGroup] = useState<Record<number, number>>({});
   const [tick, setTick] = useState(0);
 
   const refresh = useCallback(() => setTick((t) => t + 1), []);
+
+  const clearMatchesWithoutBetsAlert = useCallback(() => {
+    // Read the latest real counts from state, persist them as acknowledged
+    setMatchesWithoutBetsPerGroup((current) => {
+      const ack = readAck();
+      const nextAck: Record<number, number> = { ...ack };
+      Object.entries(current).forEach(([k, effectiveCount]) => {
+        // effective = real - ack, so real = effective + ack
+        const gid = Number(k);
+        nextAck[gid] = effectiveCount + (ack[gid] ?? 0);
+      });
+      writeAck(nextAck);
+      // All effective counts become 0
+      return Object.fromEntries(Object.keys(current).map((k) => [k, 0]));
+    });
+    setTotalBadge((prev) => {
+      const effectiveTotal = Object.values(matchesWithoutBetsPerGroup).reduce((s, v) => s + v, 0);
+      return Math.max(0, prev - effectiveTotal);
+    });
+  }, [matchesWithoutBetsPerGroup]);
 
   useEffect(() => {
     if (!user) {
       setTotalBadge(0);
       setPendingForfeitsPerGroup({});
       setMissingGagesPerGroup({});
+      setMatchesWithoutBetsPerGroup({});
       return;
     }
 
@@ -45,12 +95,17 @@ export const GroupAdminCountsProvider: React.FC<{ children: React.ReactNode }> =
 
         const pendingForfeits = Object.values(counts.pendingForfeitsPerGroup).reduce((s, v) => s + v, 0);
         const missingGages = Object.values(counts.missingGagesPerGroup).reduce((s, v) => s + v, 0);
-        const groupsNoBetsCount = Object.values(counts.groupsWithNoBets).filter(Boolean).length;
+
+        const rawMatches: Record<number, number> = counts.matchesWithoutBetsPerGroup ?? {};
+        const ack = readAck();
+        const effectiveMatches = applyAck(rawMatches, ack);
+        const matchesWithoutBets = Object.values(effectiveMatches).reduce((s, v) => s + v, 0);
 
         setPendingForfeitsPerGroup(counts.pendingForfeitsPerGroup);
         setMissingGagesPerGroup(counts.missingGagesPerGroup);
         setGroupsWithNoBets(counts.groupsWithNoBets);
-        setTotalBadge(counts.pendingApplications + pendingForfeits + missingGages + groupsNoBetsCount);
+        setMatchesWithoutBetsPerGroup(effectiveMatches);
+        setTotalBadge(counts.pendingApplications + pendingForfeits + missingGages + matchesWithoutBets);
       } catch {
         // badge errors are non-blocking
       }
@@ -60,7 +115,7 @@ export const GroupAdminCountsProvider: React.FC<{ children: React.ReactNode }> =
   }, [user, tick]);
 
   return (
-    <GroupAdminCountsContext.Provider value={{ totalBadge, pendingForfeitsPerGroup, missingGagesPerGroup, groupsWithNoBets, refresh }}>
+    <GroupAdminCountsContext.Provider value={{ totalBadge, pendingForfeitsPerGroup, missingGagesPerGroup, groupsWithNoBets, matchesWithoutBetsPerGroup, refresh, clearMatchesWithoutBetsAlert }}>
       {children}
     </GroupAdminCountsContext.Provider>
   );
