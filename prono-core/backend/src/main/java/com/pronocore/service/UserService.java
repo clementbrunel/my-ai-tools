@@ -129,7 +129,7 @@ public class UserService {
                 .email(user.getEmail())
                 .emailVerified(user.isEmailVerified())
                 .role(user.getRole())
-                .avatarUrl(user.getAvatarUrl())
+                .avatarUrl(user.getEffectiveAvatarUrl())
                 .createdAt(user.getCreatedAt())
                 .groups(groupsByUserId.getOrDefault(user.getId(), List.of()))
                 .build())

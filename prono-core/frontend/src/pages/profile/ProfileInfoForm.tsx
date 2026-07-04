@@ -102,6 +102,9 @@ const ProfileInfoForm: React.FC<Props> = ({
           placeholder="https://example.com/photo.jpg"
           className="input w-full"
         />
+        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+          Laisse ce champ vide pour utiliser ton avatar Gravatar (basé sur ton email).
+        </p>
       </div>
 
       <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">

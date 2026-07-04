@@ -4,6 +4,7 @@ import { useGroupAdminCounts } from '../context/GroupAdminCountsContext';
 import { useUserCounts } from '../context/UserCountsContext';
 import { isAdmin } from '../types';
 import { useState } from 'react';
+import Avatar from './Avatar';
 
 const Navbar: React.FC = () => {
   const { user, logout } = useAuth();
@@ -69,13 +70,13 @@ const Navbar: React.FC = () => {
                   className="relative flex items-center gap-2 text-white hover:text-wc-gold transition-colors"
                 >
                   <div className="relative w-8 h-8">
-                    <div className="w-8 h-8 rounded-full bg-wc-gold text-gray-900 flex items-center justify-center font-bold text-sm">
-                      {user.avatarUrl ? (
-                        <img src={user.avatarUrl} alt={user.username} className="w-8 h-8 rounded-full object-cover" />
-                      ) : (
-                        user.username[0].toUpperCase()
-                      )}
-                    </div>
+                    <Avatar
+                      src={user.avatarUrl}
+                      alt={user.username}
+                      fallbackText={user.username[0].toUpperCase()}
+                      sizeClassName="w-8 h-8"
+                      containerClassName="bg-wc-gold text-gray-900 font-bold text-sm"
+                    />
                     {userTotalBadge > 0 && (
                       <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold leading-none rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
                         {userTotalBadge}

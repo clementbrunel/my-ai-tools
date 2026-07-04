@@ -21,6 +21,7 @@ public class UserResponse {
     private boolean emailVerified;
     private User.Role role;
     private String avatarUrl;
+    private String customAvatarUrl;
     private boolean emailReminderEnabled;
     private boolean emailGageEnabled;
     private LocalDateTime createdAt;

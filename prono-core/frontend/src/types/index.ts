@@ -6,6 +6,7 @@ export interface User {
   emailVerified: boolean;
   role: 'PLATFORM_ADMIN' | 'USER';
   avatarUrl?: string;
+  customAvatarUrl?: string;
   emailReminderEnabled: boolean;
   emailGageEnabled: boolean;
   createdAt?: string;
