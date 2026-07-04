@@ -85,10 +85,16 @@ describe('MatchCard — pronoStatus', () => {
 
 describe('MatchCard — drapeaux', () => {
   it('affiche les drapeaux des deux équipes via img', () => {
-    renderCard();
+    renderCard(makeMatch({ teamAIso2: 'fr', teamBIso2: 'br' }));
     const imgs = screen.getAllByRole('img');
     const srcs = imgs.map((img) => (img as HTMLImageElement).src);
-    expect(srcs.some((s) => s.includes('France'))).toBe(true);
-    expect(srcs.some((s) => s.includes('Br'))).toBe(true);
+    expect(srcs.some((s) => s.includes('fr'))).toBe(true);
+    expect(srcs.some((s) => s.includes('br'))).toBe(true);
+  });
+
+  it('affiche un drapeau générique si iso2 absent', () => {
+    renderCard(makeMatch({ teamAIso2: null, teamBIso2: null }));
+    expect(screen.queryByRole('img')).toBeNull();
+    expect(screen.getAllByText('🏳️').length).toBe(2);
   });
 });
