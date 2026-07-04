@@ -5,6 +5,7 @@ export interface AdminCounts {
   pendingForfeitsPerGroup: Record<number, number>;
   missingGagesPerGroup: Record<number, number>;
   groupsWithNoBets: Record<number, boolean>;
+  matchesWithoutBetsPerGroup: Record<number, number>;
 }
 
 export const getAdminCounts = async (): Promise<AdminCounts> => {
