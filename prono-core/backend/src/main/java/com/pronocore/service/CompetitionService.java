@@ -5,6 +5,7 @@ import com.pronocore.entity.Competition;
 import com.pronocore.entity.Team;
 import com.pronocore.repository.CompetitionRepository;
 import com.pronocore.repository.TeamRepository;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,9 +34,9 @@ public class CompetitionService {
     }
 
     @Transactional(readOnly = true)
-    public List<String> getAllKnownTeams() {
+    public List<TeamResponse> getAllKnownTeams() {
         return teamRepository.findAllByOrderByNameAsc()
-                .stream().map(Team::getName).toList();
+                .stream().map(t -> new TeamResponse(t.getId(), t.getName(), t.getIso2())).toList();
     }
 
     @Transactional
@@ -46,28 +47,39 @@ public class CompetitionService {
     }
 
     @Transactional
-    public void addTeam(String competitionName, String teamName) {
+    public void addTeam(String competitionName, Long teamId) {
         Competition competition = findOrCreateCompetition(competitionName);
-        Team team = findOrCreateTeam(teamName);
+        Team team = requireTeam(teamId);
         if (!competition.getTeams().contains(team)) {
             competition.getTeams().add(team);
         }
     }
 
     @Transactional
-    public void removeTeam(String competitionName, String teamName) {
+    public void removeTeam(String competitionName, Long teamId) {
         competitionRepository.findByName(competitionName)
-                .ifPresent(c -> c.getTeams().removeIf(t -> t.getName().equals(teamName)));
+                .ifPresent(c -> c.getTeams().removeIf(t -> t.getId().equals(teamId)));
     }
 
     @Transactional
-    public void setTeams(String competitionName, List<String> teamNames) {
+    public void setTeams(String competitionName, List<Long> teamIds) {
         Competition competition = findOrCreateCompetition(competitionName);
-        List<Team> desired = teamNames.stream()
-                .map(this::findOrCreateTeam)
+        List<Team> desired = teamIds.stream()
+                .map(this::requireTeam)
                 .toList();
         competition.getTeams().clear();
         competition.getTeams().addAll(desired);
+    }
+
+    /**
+     * Looks up a team by exact name, creating it if it doesn't exist yet.
+     * Used when an admin adds a brand-new team to a competition roster.
+     */
+    @Transactional
+    public TeamResponse findOrCreateTeam(String name) {
+        Team team = teamRepository.findByName(name)
+                .orElseGet(() -> teamRepository.save(Team.builder().name(name).build()));
+        return new TeamResponse(team.getId(), team.getName(), team.getIso2());
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────
@@ -78,9 +90,8 @@ public class CompetitionService {
                         Competition.builder().name(name).build()));
     }
 
-    private Team findOrCreateTeam(String name) {
-        return teamRepository.findByName(name)
-                .orElseGet(() -> teamRepository.save(
-                        Team.builder().name(name).build()));
+    private Team requireTeam(Long teamId) {
+        return teamRepository.findById(teamId)
+                .orElseThrow(() -> new EntityNotFoundException("Team not found: " + teamId));
     }
 }
