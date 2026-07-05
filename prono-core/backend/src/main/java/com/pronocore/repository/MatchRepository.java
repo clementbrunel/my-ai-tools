@@ -12,11 +12,14 @@ import java.util.List;
 @Repository
 public interface MatchRepository extends JpaRepository<Match, Long> {
 
-    List<Match> findByStatusOrderByMatchDateAsc(Match.Status status);
+    @Query("SELECT m FROM Match m JOIN FETCH m.teamA JOIN FETCH m.teamB JOIN FETCH m.competition WHERE m.status = :status ORDER BY m.matchDate ASC")
+    List<Match> findByStatusOrderByMatchDateAsc(@Param("status") Match.Status status);
 
+    @Query("SELECT m FROM Match m JOIN FETCH m.teamA JOIN FETCH m.teamB JOIN FETCH m.competition ORDER BY m.matchDate ASC")
     List<Match> findAllByOrderByMatchDateAsc();
 
-    List<Match> findByCompetition_IdOrderByMatchDateAsc(Long competitionId);
+    @Query("SELECT m FROM Match m JOIN FETCH m.teamA JOIN FETCH m.teamB JOIN FETCH m.competition WHERE m.competition.id = :competitionId ORDER BY m.matchDate ASC")
+    List<Match> findByCompetition_IdOrderByMatchDateAsc(@Param("competitionId") Long competitionId);
 
     /** All matches whose kick-off falls on the same calendar day as [startOfDay, endOfDay). */
     @Query("SELECT m FROM Match m WHERE m.matchDate >= :startOfDay AND m.matchDate < :endOfDay")
@@ -56,6 +59,9 @@ public interface MatchRepository extends JpaRepository<Match, Long> {
      *  whose status was not yet flipped to ONGOING/FINISHED by the admin is not included. */
     @Query("""
             SELECT DISTINCT m FROM Match m
+            JOIN FETCH m.teamA
+            JOIN FETCH m.teamB
+            JOIN FETCH m.competition
             JOIN Bet b ON b.match = m
             JOIN GroupMember gm ON gm.group = b.group
             WHERE gm.user.id = :userId
