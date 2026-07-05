@@ -141,7 +141,7 @@ const AdminMatchesTab: React.FC = () => {
   const handleDeleteMatch = (match: Match) => {
     setConfirmDialog({
       title: 'Supprimer le match',
-      message: `Êtes-vous sûr de vouloir supprimer le match ${match.teamA} vs ${match.teamB} ? Cette action est irréversible et supprimera également les paris associés.`,
+      message: `Êtes-vous sûr de vouloir supprimer le match ${match.teamA.name} vs ${match.teamB.name} ? Cette action est irréversible et supprimera également les paris associés.`,
       confirmLabel: 'Supprimer',
       variant: 'danger',
       onConfirm: async () => {
@@ -259,7 +259,7 @@ const AdminMatchesTab: React.FC = () => {
               {matches.map((match) => (
                 <tr key={match.id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50">
                   <td className="py-3 px-4 text-sm font-medium text-gray-900 dark:text-white">
-                    {match.teamA} vs {match.teamB}
+                    {match.teamA.name} vs {match.teamB.name}
                   </td>
                   <td className="py-3 px-4 text-sm text-gray-500 dark:text-gray-400">
                     {match.competition ?? '-'}
@@ -316,11 +316,11 @@ const AdminMatchesTab: React.FC = () => {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-wc-dark-secondary rounded-xl p-6 w-full max-w-sm">
             <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
-              ✏️ {editingMatch.teamA} vs {editingMatch.teamB}
+              ✏️ {editingMatch.teamA.name} vs {editingMatch.teamB.name}
             </h2>
             <div className="flex items-center gap-3 mb-4">
               <div>
-                <label className="label text-xs">{editingMatch.teamA}</label>
+                <label className="label text-xs">{editingMatch.teamA.name}</label>
                 <ScoreInput
                   value={scoreA}
                   onChange={setScoreA}
@@ -331,7 +331,7 @@ const AdminMatchesTab: React.FC = () => {
               </div>
               <span className="text-2xl font-bold text-gray-400 mt-5">-</span>
               <div>
-                <label className="label text-xs">{editingMatch.teamB}</label>
+                <label className="label text-xs">{editingMatch.teamB.name}</label>
                 <ScoreInput
                   value={scoreB}
                   onChange={setScoreB}
@@ -351,17 +351,17 @@ const AdminMatchesTab: React.FC = () => {
                   <label className="label text-xs">Vainqueur</label>
                   <select value={penaltyWinner} onChange={(e) => { setPenaltyWinner(e.target.value); if (!e.target.value) { setPenScoreA(''); setPenScoreB(''); } }} className="input-field">
                     <option value="">-- Fin réglementaire (nul) --</option>
-                    <option value="A">{editingMatch.teamA}</option>
-                    <option value="B">{editingMatch.teamB}</option>
+                    <option value="A">{editingMatch.teamA.name}</option>
+                    <option value="B">{editingMatch.teamB.name}</option>
                   </select>
                 </div>
                 {penaltyWinner && (
                   <div>
                     <label className="label text-xs">Score t.a.b. (optionnel)</label>
                     <div className="flex items-center gap-2">
-                      <input type="number" value={penScoreA} onChange={(e) => setPenScoreA(e.target.value)} min={0} className="input-field w-16 text-center" placeholder={editingMatch.teamA} />
+                      <input type="number" value={penScoreA} onChange={(e) => setPenScoreA(e.target.value)} min={0} className="input-field w-16 text-center" placeholder={editingMatch.teamA.name} />
                       <span className="text-gray-400">-</span>
-                      <input type="number" value={penScoreB} onChange={(e) => setPenScoreB(e.target.value)} min={0} className="input-field w-16 text-center" placeholder={editingMatch.teamB} />
+                      <input type="number" value={penScoreB} onChange={(e) => setPenScoreB(e.target.value)} min={0} className="input-field w-16 text-center" placeholder={editingMatch.teamB.name} />
                     </div>
                   </div>
                 )}

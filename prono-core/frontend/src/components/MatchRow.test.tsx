@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { screen } from '@testing-library/react';
 import MatchRow from './MatchRow';
-import { makeMatch } from '../test-utils/factories';
+import { makeMatch, makeTeam, TEAM_ALLEMAGNE, TEAM_ESPAGNE } from '../test-utils/factories';
 import { renderWithRouter } from '../test-utils/render-helpers';
 
 vi.mock('../utils/countryFlags');
@@ -78,7 +78,7 @@ describe('MatchRow — pronoStatus', () => {
 
 describe('MatchRow — drapeaux', () => {
   it('rend les images de drapeau pour chaque équipe', () => {
-    renderRow(makeMatch({ teamA: 'Espagne', teamB: 'Allemagne', teamAIso2: 'es', teamBIso2: 'de' }));
+    renderRow(makeMatch({ teamA: TEAM_ESPAGNE, teamB: TEAM_ALLEMAGNE }));
     const imgs = screen.getAllByRole('img');
     const srcs = imgs.map((img) => (img as HTMLImageElement).src);
     expect(srcs.some((s) => s.includes('es'))).toBe(true);
@@ -86,7 +86,7 @@ describe('MatchRow — drapeaux', () => {
   });
 
   it('affiche un drapeau générique si iso2 absent', () => {
-    renderRow(makeMatch({ teamAIso2: null, teamBIso2: null }));
+    renderRow(makeMatch({ teamA: makeTeam({ iso2: null }), teamB: makeTeam({ iso2: null }) }));
     expect(screen.queryByRole('img')).toBeNull();
     expect(screen.getAllByText('🏳️').length).toBe(2);
   });

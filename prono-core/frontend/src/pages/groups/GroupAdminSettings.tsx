@@ -374,7 +374,7 @@ const GroupAdminSettings: React.FC<Props> = ({ group, onGroupUpdate }) => {
                   />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                      {m.teamA} – {m.teamB}
+                      {m.teamA.name} – {m.teamB.name}
                     </p>
                     <p className="text-xs text-gray-400">{m.round} · {formatDate(m.matchDate)}</p>
                   </div>

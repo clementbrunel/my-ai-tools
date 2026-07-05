@@ -31,9 +31,9 @@ const MatchRow: React.FC<MatchRowProps> = ({ match, pronoStatus }) => {
       >
         {/* Team A */}
         <div className="flex items-center gap-2 flex-1 min-w-0">
-          <TeamFlag name={match.teamA} iso2={match.teamAIso2} />
+          <TeamFlag name={match.teamA.name} iso2={match.teamA.iso2} />
           <span className="font-medium text-sm text-gray-900 dark:text-white truncate">
-            {match.teamA}
+            {match.teamA.name}
           </span>
         </div>
 
@@ -56,9 +56,9 @@ const MatchRow: React.FC<MatchRowProps> = ({ match, pronoStatus }) => {
         {/* Team B */}
         <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
           <span className="font-medium text-sm text-gray-900 dark:text-white truncate text-right">
-            {match.teamB}
+            {match.teamB.name}
           </span>
-          <TeamFlag name={match.teamB} iso2={match.teamBIso2} />
+          <TeamFlag name={match.teamB.name} iso2={match.teamB.iso2} />
         </div>
 
         {/* Date */}

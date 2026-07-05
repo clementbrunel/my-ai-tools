@@ -47,8 +47,8 @@ const renderContext = () =>
 
 const oneGroup = [{ id: 1 } as any];
 const twoMatches = [
-  makeMatch({ id: 1, teamA: 'France', userParticipated: false }),
-  makeMatch({ id: 2, teamA: 'Espagne', userParticipated: false }),
+  makeMatch({ id: 1, userParticipated: false }),
+  makeMatch({ id: 2, userParticipated: false }),
 ];
 
 // ── Tests ──────────────────────────────────────────────────────────────────────

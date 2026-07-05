@@ -269,7 +269,7 @@ const OpenBetting: React.FC = () => {
                       >
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                            {match.teamA} vs {match.teamB}
+                            {match.teamA.name} vs {match.teamB.name}
                           </p>
                           <p className="text-xs text-gray-400">{formatDate(match.matchDate)}</p>
                         </div>
@@ -308,7 +308,7 @@ const OpenBetting: React.FC = () => {
       <ConfirmModal
         isOpen={matchToClose != null}
         title="Fermer ce match aux paris ?"
-        message={`Cela supprimera définitivement le pari et tous les pronostics déjà enregistrés pour "${matchToClose?.teamA} vs ${matchToClose?.teamB}". Cette action est irréversible.`}
+        message={`Cela supprimera définitivement le pari et tous les pronostics déjà enregistrés pour "${matchToClose?.teamA.name} vs ${matchToClose?.teamB.name}". Cette action est irréversible.`}
         confirmLabel="Fermer le match"
         variant="danger"
         onConfirm={handleCloseMatch}

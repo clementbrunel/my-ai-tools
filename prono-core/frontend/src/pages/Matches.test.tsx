@@ -2,7 +2,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Matches from './Matches';
-import { makeMatch } from '../test-utils/factories';
+import {
+  makeMatch,
+  TEAM_FRANCE,
+  TEAM_BRESIL,
+  TEAM_ESPAGNE,
+  TEAM_ITALIE,
+  TEAM_PORTUGAL,
+  TEAM_ANGLETERRE,
+} from '../test-utils/factories';
 import { renderWithRouter } from '../test-utils/render-helpers';
 
 // Le composant lit ses données depuis MatchesContext — on le mocke directement
@@ -41,8 +49,8 @@ describe('Matches — filtrage', () => {
   it("filtre UPCOMING : n'affiche que les matchs à venir", async () => {
     vi.mocked(matchesCtx.useMatches).mockReturnValue(makeCtx({
       matches: [
-        makeMatch({ id: 1, teamA: 'France', teamB: 'Brésil', status: 'UPCOMING' }),
-        makeMatch({ id: 2, teamA: 'Espagne', teamB: 'Italie', status: 'FINISHED', scoreA: 1, scoreB: 0 }),
+        makeMatch({ id: 1, teamA: TEAM_FRANCE, teamB: TEAM_BRESIL, status: 'UPCOMING' }),
+        makeMatch({ id: 2, teamA: TEAM_ESPAGNE, teamB: TEAM_ITALIE, status: 'FINISHED', scoreA: 1, scoreB: 0 }),
       ],
     }));
 
@@ -58,8 +66,8 @@ describe('Matches — filtrage', () => {
     const user = userEvent.setup();
     vi.mocked(matchesCtx.useMatches).mockReturnValue(makeCtx({
       matches: [
-        makeMatch({ id: 1, teamA: 'France', teamB: 'Brésil', status: 'UPCOMING' }),
-        makeMatch({ id: 2, teamA: 'Espagne', teamB: 'Italie', status: 'FINISHED', scoreA: 1, scoreB: 0 }),
+        makeMatch({ id: 1, teamA: TEAM_FRANCE, teamB: TEAM_BRESIL, status: 'UPCOMING' }),
+        makeMatch({ id: 2, teamA: TEAM_ESPAGNE, teamB: TEAM_ITALIE, status: 'FINISHED', scoreA: 1, scoreB: 0 }),
       ],
     }));
 
@@ -77,8 +85,8 @@ describe('Matches — filtrage', () => {
     const user = userEvent.setup();
     vi.mocked(matchesCtx.useMatches).mockReturnValue(makeCtx({
       matches: [
-        makeMatch({ id: 1, teamA: 'France', teamB: 'Brésil', status: 'UPCOMING' }),
-        makeMatch({ id: 2, teamA: 'Espagne', teamB: 'Italie', status: 'FINISHED', scoreA: 1, scoreB: 0 }),
+        makeMatch({ id: 1, teamA: TEAM_FRANCE, teamB: TEAM_BRESIL, status: 'UPCOMING' }),
+        makeMatch({ id: 2, teamA: TEAM_ESPAGNE, teamB: TEAM_ITALIE, status: 'FINISHED', scoreA: 1, scoreB: 0 }),
       ],
     }));
 
@@ -98,8 +106,8 @@ describe('Matches — recherche', () => {
     vi.clearAllMocks();
     vi.mocked(matchesCtx.useMatches).mockReturnValue(makeCtx({
       matches: [
-        makeMatch({ id: 1, teamA: 'France', teamB: 'Brésil', status: 'UPCOMING' }),
-        makeMatch({ id: 2, teamA: 'Espagne', teamB: 'Italie', status: 'UPCOMING' }),
+        makeMatch({ id: 1, teamA: TEAM_FRANCE, teamB: TEAM_BRESIL, status: 'UPCOMING' }),
+        makeMatch({ id: 2, teamA: TEAM_ESPAGNE, teamB: TEAM_ITALIE, status: 'UPCOMING' }),
       ],
     }));
   });
@@ -133,7 +141,7 @@ describe('Matches — toggle grille/liste', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(matchesCtx.useMatches).mockReturnValue(makeCtx({
-      matches: [makeMatch({ id: 1, teamA: 'France', teamB: 'Brésil', status: 'UPCOMING' })],
+      matches: [makeMatch({ id: 1, teamA: TEAM_FRANCE, teamB: TEAM_BRESIL, status: 'UPCOMING' })],
     }));
   });
 
@@ -165,9 +173,9 @@ describe('Matches — group-by-date', () => {
     const user = userEvent.setup();
     vi.mocked(matchesCtx.useMatches).mockReturnValue(makeCtx({
       matches: [
-        makeMatch({ id: 1, teamA: 'France', teamB: 'Brésil', status: 'UPCOMING', matchDate: '2026-07-01T20:00:00Z' }),
-        makeMatch({ id: 2, teamA: 'Espagne', teamB: 'Italie', status: 'UPCOMING', matchDate: '2026-07-02T20:00:00Z' }),
-        makeMatch({ id: 3, teamA: 'Portugal', teamB: 'Angleterre', status: 'UPCOMING', matchDate: '2026-07-01T18:00:00Z' }),
+        makeMatch({ id: 1, teamA: TEAM_FRANCE, teamB: TEAM_BRESIL, status: 'UPCOMING', matchDate: '2026-07-01T20:00:00Z' }),
+        makeMatch({ id: 2, teamA: TEAM_ESPAGNE, teamB: TEAM_ITALIE, status: 'UPCOMING', matchDate: '2026-07-02T20:00:00Z' }),
+        makeMatch({ id: 3, teamA: TEAM_PORTUGAL, teamB: TEAM_ANGLETERRE, status: 'UPCOMING', matchDate: '2026-07-01T18:00:00Z' }),
       ],
     }));
 

@@ -45,9 +45,9 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, pronoStatus }) => {
         <div className="flex items-center justify-between gap-2 my-4">
           <div className="flex-1 text-center">
             <div className="flex justify-center mb-1">
-              <TeamFlag name={match.teamA} iso2={match.teamAIso2} />
+              <TeamFlag name={match.teamA.name} iso2={match.teamA.iso2} />
             </div>
-            <div className="font-bold text-gray-900 dark:text-white text-sm">{match.teamA}</div>
+            <div className="font-bold text-gray-900 dark:text-white text-sm">{match.teamA.name}</div>
           </div>
 
           <div className="flex items-center gap-2">
@@ -72,9 +72,9 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, pronoStatus }) => {
 
           <div className="flex-1 text-center">
             <div className="flex justify-center mb-1">
-              <TeamFlag name={match.teamB} iso2={match.teamBIso2} />
+              <TeamFlag name={match.teamB.name} iso2={match.teamB.iso2} />
             </div>
-            <div className="font-bold text-gray-900 dark:text-white text-sm">{match.teamB}</div>
+            <div className="font-bold text-gray-900 dark:text-white text-sm">{match.teamB.name}</div>
           </div>
         </div>
 

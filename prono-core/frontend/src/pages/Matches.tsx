@@ -34,7 +34,7 @@ const Matches: React.FC = () => {
     return matches.filter((m) => {
       if (filter !== 'ALL' && m.status !== filter) return false;
       if (!q) return true;
-      return m.teamA.toLowerCase().includes(q) || m.teamB.toLowerCase().includes(q);
+      return m.teamA.name.toLowerCase().includes(q) || m.teamB.name.toLowerCase().includes(q);
     });
   }, [matches, filter, hasGroups, search]);
 

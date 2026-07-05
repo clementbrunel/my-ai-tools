@@ -89,12 +89,12 @@ const MatchDetail: React.FC = () => {
     const myPart = participations.find((p) => p.user.username === user.username);
     if (!myPart) return;
     const option = myPart.chosenOption;
-    const [sA, sB] = parseOption(option, match.teamA, match.teamB);
+    const [sA, sB] = parseOption(option, match.teamA.name, match.teamB.name);
     setScoreA(sA);
     setScoreB(sB);
     setComment(myPart.comment || '');
     if (match.phase === 'KNOCKOUT') {
-      if (option.startsWith(`Victoire ${match.teamA} `)) setKnockoutWinner('A');
+      if (option.startsWith(`Victoire ${match.teamA.name} `)) setKnockoutWinner('A');
       else if (option.startsWith('Victoire ')) setKnockoutWinner('B');
       if (option.includes(' t.a.b. ')) {
         const penMatch = option.match(/\((\d+)-(\d+)\)$/);
@@ -135,7 +135,7 @@ const MatchDetail: React.FC = () => {
     if (!match) return '';
     if (isKnockout) {
       if (!knockoutWinner) return '';
-      const winner = knockoutWinner === 'A' ? match.teamA : match.teamB;
+      const winner = knockoutWinner === 'A' ? match.teamA.name : match.teamB.name;
       if (a === b) {
         const penSuffix = penScoreWinner && penScoreLoser ? ` (${penScoreWinner}-${penScoreLoser})` : '';
         return `Victoire ${winner} t.a.b. ${a}-${b}${penSuffix}`;
@@ -146,8 +146,8 @@ const MatchDetail: React.FC = () => {
       const lScore = knockoutWinner === 'A' ? b : a;
       return `Victoire ${winner} ${wScore}-${lScore}`;
     }
-    if (a > b) return `Victoire ${match.teamA} ${a}-${b}`;
-    if (b > a) return `Victoire ${match.teamB} ${b}-${a}`;
+    if (a > b) return `Victoire ${match.teamA.name} ${a}-${b}`;
+    if (b > a) return `Victoire ${match.teamB.name} ${b}-${a}`;
     return `Match nul ${a}-${b}`;
   };
 
@@ -235,11 +235,11 @@ const MatchDetail: React.FC = () => {
         <div className="flex items-center justify-between gap-4 py-6">
           <div className="flex-1 text-center">
             <div className="flex justify-center mb-3">
-              {getFlagUrl(match.teamAIso2)
-                ? <img src={getFlagUrl(match.teamAIso2)!} alt={match.teamA} className="w-16 h-12 object-contain rounded shadow" />
+              {getFlagUrl(match.teamA.iso2)
+                ? <img src={getFlagUrl(match.teamA.iso2)!} alt={match.teamA.name} className="w-16 h-12 object-contain rounded shadow" />
                 : <span className="text-5xl">🏳️</span>}
             </div>
-            <div className="text-2xl font-black text-gray-900 dark:text-white">{match.teamA}</div>
+            <div className="text-2xl font-black text-gray-900 dark:text-white">{match.teamA.name}</div>
           </div>
 
           <div className="text-center">
@@ -269,11 +269,11 @@ const MatchDetail: React.FC = () => {
 
           <div className="flex-1 text-center">
             <div className="flex justify-center mb-3">
-              {getFlagUrl(match.teamBIso2)
-                ? <img src={getFlagUrl(match.teamBIso2)!} alt={match.teamB} className="w-16 h-12 object-contain rounded shadow" />
+              {getFlagUrl(match.teamB.iso2)
+                ? <img src={getFlagUrl(match.teamB.iso2)!} alt={match.teamB.name} className="w-16 h-12 object-contain rounded shadow" />
                 : <span className="text-5xl">🏳️</span>}
             </div>
-            <div className="text-2xl font-black text-gray-900 dark:text-white">{match.teamB}</div>
+            <div className="text-2xl font-black text-gray-900 dark:text-white">{match.teamB.name}</div>
           </div>
         </div>
 
@@ -325,7 +325,7 @@ const MatchDetail: React.FC = () => {
                           : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600'
                       }`}
                     >
-                      {match.teamA}
+                      {match.teamA.name}
                     </button>
                     <button
                       type="button"
@@ -340,7 +340,7 @@ const MatchDetail: React.FC = () => {
                           : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600'
                       }`}
                     >
-                      {match.teamB}
+                      {match.teamB.name}
                     </button>
                   </div>
                 </div>
@@ -349,7 +349,7 @@ const MatchDetail: React.FC = () => {
               {/* Score inputs */}
               <div className="flex items-end gap-4">
                 <div className="flex-1 text-center">
-                  <label className="label text-sm">{match.teamA}</label>
+                  <label className="label text-sm">{match.teamA.name}</label>
                   <ScoreInput
                     value={scoreA}
                     onChange={setScoreA}
@@ -362,7 +362,7 @@ const MatchDetail: React.FC = () => {
                 </div>
                 <div className="text-3xl font-black text-gray-400 dark:text-gray-500 pb-3">—</div>
                 <div className="flex-1 text-center">
-                  <label className="label text-sm">{match.teamB}</label>
+                  <label className="label text-sm">{match.teamB.name}</label>
                   <ScoreInput
                     value={scoreB}
                     onChange={setScoreB}
@@ -386,7 +386,7 @@ const MatchDetail: React.FC = () => {
               {showTabOption && (
                 <div className="rounded-lg bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 p-3 space-y-3">
                   <p className="text-sm font-medium text-orange-800 dark:text-orange-300">
-                    ⚡ Égalité — {knockoutWinner === 'A' ? match.teamA : match.teamB} gagne aux t.a.b.
+                    ⚡ Égalité — {knockoutWinner === 'A' ? match.teamA.name : match.teamB.name} gagne aux t.a.b.
                   </p>
                   <div>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Score aux t.a.b.</p>

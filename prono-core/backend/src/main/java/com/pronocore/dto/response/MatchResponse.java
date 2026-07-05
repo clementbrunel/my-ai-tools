@@ -15,8 +15,8 @@ import java.time.LocalDateTime;
 public class MatchResponse {
 
     private Long id;
-    private String teamA;
-    private String teamB;
+    private TeamResponse teamA;
+    private TeamResponse teamB;
     private LocalDateTime matchDate;
     private Integer scoreA;
     private Integer scoreB;
@@ -28,6 +28,4 @@ public class MatchResponse {
     private Integer penaltyScoreA;
     private Integer penaltyScoreB;
     private Boolean userParticipated;
-    private String teamAIso2;
-    private String teamBIso2;
 }

@@ -87,10 +87,8 @@ export type MatchPhase = 'POOL' | 'KNOCKOUT';
 
 export interface Match {
   id: number;
-  teamA: string;
-  teamB: string;
-  teamAIso2?: string | null;
-  teamBIso2?: string | null;
+  teamA: TeamDto;
+  teamB: TeamDto;
   matchDate: string;
   scoreA?: number;
   scoreB?: number;
