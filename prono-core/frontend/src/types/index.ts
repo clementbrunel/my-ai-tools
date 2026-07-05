@@ -83,6 +83,11 @@ export interface TeamDto {
   iso2: string | null;
 }
 
+export interface CompetitionDto {
+  id: number;
+  name: string;
+}
+
 export type MatchPhase = 'POOL' | 'KNOCKOUT';
 
 export interface Match {
@@ -93,7 +98,7 @@ export interface Match {
   scoreA?: number;
   scoreB?: number;
   status: 'UPCOMING' | 'ONGOING' | 'FINISHED';
-  competition: string;
+  competition: CompetitionDto;
   round: string;
   phase: MatchPhase;
   penaltyWinner?: 'A' | 'B';
@@ -106,7 +111,7 @@ export interface CreateMatchRequest {
   teamAId: number;
   teamBId: number;
   matchDate: string;
-  competition: string;
+  competitionId: number;
   round: string;
   phase?: MatchPhase;
 }
@@ -274,7 +279,7 @@ export interface OpenBettingRequest {
 
 export interface OpenCompetitionRequest {
   groupId: number;
-  competition: string;
+  competitionId: number;
 }
 
 export interface DecodedToken {

@@ -1,6 +1,7 @@
 package com.pronocore.service;
 
 import com.pronocore.dto.request.EmailType;
+import com.pronocore.entity.Competition;
 import com.pronocore.entity.Match;
 import com.pronocore.entity.Team;
 import com.pronocore.entity.User;
@@ -20,6 +21,9 @@ import java.util.stream.Collectors;
 @Service
 @Slf4j
 public class EmailService {
+
+    private static final Competition FIFA_WORLD_CUP_2026 =
+            Competition.builder().id(1L).name("FIFA World Cup 2026").build();
 
     private final RestClient restClient;
 
@@ -46,13 +50,13 @@ public class EmailService {
                         .teamA(Team.builder().id(1L).name("France").iso2("fr").build())
                         .teamB(Team.builder().id(2L).name("Brésil").iso2("br").build())
                         .matchDate(LocalDateTime.now().plusHours(1))
-                        .competition("FIFA World Cup 2026").round("Finale")
+                        .competition(FIFA_WORLD_CUP_2026).round("Finale")
                         .reminderSent(false).build(),
                     Match.builder().id(1L)
                         .teamA(Team.builder().id(3L).name("Espagne").iso2("es").build())
                         .teamB(Team.builder().id(4L).name("Allemagne").iso2("de").build())
                         .matchDate(LocalDateTime.now().plusMinutes(65))
-                        .competition("FIFA World Cup 2026").round("Demi-finale")
+                        .competition(FIFA_WORLD_CUP_2026).round("Demi-finale")
                         .reminderSent(false).build()
                 );
                 sendMatchReminder(fakeUser, fakeMatches);
@@ -74,12 +78,12 @@ public class EmailService {
                     Match.builder().id(0L)
                         .teamA(Team.builder().id(5L).name("Portugal").iso2("pt").build())
                         .teamB(Team.builder().id(6L).name("Argentine").iso2("ar").build())
-                        .matchDate(LocalDateTime.now().plusDays(2)).competition("FIFA World Cup 2026")
+                        .matchDate(LocalDateTime.now().plusDays(2)).competition(FIFA_WORLD_CUP_2026)
                         .round("Quart de finale").build(),
                     Match.builder().id(1L)
                         .teamA(Team.builder().id(7L).name("Angleterre").iso2("gb-eng").build())
                         .teamB(Team.builder().id(8L).name("Pays-Bas").iso2("nl").build())
-                        .matchDate(LocalDateTime.now().plusDays(3)).competition("FIFA World Cup 2026")
+                        .matchDate(LocalDateTime.now().plusDays(3)).competition(FIFA_WORLD_CUP_2026)
                         .round("Quart de finale").build()
                 );
                 sendGroupNewMatchesEmail(fakeRecipient, "Groupe des Amis", fakeLeader, fakeNewMatches);

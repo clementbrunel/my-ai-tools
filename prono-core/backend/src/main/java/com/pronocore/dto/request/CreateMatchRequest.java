@@ -18,8 +18,8 @@ public class CreateMatchRequest {
     @NotNull(message = "Match date is required")
     private LocalDateTime matchDate;
 
-    @NotNull(message = "Competition is required")
-    private String competition = "FIFA World Cup 2026";
+    @NotNull(message = "Competition ID is required")
+    private Long competitionId;
 
     private String round = "";
 

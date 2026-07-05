@@ -1,5 +1,6 @@
 package com.pronocore.service;
 
+import com.pronocore.dto.response.CompetitionResponse;
 import com.pronocore.dto.response.TeamResponse;
 import com.pronocore.entity.Competition;
 import com.pronocore.entity.Team;
@@ -20,14 +21,14 @@ public class CompetitionService {
     private final TeamRepository        teamRepository;
 
     @Transactional(readOnly = true)
-    public List<String> getAllCompetitions() {
+    public List<CompetitionResponse> getAllCompetitions() {
         return competitionRepository.findAllByOrderByNameAsc()
-                .stream().map(Competition::getName).toList();
+                .stream().map(c -> new CompetitionResponse(c.getId(), c.getName())).toList();
     }
 
     @Transactional(readOnly = true)
-    public List<TeamResponse> getTeamsForCompetition(String competitionName) {
-        return competitionRepository.findByName(competitionName)
+    public List<TeamResponse> getTeamsForCompetition(Long competitionId) {
+        return competitionRepository.findById(competitionId)
                 .map(c -> c.getTeams().stream()
                         .map(t -> new TeamResponse(t.getId(), t.getName(), t.getIso2())).toList())
                 .orElse(List.of());
@@ -47,8 +48,8 @@ public class CompetitionService {
     }
 
     @Transactional
-    public void addTeam(String competitionName, Long teamId) {
-        Competition competition = findOrCreateCompetition(competitionName);
+    public void addTeam(Long competitionId, Long teamId) {
+        Competition competition = requireCompetition(competitionId);
         Team team = requireTeam(teamId);
         if (!competition.getTeams().contains(team)) {
             competition.getTeams().add(team);
@@ -56,14 +57,14 @@ public class CompetitionService {
     }
 
     @Transactional
-    public void removeTeam(String competitionName, Long teamId) {
-        competitionRepository.findByName(competitionName)
+    public void removeTeam(Long competitionId, Long teamId) {
+        competitionRepository.findById(competitionId)
                 .ifPresent(c -> c.getTeams().removeIf(t -> t.getId().equals(teamId)));
     }
 
     @Transactional
-    public void setTeams(String competitionName, List<Long> teamIds) {
-        Competition competition = findOrCreateCompetition(competitionName);
+    public void setTeams(Long competitionId, List<Long> teamIds) {
+        Competition competition = requireCompetition(competitionId);
         List<Team> desired = teamIds.stream()
                 .map(this::requireTeam)
                 .toList();
@@ -82,12 +83,23 @@ public class CompetitionService {
         return new TeamResponse(team.getId(), team.getName(), team.getIso2());
     }
 
-    // ── helpers ───────────────────────────────────────────────────────────────
-
-    private Competition findOrCreateCompetition(String name) {
+    /**
+     * Looks up a competition by exact name, creating it if it doesn't exist yet.
+     * Used when creating a match without an explicit competitionId (defaults to the
+     * current tournament) and by the roster helpers above.
+     */
+    @Transactional
+    public Competition findOrCreateCompetition(String name) {
         return competitionRepository.findByName(name)
                 .orElseGet(() -> competitionRepository.save(
                         Competition.builder().name(name).build()));
+    }
+
+    // ── helpers ───────────────────────────────────────────────────────────────
+
+    private Competition requireCompetition(Long competitionId) {
+        return competitionRepository.findById(competitionId)
+                .orElseThrow(() -> new EntityNotFoundException("Competition not found: " + competitionId));
     }
 
     private Team requireTeam(Long teamId) {

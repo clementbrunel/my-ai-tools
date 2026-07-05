@@ -3,7 +3,7 @@ import { useToast } from '../../components/Toast';
 import { getMatches, createMatch, updateMatchScore, deleteMatch, forceSettleMatch } from '../../api/matches';
 import { getCompetitions as fetchAllCompetitions, getCompetitionTeams } from '../../api/competitions';
 import { useFormMessages } from '../../hooks/useFormMessages';
-import type { Match, MatchPhase, TeamDto } from '../../types';
+import type { CompetitionDto, Match, MatchPhase, TeamDto } from '../../types';
 import { formatDate } from '../../utils/dates';
 import ScrollableTableWrapper from '../../components/ScrollableTableWrapper';
 import ScoreInput from '../../components/ScoreInput';
@@ -24,14 +24,14 @@ const AdminMatchesTab: React.FC = () => {
   const { msg: matchMsg, setError: setMatchError, setSuccess: setMatchSuccess, clear: clearMatchMessages } = useFormMessages();
 
   const [matches, setMatches] = useState<Match[]>([]);
-  const [competitions, setCompetitions] = useState<string[]>([]);
+  const [competitions, setCompetitions] = useState<CompetitionDto[]>([]);
   const [competitionTeams, setCompetitionTeams] = useState<TeamDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const [newTeamA, setNewTeamA] = useState('');
   const [newTeamB, setNewTeamB] = useState('');
   const [newMatchDate, setNewMatchDate] = useState('');
-  const [newCompetition, setNewCompetition] = useState('');
+  const [newCompetitionId, setNewCompetitionId] = useState<number | null>(null);
   const [newRound, setNewRound] = useState('Phase de poules');
   const [newPhase, setNewPhase] = useState<MatchPhase>('POOL');
 
@@ -60,9 +60,9 @@ const AdminMatchesTab: React.FC = () => {
         setCompetitions(competitionsData);
         if (competitionsData.length > 0) {
           const first = competitionsData[0];
-          setNewCompetition(first);
+          setNewCompetitionId(first.id);
           try {
-            const initialTeams = await getCompetitionTeams(first);
+            const initialTeams = await getCompetitionTeams(first.id);
             setCompetitionTeams(initialTeams);
           } catch {
             setCompetitionTeams([]);
@@ -76,12 +76,13 @@ const AdminMatchesTab: React.FC = () => {
   }, []);
 
   const handleCompetitionChange = async (value: string) => {
-    setNewCompetition(value);
+    const competitionId = value ? parseInt(value) : null;
+    setNewCompetitionId(competitionId);
     setNewTeamA('');
     setNewTeamB('');
-    if (value) {
+    if (competitionId) {
       try {
-        const teams = await getCompetitionTeams(value);
+        const teams = await getCompetitionTeams(competitionId);
         setCompetitionTeams(teams);
       } catch {
         setCompetitionTeams([]);
@@ -94,11 +95,12 @@ const AdminMatchesTab: React.FC = () => {
   const handleCreateMatch = async (e: React.FormEvent) => {
     e.preventDefault();
     clearMatchMessages();
+    if (!newCompetitionId) return;
     try {
       const newMatch = await createMatch({
         teamAId: parseInt(newTeamA), teamBId: parseInt(newTeamB),
         matchDate: new Date(newMatchDate).toISOString(),
-        competition: newCompetition, round: newRound,
+        competitionId: newCompetitionId, round: newRound,
         phase: newPhase,
       });
       setMatches([...matches, newMatch]);
@@ -168,13 +170,13 @@ const AdminMatchesTab: React.FC = () => {
             <label className="label">Compétition</label>
             {competitions.length > 0 ? (
               <select
-                value={newCompetition}
+                value={newCompetitionId ?? ''}
                 onChange={(e) => handleCompetitionChange(e.target.value)}
                 className="input-field"
                 required
               >
                 {competitions.map((c) => (
-                  <option key={c} value={c}>{c}</option>
+                  <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
             ) : (
@@ -262,7 +264,7 @@ const AdminMatchesTab: React.FC = () => {
                     {match.teamA.name} vs {match.teamB.name}
                   </td>
                   <td className="py-3 px-4 text-sm text-gray-500 dark:text-gray-400">
-                    {match.competition ?? '-'}
+                    {match.competition?.name ?? '-'}
                   </td>
                   <td className="py-3 px-4 text-center text-xs text-gray-500">
                     {formatDate(match.matchDate)}

@@ -1,5 +1,5 @@
 import apiClient from './axios';
-import type { TeamDto } from '../types';
+import type { CompetitionDto, TeamDto } from '../types';
 
 export const createCompetition = async (name: string): Promise<void> => {
   await apiClient.post('/competitions', name, {
@@ -7,13 +7,13 @@ export const createCompetition = async (name: string): Promise<void> => {
   });
 };
 
-export const getCompetitions = async (): Promise<string[]> => {
-  const response = await apiClient.get<string[]>('/competitions');
+export const getCompetitions = async (): Promise<CompetitionDto[]> => {
+  const response = await apiClient.get<CompetitionDto[]>('/competitions');
   return response.data;
 };
 
-export const getCompetitionTeams = async (competition: string): Promise<TeamDto[]> => {
-  const response = await apiClient.get<TeamDto[]>(`/competitions/${encodeURIComponent(competition)}/teams`);
+export const getCompetitionTeams = async (competitionId: number): Promise<TeamDto[]> => {
+  const response = await apiClient.get<TeamDto[]>(`/competitions/${competitionId}/teams`);
   return response.data;
 };
 
@@ -29,16 +29,16 @@ export const findOrCreateTeam = async (teamName: string): Promise<TeamDto> => {
   return response.data;
 };
 
-export const setCompetitionTeams = async (competition: string, teamIds: number[]): Promise<void> => {
-  await apiClient.put(`/competitions/${encodeURIComponent(competition)}/teams`, teamIds);
+export const setCompetitionTeams = async (competitionId: number, teamIds: number[]): Promise<void> => {
+  await apiClient.put(`/competitions/${competitionId}/teams`, teamIds);
 };
 
-export const addTeamToCompetition = async (competition: string, teamId: number): Promise<void> => {
-  await apiClient.post(`/competitions/${encodeURIComponent(competition)}/teams`, teamId, {
+export const addTeamToCompetition = async (competitionId: number, teamId: number): Promise<void> => {
+  await apiClient.post(`/competitions/${competitionId}/teams`, teamId, {
     headers: { 'Content-Type': 'application/json' },
   });
 };
 
-export const removeTeamFromCompetition = async (competition: string, teamId: number): Promise<void> => {
-  await apiClient.delete(`/competitions/${encodeURIComponent(competition)}/teams/${teamId}`);
+export const removeTeamFromCompetition = async (competitionId: number, teamId: number): Promise<void> => {
+  await apiClient.delete(`/competitions/${competitionId}/teams/${teamId}`);
 };

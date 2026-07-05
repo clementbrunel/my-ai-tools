@@ -80,7 +80,7 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, pronoStatus }) => {
 
         {/* Footer */}
         <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between">
-          <span className="text-xs text-gray-500 dark:text-gray-400">{match.competition}</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400">{match.competition.name}</span>
           {pronoStatus === 'done' && (
             <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">✓ Prono saisi</span>
           )}

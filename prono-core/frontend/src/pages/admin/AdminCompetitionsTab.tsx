@@ -8,13 +8,13 @@ import {
   setCompetitionTeams,
   findOrCreateTeam,
 } from '../../api/competitions';
-import type { TeamDto } from '../../types';
+import type { CompetitionDto, TeamDto } from '../../types';
 
 const AdminCompetitionsTab: React.FC = () => {
   const { showToast } = useToast();
 
-  const [competitions, setCompetitions] = useState<string[]>([]);
-  const [selectedCompetition, setSelectedCompetition] = useState<string>('');
+  const [competitions, setCompetitions] = useState<CompetitionDto[]>([]);
+  const [selectedCompetition, setSelectedCompetition] = useState<CompetitionDto | null>(null);
   const [newCompetitionName, setNewCompetitionName] = useState('');
   const [showNewCompetitionForm, setShowNewCompetitionForm] = useState(false);
 
@@ -24,7 +24,7 @@ const AdminCompetitionsTab: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [isLoadingTeams, setIsLoadingTeams] = useState(false);
-  const loadingForRef = useRef<string>('');
+  const loadingForRef = useRef<number | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -37,17 +37,17 @@ const AdminCompetitionsTab: React.FC = () => {
     })();
   }, []);
 
-  const loadRoster = async (competition: string) => {
-    loadingForRef.current = competition;
+  const loadRoster = async (competition: CompetitionDto) => {
+    loadingForRef.current = competition.id;
     setSelectedCompetition(competition);
     setIsDirty(false);
     setIsLoadingTeams(true);
     try {
-      const teams = await getCompetitionTeams(competition);
-      if (loadingForRef.current !== competition) return;
+      const teams = await getCompetitionTeams(competition.id);
+      if (loadingForRef.current !== competition.id) return;
       setRosterTeamIds(new Set(teams.map((t) => t.id)));
     } finally {
-      if (loadingForRef.current === competition) setIsLoadingTeams(false);
+      if (loadingForRef.current === competition.id) setIsLoadingTeams(false);
     }
   };
 
@@ -79,7 +79,7 @@ const AdminCompetitionsTab: React.FC = () => {
     if (!selectedCompetition) return;
     setIsSaving(true);
     try {
-      await setCompetitionTeams(selectedCompetition, [...rosterTeamIds]);
+      await setCompetitionTeams(selectedCompetition.id, [...rosterTeamIds]);
       setIsDirty(false);
       showToast('Roster sauvegardé ✅');
     } catch {
@@ -92,13 +92,14 @@ const AdminCompetitionsTab: React.FC = () => {
   const handleCreateCompetition = async (e: React.FormEvent) => {
     e.preventDefault();
     const name = newCompetitionName.trim();
-    if (!name || competitions.includes(name)) return;
+    if (!name || competitions.some((c) => c.name === name)) return;
     await createCompetition(name);
-    const updated = [...competitions, name].sort();
+    const updated = await getCompetitions();
     setCompetitions(updated);
     setNewCompetitionName('');
     setShowNewCompetitionForm(false);
-    await loadRoster(name);
+    const created = updated.find((c) => c.name === name);
+    if (created) await loadRoster(created);
   };
 
   const inRoster = (teamId: number) => rosterTeamIds.has(teamId);
@@ -136,15 +137,15 @@ const AdminCompetitionsTab: React.FC = () => {
         <div className="flex flex-wrap gap-2">
           {competitions.map((c) => (
             <button
-              key={c}
+              key={c.id}
               onClick={() => loadRoster(c)}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                selectedCompetition === c
+                selectedCompetition?.id === c.id
                   ? 'bg-wc-green text-white'
                   : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
               }`}
             >
-              {c}
+              {c.name}
             </button>
           ))}
           {competitions.length === 0 && (
@@ -158,7 +159,7 @@ const AdminCompetitionsTab: React.FC = () => {
         <div className="card">
           <div className="flex items-center justify-between mb-1">
             <h3 className="font-bold text-gray-900 dark:text-white">
-              Équipes — <span className="text-wc-green">{selectedCompetition}</span>
+              Équipes — <span className="text-wc-green">{selectedCompetition.name}</span>
             </h3>
             <span className="text-sm text-gray-500">{rosterTeamIds.size} équipe{rosterTeamIds.size !== 1 ? 's' : ''}</span>
           </div>

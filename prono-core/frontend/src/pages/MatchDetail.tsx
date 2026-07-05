@@ -228,7 +228,7 @@ const MatchDetail: React.FC = () => {
             </span>
             <span className="text-sm text-gray-500 dark:text-gray-400">{match.round}</span>
           </div>
-          <span className="text-sm text-gray-500 dark:text-gray-400">{match.competition}</span>
+          <span className="text-sm text-gray-500 dark:text-gray-400">{match.competition.name}</span>
         </div>
 
         {/* Teams & Score */}

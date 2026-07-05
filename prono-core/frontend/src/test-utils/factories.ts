@@ -1,4 +1,4 @@
-import type { AuthResponse, Match, TeamDto, User } from '../types';
+import type { AuthResponse, CompetitionDto, Match, TeamDto, User } from '../types';
 
 export const makeTeam = (overrides?: Partial<TeamDto>): TeamDto => ({
   id: 1,
@@ -14,6 +14,14 @@ export const TEAM_ITALIE = makeTeam({ id: 4, name: 'Italie', iso2: 'it' });
 export const TEAM_PORTUGAL = makeTeam({ id: 5, name: 'Portugal', iso2: 'pt' });
 export const TEAM_ANGLETERRE = makeTeam({ id: 6, name: 'Angleterre', iso2: 'gb-eng' });
 export const TEAM_ALLEMAGNE = makeTeam({ id: 7, name: 'Allemagne', iso2: 'de' });
+
+export const makeCompetition = (overrides?: Partial<CompetitionDto>): CompetitionDto => ({
+  id: 1,
+  name: 'Coupe du Monde 2026',
+  ...overrides,
+});
+
+export const COMPETITION_WORLD_CUP = makeCompetition({ id: 1, name: 'Coupe du Monde 2026' });
 
 export const makeUser = (overrides?: Partial<User>): User => ({
   id: 1,
@@ -52,7 +60,7 @@ export const makeMatch = (overrides?: Partial<Match> & { id?: number }): Match =
   matchDate: '2026-07-01T20:00:00Z',
   status: 'UPCOMING',
   phase: 'KNOCKOUT',
-  competition: 'Coupe du Monde 2026',
+  competition: COMPETITION_WORLD_CUP,
   round: 'Finale',
   ...overrides,
 });

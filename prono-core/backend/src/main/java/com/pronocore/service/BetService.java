@@ -10,7 +10,6 @@ import com.pronocore.mapper.BetMapper;
 import com.pronocore.repository.*;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -185,14 +184,14 @@ public class BetService {
      * re-run it after new matches are added. Returns only the newly created bets.
      */
     @Transactional
-    public List<BetResponse> openCompetitionForBetting(Long groupId, String competition, String username) {
+    public List<BetResponse> openCompetitionForBetting(Long groupId, Long competitionId, String username) {
         User requester = requireUser(username);
         groupMemberGuard.requireGroupAdmin(groupId, requester.getId());
 
         Group group = groupRepository.findById(groupId)
             .orElseThrow(() -> new EntityNotFoundException("Group not found: " + groupId));
 
-        return matchRepository.findByCompetitionOrderByMatchDateAsc(competition).stream()
+        return matchRepository.findByCompetition_IdOrderByMatchDateAsc(competitionId).stream()
             .filter(match -> !betRepository.existsByMatchIdAndGroupId(match.getId(), groupId))
             .map(match -> toBetResponseWithCount(betRepository.save(buildScoreBet(match, group, requester))))
             .toList();

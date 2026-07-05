@@ -40,9 +40,9 @@ public class Match {
     @Builder.Default
     private Status status = Status.UPCOMING;
 
-    @Column(nullable = false, length = 100)
-    @Builder.Default
-    private String competition = "FIFA World Cup 2026";
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "competition_id", nullable = false)
+    private Competition competition;
 
     @Column(nullable = false, length = 100)
     @Builder.Default

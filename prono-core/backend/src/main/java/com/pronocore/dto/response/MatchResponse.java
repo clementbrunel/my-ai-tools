@@ -21,7 +21,7 @@ public class MatchResponse {
     private Integer scoreA;
     private Integer scoreB;
     private Match.Status status;
-    private String competition;
+    private CompetitionResponse competition;
     private String round;
     private Match.MatchPhase phase;
     private String penaltyWinner;

@@ -12,7 +12,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -38,8 +37,8 @@ class MatchServiceTest {
     @Mock private GroupMemberRepository      groupMemberRepository;
     @Mock private UserRepository             userRepository;
     @Mock private TeamRepository             teamRepository;
+    @Mock private CompetitionRepository      competitionRepository;
     @Mock private DailyGageService           dailyGageService;
-    @Mock private CompetitionService         competitionService;
 
     @InjectMocks
     private MatchService matchService;
@@ -267,15 +266,17 @@ class MatchServiceTest {
         CreateMatchRequest req = new CreateMatchRequest();
         req.setTeamAId(1L);
         req.setTeamBId(2L);
+        req.setCompetitionId(WORLD_CUP.getId());
         req.setMatchDate(matchDate);
 
         Match savedMatch = Match.builder()
                 .id(1L).teamA(france).teamB(bresil).matchDate(matchDate)
-                .competition("FIFA World Cup 2026").round("Group Stage")
+                .competition(WORLD_CUP).round("Group Stage")
                 .status(Match.Status.UPCOMING).build();
 
         when(teamRepository.findById(1L)).thenReturn(Optional.of(france));
         when(teamRepository.findById(2L)).thenReturn(Optional.of(bresil));
+        when(competitionRepository.findById(WORLD_CUP.getId())).thenReturn(Optional.of(WORLD_CUP));
         when(matchRepository.save(any(Match.class))).thenReturn(savedMatch);
         when(matchMapper.toResponse(any(Match.class))).thenReturn(MatchResponse.builder().build());
 
@@ -493,6 +494,8 @@ class MatchServiceTest {
     private BetParticipation participation(Long id, User user, String option) {
         return participation(id, user, option, 0);
     }
+
+    private static final Competition WORLD_CUP = Competition.builder().id(1L).name("FIFA World Cup 2026").build();
 
     private static Team team(Long id, String name) {
         return Team.builder().id(id).name(name).build();

@@ -27,8 +27,8 @@ public class MatchService {
     private final GroupMemberRepository      groupMemberRepository;
     private final UserRepository             userRepository;
     private final TeamRepository             teamRepository;
+    private final CompetitionRepository      competitionRepository;
     private final DailyGageService           dailyGageService;
-    private final CompetitionService         competitionService;
 
     // ---------------------------------------------------------------
     // Scoring constants
@@ -84,11 +84,13 @@ public class MatchService {
                 .orElseThrow(() -> new EntityNotFoundException("Team not found: " + request.getTeamAId()));
         Team teamB = teamRepository.findById(request.getTeamBId())
                 .orElseThrow(() -> new EntityNotFoundException("Team not found: " + request.getTeamBId()));
+        Competition competition = competitionRepository.findById(request.getCompetitionId())
+                .orElseThrow(() -> new EntityNotFoundException("Competition not found: " + request.getCompetitionId()));
         Match match = Match.builder()
                 .teamA(teamA)
                 .teamB(teamB)
                 .matchDate(request.getMatchDate())
-                .competition(request.getCompetition() != null ? request.getCompetition() : "FIFA World Cup 2026")
+                .competition(competition)
                 .round(request.getRound() != null ? request.getRound() : "")
                 .phase(request.getPhase() != null ? request.getPhase() : Match.MatchPhase.POOL)
                 .status(Match.Status.UPCOMING)
