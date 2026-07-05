@@ -54,11 +54,16 @@ public class AdminCountsService {
                 .mapToInt(row -> ((Number) row[1]).intValue())
                 .sum();
 
-        // pendingForfeitsPerGroup — single batch query instead of N
-        Map<Long, Integer> pendingForfeitsPerGroup = forfeitRepository.countPendingByGroupIds(adminGroupIds).stream()
+        // pendingForfeitsPerGroup — single batch query instead of N; default to 0 for groups with no rows
+        Map<Long, Integer> pendingForfeitsCounts = forfeitRepository.countPendingByGroupIds(adminGroupIds).stream()
                 .collect(Collectors.toMap(
                         row -> (Long) row[0],
                         row -> ((Number) row[1]).intValue()
+                ));
+        Map<Long, Integer> pendingForfeitsPerGroup = adminGroupIds.stream()
+                .collect(Collectors.toMap(
+                        gid -> gid,
+                        gid -> pendingForfeitsCounts.getOrDefault(gid, 0)
                 ));
 
         // missingGagesPerGroup — only counts days that have at least one OPEN bet in the group

@@ -15,6 +15,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -113,12 +114,12 @@ class AdminCountsServiceTest {
                 .thenReturn(List.of(adminMemberA));
 
         // 2 pending applications in groupA
-        when(groupMemberRepository.countByGroupIdAndStatus(12L, GroupMember.MemberStatus.PENDING))
-                .thenReturn(2L);
+        when(groupMemberRepository.countPendingByGroupIds(List.of(12L)))
+                .thenReturn(List.<Object[]>of(row(12L, 2L)));
 
         // 3 pending forfeits in groupA
-        when(forfeitRepository.findByActiveFalseAndGroupIdOrderById(12L))
-                .thenReturn(List.of(forfeit(), forfeit(), forfeit()));
+        when(forfeitRepository.countPendingByGroupIds(List.of(12L)))
+                .thenReturn(List.<Object[]>of(row(12L, 3L)));
 
         // groupA has OPEN bets on 2 dates; DailyGage covers only the first
         Match m1 = match(LocalDateTime.of(2026, 6, 14, 18, 0));
@@ -134,7 +135,7 @@ class AdminCountsServiceTest {
                 .thenReturn(List.of(gageWithForfeit));
 
         // groupA has open bets
-        when(betRepository.existsByGroupIdAndStatus(12L, Bet.Status.OPEN)).thenReturn(true);
+        when(betRepository.findGroupIdsWithOpenBets(List.of(12L))).thenReturn(Set.of(12L));
 
         // 5 upcoming matches not yet open in groupA
         when(betRepository.countUpcomingMatchesWithoutBetsForGroup(12L)).thenReturn(5L);
@@ -160,11 +161,11 @@ class AdminCountsServiceTest {
         when(groupMemberRepository.findByUserIdAndStatus(1L, GroupMember.MemberStatus.ACTIVE))
                 .thenReturn(List.of(adminMemberA, adminMemberB));
 
-        when(groupMemberRepository.countByGroupIdAndStatus(12L, GroupMember.MemberStatus.PENDING)).thenReturn(1L);
-        when(groupMemberRepository.countByGroupIdAndStatus(17L, GroupMember.MemberStatus.PENDING)).thenReturn(0L);
+        when(groupMemberRepository.countPendingByGroupIds(List.of(12L, 17L)))
+                .thenReturn(List.<Object[]>of(row(12L, 1L)));
 
-        when(forfeitRepository.findByActiveFalseAndGroupIdOrderById(12L)).thenReturn(List.of(forfeit()));
-        when(forfeitRepository.findByActiveFalseAndGroupIdOrderById(17L)).thenReturn(List.of());
+        when(forfeitRepository.countPendingByGroupIds(List.of(12L, 17L)))
+                .thenReturn(List.<Object[]>of(row(12L, 1L)));
 
         // groupA has open bets on 2026-06-14; groupB has none
         Match m1 = match(LocalDateTime.of(2026, 6, 14, 18, 0));
@@ -177,8 +178,7 @@ class AdminCountsServiceTest {
         when(dailyGageRepository.findByGroupIdInOrderByMatchDateDesc(anyList()))
                 .thenReturn(List.of(covered));
 
-        when(betRepository.existsByGroupIdAndStatus(12L, Bet.Status.OPEN)).thenReturn(true);
-        when(betRepository.existsByGroupIdAndStatus(17L, Bet.Status.OPEN)).thenReturn(false);
+        when(betRepository.findGroupIdsWithOpenBets(List.of(12L, 17L))).thenReturn(Set.of(12L));
 
         when(betRepository.countUpcomingMatchesWithoutBetsForGroup(12L)).thenReturn(0L);
         when(betRepository.countUpcomingMatchesWithoutBetsForGroup(17L)).thenReturn(16L);
@@ -202,8 +202,8 @@ class AdminCountsServiceTest {
         when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
         when(groupMemberRepository.findByUserIdAndStatus(1L, GroupMember.MemberStatus.ACTIVE))
                 .thenReturn(List.of(adminMemberA));
-        when(groupMemberRepository.countByGroupIdAndStatus(12L, GroupMember.MemberStatus.PENDING)).thenReturn(0L);
-        when(forfeitRepository.findByActiveFalseAndGroupIdOrderById(12L)).thenReturn(List.of());
+        when(groupMemberRepository.countPendingByGroupIds(List.of(12L))).thenReturn(List.of());
+        when(forfeitRepository.countPendingByGroupIds(List.of(12L))).thenReturn(List.of());
 
         Match m1 = match(LocalDateTime.of(2026, 6, 14, 18, 0));
         when(betRepository.findDistinctMatchesWithOpenBetsForGroup(12L)).thenReturn(List.of(m1));
@@ -214,7 +214,7 @@ class AdminCountsServiceTest {
         when(dailyGageRepository.findByGroupIdInOrderByMatchDateDesc(List.of(12L)))
                 .thenReturn(List.of(gageNoForfeit));
 
-        when(betRepository.existsByGroupIdAndStatus(12L, Bet.Status.OPEN)).thenReturn(true);
+        when(betRepository.findGroupIdsWithOpenBets(List.of(12L))).thenReturn(Set.of(12L));
         when(betRepository.countUpcomingMatchesWithoutBetsForGroup(12L)).thenReturn(0L);
 
         AdminCountsResponse result = adminCountsService.getCounts("alice");
@@ -232,8 +232,8 @@ class AdminCountsServiceTest {
         when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
         when(groupMemberRepository.findByUserIdAndStatus(1L, GroupMember.MemberStatus.ACTIVE))
                 .thenReturn(List.of(adminMemberA));
-        when(groupMemberRepository.countByGroupIdAndStatus(12L, GroupMember.MemberStatus.PENDING)).thenReturn(0L);
-        when(forfeitRepository.findByActiveFalseAndGroupIdOrderById(12L)).thenReturn(List.of());
+        when(groupMemberRepository.countPendingByGroupIds(List.of(12L))).thenReturn(List.of());
+        when(forfeitRepository.countPendingByGroupIds(List.of(12L))).thenReturn(List.of());
 
         // Two OPEN-bet matches on the same calendar day (different kick-off times)
         when(betRepository.findDistinctMatchesWithOpenBetsForGroup(12L)).thenReturn(List.of(
@@ -241,7 +241,7 @@ class AdminCountsServiceTest {
                 match(LocalDateTime.of(2026, 6, 14, 20, 0))
         ));
         when(dailyGageRepository.findByGroupIdInOrderByMatchDateDesc(List.of(12L))).thenReturn(List.of());
-        when(betRepository.existsByGroupIdAndStatus(12L, Bet.Status.OPEN)).thenReturn(true);
+        when(betRepository.findGroupIdsWithOpenBets(List.of(12L))).thenReturn(Set.of(12L));
         when(betRepository.countUpcomingMatchesWithoutBetsForGroup(12L)).thenReturn(0L);
 
         AdminCountsResponse result = adminCountsService.getCounts("alice");
@@ -259,13 +259,13 @@ class AdminCountsServiceTest {
         when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
         when(groupMemberRepository.findByUserIdAndStatus(1L, GroupMember.MemberStatus.ACTIVE))
                 .thenReturn(List.of(adminMemberA));
-        when(groupMemberRepository.countByGroupIdAndStatus(12L, GroupMember.MemberStatus.PENDING)).thenReturn(0L);
-        when(forfeitRepository.findByActiveFalseAndGroupIdOrderById(12L)).thenReturn(List.of());
+        when(groupMemberRepository.countPendingByGroupIds(List.of(12L))).thenReturn(List.of());
+        when(forfeitRepository.countPendingByGroupIds(List.of(12L))).thenReturn(List.of());
 
         // No OPEN bets for this group yet (16 matches added but not opened)
         when(betRepository.findDistinctMatchesWithOpenBetsForGroup(12L)).thenReturn(List.of());
         when(dailyGageRepository.findByGroupIdInOrderByMatchDateDesc(List.of(12L))).thenReturn(List.of());
-        when(betRepository.existsByGroupIdAndStatus(12L, Bet.Status.OPEN)).thenReturn(false);
+        when(betRepository.findGroupIdsWithOpenBets(List.of(12L))).thenReturn(Set.of());
         when(betRepository.countUpcomingMatchesWithoutBetsForGroup(12L)).thenReturn(16L);
 
         AdminCountsResponse result = adminCountsService.getCounts("alice");
@@ -288,5 +288,9 @@ class AdminCountsServiceTest {
     private Match match(LocalDateTime dateTime) {
         return Match.builder().id((long) (Math.random() * 10000))
                 .teamA("A").teamB("B").matchDate(dateTime).build();
+    }
+
+    private Object[] row(Long groupId, Long count) {
+        return new Object[] { groupId, count };
     }
 }

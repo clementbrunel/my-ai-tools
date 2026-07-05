@@ -402,7 +402,7 @@ class BetServiceTest {
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
         when(betRepository.findAllInUserActiveGroups(1L)).thenReturn(List.of(testBet));
         when(betMapper.toResponse(any(Bet.class))).thenReturn(BetResponse.builder().id(1L).title("Test Bet").build());
-        when(betRepository.countParticipationsByBetId(any())).thenReturn(0L);
+        when(betRepository.countParticipationsByBetIds(any())).thenReturn(List.of());
 
         List<BetResponse> result = betService.getBetsForUser("testuser");
 

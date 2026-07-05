@@ -115,6 +115,8 @@ class AuthServiceTest {
         request.setUsername("testuser");
         request.setPassword("password123");
 
+        testUser.setEmailVerified(true);
+
         UserResponse userResponse = UserResponse.builder()
             .id(1L)
             .username("testuser")

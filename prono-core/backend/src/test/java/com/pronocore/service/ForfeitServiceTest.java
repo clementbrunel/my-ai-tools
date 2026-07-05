@@ -8,6 +8,7 @@ import com.pronocore.entity.GroupMember;
 import com.pronocore.entity.User;
 import com.pronocore.entity.UserForfeit;
 import com.pronocore.repository.ForfeitRepository;
+import com.pronocore.repository.ForfeitVoteRepository;
 import com.pronocore.repository.GroupMemberRepository;
 import com.pronocore.repository.UserForfeitRepository;
 import com.pronocore.repository.UserRepository;
@@ -36,6 +37,7 @@ import static org.mockito.Mockito.*;
 class ForfeitServiceTest {
 
     @Mock private ForfeitRepository     forfeitRepository;
+    @Mock private ForfeitVoteRepository forfeitVoteRepository;
     @Mock private UserForfeitRepository userForfeitRepository;
     @Mock private UserRepository        userRepository;
     @Mock private GroupMemberRepository groupMemberRepository;
@@ -95,6 +97,8 @@ class ForfeitServiceTest {
         when(groupMemberRepository.findByUserIdAndStatus(2L, GroupMember.MemberStatus.ACTIVE))
                 .thenReturn(List.of(m));
         when(forfeitRepository.findActiveVisibleToGroups(List.of(7L))).thenReturn(List.of(forfeit));
+        when(forfeitVoteRepository.sumVoteScoresByForfeitIds(List.of(10L))).thenReturn(List.of());
+        when(forfeitVoteRepository.findByForfeitIdInAndUserId(List.of(10L), 2L)).thenReturn(List.of());
 
         List<ForfeitResponse> result = forfeitService.getForfeitsForUser("player");
 
@@ -109,6 +113,8 @@ class ForfeitServiceTest {
         when(groupMemberRepository.findByUserIdAndStatus(2L, GroupMember.MemberStatus.ACTIVE))
                 .thenReturn(List.of());
         when(forfeitRepository.findByActiveTrueAndGroupIsNullOrderById()).thenReturn(List.of(forfeit));
+        when(forfeitVoteRepository.sumVoteScoresByForfeitIds(List.of(10L))).thenReturn(List.of());
+        when(forfeitVoteRepository.findByForfeitIdInAndUserId(List.of(10L), 2L)).thenReturn(List.of());
 
         List<ForfeitResponse> result = forfeitService.getForfeitsForUser("player");
 
@@ -126,13 +132,16 @@ class ForfeitServiceTest {
                 .category("Old").active(false).timesCompleted(0)
                 .build();
 
-        when(forfeitRepository.findAll()).thenReturn(List.of(forfeit, inactive));
+        when(userRepository.findByUsername("player")).thenReturn(Optional.of(regularUser));
+        when(forfeitRepository.findAllByOrderByIdAsc()).thenReturn(List.of(forfeit, inactive));
+        when(forfeitVoteRepository.sumVoteScoresByForfeitIds(List.of(10L, 11L))).thenReturn(List.of());
+        when(forfeitVoteRepository.findByForfeitIdInAndUserId(List.of(10L, 11L), 2L)).thenReturn(List.of());
 
         List<ForfeitResponse> result = forfeitService.getAllForfeitsAdmin();
 
         assertThat(result).hasSize(2);
         assertThat(result).extracting(ForfeitResponse::isActive).containsExactlyInAnyOrder(true, false);
-        verify(forfeitRepository).findAll();
+        verify(forfeitRepository).findAllByOrderByIdAsc();
     }
 
     // ── createForfeit ──────────────────────────────────────────────────────────
