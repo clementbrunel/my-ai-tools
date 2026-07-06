@@ -12,6 +12,7 @@ Each tool lives in its own subdirectory with its own `package.json`, `src/`, and
 | `mistral-chat/`   | `mistral-chat`   | Interactive CLI REPL for enterprise Mistral via browser cookies |
 | `mottaret-watch/`  | `mottaret-watch`  | Python cron (GitHub Actions) — scrapes rental availability, emails alerts |
 | `prono-core/`      | `prono-core`      | Full-stack World Cup 2026 betting app (Java/Spring + React)              |
+| `my-house/`        | `my-house`        | Home Assistant Docker stack (Synology NAS) + Somfy RTS via ESPHome       |
 
 ## Adding a new tool
 

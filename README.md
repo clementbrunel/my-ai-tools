@@ -10,6 +10,7 @@ A personal collection of AI development tools for inspecting, diagnosing, and op
 | [`mistral-chat`](./mistral-chat/)     | Interactive CLI REPL to chat with an enterprise Mistral instance, authenticating via Chrome/Edge browser session cookies   |
 | [`mottaret-watch`](./mottaret-watch/) | Python script (Docker + Synology Task Scheduler) that scrapes rental availability for Méribel Mottaret Les Bleuets and sends email alerts via Resend |
 | [`prono-core`](./prono-core/)         | Full-stack World Cup 2026 betting app for friends — Java/Spring Boot + React, deployed via private Docker registry on NAS  |
+| [`my-house`](./my-house/)             | Home Assistant on Docker (Synology NAS) with Somfy RTS shutter integration via ESPHome                                    |
 
 ## Roadmap
 

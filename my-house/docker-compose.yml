@@ -1,0 +1,21 @@
+services:
+  homeassistant:
+    container_name: homeassistant
+    image: homeassistant/home-assistant:stable
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - /volume1/docker/my-house/homeassistant:/config
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      - TZ=Europe/Paris
+
+  esphome:
+    container_name: esphome
+    image: ghcr.io/esphome/esphome
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - /volume1/docker/my-house/esphome:/config
+    environment:
+      - TZ=Europe/Paris
