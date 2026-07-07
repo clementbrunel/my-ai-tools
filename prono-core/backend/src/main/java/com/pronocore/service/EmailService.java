@@ -293,7 +293,7 @@ public class EmailService {
                   <td style="padding:10px 14px;color:#555">%s</td>
                   <td style="padding:10px 14px;color:#6b7280;font-size:13px">%s</td>
                 </tr>
-                """.formatted(m.getTeamA(), m.getTeamB(), m.getRound(), m.getMatchDate().format(fmt))
+                """.formatted(m.getTeamA().getName(), m.getTeamB().getName(), m.getRound(), m.getMatchDate().format(fmt))
         ).collect(Collectors.joining());
 
         String appUrl = frontendUrl + "/matches";
