@@ -24,6 +24,8 @@ import Gages from './pages/Gages';
 import GroupPage from './pages/GroupPage';
 import OpenBetting from './pages/OpenBetting';
 import F1Dashboard from './pages/f1/F1Dashboard';
+import F1Races from './pages/f1/F1Races';
+import F1Bets from './pages/f1/F1Bets';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -74,6 +76,8 @@ function App() {
 
                           {/* F1 */}
                           <Route path="/f1" element={<F1Dashboard />} />
+                          <Route path="/f1/races" element={<F1Races />} />
+                          <Route path="/f1/bets" element={<F1Bets />} />
 
                           {/* Shared */}
                           <Route path="/profile" element={<Profile />} />

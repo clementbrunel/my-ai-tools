@@ -35,7 +35,7 @@ export const f1Theme: Theme = {
     '--theme-primary': '#E10600',
     '--theme-primary-dark': '#9B0400',
     '--theme-accent': '#C0C0C0',
-    '--theme-accent-mid': '#FFFFFF',
+    '--theme-accent-mid': '#A0A0A0',
     '--theme-danger': '#FF6B00',
     '--theme-dark': '#15151E',
     '--theme-dark-secondary': '#1F1F2E',

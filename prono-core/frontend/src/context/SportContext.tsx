@@ -21,6 +21,12 @@ export function SportProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setTheme(sport === 'f1' ? 'f1' : 'football');
+
+    const emoji = sport === 'f1' ? '🏎' : '⚽';
+    const favicon = document.querySelector("link[rel~='icon']") as HTMLLinkElement | null;
+    if (favicon) {
+      favicon.href = `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>${emoji}</text></svg>`;
+    }
   }, [sport]);
 
   return (
