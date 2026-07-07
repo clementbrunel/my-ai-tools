@@ -28,8 +28,8 @@ const AdminMatchesTab: React.FC = () => {
   const [competitionTeams, setCompetitionTeams] = useState<TeamDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const [newTeamA, setNewTeamA] = useState('');
-  const [newTeamB, setNewTeamB] = useState('');
+  const [newTeamA, setNewTeamA] = useState<number | undefined>(undefined);
+  const [newTeamB, setNewTeamB] = useState<number | undefined>(undefined);
   const [newMatchDate, setNewMatchDate] = useState('');
   const [newCompetitionId, setNewCompetitionId] = useState<number | null>(null);
   const [newRound, setNewRound] = useState('Phase de poules');
@@ -78,8 +78,8 @@ const AdminMatchesTab: React.FC = () => {
   const handleCompetitionChange = async (value: string) => {
     const competitionId = value ? parseInt(value) : null;
     setNewCompetitionId(competitionId);
-    setNewTeamA('');
-    setNewTeamB('');
+    setNewTeamA(undefined);
+    setNewTeamB(undefined);
     if (competitionId) {
       try {
         const teams = await getCompetitionTeams(competitionId);
@@ -98,13 +98,13 @@ const AdminMatchesTab: React.FC = () => {
     if (!newCompetitionId) return;
     try {
       const newMatch = await createMatch({
-        teamAId: parseInt(newTeamA), teamBId: parseInt(newTeamB),
+        teamAId: newTeamA!, teamBId: newTeamB!,
         matchDate: new Date(newMatchDate).toISOString(),
         competitionId: newCompetitionId, round: newRound,
         phase: newPhase,
       });
       setMatches([...matches, newMatch]);
-      setNewTeamA(''); setNewTeamB(''); setNewMatchDate('');
+      setNewTeamA(undefined); setNewTeamB(undefined); setNewMatchDate('');
       setNewRound('Phase de poules'); setNewPhase('POOL');
       setMatchSuccess('Match créé avec succès !');
     } catch { setMatchError('Erreur lors de la création du match'); }
@@ -186,9 +186,9 @@ const AdminMatchesTab: React.FC = () => {
           <div>
             <label className="label">Équipe A</label>
             {competitionTeams.length > 0 ? (
-              <select value={newTeamA} onChange={(e) => setNewTeamA(e.target.value)} className="input-field" required>
+              <select value={newTeamA ?? ''} onChange={(e) => setNewTeamA(e.target.value ? Number(e.target.value) : undefined)} className="input-field" required>
                 <option value="">-- Choisir --</option>
-                {competitionTeams.filter((t) => String(t.id) !== newTeamB).map((t) => <option key={t.id} value={String(t.id)}>{t.name}</option>)}
+                {competitionTeams.filter((t) => t.id !== newTeamB).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
             ) : (
               <p className="text-xs text-amber-500 mt-1">Ajoutez d'abord des équipes dans l'onglet Compétitions.</p>
@@ -197,9 +197,9 @@ const AdminMatchesTab: React.FC = () => {
           <div>
             <label className="label">Équipe B</label>
             {competitionTeams.length > 0 ? (
-              <select value={newTeamB} onChange={(e) => setNewTeamB(e.target.value)} className="input-field" required>
+              <select value={newTeamB ?? ''} onChange={(e) => setNewTeamB(e.target.value ? Number(e.target.value) : undefined)} className="input-field" required>
                 <option value="">-- Choisir --</option>
-                {competitionTeams.filter((t) => String(t.id) !== newTeamA).map((t) => <option key={t.id} value={String(t.id)}>{t.name}</option>)}
+                {competitionTeams.filter((t) => t.id !== newTeamA).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
             ) : (
               <p className="text-xs text-amber-500 mt-1">Ajoutez d'abord des équipes dans l'onglet Compétitions.</p>
