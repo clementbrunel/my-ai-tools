@@ -3,7 +3,7 @@ import { getMyGroups } from '../api/groups';
 import { getMatches } from '../api/matches';
 import { getBets, openMatchForBetting, openCompetitionForBetting, closeMatchForBetting } from '../api/bets';
 import { getCompetitions } from '../api/competitions';
-import type { Group, Match, MatchPhase } from '../types';
+import type { CompetitionDto, Group, Match, MatchPhase } from '../types';
 import { formatDate } from '../utils/dates';
 import ConfirmModal from '../components/ConfirmModal';
 import { useGroupAdminCounts } from '../context/GroupAdminCountsContext';
@@ -30,9 +30,9 @@ const OpenBetting: React.FC = () => {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [matchToClose, setMatchToClose] = useState<Match | null>(null);
-  const [allCompetitions, setAllCompetitions] = useState<string[]>([]);
+  const [allCompetitions, setAllCompetitions] = useState<CompetitionDto[]>([]);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('CLOSED');
-  const [competitionFilter, setCompetitionFilter] = useState('');
+  const [competitionFilter, setCompetitionFilter] = useState<number | ''>('');
   const [phaseFilter, setPhaseFilter] = useState<MatchPhase | ''>('');
 
   // Load the groups the user administers
@@ -77,7 +77,7 @@ const OpenBetting: React.FC = () => {
       const isOpen = openMatchIds.has(match.id);
       if (statusFilter === 'OPEN' && !isOpen) return false;
       if (statusFilter === 'CLOSED' && isOpen) return false;
-      if (competitionFilter && match.competition !== competitionFilter) return false;
+      if (competitionFilter && match.competition.id !== competitionFilter) return false;
       if (phaseFilter && match.phase !== phaseFilter) return false;
       return true;
     });
@@ -85,13 +85,17 @@ const OpenBetting: React.FC = () => {
 
   // Group matches by competition, preserving date order within each competition
   const matchesByCompetition = useMemo(() => {
-    return filteredMatches.reduce<Record<string, Match[]>>((acc, match) => {
-      (acc[match.competition] ??= []).push(match);
+    return filteredMatches.reduce<Record<number, Match[]>>((acc, match) => {
+      (acc[match.competition.id] ??= []).push(match);
       return acc;
     }, {});
   }, [filteredMatches]);
 
-  const competitions = Object.keys(matchesByCompetition).sort();
+  const competitionIds = Object.keys(matchesByCompetition).map(Number).sort((a, b) => {
+    const nameA = matchesByCompetition[a][0].competition.name;
+    const nameB = matchesByCompetition[b][0].competition.name;
+    return nameA.localeCompare(nameB);
+  });
 
   const handleOpenMatch = async (matchId: number) => {
     if (selectedGroupId == null) return;
@@ -126,12 +130,12 @@ const OpenBetting: React.FC = () => {
     }
   };
 
-  const handleOpenCompetition = async (competition: string) => {
+  const handleOpenCompetition = async (competitionId: number) => {
     if (selectedGroupId == null) return;
-    setBusy(`comp-${competition}`);
+    setBusy(`comp-${competitionId}`);
     setError(null);
     try {
-      const created = await openCompetitionForBetting({ groupId: selectedGroupId, competition });
+      const created = await openCompetitionForBetting({ groupId: selectedGroupId, competitionId });
       setOpenMatchIds((prev) => {
         const next = new Set(prev);
         created.forEach((b) => b.match && next.add(b.match.id));
@@ -199,12 +203,12 @@ const OpenBetting: React.FC = () => {
           <label className="label mb-0">Compétition</label>
           <select
             value={competitionFilter}
-            onChange={(e) => setCompetitionFilter(e.target.value)}
+            onChange={(e) => setCompetitionFilter(e.target.value ? Number(e.target.value) : '')}
             className="input-field"
           >
             <option value="">Toutes</option>
             {allCompetitions.map((c) => (
-              <option key={c} value={c}>{c}</option>
+              <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
         </div>
@@ -229,31 +233,32 @@ const OpenBetting: React.FC = () => {
         </div>
       )}
 
-      {competitions.length === 0 ? (
+      {competitionIds.length === 0 ? (
         <div className="card text-center py-10 text-gray-500">Aucun match ne correspond aux filtres.</div>
       ) : (
         <div className="space-y-8">
-          {competitions.map((competition) => {
-            const compMatches = matchesByCompetition[competition];
+          {competitionIds.map((competitionId) => {
+            const compMatches = matchesByCompetition[competitionId];
+            const competitionName = compMatches[0].competition.name;
             const openCount = compMatches.filter((m) => openMatchIds.has(m.id)).length;
             const allOpen = openCount === compMatches.length;
             return (
-              <section key={competition}>
+              <section key={competitionId}>
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                   <div className="flex items-center gap-3">
-                    <h2 className="text-lg font-bold text-gray-700 dark:text-gray-300">🏆 {competition}</h2>
+                    <h2 className="text-lg font-bold text-gray-700 dark:text-gray-300">🏆 {competitionName}</h2>
                     <span className="text-xs text-gray-400">
                       {openCount}/{compMatches.length} ouvert{openCount > 1 ? 's' : ''}
                     </span>
                   </div>
                   <button
-                    onClick={() => handleOpenCompetition(competition)}
-                    disabled={allOpen || busy === `comp-${competition}`}
+                    onClick={() => handleOpenCompetition(competitionId)}
+                    disabled={allOpen || busy === `comp-${competitionId}`}
                     className="btn-primary text-sm disabled:opacity-50"
                   >
                     {allOpen
                       ? '✅ Tout est ouvert'
-                      : busy === `comp-${competition}`
+                      : busy === `comp-${competitionId}`
                         ? 'Ouverture...'
                         : '🚀 Ouvrir toute la compétition'}
                   </button>
@@ -269,7 +274,7 @@ const OpenBetting: React.FC = () => {
                       >
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                            {match.teamA} vs {match.teamB}
+                            {match.teamA.name} vs {match.teamB.name}
                           </p>
                           <p className="text-xs text-gray-400">{formatDate(match.matchDate)}</p>
                         </div>
@@ -308,7 +313,7 @@ const OpenBetting: React.FC = () => {
       <ConfirmModal
         isOpen={matchToClose != null}
         title="Fermer ce match aux paris ?"
-        message={`Cela supprimera définitivement le pari et tous les pronostics déjà enregistrés pour "${matchToClose?.teamA} vs ${matchToClose?.teamB}". Cette action est irréversible.`}
+        message={`Cela supprimera définitivement le pari et tous les pronostics déjà enregistrés pour "${matchToClose?.teamA.name} vs ${matchToClose?.teamB.name}". Cette action est irréversible.`}
         confirmLabel="Fermer le match"
         variant="danger"
         onConfirm={handleCloseMatch}

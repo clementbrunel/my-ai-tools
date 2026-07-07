@@ -48,6 +48,7 @@ class DailyGageServiceTest {
 
     private static final LocalDate MATCH_DAY = LocalDate.of(2026, 6, 11);
     private static final Long GROUP_ID = 7L;
+    private static final Competition WORLD_CUP = Competition.builder().id(1L).name("FIFA World Cup 2026").build();
 
     private User adminUser;
     private Group group;
@@ -63,9 +64,11 @@ class DailyGageServiceTest {
         group = Group.builder().id(GROUP_ID).name("Les Potes").build();
 
         sampleMatch = Match.builder()
-                .id(1L).teamA("France").teamB("Brésil")
+                .id(1L)
+                .teamA(Team.builder().id(1L).name("France").build())
+                .teamB(Team.builder().id(2L).name("Brésil").build())
                 .matchDate(MATCH_DAY.atTime(20, 0)).status(Match.Status.UPCOMING)
-                .competition("FIFA World Cup 2026").round("Group Stage")
+                .competition(WORLD_CUP).round("Group Stage")
                 .build();
 
         SecurityContext sc   = mock(SecurityContext.class);

@@ -66,12 +66,15 @@ public interface BetRepository extends JpaRepository<Bet, Long> {
 
     /** Distinct matches that have at least one bet (any status) in the user's active groups. */
     @Query("""
-            SELECT DISTINCT b.match FROM Bet b
+            SELECT DISTINCT m FROM Bet b
+            JOIN b.match m
+            JOIN FETCH m.teamA
+            JOIN FETCH m.teamB
+            JOIN FETCH m.competition
             JOIN GroupMember gm ON gm.group = b.group
             WHERE gm.user.id = :userId
               AND gm.status = com.pronocore.entity.GroupMember.MemberStatus.ACTIVE
-              AND b.match IS NOT NULL
-            ORDER BY b.match.matchDate ASC
+            ORDER BY m.matchDate ASC
             """)
     List<Match> findDistinctMatchesWithBetsInUserGroups(@Param("userId") Long userId);
 

@@ -6,23 +6,25 @@ import {
   getCompetitionTeams,
   getAllKnownTeams,
   setCompetitionTeams,
+  findOrCreateTeam,
 } from '../../api/competitions';
+import type { CompetitionDto, TeamDto } from '../../types';
 
 const AdminCompetitionsTab: React.FC = () => {
   const { showToast } = useToast();
 
-  const [competitions, setCompetitions] = useState<string[]>([]);
-  const [selectedCompetition, setSelectedCompetition] = useState<string>('');
+  const [competitions, setCompetitions] = useState<CompetitionDto[]>([]);
+  const [selectedCompetition, setSelectedCompetition] = useState<CompetitionDto | null>(null);
   const [newCompetitionName, setNewCompetitionName] = useState('');
   const [showNewCompetitionForm, setShowNewCompetitionForm] = useState(false);
 
-  const [rosterTeams, setRosterTeams] = useState<Set<string>>(new Set());
-  const [knownTeams, setKnownTeams] = useState<string[]>([]);
+  const [rosterTeamIds, setRosterTeamIds] = useState<Set<number>>(new Set());
+  const [knownTeams, setKnownTeams] = useState<TeamDto[]>([]);
   const [newTeamName, setNewTeamName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [isLoadingTeams, setIsLoadingTeams] = useState(false);
-  const loadingForRef = useRef<string>('');
+  const loadingForRef = useRef<number | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -35,46 +37,49 @@ const AdminCompetitionsTab: React.FC = () => {
     })();
   }, []);
 
-  const loadRoster = async (competition: string) => {
-    loadingForRef.current = competition;
+  const loadRoster = async (competition: CompetitionDto) => {
+    loadingForRef.current = competition.id;
     setSelectedCompetition(competition);
     setIsDirty(false);
     setIsLoadingTeams(true);
     try {
-      const teams = await getCompetitionTeams(competition);
-      if (loadingForRef.current !== competition) return;
-      setRosterTeams(new Set(teams.map(t => t.name)));
+      const teams = await getCompetitionTeams(competition.id);
+      if (loadingForRef.current !== competition.id) return;
+      setRosterTeamIds(new Set(teams.map((t) => t.id)));
     } finally {
-      if (loadingForRef.current === competition) setIsLoadingTeams(false);
+      if (loadingForRef.current === competition.id) setIsLoadingTeams(false);
     }
   };
 
-  const toggleTeam = (team: string) => {
-    setRosterTeams((prev) => {
+  const toggleTeam = (teamId: number) => {
+    setRosterTeamIds((prev) => {
       const next = new Set(prev);
-      if (next.has(team)) next.delete(team);
-      else next.add(team);
+      if (next.has(teamId)) next.delete(teamId);
+      else next.add(teamId);
       return next;
     });
     setIsDirty(true);
   };
 
-  const addCustomTeam = () => {
+  const addCustomTeam = async () => {
     const name = newTeamName.trim();
     if (!name) return;
-    setRosterTeams((prev) => new Set([...prev, name]));
-    if (!knownTeams.includes(name)) {
-      setKnownTeams((prev) => [...prev, name].sort());
-    }
     setNewTeamName('');
-    setIsDirty(true);
+    try {
+      const team = await findOrCreateTeam(name);
+      setRosterTeamIds((prev) => new Set([...prev, team.id]));
+      setKnownTeams((prev) => (prev.some((t) => t.id === team.id) ? prev : [...prev, team].sort((a, b) => a.name.localeCompare(b.name))));
+      setIsDirty(true);
+    } catch {
+      showToast("Erreur lors de l'ajout de l'équipe");
+    }
   };
 
   const handleSave = async () => {
     if (!selectedCompetition) return;
     setIsSaving(true);
     try {
-      await setCompetitionTeams(selectedCompetition, [...rosterTeams].sort());
+      await setCompetitionTeams(selectedCompetition.id, [...rosterTeamIds]);
       setIsDirty(false);
       showToast('Roster sauvegardé ✅');
     } catch {
@@ -87,20 +92,17 @@ const AdminCompetitionsTab: React.FC = () => {
   const handleCreateCompetition = async (e: React.FormEvent) => {
     e.preventDefault();
     const name = newCompetitionName.trim();
-    if (!name || competitions.includes(name)) return;
+    if (!name || competitions.some((c) => c.name === name)) return;
     await createCompetition(name);
-    const updated = [...competitions, name].sort();
+    const updated = await getCompetitions();
     setCompetitions(updated);
     setNewCompetitionName('');
     setShowNewCompetitionForm(false);
-    await loadRoster(name);
+    const created = updated.find((c) => c.name === name);
+    if (created) await loadRoster(created);
   };
 
-  const inRoster = (team: string) => rosterTeams.has(team);
-
-  // Teams not yet in knownTeams but in current roster (edge case)
-  const extraRosterTeams = [...rosterTeams].filter((t) => !knownTeams.includes(t)).sort();
-  const allDisplayTeams = [...new Set([...knownTeams, ...extraRosterTeams])].sort();
+  const inRoster = (teamId: number) => rosterTeamIds.has(teamId);
 
   return (
     <div className="space-y-6">
@@ -135,15 +137,15 @@ const AdminCompetitionsTab: React.FC = () => {
         <div className="flex flex-wrap gap-2">
           {competitions.map((c) => (
             <button
-              key={c}
+              key={c.id}
               onClick={() => loadRoster(c)}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                selectedCompetition === c
+                selectedCompetition?.id === c.id
                   ? 'bg-wc-green text-white'
                   : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
               }`}
             >
-              {c}
+              {c.name}
             </button>
           ))}
           {competitions.length === 0 && (
@@ -157,9 +159,9 @@ const AdminCompetitionsTab: React.FC = () => {
         <div className="card">
           <div className="flex items-center justify-between mb-1">
             <h3 className="font-bold text-gray-900 dark:text-white">
-              Équipes — <span className="text-wc-green">{selectedCompetition}</span>
+              Équipes — <span className="text-wc-green">{selectedCompetition.name}</span>
             </h3>
-            <span className="text-sm text-gray-500">{rosterTeams.size} équipe{rosterTeams.size !== 1 ? 's' : ''}</span>
+            <span className="text-sm text-gray-500">{rosterTeamIds.size} équipe{rosterTeamIds.size !== 1 ? 's' : ''}</span>
           </div>
           <p className="text-xs text-gray-400 mb-4">
             Cochez les équipes participantes. Les équipes déjà présentes dans les matchs existants sont incluses automatiquement.
@@ -186,11 +188,11 @@ const AdminCompetitionsTab: React.FC = () => {
 
               {/* Team grid */}
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mb-4">
-                {allDisplayTeams.map((team) => {
-                  const checked = inRoster(team);
+                {knownTeams.map((team) => {
+                  const checked = inRoster(team.id);
                   return (
                     <label
-                      key={team}
+                      key={team.id}
                       className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer text-sm transition-colors ${
                         checked
                           ? 'border-wc-green bg-wc-green/10 text-gray-900 dark:text-white'
@@ -200,14 +202,14 @@ const AdminCompetitionsTab: React.FC = () => {
                       <input
                         type="checkbox"
                         checked={checked}
-                        onChange={() => toggleTeam(team)}
+                        onChange={() => toggleTeam(team.id)}
                         className="accent-wc-green"
                       />
-                      {team}
+                      {team.name}
                     </label>
                   );
                 })}
-                {allDisplayTeams.length === 0 && (
+                {knownTeams.length === 0 && (
                   <p className="col-span-full text-sm text-gray-400">
                     Aucune équipe connue — saisissez-en une ci-dessus.
                   </p>

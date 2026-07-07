@@ -12,7 +12,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -38,8 +37,8 @@ class MatchServiceTest {
     @Mock private GroupMemberRepository      groupMemberRepository;
     @Mock private UserRepository             userRepository;
     @Mock private TeamRepository             teamRepository;
+    @Mock private CompetitionRepository      competitionRepository;
     @Mock private DailyGageService           dailyGageService;
-    @Mock private CompetitionService         competitionService;
 
     @InjectMocks
     private MatchService matchService;
@@ -161,7 +160,7 @@ class MatchServiceTest {
     @Test
     void settlement_shouldAwardCorrectPointsWhenMatchTransitionsToFinished() {
         Match match = Match.builder()
-                .id(1L).teamA("France").teamB("Brésil")
+                .id(1L).teamA(team(1L, "France")).teamB(team(2L, "Brésil"))
                 .matchDate(LocalDateTime.now().minusHours(2))
                 .status(Match.Status.ONGOING)   // not yet FINISHED
                 .build();                        // no forfeit → gage block skipped
@@ -203,7 +202,7 @@ class MatchServiceTest {
     @Test
     void settlement_winningOption_shouldPutWinnerScoreFirst_whenTeamBWins() {
         Match match = Match.builder()
-                .id(2L).teamA("France").teamB("Brésil")
+                .id(2L).teamA(team(1L, "France")).teamB(team(2L, "Brésil"))
                 .matchDate(LocalDateTime.now().minusHours(1))
                 .status(Match.Status.ONGOING)
                 .build();
@@ -232,7 +231,7 @@ class MatchServiceTest {
     void settlement_shouldNotTriggerWhenMatchWasAlreadyFinished() {
         // Match is ALREADY FINISHED → no transition → no settlement
         Match alreadyFinished = Match.builder()
-                .id(3L).teamA("France").teamB("Brésil")
+                .id(3L).teamA(team(1L, "France")).teamB(team(2L, "Brésil"))
                 .status(Match.Status.FINISHED)
                 .build();
 
@@ -261,17 +260,23 @@ class MatchServiceTest {
     @Test
     void createMatch_shouldNotCreateAnyBet() {
         LocalDateTime matchDate = LocalDateTime.of(2026, 6, 14, 20, 0);
+        Team france = team(1L, "France");
+        Team bresil = team(2L, "Brésil");
 
         CreateMatchRequest req = new CreateMatchRequest();
-        req.setTeamA("France");
-        req.setTeamB("Brésil");
+        req.setTeamAId(1L);
+        req.setTeamBId(2L);
+        req.setCompetitionId(WORLD_CUP.getId());
         req.setMatchDate(matchDate);
 
         Match savedMatch = Match.builder()
-                .id(1L).teamA("France").teamB("Brésil").matchDate(matchDate)
-                .competition("FIFA World Cup 2026").round("Group Stage")
+                .id(1L).teamA(france).teamB(bresil).matchDate(matchDate)
+                .competition(WORLD_CUP).round("Group Stage")
                 .status(Match.Status.UPCOMING).build();
 
+        when(teamRepository.findById(1L)).thenReturn(Optional.of(france));
+        when(teamRepository.findById(2L)).thenReturn(Optional.of(bresil));
+        when(competitionRepository.findById(WORLD_CUP.getId())).thenReturn(Optional.of(WORLD_CUP));
         when(matchRepository.save(any(Match.class))).thenReturn(savedMatch);
         when(matchMapper.toResponse(any(Match.class))).thenReturn(MatchResponse.builder().build());
 
@@ -444,7 +449,7 @@ class MatchServiceTest {
     @Test
     void forceSettleBet_shouldThrowWhenMatchNotFinished() {
         Match match = Match.builder()
-                .id(1L).teamA("France").teamB("Brésil")
+                .id(1L).teamA(team(1L, "France")).teamB(team(2L, "Brésil"))
                 .status(Match.Status.ONGOING)
                 .build();
 
@@ -490,9 +495,15 @@ class MatchServiceTest {
         return participation(id, user, option, 0);
     }
 
-    private Match finishedMatch(Long id, String teamA, String teamB, int scoreA, int scoreB) {
+    private static final Competition WORLD_CUP = Competition.builder().id(1L).name("FIFA World Cup 2026").build();
+
+    private static Team team(Long id, String name) {
+        return Team.builder().id(id).name(name).build();
+    }
+
+    private Match finishedMatch(Long id, String teamAName, String teamBName, int scoreA, int scoreB) {
         return Match.builder()
-                .id(id).teamA(teamA).teamB(teamB)
+                .id(id).teamA(team(id * 10, teamAName)).teamB(team(id * 10 + 1, teamBName))
                 .matchDate(LocalDateTime.now().minusHours(2))
                 .scoreA(scoreA).scoreB(scoreB)
                 .status(Match.Status.FINISHED)

@@ -1,6 +1,5 @@
 package com.pronocore.dto.request;
 
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
@@ -11,6 +10,6 @@ public class OpenCompetitionRequest {
     @NotNull(message = "groupId is required")
     private Long groupId;
 
-    @NotBlank(message = "competition is required")
-    private String competition;
+    @NotNull(message = "competitionId is required")
+    private Long competitionId;
 }

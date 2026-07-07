@@ -18,11 +18,13 @@ public class Match {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "team_a", nullable = false, length = 100)
-    private String teamA;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "team_a_id", nullable = false)
+    private Team teamA;
 
-    @Column(name = "team_b", nullable = false, length = 100)
-    private String teamB;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "team_b_id", nullable = false)
+    private Team teamB;
 
     @Column(name = "match_date", nullable = false)
     private LocalDateTime matchDate;
@@ -38,9 +40,9 @@ public class Match {
     @Builder.Default
     private Status status = Status.UPCOMING;
 
-    @Column(nullable = false, length = 100)
-    @Builder.Default
-    private String competition = "FIFA World Cup 2026";
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "competition_id", nullable = false)
+    private Competition competition;
 
     @Column(nullable = false, length = 100)
     @Builder.Default

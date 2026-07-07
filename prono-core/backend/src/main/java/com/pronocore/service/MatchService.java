@@ -27,8 +27,8 @@ public class MatchService {
     private final GroupMemberRepository      groupMemberRepository;
     private final UserRepository             userRepository;
     private final TeamRepository             teamRepository;
+    private final CompetitionRepository      competitionRepository;
     private final DailyGageService           dailyGageService;
-    private final CompetitionService         competitionService;
 
     // ---------------------------------------------------------------
     // Scoring constants
@@ -80,11 +80,17 @@ public class MatchService {
 
     @Transactional
     public MatchResponse createMatch(CreateMatchRequest request) {
+        Team teamA = teamRepository.findById(request.getTeamAId())
+                .orElseThrow(() -> new EntityNotFoundException("Team not found: " + request.getTeamAId()));
+        Team teamB = teamRepository.findById(request.getTeamBId())
+                .orElseThrow(() -> new EntityNotFoundException("Team not found: " + request.getTeamBId()));
+        Competition competition = competitionRepository.findById(request.getCompetitionId())
+                .orElseThrow(() -> new EntityNotFoundException("Competition not found: " + request.getCompetitionId()));
         Match match = Match.builder()
-                .teamA(request.getTeamA())
-                .teamB(request.getTeamB())
+                .teamA(teamA)
+                .teamB(teamB)
                 .matchDate(request.getMatchDate())
-                .competition(request.getCompetition() != null ? request.getCompetition() : "FIFA World Cup 2026")
+                .competition(competition)
                 .round(request.getRound() != null ? request.getRound() : "")
                 .phase(request.getPhase() != null ? request.getPhase() : Match.MatchPhase.POOL)
                 .status(Match.Status.UPCOMING)
@@ -163,7 +169,7 @@ public class MatchService {
     private void settleBetsForMatch(Match match) {
         String winningOption = computeWinningOption(match);
         log.info("⚽ Settling match {} ({} vs {}) — winning option: {}",
-                match.getId(), match.getTeamA(), match.getTeamB(), winningOption);
+                match.getId(), match.getTeamA().getName(), match.getTeamB().getName(), winningOption);
 
         List<Bet> openBets = betRepository
                 .findByMatchIdAndStatusOrderByCreatedAtDesc(match.getId(), Bet.Status.OPEN);
@@ -218,7 +224,7 @@ public class MatchService {
         }
         List<Bet> bets = betRepository.findByMatchIdOrderByCreatedAtDesc(matchId);
         log.info("🔧 Force-settling all {} bet(s) for match {} ({} vs {})",
-                bets.size(), matchId, match.getTeamA(), match.getTeamB());
+                bets.size(), matchId, match.getTeamA().getName(), match.getTeamB().getName());
         for (Bet bet : bets) {
             forceSettleBet(matchId, bet.getId());
         }
@@ -381,18 +387,18 @@ public class MatchService {
             String winner;
             String penScore = "";
             if (match.getPenaltyWinner().equals("A")) {
-                winner = match.getTeamA();
+                winner = match.getTeamA().getName();
                 if (match.getPenaltyScoreA() != null && match.getPenaltyScoreB() != null)
                     penScore = " (" + match.getPenaltyScoreA() + "-" + match.getPenaltyScoreB() + ")";
             } else {
-                winner = match.getTeamB();
+                winner = match.getTeamB().getName();
                 if (match.getPenaltyScoreA() != null && match.getPenaltyScoreB() != null)
                     penScore = " (" + match.getPenaltyScoreB() + "-" + match.getPenaltyScoreA() + ")";
             }
             return "Victoire " + winner + " t.a.b. " + sA + "-" + sB + penScore;
         }
-        if (sA > sB) return "Victoire " + match.getTeamA() + " " + sA + "-" + sB;
-        if (sB > sA) return "Victoire " + match.getTeamB() + " " + sB + "-" + sA;
+        if (sA > sB) return "Victoire " + match.getTeamA().getName() + " " + sA + "-" + sB;
+        if (sB > sA) return "Victoire " + match.getTeamB().getName() + " " + sB + "-" + sA;
         return "Match nul " + sA + "-" + sB;
     }
 
@@ -402,9 +408,6 @@ public class MatchService {
     }
 
     private MatchResponse toEnrichedResponse(Match match) {
-        MatchResponse response = matchMapper.toResponse(match);
-        response.setTeamAIso2(teamRepository.findByName(match.getTeamA()).map(Team::getIso2).orElse(null));
-        response.setTeamBIso2(teamRepository.findByName(match.getTeamB()).map(Team::getIso2).orElse(null));
-        return response;
+        return matchMapper.toResponse(match);
     }
 }

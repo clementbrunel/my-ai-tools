@@ -287,7 +287,9 @@ class AdminCountsServiceTest {
 
     private Match match(LocalDateTime dateTime) {
         return Match.builder().id((long) (Math.random() * 10000))
-                .teamA("A").teamB("B").matchDate(dateTime).build();
+                .teamA(Team.builder().id(1L).name("A").build())
+                .teamB(Team.builder().id(2L).name("B").build())
+                .matchDate(dateTime).build();
     }
 
     private Object[] row(Long groupId, Long count) {

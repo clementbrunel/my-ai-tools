@@ -10,7 +10,6 @@ import com.pronocore.mapper.BetMapper;
 import com.pronocore.repository.*;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -75,8 +74,8 @@ public class BetService {
                 java.util.Comparator.reverseOrder()))
             .map(bp -> {
                 Bet bet = bp.getBet();
-                var matchTeamA = bet.getMatch() != null ? bet.getMatch().getTeamA() : null;
-                var matchTeamB = bet.getMatch() != null ? bet.getMatch().getTeamB() : null;
+                var matchTeamA = bet.getMatch() != null ? bet.getMatch().getTeamA().getName() : null;
+                var matchTeamB = bet.getMatch() != null ? bet.getMatch().getTeamB().getName() : null;
                 var matchDate  = bet.getMatch() != null ? bet.getMatch().getMatchDate() : null;
                 return UserBetSummaryResponse.builder()
                     .participationId(bp.getId())
@@ -103,8 +102,8 @@ public class BetService {
         return participationRepository.findByUserIdAndGroupId(userId, groupId, java.time.LocalDateTime.now()).stream()
             .map(bp -> {
                 Bet bet = bp.getBet();
-                var matchTeamA = bet.getMatch() != null ? bet.getMatch().getTeamA() : null;
-                var matchTeamB = bet.getMatch() != null ? bet.getMatch().getTeamB() : null;
+                var matchTeamA = bet.getMatch() != null ? bet.getMatch().getTeamA().getName() : null;
+                var matchTeamB = bet.getMatch() != null ? bet.getMatch().getTeamB().getName() : null;
                 var matchDate  = bet.getMatch() != null ? bet.getMatch().getMatchDate() : null;
                 return UserBetSummaryResponse.builder()
                     .participationId(bp.getId())
@@ -185,14 +184,14 @@ public class BetService {
      * re-run it after new matches are added. Returns only the newly created bets.
      */
     @Transactional
-    public List<BetResponse> openCompetitionForBetting(Long groupId, String competition, String username) {
+    public List<BetResponse> openCompetitionForBetting(Long groupId, Long competitionId, String username) {
         User requester = requireUser(username);
         groupMemberGuard.requireGroupAdmin(groupId, requester.getId());
 
         Group group = groupRepository.findById(groupId)
             .orElseThrow(() -> new EntityNotFoundException("Group not found: " + groupId));
 
-        return matchRepository.findByCompetitionOrderByMatchDateAsc(competition).stream()
+        return matchRepository.findByCompetition_IdOrderByMatchDateAsc(competitionId).stream()
             .filter(match -> !betRepository.existsByMatchIdAndGroupId(match.getId(), groupId))
             .map(match -> toBetResponseWithCount(betRepository.save(buildScoreBet(match, group, requester))))
             .toList();
@@ -200,7 +199,7 @@ public class BetService {
 
     private Bet buildScoreBet(Match match, Group group, User creator) {
         return Bet.builder()
-            .title(match.getTeamA() + " vs " + match.getTeamB())
+            .title(match.getTeamA().getName() + " vs " + match.getTeamB().getName())
             .betType(Bet.BetType.SCORE)
             .points(10)
             .deadline(match.getMatchDate())   // deadline = kick-off time

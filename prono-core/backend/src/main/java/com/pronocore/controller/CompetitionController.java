@@ -1,5 +1,6 @@
 package com.pronocore.controller;
 
+import com.pronocore.dto.response.CompetitionResponse;
 import com.pronocore.dto.response.TeamResponse;
 import com.pronocore.service.CompetitionService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -20,15 +21,15 @@ public class CompetitionController {
     private final CompetitionService competitionService;
 
     @GetMapping
-    @Operation(summary = "All competition names")
-    public ResponseEntity<List<String>> getAllCompetitions() {
+    @Operation(summary = "All competitions")
+    public ResponseEntity<List<CompetitionResponse>> getAllCompetitions() {
         return ResponseEntity.ok(competitionService.getAllCompetitions());
     }
 
-    @GetMapping("/{competition}/teams")
+    @GetMapping("/{competitionId}/teams")
     @Operation(summary = "Teams in a competition roster")
-    public ResponseEntity<List<TeamResponse>> getTeams(@PathVariable String competition) {
-        return ResponseEntity.ok(competitionService.getTeamsForCompetition(competition));
+    public ResponseEntity<List<TeamResponse>> getTeams(@PathVariable Long competitionId) {
+        return ResponseEntity.ok(competitionService.getTeamsForCompetition(competitionId));
     }
 
     @PostMapping
@@ -41,35 +42,42 @@ public class CompetitionController {
 
     @GetMapping("/known-teams")
     @PreAuthorize("hasRole('PLATFORM_ADMIN')")
-    @Operation(summary = "All distinct team names across every competition (Admin only)")
-    public ResponseEntity<List<String>> getAllKnownTeams() {
+    @Operation(summary = "All distinct teams across every competition (Admin only)")
+    public ResponseEntity<List<TeamResponse>> getAllKnownTeams() {
         return ResponseEntity.ok(competitionService.getAllKnownTeams());
     }
 
-    @PostMapping("/{competition}/teams")
+    @PostMapping("/teams")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+    @Operation(summary = "Find a team by exact name, creating it if it doesn't exist yet (Admin only)")
+    public ResponseEntity<TeamResponse> findOrCreateTeam(@RequestBody String teamName) {
+        return ResponseEntity.ok(competitionService.findOrCreateTeam(teamName.trim()));
+    }
+
+    @PostMapping("/{competitionId}/teams")
     @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     @Operation(summary = "Add a team to a competition roster (Admin only)")
-    public ResponseEntity<Void> addTeam(@PathVariable String competition,
-                                        @RequestBody String teamName) {
-        competitionService.addTeam(competition, teamName.trim());
+    public ResponseEntity<Void> addTeam(@PathVariable Long competitionId,
+                                        @RequestBody Long teamId) {
+        competitionService.addTeam(competitionId, teamId);
         return ResponseEntity.noContent().build();
     }
 
-    @DeleteMapping("/{competition}/teams/{teamName}")
+    @DeleteMapping("/{competitionId}/teams/{teamId}")
     @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     @Operation(summary = "Remove a team from a competition roster (Admin only)")
-    public ResponseEntity<Void> removeTeam(@PathVariable String competition,
-                                           @PathVariable String teamName) {
-        competitionService.removeTeam(competition, teamName);
+    public ResponseEntity<Void> removeTeam(@PathVariable Long competitionId,
+                                           @PathVariable Long teamId) {
+        competitionService.removeTeam(competitionId, teamId);
         return ResponseEntity.noContent().build();
     }
 
-    @PutMapping("/{competition}/teams")
+    @PutMapping("/{competitionId}/teams")
     @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     @Operation(summary = "Replace the full roster for a competition (Admin only)")
-    public ResponseEntity<Void> setTeams(@PathVariable String competition,
-                                         @RequestBody List<String> teamNames) {
-        competitionService.setTeams(competition, teamNames);
+    public ResponseEntity<Void> setTeams(@PathVariable Long competitionId,
+                                         @RequestBody List<Long> teamIds) {
+        competitionService.setTeams(competitionId, teamIds);
         return ResponseEntity.noContent().build();
     }
 }

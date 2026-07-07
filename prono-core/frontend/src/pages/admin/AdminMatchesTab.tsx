@@ -3,7 +3,7 @@ import { useToast } from '../../components/Toast';
 import { getMatches, createMatch, updateMatchScore, deleteMatch, forceSettleMatch } from '../../api/matches';
 import { getCompetitions as fetchAllCompetitions, getCompetitionTeams } from '../../api/competitions';
 import { useFormMessages } from '../../hooks/useFormMessages';
-import type { Match, MatchPhase } from '../../types';
+import type { CompetitionDto, Match, MatchPhase, TeamDto } from '../../types';
 import { formatDate } from '../../utils/dates';
 import ScrollableTableWrapper from '../../components/ScrollableTableWrapper';
 import ScoreInput from '../../components/ScoreInput';
@@ -24,14 +24,14 @@ const AdminMatchesTab: React.FC = () => {
   const { msg: matchMsg, setError: setMatchError, setSuccess: setMatchSuccess, clear: clearMatchMessages } = useFormMessages();
 
   const [matches, setMatches] = useState<Match[]>([]);
-  const [competitions, setCompetitions] = useState<string[]>([]);
-  const [competitionTeams, setCompetitionTeams] = useState<string[]>([]);
+  const [competitions, setCompetitions] = useState<CompetitionDto[]>([]);
+  const [competitionTeams, setCompetitionTeams] = useState<TeamDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const [newTeamA, setNewTeamA] = useState('');
-  const [newTeamB, setNewTeamB] = useState('');
+  const [newTeamA, setNewTeamA] = useState<number | undefined>(undefined);
+  const [newTeamB, setNewTeamB] = useState<number | undefined>(undefined);
   const [newMatchDate, setNewMatchDate] = useState('');
-  const [newCompetition, setNewCompetition] = useState('');
+  const [newCompetitionId, setNewCompetitionId] = useState<number | null>(null);
   const [newRound, setNewRound] = useState('Phase de poules');
   const [newPhase, setNewPhase] = useState<MatchPhase>('POOL');
 
@@ -60,10 +60,10 @@ const AdminMatchesTab: React.FC = () => {
         setCompetitions(competitionsData);
         if (competitionsData.length > 0) {
           const first = competitionsData[0];
-          setNewCompetition(first);
+          setNewCompetitionId(first.id);
           try {
-            const initialTeams = await getCompetitionTeams(first);
-            setCompetitionTeams(initialTeams.map(t => t.name));
+            const initialTeams = await getCompetitionTeams(first.id);
+            setCompetitionTeams(initialTeams);
           } catch {
             setCompetitionTeams([]);
           }
@@ -76,13 +76,14 @@ const AdminMatchesTab: React.FC = () => {
   }, []);
 
   const handleCompetitionChange = async (value: string) => {
-    setNewCompetition(value);
-    setNewTeamA('');
-    setNewTeamB('');
-    if (value) {
+    const competitionId = value ? parseInt(value) : null;
+    setNewCompetitionId(competitionId);
+    setNewTeamA(undefined);
+    setNewTeamB(undefined);
+    if (competitionId) {
       try {
-        const teams = await getCompetitionTeams(value);
-        setCompetitionTeams(teams.map(t => t.name));
+        const teams = await getCompetitionTeams(competitionId);
+        setCompetitionTeams(teams);
       } catch {
         setCompetitionTeams([]);
       }
@@ -94,15 +95,16 @@ const AdminMatchesTab: React.FC = () => {
   const handleCreateMatch = async (e: React.FormEvent) => {
     e.preventDefault();
     clearMatchMessages();
+    if (!newCompetitionId) return;
     try {
       const newMatch = await createMatch({
-        teamA: newTeamA, teamB: newTeamB,
+        teamAId: newTeamA!, teamBId: newTeamB!,
         matchDate: new Date(newMatchDate).toISOString(),
-        competition: newCompetition, round: newRound,
+        competitionId: newCompetitionId, round: newRound,
         phase: newPhase,
       });
       setMatches([...matches, newMatch]);
-      setNewTeamA(''); setNewTeamB(''); setNewMatchDate('');
+      setNewTeamA(undefined); setNewTeamB(undefined); setNewMatchDate('');
       setNewRound('Phase de poules'); setNewPhase('POOL');
       setMatchSuccess('Match créé avec succès !');
     } catch { setMatchError('Erreur lors de la création du match'); }
@@ -141,7 +143,7 @@ const AdminMatchesTab: React.FC = () => {
   const handleDeleteMatch = (match: Match) => {
     setConfirmDialog({
       title: 'Supprimer le match',
-      message: `Êtes-vous sûr de vouloir supprimer le match ${match.teamA} vs ${match.teamB} ? Cette action est irréversible et supprimera également les paris associés.`,
+      message: `Êtes-vous sûr de vouloir supprimer le match ${match.teamA.name} vs ${match.teamB.name} ? Cette action est irréversible et supprimera également les paris associés.`,
       confirmLabel: 'Supprimer',
       variant: 'danger',
       onConfirm: async () => {
@@ -168,13 +170,13 @@ const AdminMatchesTab: React.FC = () => {
             <label className="label">Compétition</label>
             {competitions.length > 0 ? (
               <select
-                value={newCompetition}
+                value={newCompetitionId ?? ''}
                 onChange={(e) => handleCompetitionChange(e.target.value)}
                 className="input-field"
                 required
               >
                 {competitions.map((c) => (
-                  <option key={c} value={c}>{c}</option>
+                  <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
             ) : (
@@ -184,9 +186,9 @@ const AdminMatchesTab: React.FC = () => {
           <div>
             <label className="label">Équipe A</label>
             {competitionTeams.length > 0 ? (
-              <select value={newTeamA} onChange={(e) => setNewTeamA(e.target.value)} className="input-field" required>
+              <select value={newTeamA ?? ''} onChange={(e) => setNewTeamA(e.target.value ? Number(e.target.value) : undefined)} className="input-field" required>
                 <option value="">-- Choisir --</option>
-                {competitionTeams.filter((t) => t !== newTeamB).map((t) => <option key={t} value={t}>{t}</option>)}
+                {competitionTeams.filter((t) => t.id !== newTeamB).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
             ) : (
               <p className="text-xs text-amber-500 mt-1">Ajoutez d'abord des équipes dans l'onglet Compétitions.</p>
@@ -195,9 +197,9 @@ const AdminMatchesTab: React.FC = () => {
           <div>
             <label className="label">Équipe B</label>
             {competitionTeams.length > 0 ? (
-              <select value={newTeamB} onChange={(e) => setNewTeamB(e.target.value)} className="input-field" required>
+              <select value={newTeamB ?? ''} onChange={(e) => setNewTeamB(e.target.value ? Number(e.target.value) : undefined)} className="input-field" required>
                 <option value="">-- Choisir --</option>
-                {competitionTeams.filter((t) => t !== newTeamA).map((t) => <option key={t} value={t}>{t}</option>)}
+                {competitionTeams.filter((t) => t.id !== newTeamA).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
             ) : (
               <p className="text-xs text-amber-500 mt-1">Ajoutez d'abord des équipes dans l'onglet Compétitions.</p>
@@ -259,10 +261,10 @@ const AdminMatchesTab: React.FC = () => {
               {matches.map((match) => (
                 <tr key={match.id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50">
                   <td className="py-3 px-4 text-sm font-medium text-gray-900 dark:text-white">
-                    {match.teamA} vs {match.teamB}
+                    {match.teamA.name} vs {match.teamB.name}
                   </td>
                   <td className="py-3 px-4 text-sm text-gray-500 dark:text-gray-400">
-                    {match.competition ?? '-'}
+                    {match.competition?.name ?? '-'}
                   </td>
                   <td className="py-3 px-4 text-center text-xs text-gray-500">
                     {formatDate(match.matchDate)}
@@ -316,11 +318,11 @@ const AdminMatchesTab: React.FC = () => {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-wc-dark-secondary rounded-xl p-6 w-full max-w-sm">
             <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
-              ✏️ {editingMatch.teamA} vs {editingMatch.teamB}
+              ✏️ {editingMatch.teamA.name} vs {editingMatch.teamB.name}
             </h2>
             <div className="flex items-center gap-3 mb-4">
               <div>
-                <label className="label text-xs">{editingMatch.teamA}</label>
+                <label className="label text-xs">{editingMatch.teamA.name}</label>
                 <ScoreInput
                   value={scoreA}
                   onChange={setScoreA}
@@ -331,7 +333,7 @@ const AdminMatchesTab: React.FC = () => {
               </div>
               <span className="text-2xl font-bold text-gray-400 mt-5">-</span>
               <div>
-                <label className="label text-xs">{editingMatch.teamB}</label>
+                <label className="label text-xs">{editingMatch.teamB.name}</label>
                 <ScoreInput
                   value={scoreB}
                   onChange={setScoreB}
@@ -351,17 +353,17 @@ const AdminMatchesTab: React.FC = () => {
                   <label className="label text-xs">Vainqueur</label>
                   <select value={penaltyWinner} onChange={(e) => { setPenaltyWinner(e.target.value); if (!e.target.value) { setPenScoreA(''); setPenScoreB(''); } }} className="input-field">
                     <option value="">-- Fin réglementaire (nul) --</option>
-                    <option value="A">{editingMatch.teamA}</option>
-                    <option value="B">{editingMatch.teamB}</option>
+                    <option value="A">{editingMatch.teamA.name}</option>
+                    <option value="B">{editingMatch.teamB.name}</option>
                   </select>
                 </div>
                 {penaltyWinner && (
                   <div>
                     <label className="label text-xs">Score t.a.b. (optionnel)</label>
                     <div className="flex items-center gap-2">
-                      <input type="number" value={penScoreA} onChange={(e) => setPenScoreA(e.target.value)} min={0} className="input-field w-16 text-center" placeholder={editingMatch.teamA} />
+                      <input type="number" value={penScoreA} onChange={(e) => setPenScoreA(e.target.value)} min={0} className="input-field w-16 text-center" placeholder={editingMatch.teamA.name} />
                       <span className="text-gray-400">-</span>
-                      <input type="number" value={penScoreB} onChange={(e) => setPenScoreB(e.target.value)} min={0} className="input-field w-16 text-center" placeholder={editingMatch.teamB} />
+                      <input type="number" value={penScoreB} onChange={(e) => setPenScoreB(e.target.value)} min={0} className="input-field w-16 text-center" placeholder={editingMatch.teamB.name} />
                     </div>
                   </div>
                 )}

@@ -45,9 +45,9 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, pronoStatus }) => {
         <div className="flex items-center justify-between gap-2 my-4">
           <div className="flex-1 text-center">
             <div className="flex justify-center mb-1">
-              <TeamFlag name={match.teamA} iso2={match.teamAIso2} />
+              <TeamFlag name={match.teamA.name} iso2={match.teamA.iso2} />
             </div>
-            <div className="font-bold text-gray-900 dark:text-white text-sm">{match.teamA}</div>
+            <div className="font-bold text-gray-900 dark:text-white text-sm">{match.teamA.name}</div>
           </div>
 
           <div className="flex items-center gap-2">
@@ -72,15 +72,15 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, pronoStatus }) => {
 
           <div className="flex-1 text-center">
             <div className="flex justify-center mb-1">
-              <TeamFlag name={match.teamB} iso2={match.teamBIso2} />
+              <TeamFlag name={match.teamB.name} iso2={match.teamB.iso2} />
             </div>
-            <div className="font-bold text-gray-900 dark:text-white text-sm">{match.teamB}</div>
+            <div className="font-bold text-gray-900 dark:text-white text-sm">{match.teamB.name}</div>
           </div>
         </div>
 
         {/* Footer */}
         <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between">
-          <span className="text-xs text-gray-500 dark:text-gray-400">{match.competition}</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400">{match.competition.name}</span>
           {pronoStatus === 'done' && (
             <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">✓ Prono saisi</span>
           )}
