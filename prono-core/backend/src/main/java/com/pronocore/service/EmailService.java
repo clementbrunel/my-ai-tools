@@ -1,5 +1,6 @@
 package com.pronocore.service;
 
+import com.pronocore.dto.request.EmailThemeName;
 import com.pronocore.dto.request.EmailType;
 import com.pronocore.entity.Competition;
 import com.pronocore.entity.Match;
@@ -35,10 +36,11 @@ public class EmailService {
     @Value("${app.frontend-url}")
     private String frontendUrl;
 
-    public void sendTestEmail(String to, EmailType emailType) {
+    public void sendTestEmail(String to, EmailType emailType, EmailThemeName themeName) {
+        EmailTheme theme = themeName == EmailThemeName.F1 ? EmailTheme.F1 : EmailTheme.FOOTBALL;
         switch (emailType) {
-            case VERIFICATION -> sendVerificationEmail(to, "test-preview-000");
-            case PASSWORD_RESET -> sendPasswordResetEmail(to, "test-preview-000");
+            case VERIFICATION -> sendVerificationEmail(to, "test-preview-000", theme);
+            case PASSWORD_RESET -> sendPasswordResetEmail(to, "test-preview-000", theme);
             case MATCH_REMINDER -> {
                 User fakeUser = User.builder().username("joueur_test").email(to).emailReminderEnabled(true).build();
                 List<Match> fakeMatches = List.of(
@@ -55,7 +57,7 @@ public class EmailService {
                         .competition(FIFA_WORLD_CUP_2026).round("Demi-finale")
                         .reminderSent(false).build()
                 );
-                sendMatchReminder(fakeUser, fakeMatches);
+                sendMatchReminder(fakeUser, fakeMatches, theme);
             }
             case GAGE_RESOLUTION -> {
                 User fakeRecipient = User.builder().username("joueur_test").displayName("Joueur Test").email(to).build();
@@ -65,7 +67,7 @@ public class EmailService {
                     "Le Malchanceux", 5,
                     "Autre Joueur", 15
                 );
-                sendGageResolutionEmail(fakeRecipient, "Les 10 pompes", "Fais 10 pompes devant tout le groupe", fakeLucky, "Groupe des Amis", fakeScores);
+                sendGageResolutionEmail(fakeRecipient, "Les 10 pompes", "Fais 10 pompes devant tout le groupe", fakeLucky, "Groupe des Amis", fakeScores, theme);
             }
             case GROUP_NEW_MATCHES -> {
                 User fakeRecipient = User.builder().username("joueur_test").displayName("Joueur Test").email(to).build();
@@ -82,16 +84,20 @@ public class EmailService {
                         .matchDate(LocalDateTime.now().plusDays(3)).competition(FIFA_WORLD_CUP_2026)
                         .round("Quart de finale").build()
                 );
-                sendGroupNewMatchesEmail(fakeRecipient, "Groupe des Amis", fakeLeader, fakeNewMatches);
+                sendGroupNewMatchesEmail(fakeRecipient, "Groupe des Amis", fakeLeader, fakeNewMatches, theme);
             }
-            case TEST_CEDRIC -> sendTestCedricEmail(to);
+            case TEST_CEDRIC -> sendTestCedricEmail(to, theme);
         }
     }
 
     public void sendVerificationEmail(String to, String token) {
+        sendVerificationEmail(to, token, EmailTheme.FOOTBALL);
+    }
+
+    private void sendVerificationEmail(String to, String token, EmailTheme theme) {
         String verifyUrl = frontendUrl + "/verify-email?token=" + token;
         try {
-            emailSender.send(to, VerificationEmailTemplate.SUBJECT, VerificationEmailTemplate.build(EmailTheme.FOOTBALL, verifyUrl));
+            emailSender.send(to, VerificationEmailTemplate.SUBJECT, VerificationEmailTemplate.build(theme, verifyUrl));
             log.info("Verification email sent to {}", to);
         } catch (Exception e) {
             log.error("Failed to send verification email to {}: {}", to, e.getMessage());
@@ -100,9 +106,13 @@ public class EmailService {
     }
 
     public void sendPasswordResetEmail(String to, String token) {
+        sendPasswordResetEmail(to, token, EmailTheme.FOOTBALL);
+    }
+
+    private void sendPasswordResetEmail(String to, String token, EmailTheme theme) {
         String resetUrl = frontendUrl + "/reset-password?token=" + token;
         try {
-            emailSender.send(to, PasswordResetEmailTemplate.SUBJECT, PasswordResetEmailTemplate.build(EmailTheme.FOOTBALL, resetUrl));
+            emailSender.send(to, PasswordResetEmailTemplate.SUBJECT, PasswordResetEmailTemplate.build(theme, resetUrl));
             log.info("Password reset email sent to {}", to);
         } catch (Exception e) {
             log.error("Failed to send password reset email to {}: {}", to, e.getMessage());
@@ -111,10 +121,14 @@ public class EmailService {
     }
 
     public void sendMatchReminder(User user, List<Match> matches) {
+        sendMatchReminder(user, matches, EmailTheme.FOOTBALL);
+    }
+
+    private void sendMatchReminder(User user, List<Match> matches, EmailTheme theme) {
         if (matches.isEmpty()) return;
         try {
             emailSender.send(user.getEmail(), MatchReminderEmailTemplate.subject(matches),
-                MatchReminderEmailTemplate.build(EmailTheme.FOOTBALL, user, matches, frontendUrl));
+                MatchReminderEmailTemplate.build(theme, user, matches, frontendUrl));
             log.info("Match reminder sent to {} ({} match(es))", user.getEmail(), matches.size());
         } catch (Exception e) {
             log.error("Failed to send match reminder to {}: {}", user.getEmail(), e.getMessage());
@@ -123,11 +137,16 @@ public class EmailService {
 
     public void sendGageResolutionEmail(User recipient, String forfeitTitle, String forfeitDescription,
                                         User assignedTo, String groupName, Map<String, Integer> dailyScores) {
+        sendGageResolutionEmail(recipient, forfeitTitle, forfeitDescription, assignedTo, groupName, dailyScores, EmailTheme.FOOTBALL);
+    }
+
+    private void sendGageResolutionEmail(User recipient, String forfeitTitle, String forfeitDescription,
+                                         User assignedTo, String groupName, Map<String, Integer> dailyScores, EmailTheme theme) {
         String displayName = recipient.getDisplayName() != null ? recipient.getDisplayName() : recipient.getUsername();
         String assignedToName = assignedTo.getDisplayName() != null ? assignedTo.getDisplayName() : assignedTo.getUsername();
         try {
             emailSender.send(recipient.getEmail(), GageResolutionEmailTemplate.subject(groupName),
-                GageResolutionEmailTemplate.build(EmailTheme.FOOTBALL, displayName, forfeitTitle, forfeitDescription, assignedToName, groupName, dailyScores));
+                GageResolutionEmailTemplate.build(theme, displayName, forfeitTitle, forfeitDescription, assignedToName, groupName, dailyScores));
             log.info("Gage resolution email sent to {} (group {})", recipient.getEmail(), groupName);
         } catch (Exception e) {
             log.error("Failed to send gage resolution email to {}: {}", recipient.getEmail(), e.getMessage());
@@ -135,12 +154,16 @@ public class EmailService {
     }
 
     public void sendGroupNewMatchesEmail(User recipient, String groupName, User leader, List<Match> matches) {
+        sendGroupNewMatchesEmail(recipient, groupName, leader, matches, EmailTheme.FOOTBALL);
+    }
+
+    private void sendGroupNewMatchesEmail(User recipient, String groupName, User leader, List<Match> matches, EmailTheme theme) {
         if (matches.isEmpty()) return;
         String displayName = recipient.getDisplayName() != null ? recipient.getDisplayName() : recipient.getUsername();
         String leaderName = leader.getDisplayName() != null ? leader.getDisplayName() : leader.getUsername();
         try {
             emailSender.send(recipient.getEmail(), GroupNewMatchesEmailTemplate.subject(groupName, matches),
-                GroupNewMatchesEmailTemplate.build(EmailTheme.FOOTBALL, displayName, groupName, leaderName, matches, frontendUrl));
+                GroupNewMatchesEmailTemplate.build(theme, displayName, groupName, leaderName, matches, frontendUrl));
             log.info("Group new matches email sent to {} (group {}, {} match(es))", recipient.getEmail(), groupName, matches.size());
         } catch (Exception e) {
             log.error("Failed to send group new matches email to {}: {}", recipient.getEmail(), e.getMessage());
@@ -148,8 +171,12 @@ public class EmailService {
     }
 
     public void sendTestCedricEmail(String to) {
+        sendTestCedricEmail(to, EmailTheme.FOOTBALL);
+    }
+
+    private void sendTestCedricEmail(String to, EmailTheme theme) {
         try {
-            emailSender.send(to, TestCedricEmailTemplate.SUBJECT, TestCedricEmailTemplate.build(EmailTheme.FOOTBALL));
+            emailSender.send(to, TestCedricEmailTemplate.SUBJECT, TestCedricEmailTemplate.build(theme));
             log.info("Test Cédric email sent to {}", to);
         } catch (Exception e) {
             log.error("Failed to send Test Cédric email to {}: {}", to, e.getMessage());
