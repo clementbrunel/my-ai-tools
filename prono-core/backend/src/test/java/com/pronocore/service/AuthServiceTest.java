@@ -58,6 +58,7 @@ class AuthServiceTest {
             .globalScore(0)
             .betsWon(0)
             .forfeitsReceived(0)
+            .emailVerified(true)
             .build();
     }
 
