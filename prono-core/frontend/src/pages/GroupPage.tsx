@@ -44,7 +44,7 @@ const GroupPage: React.FC = () => {
       setShowCreate(false);
       setCreateName('');
       setCreateDesc('');
-      navigate('/open-betting');
+      navigate('/foot/open-betting');
     } catch {
       setError('Erreur lors de la création du groupe');
     }

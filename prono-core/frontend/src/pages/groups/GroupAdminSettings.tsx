@@ -210,7 +210,7 @@ const GroupAdminSettings: React.FC<Props> = ({ group, onGroupUpdate }) => {
         <p className="font-semibold pt-1">Configuration des paris de votre groupe</p>
         <div className="flex items-center justify-between gap-3">
           <p>1. Ouvrez les matchs aux paris pour la journée.</p>
-          <Link to="/open-betting" className="relative btn-primary text-xs whitespace-nowrap inline-flex items-center gap-1.5 shrink-0">
+          <Link to="/foot/open-betting" className="relative btn-primary text-xs whitespace-nowrap inline-flex items-center gap-1.5 shrink-0">
             🎲 Ouvrir aux paris
             {(matchesWithoutBetsPerGroup[group.id] ?? 0) > 0 && (
               <span className="inline-flex items-center justify-center bg-red-500 text-white text-[10px] font-bold leading-none rounded-full min-w-[16px] h-4 px-1">
