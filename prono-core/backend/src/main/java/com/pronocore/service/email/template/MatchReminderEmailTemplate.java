@@ -27,7 +27,7 @@ public final class MatchReminderEmailTemplate {
         String displayName = user.getDisplayName() != null ? user.getDisplayName() : user.getUsername();
 
         String matchCards = matches.stream().map(m -> {
-            String appUrl = frontendUrl + "/matches/" + m.getId();
+            String appUrl = frontendUrl + "/foot/matches/" + m.getId();
             return """
                 <div style="background:#f8f9fa;border-radius:8px;padding:16px;margin:12px 0;display:flex;align-items:center;justify-content:space-between">
                   <div>
