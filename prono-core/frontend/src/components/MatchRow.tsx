@@ -25,7 +25,7 @@ const MatchRow: React.FC<MatchRowProps> = ({ match, pronoStatus }) => {
         : 'border-l-transparent';
 
   return (
-    <Link to={`/matches/${match.id}`}>
+    <Link to={`/foot/matches/${match.id}`}>
       <div
         className={`flex items-center gap-3 px-4 py-3 border-l-4 ${borderClass} bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors cursor-pointer`}
       >

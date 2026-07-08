@@ -31,7 +31,7 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, pronoStatus }) => {
         : 'border-transparent hover:border-wc-green';
 
   return (
-    <Link to={`/matches/${match.id}`}>
+    <Link to={`/foot/matches/${match.id}`}>
       <div className={`card border-2 cursor-pointer ${borderClass}`}>
         {/* Header */}
         <div className="flex items-center justify-between mb-3">

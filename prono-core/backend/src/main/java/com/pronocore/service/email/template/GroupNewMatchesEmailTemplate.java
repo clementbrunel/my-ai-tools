@@ -33,7 +33,7 @@ public final class GroupNewMatchesEmailTemplate {
                 """.formatted(m.getTeamA().getName(), m.getTeamB().getName(), m.getRound(), m.getMatchDate().format(DATE_FORMAT))
         ).collect(Collectors.joining());
 
-        String appUrl = frontendUrl + "/matches";
+        String appUrl = frontendUrl + "/foot/matches";
 
         String body = """
             <h2 style="color:#1a1a1a;margin-top:0">De nouveaux matchs sont ouverts aux pronos !</h2>

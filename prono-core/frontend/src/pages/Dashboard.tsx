@@ -92,7 +92,7 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* Classement & Points — double tile, cliquable vers le classement */}
-        <Link to="/leaderboard" className="stat-card sm:col-span-2 block hover:ring-2 hover:ring-wc-green transition-all cursor-pointer">
+        <Link to="/foot/leaderboard" className="stat-card sm:col-span-2 block hover:ring-2 hover:ring-wc-green transition-all cursor-pointer">
           {groupRanks.length === 0 ? (
             <div className="text-gray-400 dark:text-gray-500 text-sm">Rejoins un groupe pour voir ton classement</div>
           ) : (() => {
@@ -143,7 +143,7 @@ const Dashboard: React.FC = () => {
       <section>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-gray-900 dark:text-white">⚽ Prochains matchs</h2>
-          <Link to="/matches" className="text-sm text-wc-green dark:text-green-400 hover:underline">
+          <Link to="/foot/matches" className="text-sm text-wc-green dark:text-green-400 hover:underline">
             Voir tous →
           </Link>
         </div>

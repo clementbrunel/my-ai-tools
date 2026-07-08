@@ -23,7 +23,7 @@ const MatchDetail: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   // location.key is 'default' when the page was opened directly (no in-app history)
-  const goBack = () => location.key === 'default' ? navigate('/matches') : navigate(-1);
+  const goBack = () => location.key === 'default' ? navigate('/foot/matches') : navigate(-1);
   const { markParticipated } = useMatches();
 
   const [match, setMatch] = useState<Match | null>(null);
