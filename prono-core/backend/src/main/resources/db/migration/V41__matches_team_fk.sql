@@ -1,4 +1,4 @@
--- V39__matches_team_fk.sql
+-- V41__matches_team_fk.sql
 -- Add FK columns pointing to teams
 ALTER TABLE matches ADD COLUMN team_a_id BIGINT REFERENCES teams(id);
 ALTER TABLE matches ADD COLUMN team_b_id BIGINT REFERENCES teams(id);
