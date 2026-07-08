@@ -14,4 +14,6 @@ public class TestEmailRequest {
 
     @NotNull(message = "Le type de template est requis")
     private EmailType emailType;
+
+    private EmailThemeName theme;
 }

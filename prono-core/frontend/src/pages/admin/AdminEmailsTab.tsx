@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { sendTestEmail, type EmailType } from '../../api/email';
+import { sendTestEmail, type EmailType, type EmailThemeName } from '../../api/email';
 import { useFormMessages } from '../../hooks/useFormMessages';
 
 const AdminEmailsTab: React.FC = () => {
   const { msg: emailMsg, setError: setEmailTestError, setSuccess: setEmailTestSuccess, clear: clearEmailMessages } = useFormMessages();
   const [testEmailTarget, setTestEmailTarget] = useState('');
   const [testEmailType, setTestEmailType] = useState<EmailType>('VERIFICATION');
+  const [testEmailTheme, setTestEmailTheme] = useState<EmailThemeName>('FOOTBALL');
   const [emailTestLoading, setEmailTestLoading] = useState(false);
 
   const handleSendTestEmail = async (e: React.FormEvent) => {
@@ -13,7 +14,7 @@ const AdminEmailsTab: React.FC = () => {
     clearEmailMessages();
     setEmailTestLoading(true);
     try {
-      await sendTestEmail(testEmailTarget, testEmailType);
+      await sendTestEmail(testEmailTarget, testEmailType, testEmailTheme);
       setEmailTestSuccess(`Email envoyé à ${testEmailTarget} !`);
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
@@ -30,7 +31,7 @@ const AdminEmailsTab: React.FC = () => {
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
           Envoie un email de test directement vers une adresse pour prévisualiser le rendu d'un template.
         </p>
-        <form onSubmit={handleSendTestEmail} className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+        <form onSubmit={handleSendTestEmail} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
           <div>
             <label className="label">Adresse cible</label>
             <input type="email" value={testEmailTarget} onChange={(e) => setTestEmailTarget(e.target.value)}
@@ -48,12 +49,19 @@ const AdminEmailsTab: React.FC = () => {
             </select>
           </div>
           <div>
+            <label className="label">Thème</label>
+            <select value={testEmailTheme} onChange={(e) => setTestEmailTheme(e.target.value as EmailThemeName)} className="input-field">
+              <option value="FOOTBALL">⚽ Foot</option>
+              <option value="F1">🏎️ F1</option>
+            </select>
+          </div>
+          <div>
             <button type="submit" className="btn-primary text-sm w-full" disabled={emailTestLoading}>
               {emailTestLoading ? 'Envoi...' : '📤 Envoyer'}
             </button>
           </div>
-          {emailMsg?.type === 'error' && <p className="md:col-span-3 text-red-500 text-sm">{emailMsg.text}</p>}
-          {emailMsg?.type === 'success' && <p className="md:col-span-3 text-green-500 text-sm">✅ {emailMsg.text}</p>}
+          {emailMsg?.type === 'error' && <p className="md:col-span-4 text-red-500 text-sm">{emailMsg.text}</p>}
+          {emailMsg?.type === 'success' && <p className="md:col-span-4 text-green-500 text-sm">✅ {emailMsg.text}</p>}
         </form>
       </div>
 
