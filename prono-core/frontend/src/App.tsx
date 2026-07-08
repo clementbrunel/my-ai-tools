@@ -90,6 +90,7 @@ function App() {
                           <Route path="/matches" element={<Navigate to="/foot/matches" replace />} />
                           <Route path="/leaderboard" element={<Navigate to="/foot/leaderboard" replace />} />
                           <Route path="/gages" element={<Navigate to="/foot/gages" replace />} />
+                          <Route path="/open-betting" element={<Navigate to="/foot/open-betting" replace />} />
                         </Routes>
                       </main>
                     </div>
