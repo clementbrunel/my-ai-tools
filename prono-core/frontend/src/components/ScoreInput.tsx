@@ -38,7 +38,7 @@ const ScoreInput: React.FC<ScoreInputProps> = ({
 
   const btnClass = compact
     ? 'btn-secondary shrink-0 px-2 text-base font-bold min-w-[32px] min-h-[32px]'
-    : 'btn-secondary shrink-0 px-3 text-xl font-bold min-w-[44px] min-h-[44px]';
+    : 'btn-secondary shrink-0 px-2 sm:px-3 text-base sm:text-xl font-bold min-w-[32px] min-h-[32px] sm:min-w-[44px] sm:min-h-[44px]';
 
   return (
     <div className="flex items-center gap-1">

@@ -29,6 +29,8 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       RESEND_API_KEY: ${RESEND_API_KEY}
       FRONTEND_URL: ${FRONTEND_URL}
+      TZ: Europe/Paris
+      APP_FLYWAY_REPAIR: ${APP_FLYWAY_REPAIR:-false}
     depends_on:
       postgres:
         condition: service_healthy

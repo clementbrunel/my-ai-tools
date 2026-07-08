@@ -1,14 +1,13 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useScrollRestoration } from '../hooks/useScrollRestoration';
-import { getMatchesForMyGroups } from '../api/matches';
-import { getMyGroups } from '../api/groups';
-import type { Match } from '../types';
 import { isAdmin } from '../types';
+import type { Match } from '../types';
 import MatchCard from '../components/MatchCard';
 import MatchRow from '../components/MatchRow';
+import NoGroupBanner from '../components/NoGroupBanner';
 import { useAuth } from '../context/AuthContext';
-
+import { useMatches } from '../context/MatchesContext';
 import { formatDate } from '../utils/dates';
 
 type FilterStatus = 'ALL' | 'UPCOMING' | 'FINISHED';
@@ -16,11 +15,9 @@ type ViewMode = 'grid' | 'list';
 
 const Matches: React.FC = () => {
   const { user } = useAuth();
-  const [matches, setMatches] = useState<Match[]>([]);
+  const { matches, hasGroups, isLoading, fetchIfNeeded } = useMatches();
   const [filter, setFilter] = useState<FilterStatus>('UPCOMING');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
-  const [isLoading, setIsLoading] = useState(true);
-  const [hasGroups, setHasGroups] = useState(true);
   const [search, setSearch] = useState('');
 
   useScrollRestoration('matches-scroll-y', !isLoading);
@@ -28,20 +25,8 @@ const Matches: React.FC = () => {
   const today = new Date().toISOString().slice(0, 10);
 
   useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      try {
-        const [groups, matchesData] = await Promise.all([getMyGroups(), getMatchesForMyGroups()]);
-        setHasGroups(groups.length > 0);
-        setMatches(matchesData);
-      } catch (err) {
-        console.error('Error loading data:', err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
+    fetchIfNeeded();
+  }, [fetchIfNeeded]);
 
   const filtered = useMemo(() => {
     if (!hasGroups) return [];
@@ -49,7 +34,7 @@ const Matches: React.FC = () => {
     return matches.filter((m) => {
       if (filter !== 'ALL' && m.status !== filter) return false;
       if (!q) return true;
-      return m.teamA.toLowerCase().includes(q) || m.teamB.toLowerCase().includes(q);
+      return m.teamA.name.toLowerCase().includes(q) || m.teamB.name.toLowerCase().includes(q);
     });
   }, [matches, filter, hasGroups, search]);
 
@@ -66,7 +51,9 @@ const Matches: React.FC = () => {
     return acc;
   }, {});
 
-  const sortedDays = Object.keys(matchesByDay).sort();
+  const sortedDays = Object.keys(matchesByDay).sort(
+    filter === 'UPCOMING' ? undefined : (a, b) => b.localeCompare(a)
+  );
 
   return (
     <div>
@@ -80,20 +67,7 @@ const Matches: React.FC = () => {
       </div>
 
       {/* No-group alert */}
-      {!isLoading && !hasGroups && (
-        <div className="mb-6 flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-900/30 px-4 py-3 text-amber-800 dark:text-amber-300">
-          <span className="text-xl mt-0.5">⚠️</span>
-          <div className="text-sm leading-snug">
-            <p className="font-semibold mb-1">Tu n'es membre d'aucun groupe</p>
-            <p>
-              Rejoins ou crée un groupe pour accéder aux paris.{' '}
-              <Link to="/groups" className="underline font-medium hover:opacity-80">
-                Gérer mes groupes →
-              </Link>
-            </p>
-          </div>
-        </div>
-      )}
+      {!isLoading && !hasGroups && <NoGroupBanner />}
 
       {/* Filters + view toggle — hidden when no group */}
       {hasGroups && (

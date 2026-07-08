@@ -18,6 +18,7 @@ public class GroupUserForfeitResponse {
     /** The player who owes this gage. */
     private String username;
     private String displayName;
+    private String avatarUrl;
 
     private ForfeitResponse forfeit;
     private String assignedByUsername;

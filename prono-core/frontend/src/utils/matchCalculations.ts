@@ -1,35 +1,83 @@
-/** Mirror of Java extractResult() for client-side point display */
+/**
+ * Strips score and t.a.b. marker — used to compare winners regardless of mode.
+ * "Victoire France t.a.b. 1-1 (5-4)" → "Victoire France"
+ * "Victoire France 2-1"               → "Victoire France"
+ * "Match nul 1-1"                     → "Match nul"
+ */
 export const extractResult = (option: string): string => {
-  if (option.startsWith('Match nul')) return 'Match nul';
-  if (option.startsWith('Victoire ')) {
-    const lastSpace = option.lastIndexOf(' ');
-    if (lastSpace > 0) return option.substring(0, lastSpace);
+  let s = option.replace(/\s*\(\d+-\d+\)$/, '');
+  s = s.replace(' t.a.b.', '');
+  if (s.startsWith('Match nul')) return 'Match nul';
+  if (s.startsWith('Victoire ')) {
+    const lastSpace = s.lastIndexOf(' ');
+    if (lastSpace > 0) return s.substring(0, lastSpace);
   }
   return option;
 };
 
-/** Mirror of Java computeEarnedPoints() */
+/**
+ * Extracts the regulation score (last "X-Y" token after stripping penalty suffix).
+ * "Victoire France t.a.b. 1-1 (5-4)" → "1-1"
+ * "Victoire France t.a.b. 0-0"        → "0-0"
+ * "Victoire France 2-1"               → "2-1"
+ * "Victoire France"                   → ""
+ */
+const extractRegulationScore = (option: string): string => {
+  const s = option.replace(/\s*\(\d+-\d+\)$/, '');
+  const i = s.lastIndexOf(' ');
+  if (i < 0) return '';
+  const tail = s.substring(i + 1);
+  return /^\d+-\d+$/.test(tail) ? tail : '';
+};
+
+/**
+ * Mirror of Java computeEarnedPoints() — scoring additif GOOD_WINNER(3) + GOOD_SCORE(2) + TAB_BONUS(2).
+ *
+ * Normal :  GOOD_WINNER + GOOD_SCORE = 5  (exact)
+ *           GOOD_WINNER             = 3  (bon gagnant, mauvais score)
+ *           0                            (mauvais gagnant)
+ *
+ * TAB :     GOOD_WINNER + GOOD_SCORE + TAB_BONUS = 7  (exact + bon score pénalty)
+ *           GOOD_WINNER + GOOD_SCORE             = 5  (bon gagnant + bon score rég)
+ *           GOOD_WINNER                          = 3  (bon gagnant, mauvais score rég)
+ *           GOOD_SCORE                           = 2  (mauvais gagnant, bon score rég)
+ *           0                                         (mauvais gagnant, mauvais score rég)
+ */
+const POINTS_GOOD_WINNER = 3;
+const POINTS_GOOD_SCORE  = 2;
+const POINTS_TAB_BONUS   = 2;
+
 export const computePoints = (chosen: string, winning: string): number => {
   const c = chosen.trim();
   const w = winning.trim();
-  if (c === w) return 5;
-  if (extractResult(c) === extractResult(w)) return 3;
+  const winningIsTab = w.includes(' t.a.b. ');
+  if (winningIsTab) {
+    const winningHasPenScore = /\(\d+-\d+\)$/.test(w);
+    if (c === w && winningHasPenScore) return POINTS_GOOD_WINNER + POINTS_GOOD_SCORE + POINTS_TAB_BONUS;
+    const wReg = extractRegulationScore(w);
+    const sameWinner   = extractResult(c) === extractResult(w);
+    const sameRegScore = wReg !== '' && wReg === extractRegulationScore(c);
+    if (sameWinner && sameRegScore) return POINTS_GOOD_WINNER + POINTS_GOOD_SCORE;
+    if (sameWinner)                 return POINTS_GOOD_WINNER;
+    if (sameRegScore)               return POINTS_GOOD_SCORE;
+    return 0;
+  }
+  if (c === w) return POINTS_GOOD_WINNER + POINTS_GOOD_SCORE;
+  if (extractResult(c) === extractResult(w)) return POINTS_GOOD_WINNER;
   return 0;
 };
 
 /**
  * Parse a stored option string back into [scoreA, scoreB] for form pre-fill.
- * Format convention (winner's score always first):
- *   "Victoire {teamA} 2-1" → teamA won 2-1 → [2, 1]
- *   "Victoire {teamB} 1-0" → teamB won 1-0 → [0, 1]
- *   "Match nul 1-1"        → draw          → [1, 1]
+ * Handles both normal and TAB options (penalty score suffix ignored).
  */
 export const parseOption = (option: string, teamA: string, teamB: string): [string, string] => {
-  const m = option.match(/(\d+)-(\d+)$/);
+  const withoutPenScore = option.replace(/\s*\(\d+-\d+\)$/, '');
+  const m = withoutPenScore.match(/(\d+)-(\d+)$/);
   if (!m) return ['', ''];
   const [, first, second] = m;
-  if (option.startsWith('Match nul')) return [first, second];
-  if (option.startsWith(`Victoire ${teamA}`)) return [first, second];
-  if (option.startsWith(`Victoire ${teamB}`)) return [second, first];
+  if (withoutPenScore.startsWith('Match nul')) return [first, second];
+  if (withoutPenScore.startsWith(`Victoire ${teamA}`)) return [first, second];
+  if (withoutPenScore.startsWith(`Victoire ${teamB}`)) return [second, first];
   return ['', ''];
 };

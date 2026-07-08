@@ -55,13 +55,11 @@ class ForfeitServiceTest {
         adminUser = User.builder()
                 .id(1L).username("admin").email("admin@test.com")
                 .password("encoded").role(User.Role.PLATFORM_ADMIN)
-                .globalScore(0).betsWon(0).forfeitsReceived(0)
                 .build();
 
         regularUser = User.builder()
                 .id(2L).username("player").email("player@test.com")
                 .password("encoded").role(User.Role.USER)
-                .globalScore(0).betsWon(0).forfeitsReceived(0)
                 .build();
 
         forfeit = Forfeit.builder()
@@ -99,8 +97,8 @@ class ForfeitServiceTest {
         when(groupMemberRepository.findByUserIdAndStatus(2L, GroupMember.MemberStatus.ACTIVE))
                 .thenReturn(List.of(m));
         when(forfeitRepository.findActiveVisibleToGroups(List.of(7L))).thenReturn(List.of(forfeit));
-        when(forfeitVoteRepository.sumVoteScoresByForfeitIds(any())).thenReturn(List.of());
-        when(forfeitVoteRepository.findByForfeitIdInAndUserId(any(), any())).thenReturn(List.of());
+        when(forfeitVoteRepository.sumVoteScoresByForfeitIds(List.of(10L))).thenReturn(List.of());
+        when(forfeitVoteRepository.findByForfeitIdInAndUserId(List.of(10L), 2L)).thenReturn(List.of());
 
         List<ForfeitResponse> result = forfeitService.getForfeitsForUser("player");
 
@@ -115,8 +113,8 @@ class ForfeitServiceTest {
         when(groupMemberRepository.findByUserIdAndStatus(2L, GroupMember.MemberStatus.ACTIVE))
                 .thenReturn(List.of());
         when(forfeitRepository.findByActiveTrueAndGroupIsNullOrderById()).thenReturn(List.of(forfeit));
-        when(forfeitVoteRepository.sumVoteScoresByForfeitIds(any())).thenReturn(List.of());
-        when(forfeitVoteRepository.findByForfeitIdInAndUserId(any(), any())).thenReturn(List.of());
+        when(forfeitVoteRepository.sumVoteScoresByForfeitIds(List.of(10L))).thenReturn(List.of());
+        when(forfeitVoteRepository.findByForfeitIdInAndUserId(List.of(10L), 2L)).thenReturn(List.of());
 
         List<ForfeitResponse> result = forfeitService.getForfeitsForUser("player");
 
@@ -136,8 +134,8 @@ class ForfeitServiceTest {
 
         when(userRepository.findByUsername("player")).thenReturn(Optional.of(regularUser));
         when(forfeitRepository.findAllByOrderByIdAsc()).thenReturn(List.of(forfeit, inactive));
-        when(forfeitVoteRepository.sumVoteScoresByForfeitIds(any())).thenReturn(List.of());
-        when(forfeitVoteRepository.findByForfeitIdInAndUserId(any(), any())).thenReturn(List.of());
+        when(forfeitVoteRepository.sumVoteScoresByForfeitIds(List.of(10L, 11L))).thenReturn(List.of());
+        when(forfeitVoteRepository.findByForfeitIdInAndUserId(List.of(10L, 11L), 2L)).thenReturn(List.of());
 
         List<ForfeitResponse> result = forfeitService.getAllForfeitsAdmin();
 
@@ -228,8 +226,7 @@ class ForfeitServiceTest {
 
         forfeitService.assignForfeit(2L, 10L, 1L);
 
-        assertThat(regularUser.getForfeitsReceived()).isEqualTo(1);
-        verify(userRepository).save(regularUser);
+        verify(userRepository, never()).save(regularUser);
 
         ArgumentCaptor<UserForfeit> captor = ArgumentCaptor.forClass(UserForfeit.class);
         verify(userForfeitRepository).save(captor.capture());
@@ -302,7 +299,6 @@ class ForfeitServiceTest {
         User stranger = User.builder()
                 .id(99L).username("stranger").email("s@test.com")
                 .password("encoded").role(User.Role.USER)
-                .globalScore(0).betsWon(0).forfeitsReceived(0)
                 .build();
         setCurrentUser("stranger");
 

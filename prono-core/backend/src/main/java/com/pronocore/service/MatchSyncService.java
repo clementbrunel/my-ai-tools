@@ -61,7 +61,7 @@ public class MatchSyncService {
 
         if (ApiFootballClient.LIVE_STATUSES.contains(status)
                 && match.getStatus() == Match.Status.UPCOMING) {
-            log.info("Match {} ({} vs {}) is now ONGOING", match.getId(), match.getTeamA(), match.getTeamB());
+            log.info("Match {} ({} vs {}) is now ONGOING", match.getId(), match.getTeamA().getName(), match.getTeamB().getName());
             matchService.syncMatchScore(match.getId(), 0, 0, Match.Status.ONGOING);
             return;
         }
@@ -72,17 +72,17 @@ public class MatchSyncService {
 
             int[] scores = mapGoals(match, fixture);
             log.info("Auto-settling match {} ({} {}-{} {})",
-                    match.getId(), match.getTeamA(), scores[0], scores[1], match.getTeamB());
+                    match.getId(), match.getTeamA().getName(), scores[0], scores[1], match.getTeamB().getName());
             matchService.syncMatchScore(match.getId(), scores[0], scores[1], Match.Status.FINISHED);
         }
     }
 
     private int[] mapGoals(Match match, ApiFixture fixture) {
-        Optional<Long> idA = teamMapping.getTeamId(match.getTeamA());
+        Optional<Long> idA = teamMapping.getTeamId(match.getTeamA().getName());
         if (idA.isPresent() && idA.get() == fixture.homeTeamId()) {
             return new int[]{fixture.homeGoals(), fixture.awayGoals()};
         }
-        Optional<Long> idB = teamMapping.getTeamId(match.getTeamB());
+        Optional<Long> idB = teamMapping.getTeamId(match.getTeamB().getName());
         if (idB.isPresent() && idB.get() == fixture.homeTeamId()) {
             return new int[]{fixture.awayGoals(), fixture.homeGoals()};
         }

@@ -46,13 +46,11 @@ class GroupServiceTest {
         creator = User.builder()
                 .id(1L).username("creator").email("c@test.com")
                 .password("encoded").role(User.Role.USER)
-                .globalScore(0).betsWon(0).forfeitsReceived(0)
                 .build();
 
         member = User.builder()
                 .id(2L).username("member").email("m@test.com")
                 .password("encoded").role(User.Role.USER)
-                .globalScore(0).betsWon(0).forfeitsReceived(0)
                 .build();
 
         group = Group.builder()

@@ -8,8 +8,8 @@ interface MatchRowProps {
   pronoStatus?: 'done' | 'missing';
 }
 
-const TeamFlag: React.FC<{ name: string }> = ({ name }) => {
-  const url = getFlagUrl(name);
+const TeamFlag: React.FC<{ name: string; iso2?: string | null }> = ({ name, iso2 }) => {
+  const url = getFlagUrl(iso2);
   return url
     ? <img src={url} alt={name} className="w-5 h-4 object-contain rounded-sm shadow-sm" />
     : <span>🏳️</span>;
@@ -31,9 +31,9 @@ const MatchRow: React.FC<MatchRowProps> = ({ match, pronoStatus }) => {
       >
         {/* Team A */}
         <div className="flex items-center gap-2 flex-1 min-w-0">
-          <TeamFlag name={match.teamA} />
+          <TeamFlag name={match.teamA.name} iso2={match.teamA.iso2} />
           <span className="font-medium text-sm text-gray-900 dark:text-white truncate">
-            {match.teamA}
+            {match.teamA.name}
           </span>
         </div>
 
@@ -56,9 +56,9 @@ const MatchRow: React.FC<MatchRowProps> = ({ match, pronoStatus }) => {
         {/* Team B */}
         <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
           <span className="font-medium text-sm text-gray-900 dark:text-white truncate text-right">
-            {match.teamB}
+            {match.teamB.name}
           </span>
-          <TeamFlag name={match.teamB} />
+          <TeamFlag name={match.teamB.name} iso2={match.teamB.iso2} />
         </div>
 
         {/* Date */}

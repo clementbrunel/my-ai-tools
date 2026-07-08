@@ -9,7 +9,7 @@
 | Backend | Java 21 + Spring Boot 3 + Spring Security JWT |
 | Base de données | PostgreSQL 16 + Flyway |
 | Frontend | React 18 + TypeScript + Vite + Tailwind CSS |
-| Déploiement | Docker Compose (dev) / Registry NAS Synology (prod) |
+| Déploiement | Docker Compose (dev) / Registry Docker privé (prod) |
 
 ---
 
@@ -59,16 +59,15 @@ Connexion à configurer dans pgAdmin :
 | Username | valeur de `DB_USER` |
 | Password | valeur de `DB_PASS` |
 
-### En production (NAS Synology)
+### En production
 
 pgAdmin n'est **pas démarré par défaut**. Pour l'activer ponctuellement :
 
 ```bash
-# Sur le NAS (SSH)
 docker compose -f docker-compose.prod.yml --profile tools up -d pgadmin
 ```
 
-Accessible sur http://<IP-NAS>:5050 — **penser à le couper une fois terminé** :
+Accessible sur http://&lt;HOST&gt;:5050 — **penser à le couper une fois terminé** :
 
 ```bash
 docker compose -f docker-compose.prod.yml --profile tools stop pgadmin
@@ -76,16 +75,16 @@ docker compose -f docker-compose.prod.yml --profile tools stop pgadmin
 
 ---
 
-## Déploiement production (NAS Synology)
+## Déploiement production
 
-Le déploiement repose sur un registry Docker privé tournant sur le NAS (`192.168.68.112:5000`).
-Les images sont buildées en local et poussées sur le NAS — **aucune compilation sur le NAS**.
+Le déploiement repose sur un registry Docker privé.
+Les images sont buildées en local et poussées vers le registry — **aucune compilation sur le serveur de prod**.
 
 ### Prérequis (une seule fois)
 
-- Registry `registry:2` lancé sur le NAS via Container Manager
-- `192.168.68.112:5000` déclaré comme insecure registry dans Docker Desktop
-- `docker-compose.prod.yml` et un fichier `.env` copiés sur le NAS dans le même dossier
+- Registry Docker privé accessible depuis ta machine de dev
+- Variable `REGISTRY` définie (ex: `export REGISTRY=myregistry:5000`)
+- `docker-compose.prod.yml` et un fichier `.env` déposés sur le serveur de prod
 
 ### Déployer une nouvelle version
 
@@ -93,11 +92,12 @@ Les images sont buildées en local et poussées sur le NAS — **aucune compilat
 
 ```bash
 cd prono-core
-./build-and-push.sh          # build + push backend & frontend sur le NAS
+export REGISTRY=myregistry:5000
+./build-and-push.sh          # build + push backend & frontend
 # optionnel : ./build-and-push.sh v1.2.0  pour tagger une version spécifique
 ```
 
-**Sur le NAS (SSH ou tâche planifiée) :**
+**Sur le serveur de prod :**
 
 ```bash
 docker compose -f docker-compose.prod.yml pull
@@ -109,8 +109,8 @@ docker compose -f docker-compose.prod.yml up -d
 | Fichier | Usage |
 |---------|-------|
 | `docker-compose.yml` | Dev local (build à la volée) |
-| `docker-compose.prod.yml` | Production NAS (images pré-buildées) |
-| `build-and-push.sh` | Build + push vers le registry NAS |
+| `docker-compose.prod.yml` | Production (images pré-buildées) |
+| `build-and-push.sh` | Build + push vers le registry privé |
 | `.env.example` | Template des variables d'environnement |
 
 ---
@@ -150,6 +150,8 @@ Le frontend écoute sur http://localhost:5173 avec proxy vers le backend.
 ```
 prono-core/
 ├── docker-compose.yml
+├── docs/
+│   └── data-model.md             # Modèle de données (ERD + descriptions des tables)
 ├── backend/
 │   ├── Dockerfile
 │   ├── pom.xml
@@ -160,6 +162,12 @@ prono-core/
     ├── Dockerfile
     └── src/                      # api, components, context, pages, types
 ```
+
+### Modèle de données
+
+Le schéma complet (ERD Mermaid + description des 13 tables) est documenté dans [`docs/data-model.md`](docs/data-model.md).
+
+Tables principales : `users`, `groups`, `group_members`, `matches`, `bets`, `bet_participations`, `forfeits`, `forfeit_votes`, `user_forfeits`, `daily_gages`, `daily_gage_candidates`, `daily_gage_votes`, `password_reset_tokens`.
 
 ---
 
@@ -172,6 +180,33 @@ prono-core/
 - Interface admin : créer des matchs, saisir les scores, valider les paris
 
 Documentation API complète : http://localhost:8090/swagger-ui.html
+
+---
+
+## Barème des points
+
+Le scoring est **additif** : chaque élément correct rapporte des points indépendamment.
+
+### Match normal (phase de groupes)
+
+| Prédiction | Points |
+|---|:---:|
+| Bon gagnant + bon score | **5** |
+| Bon gagnant, mauvais score | **3** |
+| Mauvais gagnant | **0** |
+
+### Match avec tirs au but — TAB (phase éliminatoire)
+
+| Prédiction | Points |
+|---|:---:|
+| Bon gagnant + bon score réglementaire + bon score pénalty | **7** |
+| Bon gagnant + bon score réglementaire | **5** |
+| Bon gagnant, mauvais score réglementaire | **3** |
+| Mauvais gagnant, bon score réglementaire | **2** |
+| Mauvais gagnant | **0** |
+
+> Le score réglementaire est le score nul à l'issue des prolongations (ex. 1-1) qui déclenche les tirs au but.
+> Le score pénalty n'est pris en compte que si l'administrateur l'a saisi lors de la validation du match.
 
 ---
 

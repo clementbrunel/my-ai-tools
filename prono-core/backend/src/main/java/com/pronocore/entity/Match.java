@@ -18,11 +18,13 @@ public class Match {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "team_a", nullable = false, length = 100)
-    private String teamA;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "team_a_id", nullable = false)
+    private Team teamA;
 
-    @Column(name = "team_b", nullable = false, length = 100)
-    private String teamB;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "team_b_id", nullable = false)
+    private Team teamB;
 
     @Column(name = "match_date", nullable = false)
     private LocalDateTime matchDate;
@@ -38,13 +40,27 @@ public class Match {
     @Builder.Default
     private Status status = Status.UPCOMING;
 
-    @Column(nullable = false, length = 100)
-    @Builder.Default
-    private String competition = "FIFA World Cup 2026";
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "competition_id", nullable = false)
+    private Competition competition;
 
     @Column(nullable = false, length = 100)
     @Builder.Default
-    private String round = "Group Stage";
+    private String round = "";
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private MatchPhase phase = MatchPhase.POOL;
+
+    @Column(name = "penalty_winner", length = 1)
+    private String penaltyWinner;
+
+    @Column(name = "penalty_score_a")
+    private Integer penaltyScoreA;
+
+    @Column(name = "penalty_score_b")
+    private Integer penaltyScoreB;
 
     @Column(name = "reminder_sent", nullable = false)
     @Builder.Default
@@ -63,5 +79,9 @@ public class Match {
 
     public enum Status {
         UPCOMING, ONGOING, FINISHED
+    }
+
+    public enum MatchPhase {
+        POOL, KNOCKOUT
     }
 }

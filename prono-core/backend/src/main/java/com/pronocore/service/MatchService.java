@@ -26,16 +26,17 @@ public class MatchService {
     private final BetParticipationRepository betParticipationRepository;
     private final GroupMemberRepository      groupMemberRepository;
     private final UserRepository             userRepository;
+    private final TeamRepository             teamRepository;
+    private final CompetitionRepository      competitionRepository;
     private final DailyGageService           dailyGageService;
 
     // ---------------------------------------------------------------
     // Scoring constants
     // ---------------------------------------------------------------
 
-    /** Exact score. */
-    static final int POINTS_EXACT_SCORE    = 5;
-    /** Correct result (right winner or right draw), wrong score. */
-    static final int POINTS_CORRECT_RESULT = 3;
+    static final int POINTS_GOOD_WINNER = 3;
+    static final int POINTS_GOOD_SCORE  = 2;
+    static final int POINTS_TAB_BONUS   = 2;
 
     // ---------------------------------------------------------------
     // Queries
@@ -44,18 +45,18 @@ public class MatchService {
     @Transactional(readOnly = true)
     public List<MatchResponse> getAllMatches() {
         return matchRepository.findAllByOrderByMatchDateAsc().stream()
-                .map(matchMapper::toResponse).toList();
+                .map(this::toEnrichedResponse).toList();
     }
 
     @Transactional(readOnly = true)
     public List<MatchResponse> getMatchesByStatus(Match.Status status) {
         return matchRepository.findByStatusOrderByMatchDateAsc(status).stream()
-                .map(matchMapper::toResponse).toList();
+                .map(this::toEnrichedResponse).toList();
     }
 
     @Transactional(readOnly = true)
     public MatchResponse getMatchById(Long id) {
-        return matchMapper.toResponse(requireMatch(id));
+        return toEnrichedResponse(requireMatch(id));
     }
 
     @Transactional(readOnly = true)
@@ -66,16 +67,11 @@ public class MatchService {
         Set<Long> participatedIds = betParticipationRepository.findParticipatedMatchIdsByUserId(user.getId());
         return matches.stream()
                 .map(match -> {
-                    MatchResponse response = matchMapper.toResponse(match);
+                    MatchResponse response = toEnrichedResponse(match);
                     response.setUserParticipated(participatedIds.contains(match.getId()));
                     return response;
                 })
                 .toList();
-    }
-
-    @Transactional(readOnly = true)
-    public List<String> getActiveCompetitions() {
-        return matchRepository.findActiveCompetitions();
     }
 
     // ---------------------------------------------------------------
@@ -84,23 +80,37 @@ public class MatchService {
 
     @Transactional
     public MatchResponse createMatch(CreateMatchRequest request) {
+        Team teamA = teamRepository.findById(request.getTeamAId())
+                .orElseThrow(() -> new EntityNotFoundException("Team not found: " + request.getTeamAId()));
+        Team teamB = teamRepository.findById(request.getTeamBId())
+                .orElseThrow(() -> new EntityNotFoundException("Team not found: " + request.getTeamBId()));
+        Competition competition = competitionRepository.findById(request.getCompetitionId())
+                .orElseThrow(() -> new EntityNotFoundException("Competition not found: " + request.getCompetitionId()));
         Match match = Match.builder()
-                .teamA(request.getTeamA())
-                .teamB(request.getTeamB())
+                .teamA(teamA)
+                .teamB(teamB)
                 .matchDate(request.getMatchDate())
-                .competition(request.getCompetition() != null ? request.getCompetition() : "FIFA World Cup 2026")
-                .round(request.getRound() != null ? request.getRound() : "Group Stage")
+                .competition(competition)
+                .round(request.getRound() != null ? request.getRound() : "")
+                .phase(request.getPhase() != null ? request.getPhase() : Match.MatchPhase.POOL)
                 .status(Match.Status.UPCOMING)
                 .build();
         match = matchRepository.save(match);
-        // A match is global and starts CLOSED to betting. Each group's admin opens it
-        // for their group via BetService.openMatchForBetting → no auto-created bet here.
-        return matchMapper.toResponse(match);
+        return toEnrichedResponse(match);
     }
 
     @Transactional
     public MatchResponse updateMatchScore(Long id, UpdateMatchScoreRequest request) {
         Match match = requireMatch(id);
+
+        if (request.getPenaltyWinner() != null && match.getPhase() == Match.MatchPhase.POOL) {
+            throw new IllegalArgumentException("Penalty shootout cannot be set on POOL phase matches");
+        }
+        if (request.getPenaltyWinner() != null
+                && request.getScoreA() != null && request.getScoreB() != null
+                && !request.getScoreA().equals(request.getScoreB())) {
+            throw new IllegalArgumentException("Penalty shootout requires equal regulation scores (scores must be tied)");
+        }
 
         boolean transitionsToFinished =
                 match.getStatus() != Match.Status.FINISHED
@@ -111,6 +121,15 @@ public class MatchService {
         match.setStatus(request.getStatus());
         match.setSyncLocked(true);
         match.setAutoSynced(false);
+        if (request.getPenaltyWinner() != null) {
+            match.setPenaltyWinner(request.getPenaltyWinner());
+            match.setPenaltyScoreA(request.getPenaltyScoreA());
+            match.setPenaltyScoreB(request.getPenaltyScoreB());
+        } else if (request.isPenaltyCleared()) {
+            match.setPenaltyWinner(null);
+            match.setPenaltyScoreA(null);
+            match.setPenaltyScoreB(null);
+        }
         match = matchRepository.save(match);
 
         if (transitionsToFinished && request.getScoreA() != null && request.getScoreB() != null) {
@@ -119,7 +138,7 @@ public class MatchService {
             dailyGageService.onMatchSettled(match.getMatchDate().toLocalDate());
         }
 
-        return matchMapper.toResponse(match);
+        return toEnrichedResponse(match);
     }
 
     @Transactional
@@ -164,22 +183,22 @@ public class MatchService {
     /**
      * When admin marks a match as FINISHED:
      * 1. Compute the winning option string.
-     * 2. Award +5 (exact score) or +3 (correct result) to each participant.
-     *    Both +5 and +3 count as a "won bet" (betsWon++).
+     * 2. Award points to each participant — scoring additif: see computeEarnedPoints().
      * 3. Store pointsEarned on each participation (used by daily gage loser logic).
      *
      * Note: per-match forfeit assignment has been removed.
      * Gages are now assigned per day via DailyGageService.onMatchSettled().
      *
      * Winning-option format (winner's score always first):
-     *   teamA wins 2-1  → "Victoire France 2-1"
-     *   teamB wins 1-0  → "Victoire Sénégal 1-0"
-     *   draw 0-0        → "Match nul 0-0"
+     *   teamA wins 2-1          → "Victoire France 2-1"
+     *   teamB wins 1-0          → "Victoire Sénégal 1-0"
+     *   draw 0-0                → "Match nul 0-0"
+     *   TAB France wins (5-4)   → "Victoire France t.a.b. 1-1 (5-4)"
      */
     private void settleBetsForMatch(Match match) {
         String winningOption = computeWinningOption(match);
         log.info("⚽ Settling match {} ({} vs {}) — winning option: {}",
-                match.getId(), match.getTeamA(), match.getTeamB(), winningOption);
+                match.getId(), match.getTeamA().getName(), match.getTeamB().getName(), winningOption);
 
         List<Bet> openBets = betRepository
                 .findByMatchIdAndStatusOrderByCreatedAtDesc(match.getId(), Bet.Status.OPEN);
@@ -206,10 +225,6 @@ public class MatchService {
                 betParticipationRepository.save(p);
 
                 if (earned > 0) {
-                    user.setGlobalScore(user.getGlobalScore() + earned);
-                    // Both +3 (correct result) and +5 (exact score) count as a won bet
-                    user.setBetsWon(user.getBetsWon() + 1);
-                    userRepository.save(user);
                     log.info("  +{} pts → {} ({}) [group: {}]",
                             earned, user.getUsername(), p.getChosenOption(), groupName);
                 } else {
@@ -238,7 +253,7 @@ public class MatchService {
         }
         List<Bet> bets = betRepository.findByMatchIdOrderByCreatedAtDesc(matchId);
         log.info("🔧 Force-settling all {} bet(s) for match {} ({} vs {})",
-                bets.size(), matchId, match.getTeamA(), match.getTeamB());
+                bets.size(), matchId, match.getTeamA().getName(), match.getTeamB().getName());
         for (Bet bet : bets) {
             forceSettleBet(matchId, bet.getId());
         }
@@ -274,16 +289,9 @@ public class MatchService {
             int shouldBe = computeEarnedPoints(p.getChosenOption().trim(), winningOption);
             int delta = shouldBe - p.getPointsEarned();
             if (delta != 0) {
-                User user = p.getUser();
-                user.setGlobalScore(user.getGlobalScore() + delta);
-                // Credit betsWon only if this participation wasn't already counted
-                if (shouldBe > 0 && p.getPointsEarned() == 0) {
-                    user.setBetsWon(user.getBetsWon() + 1);
-                }
-                userRepository.save(user);
                 p.setPointsEarned(shouldBe);
                 betParticipationRepository.save(p);
-                log.info("  {} → {} pts (delta {})", user.getUsername(), shouldBe, delta > 0 ? "+" + delta : delta);
+                log.info("  {} → {} pts (delta {})", p.getUser().getUsername(), shouldBe, delta > 0 ? "+" + delta : delta);
             } else {
                 log.info("  {} → {} pts (no change)", p.getUser().getUsername(), shouldBe);
             }
@@ -329,35 +337,106 @@ public class MatchService {
     }
 
     /**
-     * Points for a single participation:
-     * +5 exact score | +3 correct result | 0 wrong
+     * Points for a single participation — scoring additif GOOD_WINNER(3) + GOOD_SCORE(2) + TAB_BONUS(2).
+     *
+     * Normal :  GOOD_WINNER + GOOD_SCORE = 5  (exact)
+     *           GOOD_WINNER             = 3  (bon gagnant, mauvais score)
+     *           0                            (mauvais gagnant)
+     *
+     * TAB :     GOOD_WINNER + GOOD_SCORE + TAB_BONUS = 7  (exact + bon score pénalty)
+     *           GOOD_WINNER + GOOD_SCORE             = 5  (bon gagnant + bon score rég)
+     *           GOOD_WINNER                          = 3  (bon gagnant, mauvais score rég)
+     *           GOOD_SCORE                           = 2  (mauvais gagnant, bon score rég)
+     *           0                                         (mauvais gagnant, mauvais score rég)
      */
     int computeEarnedPoints(String chosenOption, String winningOption) {
-        if (chosenOption.equals(winningOption)) return POINTS_EXACT_SCORE;
-        if (extractResult(chosenOption).equals(extractResult(winningOption))) return POINTS_CORRECT_RESULT;
+        String c = chosenOption.trim();
+        String w = winningOption.trim();
+        boolean winningIsTab = w.contains(" t.a.b. ");
+        if (winningIsTab) {
+            boolean winningHasPenScore = w.matches(".*\\(\\d+-\\d+\\)$");
+            if (c.equals(w) && winningHasPenScore) return POINTS_GOOD_WINNER + POINTS_GOOD_SCORE + POINTS_TAB_BONUS;
+            String wReg = extractRegulationScore(w);
+            boolean sameWinner   = extractResult(c).equals(extractResult(w));
+            boolean sameRegScore = !wReg.isEmpty() && wReg.equals(extractRegulationScore(c));
+            if (sameWinner && sameRegScore) return POINTS_GOOD_WINNER + POINTS_GOOD_SCORE;
+            if (sameWinner)                 return POINTS_GOOD_WINNER;
+            if (sameRegScore)               return POINTS_GOOD_SCORE;
+            return 0;
+        }
+        if (c.equals(w)) return POINTS_GOOD_WINNER + POINTS_GOOD_SCORE;
+        if (extractResult(c).equals(extractResult(w))) return POINTS_GOOD_WINNER;
         return 0;
     }
 
-    /** "Victoire France 2-1" → "Victoire France" | "Match nul 1-1" → "Match nul" */
+    /**
+     * Strips score and t.a.b. marker — used to compare winners regardless of mode.
+     * "Victoire France t.a.b. 1-1 (5-4)" → "Victoire France"
+     * "Victoire France 2-1"               → "Victoire France"
+     * "Match nul 1-1"                     → "Match nul"
+     */
     private String extractResult(String option) {
-        if (option.startsWith("Match nul")) return "Match nul";
-        if (option.startsWith("Victoire ")) {
-            int lastSpace = option.lastIndexOf(' ');
-            if (lastSpace > 0) return option.substring(0, lastSpace);
+        String s = option.replaceAll("\\s*\\(\\d+-\\d+\\)$", "");
+        s = s.replace(" t.a.b.", "");
+        if (s.startsWith("Match nul")) return "Match nul";
+        if (s.startsWith("Victoire ")) {
+            int lastSpace = s.lastIndexOf(' ');
+            if (lastSpace > 0) return s.substring(0, lastSpace);
         }
         return option;
     }
 
-    /** Winner's score always first. France 0–1 Sénégal → "Victoire Sénégal 1-0" */
+    /**
+     * Extracts the regulation score (last "X-Y" token after stripping penalty suffix).
+     * "Victoire France t.a.b. 1-1 (5-4)" → "1-1"
+     * "Victoire France t.a.b. 0-0"        → "0-0"
+     * "Victoire France 2-1"               → "2-1"
+     * "Victoire France"                   → ""
+     */
+    private String extractRegulationScore(String option) {
+        String s = option.replaceAll("\\s*\\(\\d+-\\d+\\)$", "");
+        int i = s.lastIndexOf(' ');
+        if (i < 0) return "";
+        String tail = s.substring(i + 1);
+        return tail.matches("\\d+-\\d+") ? tail : "";
+    }
+
+    /**
+     * Winner's score always first.
+     * France 0–1 Sénégal → "Victoire Sénégal 1-0"
+     * TAB (France wins, pen 5-4, draw 1-1) → "Victoire France t.a.b. 1-1 (5-4)"
+     * TAB without pen score stored → "Victoire France t.a.b. 1-1"
+     */
     private String computeWinningOption(Match match) {
+        if (match.getScoreA() == null || match.getScoreB() == null) {
+            throw new IllegalStateException("Cannot compute winning option: scores are null for match " + match.getId());
+        }
         int sA = match.getScoreA(), sB = match.getScoreB();
-        if (sA > sB) return "Victoire " + match.getTeamA() + " " + sA + "-" + sB;
-        if (sB > sA) return "Victoire " + match.getTeamB() + " " + sB + "-" + sA;
+        if (match.getPenaltyWinner() != null) {
+            String winner;
+            String penScore = "";
+            if (match.getPenaltyWinner().equals("A")) {
+                winner = match.getTeamA().getName();
+                if (match.getPenaltyScoreA() != null && match.getPenaltyScoreB() != null)
+                    penScore = " (" + match.getPenaltyScoreA() + "-" + match.getPenaltyScoreB() + ")";
+            } else {
+                winner = match.getTeamB().getName();
+                if (match.getPenaltyScoreA() != null && match.getPenaltyScoreB() != null)
+                    penScore = " (" + match.getPenaltyScoreB() + "-" + match.getPenaltyScoreA() + ")";
+            }
+            return "Victoire " + winner + " t.a.b. " + sA + "-" + sB + penScore;
+        }
+        if (sA > sB) return "Victoire " + match.getTeamA().getName() + " " + sA + "-" + sB;
+        if (sB > sA) return "Victoire " + match.getTeamB().getName() + " " + sB + "-" + sA;
         return "Match nul " + sA + "-" + sB;
     }
 
     private Match requireMatch(Long id) {
         return matchRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Match not found: " + id));
+    }
+
+    private MatchResponse toEnrichedResponse(Match match) {
+        return matchMapper.toResponse(match);
     }
 }

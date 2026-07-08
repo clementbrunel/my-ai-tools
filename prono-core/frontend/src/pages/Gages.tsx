@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { getForfeits, proposeForfeit, voteForfeit } from '../api/forfeits';
 import { getMyGroups } from '../api/groups';
 import type { Forfeit, Group } from '../types';
+import { logger } from '../utils/logger';
 
 const categoryEmoji: Record<string, string> = {
   Nourriture: '🥐',
@@ -42,7 +43,7 @@ const Gages: React.FC = () => {
         setGroups(g);
         if (g.length > 0) setPropGroupId(g[0].id);
       })
-      .catch(console.error)
+      .catch(logger.error)
       .finally(() => setIsLoading(false));
   }, []);
 
@@ -55,7 +56,7 @@ const Gages: React.FC = () => {
         )
       );
     } catch (err) {
-      console.error('Vote error', err);
+      logger.error('Vote error', err);
     }
   };
 

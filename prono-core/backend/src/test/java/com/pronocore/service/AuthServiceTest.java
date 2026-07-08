@@ -55,10 +55,6 @@ class AuthServiceTest {
             .email("test@example.com")
             .password("encodedPassword")
             .role(User.Role.USER)
-            .globalScore(0)
-            .betsWon(0)
-            .forfeitsReceived(0)
-            .emailVerified(true)
             .build();
     }
 
@@ -118,6 +114,8 @@ class AuthServiceTest {
         LoginRequest request = new LoginRequest();
         request.setUsername("testuser");
         request.setPassword("password123");
+
+        testUser.setEmailVerified(true);
 
         UserResponse userResponse = UserResponse.builder()
             .id(1L)

@@ -1,0 +1,10 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.env
+.env.local
+
+# Playwright
+playwright-report/
+.playwright-last-run.json
+test-results/

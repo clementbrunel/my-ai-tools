@@ -51,7 +51,6 @@ class BetServiceTest {
         testUser = User.builder()
             .id(1L).username("testuser").email("test@example.com")
             .password("encoded").role(User.Role.USER)
-            .globalScore(0).betsWon(0).forfeitsReceived(0)
             .build();
 
         testGroup = Group.builder().id(7L).name("Les Potes").build();
@@ -87,7 +86,9 @@ class BetServiceTest {
 
     @Test
     void openMatchForBetting_groupAdminCreatesScoreBet() {
-        Match match = Match.builder().id(5L).teamA("France").teamB("Brésil")
+        Match match = Match.builder().id(5L)
+            .teamA(Team.builder().id(1L).name("France").build())
+            .teamB(Team.builder().id(2L).name("Brésil").build())
             .matchDate(LocalDateTime.now().plusHours(2)).status(Match.Status.UPCOMING).build();
 
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
@@ -121,7 +122,9 @@ class BetServiceTest {
 
     @Test
     void openMatchForBetting_conflictWhenMatchAlreadyOpenInGroup() {
-        Match match = Match.builder().id(5L).teamA("France").teamB("Brésil")
+        Match match = Match.builder().id(5L)
+            .teamA(Team.builder().id(1L).name("France").build())
+            .teamB(Team.builder().id(2L).name("Brésil").build())
             .matchDate(LocalDateTime.now().plusHours(2)).status(Match.Status.UPCOMING).build();
 
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
@@ -138,15 +141,20 @@ class BetServiceTest {
 
     @Test
     void openCompetitionForBetting_opensOnlyMatchesNotYetOpenInGroup() {
-        Match m1 = Match.builder().id(10L).teamA("France").teamB("Brésil")
-            .matchDate(LocalDateTime.now().plusHours(2)).competition("World Cup").build();
-        Match m2 = Match.builder().id(11L).teamA("Italie").teamB("Espagne")
-            .matchDate(LocalDateTime.now().plusHours(4)).competition("World Cup").build();
+        Competition worldCup = Competition.builder().id(1L).name("World Cup").build();
+        Match m1 = Match.builder().id(10L)
+            .teamA(Team.builder().id(1L).name("France").build())
+            .teamB(Team.builder().id(2L).name("Brésil").build())
+            .matchDate(LocalDateTime.now().plusHours(2)).competition(worldCup).build();
+        Match m2 = Match.builder().id(11L)
+            .teamA(Team.builder().id(3L).name("Italie").build())
+            .teamB(Team.builder().id(4L).name("Espagne").build())
+            .matchDate(LocalDateTime.now().plusHours(4)).competition(worldCup).build();
 
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
         stubActiveMember(GroupMember.GroupRole.GROUP_ADMIN);
         when(groupRepository.findById(7L)).thenReturn(Optional.of(testGroup));
-        when(matchRepository.findByCompetitionOrderByMatchDateAsc("World Cup")).thenReturn(List.of(m1, m2));
+        when(matchRepository.findByCompetition_IdOrderByMatchDateAsc(1L)).thenReturn(List.of(m1, m2));
         // m1 already open in the group → skipped; m2 is created
         when(betRepository.existsByMatchIdAndGroupId(10L, 7L)).thenReturn(true);
         when(betRepository.existsByMatchIdAndGroupId(11L, 7L)).thenReturn(false);
@@ -154,7 +162,7 @@ class BetServiceTest {
         when(betMapper.toResponse(any(Bet.class))).thenReturn(BetResponse.builder().id(99L).build());
         when(betRepository.countParticipationsByBetId(any())).thenReturn(0L);
 
-        List<BetResponse> created = betService.openCompetitionForBetting(7L, "World Cup", "testuser");
+        List<BetResponse> created = betService.openCompetitionForBetting(7L, 1L, "testuser");
 
         assertThat(created).hasSize(1);
         verify(betRepository, times(1)).save(argThat(b -> b.getMatch() == m2 && b.getGroup() == testGroup));
@@ -166,7 +174,7 @@ class BetServiceTest {
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
         stubActiveMember(GroupMember.GroupRole.MEMBER);
 
-        assertThatThrownBy(() -> betService.openCompetitionForBetting(7L, "World Cup", "testuser"))
+        assertThatThrownBy(() -> betService.openCompetitionForBetting(7L, 1L, "testuser"))
             .isInstanceOf(AccessDeniedException.class);
         verify(betRepository, never()).save(any());
     }
@@ -175,7 +183,9 @@ class BetServiceTest {
 
     @Test
     void createBet_groupAdminCreatesBetSuccessfully() {
-        Match testMatch = Match.builder().id(1L).teamA("France").teamB("Brésil")
+        Match testMatch = Match.builder().id(1L)
+            .teamA(Team.builder().id(1L).name("France").build())
+            .teamB(Team.builder().id(2L).name("Brésil").build())
             .matchDate(LocalDateTime.now().plusHours(2)).status(Match.Status.UPCOMING).build();
 
         CreateBetRequest request = new CreateBetRequest();
@@ -363,8 +373,7 @@ class BetServiceTest {
 
     @Test
     void validateBet_shouldAwardPointsToWinners() {
-        User winner = User.builder().id(2L).username("winner")
-            .globalScore(0).betsWon(0).forfeitsReceived(0).build();
+        User winner = User.builder().id(2L).username("winner").build();
 
         BetParticipation participation = BetParticipation.builder()
             .id(1L).bet(testBet).user(winner).chosenOption("France").build();
@@ -379,11 +388,8 @@ class BetServiceTest {
         BetResponse result = betService.validateBet(1L, "France");
 
         assertThat(result.getStatus()).isEqualTo(Bet.Status.VALIDATED);
-        assertThat(winner.getGlobalScore()).isEqualTo(10);
-        assertThat(winner.getBetsWon()).isEqualTo(1);
-        // pointsEarned must be persisted so the group leaderboard counts this win
         assertThat(participation.getPointsEarned()).isEqualTo(10);
-        verify(userRepository).save(winner);
+        verify(userRepository, never()).save(winner);
         verify(participationRepository).save(participation);
     }
 
@@ -407,7 +413,7 @@ class BetServiceTest {
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
         when(betRepository.findAllInUserActiveGroups(1L)).thenReturn(List.of(testBet));
         when(betMapper.toResponse(any(Bet.class))).thenReturn(BetResponse.builder().id(1L).title("Test Bet").build());
-        when(betRepository.countParticipationsByBetId(any())).thenReturn(0L);
+        when(betRepository.countParticipationsByBetIds(any())).thenReturn(List.of());
 
         List<BetResponse> result = betService.getBetsForUser("testuser");
 

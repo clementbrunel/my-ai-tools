@@ -38,12 +38,11 @@ class UserServiceTest {
         testUser = User.builder()
                 .id(1L).username("alice").email("alice@test.com")
                 .password("encodedOld").role(User.Role.USER)
-                .globalScore(50).betsWon(5).forfeitsReceived(1)
                 .build();
 
         testUserResponse = UserResponse.builder()
                 .id(1L).username("alice").email("alice@test.com")
-                .role(User.Role.USER).globalScore(50).betsWon(5).forfeitsReceived(1)
+                .role(User.Role.USER)
                 .build();
     }
 
@@ -57,7 +56,6 @@ class UserServiceTest {
         UserResponse result = userService.getCurrentUser("alice");
 
         assertThat(result.getUsername()).isEqualTo("alice");
-        assertThat(result.getGlobalScore()).isEqualTo(50);
     }
 
     @Test
@@ -97,7 +95,6 @@ class UserServiceTest {
         User second = User.builder()
                 .id(2L).username("bob").email("bob@test.com")
                 .password("encoded").role(User.Role.USER)
-                .globalScore(30).betsWon(3).forfeitsReceived(0)
                 .build();
         UserResponse secondResponse = UserResponse.builder().id(2L).username("bob").build();
 

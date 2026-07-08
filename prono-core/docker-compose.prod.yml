@@ -18,7 +18,7 @@ services:
     restart: unless-stopped
 
   backend:
-    image: localhost:5000/prono-core-backend:latest
+    image: ${REGISTRY:-localhost:5000}/prono-core-backend:latest
     container_name: pronocore-backend
     ports:
       - "8090:8080"
@@ -29,13 +29,15 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       RESEND_API_KEY: ${RESEND_API_KEY}
       FRONTEND_URL: ${FRONTEND_URL}
+      TZ: Europe/Paris
+      APP_FLYWAY_REPAIR: ${APP_FLYWAY_REPAIR:-false}
     depends_on:
       postgres:
         condition: service_healthy
     restart: unless-stopped
 
   frontend:
-    image: localhost:5000/prono-core-frontend:latest
+    image: ${REGISTRY:-localhost:5000}/prono-core-frontend:latest
     container_name: pronocore-frontend
     ports:
       - "3000:80"

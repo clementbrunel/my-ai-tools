@@ -19,10 +19,7 @@ URL          = "https://meribel-mottaret-lesbleuets.fr/locations"
 TARGET_START = date(2026, 7, 16)
 TARGET_END   = date(2026, 7, 31)
 
-MAEVA_BASE_VARIANTS = [
-    "https://www.maeva.com/pages/fiche.php",        # URL canonique (sans /fr-fr/)
-    "https://www.maeva.com/fr-fr/pages/fiche.php",  # ancienne URL
-]
+MAEVA_BASE = "https://www.maeva.com/fr-fr/pages/fiche.php"
 MAEVA_PARAMS_COMMON = {
     "filtres": "",
     "action": "updatePrixSeo",
@@ -47,9 +44,9 @@ MAEVA_URL_TEMPLATE = (
 
 # Variables d'environnement (à définir dans GitHub Actions Secrets)
 RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
-NOTIFY_EMAIL   = os.getenv("NOTIFY_EMAIL", "hasto88@gmail.com")
+NOTIFY_EMAIL   = os.getenv("NOTIFY_EMAIL", "your@email.com")
 
-CACHE_FILE = "last_results.json"
+CACHE_FILE = os.path.join(os.getenv("DATA_DIR", "."), "last_results.json")
 # ─────────────────────────────────────────────────────────────────────────────
 
 HEADERS = {
@@ -163,57 +160,96 @@ def _maeva_product_to_dict(p: dict, date_debut: str, date_fin: str, booking_url:
     dispo = p.get("libre")
     if dispo is not None and str(dispo) == "0":
         return None
-    price = p.get("prix") or "–"
+    raw_price = p.get("prix")
+    try:
+        price = f"{int(float(raw_price))} €" if raw_price not in (None, "", 0) else "–"
+    except (ValueError, TypeError):
+        price = "–"
+    try:
+        dispo_int = int(dispo) if dispo is not None else None
+    except (ValueError, TypeError):
+        dispo_int = None
+    # Ignore les entrées sans données utiles (doublons incomplets de l'API)
+    if price == "–" and dispo_int is None:
+        return None
     return {
-        "title": p.get("produit_libe") or p.get("nom") or "Logement",
-        "start": p.get("debut", date_debut),
-        "end":   p.get("fin",   date_fin),
-        "price": f"{price} €" if price and price != "–" else "–",
-        "dispo": str(dispo) if dispo is not None else "?",
+        "title": (p.get("produit_libe") or p.get("nom") or "Logement").strip(),
+        "start": date_debut,
+        "end":   date_fin,
+        "price": price,
+        "dispo": str(dispo_int) if dispo_int is not None else "?",
         "url":   booking_url,
     }
 
 
-def fetch_maeva_week(date_debut: str, date_fin: str) -> tuple[list[dict], bool]:
-    """Interroge l'API Maeva pour une semaine.
+def _maeva_session_with_csrf(date_debut: str) -> tuple[requests.Session, str] | tuple[None, None]:
+    """Ouvre une session Maeva et extrait le CSRF token depuis la page de la résidence."""
+    session = requests.Session()
+    page_url = MAEVA_URL_TEMPLATE.format(debut=date_debut, fin=date_debut)
+    try:
+        resp = session.get(page_url, headers=HEADERS, timeout=30)
+        resp.raise_for_status()
+    except Exception as e:
+        print(f"  ⚠️  Maeva : impossible de charger la page de résidence : {e}")
+        return None, None
 
-    Retourne (listings, had_error). Essaie plusieurs variantes d'URL.
-    had_error=True si aucune variante n'a répondu correctement.
-    """
-    params = {**MAEVA_PARAMS_COMMON, "dateDebut": date_debut, "dateFin": date_fin}
-    last_error: Exception | None = None
+    soup = BeautifulSoup(resp.text, "html.parser")
 
-    for base in MAEVA_BASE_VARIANTS:
-        try:
-            resp = requests.get(base, params=params, headers=HEADERS, timeout=30)
-            if resp.status_code == 404:
-                print(f"  ⚠️  Maeva {date_debut}→{date_fin} : 404 sur {base}")
-                continue
-            resp.raise_for_status()
-            data = resp.json()
-        except Exception as e:
-            print(f"  ⚠️  Maeva {date_debut}→{date_fin} : erreur ({base}) : {e}")
-            last_error = e
-            continue
+    # Cherche le token dans les attributs data- ou balises meta/input
+    for attr in ("data-csrf", "data-token", "csrf-token"):
+        tag = soup.find(attrs={attr: True})
+        if tag:
+            return session, tag[attr]
 
-        produits = data.get("content", {}).get("produit", {})
-        products = _parse_maeva_products(produits)
-        if products is None:
-            print(f"  ⚠️  Maeva : structure JSON inattendue pour {date_debut}→{date_fin}")
-            return [], True
+    meta = soup.find("meta", {"name": "csrf-token"})
+    if meta and meta.get("content"):
+        return session, meta["content"]
 
-        booking_url = MAEVA_URL_TEMPLATE.format(debut=date_debut, fin=date_fin)
-        results = []
-        for p in products:
-            entry = _maeva_product_to_dict(p, date_debut, date_fin, booking_url)
-            if entry:
-                results.append(entry)
-        return results, False
+    hidden = soup.find("input", {"name": "csrf_token"})
+    if hidden and hidden.get("value"):
+        return session, hidden["value"]
 
-    # Toutes les variantes ont échoué
-    if last_error:
-        print(f"  ❌ Maeva {date_debut}→{date_fin} : toutes les URLs en échec — API indisponible")
-    return [], True
+    # Cherche le pattern token : hex64.timestamp.hex64 dans tout le HTML
+    import re
+    m = re.search(r'([a-f0-9]{32,}\.\d+\.[a-f0-9]{32,})', resp.text)
+    if m:
+        return session, m.group(1)
+
+    # Cherche dans le JS inline : csrf_token = "..." ou csrf: "..."
+    for script in soup.find_all("script"):
+        txt = script.get_text()
+        m = re.search(r'csrf[_\-]?token["\s\']*[:=]["\s\']*([a-f0-9][a-f0-9.\-]+)', txt, re.IGNORECASE)
+        if m:
+            return session, m.group(1)
+
+    print("  ⚠️  Maeva : CSRF token introuvable dans la page")
+    return None, None
+
+
+def fetch_maeva_week(session: requests.Session, csrf_token: str, date_debut: str, date_fin: str) -> tuple[list[dict], bool]:
+    """Interroge l'API Maeva pour une semaine. Retourne (listings, had_error)."""
+    params = {**MAEVA_PARAMS_COMMON, "dateDebut": date_debut, "dateFin": date_fin, "csrf_token": csrf_token}
+    try:
+        resp = session.get(MAEVA_BASE, params=params, headers=HEADERS, timeout=30)
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as e:
+        print(f"  ⚠️  Maeva {date_debut}→{date_fin} : erreur : {e}")
+        return [], True
+
+    produits = data.get("content", {}).get("produit", {})
+    products = _parse_maeva_products(produits)
+    if products is None:
+        print(f"  ⚠️  Maeva : structure JSON inattendue pour {date_debut}→{date_fin}")
+        return [], True
+
+    booking_url = MAEVA_URL_TEMPLATE.format(debut=date_debut, fin=date_fin)
+    results = []
+    for p in products:
+        entry = _maeva_product_to_dict(p, date_debut, date_fin, booking_url)
+        if entry:
+            results.append(entry)
+    return results, False
 
 
 def fetch_maeva_all() -> tuple[list[dict], bool]:
@@ -221,25 +257,22 @@ def fetch_maeva_all() -> tuple[list[dict], bool]:
 
     Retourne (listings, had_error). had_error=True si au moins une semaine a échoué.
     """
-    seen: dict[str, dict] = {}
+    first_week = MAEVA_WEEKS[0]
+    session, csrf_token = _maeva_session_with_csrf(first_week["dateDebut"])
+    if session is None:
+        return [], True
+
+    all_listings: list[dict] = []
     had_error = False
     for week in MAEVA_WEEKS:
-        listings, week_error = fetch_maeva_week(week["dateDebut"], week["dateFin"])
+        listings, week_error = fetch_maeva_week(session, csrf_token, week["dateDebut"], week["dateFin"])
         if week_error:
             had_error = True
         print(f"  Maeva {week['dateDebut']}→{week['dateFin']} : {len(listings)} logement(s)")
         for l in listings:
             print(f"    🌐 {l['title']} | {l['start']} → {l['end']} | {l['price']} | {l.get('dispo','?')} unité(s)")
-            key = l["title"].strip().lower()
-            if key not in seen:
-                seen[key] = dict(l)
-            else:
-                existing = seen[key]
-                if l.get("start", "") < existing.get("start", ""):
-                    existing["start"] = l["start"]
-                if l.get("end", "") > existing.get("end", ""):
-                    existing["end"] = l["end"]
-    return list(seen.values()), had_error
+        all_listings.extend(listings)
+    return all_listings, had_error
 
 
 # ── Email ─────────────────────────────────────────────────────────────────────
@@ -490,10 +523,10 @@ def detect_changes(
     prev_bleuets_refs = {l["title"] for l in previous.get("bleuets", [])}
     new_bleuets = [l for l in bleuets_available if l["title"] not in prev_bleuets_refs]
 
-    prev_maeva = {(l["title"], l.get("start")): l for l in previous.get("maeva", [])}
+    prev_maeva = {(l["title"].lower(), l.get("start")): l for l in previous.get("maeva", [])}
     maeva_changes: list[dict] = []
     for l in maeva_listings:
-        key = (l["title"], l.get("start"))
+        key = (l["title"].lower(), l.get("start"))
         if key not in prev_maeva:
             maeva_changes.append({
                 "listing":       l,
@@ -505,8 +538,10 @@ def detect_changes(
             })
         else:
             prev          = prev_maeva[key]
-            price_changed = prev.get("price") != l.get("price")
-            dispo_changed = prev.get("dispo")  != l.get("dispo")
+            prev_price    = prev.get("price")
+            prev_dispo    = prev.get("dispo")
+            price_changed = prev_price not in (None, "–") and prev_price != l.get("price")
+            dispo_changed = prev_dispo not in (None, "?") and prev_dispo != l.get("dispo")
             if price_changed or dispo_changed:
                 maeva_changes.append({
                     "listing":       l,

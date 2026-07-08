@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { screen } from '@testing-library/react';
 import MatchCard from './MatchCard';
-import { makeMatch } from '../test-utils/factories';
+import { makeMatch, makeTeam } from '../test-utils/factories';
 import { renderWithRouter } from '../test-utils/render-helpers';
 
 vi.mock('../utils/countryFlags');
@@ -85,10 +85,16 @@ describe('MatchCard — pronoStatus', () => {
 
 describe('MatchCard — drapeaux', () => {
   it('affiche les drapeaux des deux équipes via img', () => {
-    renderCard();
+    renderCard(makeMatch({ teamA: makeTeam({ iso2: 'fr' }), teamB: makeTeam({ iso2: 'br' }) }));
     const imgs = screen.getAllByRole('img');
     const srcs = imgs.map((img) => (img as HTMLImageElement).src);
-    expect(srcs.some((s) => s.includes('France'))).toBe(true);
-    expect(srcs.some((s) => s.includes('Br'))).toBe(true);
+    expect(srcs.some((s) => s.includes('fr'))).toBe(true);
+    expect(srcs.some((s) => s.includes('br'))).toBe(true);
+  });
+
+  it('affiche un drapeau générique si iso2 absent', () => {
+    renderCard(makeMatch({ teamA: makeTeam({ iso2: null }), teamB: makeTeam({ iso2: null }) }));
+    expect(screen.queryByRole('img')).toBeNull();
+    expect(screen.getAllByText('🏳️').length).toBe(2);
   });
 });

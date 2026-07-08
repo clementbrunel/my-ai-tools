@@ -12,7 +12,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -37,7 +36,8 @@ class MatchServiceTest {
     @Mock private BetParticipationRepository betParticipationRepository;
     @Mock private GroupMemberRepository      groupMemberRepository;
     @Mock private UserRepository             userRepository;
-    @Mock private UserForfeitRepository      userForfeitRepository;
+    @Mock private TeamRepository             teamRepository;
+    @Mock private CompetitionRepository      competitionRepository;
     @Mock private DailyGageService           dailyGageService;
 
     @InjectMocks
@@ -62,51 +62,86 @@ class MatchServiceTest {
         SecurityContextHolder.clearContext();
     }
 
-    // ── computeEarnedPoints (package-private — directly testable) ─────────────
+    // ── Groupe 1 : résultat final Victoire France 1-0 ────────────────────────
 
     @Test
-    void computeEarnedPoints_shouldReturn5ForExactScore() {
+    void computeEarnedPoints_1_1_exactScore_shouldReturn5() {
         assertThat(matchService.computeEarnedPoints(
-                "Victoire France 2-1", "Victoire France 2-1"))
-                .isEqualTo(5);
+                "Victoire France 1-0", "Victoire France 1-0")).isEqualTo(5);
     }
 
     @Test
-    void computeEarnedPoints_shouldReturn3ForCorrectWinnerWrongScore() {
-        // Right winner, wrong score → correct result only
+    void computeEarnedPoints_1_2_rightWinnerWrongScore_shouldReturn3() {
         assertThat(matchService.computeEarnedPoints(
-                "Victoire France 3-0", "Victoire France 2-1"))
-                .isEqualTo(3);
+                "Victoire France 2-1", "Victoire France 1-0")).isEqualTo(3);
     }
 
     @Test
-    void computeEarnedPoints_shouldReturn3ForCorrectDrawWrongScore() {
-        // Predicted draw at 0-0, actual draw at 1-1 → correct result
+    void computeEarnedPoints_1_3_predictedTabRightWinner_shouldReturn3() {
         assertThat(matchService.computeEarnedPoints(
-                "Match nul 0-0", "Match nul 1-1"))
-                .isEqualTo(3);
+                "Victoire France t.a.b. 1-1", "Victoire France 1-0")).isEqualTo(3);
     }
 
     @Test
-    void computeEarnedPoints_shouldReturn0ForWrongWinner() {
-        // Predicted France wins, Brésil actually wins
+    void computeEarnedPoints_1_4_wrongWinner_shouldReturn0() {
         assertThat(matchService.computeEarnedPoints(
-                "Victoire France 2-0", "Victoire Brésil 1-0"))
-                .isEqualTo(0);
+                "Victoire Maroc 1-0", "Victoire France 1-0")).isEqualTo(0);
     }
 
     @Test
-    void computeEarnedPoints_shouldReturn0ForPredictedWinButActualDraw() {
+    void computeEarnedPoints_1_5_wrongWinnerTab_shouldReturn0() {
         assertThat(matchService.computeEarnedPoints(
-                "Victoire France 2-0", "Match nul 0-0"))
-                .isEqualTo(0);
+                "Victoire Maroc t.a.b. 1-1", "Victoire France 1-0")).isEqualTo(0);
+    }
+
+    // ── Groupe 2 : résultat final Victoire France t.a.b. 1-1 (5-4) ──────────
+
+    @Test
+    void computeEarnedPoints_2_1_exactTabWithPenScore_shouldReturn7() {
+        assertThat(matchService.computeEarnedPoints(
+                "Victoire France t.a.b. 1-1 (5-4)", "Victoire France t.a.b. 1-1 (5-4)")).isEqualTo(7);
     }
 
     @Test
-    void computeEarnedPoints_shouldReturn0ForPredictedDrawButActualWin() {
+    void computeEarnedPoints_2_2_rightWinnerRightRegScoreWrongPen_shouldReturn5() {
         assertThat(matchService.computeEarnedPoints(
-                "Match nul 1-1", "Victoire France 2-1"))
-                .isEqualTo(0);
+                "Victoire France t.a.b. 1-1 (3-2)", "Victoire France t.a.b. 1-1 (5-4)")).isEqualTo(5);
+    }
+
+    @Test
+    void computeEarnedPoints_2_3_rightWinnerRightRegScoreNoPen_shouldReturn5() {
+        assertThat(matchService.computeEarnedPoints(
+                "Victoire France t.a.b. 1-1", "Victoire France t.a.b. 1-1 (5-4)")).isEqualTo(5);
+    }
+
+    @Test
+    void computeEarnedPoints_2_4_rightWinnerWrongRegScore_shouldReturn3() {
+        assertThat(matchService.computeEarnedPoints(
+                "Victoire France t.a.b. 0-0", "Victoire France t.a.b. 1-1 (5-4)")).isEqualTo(3);
+    }
+
+    @Test
+    void computeEarnedPoints_2_5_rightWinnerPredictedNormalVsTab_shouldReturn3() {
+        assertThat(matchService.computeEarnedPoints(
+                "Victoire France 2-1", "Victoire France t.a.b. 1-1 (5-4)")).isEqualTo(3);
+    }
+
+    @Test
+    void computeEarnedPoints_2_6_wrongWinnerRightRegScore_shouldReturn2() {
+        assertThat(matchService.computeEarnedPoints(
+                "Victoire Maroc t.a.b. 1-1", "Victoire France t.a.b. 1-1 (5-4)")).isEqualTo(2);
+    }
+
+    @Test
+    void computeEarnedPoints_2_7_wrongWinnerWrongRegScore_shouldReturn0() {
+        assertThat(matchService.computeEarnedPoints(
+                "Victoire Maroc t.a.b. 0-0", "Victoire France t.a.b. 1-1 (5-4)")).isEqualTo(0);
+    }
+
+    @Test
+    void computeEarnedPoints_2_8_wrongWinnerNormalVsTab_shouldReturn0() {
+        assertThat(matchService.computeEarnedPoints(
+                "Victoire Maroc 2-1", "Victoire France t.a.b. 1-1 (5-4)")).isEqualTo(0);
     }
 
     // ── settlement triggered by updateMatchScore ───────────────────────────────
@@ -115,8 +150,8 @@ class MatchServiceTest {
      * France 2-1 Brésil.
      *
      * Three participants:
-     *   exactUser   → "Victoire France 2-1"  → +5 pts, betsWon++
-     *   correctUser → "Victoire France 3-0"  → +3 pts, betsWon unchanged
+     *   exactUser   → "Victoire France 2-1"  → +5 pts
+     *   correctUser → "Victoire France 3-0"  → +3 pts
      *   wrongUser   → "Match nul 0-0"        → +0 pts
      *
      * Winner option format: winner's score always first
@@ -125,7 +160,7 @@ class MatchServiceTest {
     @Test
     void settlement_shouldAwardCorrectPointsWhenMatchTransitionsToFinished() {
         Match match = Match.builder()
-                .id(1L).teamA("France").teamB("Brésil")
+                .id(1L).teamA(team(1L, "France")).teamB(team(2L, "Brésil"))
                 .matchDate(LocalDateTime.now().minusHours(2))
                 .status(Match.Status.ONGOING)   // not yet FINISHED
                 .build();                        // no forfeit → gage block skipped
@@ -155,16 +190,6 @@ class MatchServiceTest {
 
         matchService.updateMatchScore(1L, req);
 
-        // Points
-        assertThat(exactUser.getGlobalScore()).isEqualTo(15);   // 10 + 5
-        assertThat(correctUser.getGlobalScore()).isEqualTo(13); // 10 + 3
-        assertThat(wrongUser.getGlobalScore()).isEqualTo(10);   // no change
-
-        // betsWon incremented for any positive result (+3 or +5)
-        assertThat(exactUser.getBetsWon()).isEqualTo(1);
-        assertThat(correctUser.getBetsWon()).isEqualTo(1);
-        assertThat(wrongUser.getBetsWon()).isEqualTo(0);
-
         // Winning option recorded on the bet
         assertThat(bet.getStatus()).isEqualTo(Bet.Status.VALIDATED);
         assertThat(bet.getWinningOption()).isEqualTo("Victoire France 2-1");
@@ -177,7 +202,7 @@ class MatchServiceTest {
     @Test
     void settlement_winningOption_shouldPutWinnerScoreFirst_whenTeamBWins() {
         Match match = Match.builder()
-                .id(2L).teamA("France").teamB("Brésil")
+                .id(2L).teamA(team(1L, "France")).teamB(team(2L, "Brésil"))
                 .matchDate(LocalDateTime.now().minusHours(1))
                 .status(Match.Status.ONGOING)
                 .build();
@@ -206,7 +231,7 @@ class MatchServiceTest {
     void settlement_shouldNotTriggerWhenMatchWasAlreadyFinished() {
         // Match is ALREADY FINISHED → no transition → no settlement
         Match alreadyFinished = Match.builder()
-                .id(3L).teamA("France").teamB("Brésil")
+                .id(3L).teamA(team(1L, "France")).teamB(team(2L, "Brésil"))
                 .status(Match.Status.FINISHED)
                 .build();
 
@@ -235,17 +260,23 @@ class MatchServiceTest {
     @Test
     void createMatch_shouldNotCreateAnyBet() {
         LocalDateTime matchDate = LocalDateTime.of(2026, 6, 14, 20, 0);
+        Team france = team(1L, "France");
+        Team bresil = team(2L, "Brésil");
 
         CreateMatchRequest req = new CreateMatchRequest();
-        req.setTeamA("France");
-        req.setTeamB("Brésil");
+        req.setTeamAId(1L);
+        req.setTeamBId(2L);
+        req.setCompetitionId(WORLD_CUP.getId());
         req.setMatchDate(matchDate);
 
         Match savedMatch = Match.builder()
-                .id(1L).teamA("France").teamB("Brésil").matchDate(matchDate)
-                .competition("FIFA World Cup 2026").round("Group Stage")
+                .id(1L).teamA(france).teamB(bresil).matchDate(matchDate)
+                .competition(WORLD_CUP).round("Group Stage")
                 .status(Match.Status.UPCOMING).build();
 
+        when(teamRepository.findById(1L)).thenReturn(Optional.of(france));
+        when(teamRepository.findById(2L)).thenReturn(Optional.of(bresil));
+        when(competitionRepository.findById(WORLD_CUP.getId())).thenReturn(Optional.of(WORLD_CUP));
         when(matchRepository.save(any(Match.class))).thenReturn(savedMatch);
         when(matchMapper.toResponse(any(Match.class))).thenReturn(MatchResponse.builder().build());
 
@@ -284,16 +315,13 @@ class MatchServiceTest {
 
         matchService.forceSettleBet(1L, 10L);
 
-        assertThat(user.getGlobalScore()).isEqualTo(3);  // 0 + delta(3)
-        assertThat(user.getBetsWon()).isEqualTo(1);      // 0→3, so betsWon++
         assertThat(p.getPointsEarned()).isEqualTo(3);
-        verify(userRepository).save(user);
         verify(betParticipationRepository).save(p);
     }
 
     /**
      * Idempotency: if the participation already has the correct points,
-     * forceSettleBet must not touch the user's score or betsWon.
+     * forceSettleBet must not double-count points.
      */
     @Test
     void forceSettleBet_shouldNotDoubleCountIfAlreadyCorrect() {
@@ -307,8 +335,6 @@ class MatchServiceTest {
 
         matchService.forceSettleBet(1L, 10L);
 
-        assertThat(user.getGlobalScore()).isEqualTo(13); // unchanged
-        assertThat(user.getBetsWon()).isEqualTo(0);      // unchanged
         verifyNoInteractions(userRepository);
         verify(betParticipationRepository, never()).save(any());
     }
@@ -328,8 +354,6 @@ class MatchServiceTest {
 
         matchService.forceSettleBet(1L, 10L);
 
-        assertThat(user.getGlobalScore()).isEqualTo(5); // unchanged
-        assertThat(user.getBetsWon()).isEqualTo(0);
         verifyNoInteractions(userRepository);
     }
 
@@ -354,17 +378,7 @@ class MatchServiceTest {
 
         matchService.forceSettleBet(1L, 10L);
 
-        assertThat(exactUser.getGlobalScore()).isEqualTo(15);   // no change (delta=0)
-        assertThat(correctUser.getGlobalScore()).isEqualTo(13); // +3 delta applied
-        assertThat(wrongUser.getGlobalScore()).isEqualTo(10);   // no change (delta=0)
-
-        assertThat(exactUser.getBetsWon()).isEqualTo(0);   // already counted, not re-incremented
-        assertThat(correctUser.getBetsWon()).isEqualTo(1); // was 0→3, so betsWon++
-        assertThat(wrongUser.getBetsWon()).isEqualTo(0);
-
-        verify(userRepository, times(1)).save(correctUser);
-        verify(userRepository, never()).save(exactUser);
-        verify(userRepository, never()).save(wrongUser);
+        verify(userRepository, never()).save(any());
     }
 
     /**
@@ -402,9 +416,9 @@ class MatchServiceTest {
 
         matchService.forceSettleBet(1L, 20L);
 
-        verify(betParticipationRepository, times(2)).save(any(BetParticipation.class)); // backfill + settle
-        assertThat(alice.getGlobalScore()).isEqualTo(5);
-        assertThat(alice.getBetsWon()).isEqualTo(1);
+        // backfill save + points correction save
+        verify(betParticipationRepository, times(2)).save(any(BetParticipation.class));
+        assertThat(backfilled.getPointsEarned()).isEqualTo(5);
     }
 
     @Test
@@ -435,7 +449,7 @@ class MatchServiceTest {
     @Test
     void forceSettleBet_shouldThrowWhenMatchNotFinished() {
         Match match = Match.builder()
-                .id(1L).teamA("France").teamB("Brésil")
+                .id(1L).teamA(team(1L, "France")).teamB(team(2L, "Brésil"))
                 .status(Match.Status.ONGOING)
                 .build();
 
@@ -466,7 +480,6 @@ class MatchServiceTest {
     private User user(Long id, String username, int score) {
         return User.builder()
                 .id(id).username(username)
-                .globalScore(score).betsWon(0).forfeitsReceived(0)
                 .build();
     }
 
@@ -482,9 +495,15 @@ class MatchServiceTest {
         return participation(id, user, option, 0);
     }
 
-    private Match finishedMatch(Long id, String teamA, String teamB, int scoreA, int scoreB) {
+    private static final Competition WORLD_CUP = Competition.builder().id(1L).name("FIFA World Cup 2026").build();
+
+    private static Team team(Long id, String name) {
+        return Team.builder().id(id).name(name).build();
+    }
+
+    private Match finishedMatch(Long id, String teamAName, String teamBName, int scoreA, int scoreB) {
         return Match.builder()
-                .id(id).teamA(teamA).teamB(teamB)
+                .id(id).teamA(team(id * 10, teamAName)).teamB(team(id * 10 + 1, teamBName))
                 .matchDate(LocalDateTime.now().minusHours(2))
                 .scoreA(scoreA).scoreB(scoreB)
                 .status(Match.Status.FINISHED)

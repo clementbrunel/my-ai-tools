@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getMyParticipations } from '../api/bets';
 import UserBetList from '../components/UserBetList';
-import { getLeaderboard } from '../api/leaderboard';
+import Pagination from '../components/Pagination';
+import { getGroupLeaderboard } from '../api/leaderboard';
+import { getDashboardStats } from '../api/dashboard';
 import { getMyForfeits, completeForfeit } from '../api/forfeits';
 import type { UserBetSummary, LeaderboardEntry, UserForfeitEntry } from '../types';
 import { isAdmin } from '../types';
@@ -11,6 +13,10 @@ import { useToast } from '../components/Toast';
 import { useUserCounts } from '../context/UserCountsContext';
 import ProfileInfoForm from './profile/ProfileInfoForm';
 import PasswordForm from './profile/PasswordForm';
+import Avatar from '../components/Avatar';
+import { logger } from '../utils/logger';
+
+const FORFEITS_PAGE_SIZE = 5;
 
 const Profile: React.FC = () => {
   const { user } = useAuth();
@@ -22,21 +28,28 @@ const Profile: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [completingId, setCompletingId] = useState<number | null>(null);
   const [showEdit, setShowEdit] = useState(false);
+  const [showDoneForfeits, setShowDoneForfeits] = useState(false);
+  const [doneForfeitsPageRaw, setDoneForfeitsPage] = useState(1);
+  const [showPronostics, setShowPronostics] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [participationsData, leaderboardData, forfeitsData] = await Promise.all([
+        const [participationsData, statsData, forfeitsData] = await Promise.all([
           getMyParticipations(),
-          getLeaderboard(),
+          getDashboardStats(),
           getMyForfeits(),
         ]);
         setMyParticipations(participationsData);
-        const entry = leaderboardData.find((e) => e.user.username === user?.username);
-        setLeaderboardEntry(entry || null);
         setMyForfeits(forfeitsData);
+        const firstGroup = statsData.groupRanks[0];
+        if (firstGroup) {
+          const groupLeaderboard = await getGroupLeaderboard(firstGroup.groupId);
+          const entry = groupLeaderboard.find((e) => e.user.username === user?.username);
+          setLeaderboardEntry(entry || null);
+        }
       } catch (err) {
-        console.error('Error loading profile:', err);
+        logger.error('Error loading profile:', err);
       } finally {
         setIsLoading(false);
       }
@@ -74,6 +87,12 @@ const Profile: React.FC = () => {
 
   const pendingForfeits = myForfeits.filter((f) => !f.completed);
   const doneForfeits = myForfeits.filter((f) => f.completed);
+  const doneForfeitsTotal = Math.max(1, Math.ceil(doneForfeits.length / FORFEITS_PAGE_SIZE));
+  const doneForfeitsPage = Math.min(doneForfeitsPageRaw, doneForfeitsTotal);
+  const doneForfeitsVisible = doneForfeits.slice(
+    (doneForfeitsPage - 1) * FORFEITS_PAGE_SIZE,
+    doneForfeitsPage * FORFEITS_PAGE_SIZE
+  );
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -82,13 +101,13 @@ const Profile: React.FC = () => {
       {/* Profile Card */}
       <div className="card">
         <div className="flex items-center gap-4">
-          <div className="w-20 h-20 rounded-full bg-wc-green text-white flex items-center justify-center font-black text-3xl">
-            {user?.avatarUrl ? (
-              <img src={user.avatarUrl} alt={user.username} className="w-20 h-20 rounded-full object-cover" />
-            ) : (
-              user?.username[0].toUpperCase()
-            )}
-          </div>
+          <Avatar
+            src={user?.avatarUrl}
+            alt={user?.username || ''}
+            fallbackText={user?.username[0].toUpperCase() || ''}
+            sizeClassName="w-20 h-20"
+            containerClassName="bg-wc-green text-white font-black text-3xl"
+          />
           <div className="flex-1">
             <h2 className="text-2xl font-black text-gray-900 dark:text-white">
               {user?.displayName || user?.username}
@@ -114,11 +133,28 @@ const Profile: React.FC = () => {
           </button>
         </div>
 
+        {!showEdit && (
+          <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-4 space-y-2 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-gray-500 dark:text-gray-400">🔔 Rappel par email avant chaque match</span>
+              <span className={user?.emailReminderEnabled ? 'text-wc-green font-semibold' : 'text-gray-400'}>
+                {user?.emailReminderEnabled ? 'Activé' : 'Désactivé'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-gray-500 dark:text-gray-400">🃏 Résolution du gage du jour</span>
+              <span className={user?.emailGageEnabled ? 'text-wc-green font-semibold' : 'text-gray-400'}>
+                {user?.emailGageEnabled ? 'Activé' : 'Désactivé'}
+              </span>
+            </div>
+          </div>
+        )}
+
         {showEdit && (
           <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-6 space-y-6">
             <ProfileInfoForm
               initialDisplayName={user?.displayName || ''}
-              initialAvatarUrl={user?.avatarUrl || ''}
+              initialAvatarUrl={user?.customAvatarUrl || ''}
               initialEmail={user?.email || ''}
               initialEmailReminder={user?.emailReminderEnabled ?? true}
               initialEmailGage={user?.emailGageEnabled ?? false}
@@ -129,22 +165,6 @@ const Profile: React.FC = () => {
             </div>
           </div>
         )}
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="stat-card">
-          <div className="stat-value">{leaderboardEntry?.totalPoints ?? user?.globalScore ?? 0}</div>
-          <div className="stat-label">⭐ Points</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-value">{leaderboardEntry?.betsWon ?? user?.betsWon ?? 0}</div>
-          <div className="stat-label">🏆 Paris gagnés</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-value text-wc-red">{leaderboardEntry?.forfeitsReceived ?? user?.forfeitsReceived ?? 0}</div>
-          <div className="stat-label">🃏 Gages reçus</div>
-        </div>
       </div>
 
       {/* Pending Forfeits */}
@@ -183,29 +203,44 @@ const Profile: React.FC = () => {
       {/* Completed Forfeits */}
       {doneForfeits.length > 0 && (
         <div className="card">
-          <h3 className="font-bold text-gray-900 dark:text-white mb-4">
-            ✅ Gages effectués ({doneForfeits.length})
-          </h3>
-          <div className="space-y-2">
-            {doneForfeits.map((uf) => (
-              <div
-                key={uf.id}
-                className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg opacity-70"
-              >
-                <div>
-                  <div className="text-sm font-medium text-gray-700 dark:text-gray-300 line-through">
-                    {uf.forfeit.title}
-                  </div>
-                  {uf.completedAt && (
-                    <div className="text-xs text-gray-400">
-                      Effectué le {formatDate(uf.completedAt)}
+          <button
+            onClick={() => { setShowDoneForfeits((v) => !v); setDoneForfeitsPage(1); }}
+            className="w-full flex items-center justify-between text-left"
+          >
+            <h3 className="font-bold text-gray-900 dark:text-white">
+              ✅ Gages effectués ({doneForfeits.length})
+            </h3>
+            <span className="text-gray-400 text-sm">{showDoneForfeits ? '▲' : '▼'}</span>
+          </button>
+          {showDoneForfeits && (
+            <>
+              <div className="space-y-2 mt-4">
+                {doneForfeitsVisible.map((uf) => (
+                  <div
+                    key={uf.id}
+                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg opacity-70"
+                  >
+                    <div>
+                      <div className="text-sm font-medium text-gray-700 dark:text-gray-300 line-through">
+                        {uf.forfeit.title}
+                      </div>
+                      {uf.completedAt && (
+                        <div className="text-xs text-gray-400">
+                          Effectué le {formatDate(uf.completedAt)}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-                <span className="text-green-500 text-lg">✅</span>
+                    <span className="text-green-500 text-lg">✅</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+              <Pagination
+                currentPage={doneForfeitsPage}
+                totalPages={doneForfeitsTotal}
+                onPageChange={setDoneForfeitsPage}
+              />
+            </>
+          )}
         </div>
       )}
 
@@ -218,10 +253,20 @@ const Profile: React.FC = () => {
 
       {/* My bets */}
       <div className="card">
-        <h3 className="font-bold text-gray-900 dark:text-white mb-4">
-          🎯 Mes pronostics ({myParticipations.length})
-        </h3>
-        <UserBetList bets={myParticipations} showOpen />
+        <button
+          onClick={() => setShowPronostics((v) => !v)}
+          className="w-full flex items-center justify-between text-left"
+        >
+          <h3 className="font-bold text-gray-900 dark:text-white">
+            🎯 Mes pronostics ({myParticipations.length})
+          </h3>
+          <span className="text-gray-400 text-sm">{showPronostics ? '▲' : '▼'}</span>
+        </button>
+        {showPronostics && (
+          <div className="mt-4">
+            <UserBetList bets={myParticipations} showOpen />
+          </div>
+        )}
       </div>
 
       {user?.createdAt && (

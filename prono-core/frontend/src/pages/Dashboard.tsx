@@ -2,23 +2,23 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getMatches } from '../api/matches';
-import { getLeaderboard } from '../api/leaderboard';
 import { getDashboardStats } from '../api/dashboard';
 import type { GroupRankEntry } from '../api/dashboard';
 import { getDailyGagesByDate, voteOnCandidate } from '../api/dailyGages';
-import type { Match, LeaderboardEntry, DailyGage } from '../types';
+import type { Match, DailyGage } from '../types';
 import MatchCard from '../components/MatchCard';
 import DailyGageCard from '../components/DailyGageCard';
 import { useToast } from '../components/Toast';
+import { logger } from '../utils/logger';
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
   const { showToast } = useToast();
   const [matches, setMatches] = useState<Match[]>([]);
-  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [todayGages, setTodayGages] = useState<DailyGage[]>([]);
   const [upcomingMatchCount, setUpcomingMatchCount] = useState<number>(0);
   const [groupRanks, setGroupRanks] = useState<GroupRankEntry[]>([]);
+  const [selectedGroupIdx, setSelectedGroupIdx] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
   const today = new Date().toISOString().split('T')[0]; // "2026-06-11"
@@ -26,13 +26,11 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [matchesData, leaderboardData, statsData] = await Promise.all([
+        const [matchesData, statsData] = await Promise.all([
           getMatches(),
-          getLeaderboard(),
           getDashboardStats(),
         ]);
         setMatches(matchesData);
-        setLeaderboard(leaderboardData);
         setUpcomingMatchCount(statsData.upcomingMatchesInMyGroups);
         setGroupRanks(statsData.groupRanks);
 
@@ -43,7 +41,7 @@ const Dashboard: React.FC = () => {
           // No gage today — that's fine
         }
       } catch (err) {
-        console.error('Error loading dashboard:', err);
+        logger.error('Error loading dashboard:', err);
       } finally {
         setIsLoading(false);
       }
@@ -61,8 +59,6 @@ const Dashboard: React.FC = () => {
   };
 
   const upcomingMatches = matches.filter((m) => m.status === 'UPCOMING');
-  const userRank = leaderboard.find((e) => e.user.username === user?.username);
-  const hasMultipleGroups = groupRanks.length > 1;
 
   if (isLoading) {
     return (
@@ -95,52 +91,42 @@ const Dashboard: React.FC = () => {
           <div className="stat-label">⚽ Matchs à venir</div>
         </div>
 
-        {/* Classement — un badge par groupe si plusieurs groupes */}
-        <div className="stat-card">
-          {!hasMultipleGroups ? (
-            <>
-              <div className="stat-value text-wc-gold">{userRank ? `#${userRank.rank}` : '-'}</div>
-              <div className="stat-label">🏅 Votre classement</div>
-            </>
-          ) : (
-            <>
-              <div className="stat-label mb-2">🏅 Votre classement</div>
-              <div className="space-y-1">
-                {groupRanks.map((gr) => (
-                  <div key={gr.groupId} className="flex items-center justify-between text-sm">
-                    <span className="text-gray-500 dark:text-gray-400 truncate max-w-[60%]">{gr.groupName}</span>
-                    <span className="font-bold text-wc-gold">#{gr.rank}<span className="text-xs text-gray-400 font-normal">/{gr.total}</span></span>
+        {/* Classement & Points — double tile, cliquable vers le classement */}
+        <Link to="/leaderboard" className="stat-card sm:col-span-2 block hover:ring-2 hover:ring-wc-green transition-all cursor-pointer">
+          {groupRanks.length === 0 ? (
+            <div className="text-gray-400 dark:text-gray-500 text-sm">Rejoins un groupe pour voir ton classement</div>
+          ) : (() => {
+            const gr = groupRanks[selectedGroupIdx] ?? groupRanks[0];
+            return (
+              <>
+                {groupRanks.length > 1 && (
+                  <div className="mb-3" onClick={(e) => e.preventDefault()}>
+                    <select
+                      value={selectedGroupIdx}
+                      onChange={(e) => setSelectedGroupIdx(Number(e.target.value))}
+                      className="input-field text-sm py-1"
+                    >
+                      {groupRanks.map((g, i) => (
+                        <option key={g.groupId} value={i}>{g.groupName}</option>
+                      ))}
+                    </select>
                   </div>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Points — globaux ou par groupe */}
-        <div className="stat-card">
-          {!hasMultipleGroups ? (
-            <>
-              <div className="stat-value">{user?.globalScore ?? 0}</div>
-              <div className="stat-label">⭐ Vos points</div>
-            </>
-          ) : (
-            <>
-              <div className="stat-label mb-2">⭐ Vos points</div>
-              <div className="space-y-1">
-                {groupRanks.map((gr) => (
-                  <div key={gr.groupId} className="flex items-center justify-between text-sm">
-                    <span className="text-gray-500 dark:text-gray-400 truncate max-w-[60%]">{gr.groupName}</span>
-                    <span className="font-bold">{gr.points}</span>
+                )}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="stat-value text-wc-gold">#{gr.rank}<span className="text-base font-normal text-gray-400">/{gr.total}</span></div>
+                    <div className="stat-label">🏅 Classement{groupRanks.length === 1 ? ` · ${gr.groupName}` : ''}</div>
                   </div>
-                ))}
-              </div>
-            </>
-          )}
-          <Link to="/leaderboard" className="text-xs text-wc-green dark:text-green-400 hover:underline mt-2 block">
-            Classement complet →
-          </Link>
-        </div>
+                  <div>
+                    <div className="stat-value">{gr.points}</div>
+                    <div className="stat-label">⭐ Points</div>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+          <div className="text-xs text-wc-green dark:text-green-400 mt-2">Voir le classement complet →</div>
+        </Link>
       </div>
 
       {/* Daily Gage Widget — one per group that configured one today */}

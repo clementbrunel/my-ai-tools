@@ -21,9 +21,7 @@ public class UserResponse {
     private boolean emailVerified;
     private User.Role role;
     private String avatarUrl;
-    private int globalScore;
-    private int betsWon;
-    private int forfeitsReceived;
+    private String customAvatarUrl;
     private boolean emailReminderEnabled;
     private boolean emailGageEnabled;
     private LocalDateTime createdAt;

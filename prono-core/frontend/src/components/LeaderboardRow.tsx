@@ -3,6 +3,7 @@ import type { LeaderboardEntry, UserBetSummary } from '../types';
 import { isAdmin } from '../types';
 import { getUserBetsInGroup } from '../api/bets';
 import UserBetList from './UserBetList';
+import Avatar from './Avatar';
 
 interface LeaderboardRowProps {
   entry: LeaderboardEntry;
@@ -60,13 +61,13 @@ const LeaderboardRow: React.FC<LeaderboardRowProps> = ({ entry, isCurrentUser, g
         </td>
         <td className="py-3 px-4">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-wc-green text-white flex items-center justify-center font-bold text-sm">
-              {user.avatarUrl ? (
-                <img src={user.avatarUrl} alt={user.username} className="w-8 h-8 rounded-full object-cover" />
-              ) : (
-                (user.displayName || user.username)[0].toUpperCase()
-              )}
-            </div>
+            <Avatar
+              src={user.avatarUrl}
+              alt={user.username}
+              fallbackText={(user.displayName || user.username)[0].toUpperCase()}
+              sizeClassName="w-8 h-8"
+              containerClassName="bg-wc-green text-white font-bold text-sm"
+            />
             <div>
               <span className="text-gray-900 dark:text-white text-sm font-medium">
                 {user.displayName || user.username}

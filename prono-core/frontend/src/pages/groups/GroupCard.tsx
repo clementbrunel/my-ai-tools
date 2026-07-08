@@ -7,6 +7,8 @@ import type { Group } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import ConfirmModal from '../../components/ConfirmModal';
 import GroupAdminSettings from './GroupAdminSettings';
+import { logger } from '../../utils/logger';
+import Avatar from '../../components/Avatar';
 
 interface Props {
   group: Group;
@@ -48,7 +50,7 @@ const GroupCard: React.FC<Props> = ({ group, onLeave, onUpdate }) => {
           onLeave(group.id);
         } catch (err: unknown) {
           // Leave failed — group stays in list
-          console.error('Failed to leave group', err);
+          logger.error('Failed to leave group', err);
         }
       },
     });
@@ -183,9 +185,13 @@ const GroupCard: React.FC<Props> = ({ group, onLeave, onUpdate }) => {
           {group.pendingApplications!.map((applicant) => (
             <div key={applicant.id} className="flex items-center justify-between py-1">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-full bg-blue-400 text-white flex items-center justify-center text-xs font-bold">
-                  {(applicant.displayName || applicant.username)[0].toUpperCase()}
-                </div>
+                <Avatar
+                  src={applicant.avatarUrl}
+                  alt={applicant.displayName || applicant.username}
+                  fallbackText={(applicant.displayName || applicant.username)[0].toUpperCase()}
+                  sizeClassName="w-7 h-7"
+                  containerClassName="bg-blue-400 text-white text-xs font-bold"
+                />
                 <span className="text-sm text-gray-800 dark:text-gray-200">
                   {applicant.displayName || applicant.username}
                 </span>
@@ -231,9 +237,13 @@ const GroupCard: React.FC<Props> = ({ group, onLeave, onUpdate }) => {
             className="flex items-center justify-between py-1.5 border-b border-gray-100 dark:border-gray-700 last:border-0"
           >
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-full bg-wc-green text-white flex items-center justify-center text-xs font-bold">
-                {(member.displayName || member.username)[0].toUpperCase()}
-              </div>
+              <Avatar
+                src={member.avatarUrl}
+                alt={member.displayName || member.username}
+                fallbackText={(member.displayName || member.username)[0].toUpperCase()}
+                sizeClassName="w-7 h-7"
+                containerClassName="bg-wc-green text-white text-xs font-bold"
+              />
               <span className="text-sm text-gray-800 dark:text-gray-200">
                 {member.displayName || member.username}
               </span>

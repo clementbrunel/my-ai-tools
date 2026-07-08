@@ -6,9 +6,7 @@ export interface User {
   emailVerified: boolean;
   role: 'PLATFORM_ADMIN' | 'USER';
   avatarUrl?: string;
-  globalScore: number;
-  betsWon: number;
-  forfeitsReceived: number;
+  customAvatarUrl?: string;
   emailReminderEnabled: boolean;
   emailGageEnabled: boolean;
   createdAt?: string;
@@ -79,16 +77,33 @@ export interface JoinGroupRequest {
   inviteCode: string;
 }
 
+export interface TeamDto {
+  id: number;
+  name: string;
+  iso2: string | null;
+}
+
+export interface CompetitionDto {
+  id: number;
+  name: string;
+}
+
+export type MatchPhase = 'POOL' | 'KNOCKOUT';
+
 export interface Match {
   id: number;
-  teamA: string;
-  teamB: string;
+  teamA: TeamDto;
+  teamB: TeamDto;
   matchDate: string;
   scoreA?: number;
   scoreB?: number;
   status: 'UPCOMING' | 'ONGOING' | 'FINISHED';
-  competition: string;
+  competition: CompetitionDto;
   round: string;
+  phase: MatchPhase;
+  penaltyWinner?: 'A' | 'B';
+  penaltyScoreA?: number;
+  penaltyScoreB?: number;
   /** Map of API_CODE → external fixture/match ID, e.g. {"API-FOOTBALL": 12345} */
   externalLinks?: Record<string, number>;
   syncLocked?: boolean;
@@ -103,6 +118,25 @@ export interface FixtureCandidate {
   date: string;
   confidence: number;
   autoLinkable: boolean;
+}
+
+export interface CreateMatchRequest {
+  teamAId: number;
+  teamBId: number;
+  matchDate: string;
+  competitionId: number;
+  round: string;
+  phase?: MatchPhase;
+}
+
+export interface UpdateMatchScoreRequest {
+  scoreA: number;
+  scoreB: number;
+  status: 'FINISHED' | 'ONGOING' | 'UPCOMING';
+  penaltyWinner?: 'A' | 'B';
+  penaltyScoreA?: number;
+  penaltyScoreB?: number;
+  penaltyCleared?: boolean;
 }
 
 export interface Bet {
@@ -163,6 +197,7 @@ export interface GroupUserForfeit {
   id: number;
   username: string;
   displayName?: string;
+  avatarUrl?: string;
   forfeit: Forfeit;
   assignedByUsername: string;
   assignedByDisplayName?: string;
@@ -257,21 +292,7 @@ export interface OpenBettingRequest {
 
 export interface OpenCompetitionRequest {
   groupId: number;
-  competition: string;
-}
-
-export interface CreateMatchRequest {
-  teamA: string;
-  teamB: string;
-  matchDate: string;
-  competition: string;
-  round: string;
-}
-
-export interface UpdateMatchScoreRequest {
-  scoreA: number;
-  scoreB: number;
-  status: 'UPCOMING' | 'ONGOING' | 'FINISHED';
+  competitionId: number;
 }
 
 export interface DecodedToken {

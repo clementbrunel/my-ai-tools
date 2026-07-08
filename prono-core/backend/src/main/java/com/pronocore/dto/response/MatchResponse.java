@@ -16,14 +16,18 @@ import java.util.Map;
 public class MatchResponse {
 
     private Long id;
-    private String teamA;
-    private String teamB;
+    private TeamResponse teamA;
+    private TeamResponse teamB;
     private LocalDateTime matchDate;
     private Integer scoreA;
     private Integer scoreB;
     private Match.Status status;
-    private String competition;
+    private CompetitionResponse competition;
     private String round;
+    private Match.MatchPhase phase;
+    private String penaltyWinner;
+    private Integer penaltyScoreA;
+    private Integer penaltyScoreB;
     private boolean syncLocked;
     private boolean autoSynced;
     /** Map&lt;API_CODE, external_id&gt;, e.g. {"API-FOOTBALL": 12345} */

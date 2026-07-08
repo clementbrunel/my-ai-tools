@@ -126,8 +126,8 @@ public class MatchLinkingService {
         else if (diffMinutes <= 120) score += 0.15;
 
         // --- Team matching (60 %) via ISO2 → team ID ---
-        Optional<Long> idA = teamMapping.getTeamId(match.getTeamA());
-        Optional<Long> idB = teamMapping.getTeamId(match.getTeamB());
+        Optional<Long> idA = teamMapping.getTeamId(match.getTeamA().getName());
+        Optional<Long> idB = teamMapping.getTeamId(match.getTeamB().getName());
 
         if (idA.isPresent() && idB.isPresent()) {
             boolean direct  = idA.get() == fixture.homeTeamId() && idB.get() == fixture.awayTeamId();
@@ -155,8 +155,8 @@ public class MatchLinkingService {
     private double fallbackNameScore(Match match, ApiFixture fixture) {
         String homeL = fixture.homeTeam().toLowerCase();
         String awayL = fixture.awayTeam().toLowerCase();
-        String aL    = match.getTeamA().toLowerCase();
-        String bL    = match.getTeamB().toLowerCase();
+        String aL    = match.getTeamA().getName().toLowerCase();
+        String bL    = match.getTeamB().getName().toLowerCase();
         int hits = 0;
         if (homeL.contains(aL) || aL.contains(homeL)) hits++;
         if (awayL.contains(bL) || bL.contains(awayL)) hits++;

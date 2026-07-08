@@ -216,9 +216,6 @@ public class ForfeitService {
         User assignedBy = userRepository.findById(assignedById)
                 .orElseThrow(() -> new EntityNotFoundException("Assigner not found: " + assignedById));
 
-        user.setForfeitsReceived(user.getForfeitsReceived() + 1);
-        userRepository.save(user);
-
         UserForfeit userForfeit = UserForfeit.builder()
                 .user(user)
                 .forfeit(forfeit)
@@ -399,6 +396,7 @@ public class ForfeitService {
                 .id(uf.getId())
                 .username(uf.getUser().getUsername())
                 .displayName(uf.getUser().getDisplayName())
+                .avatarUrl(uf.getUser().getEffectiveAvatarUrl())
                 .forfeit(toForfeitResponse(uf.getForfeit()))
                 .assignedByUsername(uf.getAssignedBy().getUsername())
                 .assignedByDisplayName(uf.getAssignedBy().getDisplayName())

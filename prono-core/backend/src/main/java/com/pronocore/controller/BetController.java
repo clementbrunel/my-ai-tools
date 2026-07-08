@@ -70,7 +70,7 @@ public class BetController {
             @Valid @RequestBody OpenCompetitionRequest request,
             Authentication authentication) {
         return ResponseEntity.status(HttpStatus.CREATED)
-            .body(betService.openCompetitionForBetting(request.getGroupId(), request.getCompetition(),
+            .body(betService.openCompetitionForBetting(request.getGroupId(), request.getCompetitionId(),
                                                        authentication.getName()));
     }
 

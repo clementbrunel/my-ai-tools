@@ -1,0 +1,13 @@
+services:
+  mottaret-watch:
+    build: .
+    restart: "no"
+    environment:
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - NOTIFY_EMAIL=${NOTIFY_EMAIL:-your@email.com}
+      - DATA_DIR=/app/data
+    volumes:
+      - mottaret-data:/app/data
+
+volumes:
+  mottaret-data:

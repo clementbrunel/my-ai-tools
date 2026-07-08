@@ -4,10 +4,14 @@ import com.pronocore.dto.request.CreateGroupRequest;
 import com.pronocore.dto.request.JoinGroupRequest;
 import com.pronocore.dto.response.GroupMemberResponse;
 import com.pronocore.dto.response.GroupResponse;
+import com.pronocore.dto.response.MatchResponse;
 import com.pronocore.dto.response.PublicGroupResponse;
 import com.pronocore.entity.Group;
 import com.pronocore.entity.GroupMember;
+import com.pronocore.entity.Match;
 import com.pronocore.entity.User;
+import com.pronocore.mapper.MatchMapper;
+import com.pronocore.repository.BetRepository;
 import com.pronocore.repository.GroupMemberRepository;
 import com.pronocore.repository.GroupRepository;
 import com.pronocore.repository.UserRepository;
@@ -16,8 +20,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -27,6 +35,9 @@ public class GroupService {
     private final GroupRepository groupRepository;
     private final GroupMemberRepository groupMemberRepository;
     private final UserRepository userRepository;
+    private final BetRepository betRepository;
+    private final MatchMapper matchMapper;
+    private final EmailService emailService;
 
     @Transactional
     public GroupResponse createGroup(CreateGroupRequest request, String username) {
@@ -166,12 +177,22 @@ public class GroupService {
     @Transactional(readOnly = true)
     public List<PublicGroupResponse> getPublicGroups(String username) {
         User user = findUser(username);
-        return groupRepository.findByIsPrivateFalse().stream()
+        List<Group> publicGroups = groupRepository.findByIsPrivateFalse();
+
+        // Batch-load: user memberships for all public groups in one query
+        Map<Long, GroupMember.MemberStatus> membershipByGroupId = groupMemberRepository
+            .findByUserId(user.getId()).stream()
+            .collect(Collectors.toMap(gm -> gm.getGroup().getId(), GroupMember::getStatus));
+
+        // Batch-load: active member counts for all public groups in one query
+        Map<Long, Long> memberCountByGroupId = groupRepository.countActiveMembersForPublicGroups().stream()
+            .collect(Collectors.toMap(row -> (Long) row[0], row -> (Long) row[1]));
+
+        return publicGroups.stream()
             .map(group -> {
-                GroupMember membership = groupMemberRepository
-                    .findByGroupIdAndUserId(group.getId(), user.getId()).orElse(null);
-                GroupMember.MemberStatus status = membership != null ? membership.getStatus() : null;
-                return toPublicResponse(group, status);
+                GroupMember.MemberStatus status = membershipByGroupId.get(group.getId());
+                long count = memberCountByGroupId.getOrDefault(group.getId(), 0L);
+                return toPublicResponseWithCount(group, status, count);
             })
             .toList();
     }
@@ -179,7 +200,7 @@ public class GroupService {
     /** PLATFORM_ADMIN only — list all groups. */
     @Transactional(readOnly = true)
     public List<GroupResponse> getAllGroups() {
-        return groupRepository.findAll().stream()
+        return groupRepository.findAllWithCreatedBy().stream()
             .map(g -> toResponse(g, null, false))
             .toList();
     }
@@ -275,6 +296,41 @@ public class GroupService {
         log.info("User {} removed from group {} by {}", targetUserId, groupId, requesterUsername);
     }
 
+    /** Future matches (kick-off not yet passed) open for pronostics in this group (Group admin only). */
+    @Transactional(readOnly = true)
+    public List<MatchResponse> getFutureOpenMatches(Long groupId, String username) {
+        assertGroupAdmin(groupId, username);
+        return betRepository.findFutureDistinctMatchesWithOpenBetsForGroup(groupId, LocalDateTime.now()).stream()
+            .map(matchMapper::toResponse)
+            .toList();
+    }
+
+    /** Notify all active members of the group that the given future open matches were added (Group admin only). */
+    @Transactional(readOnly = true)
+    public void notifyNewMatches(Long groupId, List<Long> matchIds, String leaderUsername) {
+        User leader = findUser(leaderUsername);
+        assertGroupAdmin(groupId, leaderUsername);
+        Group group = findGroup(groupId);
+
+        Set<Long> requestedIds = Set.copyOf(matchIds);
+        List<Match> matches = betRepository.findFutureDistinctMatchesWithOpenBetsForGroup(groupId, LocalDateTime.now()).stream()
+            .filter(m -> requestedIds.contains(m.getId()))
+            .toList();
+        if (matches.isEmpty()) {
+            throw new IllegalArgumentException("No matching future open matches found for this group");
+        }
+
+        List<User> recipients = groupMemberRepository.findByGroupIdAndStatus(groupId, GroupMember.MemberStatus.ACTIVE).stream()
+            .map(GroupMember::getUser)
+            .toList();
+
+        for (User recipient : recipients) {
+            emailService.sendGroupNewMatchesEmail(recipient, group.getName(), leader, matches);
+        }
+        log.info("Group {} leader {} notified {} member(s) about {} new match(es)",
+            groupId, leaderUsername, recipients.size(), matches.size());
+    }
+
     // -------------------------------------------------------------------------
 
     private void assertGroupAdmin(Long groupId, String username) {
@@ -335,6 +391,10 @@ public class GroupService {
 
     private PublicGroupResponse toPublicResponse(Group group, GroupMember.MemberStatus currentUserStatus) {
         long memberCount = groupMemberRepository.countByGroupIdAndStatus(group.getId(), GroupMember.MemberStatus.ACTIVE);
+        return toPublicResponseWithCount(group, currentUserStatus, memberCount);
+    }
+
+    private PublicGroupResponse toPublicResponseWithCount(Group group, GroupMember.MemberStatus currentUserStatus, long memberCount) {
         return PublicGroupResponse.builder()
             .id(group.getId())
             .name(group.getName())
@@ -354,7 +414,7 @@ public class GroupService {
             .userId(m.getUser().getId())
             .username(m.getUser().getUsername())
             .displayName(m.getUser().getDisplayName())
-            .avatarUrl(m.getUser().getAvatarUrl())
+            .avatarUrl(m.getUser().getEffectiveAvatarUrl())
             .role(m.getRole())
             .status(m.getStatus())
             .joinedAt(m.getJoinedAt())

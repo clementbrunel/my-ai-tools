@@ -1,32 +1,52 @@
 import React, { useEffect, useState } from 'react';
 import { useToast } from '../../components/Toast';
-import { getMatches, createMatch, updateMatchScore, getCompetitions, forceSettleMatch } from '../../api/matches';
+import { getMatches, createMatch, updateMatchScore, deleteMatch, forceSettleMatch } from '../../api/matches';
+import { getCompetitions as fetchAllCompetitions, getCompetitionTeams } from '../../api/competitions';
 import { getFixtureCandidates, linkMatch, unlinkMatch, triggerSync } from '../../api/sync';
 import { useFormMessages } from '../../hooks/useFormMessages';
-import type { Match, FixtureCandidate } from '../../types';
+import type { CompetitionDto, Match, MatchPhase, TeamDto, FixtureCandidate } from '../../types';
 import { formatDate } from '../../utils/dates';
 import ScrollableTableWrapper from '../../components/ScrollableTableWrapper';
 import ScoreInput from '../../components/ScoreInput';
+import ConfirmModal from '../../components/ConfirmModal';
+
+const KNOCKOUT_ROUNDS = [
+  '1/32 de finale',
+  '1/16 de finale',
+  '1/8 de finale',
+  '1/4 de finale',
+  '1/2 finale',
+  'Petite finale',
+  'Finale',
+];
 
 const AdminMatchesTab: React.FC = () => {
   const { showToast } = useToast();
   const { msg: matchMsg, setError: setMatchError, setSuccess: setMatchSuccess, clear: clearMatchMessages } = useFormMessages();
 
   const [matches, setMatches] = useState<Match[]>([]);
-  const [competitions, setCompetitions] = useState<string[]>([]);
+  const [competitions, setCompetitions] = useState<CompetitionDto[]>([]);
+  const [competitionTeams, setCompetitionTeams] = useState<TeamDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const [newTeamA, setNewTeamA] = useState('');
-  const [newTeamB, setNewTeamB] = useState('');
+  const [newTeamA, setNewTeamA] = useState<number | undefined>(undefined);
+  const [newTeamB, setNewTeamB] = useState<number | undefined>(undefined);
   const [newMatchDate, setNewMatchDate] = useState('');
-  const [newCompetition, setNewCompetition] = useState('');
-  const [isNewCompetition, setIsNewCompetition] = useState(false);
-  const [newRound, setNewRound] = useState('Group Stage');
+  const [newCompetitionId, setNewCompetitionId] = useState<number | null>(null);
+  const [newRound, setNewRound] = useState('Phase de poules');
+  const [newPhase, setNewPhase] = useState<MatchPhase>('POOL');
 
   const [editingMatch, setEditingMatch] = useState<Match | null>(null);
   const [scoreA, setScoreA] = useState('');
   const [scoreB, setScoreB] = useState('');
+  const [penaltyWinner, setPenaltyWinner] = useState('');
+  const [penScoreA, setPenScoreA] = useState('');
+  const [penScoreB, setPenScoreB] = useState('');
   const [recalculatingMatchId, setRecalculatingMatchId] = useState<number | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    title: string; message: string; confirmLabel?: string;
+    variant?: 'danger' | 'default'; onConfirm: () => void;
+  } | null>(null);
 
   // API fixture linking
   const [linkingMatch, setLinkingMatch] = useState<Match | null>(null);
@@ -42,33 +62,56 @@ const AdminMatchesTab: React.FC = () => {
         setIsLoading(false);
       }
       try {
-        const competitionsData = await getCompetitions();
+        const competitionsData = await fetchAllCompetitions();
         setCompetitions(competitionsData);
-        if (competitionsData.length > 0) setNewCompetition(competitionsData[0]);
-        else setIsNewCompetition(true);
+        if (competitionsData.length > 0) {
+          const first = competitionsData[0];
+          setNewCompetitionId(first.id);
+          try {
+            const initialTeams = await getCompetitionTeams(first.id);
+            setCompetitionTeams(initialTeams);
+          } catch {
+            setCompetitionTeams([]);
+          }
+        }
       } catch {
-        setIsNewCompetition(true);
+        // competitions unavailable, form will show empty state
       }
     };
     loadData();
   }, []);
 
+  const handleCompetitionChange = async (value: string) => {
+    const competitionId = value ? parseInt(value) : null;
+    setNewCompetitionId(competitionId);
+    setNewTeamA(undefined);
+    setNewTeamB(undefined);
+    if (competitionId) {
+      try {
+        const teams = await getCompetitionTeams(competitionId);
+        setCompetitionTeams(teams);
+      } catch {
+        setCompetitionTeams([]);
+      }
+    } else {
+      setCompetitionTeams([]);
+    }
+  };
+
   const handleCreateMatch = async (e: React.FormEvent) => {
     e.preventDefault();
     clearMatchMessages();
+    if (!newCompetitionId) return;
     try {
       const newMatch = await createMatch({
-        teamA: newTeamA, teamB: newTeamB,
+        teamAId: newTeamA!, teamBId: newTeamB!,
         matchDate: new Date(newMatchDate).toISOString(),
-        competition: newCompetition, round: newRound,
+        competitionId: newCompetitionId, round: newRound,
+        phase: newPhase,
       });
-      const updatedCompetitions = competitions.includes(newCompetition)
-        ? competitions
-        : [...competitions, newCompetition].sort();
-      setCompetitions(updatedCompetitions);
       setMatches([...matches, newMatch]);
-      setNewTeamA(''); setNewTeamB(''); setNewMatchDate('');
-      setIsNewCompetition(false);
+      setNewTeamA(undefined); setNewTeamB(undefined); setNewMatchDate('');
+      setNewRound('Phase de poules'); setNewPhase('POOL');
       setMatchSuccess('Match créé avec succès !');
     } catch { setMatchError('Erreur lors de la création du match'); }
   };
@@ -77,10 +120,17 @@ const AdminMatchesTab: React.FC = () => {
     if (!editingMatch) return;
     try {
       const updated = await updateMatchScore(editingMatch.id, {
-        scoreA: parseInt(scoreA), scoreB: parseInt(scoreB), status: 'FINISHED',
+        scoreA: parseInt(scoreA),
+        scoreB: parseInt(scoreB),
+        status: 'FINISHED',
+        penaltyWinner: penaltyWinner ? (penaltyWinner as 'A' | 'B') : undefined,
+        penaltyScoreA: penScoreA ? parseInt(penScoreA) : undefined,
+        penaltyScoreB: penScoreB ? parseInt(penScoreB) : undefined,
+        penaltyCleared: !penaltyWinner && !!editingMatch.penaltyWinner,
       });
       setMatches(matches.map((m) => (m.id === updated.id ? updated : m)));
       setEditingMatch(null);
+      setPenaltyWinner(''); setPenScoreA(''); setPenScoreB('');
     } catch { showToast('Erreur lors de la mise à jour du score'); }
   };
 
@@ -150,6 +200,23 @@ const AdminMatchesTab: React.FC = () => {
     }
   };
 
+  const handleDeleteMatch = (match: Match) => {
+    setConfirmDialog({
+      title: 'Supprimer le match',
+      message: `Êtes-vous sûr de vouloir supprimer le match ${match.teamA.name} vs ${match.teamB.name} ? Cette action est irréversible et supprimera également les paris associés.`,
+      confirmLabel: 'Supprimer',
+      variant: 'danger',
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        try {
+          await deleteMatch(match.id);
+          setMatches((prev) => prev.filter((m) => m.id !== match.id));
+          showToast('Match supprimé');
+        } catch { showToast('Erreur lors de la suppression du match'); }
+      },
+    });
+  };
+
   if (isLoading) {
     return <div className="text-center py-8 text-gray-400">Chargement...</div>;
   }
@@ -159,15 +226,44 @@ const AdminMatchesTab: React.FC = () => {
       <div className="card">
         <h3 className="font-bold text-gray-900 dark:text-white mb-4">+ Créer un match</h3>
         <form onSubmit={handleCreateMatch} className="grid grid-cols-2 gap-3">
+          <div className="col-span-2">
+            <label className="label">Compétition</label>
+            {competitions.length > 0 ? (
+              <select
+                value={newCompetitionId ?? ''}
+                onChange={(e) => handleCompetitionChange(e.target.value)}
+                className="input-field"
+                required
+              >
+                {competitions.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            ) : (
+              <p className="text-xs text-amber-500 mt-1">Aucune compétition — créez-en une dans l'onglet Compétitions.</p>
+            )}
+          </div>
           <div>
             <label className="label">Équipe A</label>
-            <input type="text" value={newTeamA} onChange={(e) => setNewTeamA(e.target.value)}
-              className="input-field" placeholder="Ex: France" required />
+            {competitionTeams.length > 0 ? (
+              <select value={newTeamA ?? ''} onChange={(e) => setNewTeamA(e.target.value ? Number(e.target.value) : undefined)} className="input-field" required>
+                <option value="">-- Choisir --</option>
+                {competitionTeams.filter((t) => t.id !== newTeamB).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+            ) : (
+              <p className="text-xs text-amber-500 mt-1">Ajoutez d'abord des équipes dans l'onglet Compétitions.</p>
+            )}
           </div>
           <div>
             <label className="label">Équipe B</label>
-            <input type="text" value={newTeamB} onChange={(e) => setNewTeamB(e.target.value)}
-              className="input-field" placeholder="Ex: Brésil" required />
+            {competitionTeams.length > 0 ? (
+              <select value={newTeamB ?? ''} onChange={(e) => setNewTeamB(e.target.value ? Number(e.target.value) : undefined)} className="input-field" required>
+                <option value="">-- Choisir --</option>
+                {competitionTeams.filter((t) => t.id !== newTeamA).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+            ) : (
+              <p className="text-xs text-amber-500 mt-1">Ajoutez d'abord des équipes dans l'onglet Compétitions.</p>
+            )}
           </div>
           <div>
             <label className="label">Date & heure</label>
@@ -175,54 +271,29 @@ const AdminMatchesTab: React.FC = () => {
               className="input-field" required />
           </div>
           <div>
-            <label className="label">Stade / Tour</label>
-            <input type="text" value={newRound} onChange={(e) => setNewRound(e.target.value)}
-              className="input-field" placeholder="Ex: Finale" />
+            <label className="label">Phase</label>
+            <select
+              value={newPhase}
+              onChange={(e) => {
+                const phase = e.target.value as MatchPhase;
+                setNewPhase(phase);
+                setNewRound(phase === 'POOL' ? 'Phase de poules' : KNOCKOUT_ROUNDS[0]);
+              }}
+              className="input-field"
+            >
+              <option value="POOL">Phase de poules</option>
+              <option value="KNOCKOUT">Phase éliminatoire</option>
+            </select>
           </div>
-          <div className="col-span-2">
-            <label className="label">Compétition</label>
-            {competitions.length > 0 && !isNewCompetition ? (
-              <div className="flex gap-2">
-                <select
-                  value={newCompetition}
-                  onChange={(e) => {
-                    if (e.target.value === '__new__') {
-                      setIsNewCompetition(true);
-                      setNewCompetition('');
-                    } else {
-                      setNewCompetition(e.target.value);
-                    }
-                  }}
-                  className="input-field flex-1"
-                  required
-                >
-                  {competitions.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                  <option value="__new__">➕ Nouvelle compétition...</option>
-                </select>
-              </div>
+          <div>
+            <label className="label">Label du tour</label>
+            {newPhase === 'KNOCKOUT' ? (
+              <select value={newRound} onChange={(e) => setNewRound(e.target.value)} className="input-field">
+                {KNOCKOUT_ROUNDS.map((r) => <option key={r} value={r}>{r}</option>)}
+              </select>
             ) : (
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={newCompetition}
-                  onChange={(e) => setNewCompetition(e.target.value)}
-                  className="input-field flex-1"
-                  placeholder="Ex: FIFA World Cup 2026"
-                  required
-                  autoFocus
-                />
-                {competitions.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => { setIsNewCompetition(false); setNewCompetition(competitions[0]); }}
-                    className="btn-secondary text-sm whitespace-nowrap"
-                  >
-                    ← Retour
-                  </button>
-                )}
-              </div>
+              <input type="text" value={newRound} onChange={(e) => setNewRound(e.target.value)}
+                className="input-field" placeholder="Ex: Phase de poules, Groupe A..." />
             )}
           </div>
           {matchMsg?.type === 'error' && <p className="col-span-2 text-red-500 text-sm">{matchMsg.text}</p>}
@@ -258,10 +329,10 @@ const AdminMatchesTab: React.FC = () => {
               {matches.map((match) => (
                 <tr key={match.id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50">
                   <td className="py-3 px-4 text-sm font-medium text-gray-900 dark:text-white">
-                    {match.teamA} vs {match.teamB}
+                    {match.teamA.name} vs {match.teamB.name}
                   </td>
                   <td className="py-3 px-4 text-sm text-gray-500 dark:text-gray-400">
-                    {match.competition ?? '-'}
+                    {match.competition?.name ?? '-'}
                   </td>
                   <td className="py-3 px-4 text-center text-xs text-gray-500">
                     {formatDate(match.matchDate)}
@@ -288,6 +359,9 @@ const AdminMatchesTab: React.FC = () => {
                           setEditingMatch(match);
                           setScoreA(match.scoreA?.toString() ?? '0');
                           setScoreB(match.scoreB?.toString() ?? '0');
+                          setPenaltyWinner(match.penaltyWinner ?? '');
+                          setPenScoreA(match.penaltyScoreA?.toString() ?? '');
+                          setPenScoreB(match.penaltyScoreB?.toString() ?? '');
                         }}
                         className="text-xs btn-secondary py-1 px-2"
                       >
@@ -319,6 +393,12 @@ const AdminMatchesTab: React.FC = () => {
                           🔗
                         </button>
                       )}
+                      <button
+                        onClick={() => handleDeleteMatch(match)}
+                        className="text-xs text-red-500 hover:text-red-700"
+                      >
+                        🗑️ Supprimer
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -333,11 +413,11 @@ const AdminMatchesTab: React.FC = () => {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-wc-dark-secondary rounded-xl p-6 w-full max-w-sm">
             <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
-              ✏️ {editingMatch.teamA} vs {editingMatch.teamB}
+              ✏️ {editingMatch.teamA.name} vs {editingMatch.teamB.name}
             </h2>
             <div className="flex items-center gap-3 mb-4">
               <div>
-                <label className="label text-xs">{editingMatch.teamA}</label>
+                <label className="label text-xs">{editingMatch.teamA.name}</label>
                 <ScoreInput
                   value={scoreA}
                   onChange={setScoreA}
@@ -348,7 +428,7 @@ const AdminMatchesTab: React.FC = () => {
               </div>
               <span className="text-2xl font-bold text-gray-400 mt-5">-</span>
               <div>
-                <label className="label text-xs">{editingMatch.teamB}</label>
+                <label className="label text-xs">{editingMatch.teamB.name}</label>
                 <ScoreInput
                   value={scoreB}
                   onChange={setScoreB}
@@ -358,8 +438,34 @@ const AdminMatchesTab: React.FC = () => {
                 />
               </div>
             </div>
+            {/* Penalty fields — only for KNOCKOUT with equal scores */}
+            {editingMatch.phase === 'KNOCKOUT' &&
+              scoreA !== '' && scoreB !== '' &&
+              parseInt(scoreA) === parseInt(scoreB) && !isNaN(parseInt(scoreA)) && (
+              <div className="mb-4 p-3 rounded-lg bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 space-y-2">
+                <p className="text-xs font-medium text-orange-800 dark:text-orange-300">Tirs au but</p>
+                <div>
+                  <label className="label text-xs">Vainqueur</label>
+                  <select value={penaltyWinner} onChange={(e) => { setPenaltyWinner(e.target.value); if (!e.target.value) { setPenScoreA(''); setPenScoreB(''); } }} className="input-field">
+                    <option value="">-- Fin réglementaire (nul) --</option>
+                    <option value="A">{editingMatch.teamA.name}</option>
+                    <option value="B">{editingMatch.teamB.name}</option>
+                  </select>
+                </div>
+                {penaltyWinner && (
+                  <div>
+                    <label className="label text-xs">Score t.a.b. (optionnel)</label>
+                    <div className="flex items-center gap-2">
+                      <input type="number" value={penScoreA} onChange={(e) => setPenScoreA(e.target.value)} min={0} className="input-field w-16 text-center" placeholder={editingMatch.teamA.name} />
+                      <span className="text-gray-400">-</span>
+                      <input type="number" value={penScoreB} onChange={(e) => setPenScoreB(e.target.value)} min={0} className="input-field w-16 text-center" placeholder={editingMatch.teamB.name} />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
             <div className="flex gap-3">
-              <button onClick={() => setEditingMatch(null)} className="btn-secondary flex-1">Annuler</button>
+              <button onClick={() => { setEditingMatch(null); setPenaltyWinner(''); setPenScoreA(''); setPenScoreB(''); }} className="btn-secondary flex-1">Annuler</button>
               <button onClick={handleUpdateScore} className="btn-primary flex-1">Sauvegarder</button>
             </div>
           </div>
@@ -374,7 +480,7 @@ const AdminMatchesTab: React.FC = () => {
               🔗 Lier à api-football
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-              {linkingMatch.teamA} vs {linkingMatch.teamB}
+              {linkingMatch.teamA.name} vs {linkingMatch.teamB.name}
             </p>
 
             {candidatesLoading ? (
@@ -432,6 +538,16 @@ const AdminMatchesTab: React.FC = () => {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={confirmDialog !== null}
+        title={confirmDialog?.title ?? ''}
+        message={confirmDialog?.message ?? ''}
+        confirmLabel={confirmDialog?.confirmLabel}
+        variant={confirmDialog?.variant}
+        onConfirm={() => confirmDialog?.onConfirm()}
+        onCancel={() => setConfirmDialog(null)}
+      />
     </div>
   );
 };

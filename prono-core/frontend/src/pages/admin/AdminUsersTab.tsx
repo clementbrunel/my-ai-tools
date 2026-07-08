@@ -4,6 +4,8 @@ import { getAllUsersAdmin, adminUnlockUser } from '../../api/users';
 import type { UserAdminInfo } from '../../types';
 import { formatDate } from '../../utils/dates';
 import ScrollableTableWrapper from '../../components/ScrollableTableWrapper';
+import { logger } from '../../utils/logger';
+import Avatar from '../../components/Avatar';
 
 const AdminUsersTab: React.FC = () => {
   const { showToast } = useToast();
@@ -17,7 +19,7 @@ const AdminUsersTab: React.FC = () => {
   useEffect(() => {
     getAllUsersAdmin()
       .then(setPlatformUsers)
-      .catch(console.error)
+      .catch(logger.error)
       .finally(() => setIsLoading(false));
   }, []);
 
@@ -71,13 +73,13 @@ const AdminUsersTab: React.FC = () => {
                   >
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2">
-                        {u.avatarUrl ? (
-                          <img src={u.avatarUrl} alt="" className="w-7 h-7 rounded-full object-cover" />
-                        ) : (
-                          <div className="w-7 h-7 rounded-full bg-wc-green/20 flex items-center justify-center text-xs font-bold text-wc-green">
-                            {u.username.charAt(0).toUpperCase()}
-                          </div>
-                        )}
+                        <Avatar
+                          src={u.avatarUrl}
+                          alt=""
+                          fallbackText={u.username.charAt(0).toUpperCase()}
+                          sizeClassName="w-7 h-7"
+                          containerClassName="bg-wc-green/20 text-xs font-bold text-wc-green"
+                        />
                         <span className="text-sm font-medium text-gray-900 dark:text-white">{u.username}</span>
                         {expandedUserId === u.id && <span className="text-xs text-gray-400">▲</span>}
                       </div>

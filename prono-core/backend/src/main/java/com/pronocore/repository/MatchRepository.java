@@ -12,11 +12,14 @@ import java.util.List;
 @Repository
 public interface MatchRepository extends JpaRepository<Match, Long> {
 
-    List<Match> findByStatusOrderByMatchDateAsc(Match.Status status);
+    @Query("SELECT m FROM Match m JOIN FETCH m.teamA JOIN FETCH m.teamB JOIN FETCH m.competition WHERE m.status = :status ORDER BY m.matchDate ASC")
+    List<Match> findByStatusOrderByMatchDateAsc(@Param("status") Match.Status status);
 
+    @Query("SELECT m FROM Match m JOIN FETCH m.teamA JOIN FETCH m.teamB JOIN FETCH m.competition ORDER BY m.matchDate ASC")
     List<Match> findAllByOrderByMatchDateAsc();
 
-    List<Match> findByCompetitionOrderByMatchDateAsc(String competition);
+    @Query("SELECT m FROM Match m JOIN FETCH m.teamA JOIN FETCH m.teamB JOIN FETCH m.competition WHERE m.competition.id = :competitionId ORDER BY m.matchDate ASC")
+    List<Match> findByCompetition_IdOrderByMatchDateAsc(@Param("competitionId") Long competitionId);
 
     /** All matches whose kick-off falls on the same calendar day as [startOfDay, endOfDay). */
     @Query("SELECT m FROM Match m WHERE m.matchDate >= :startOfDay AND m.matchDate < :endOfDay")
@@ -33,9 +36,11 @@ public interface MatchRepository extends JpaRepository<Match, Long> {
                                      @Param("endOfDay")       LocalDateTime endOfDay,
                                      @Param("finishedStatus") Match.Status  finishedStatus);
 
-    /** Distinct competition names that still have at least one non-FINISHED match. */
-    @Query("SELECT DISTINCT m.competition FROM Match m WHERE m.status <> com.pronocore.entity.Match.Status.FINISHED ORDER BY m.competition ASC")
-    List<String> findActiveCompetitions();
+    /** Kick-off datetime + status of every match in [start, end) — used to batch-compute
+     *  "all matches finished" per calendar day for a whole list of gages in a single query. */
+    @Query("SELECT m.matchDate, m.status FROM Match m WHERE m.matchDate >= :start AND m.matchDate < :end")
+    List<Object[]> findMatchDatesAndStatusesInRange(@Param("start") LocalDateTime start,
+                                                     @Param("end")   LocalDateTime end);
 
     /** Upcoming matches whose kick-off falls in [from, to] and for which no reminder has been sent yet. */
     @Query("""
@@ -65,6 +70,9 @@ public interface MatchRepository extends JpaRepository<Match, Long> {
      *  whose status was not yet flipped to ONGOING/FINISHED by the admin is not included. */
     @Query("""
             SELECT DISTINCT m FROM Match m
+            JOIN FETCH m.teamA
+            JOIN FETCH m.teamB
+            JOIN FETCH m.competition
             JOIN Bet b ON b.match = m
             JOIN GroupMember gm ON gm.group = b.group
             WHERE gm.user.id = :userId

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { LocalStorageService, StorageKey } from '../utils/localStorage';
 
 const apiClient = axios.create({
   baseURL: '/api',
@@ -10,7 +11,7 @@ const apiClient = axios.create({
 // Request interceptor: attach JWT token
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    const token = LocalStorageService.getString(StorageKey.Token);
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -26,8 +27,8 @@ apiClient.interceptors.response.use(
   (error) => {
     const isAuthEndpoint = error.config?.url?.startsWith('/auth/');
     if (error.response?.status === 401 && !isAuthEndpoint) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      LocalStorageService.remove(StorageKey.Token);
+      LocalStorageService.remove(StorageKey.User);
       window.location.href = '/login';
     }
     return Promise.reject(error);

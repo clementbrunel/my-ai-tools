@@ -1,9 +1,10 @@
 package com.pronocore.service;
 
 import com.pronocore.dto.request.EmailType;
+import com.pronocore.entity.Competition;
 import com.pronocore.entity.Match;
+import com.pronocore.entity.Team;
 import com.pronocore.entity.User;
-import com.pronocore.entity.DailyGage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
@@ -20,6 +21,9 @@ import java.util.stream.Collectors;
 @Service
 @Slf4j
 public class EmailService {
+
+    private static final Competition FIFA_WORLD_CUP_2026 =
+            Competition.builder().id(1L).name("FIFA World Cup 2026").build();
 
     private final RestClient restClient;
 
@@ -42,13 +46,17 @@ public class EmailService {
             case MATCH_REMINDER -> {
                 User fakeUser = User.builder().username("joueur_test").email(to).emailReminderEnabled(true).build();
                 List<Match> fakeMatches = List.of(
-                    Match.builder().id(0L).teamA("France").teamB("Brésil")
+                    Match.builder().id(0L)
+                        .teamA(Team.builder().id(1L).name("France").iso2("fr").build())
+                        .teamB(Team.builder().id(2L).name("Brésil").iso2("br").build())
                         .matchDate(LocalDateTime.now().plusHours(1))
-                        .competition("FIFA World Cup 2026").round("Finale")
+                        .competition(FIFA_WORLD_CUP_2026).round("Finale")
                         .reminderSent(false).build(),
-                    Match.builder().id(1L).teamA("Espagne").teamB("Allemagne")
+                    Match.builder().id(1L)
+                        .teamA(Team.builder().id(3L).name("Espagne").iso2("es").build())
+                        .teamB(Team.builder().id(4L).name("Allemagne").iso2("de").build())
                         .matchDate(LocalDateTime.now().plusMinutes(65))
-                        .competition("FIFA World Cup 2026").round("Demi-finale")
+                        .competition(FIFA_WORLD_CUP_2026).round("Demi-finale")
                         .reminderSent(false).build()
                 );
                 sendMatchReminder(fakeUser, fakeMatches);
@@ -62,6 +70,23 @@ public class EmailService {
                     "Autre Joueur", 15
                 );
                 sendGageResolutionEmail(fakeRecipient, "Les 10 pompes", "Fais 10 pompes devant tout le groupe", fakeLucky, "Groupe des Amis", fakeScores);
+            }
+            case GROUP_NEW_MATCHES -> {
+                User fakeRecipient = User.builder().username("joueur_test").displayName("Joueur Test").email(to).build();
+                User fakeLeader = User.builder().username("chef_test").displayName("Le Chef").build();
+                List<Match> fakeNewMatches = List.of(
+                    Match.builder().id(0L)
+                        .teamA(Team.builder().id(5L).name("Portugal").iso2("pt").build())
+                        .teamB(Team.builder().id(6L).name("Argentine").iso2("ar").build())
+                        .matchDate(LocalDateTime.now().plusDays(2)).competition(FIFA_WORLD_CUP_2026)
+                        .round("Quart de finale").build(),
+                    Match.builder().id(1L)
+                        .teamA(Team.builder().id(7L).name("Angleterre").iso2("gb-eng").build())
+                        .teamB(Team.builder().id(8L).name("Pays-Bas").iso2("nl").build())
+                        .matchDate(LocalDateTime.now().plusDays(3)).competition(FIFA_WORLD_CUP_2026)
+                        .round("Quart de finale").build()
+                );
+                sendGroupNewMatchesEmail(fakeRecipient, "Groupe des Amis", fakeLeader, fakeNewMatches);
             }
             case TEST_CEDRIC -> sendTestCedricEmail(to);
         }
@@ -114,7 +139,7 @@ public class EmailService {
     public void sendMatchReminder(User user, List<Match> matches) {
         if (matches.isEmpty()) return;
         String subject = matches.size() == 1
-            ? "⚽ Rappel : " + matches.get(0).getTeamA() + " – " + matches.get(0).getTeamB() + " dans 4h !"
+            ? "⚽ Rappel : " + matches.get(0).getTeamA().getName() + " – " + matches.get(0).getTeamB().getName() + " dans 4h !"
             : "⚽ Rappel : " + matches.size() + " matchs à pronostiquer dans 4h !";
         try {
             restClient.post()
@@ -233,6 +258,96 @@ public class EmailService {
             """.formatted(groupName, recipientName, scoreRows, assignedToName, forfeitTitle, forfeitDescription);
     }
 
+    public void sendGroupNewMatchesEmail(User recipient, String groupName, User leader, List<Match> matches) {
+        if (matches.isEmpty()) return;
+        String displayName = recipient.getDisplayName() != null ? recipient.getDisplayName() : recipient.getUsername();
+        String leaderName = leader.getDisplayName() != null ? leader.getDisplayName() : leader.getUsername();
+        String subject = matches.size() == 1
+            ? "⚽ Nouveau match ouvert aux pronos — " + groupName
+            : "⚽ " + matches.size() + " nouveaux matchs ouverts aux pronos — " + groupName;
+        try {
+            restClient.post()
+                .uri("/emails")
+                .header("Authorization", "Bearer " + apiKey)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(Map.of(
+                    "from", "PronoCore <noreply@app.prono-core.top>",
+                    "to", List.of(recipient.getEmail()),
+                    "subject", subject,
+                    "html", buildGroupNewMatchesHtml(displayName, groupName, leaderName, matches)
+                ))
+                .retrieve()
+                .toBodilessEntity();
+            log.info("Group new matches email sent to {} (group {}, {} match(es))", recipient.getEmail(), groupName, matches.size());
+        } catch (Exception e) {
+            log.error("Failed to send group new matches email to {}: {}", recipient.getEmail(), e.getMessage());
+        }
+    }
+
+    private String buildGroupNewMatchesHtml(String recipientName, String groupName, String leaderName, List<Match> matches) {
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("EEE dd/MM 'à' HH'h'mm", Locale.FRANCE);
+
+        String matchRows = matches.stream().map(m -> """
+                <tr style="background:#f8f9fa">
+                  <td style="padding:10px 14px;font-weight:bold;color:#1a1a1a">%s – %s</td>
+                  <td style="padding:10px 14px;color:#555">%s</td>
+                  <td style="padding:10px 14px;color:#6b7280;font-size:13px">%s</td>
+                </tr>
+                """.formatted(m.getTeamA().getName(), m.getTeamB().getName(), m.getRound(), m.getMatchDate().format(fmt))
+        ).collect(Collectors.joining());
+
+        String appUrl = frontendUrl + "/matches";
+
+        return """
+            <!DOCTYPE html>
+            <html lang="fr">
+            <head><meta charset="utf-8"></head>
+            <body style="font-family:Arial,sans-serif;background:#f4f4f4;padding:20px;margin:0">
+              <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.1)">
+                <div style="background:linear-gradient(135deg,#1a472a,#2d6a4f);padding:32px;text-align:center">
+                  <div style="font-size:48px;margin-bottom:8px">⚽</div>
+                  <h1 style="color:#FFD700;margin:0;font-size:28px">PronoCore</h1>
+                  <p style="color:#90EE90;margin:8px 0 0">%s</p>
+                </div>
+                <div style="padding:32px">
+                  <h2 style="color:#1a1a1a;margin-top:0">De nouveaux matchs sont ouverts aux pronos !</h2>
+                  <p style="color:#444;line-height:1.6">Bonjour <strong>%s</strong>,</p>
+                  <p style="color:#444;line-height:1.6">
+                    <strong>%s</strong>, chef de votre groupe, vient d'ouvrir les matchs suivants aux pronostics.
+                    Pense à saisir tes prédictions avant le coup d'envoi !
+                  </p>
+
+                  <table style="width:100%%;border-collapse:collapse;border-radius:8px;overflow:hidden;margin:20px 0">
+                    <thead>
+                      <tr style="background:#1a472a">
+                        <th style="padding:10px 14px;text-align:left;color:#fff;font-size:13px">Match</th>
+                        <th style="padding:10px 14px;text-align:left;color:#fff;font-size:13px">Tour</th>
+                        <th style="padding:10px 14px;text-align:left;color:#fff;font-size:13px">Coup d'envoi</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      %s
+                    </tbody>
+                  </table>
+
+                  <div style="text-align:center;margin:32px 0">
+                    <a href="%s"
+                       style="background:#2d6a4f;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:16px;display:inline-block">
+                      ⚽ Voir les matchs
+                    </a>
+                  </div>
+
+                  <hr style="border:none;border-top:1px solid #eee;margin:24px 0">
+                  <p style="color:#aaa;font-size:12px;text-align:center">
+                    Tu reçois cet email car le chef de ton groupe a notifié l'ajout de nouveaux matchs.
+                  </p>
+                </div>
+              </div>
+            </body>
+            </html>
+            """.formatted(groupName, recipientName, leaderName, matchRows, appUrl);
+    }
+
     public void sendTestCedricEmail(String to) {
         try {
             restClient.post()
@@ -314,7 +429,7 @@ public class EmailService {
                     ⚽ Parier
                   </a>
                 </div>
-                """.formatted(m.getTeamA(), m.getTeamB(),
+                """.formatted(m.getTeamA().getName(), m.getTeamB().getName(),
                               m.getMatchDate().format(fmt), m.getRound(),
                               appUrl);
         }).collect(Collectors.joining());
