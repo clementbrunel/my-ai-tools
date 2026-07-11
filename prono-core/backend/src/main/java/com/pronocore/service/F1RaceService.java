@@ -614,6 +614,8 @@ public class F1RaceService {
                 .deadline(bet.getDeadline())
                 .status(bet.getStatus())
                 .groupId(bet.getGroup().getId())
+                .raceId(bet.getRace() != null ? bet.getRace().getId() : null)
+                .raceName(bet.getRace() != null ? bet.getRace().getName() : null)
                 .build();
     }
 
