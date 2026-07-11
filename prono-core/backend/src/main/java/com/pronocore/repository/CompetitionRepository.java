@@ -13,4 +13,6 @@ public interface CompetitionRepository extends JpaRepository<Competition, Long> 
     Optional<Competition> findByName(String name);
 
     List<Competition> findAllByOrderByNameAsc();
+
+    Optional<Competition> findFirstBySportOrderByIdDesc(com.pronocore.entity.Sport sport);
 }

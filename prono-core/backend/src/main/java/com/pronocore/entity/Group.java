@@ -6,7 +6,9 @@ import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Entity
 @Table(name = "groups")
@@ -41,6 +43,14 @@ public class Group {
     @OneToMany(mappedBy = "group", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<GroupMember> members = new ArrayList<>();
+
+    /** Sports this group plays — gates which bets can be opened in it. */
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(name = "group_sports", joinColumns = @JoinColumn(name = "group_id"))
+    @Column(name = "sport", nullable = false, length = 10)
+    @Enumerated(EnumType.STRING)
+    @Builder.Default
+    private Set<Sport> sports = new HashSet<>(Set.of(Sport.FOOT));
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

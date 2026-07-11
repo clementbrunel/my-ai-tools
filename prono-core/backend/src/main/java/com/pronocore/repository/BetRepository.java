@@ -52,6 +52,39 @@ public interface BetRepository extends JpaRepository<Bet, Long> {
 
     List<Bet> findByStatusOrderByCreatedAtDesc(Bet.Status status);
 
+    // ---------------------------------------------------------------
+    // F1 races (mirror of the match-scoped queries)
+    // ---------------------------------------------------------------
+
+    boolean existsByRaceIdAndGroupId(Long raceId, Long groupId);
+
+    List<Bet> findByRaceIdAndGroupId(Long raceId, Long groupId);
+
+    List<Bet> findByRaceIdAndStatusOrderByCreatedAtDesc(Long raceId, Bet.Status status);
+
+    /** Bets for a given race, restricted to the user's ACTIVE groups. */
+    @Query("""
+            SELECT DISTINCT b FROM Bet b
+            JOIN FETCH b.group g
+            JOIN FETCH b.creator
+            JOIN GroupMember gm ON gm.group = b.group
+            WHERE b.race.id = :raceId
+              AND gm.user.id = :userId
+              AND gm.status = com.pronocore.entity.GroupMember.MemberStatus.ACTIVE
+            ORDER BY b.createdAt DESC
+            """)
+    List<Bet> findByRaceIdInUserActiveGroups(@Param("raceId") Long raceId, @Param("userId") Long userId);
+
+    /** Race ids that have at least one bet (any status) in the user's active groups. */
+    @Query("""
+            SELECT DISTINCT b.race.id FROM Bet b
+            JOIN GroupMember gm ON gm.group = b.group
+            WHERE b.race IS NOT NULL
+              AND gm.user.id = :userId
+              AND gm.status = com.pronocore.entity.GroupMember.MemberStatus.ACTIVE
+            """)
+    Set<Long> findRaceIdsWithBetsInUserGroups(@Param("userId") Long userId);
+
     List<Bet> findAllByOrderByCreatedAtDesc();
 
     @Query("SELECT b FROM Bet b WHERE b.creator.id = :creatorId ORDER BY b.createdAt DESC")

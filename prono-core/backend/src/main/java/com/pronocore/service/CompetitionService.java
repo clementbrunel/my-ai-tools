@@ -23,7 +23,7 @@ public class CompetitionService {
     @Transactional(readOnly = true)
     public List<CompetitionResponse> getAllCompetitions() {
         return competitionRepository.findAllByOrderByNameAsc()
-                .stream().map(c -> new CompetitionResponse(c.getId(), c.getName())).toList();
+                .stream().map(c -> new CompetitionResponse(c.getId(), c.getName(), c.getSport())).toList();
     }
 
     @Transactional(readOnly = true)

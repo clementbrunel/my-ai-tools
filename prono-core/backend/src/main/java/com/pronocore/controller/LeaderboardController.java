@@ -21,9 +21,11 @@ public class LeaderboardController {
     private final LeaderboardService leaderboardService;
 
     @GetMapping("/group/{groupId}")
-    @Operation(summary = "Get leaderboard for a specific group")
+    @Operation(summary = "Get leaderboard for a specific group (optionally filtered by sport)")
     @LoggedAt(Level.INFO)
-    public ResponseEntity<List<LeaderboardEntryResponse>> getGroupLeaderboard(@PathVariable Long groupId) {
-        return ResponseEntity.ok(leaderboardService.getGroupLeaderboard(groupId));
+    public ResponseEntity<List<LeaderboardEntryResponse>> getGroupLeaderboard(
+            @PathVariable Long groupId,
+            @RequestParam(required = false) com.pronocore.entity.Sport sport) {
+        return ResponseEntity.ok(leaderboardService.getGroupLeaderboard(groupId, sport));
     }
 }

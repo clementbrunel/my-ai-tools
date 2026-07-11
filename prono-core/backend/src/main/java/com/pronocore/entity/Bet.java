@@ -33,6 +33,11 @@ public class Bet {
     @JoinColumn(name = "match_id")
     private Match match;
 
+    /** F1 race this bet is about — mutually exclusive with match. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "race_id")
+    private Race race;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "creator_id", nullable = false)
     private User creator;
@@ -62,7 +67,7 @@ public class Bet {
     private LocalDateTime createdAt;
 
     public enum BetType {
-        SCORE, EVENT, FORFEIT, FREE
+        SCORE, EVENT, FORFEIT, FREE, RACE_PICKS
     }
 
     public enum Status {

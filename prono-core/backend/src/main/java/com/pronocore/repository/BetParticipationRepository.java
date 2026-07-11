@@ -63,6 +63,28 @@ public interface BetParticipationRepository extends JpaRepository<BetParticipati
     List<Object[]> countBetsWonByGroupId(@Param("groupId") Long groupId);
 
     /**
+     * Sport-filtered variant: F1 = bets on a race; FOOT = everything else
+     * (match bets and free-standing bets, which historically are football).
+     */
+    @Query("""
+            SELECT bp.user.id, COALESCE(SUM(bp.pointsEarned), 0)
+            FROM BetParticipation bp
+            WHERE bp.bet.group.id = :groupId AND bp.bet.status = 'VALIDATED'
+              AND ((:f1 = true AND bp.bet.race IS NOT NULL) OR (:f1 = false AND bp.bet.race IS NULL))
+            GROUP BY bp.user.id
+            """)
+    List<Object[]> sumPointsEarnedByGroupIdAndSport(@Param("groupId") Long groupId, @Param("f1") boolean f1);
+
+    @Query("""
+            SELECT bp.user.id, COUNT(bp)
+            FROM BetParticipation bp
+            WHERE bp.bet.group.id = :groupId AND bp.bet.status = 'VALIDATED' AND bp.pointsEarned > 0
+              AND ((:f1 = true AND bp.bet.race IS NOT NULL) OR (:f1 = false AND bp.bet.race IS NULL))
+            GROUP BY bp.user.id
+            """)
+    List<Object[]> countBetsWonByGroupIdAndSport(@Param("groupId") Long groupId, @Param("f1") boolean f1);
+
+    /**
      * All settled participations for bets linked to matches on the given day.
      * Used to compute per-user daily points for the daily gage loser selection.
      */
@@ -99,6 +121,9 @@ public interface BetParticipationRepository extends JpaRepository<BetParticipati
 
     @Query("SELECT DISTINCT bp.bet.match.id FROM BetParticipation bp WHERE bp.user.id = :userId AND bp.bet.match IS NOT NULL")
     Set<Long> findParticipatedMatchIdsByUserId(@Param("userId") Long userId);
+
+    @Query("SELECT DISTINCT bp.bet.race.id FROM BetParticipation bp WHERE bp.user.id = :userId AND bp.bet.race IS NOT NULL")
+    Set<Long> findParticipatedRaceIdsByUserId(@Param("userId") Long userId);
 
     /** True if the user has already placed at least one bet for the given match (across any group). */
     @Query("""

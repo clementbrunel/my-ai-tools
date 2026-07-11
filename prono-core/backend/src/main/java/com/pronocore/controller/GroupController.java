@@ -100,6 +100,14 @@ public class GroupController {
         return ResponseEntity.ok(groupService.updatePrivacy(groupId, request.isPrivate(), auth.getName()));
     }
 
+    @PatchMapping("/{groupId}/sports")
+    @Operation(summary = "Update the sports a group plays (Group admin only)")
+    public ResponseEntity<GroupResponse> updateSports(@PathVariable Long groupId,
+                                                      @jakarta.validation.Valid @RequestBody com.pronocore.dto.request.UpdateGroupSportsRequest request,
+                                                      Authentication auth) {
+        return ResponseEntity.ok(groupService.updateSports(groupId, request.getSports(), auth.getName()));
+    }
+
     @DeleteMapping("/{groupId}/leave")
     @Operation(summary = "Leave a group")
     public ResponseEntity<Void> leaveGroup(@PathVariable Long groupId, Authentication auth) {

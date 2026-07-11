@@ -49,6 +49,9 @@ public class GroupService {
             .inviteCode(generateUniqueCode())
             .createdBy(creator)
             .build();
+        if (request.getSports() != null && !request.getSports().isEmpty()) {
+            group.setSports(new java.util.HashSet<>(request.getSports()));
+        }
         groupRepository.save(group);
 
         GroupMember membership = GroupMember.builder()
@@ -148,6 +151,21 @@ public class GroupService {
 
         Group group = findGroup(groupId);
         group.setPrivate(isPrivate);
+        groupRepository.save(group);
+
+        return toResponse(group, GroupMember.GroupRole.GROUP_ADMIN, true);
+    }
+
+    @Transactional
+    public GroupResponse updateSports(Long groupId, java.util.Set<com.pronocore.entity.Sport> sports, String adminUsername) {
+        assertGroupAdmin(groupId, adminUsername);
+        if (sports == null || sports.isEmpty()) {
+            throw new IllegalArgumentException("Un groupe doit jouer à au moins un sport");
+        }
+
+        Group group = findGroup(groupId);
+        group.getSports().clear();
+        group.getSports().addAll(sports);
         groupRepository.save(group);
 
         return toResponse(group, GroupMember.GroupRole.GROUP_ADMIN, true);
@@ -386,6 +404,7 @@ public class GroupService {
             .pendingApplications(pendingApplications)
             .createdAt(group.getCreatedAt())
             .currentUserRole(currentUserRole)
+            .sports(new java.util.HashSet<>(group.getSports()))
             .build();
     }
 

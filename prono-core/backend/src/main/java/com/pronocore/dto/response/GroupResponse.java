@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 
 @Data
 @Builder
@@ -32,4 +33,7 @@ public class GroupResponse {
 
     /** Role of the requesting user within this group (null if not a member). */
     private GroupMember.GroupRole currentUserRole;
+
+    /** Sports this group plays. */
+    private Set<com.pronocore.entity.Sport> sports;
 }
