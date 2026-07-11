@@ -99,7 +99,7 @@ const AdminMatchesTab: React.FC = () => {
     try {
       const newMatch = await createMatch({
         teamAId: newTeamA!, teamBId: newTeamB!,
-        matchDate: new Date(newMatchDate).toISOString(),
+        matchDate: `${newMatchDate}:00`,
         competitionId: newCompetitionId, round: newRound,
         phase: newPhase,
       });
