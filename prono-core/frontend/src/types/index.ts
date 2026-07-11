@@ -31,6 +31,7 @@ export interface GroupMember {
 
 export interface Group {
   id: number;
+  sports: Sport[];
   name: string;
   description?: string;
   inviteCode: string;
@@ -71,6 +72,7 @@ export interface UserAdminInfo extends User {
 export interface CreateGroupRequest {
   name: string;
   description?: string;
+  sports?: Sport[];
 }
 
 export interface JoinGroupRequest {
@@ -86,6 +88,7 @@ export interface TeamDto {
 export interface CompetitionDto {
   id: number;
   name: string;
+  sport: Sport;
 }
 
 export type MatchPhase = 'POOL' | 'KNOCKOUT';
@@ -133,8 +136,10 @@ export interface Bet {
   groupId: number;
   groupName: string;
   match?: Match;
+  raceId?: number;
+  raceName?: string;
   creator: User;
-  betType: 'SCORE' | 'EVENT' | 'FORFEIT' | 'FREE';
+  betType: 'SCORE' | 'EVENT' | 'FORFEIT' | 'FREE' | 'RACE_PICKS';
   points: number;
   deadline: string;
   status: 'OPEN' | 'VALIDATED' | 'CANCELLED';
@@ -295,4 +300,84 @@ export interface ForgotPasswordRequest {
 export interface ResetPasswordRequest {
   token: string;
   newPassword: string;
+}
+
+// ── F1 ────────────────────────────────────────────────────────────────────
+
+export type Sport = 'FOOT' | 'F1';
+
+export interface Driver {
+  id: number;
+  name: string;
+  code: string;
+  number: number;
+  constructorId: number;
+  constructorName: string;
+  constructorColor: string;
+}
+
+export interface RaceResultEntry {
+  driver: Driver;
+  position: number | null;
+  pole: boolean;
+  fastestLap: boolean;
+  dnf: boolean;
+}
+
+export type RaceStatus = 'UPCOMING' | 'FINISHED';
+
+export interface Race {
+  id: number;
+  round: number;
+  name: string;
+  countryIso2?: string;
+  circuit?: string;
+  qualifyingDate: string;
+  raceDate: string;
+  status: RaceStatus;
+  competitionId: number;
+  openInUserGroups: boolean;
+  userPredicted: boolean;
+  results?: RaceResultEntry[];
+}
+
+export interface F1Prediction {
+  raceId: number;
+  p1: Driver;
+  p2: Driver;
+  p3: Driver;
+  pole: Driver | null;
+  fastestLap: Driver | null;
+  lastClassified: Driver | null;
+  pointsEarned: number;
+  poleLocked: boolean;
+  raceLocked: boolean;
+}
+
+export interface F1PredictionRequest {
+  p1DriverId: number;
+  p2DriverId: number;
+  p3DriverId: number;
+  poleDriverId?: number | null;
+  fastestLapDriverId?: number | null;
+  lastClassifiedDriverId?: number | null;
+}
+
+export interface F1Standing {
+  rank: number;
+  driver: Driver | null;
+  constructorId: number;
+  constructorName: string;
+  constructorColor: string;
+  points: number;
+  wins: number;
+  podiums: number;
+}
+
+export interface RaceResultEntryRequest {
+  driverId: number;
+  position: number | null;
+  pole: boolean;
+  fastestLap: boolean;
+  dnf: boolean;
 }

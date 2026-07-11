@@ -4,10 +4,10 @@ import {
   getGroupPendingForfeits, getGroupForfeits,
   approveGroupForfeit, deleteGroupForfeit,
 } from '../../api/forfeits';
-import { updateGroupPrivacy, getFutureOpenMatches, notifyNewMatches } from '../../api/groups';
+import { updateGroupPrivacy, updateGroupSports, getFutureOpenMatches, notifyNewMatches } from '../../api/groups';
 import DailyGagePanel from '../../components/DailyGagePanel';
 import ConfirmModal from '../../components/ConfirmModal';
-import type { Group, Forfeit, Match } from '../../types';
+import type { Group, Forfeit, Match, Sport } from '../../types';
 import { formatDate } from '../../utils/dates';
 import { useGroupAdminCounts } from '../../context/GroupAdminCountsContext';
 
@@ -105,6 +105,20 @@ const GroupAdminSettings: React.FC<Props> = ({ group, onGroupUpdate }) => {
     }
   };
 
+  const handleToggleSport = async (sport: Sport) => {
+    const current = group.sports ?? ['FOOT'];
+    const next = current.includes(sport)
+      ? current.filter((s) => s !== sport)
+      : [...current, sport];
+    if (next.length === 0) return; // at least one sport
+    try {
+      const updated = await updateGroupSports(group.id, next);
+      onGroupUpdate(updated);
+    } catch {
+      // Silent
+    }
+  };
+
   const handleApproveForfeits = async (forfeitId: number) => {
     try {
       const approved = await approveGroupForfeit(group.id, forfeitId);
@@ -183,6 +197,40 @@ const GroupAdminSettings: React.FC<Props> = ({ group, onGroupUpdate }) => {
         </button>
       </div>
 
+      {/* Sports toggles */}
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm text-gray-700 dark:text-gray-300 font-medium">Sports du groupe</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Détermine les paris qui peuvent être ouverts dans ce groupe
+          </p>
+        </div>
+        <div className="flex gap-2">
+          {(
+            [
+              ['FOOT', '⚽'],
+              ['F1', '🏎'],
+            ] as [Sport, string][]
+          ).map(([sport, icon]) => {
+            const active = (group.sports ?? ['FOOT']).includes(sport);
+            return (
+              <button
+                key={sport}
+                onClick={() => handleToggleSport(sport)}
+                className={`px-2.5 py-1 rounded-lg text-sm font-bold border transition-colors ${
+                  active
+                    ? 'bg-wc-green/10 border-wc-green text-wc-green'
+                    : 'border-gray-300 dark:border-gray-600 text-gray-400 opacity-60'
+                }`}
+                title={active ? `Désactiver ${sport}` : `Activer ${sport}`}
+              >
+                {icon} {sport === 'FOOT' ? 'Foot' : 'F1'}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Forfeits section button */}
       <div className="flex items-center justify-between gap-3 pt-1">
         <p className="text-xs text-yellow-800 dark:text-yellow-300 font-semibold">
@@ -219,6 +267,14 @@ const GroupAdminSettings: React.FC<Props> = ({ group, onGroupUpdate }) => {
             )}
           </Link>
         </div>
+        {(group.sports ?? []).includes('F1') && (
+          <div className="flex items-center justify-between gap-3">
+            <p>1bis. Ouvrez les Grands Prix F1 aux pronos.</p>
+            <Link to="/f1/open-betting" className="btn-primary text-xs whitespace-nowrap inline-flex items-center gap-1.5 shrink-0">
+              🏎 Ouvrir les GP
+            </Link>
+          </div>
+        )}
         <div className="flex items-center justify-between gap-3">
           <p>2. Pimentez la partie en ajoutant un gage au plus mauvais parieur 🌶️</p>
           <button

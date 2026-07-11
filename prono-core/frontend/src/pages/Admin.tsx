@@ -7,8 +7,9 @@ import AdminCompetitionsTab from './admin/AdminCompetitionsTab';
 import AdminForfeitsTab from './admin/AdminForfeitsTab';
 import AdminUsersTab from './admin/AdminUsersTab';
 import AdminEmailsTab from './admin/AdminEmailsTab';
+import AdminF1Tab from './admin/AdminF1Tab';
 
-type AdminTab = 'competitions' | 'matches' | 'forfeits' | 'users' | 'emails';
+type AdminTab = 'competitions' | 'matches' | 'f1' | 'forfeits' | 'users' | 'emails';
 
 const Admin: React.FC = () => {
   const { user } = useAuth();
@@ -24,6 +25,7 @@ const Admin: React.FC = () => {
   const tabs: { id: AdminTab; label: string }[] = [
     { id: 'competitions', label: '🏆 Compétitions' },
     { id: 'matches', label: '⚽ Matchs' },
+    { id: 'f1', label: '🏎 F1' },
     { id: 'forfeits', label: '🃏 Gages' },
     { id: 'users', label: '👥 Utilisateurs' },
     { id: 'emails', label: '📧 Emails' },
@@ -68,6 +70,7 @@ const Admin: React.FC = () => {
 
       {activeTab === 'competitions' && <AdminCompetitionsTab />}
       {activeTab === 'matches' && <AdminMatchesTab />}
+      {activeTab === 'f1' && <AdminF1Tab />}
       {activeTab === 'forfeits' && <AdminForfeitsTab />}
       {activeTab === 'users' && <AdminUsersTab />}
       {activeTab === 'emails' && <AdminEmailsTab />}

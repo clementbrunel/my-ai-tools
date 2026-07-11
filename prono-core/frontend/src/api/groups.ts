@@ -1,5 +1,5 @@
 import apiClient from './axios';
-import type { Group, GroupMember, PublicGroup, CreateGroupRequest, JoinGroupRequest, Match } from '../types';
+import type { Group, GroupMember, PublicGroup, CreateGroupRequest, JoinGroupRequest, Match, Sport } from '../types';
 
 export const getAllGroups = async (): Promise<Group[]> => {
   const response = await apiClient.get<Group[]>('/groups');
@@ -43,6 +43,11 @@ export const approveApplication = async (groupId: number, userId: number): Promi
 
 export const rejectApplication = async (groupId: number, userId: number): Promise<void> => {
   await apiClient.delete(`/groups/${groupId}/applications/${userId}/reject`);
+};
+
+export const updateGroupSports = async (groupId: number, sports: Sport[]): Promise<Group> => {
+  const response = await apiClient.patch<Group>(`/groups/${groupId}/sports`, { sports });
+  return response.data;
 };
 
 export const updateGroupPrivacy = async (groupId: number, isPrivate: boolean): Promise<Group> => {

@@ -18,6 +18,7 @@ export const TEAM_ALLEMAGNE = makeTeam({ id: 7, name: 'Allemagne', iso2: 'de' })
 export const makeCompetition = (overrides?: Partial<CompetitionDto>): CompetitionDto => ({
   id: 1,
   name: 'Coupe du Monde 2026',
+  sport: 'FOOT',
   ...overrides,
 });
 

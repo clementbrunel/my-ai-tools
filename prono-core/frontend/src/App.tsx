@@ -25,6 +25,9 @@ import GroupPage from './pages/GroupPage';
 import OpenBetting from './pages/OpenBetting';
 import F1Dashboard from './pages/f1/F1Dashboard';
 import F1Races from './pages/f1/F1Races';
+import F1RaceDetail from './pages/f1/F1RaceDetail';
+import F1Standings from './pages/f1/F1Standings';
+import F1OpenBetting from './pages/f1/F1OpenBetting';
 import F1Bets from './pages/f1/F1Bets';
 
 function ScrollToTop() {
@@ -77,6 +80,10 @@ function App() {
                           {/* F1 */}
                           <Route path="/f1" element={<F1Dashboard />} />
                           <Route path="/f1/races" element={<F1Races />} />
+                          <Route path="/f1/races/:id" element={<F1RaceDetail />} />
+                          <Route path="/f1/standings" element={<F1Standings />} />
+                          <Route path="/f1/leaderboard" element={<Leaderboard />} />
+                          <Route path="/f1/open-betting" element={<F1OpenBetting />} />
                           <Route path="/f1/bets" element={<F1Bets />} />
 
                           {/* Shared */}
