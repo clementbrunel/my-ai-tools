@@ -38,6 +38,7 @@ class DailyGageServiceTest {
     @Mock private UserForfeitRepository        userForfeitRepository;
     @Mock private BetParticipationRepository   betParticipationRepository;
     @Mock private BetRepository                betRepository;
+    @Mock private RaceRepository              raceRepository;
     @Mock private MatchRepository              matchRepository;
     @Mock private GroupRepository              groupRepository;
     @Mock private GroupMemberRepository        groupMemberRepository;

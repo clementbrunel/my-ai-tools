@@ -15,7 +15,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { enterRaceResults, getDrivers, getRace, getRaces } from '../../api/f1';
+import { enterRaceResults, getDrivers, getRace, getRaces, syncSeason } from '../../api/f1';
 import type { Driver, Race } from '../../types';
 import { formatDate } from '../../utils/dates';
 import { useToast } from '../../components/Toast';
@@ -90,6 +90,7 @@ const AdminF1Tab: React.FC = () => {
   const [poleId, setPoleId] = useState<number | null>(null);
   const [fastestLapId, setFastestLapId] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const sensors = useSensors(
@@ -132,6 +133,22 @@ const AdminF1Tab: React.FC = () => {
   }, [selectedRaceId]);
 
   const selectedRace = races.find((r) => r.id === selectedRaceId);
+
+  const handleSync = async () => {
+    setIsSyncing(true);
+    try {
+      const summary = await syncSeason(2026);
+      showToast(summary, 'success');
+      const [raceRows, driverRows] = await Promise.all([getRaces(), getDrivers()]);
+      setRaces(raceRows);
+      setOrder(driverRows);
+    } catch (e: unknown) {
+      const message = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      showToast(message ?? "Échec de l'import jolpica (réseau ?) — saisie manuelle possible ci-dessous", 'error');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   // Classified drivers first (in current order), unclassified pinned at the bottom
   const displayOrder = useMemo(() => {
@@ -195,6 +212,9 @@ const AdminF1Tab: React.FC = () => {
             Déjà réglée — réenregistrer recalcule les points
           </span>
         )}
+        <button onClick={handleSync} disabled={isSyncing} className="btn-gold ml-auto" title="Importe calendrier, grille et résultats depuis l'API jolpica-f1, et règle les paris des courses terminées">
+          {isSyncing ? 'Import en cours…' : '🔄 Importer les résultats (jolpica)'}
+        </button>
       </div>
 
       <div className="card space-y-2">

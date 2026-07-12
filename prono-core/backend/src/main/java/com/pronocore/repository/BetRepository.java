@@ -58,6 +58,8 @@ public interface BetRepository extends JpaRepository<Bet, Long> {
 
     boolean existsByRaceIdAndGroupId(Long raceId, Long groupId);
 
+    boolean existsByRaceId(Long raceId);
+
     List<Bet> findByRaceIdAndGroupId(Long raceId, Long groupId);
 
     List<Bet> findByRaceIdAndStatusOrderByCreatedAtDesc(Long raceId, Bet.Status status);
@@ -115,14 +117,15 @@ public interface BetRepository extends JpaRepository<Bet, Long> {
     @Query("SELECT DISTINCT b.group.id FROM Bet b WHERE b.group.id IN :groupIds AND b.status = com.pronocore.entity.Bet.Status.OPEN")
     Set<Long> findGroupIdsWithOpenBets(@Param("groupIds") List<Long> groupIds);
 
-    /** Returns true if at least one OPEN bet exists for the given group on the given calendar day. */
+    /** Returns true if at least one OPEN bet exists for the given group on the given calendar day (match kick-off or race start). */
     @Query("""
             SELECT COUNT(b) > 0 FROM Bet b
+            LEFT JOIN b.match m
+            LEFT JOIN b.race r
             WHERE b.group.id = :groupId
               AND b.status = com.pronocore.entity.Bet.Status.OPEN
-              AND b.match IS NOT NULL
-              AND b.match.matchDate >= :startOfDay
-              AND b.match.matchDate < :endOfDay
+              AND ((m.matchDate >= :startOfDay AND m.matchDate < :endOfDay)
+                OR (r.raceDate  >= :startOfDay AND r.raceDate  < :endOfDay))
             """)
     boolean existsOpenBetForGroupOnDay(@Param("groupId") Long groupId,
                                        @Param("startOfDay") LocalDateTime startOfDay,

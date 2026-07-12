@@ -98,21 +98,28 @@ public interface BetParticipationRepository extends JpaRepository<BetParticipati
 
     @Query("""
             SELECT bp FROM BetParticipation bp
-            WHERE bp.bet.match.matchDate >= :startOfDay
-              AND bp.bet.match.matchDate <  :endOfDay
-              AND bp.bet.status = :validatedStatus
+            JOIN bp.bet b
+            LEFT JOIN b.match m
+            LEFT JOIN b.race r
+            WHERE b.status = :validatedStatus
+              AND ((m.matchDate >= :startOfDay AND m.matchDate < :endOfDay)
+                OR (r.raceDate  >= :startOfDay AND r.raceDate  < :endOfDay))
             """)
     List<BetParticipation> findSettledByMatchDay(@Param("startOfDay")      LocalDateTime startOfDay,
                                                   @Param("endOfDay")        LocalDateTime endOfDay,
                                                   @Param("validatedStatus") Bet.Status    validatedStatus);
 
-    /** Settled participations for a single group's bets on the given day (daily gage loser). */
+    /** Settled participations for a single group's bets on the given day — match kick-off
+     *  or F1 race start — used to pick the daily gage loser. */
     @Query("""
             SELECT bp FROM BetParticipation bp
-            WHERE bp.bet.match.matchDate >= :startOfDay
-              AND bp.bet.match.matchDate <  :endOfDay
-              AND bp.bet.status = :validatedStatus
-              AND bp.bet.group.id = :groupId
+            JOIN bp.bet b
+            LEFT JOIN b.match m
+            LEFT JOIN b.race r
+            WHERE b.status = :validatedStatus
+              AND b.group.id = :groupId
+              AND ((m.matchDate >= :startOfDay AND m.matchDate < :endOfDay)
+                OR (r.raceDate  >= :startOfDay AND r.raceDate  < :endOfDay))
             """)
     List<BetParticipation> findSettledByMatchDayAndGroup(@Param("startOfDay")      LocalDateTime startOfDay,
                                                           @Param("endOfDay")        LocalDateTime endOfDay,

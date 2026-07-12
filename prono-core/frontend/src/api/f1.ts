@@ -65,6 +65,12 @@ export const openCompetitionRaces = async (groupId: number, competitionId: numbe
 
 // ── Platform admin ─────────────────────────────────────────────────────────
 
+/** Imports calendar + results from jolpica-f1 and settles finished races. */
+export const syncSeason = async (season: number): Promise<string> => {
+  const response = await apiClient.post<string>(`/admin/f1/sync/${season}`);
+  return response.data;
+};
+
 export const enterRaceResults = async (
   raceId: number,
   results: RaceResultEntryRequest[],

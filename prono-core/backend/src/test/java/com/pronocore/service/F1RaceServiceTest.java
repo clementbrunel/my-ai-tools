@@ -32,6 +32,7 @@ class F1RaceServiceTest {
     @Mock private UserRepository userRepository;
     @Mock private GroupMemberGuard groupMemberGuard;
     @Mock private CompetitionRepository competitionRepository;
+    @Mock private DailyGageService dailyGageService;
 
     @InjectMocks
     private F1RaceService f1RaceService;
@@ -257,6 +258,7 @@ class F1RaceServiceTest {
 
         assertThat(race.getStatus()).isEqualTo(Race.Status.FINISHED);
         assertThat(participation.getPointsEarned()).isEqualTo(14);
+        verify(dailyGageService).onMatchSettled(race.getRaceDate().toLocalDate());
         assertThat(bet.getStatus()).isEqualTo(Bet.Status.VALIDATED);
         assertThat(bet.getWinningOption()).contains("NOR · PIA · LEC");
         verify(raceResultRepository).deleteByRaceId(100L);

@@ -39,6 +39,7 @@ public class F1RaceService {
     private final UserRepository userRepository;
     private final GroupMemberGuard groupMemberGuard;
     private final CompetitionRepository competitionRepository;
+    private final DailyGageService dailyGageService;
 
     // ---------------------------------------------------------------
     // Scoring constants — formule "Podium +" (additive, max 14)
@@ -330,6 +331,9 @@ public class F1RaceService {
         raceRepository.save(race);
 
         settleBetsForRace(race, results);
+        // A race day is a gage day like any match day: once everything of the
+        // day is finished, the group's daily gage is assigned to the day's loser.
+        dailyGageService.onMatchSettled(race.getRaceDate().toLocalDate());
         return getRaceForAdmin(race);
     }
 
