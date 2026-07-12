@@ -33,6 +33,7 @@ class F1RaceServiceTest {
     @Mock private GroupMemberGuard groupMemberGuard;
     @Mock private CompetitionRepository competitionRepository;
     @Mock private DailyGageService dailyGageService;
+    @Mock private com.pronocore.mapper.BetMapper betMapper;
 
     @InjectMocks
     private F1RaceService f1RaceService;
@@ -239,7 +240,7 @@ class F1RaceServiceTest {
         when(betRepository.findByRaceIdAndStatusOrderByCreatedAtDesc(100L, Bet.Status.OPEN)).thenReturn(List.of(bet));
         when(betRepository.findByRaceIdAndStatusOrderByCreatedAtDesc(100L, Bet.Status.VALIDATED)).thenReturn(List.of());
         when(participationRepository.findByBetId(50L)).thenReturn(List.of(participation));
-        when(predictionRepository.findByParticipationId(60L)).thenReturn(Optional.of(alicePrediction));
+        when(predictionRepository.findByRaceId(100L)).thenReturn(List.of(alicePrediction));
         when(participationRepository.save(any(BetParticipation.class))).thenAnswer(inv -> inv.getArgument(0));
         when(betRepository.save(any(Bet.class))).thenAnswer(inv -> inv.getArgument(0));
         when(raceRepository.save(any(Race.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -329,12 +330,33 @@ class F1RaceServiceTest {
         when(raceRepository.findById(100L)).thenReturn(Optional.of(race));
         when(betRepository.existsByRaceIdAndGroupId(100L, 7L)).thenReturn(false);
         when(betRepository.save(any(Bet.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(betMapper.toResponse(any(Bet.class))).thenAnswer(inv -> {
+            Bet b = inv.getArgument(0);
+            return com.pronocore.dto.response.BetResponse.builder()
+                    .betType(b.getBetType()).deadline(b.getDeadline()).build();
+        });
 
         var response = f1RaceService.openRaceForBetting(7L, 100L, "admin");
 
         assertThat(response.getBetType()).isEqualTo(Bet.BetType.RACE_PICKS);
         assertThat(response.getDeadline()).isEqualTo(race.getRaceDate());
         verify(groupMemberGuard).requireGroupAdmin(7L, 1L);
+    }
+
+    @Test
+    void openRaceForBetting_pastRace_isRejected() {
+        User admin = user(1L, "admin");
+        Group group = Group.builder().id(7L).name("g").build();
+        group.getSports().add(Sport.F1);
+
+        when(userRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
+        when(groupRepository.findById(7L)).thenReturn(Optional.of(group));
+        when(raceRepository.findById(100L)).thenReturn(Optional.of(
+                raceAt(LocalDateTime.now().minusDays(2), LocalDateTime.now().minusDays(1))));
+
+        assertThatThrownBy(() -> f1RaceService.openRaceForBetting(7L, 100L, "admin"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("déjà partie ou terminée");
     }
 
     @Test

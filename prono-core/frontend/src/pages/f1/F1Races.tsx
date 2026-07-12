@@ -4,6 +4,7 @@ import { getRaces } from '../../api/f1';
 import type { Race } from '../../types';
 import { formatDate, formatTime } from '../../utils/dates';
 import { getFlagUrl } from '../../utils/countryFlags';
+import PillTabs from '../../components/PillTabs';
 
 type Filter = 'UPCOMING' | 'FINISHED' | 'ALL';
 
@@ -86,27 +87,15 @@ const F1Races: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h1 className="page-title mb-0">🏁 Grands Prix</h1>
-        <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
-          {(
-            [
-              ['UPCOMING', 'À venir'],
-              ['FINISHED', 'Terminés'],
-              ['ALL', 'Tous'],
-            ] as [Filter, string][]
-          ).map(([value, label]) => (
-            <button
-              key={value}
-              onClick={() => setFilter(value)}
-              className={`px-3 py-1 rounded text-sm font-bold transition-colors ${
-                filter === value
-                  ? 'bg-white dark:bg-wc-dark-secondary text-gray-900 dark:text-white shadow'
-                  : 'text-gray-500 dark:text-gray-400'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <PillTabs
+          options={[
+            ['UPCOMING', 'À venir'],
+            ['FINISHED', 'Terminés'],
+            ['ALL', 'Tous'],
+          ]}
+          value={filter}
+          onChange={setFilter}
+        />
       </div>
 
       {error && (

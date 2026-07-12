@@ -14,6 +14,11 @@ public interface F1PredictionRepository extends JpaRepository<F1Prediction, Long
 
     Optional<F1Prediction> findByParticipationId(Long participationId);
 
+    /** Bulk delete of every prediction attached to a bet's participations. */
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("DELETE FROM F1Prediction p WHERE p.participation.bet.id = :betId")
+    void deleteByBetId(@Param("betId") Long betId);
+
     /** All predictions for every bet of a race (settlement + participants list). */
     @Query("""
             SELECT p FROM F1Prediction p

@@ -5,6 +5,7 @@ import { closeRaceForBetting, getRaces, openCompetitionRaces, openRaceForBetting
 import type { Group, Race } from '../../types';
 import { formatDate } from '../../utils/dates';
 import { useToast } from '../../components/Toast';
+import PillTabs from '../../components/PillTabs';
 
 type StatusFilter = 'CLOSED' | 'OPEN';
 
@@ -138,26 +139,14 @@ const F1OpenBetting: React.FC = () => {
             <option key={g.id} value={g.id}>{g.name}</option>
           ))}
         </select>
-        <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
-          {(
-            [
-              ['CLOSED', 'À ouvrir'],
-              ['OPEN', 'Ouverts'],
-            ] as [StatusFilter, string][]
-          ).map(([value, label]) => (
-            <button
-              key={value}
-              onClick={() => setStatusFilter(value)}
-              className={`px-3 py-1 rounded text-sm font-bold transition-colors ${
-                statusFilter === value
-                  ? 'bg-white dark:bg-wc-dark-secondary text-gray-900 dark:text-white shadow'
-                  : 'text-gray-500 dark:text-gray-400'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <PillTabs
+          options={[
+            ['CLOSED', 'À ouvrir'],
+            ['OPEN', 'Ouverts'],
+          ]}
+          value={statusFilter}
+          onChange={setStatusFilter}
+        />
         <button onClick={handleOpenAll} disabled={busy !== null} className="btn-gold ml-auto">
           {busy === 'open-all' ? 'Ouverture…' : '🏆 Ouvrir toute la saison'}
         </button>

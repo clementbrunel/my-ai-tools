@@ -40,6 +40,10 @@ public interface BetParticipationRepository extends JpaRepository<BetParticipati
 
     Optional<BetParticipation> findByBetIdAndUserId(Long betId, Long userId);
 
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("DELETE FROM BetParticipation bp WHERE bp.bet.id = :betId")
+    void deleteByBetId(@Param("betId") Long betId);
+
     boolean existsByBetIdAndUserId(Long betId, Long userId);
 
     @Query("SELECT bp FROM BetParticipation bp WHERE bp.bet.id = :betId AND bp.chosenOption = :option")

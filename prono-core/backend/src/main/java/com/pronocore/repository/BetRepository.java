@@ -77,6 +77,10 @@ public interface BetRepository extends JpaRepository<Bet, Long> {
             """)
     List<Bet> findByRaceIdInUserActiveGroups(@Param("raceId") Long raceId, @Param("userId") Long userId);
 
+    /** Race ids that already have a bet in the given group. */
+    @Query("SELECT b.race.id FROM Bet b WHERE b.group.id = :groupId AND b.race IS NOT NULL")
+    Set<Long> findRaceIdsWithBetsForGroup(@Param("groupId") Long groupId);
+
     /** Race ids that have at least one bet (any status) in the user's active groups. */
     @Query("""
             SELECT DISTINCT b.race.id FROM Bet b

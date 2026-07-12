@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { getConstructorStandings, getDriverStandings } from '../../api/f1';
 import type { F1Standing } from '../../types';
 import MiniF1Car from '../../components/f1/MiniF1Car';
+import PillTabs from '../../components/PillTabs';
 
 type Tab = 'drivers' | 'constructors';
 
@@ -54,26 +55,14 @@ const F1Standings: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h1 className="page-title mb-0">📊 Championnat</h1>
-        <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
-          {(
-            [
-              ['drivers', '🏎 Pilotes'],
-              ['constructors', '🔧 Constructeurs'],
-            ] as [Tab, string][]
-          ).map(([value, label]) => (
-            <button
-              key={value}
-              onClick={() => setTab(value)}
-              className={`px-3 py-1 rounded text-sm font-bold transition-colors ${
-                tab === value
-                  ? 'bg-white dark:bg-wc-dark-secondary text-gray-900 dark:text-white shadow'
-                  : 'text-gray-500 dark:text-gray-400'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <PillTabs
+          options={[
+            ['drivers', '🏎 Pilotes'],
+            ['constructors', '🔧 Constructeurs'],
+          ]}
+          value={tab}
+          onChange={setTab}
+        />
       </div>
 
       {error && (

@@ -294,13 +294,8 @@ const F1RaceDetail: React.FC = () => {
 
   const flag = getFlagUrl(race.countryIso2?.toLowerCase());
   const pickVerdicts = finished && myPrediction ? verdicts(myPrediction, race) : null;
-  const totalPoints = pickVerdicts
-    ? (() => {
-        const base = (Object.values(pickVerdicts) as PickVerdict[]).reduce((sum, v) => sum + v.points, 0);
-        const chelem = pickVerdicts.pole.correct && pickVerdicts.p1.correct && pickVerdicts.fastestLap.correct;
-        return base + (chelem ? 2 : 0);
-      })()
-    : null;
+  // The credited total comes from the backend — verdicts only drive the per-slot chips.
+  const totalPoints = finished && myPrediction ? myPrediction.pointsEarned : null;
 
   return (
     <div className="space-y-6">

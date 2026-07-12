@@ -40,6 +40,7 @@ public class F1RaceService {
     private final GroupMemberGuard groupMemberGuard;
     private final CompetitionRepository competitionRepository;
     private final DailyGageService dailyGageService;
+    private final com.pronocore.mapper.BetMapper betMapper;
 
     // ---------------------------------------------------------------
     // Scoring constants — formule "Podium +" (additive, max 14)
@@ -146,11 +147,12 @@ public class F1RaceService {
         Group group = requireF1Group(groupId);
         Race race = requireRace(raceId);
 
+        assertNotStarted(race);
         if (betRepository.existsByRaceIdAndGroupId(raceId, groupId)) {
             throw new IllegalStateException("This race is already open for betting in this group");
         }
         Bet bet = betRepository.save(buildRaceBet(race, group, requester));
-        return toBetResponse(bet);
+        return betMapper.toResponse(bet);
     }
 
     @Transactional
@@ -159,12 +161,8 @@ public class F1RaceService {
         groupMemberGuard.requireGroupAdmin(groupId, requester.getId());
 
         for (Bet bet : betRepository.findByRaceIdAndGroupId(raceId, groupId)) {
-            List<BetParticipation> participations = participationRepository.findByBetId(bet.getId());
-            for (BetParticipation p : participations) {
-                predictionRepository.findByParticipationId(p.getId())
-                        .ifPresent(predictionRepository::delete);
-            }
-            participationRepository.deleteAll(participations);
+            predictionRepository.deleteByBetId(bet.getId());
+            participationRepository.deleteByBetId(bet.getId());
             betRepository.delete(bet);
         }
     }
@@ -176,9 +174,12 @@ public class F1RaceService {
         groupMemberGuard.requireGroupAdmin(groupId, requester.getId());
         Group group = requireF1Group(groupId);
 
+        Set<Long> alreadyOpen = betRepository.findRaceIdsWithBetsForGroup(groupId);
+        LocalDateTime now = LocalDateTime.now();
         return raceRepository.findByCompetition_IdOrderByRaceDateAsc(competitionId).stream()
-                .filter(race -> !betRepository.existsByRaceIdAndGroupId(race.getId(), groupId))
-                .map(race -> toBetResponse(betRepository.save(buildRaceBet(race, group, requester))))
+                .filter(race -> race.getStatus() != Race.Status.FINISHED && race.getRaceDate().isAfter(now))
+                .filter(race -> !alreadyOpen.contains(race.getId()))
+                .map(race -> betMapper.toResponse(betRepository.save(buildRaceBet(race, group, requester))))
                 .toList();
     }
 
@@ -348,9 +349,13 @@ public class F1RaceService {
         betRepository.findByRaceIdAndStatusOrderByCreatedAtDesc(race.getId(), Bet.Status.VALIDATED)
                 .forEach(bets::add);
 
+        // One query for every prediction of the race, instead of one per participation.
+        Map<Long, F1Prediction> predictionByParticipation = predictionRepository.findByRaceId(race.getId()).stream()
+                .collect(Collectors.toMap(pr -> pr.getParticipation().getId(), pr -> pr));
+
         for (Bet bet : bets) {
             for (BetParticipation p : participationRepository.findByBetId(bet.getId())) {
-                int earned = predictionRepository.findByParticipationId(p.getId())
+                int earned = Optional.ofNullable(predictionByParticipation.get(p.getId()))
                         .map(prediction -> computePoints(prediction, outcome))
                         .orElse(0);
                 p.setPointsEarned(earned);
@@ -609,18 +614,10 @@ public class F1RaceService {
                 .build();
     }
 
-    private BetResponse toBetResponse(Bet bet) {
-        return BetResponse.builder()
-                .id(bet.getId())
-                .title(bet.getTitle())
-                .betType(bet.getBetType())
-                .points(bet.getPoints())
-                .deadline(bet.getDeadline())
-                .status(bet.getStatus())
-                .groupId(bet.getGroup().getId())
-                .raceId(bet.getRace() != null ? bet.getRace().getId() : null)
-                .raceName(bet.getRace() != null ? bet.getRace().getName() : null)
-                .build();
+    private void assertNotStarted(Race race) {
+        if (race.getStatus() == Race.Status.FINISHED || !LocalDateTime.now().isBefore(race.getRaceDate())) {
+            throw new IllegalStateException("Cette course est déjà partie ou terminée — impossible de l'ouvrir aux paris");
+        }
     }
 
     private User requireUser(String username) {
