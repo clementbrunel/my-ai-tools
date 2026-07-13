@@ -26,8 +26,8 @@ import java.util.*;
  * entry ({@link F1RaceService#enterResults}), so bets, points and the
  * daily gage behave identically whether results are typed or imported.
  *
- * Limitation: sprint results are not imported (sprints are out of scope
- * for now), so computed standings ignore sprint points.
+ * Sprint classifications are imported too (no betting on sprints) so the
+ * championship standings include FIA sprint points.
  */
 @Slf4j
 @Service
@@ -131,6 +131,8 @@ public class F1SyncService {
             LocalDateTime qualiDate = toParisTime(quali.path("date").asText(null), quali.path("time").asText(null));
             race.setQualifyingDate(qualiDate != null ? qualiDate
                     : (race.getQualifyingDate() != null ? race.getQualifyingDate() : race.getRaceDate().minusDays(1)));
+            JsonNode sprint = raceNode.path("Sprint");
+            race.setSprintDate(toParisTime(sprint.path("date").asText(null), sprint.path("time").asText(null)));
 
             raceRepository.save(race);
             count++;
@@ -165,6 +167,7 @@ public class F1SyncService {
             if (!results.isArray() || results.isEmpty()) continue;
 
             String poleDriverCode = fetchPoleDriverCode(season, race.getRound());
+            Map<String, Integer> sprintPositionByCode = fetchSprintPositions(season, race.getRound());
 
             List<EnterRaceResultsRequest.Entry> entries = new ArrayList<>();
             for (JsonNode result : results) {
@@ -178,6 +181,7 @@ public class F1SyncService {
                 entry.setDnf(!status.equals("Finished") && !status.startsWith("+"));
                 entry.setFastestLap(result.path("FastestLap").path("rank").asText("").equals("1"));
                 entry.setPole(driver.getCode().equals(poleDriverCode));
+                entry.setSprintPosition(sprintPositionByCode.get(driver.getCode()));
                 entries.add(entry);
             }
 
@@ -187,6 +191,21 @@ public class F1SyncService {
             settled.add(race.getRound());
         }
         return settled;
+    }
+
+    /** Sprint classification by driver code — empty map when the weekend has no sprint. */
+    private Map<String, Integer> fetchSprintPositions(int season, int round) {
+        JsonNode races = read(season + "/" + round + "/sprint.json?limit=40")
+                .path("MRData").path("RaceTable").path("Races");
+        if (!races.isArray() || races.isEmpty()) return Map.of();
+        Map<String, Integer> positions = new HashMap<>();
+        for (JsonNode result : races.get(0).path("SprintResults")) {
+            String positionText = result.path("positionText").asText("");
+            if (positionText.matches("\\d+")) {
+                positions.put(result.path("Driver").path("code").asText(""), Integer.parseInt(positionText));
+            }
+        }
+        return positions;
     }
 
     private String fetchPoleDriverCode(int season, int round) {

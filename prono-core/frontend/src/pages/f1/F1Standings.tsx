@@ -79,6 +79,7 @@ const F1Standings: React.FC = () => {
           </p>
         </div>
       ) : (
+        <>
         <div className="card divide-y divide-gray-100 dark:divide-gray-800">
           {rows.map((standing) => (
             <StandingRow
@@ -88,6 +89,10 @@ const F1Standings: React.FC = () => {
             />
           ))}
         </div>
+        <p className="text-xs text-gray-400 text-center">
+          Barème FIA — courses (25…1) et sprints (8…1) inclus.
+        </p>
+        </>
       )}
     </div>
   );

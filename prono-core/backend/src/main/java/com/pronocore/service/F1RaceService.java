@@ -55,8 +55,9 @@ public class F1RaceService {
     static final int POINTS_LAST_CLASSIFIED   = 2;
     static final int POINTS_GRAND_CHELEM      = 2;
 
-    /** FIA points scale — drives the driver/constructor standings. */
-    private static final int[] FIA_POINTS = {25, 18, 15, 12, 10, 8, 6, 4, 2, 1};
+    /** FIA points scales — drive the driver/constructor standings. */
+    private static final int[] FIA_POINTS        = {25, 18, 15, 12, 10, 8, 6, 4, 2, 1};
+    private static final int[] FIA_SPRINT_POINTS = {8, 7, 6, 5, 4, 3, 2, 1};
 
     // ---------------------------------------------------------------
     // Queries
@@ -95,13 +96,7 @@ public class F1RaceService {
                 !predictionRepository.findByRaceIdAndUserId(raceId, user.getId()).isEmpty());
         if (race.getStatus() == Race.Status.FINISHED) {
             response.setResults(raceResultRepository.findByRaceIdWithDrivers(raceId).stream()
-                    .map(rr -> RaceResultResponse.builder()
-                            .driver(toDriverResponse(rr.getDriver()))
-                            .position(rr.getPosition())
-                            .pole(rr.isPole())
-                            .fastestLap(rr.isFastestLap())
-                            .dnf(rr.isDnf())
-                            .build())
+                    .map(this::toResultResponse)
                     .toList());
         }
         return response;
@@ -314,6 +309,12 @@ public class F1RaceService {
             throw new IllegalArgumentException("Results must at least classify positions 1, 2 and 3");
         }
 
+        // Sprint positions come from the jolpica sync; a manual (re-)entry without
+        // them must not wipe the sprint points already stored for the weekend.
+        Map<Long, Integer> storedSprintPositions = raceResultRepository.findByRaceIdWithDrivers(raceId).stream()
+                .filter(rr -> rr.getSprintPosition() != null)
+                .collect(Collectors.toMap(rr -> rr.getDriver().getId(), RaceResult::getSprintPosition));
+
         raceResultRepository.deleteByRaceId(raceId);
         raceResultRepository.flush();
         List<RaceResult> results = request.getResults().stream()
@@ -321,6 +322,9 @@ public class F1RaceService {
                         .race(race)
                         .driver(requireDriver(entry.getDriverId()))
                         .position(entry.getPosition())
+                        .sprintPosition(entry.getSprintPosition() != null
+                                ? entry.getSprintPosition()
+                                : storedSprintPositions.get(entry.getDriverId()))
                         .pole(entry.isPole())
                         .fastestLap(entry.isFastestLap())
                         .dnf(entry.isDnf())
@@ -466,7 +470,7 @@ public class F1RaceService {
                     .constructorName(rr.getDriver().getConstructor().getName())
                     .constructorColor(rr.getDriver().getConstructor().getColor())
                     .build());
-            points.merge(driverId, fiaPoints(rr.getPosition()), Integer::sum);
+            points.merge(driverId, fiaPoints(rr.getPosition()) + fiaSprintPoints(rr.getSprintPosition()), Integer::sum);
             if (rr.getPosition() != null && rr.getPosition() == 1) wins.merge(driverId, 1, Integer::sum);
             if (rr.getPosition() != null && rr.getPosition() <= 3) podiums.merge(driverId, 1, Integer::sum);
         }
@@ -489,7 +493,7 @@ public class F1RaceService {
                     .constructorName(constructor.getName())
                     .constructorColor(constructor.getColor())
                     .build());
-            points.merge(constructorId, fiaPoints(rr.getPosition()), Integer::sum);
+            points.merge(constructorId, fiaPoints(rr.getPosition()) + fiaSprintPoints(rr.getSprintPosition()), Integer::sum);
             if (rr.getPosition() != null && rr.getPosition() == 1) wins.merge(constructorId, 1, Integer::sum);
             if (rr.getPosition() != null && rr.getPosition() <= 3) podiums.merge(constructorId, 1, Integer::sum);
         }
@@ -529,6 +533,11 @@ public class F1RaceService {
         return FIA_POINTS[position - 1];
     }
 
+    static int fiaSprintPoints(Integer sprintPosition) {
+        if (sprintPosition == null || sprintPosition < 1 || sprintPosition > FIA_SPRINT_POINTS.length) return 0;
+        return FIA_SPRINT_POINTS[sprintPosition - 1];
+    }
+
     // ---------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------
@@ -561,15 +570,20 @@ public class F1RaceService {
     private RaceResponse getRaceForAdmin(Race race) {
         RaceResponse response = toRaceResponse(race);
         response.setResults(raceResultRepository.findByRaceIdWithDrivers(race.getId()).stream()
-                .map(rr -> RaceResultResponse.builder()
-                        .driver(toDriverResponse(rr.getDriver()))
-                        .position(rr.getPosition())
-                        .pole(rr.isPole())
-                        .fastestLap(rr.isFastestLap())
-                        .dnf(rr.isDnf())
-                        .build())
+                .map(this::toResultResponse)
                 .toList());
         return response;
+    }
+
+    private RaceResultResponse toResultResponse(RaceResult rr) {
+        return RaceResultResponse.builder()
+                .driver(toDriverResponse(rr.getDriver()))
+                .position(rr.getPosition())
+                .sprintPosition(rr.getSprintPosition())
+                .pole(rr.isPole())
+                .fastestLap(rr.isFastestLap())
+                .dnf(rr.isDnf())
+                .build();
     }
 
     private RaceResponse toRaceResponse(Race race) {
@@ -580,6 +594,7 @@ public class F1RaceService {
                 .countryIso2(race.getCountryIso2())
                 .circuit(race.getCircuit())
                 .qualifyingDate(race.getQualifyingDate())
+                .sprintDate(race.getSprintDate())
                 .raceDate(race.getRaceDate())
                 .status(race.getStatus())
                 .competitionId(race.getCompetition().getId())

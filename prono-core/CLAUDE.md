@@ -89,7 +89,7 @@ cd backend && mvn test
 
 **Sports** : un groupe joue à un ou plusieurs sports (`FOOT`, `F1` — table `group_sports`). Les GP F1 ne s'ouvrent que dans les groupes F1.
 
-**Module F1** : un pari F1 est un `bet` ordinaire avec `race_id` (exclusif de `match_id`) ; le détail du prono « Podium + » (P1/P2/P3, pole, meilleur tour, lanterne rouge — max 14 pts, bonus Grand Chelem) vit dans `f1_predictions`. La pole se verrouille aux qualifs, le reste au départ. Le règlement (saisie admin du classement, onglet 🏎 F1) écrit `points_earned` → classement/gages/forfeits inchangés. Standings pilotes/constructeurs calculés depuis `race_results` (barème FIA). Voir `docs/f1-proposal.md`.
+**Module F1** : un pari F1 est un `bet` ordinaire avec `race_id` (exclusif de `match_id`) ; le détail du prono « Podium + » (P1/P2/P3, pole, meilleur tour, lanterne rouge — max 14 pts, bonus Grand Chelem) vit dans `f1_predictions`. La pole se verrouille aux qualifs, le reste au départ. Le règlement (saisie admin du classement, onglet 🏎 F1) écrit `points_earned` → classement/gages/forfeits inchangés. Standings pilotes/constructeurs calculés depuis `race_results` — barème FIA courses (25…1) **et sprints (8…1, `sprint_position` importé via jolpica, sans paris)**. Voir `docs/f1-proposal.md`.
 
 **Gage quotidien** : chaque jour de match, un membre du groupe hérite d'un forfeit. Mode `DIRECT` (admin choisit) ou `VOTE` (le groupe vote, le moins bien classé l'obtient).
 

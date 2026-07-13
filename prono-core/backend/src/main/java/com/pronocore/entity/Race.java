@@ -39,6 +39,10 @@ public class Race {
     @Column(name = "race_date", nullable = false)
     private LocalDateTime raceDate;
 
+    /** Sprint start when the weekend has one — no betting, championship points only. */
+    @Column(name = "sprint_date")
+    private LocalDateTime sprintDate;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Builder.Default

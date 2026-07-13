@@ -69,6 +69,12 @@ class F1SyncServiceTest {
           {"position":"2","Driver":{"code":"RUS"}}
         ]}]}}}""";
 
+    private static final String ROUND1_SPRINT_JSON = """
+        {"MRData":{"RaceTable":{"Races":[{"SprintResults":[
+          {"positionText":"1","Driver":{"code":"NOR"}},
+          {"positionText":"2","Driver":{"code":"RUS"}}
+        ]}]}}}""";
+
     private static final String EMPTY_RESULTS_JSON = """
         {"MRData":{"RaceTable":{"Races":[]}}}""";
 
@@ -92,6 +98,7 @@ class F1SyncServiceTest {
         when(jolpicaClient.get("2026.json?limit=100")).thenReturn(CALENDAR_JSON);
         when(jolpicaClient.get("2026/1/results.json?limit=40")).thenReturn(ROUND1_RESULTS_JSON);
         when(jolpicaClient.get("2026/1/qualifying.json?limit=5")).thenReturn(ROUND1_QUALI_JSON);
+        when(jolpicaClient.get("2026/1/sprint.json?limit=40")).thenReturn(ROUND1_SPRINT_JSON);
         when(jolpicaClient.get("2026/2/results.json?limit=40")).thenReturn(EMPTY_RESULTS_JSON);
         when(jolpicaClient.get("2026/3/results.json?limit=40")).thenReturn(EMPTY_RESULTS_JSON);
         when(betRepository.existsByRaceId(103L)).thenReturn(false);
@@ -134,6 +141,10 @@ class F1SyncServiceTest {
         assertThat(entries.get(1).isPole()).isTrue();           // ANT pole from qualifying
         assertThat(entries.get(3).getPosition()).isNull();      // VER retired → unclassified
         assertThat(entries.get(3).isDnf()).isTrue();
+        // Sprint positions merged onto the weekend entries (RUS P2, NOR P1, others none)
+        assertThat(entries.get(0).getSprintPosition()).isEqualTo(2);   // RUS
+        assertThat(entries.get(2).getSprintPosition()).isEqualTo(1);   // NOR
+        assertThat(entries.get(1).getSprintPosition()).isNull();       // ANT no sprint points
         // Round 2 has no results yet → not settled
         verify(f1RaceService, never()).enterResults(eq(102L), any());
 

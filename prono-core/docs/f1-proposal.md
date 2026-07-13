@@ -2,8 +2,9 @@
 
 > **Décisions validées le 11/07/2026** : formule A « Podium + » · lanterne rouge
 > (dernier classé) · double deadline (pole aux qualifs, le reste à la course) ·
-> mini-F1 pour le drag & drop · sprints reportés · saisie manuelle des résultats
-> (import jolpica reporté). Phases 1 à 3 implémentées.
+> mini-F1 pour le drag & drop · pas de paris sur les sprints mais leurs
+> points comptent au championnat · import jolpica implémenté (bouton admin)
+> avec saisie manuelle en secours. Phases 1 à 3 implémentées.
 > État des lieux : le thème F1, le `SportContext` et les 3 écrans WIP (`F1Dashboard`, `F1Races`, `F1Bets`) existent déjà côté frontend. Rien côté backend.
 
 ---

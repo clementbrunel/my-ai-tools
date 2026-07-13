@@ -319,6 +319,7 @@ export interface Driver {
 export interface RaceResultEntry {
   driver: Driver;
   position: number | null;
+  sprintPosition?: number | null;
   pole: boolean;
   fastestLap: boolean;
   dnf: boolean;
@@ -333,6 +334,7 @@ export interface Race {
   countryIso2?: string;
   circuit?: string;
   qualifyingDate: string;
+  sprintDate?: string | null;
   raceDate: string;
   status: RaceStatus;
   competitionId: number;

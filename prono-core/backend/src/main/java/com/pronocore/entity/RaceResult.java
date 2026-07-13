@@ -29,6 +29,10 @@ public class RaceResult {
     @Column
     private Integer position;
 
+    /** Sprint classification — feeds the standings (8-7-6-5-4-3-2-1), no betting. */
+    @Column(name = "sprint_position")
+    private Integer sprintPosition;
+
     @Column(nullable = false)
     @Builder.Default
     private boolean pole = false;

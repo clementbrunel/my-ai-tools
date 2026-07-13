@@ -435,7 +435,12 @@ const F1RaceDetail: React.FC = () => {
                   {r.driver.name}
                   <span className="text-gray-400 font-medium text-xs ml-2">{r.driver.constructorName}</span>
                 </span>
-                <span className="flex gap-1 text-xs">
+                <span className="flex gap-1 text-xs items-center">
+                  {r.sprintPosition != null && (
+                    <span className="text-purple-500 font-bold" title={`Sprint : P${r.sprintPosition}`}>
+                      S{r.sprintPosition}
+                    </span>
+                  )}
                   {r.pole && <span title="Pole position">⏱</span>}
                   {r.fastestLap && <span title="Meilleur tour">🟣</span>}
                   {r.dnf && <span className="text-gray-400" title="Abandon">DNF</span>}

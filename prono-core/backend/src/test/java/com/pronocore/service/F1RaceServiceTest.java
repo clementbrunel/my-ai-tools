@@ -126,6 +126,31 @@ class F1RaceServiceTest {
         assertThat(F1RaceService.fiaPoints(null)).isEqualTo(0);
     }
 
+    @Test
+    void fiaSprintPoints_matchesOfficialScale() {
+        assertThat(F1RaceService.fiaSprintPoints(1)).isEqualTo(8);
+        assertThat(F1RaceService.fiaSprintPoints(8)).isEqualTo(1);
+        assertThat(F1RaceService.fiaSprintPoints(9)).isEqualTo(0);
+        assertThat(F1RaceService.fiaSprintPoints(null)).isEqualTo(0);
+    }
+
+    @Test
+    void driverStandings_addSprintPointsToRacePoints() {
+        Competition competition = Competition.builder().id(9L).name("Formule 1 2026").sport(Sport.F1).build();
+        // NOR: P1 course (25) + P2 sprint (7) = 32 ; PIA: P2 course (18) + P1 sprint (8) = 26
+        RaceResult norResult = result(nor, 1, false, false); norResult.setSprintPosition(2);
+        RaceResult piaResult = result(pia, 2, false, false); piaResult.setSprintPosition(1);
+
+        when(competitionRepository.findFirstBySportOrderByIdDesc(Sport.F1)).thenReturn(Optional.of(competition));
+        when(raceResultRepository.findByCompetitionIdWithDrivers(9L)).thenReturn(List.of(norResult, piaResult));
+
+        var standings = f1RaceService.getDriverStandings();
+
+        assertThat(standings.get(0).getDriver().getCode()).isEqualTo("NOR");
+        assertThat(standings.get(0).getPoints()).isEqualTo(32);
+        assertThat(standings.get(1).getPoints()).isEqualTo(26);
+    }
+
     // ── predict — deadlines ───────────────────────────────────────────────────
 
     private Race raceAt(LocalDateTime quali, LocalDateTime raceDate) {

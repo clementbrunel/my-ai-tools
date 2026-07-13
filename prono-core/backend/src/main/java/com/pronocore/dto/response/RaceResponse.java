@@ -21,6 +21,7 @@ public class RaceResponse {
     private String countryIso2;
     private String circuit;
     private LocalDateTime qualifyingDate;
+    private LocalDateTime sprintDate;
     private LocalDateTime raceDate;
     private Race.Status status;
     private Long competitionId;

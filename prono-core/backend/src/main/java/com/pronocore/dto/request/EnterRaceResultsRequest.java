@@ -24,6 +24,9 @@ public class EnterRaceResultsRequest {
         /** Final position; null = not classified. */
         private Integer position;
 
+        /** Sprint position; null = no sprint or keeps the stored value (manual entry). */
+        private Integer sprintPosition;
+
         private boolean pole;
 
         private boolean fastestLap;

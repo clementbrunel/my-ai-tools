@@ -29,7 +29,14 @@ const RaceCard: React.FC<{ race: Race }> = ({ race }) => {
       </div>
 
       <div className="flex-1 min-w-0">
-        <div className="font-bold text-gray-900 dark:text-white truncate">{race.name}</div>
+        <div className="font-bold text-gray-900 dark:text-white truncate">
+          {race.name}
+          {race.sprintDate && (
+            <span className="ml-2 text-[9px] font-bold px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 uppercase align-middle">
+              Sprint
+            </span>
+          )}
+        </div>
         <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{race.circuit}</div>
         <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
           Qualifs {formatDate(race.qualifyingDate)} {formatTime(race.qualifyingDate)} · Course{' '}
