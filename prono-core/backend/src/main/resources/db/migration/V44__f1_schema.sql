@@ -1,4 +1,4 @@
--- V43__f1_schema.sql — Module F1 : courses, pilotes, pronostics structurés.
+-- V44__f1_schema.sql — Module F1 : courses, pilotes, pronostics structurés.
 --
 -- Principe : le pipeline de points reste le pipeline générique
 -- bets → bet_participations.points_earned (classement, gages, forfeits).

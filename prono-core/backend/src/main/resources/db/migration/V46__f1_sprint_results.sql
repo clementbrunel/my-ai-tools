@@ -1,4 +1,4 @@
--- V45__f1_sprint_results.sql — Les sprints comptent au championnat.
+-- V46__f1_sprint_results.sql — Les sprints comptent au championnat.
 --
 -- Pas de paris sur les sprints : seule la position du sprint est stockée
 -- sur la ligne de résultat du week-end, pour que les standings pilotes et

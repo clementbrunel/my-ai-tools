@@ -493,7 +493,7 @@ Tokens à usage unique pour la réinitialisation de mot de passe.
 
 ---
 
-## Module F1 (V43)
+## Module F1 (V44)
 
 Un pari F1 est un `bets` ordinaire pointant vers une course (`bets.race_id`,
 exclusif de `match_id`, type `RACE_PICKS`). Le détail du prono part dans
@@ -543,6 +543,7 @@ Les migrations sont dans `backend/src/main/resources/db/migration/`.
 | V27 | `users.reminder_sent_date` |
 | V28 | Seed du groupe GU |
 | V29 | `users.email_gage_enabled` |
-| V30–V42 | Suppression score global, phases/pénaltys, refonte compétitions/équipes (FK), matchs 8e/quarts |
-| V43 | Module F1 : `constructors`, `drivers`, `races`, `race_results`, `f1_predictions`, `group_sports`, `bets.race_id`, `competitions.sport` |
-| V44 | Seed saison F1 2026 (écuries, pilotes, calendrier) |
+| V30–V43 | Suppression score global, phases/pénaltys, refonte compétitions/équipes (FK), matchs 8e/quarts/demies |
+| V44 | Module F1 : `constructors`, `drivers`, `races`, `race_results`, `f1_predictions`, `group_sports`, `bets.race_id`, `competitions.sport` |
+| V45 | Seed saison F1 2026 (écuries, pilotes, calendrier) |
+| V46 | `races.sprint_date`, `race_results.sprint_position` (points sprint au championnat) |

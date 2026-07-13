@@ -1,4 +1,4 @@
--- V44__f1_seed_2026.sql — Saison F1 2026 : écuries, pilotes, calendrier.
+-- V45__f1_seed_2026.sql — Saison F1 2026 : écuries, pilotes, calendrier.
 --
 -- Seed indicatif (grille et horaires approximatifs, heure de Paris) :
 -- l'admin plateforme peut corriger en base (pgAdmin) ou via l'API admin.
