@@ -34,9 +34,10 @@ public class CompetitionController {
 
     @PostMapping
     @PreAuthorize("hasRole('PLATFORM_ADMIN')")
-    @Operation(summary = "Create a competition (Admin only)")
-    public ResponseEntity<Void> createCompetition(@RequestBody String name) {
-        competitionService.createCompetition(name.trim());
+    @Operation(summary = "Create a competition (Admin only) — sport defaults to FOOT")
+    public ResponseEntity<Void> createCompetition(@RequestBody String name,
+                                                  @RequestParam(required = false) com.pronocore.entity.Sport sport) {
+        competitionService.createCompetition(name.trim(), sport);
         return ResponseEntity.noContent().build();
     }
 

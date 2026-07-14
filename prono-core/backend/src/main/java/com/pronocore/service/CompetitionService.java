@@ -41,9 +41,12 @@ public class CompetitionService {
     }
 
     @Transactional
-    public void createCompetition(String name) {
+    public void createCompetition(String name, com.pronocore.entity.Sport sport) {
         if (competitionRepository.findByName(name).isEmpty()) {
-            competitionRepository.save(Competition.builder().name(name).build());
+            competitionRepository.save(Competition.builder()
+                    .name(name)
+                    .sport(sport != null ? sport : com.pronocore.entity.Sport.FOOT)
+                    .build());
         }
     }
 

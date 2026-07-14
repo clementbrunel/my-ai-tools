@@ -166,9 +166,10 @@ class CompetitionServiceTest {
     void createCompetition_persistsWhenNew() {
         when(competitionRepository.findByName("Copa América 2026")).thenReturn(Optional.empty());
 
-        competitionService.createCompetition("Copa América 2026");
+        competitionService.createCompetition("Copa América 2026", null);
 
-        verify(competitionRepository).save(argThat(c -> "Copa América 2026".equals(c.getName())));
+        verify(competitionRepository).save(argThat(c ->
+                "Copa América 2026".equals(c.getName()) && c.getSport() == com.pronocore.entity.Sport.FOOT));
     }
 
     @Test
@@ -176,7 +177,7 @@ class CompetitionServiceTest {
         when(competitionRepository.findByName("FIFA World Cup 2026"))
                 .thenReturn(Optional.of(COMPETITION_WORLD_CUP));
 
-        competitionService.createCompetition("FIFA World Cup 2026");
+        competitionService.createCompetition("FIFA World Cup 2026", null);
 
         verify(competitionRepository, never()).save(any());
     }

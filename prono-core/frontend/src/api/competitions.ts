@@ -1,9 +1,10 @@
 import apiClient from './axios';
 import type { CompetitionDto, TeamDto } from '../types';
 
-export const createCompetition = async (name: string): Promise<void> => {
+export const createCompetition = async (name: string, sport: 'FOOT' | 'F1' = 'FOOT'): Promise<void> => {
   await apiClient.post('/competitions', name, {
     headers: { 'Content-Type': 'text/plain' },
+    params: { sport },
   });
 };
 

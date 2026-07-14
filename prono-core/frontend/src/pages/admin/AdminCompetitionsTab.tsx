@@ -8,7 +8,12 @@ import {
   setCompetitionTeams,
   findOrCreateTeam,
 } from '../../api/competitions';
-import type { CompetitionDto, TeamDto } from '../../types';
+import type { CompetitionDto, Sport, TeamDto } from '../../types';
+import PillTabs from '../../components/PillTabs';
+
+type SportFilter = 'ALL' | Sport;
+
+const SPORT_ICON: Record<Sport, string> = { FOOT: '⚽', F1: '🏎' };
 
 const AdminCompetitionsTab: React.FC = () => {
   const { showToast } = useToast();
@@ -16,7 +21,9 @@ const AdminCompetitionsTab: React.FC = () => {
   const [competitions, setCompetitions] = useState<CompetitionDto[]>([]);
   const [selectedCompetition, setSelectedCompetition] = useState<CompetitionDto | null>(null);
   const [newCompetitionName, setNewCompetitionName] = useState('');
+  const [newCompetitionSport, setNewCompetitionSport] = useState<Sport>('FOOT');
   const [showNewCompetitionForm, setShowNewCompetitionForm] = useState(false);
+  const [sportFilter, setSportFilter] = useState<SportFilter>('ALL');
 
   const [rosterTeamIds, setRosterTeamIds] = useState<Set<number>>(new Set());
   const [knownTeams, setKnownTeams] = useState<TeamDto[]>([]);
@@ -89,11 +96,24 @@ const AdminCompetitionsTab: React.FC = () => {
     }
   };
 
+  const visibleCompetitions = competitions.filter(
+    (c) => sportFilter === 'ALL' || c.sport === sportFilter,
+  );
+
+  // Keep the selection consistent with the sport filter.
+  useEffect(() => {
+    if (selectedCompetition && sportFilter !== 'ALL' && selectedCompetition.sport !== sportFilter) {
+      const first = competitions.find((c) => c.sport === sportFilter);
+      if (first) loadRoster(first);
+      else setSelectedCompetition(null);
+    }
+  }, [sportFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleCreateCompetition = async (e: React.FormEvent) => {
     e.preventDefault();
     const name = newCompetitionName.trim();
     if (!name || competitions.some((c) => c.name === name)) return;
-    await createCompetition(name);
+    await createCompetition(name, newCompetitionSport);
     const updated = await getCompetitions();
     setCompetitions(updated);
     setNewCompetitionName('');
@@ -108,14 +128,25 @@ const AdminCompetitionsTab: React.FC = () => {
     <div className="space-y-6">
       {/* Competition selector */}
       <div className="card">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
           <h3 className="font-bold text-gray-900 dark:text-white">🏆 Compétitions</h3>
-          <button
-            onClick={() => setShowNewCompetitionForm((v) => !v)}
-            className="btn-secondary text-sm"
-          >
-            ➕ Nouvelle
-          </button>
+          <div className="flex items-center gap-2">
+            <PillTabs
+              options={[
+                ['ALL', 'Tous'],
+                ['FOOT', '⚽ Foot'],
+                ['F1', '🏎 F1'],
+              ]}
+              value={sportFilter}
+              onChange={setSportFilter}
+            />
+            <button
+              onClick={() => setShowNewCompetitionForm((v) => !v)}
+              className="btn-secondary text-sm"
+            >
+              ➕ Nouvelle
+            </button>
+          </div>
         </div>
 
         {showNewCompetitionForm && (
@@ -129,13 +160,22 @@ const AdminCompetitionsTab: React.FC = () => {
               autoFocus
               required
             />
+            <select
+              value={newCompetitionSport}
+              onChange={(e) => setNewCompetitionSport(e.target.value as Sport)}
+              className="input-field !w-auto"
+              title="Sport de la compétition"
+            >
+              <option value="FOOT">⚽ Foot</option>
+              <option value="F1">🏎 F1</option>
+            </select>
             <button type="submit" className="btn-primary whitespace-nowrap">Créer</button>
             <button type="button" onClick={() => setShowNewCompetitionForm(false)} className="btn-secondary">Annuler</button>
           </form>
         )}
 
         <div className="flex flex-wrap gap-2">
-          {competitions.map((c) => (
+          {visibleCompetitions.map((c) => (
             <button
               key={c.id}
               onClick={() => loadRoster(c)}
@@ -145,17 +185,33 @@ const AdminCompetitionsTab: React.FC = () => {
                   : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
               }`}
             >
-              {c.name}
+              {SPORT_ICON[c.sport]} {c.name}
             </button>
           ))}
-          {competitions.length === 0 && (
-            <p className="text-sm text-gray-400">Aucune compétition — créez-en une ci-dessus.</p>
+          {visibleCompetitions.length === 0 && (
+            <p className="text-sm text-gray-400">
+              {competitions.length === 0
+                ? 'Aucune compétition — créez-en une ci-dessus.'
+                : 'Aucune compétition pour ce sport.'}
+            </p>
           )}
         </div>
       </div>
 
-      {/* Team roster */}
-      {selectedCompetition && (
+      {/* F1 competitions: races live in the F1 tab, no team roster */}
+      {selectedCompetition && selectedCompetition.sport === 'F1' && (
+        <div className="card text-center py-8 space-y-2">
+          <div className="text-4xl">🏎</div>
+          <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md mx-auto">
+            <span className="font-semibold text-gray-700 dark:text-gray-200">{selectedCompetition.name}</span> est
+            une compétition F1 : le calendrier, la grille et les résultats se gèrent dans l'onglet
+            <span className="font-semibold"> 🏎 F1</span> (import jolpica ou saisie manuelle).
+          </p>
+        </div>
+      )}
+
+      {/* Team roster (football competitions) */}
+      {selectedCompetition && selectedCompetition.sport !== 'F1' && (
         <div className="card">
           <div className="flex items-center justify-between mb-1">
             <h3 className="font-bold text-gray-900 dark:text-white">
