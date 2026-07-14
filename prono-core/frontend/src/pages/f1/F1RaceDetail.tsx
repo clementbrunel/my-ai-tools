@@ -51,10 +51,10 @@ const emptySlots = (): Slots => ({
 
 const PaddockDriver: React.FC<{
   driver: Driver;
-  placed: boolean;
+  placedCount: number;
   disabled: boolean;
   onTap: () => void;
-}> = ({ driver, placed, disabled, onTap }) => {
+}> = ({ driver, placedCount, disabled, onTap }) => {
   // Placed drivers stay draggable: pole and meilleur tour accept duplicates.
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `paddock-${driver.id}`,
@@ -63,7 +63,7 @@ const PaddockDriver: React.FC<{
   });
   return (
     <div ref={setNodeRef} {...listeners} {...attributes} className={isDragging ? 'opacity-30' : ''}>
-      <DriverChip driver={driver} placed={placed} onClick={disabled ? undefined : onTap} />
+      <DriverChip driver={driver} placedCount={placedCount} onClick={disabled ? undefined : onTap} />
     </div>
   );
 };
@@ -222,10 +222,14 @@ const F1RaceDetail: React.FC = () => {
   const finished = race?.status === 'FINISHED';
   const readOnly = raceLocked || finished || !race?.openInUserGroups;
 
-  const placedIds = useMemo(
-    () => new Set(Object.values(slots).filter(Boolean).map((d) => d!.id)),
-    [slots],
-  );
+  // Times each driver is used across the six picks — shown on the paddock chips.
+  const placedCounts = useMemo(() => {
+    const counts = new Map<number, number>();
+    for (const driver of Object.values(slots)) {
+      if (driver) counts.set(driver.id, (counts.get(driver.id) ?? 0) + 1);
+    }
+    return counts;
+  }, [slots]);
 
   const isSlotLocked = (slot: SlotKey) => readOnly || (slot === 'pole' && poleLocked);
 
@@ -421,7 +425,7 @@ const F1RaceDetail: React.FC = () => {
                   <PaddockDriver
                     key={driver.id}
                     driver={driver}
-                    placed={placedIds.has(driver.id)}
+                    placedCount={placedCounts.get(driver.id) ?? 0}
                     disabled={readOnly}
                     onTap={() => handleTapDriver(driver)}
                   />
