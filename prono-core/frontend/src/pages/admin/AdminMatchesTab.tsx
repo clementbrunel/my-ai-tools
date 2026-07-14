@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useToast } from '../../components/Toast';
 import { getMatches, createMatch, updateMatchScore, deleteMatch, forceSettleMatch } from '../../api/matches';
 import { getCompetitions as fetchAllCompetitions, getCompetitionTeams } from '../../api/competitions';
@@ -9,6 +9,10 @@ import ScrollableTableWrapper from '../../components/ScrollableTableWrapper';
 import ScoreInput from '../../components/ScoreInput';
 import ConfirmModal from '../../components/ConfirmModal';
 import { KNOCKOUT_ROUNDS } from '../../utils/bracket';
+
+type StatusFilter = 'TO_RESOLVE' | 'ALL' | 'UPCOMING' | 'ONGOING' | 'FINISHED';
+
+const PAGE_SIZE = 20;
 
 const AdminMatchesTab: React.FC = () => {
   const { showToast } = useToast();
@@ -37,6 +41,35 @@ const AdminMatchesTab: React.FC = () => {
     title: string; message: string; confirmLabel?: string;
     variant?: 'danger' | 'default'; onConfirm: () => void;
   } | null>(null);
+
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('TO_RESOLVE');
+  const [competitionFilter, setCompetitionFilter] = useState<number | 'ALL'>('ALL');
+  const [searchText, setSearchText] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const filteredMatches = useMemo(() => {
+    return matches.filter((m) => {
+      if (statusFilter === 'TO_RESOLVE' && m.status === 'FINISHED') return false;
+      if (statusFilter !== 'TO_RESOLVE' && statusFilter !== 'ALL' && m.status !== statusFilter) return false;
+      if (competitionFilter !== 'ALL' && m.competition?.id !== competitionFilter) return false;
+      if (searchText.trim()) {
+        const q = searchText.trim().toLowerCase();
+        if (!m.teamA.name.toLowerCase().includes(q) && !m.teamB.name.toLowerCase().includes(q)) return false;
+      }
+      return true;
+    });
+  }, [matches, statusFilter, competitionFilter, searchText]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredMatches.length / PAGE_SIZE));
+  const paginatedMatches = filteredMatches.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, competitionFilter, searchText]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -235,6 +268,51 @@ const AdminMatchesTab: React.FC = () => {
         </form>
       </div>
 
+      <div className="card">
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <label className="label text-xs">Statut</label>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+              className="input-field"
+            >
+              <option value="TO_RESOLVE">À résoudre</option>
+              <option value="ALL">Tous</option>
+              <option value="UPCOMING">À venir</option>
+              <option value="ONGOING">En cours</option>
+              <option value="FINISHED">Terminés</option>
+            </select>
+          </div>
+          <div>
+            <label className="label text-xs">Compétition</label>
+            <select
+              value={competitionFilter}
+              onChange={(e) => setCompetitionFilter(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value))}
+              className="input-field"
+            >
+              <option value="ALL">Toutes</option>
+              {competitions.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex-1 min-w-[160px]">
+            <label className="label text-xs">Recherche équipe</label>
+            <input
+              type="text"
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              className="input-field"
+              placeholder="Ex: France, Brésil..."
+            />
+          </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400 pb-2">
+            {filteredMatches.length} match{filteredMatches.length !== 1 ? 's' : ''}
+          </p>
+        </div>
+      </div>
+
       <div className="card overflow-hidden p-0">
         <ScrollableTableWrapper>
           <table className="w-full">
@@ -249,7 +327,14 @@ const AdminMatchesTab: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {matches.map((match) => (
+              {paginatedMatches.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="py-8 text-center text-sm text-gray-400">
+                    Aucun match ne correspond aux filtres.
+                  </td>
+                </tr>
+              )}
+              {paginatedMatches.map((match) => (
                 <tr key={match.id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50">
                   <td className="py-3 px-4 text-sm font-medium text-gray-900 dark:text-white">
                     {match.teamA.name} vs {match.teamB.name}
@@ -303,6 +388,27 @@ const AdminMatchesTab: React.FC = () => {
             </tbody>
           </table>
         </ScrollableTableWrapper>
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 dark:border-gray-700">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="text-xs btn-secondary py-1 px-3 disabled:opacity-50"
+            >
+              ← Précédent
+            </button>
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              Page {currentPage} / {totalPages}
+            </span>
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="text-xs btn-secondary py-1 px-3 disabled:opacity-50"
+            >
+              Suivant →
+            </button>
+          </div>
+        )}
       </div>
 
       {editingMatch && (
