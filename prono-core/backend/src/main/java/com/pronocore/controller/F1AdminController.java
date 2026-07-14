@@ -11,6 +11,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.event.Level;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 /** Platform-admin F1 endpoints — /api/admin/** is guarded by SecurityConfig. */
@@ -24,6 +25,7 @@ public class F1AdminController {
     private final F1SyncService f1SyncService;
 
     @PostMapping("/sync/{season}")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     @Operation(summary = "Import calendar, entry list and results from jolpica-f1, settling finished races")
     @LoggedAt(Level.INFO)
     public ResponseEntity<String> sync(@PathVariable int season) {
@@ -31,6 +33,7 @@ public class F1AdminController {
     }
 
     @PostMapping("/races/{raceId}/results")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     @Operation(summary = "Enter (or correct) the full classification of a race and settle all its bets")
     @LoggedAt(Level.INFO)
     public ResponseEntity<RaceResponse> enterResults(@PathVariable Long raceId,
