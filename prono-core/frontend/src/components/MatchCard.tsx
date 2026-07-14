@@ -2,17 +2,12 @@ import { Link } from 'react-router-dom';
 import type { Match } from '../types';
 import { formatDate, formatTime } from '../utils/dates';
 import { getFlagUrl } from '../utils/countryFlags';
+import { getStatusBadgeText } from '../utils/matchStatus';
 
 interface MatchCardProps {
   match: Match;
   pronoStatus?: 'done' | 'missing';
 }
-
-const statusEmoji: Record<string, string> = {
-  UPCOMING: '📅',
-  ONGOING: '🔴',
-  FINISHED: '✅',
-};
 
 const TeamFlag: React.FC<{ name: string; iso2?: string | null; size?: string }> = ({ name, iso2, size = 'w-8 h-6' }) => {
   const url = getFlagUrl(iso2);
@@ -36,7 +31,7 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, pronoStatus }) => {
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
           <span className={`badge-${match.status.toLowerCase()}`}>
-            {statusEmoji[match.status]} {match.status === 'UPCOMING' ? 'À venir' : match.status === 'ONGOING' ? 'En cours' : 'Terminé'}
+            {getStatusBadgeText(match.status)}
           </span>
           <span className="text-xs text-gray-500 dark:text-gray-400">{match.round}</span>
         </div>

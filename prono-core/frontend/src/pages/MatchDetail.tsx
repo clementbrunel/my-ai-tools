@@ -10,6 +10,7 @@ import { useToast } from '../components/Toast';
 import { useMatches } from '../context/MatchesContext';
 import { getFlagUrl } from '../utils/countryFlags';
 import { computePoints, parseOption } from '../utils/matchCalculations';
+import { getStatusBadgeText } from '../utils/matchStatus';
 import DailyGageCard from '../components/DailyGageCard';
 import ScoreInput from '../components/ScoreInput';
 import Avatar from '../components/Avatar';
@@ -220,11 +221,7 @@ const MatchDetail: React.FC = () => {
         <div className="flex items-center justify-between mb-4">
           <div>
             <span className={`badge-${match.status.toLowerCase()} mr-2`}>
-              {match.status === 'UPCOMING'
-                ? '📅 À venir'
-                : match.status === 'ONGOING'
-                ? '🔴 En cours'
-                : '✅ Terminé'}
+              {getStatusBadgeText(match.status)}
             </span>
             <span className="text-sm text-gray-500 dark:text-gray-400">{match.round}</span>
           </div>
