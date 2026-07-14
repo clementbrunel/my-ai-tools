@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getRaces } from '../../api/f1';
-import { isAdmin } from '../../types';
 import type { Race } from '../../types';
-import { useAuth } from '../../context/AuthContext';
 import { useScrollRestoration } from '../../hooks/useScrollRestoration';
 import { formatDate, formatTime } from '../../utils/dates';
 import { getFlagUrl } from '../../utils/countryFlags';
@@ -136,7 +134,6 @@ const monthLabel = (monthKey: string): string => {
 };
 
 const F1Races: React.FC = () => {
-  const { user } = useAuth();
   const [races, setRaces] = useState<Race[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -188,11 +185,6 @@ const F1Races: React.FC = () => {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="page-title mb-0">🏎 Grands Prix</h1>
-        {isAdmin(user) && (
-          <Link to="/admin" className="btn-primary text-sm">
-            + Résultats
-          </Link>
-        )}
       </div>
 
       {/* Filters + view toggle — same layout as the football matches page */}
