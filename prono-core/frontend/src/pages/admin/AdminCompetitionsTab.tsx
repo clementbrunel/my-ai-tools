@@ -9,21 +9,19 @@ import {
   findOrCreateTeam,
 } from '../../api/competitions';
 import type { CompetitionDto, Sport, TeamDto } from '../../types';
-import PillTabs from '../../components/PillTabs';
 
-type SportFilter = 'ALL' | Sport;
+interface AdminCompetitionsTabProps {
+  /** Sport scope selected at the top of the admin page. */
+  sport: Sport;
+}
 
-const SPORT_ICON: Record<Sport, string> = { FOOT: '⚽', F1: '🏎' };
-
-const AdminCompetitionsTab: React.FC = () => {
+const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) => {
   const { showToast } = useToast();
 
   const [competitions, setCompetitions] = useState<CompetitionDto[]>([]);
   const [selectedCompetition, setSelectedCompetition] = useState<CompetitionDto | null>(null);
   const [newCompetitionName, setNewCompetitionName] = useState('');
-  const [newCompetitionSport, setNewCompetitionSport] = useState<Sport>('FOOT');
   const [showNewCompetitionForm, setShowNewCompetitionForm] = useState(false);
-  const [sportFilter, setSportFilter] = useState<SportFilter>('ALL');
 
   const [rosterTeamIds, setRosterTeamIds] = useState<Set<number>>(new Set());
   const [knownTeams, setKnownTeams] = useState<TeamDto[]>([]);
@@ -38,9 +36,8 @@ const AdminCompetitionsTab: React.FC = () => {
       const [comps, known] = await Promise.all([getCompetitions(), getAllKnownTeams()]);
       setCompetitions(comps);
       setKnownTeams(known);
-      if (comps.length > 0) {
-        await loadRoster(comps[0]);
-      }
+      const first = comps.find((c) => c.sport === sport);
+      if (first) await loadRoster(first);
     })();
   }, []);
 
@@ -96,24 +93,22 @@ const AdminCompetitionsTab: React.FC = () => {
     }
   };
 
-  const visibleCompetitions = competitions.filter(
-    (c) => sportFilter === 'ALL' || c.sport === sportFilter,
-  );
+  const visibleCompetitions = competitions.filter((c) => c.sport === sport);
 
-  // Keep the selection consistent with the sport filter.
+  // Follow the admin-page sport switch.
   useEffect(() => {
-    if (selectedCompetition && sportFilter !== 'ALL' && selectedCompetition.sport !== sportFilter) {
-      const first = competitions.find((c) => c.sport === sportFilter);
+    if (selectedCompetition && selectedCompetition.sport !== sport) {
+      const first = competitions.find((c) => c.sport === sport);
       if (first) loadRoster(first);
       else setSelectedCompetition(null);
     }
-  }, [sportFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sport]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCreateCompetition = async (e: React.FormEvent) => {
     e.preventDefault();
     const name = newCompetitionName.trim();
     if (!name || competitions.some((c) => c.name === name)) return;
-    await createCompetition(name, newCompetitionSport);
+    await createCompetition(name, sport);
     const updated = await getCompetitions();
     setCompetitions(updated);
     setNewCompetitionName('');
@@ -129,24 +124,15 @@ const AdminCompetitionsTab: React.FC = () => {
       {/* Competition selector */}
       <div className="card">
         <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-          <h3 className="font-bold text-gray-900 dark:text-white">🏆 Compétitions</h3>
-          <div className="flex items-center gap-2">
-            <PillTabs
-              options={[
-                ['ALL', 'Tous'],
-                ['FOOT', '⚽ Foot'],
-                ['F1', '🏎 F1'],
-              ]}
-              value={sportFilter}
-              onChange={setSportFilter}
-            />
-            <button
-              onClick={() => setShowNewCompetitionForm((v) => !v)}
-              className="btn-secondary text-sm"
-            >
-              ➕ Nouvelle
-            </button>
-          </div>
+          <h3 className="font-bold text-gray-900 dark:text-white">
+            🏆 Compétitions {sport === 'F1' ? '🏎' : '⚽'}
+          </h3>
+          <button
+            onClick={() => setShowNewCompetitionForm((v) => !v)}
+            className="btn-secondary text-sm"
+          >
+            ➕ Nouvelle
+          </button>
         </div>
 
         {showNewCompetitionForm && (
@@ -156,20 +142,13 @@ const AdminCompetitionsTab: React.FC = () => {
               value={newCompetitionName}
               onChange={(e) => setNewCompetitionName(e.target.value)}
               className="input-field flex-1"
-              placeholder="Ex: FIFA World Cup 2026"
+              placeholder={sport === 'F1' ? 'Ex: Formule 1 2027' : 'Ex: FIFA World Cup 2026'}
               autoFocus
               required
             />
-            <select
-              value={newCompetitionSport}
-              onChange={(e) => setNewCompetitionSport(e.target.value as Sport)}
-              className="input-field !w-auto"
-              title="Sport de la compétition"
-            >
-              <option value="FOOT">⚽ Foot</option>
-              <option value="F1">🏎 F1</option>
-            </select>
-            <button type="submit" className="btn-primary whitespace-nowrap">Créer</button>
+            <button type="submit" className="btn-primary whitespace-nowrap">
+              Créer ({sport === 'F1' ? '🏎 F1' : '⚽ Foot'})
+            </button>
             <button type="button" onClick={() => setShowNewCompetitionForm(false)} className="btn-secondary">Annuler</button>
           </form>
         )}
@@ -185,15 +164,11 @@ const AdminCompetitionsTab: React.FC = () => {
                   : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
               }`}
             >
-              {SPORT_ICON[c.sport]} {c.name}
+              {c.name}
             </button>
           ))}
           {visibleCompetitions.length === 0 && (
-            <p className="text-sm text-gray-400">
-              {competitions.length === 0
-                ? 'Aucune compétition — créez-en une ci-dessus.'
-                : 'Aucune compétition pour ce sport.'}
-            </p>
+            <p className="text-sm text-gray-400">Aucune compétition pour ce sport — créez-en une ci-dessus.</p>
           )}
         </div>
       </div>
