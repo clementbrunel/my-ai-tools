@@ -10,6 +10,7 @@ import { useToast } from '../components/Toast';
 import { useMatches } from '../context/MatchesContext';
 import { getFlagUrl } from '../utils/countryFlags';
 import { computePoints, parseOption } from '../utils/matchCalculations';
+import { getStatusBadgeText } from '../utils/matchStatus';
 import DailyGageCard from '../components/DailyGageCard';
 import ScoreInput from '../components/ScoreInput';
 import Avatar from '../components/Avatar';
@@ -220,11 +221,7 @@ const MatchDetail: React.FC = () => {
         <div className="flex items-center justify-between mb-4">
           <div>
             <span className={`badge-${match.status.toLowerCase()} mr-2`}>
-              {match.status === 'UPCOMING'
-                ? '📅 À venir'
-                : match.status === 'ONGOING'
-                ? '🔴 En cours'
-                : '✅ Terminé'}
+              {getStatusBadgeText(match.status)}
             </span>
             <span className="text-sm text-gray-500 dark:text-gray-400">{match.round}</span>
           </div>
@@ -233,14 +230,14 @@ const MatchDetail: React.FC = () => {
 
         {/* Teams & Score */}
         <div className="flex items-center justify-between gap-4 py-6">
-          <div className="flex-1 text-center">
+          <Link to={`/foot/teams/${match.teamA.id}`} className="flex-1 text-center hover:opacity-80">
             <div className="flex justify-center mb-3">
               {getFlagUrl(match.teamA.iso2)
                 ? <img src={getFlagUrl(match.teamA.iso2)!} alt={match.teamA.name} className="w-16 h-12 object-contain rounded shadow" />
                 : <span className="text-5xl">🏳️</span>}
             </div>
-            <div className="text-2xl font-black text-gray-900 dark:text-white">{match.teamA.name}</div>
-          </div>
+            <div className="text-2xl font-black text-gray-900 dark:text-white hover:underline">{match.teamA.name}</div>
+          </Link>
 
           <div className="text-center">
             {match.status !== 'UPCOMING' ? (
@@ -267,14 +264,14 @@ const MatchDetail: React.FC = () => {
             )}
           </div>
 
-          <div className="flex-1 text-center">
+          <Link to={`/foot/teams/${match.teamB.id}`} className="flex-1 text-center hover:opacity-80">
             <div className="flex justify-center mb-3">
               {getFlagUrl(match.teamB.iso2)
                 ? <img src={getFlagUrl(match.teamB.iso2)!} alt={match.teamB.name} className="w-16 h-12 object-contain rounded shadow" />
                 : <span className="text-5xl">🏳️</span>}
             </div>
-            <div className="text-2xl font-black text-gray-900 dark:text-white">{match.teamB.name}</div>
-          </div>
+            <div className="text-2xl font-black text-gray-900 dark:text-white hover:underline">{match.teamB.name}</div>
+          </Link>
         </div>
 
       </div>
