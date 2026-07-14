@@ -8,7 +8,9 @@ import {
   setCompetitionTeams,
   findOrCreateTeam,
 } from '../../api/competitions';
-import type { CompetitionDto, Sport, TeamDto } from '../../types';
+import { getDrivers } from '../../api/f1';
+import type { CompetitionDto, Driver, Sport, TeamDto } from '../../types';
+import MiniF1Car from '../../components/f1/MiniF1Car';
 
 interface AdminCompetitionsTabProps {
   /** Sport scope selected at the top of the admin page. */
@@ -29,6 +31,7 @@ const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) =>
   const [isSaving, setIsSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [isLoadingTeams, setIsLoadingTeams] = useState(false);
+  const [f1Drivers, setF1Drivers] = useState<Driver[] | null>(null);
   const loadingForRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -94,6 +97,13 @@ const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) =>
   };
 
   const visibleCompetitions = competitions.filter((c) => c.sport === sport);
+
+  // Load the F1 entry list once an F1 competition is shown.
+  useEffect(() => {
+    if (selectedCompetition?.sport === 'F1' && f1Drivers === null) {
+      getDrivers().then(setF1Drivers).catch(() => setF1Drivers([]));
+    }
+  }, [selectedCompetition, f1Drivers]);
 
   // Follow the admin-page sport switch.
   useEffect(() => {
@@ -173,15 +183,54 @@ const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) =>
         </div>
       </div>
 
-      {/* F1 competitions: races live in the F1 tab, no team roster */}
+      {/* F1 competitions: the entry list (drivers per constructor) is the roster */}
       {selectedCompetition && selectedCompetition.sport === 'F1' && (
-        <div className="card text-center py-8 space-y-2">
-          <div className="text-4xl">🏎</div>
-          <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md mx-auto">
-            <span className="font-semibold text-gray-700 dark:text-gray-200">{selectedCompetition.name}</span> est
-            une compétition F1 : le calendrier, la grille et les résultats se gèrent dans l'onglet
-            <span className="font-semibold"> 🏎 F1</span> (import jolpica ou saisie manuelle).
+        <div className="card">
+          <div className="flex items-center justify-between mb-1">
+            <h3 className="font-bold text-gray-900 dark:text-white">
+              Pilotes engagés — <span className="text-wc-green">{selectedCompetition.name}</span>
+            </h3>
+            <span className="text-sm text-gray-500">
+              {f1Drivers ? `${f1Drivers.length} pilote${f1Drivers.length > 1 ? 's' : ''}` : ''}
+            </span>
+          </div>
+          <p className="text-xs text-gray-400 mb-4">
+            Grille mise à jour par l'import jolpica (onglet 🏁 Courses) — calendrier et résultats s'y gèrent aussi.
           </p>
+
+          {f1Drivers === null ? (
+            <p className="text-sm text-gray-400">Chargement de la grille…</p>
+          ) : f1Drivers.length === 0 ? (
+            <p className="text-sm text-gray-400">
+              Aucun pilote — lance l'import jolpica depuis l'onglet 🏁 Courses pour charger la grille.
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {[...new Map(f1Drivers.map((d) => [d.constructorId, d])).values()].map((ref) => (
+                <div key={ref.constructorId} className="rounded-lg border border-gray-100 dark:border-gray-800 p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="w-1.5 h-5 rounded" style={{ backgroundColor: ref.constructorColor }} />
+                    <span className="font-bold text-sm text-gray-900 dark:text-white">{ref.constructorName}</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {f1Drivers
+                      .filter((d) => d.constructorId === ref.constructorId)
+                      .map((driver) => (
+                        <div key={driver.id} className="flex items-center gap-2 text-sm">
+                          <MiniF1Car color={driver.constructorColor} size={26} />
+                          <span className="font-medium text-gray-900 dark:text-white flex-1 truncate">
+                            {driver.name}
+                          </span>
+                          <span className="text-xs font-bold text-gray-400">
+                            {driver.code} · #{driver.number}
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
