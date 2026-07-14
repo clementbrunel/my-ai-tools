@@ -5,13 +5,14 @@ import { isAdmin } from '../types';
 import type { Match } from '../types';
 import MatchCard from '../components/MatchCard';
 import MatchRow from '../components/MatchRow';
+import BracketView from '../components/BracketView';
 import NoGroupBanner from '../components/NoGroupBanner';
 import { useAuth } from '../context/AuthContext';
 import { useMatches } from '../context/MatchesContext';
 import { formatDate } from '../utils/dates';
 
 type FilterStatus = 'ALL' | 'UPCOMING' | 'FINISHED';
-type ViewMode = 'grid' | 'list';
+type ViewMode = 'grid' | 'list' | 'bracket';
 
 const Matches: React.FC = () => {
   const { user } = useAuth();
@@ -92,7 +93,7 @@ const Matches: React.FC = () => {
         </div>
         <div className="flex items-center justify-between gap-2">
           <div className="flex gap-1 min-w-0">
-            {filters.map((f) => (
+            {viewMode !== 'bracket' && filters.map((f) => (
               <button
                 key={f.value}
                 onClick={() => setFilter(f.value)}
@@ -140,17 +141,32 @@ const Matches: React.FC = () => {
                 <line x1="3" y1="18" x2="21" y2="18" />
               </svg>
             </button>
+            <button
+              onClick={() => setViewMode('bracket')}
+              title="Vue tableau final"
+              className={`p-1.5 rounded-md transition-colors ${
+                viewMode === 'bracket'
+                  ? 'bg-white dark:bg-gray-600 shadow text-wc-green'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+              }`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 5h4v4H4V5zm0 10h4v4H4v-4zM8 7h4m0 0h4v4h-4V7zm0 0v10m0 0h4m-4-5h4m4-5v10" />
+              </svg>
+            </button>
           </div>
         </div>
         </div>
       )}
 
-      {/* Matches grouped by day */}
+      {/* Bracket view — full knockout tree, ignores day grouping and status filter */}
       {isLoading ? (
         <div className="text-center py-12">
           <div className="text-5xl animate-bounce-slow">⚽</div>
           <p className="text-gray-500 mt-3">Chargement...</p>
         </div>
+      ) : hasGroups && viewMode === 'bracket' ? (
+        <BracketView matches={matches} highlight={search} />
       ) : hasGroups && sortedDays.length > 0 ? (
         <div className="space-y-8">
           {sortedDays.map((day) => {
