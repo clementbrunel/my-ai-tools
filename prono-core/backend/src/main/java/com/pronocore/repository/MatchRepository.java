@@ -21,6 +21,13 @@ public interface MatchRepository extends JpaRepository<Match, Long> {
     @Query("SELECT m FROM Match m JOIN FETCH m.teamA JOIN FETCH m.teamB JOIN FETCH m.competition WHERE m.competition.id = :competitionId ORDER BY m.matchDate ASC")
     List<Match> findByCompetition_IdOrderByMatchDateAsc(@Param("competitionId") Long competitionId);
 
+    @Query("""
+            SELECT m FROM Match m JOIN FETCH m.teamA JOIN FETCH m.teamB JOIN FETCH m.competition
+            WHERE m.teamA.id = :teamId OR m.teamB.id = :teamId
+            ORDER BY m.matchDate DESC
+            """)
+    List<Match> findByTeam_IdOrderByMatchDateDesc(@Param("teamId") Long teamId);
+
     /** All matches whose kick-off falls on the same calendar day as [startOfDay, endOfDay). */
     @Query("SELECT m FROM Match m WHERE m.matchDate >= :startOfDay AND m.matchDate < :endOfDay")
     List<Match> findByMatchDay(@Param("startOfDay") LocalDateTime startOfDay,

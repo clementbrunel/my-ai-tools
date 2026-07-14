@@ -17,6 +17,7 @@ import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
 import Matches from './pages/Matches';
 import MatchDetail from './pages/MatchDetail';
+import TeamDetail from './pages/TeamDetail';
 import Leaderboard from './pages/Leaderboard';
 import Profile from './pages/Profile';
 import Admin from './pages/Admin';
@@ -70,6 +71,7 @@ function App() {
                           <Route path="/foot" element={<Dashboard />} />
                           <Route path="/foot/matches" element={<Matches />} />
                           <Route path="/foot/matches/:id" element={<MatchDetail />} />
+                          <Route path="/foot/teams/:id" element={<TeamDetail />} />
                           <Route path="/foot/leaderboard" element={<Leaderboard />} />
                           <Route path="/foot/gages" element={<Gages />} />
                           <Route path="/foot/open-betting" element={<OpenBetting />} />
