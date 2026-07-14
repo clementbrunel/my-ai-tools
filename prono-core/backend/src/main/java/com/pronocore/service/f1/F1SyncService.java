@@ -159,6 +159,7 @@ public class F1SyncService {
 
         for (Race race : localRaces) {
             if (race.getStatus() == Race.Status.FINISHED) continue;
+            throttle();
 
             JsonNode raceNode = read(season + "/" + race.getRound() + "/results.json?limit=40")
                     .path("MRData").path("RaceTable").path("Races");
@@ -206,6 +207,15 @@ public class F1SyncService {
             }
         }
         return positions;
+    }
+
+    /** ~3 calls per round; a small pause keeps bursts under jolpica's rate limit. */
+    private void throttle() {
+        try {
+            Thread.sleep(300);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private String fetchPoleDriverCode(int season, int round) {
@@ -270,7 +280,9 @@ public class F1SyncService {
         try {
             return objectMapper.readTree(jolpicaClient.get(path));
         } catch (Exception e) {
-            throw new IllegalStateException("jolpica call failed: " + path, e);
+            throw new IllegalStateException(
+                    "Appel jolpica en échec (" + path + ") : "
+                    + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()), e);
         }
     }
 

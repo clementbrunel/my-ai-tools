@@ -46,7 +46,9 @@ const GroupPage: React.FC = () => {
       setCreateName('');
       setCreateDesc('');
       setCreateSports(['FOOT']);
-      navigate('/foot/open-betting');
+      navigate(createSports.includes('F1') && !createSports.includes('FOOT')
+        ? '/f1/open-betting'
+        : '/foot/open-betting');
     } catch {
       setError('Erreur lors de la création du groupe');
     }

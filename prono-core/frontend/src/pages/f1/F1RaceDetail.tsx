@@ -24,6 +24,16 @@ type Slots = Record<SlotKey, Driver | null>;
 
 const SLOT_ORDER: SlotKey[] = ['p1', 'p2', 'p3', 'pole', 'fastestLap', 'last'];
 
+/**
+ * Slots sharing a domain are mutually exclusive for a same driver
+ * (podium + lanterne rouge). Pole and meilleur tour are independent:
+ * the same driver can hold them on top of a podium spot.
+ */
+const SLOT_DOMAIN: Record<SlotKey, 'result' | 'pole' | 'fastestLap'> = {
+  p1: 'result', p2: 'result', p3: 'result', last: 'result',
+  pole: 'pole', fastestLap: 'fastestLap',
+};
+
 const SLOT_META: Record<SlotKey, { label: string; icon: string; points: string }> = {
   p1: { label: 'Vainqueur', icon: '🥇', points: '3 pts' },
   p2: { label: '2e', icon: '🥈', points: '2 pts' },
@@ -41,18 +51,19 @@ const emptySlots = (): Slots => ({
 
 const PaddockDriver: React.FC<{
   driver: Driver;
-  used: boolean;
+  placed: boolean;
   disabled: boolean;
   onTap: () => void;
-}> = ({ driver, used, disabled, onTap }) => {
+}> = ({ driver, placed, disabled, onTap }) => {
+  // Placed drivers stay draggable: pole and meilleur tour accept duplicates.
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `paddock-${driver.id}`,
     data: { driverId: driver.id },
-    disabled: disabled || used,
+    disabled,
   });
   return (
     <div ref={setNodeRef} {...listeners} {...attributes} className={isDragging ? 'opacity-30' : ''}>
-      <DriverChip driver={driver} used={used} onClick={disabled || used ? undefined : onTap} />
+      <DriverChip driver={driver} placed={placed} onClick={disabled ? undefined : onTap} />
     </div>
   );
 };
@@ -211,7 +222,7 @@ const F1RaceDetail: React.FC = () => {
   const finished = race?.status === 'FINISHED';
   const readOnly = raceLocked || finished || !race?.openInUserGroups;
 
-  const usedIds = useMemo(
+  const placedIds = useMemo(
     () => new Set(Object.values(slots).filter(Boolean).map((d) => d!.id)),
     [slots],
   );
@@ -222,9 +233,13 @@ const F1RaceDetail: React.FC = () => {
     if (isSlotLocked(slot)) return;
     setSlots((prev) => {
       const next = { ...prev };
-      // If the driver already sits on another (unlocked) slot, vacate it.
+      // Vacate the driver only within the same conflict domain — the same
+      // pilot may hold pole and/or meilleur tour on top of a podium spot.
       for (const key of SLOT_ORDER) {
-        if (next[key]?.id === driver.id && !isSlotLocked(key)) next[key] = null;
+        if (key !== slot && SLOT_DOMAIN[key] === SLOT_DOMAIN[slot]
+            && next[key]?.id === driver.id && !isSlotLocked(key)) {
+          next[key] = null;
+        }
       }
       next[slot] = driver;
       return next;
@@ -233,7 +248,13 @@ const F1RaceDetail: React.FC = () => {
   };
 
   const handleTapDriver = (driver: Driver) => {
-    const target = armedSlot ?? SLOT_ORDER.find((key) => !slots[key] && !isSlotLocked(key));
+    // Armed slot wins; otherwise fill the first empty slot the driver may take.
+    const target = armedSlot ?? SLOT_ORDER.find((key) => {
+      if (slots[key] || isSlotLocked(key)) return false;
+      if (SLOT_DOMAIN[key] !== 'result') return true;
+      return !SLOT_ORDER.some((other) =>
+        SLOT_DOMAIN[other] === 'result' && slots[other]?.id === driver.id);
+    });
     if (target) assign(target, driver);
   };
 
@@ -254,10 +275,15 @@ const F1RaceDetail: React.FC = () => {
     if (!driver) return;
 
     if (fromSlot && fromSlot !== targetSlot) {
-      // Moving between slots: swap occupants.
       if (isSlotLocked(fromSlot)) return;
-      setSlots((prev) => ({ ...prev, [fromSlot]: prev[targetSlot], [targetSlot]: driver }));
-      setArmedSlot(null);
+      if (SLOT_DOMAIN[fromSlot] === SLOT_DOMAIN[targetSlot]) {
+        // Same domain: swap occupants.
+        setSlots((prev) => ({ ...prev, [fromSlot]: prev[targetSlot], [targetSlot]: driver }));
+        setArmedSlot(null);
+      } else {
+        // Across domains (podium → pole…): copy, the source keeps its driver.
+        assign(targetSlot, driver);
+      }
     } else if (!fromSlot) {
       assign(targetSlot, driver);
     }
@@ -353,7 +379,7 @@ const F1RaceDetail: React.FC = () => {
             </h2>
             {!readOnly && (
               <span className="text-xs text-gray-400">
-                Glisse une F1 sur un slot — ou touche un slot puis un pilote
+                Glisse une F1 sur un slot (ou touche un slot puis un pilote) — un même pilote peut cumuler podium, pole et meilleur tour
               </span>
             )}
           </div>
@@ -395,7 +421,7 @@ const F1RaceDetail: React.FC = () => {
                   <PaddockDriver
                     key={driver.id}
                     driver={driver}
-                    used={usedIds.has(driver.id)}
+                    placed={placedIds.has(driver.id)}
                     disabled={readOnly}
                     onTap={() => handleTapDriver(driver)}
                   />
