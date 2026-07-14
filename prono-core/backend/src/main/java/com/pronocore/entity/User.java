@@ -61,6 +61,10 @@ public class User {
     @Builder.Default
     private boolean emailGageEnabled = false;
 
+    @Column(name = "email_newsletter_enabled", nullable = false)
+    @Builder.Default
+    private boolean emailNewsletterEnabled = true;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

@@ -32,6 +32,7 @@ export const makeUser = (overrides?: Partial<User>): User => ({
   role: 'USER',
   emailReminderEnabled: false,
   emailGageEnabled: false,
+  emailNewsletterEnabled: true,
   ...overrides,
 });
 

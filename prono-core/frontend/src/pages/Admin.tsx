@@ -10,8 +10,9 @@ import AdminForfeitsTab from './admin/AdminForfeitsTab';
 import AdminUsersTab from './admin/AdminUsersTab';
 import AdminEmailsTab from './admin/AdminEmailsTab';
 import AdminF1Tab from './admin/AdminF1Tab';
+import AdminNewslettersTab from './admin/AdminNewslettersTab';
 
-type AdminTab = 'competitions' | 'events' | 'forfeits' | 'users' | 'emails';
+type AdminTab = 'competitions' | 'events' | 'forfeits' | 'users' | 'emails' | 'newsletters';
 
 const Admin: React.FC = () => {
   const { user } = useAuth();
@@ -35,6 +36,7 @@ const Admin: React.FC = () => {
     { id: 'forfeits', label: '🃏 Gages' },
     { id: 'users', label: '👥 Utilisateurs' },
     { id: 'emails', label: '📧 Emails' },
+    { id: 'newsletters', label: '📣 Newsletters' },
   ];
 
   return (
@@ -101,6 +103,7 @@ const Admin: React.FC = () => {
       {activeTab === 'forfeits' && <AdminForfeitsTab />}
       {activeTab === 'users' && <AdminUsersTab />}
       {activeTab === 'emails' && <AdminEmailsTab />}
+      {activeTab === 'newsletters' && <AdminNewslettersTab />}
     </div>
   );
 };

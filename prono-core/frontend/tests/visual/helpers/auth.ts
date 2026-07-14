@@ -26,6 +26,7 @@ export const TEST_USER = {
   forfeitsReceived: 2,
   emailReminderEnabled: false,
   emailGageEnabled: false,
+  emailNewsletterEnabled: true,
 };
 
 export async function injectAuth(context: BrowserContext): Promise<void> {
