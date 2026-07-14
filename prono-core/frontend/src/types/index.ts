@@ -107,6 +107,12 @@ export interface Match {
   userParticipated?: boolean;
 }
 
+export interface Team {
+  id: number;
+  name: string;
+  iso2: string | null;
+}
+
 export interface CreateMatchRequest {
   teamAId: number;
   teamBId: number;
