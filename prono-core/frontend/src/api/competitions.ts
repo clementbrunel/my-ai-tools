@@ -1,11 +1,9 @@
 import apiClient from './axios';
-import type { CompetitionDto, TeamDto } from '../types';
+import type { CompetitionDto, Sport, TeamDto } from '../types';
 
-export const createCompetition = async (name: string, sport: 'FOOT' | 'F1' = 'FOOT'): Promise<void> => {
-  await apiClient.post('/competitions', name, {
-    headers: { 'Content-Type': 'text/plain' },
-    params: { sport },
-  });
+/** The sport is required — competitions are always created in an explicit sport. */
+export const createCompetition = async (name: string, sport: Sport): Promise<void> => {
+  await apiClient.post('/competitions', { name, sport });
 };
 
 export const getCompetitions = async (): Promise<CompetitionDto[]> => {

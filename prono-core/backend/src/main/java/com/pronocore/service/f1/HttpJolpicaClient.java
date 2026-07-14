@@ -15,7 +15,7 @@ public class HttpJolpicaClient implements JolpicaClient {
 
     private final RestClient restClient;
 
-    public HttpJolpicaClient(@Value("${f1.jolpica.base-url:https://api.jolpi.ca/ergast/f1}") String baseUrl) {
+    public HttpJolpicaClient(@Value("${f1.jolpica.base-url}") String baseUrl) {
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(Duration.ofSeconds(10));
         requestFactory.setReadTimeout(Duration.ofSeconds(20));

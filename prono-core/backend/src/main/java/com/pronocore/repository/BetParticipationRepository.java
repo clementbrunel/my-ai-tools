@@ -3,6 +3,7 @@ package com.pronocore.repository;
 import com.pronocore.entity.Bet;
 import com.pronocore.entity.BetParticipation;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -40,7 +41,7 @@ public interface BetParticipationRepository extends JpaRepository<BetParticipati
 
     Optional<BetParticipation> findByBetIdAndUserId(Long betId, Long userId);
 
-    @org.springframework.data.jpa.repository.Modifying
+    @Modifying
     @Query("DELETE FROM BetParticipation bp WHERE bp.bet.id = :betId")
     void deleteByBetId(@Param("betId") Long betId);
 

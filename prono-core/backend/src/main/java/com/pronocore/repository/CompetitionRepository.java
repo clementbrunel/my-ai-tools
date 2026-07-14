@@ -1,6 +1,7 @@
 package com.pronocore.repository;
 
 import com.pronocore.entity.Competition;
+import com.pronocore.entity.Sport;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -14,5 +15,5 @@ public interface CompetitionRepository extends JpaRepository<Competition, Long> 
 
     List<Competition> findAllByOrderByNameAsc();
 
-    Optional<Competition> findFirstBySportOrderByIdDesc(com.pronocore.entity.Sport sport);
+    Optional<Competition> findFirstBySportOrderByIdDesc(Sport sport);
 }

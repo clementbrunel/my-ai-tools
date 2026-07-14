@@ -3,6 +3,7 @@ package com.pronocore.service;
 import com.pronocore.dto.request.EnterRaceResultsRequest;
 import com.pronocore.dto.request.F1PredictionRequest;
 import com.pronocore.dto.response.*;
+import com.pronocore.mapper.BetMapper;
 import com.pronocore.entity.*;
 import com.pronocore.repository.*;
 import jakarta.persistence.EntityNotFoundException;
@@ -40,7 +41,7 @@ public class F1RaceService {
     private final GroupMemberGuard groupMemberGuard;
     private final CompetitionRepository competitionRepository;
     private final DailyGageService dailyGageService;
-    private final com.pronocore.mapper.BetMapper betMapper;
+    private final BetMapper betMapper;
 
     // ---------------------------------------------------------------
     // Scoring constants — formule "Podium +" (additive, max 14)

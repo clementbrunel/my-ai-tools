@@ -17,6 +17,7 @@ import type { Driver, F1Prediction, Race } from '../../types';
 import { formatDate, formatTime } from '../../utils/dates';
 import { getFlagUrl } from '../../utils/countryFlags';
 import { useToast } from '../../components/Toast';
+import { computeF1Verdicts } from '../../utils/f1Calculations';
 import MiniF1Car from '../../components/f1/MiniF1Car';
 import DriverChip from '../../components/f1/DriverChip';
 
@@ -136,47 +137,6 @@ const Slot: React.FC<{
     </div>
   );
 };
-
-// ── Results helpers ────────────────────────────────────────────────────────
-
-interface PickVerdict { points: number; correct: boolean; partial: boolean }
-
-function verdicts(prediction: F1Prediction, race: Race): Record<SlotKey, PickVerdict> | null {
-  const results = race.results;
-  if (!results || results.length === 0) return null;
-  const byPos = new Map<number, number>();
-  let pole: number | null = null;
-  let fastest: number | null = null;
-  let last: number | null = null;
-  let maxPos = -1;
-  for (const r of results) {
-    if (r.position != null) {
-      byPos.set(r.position, r.driver.id);
-      if (r.position > maxPos) { maxPos = r.position; last = r.driver.id; }
-    }
-    if (r.pole) pole = r.driver.id;
-    if (r.fastestLap) fastest = r.driver.id;
-  }
-  const podium = [byPos.get(1), byPos.get(2), byPos.get(3)];
-  const podiumVerdict = (picked: Driver | null, slot: 1 | 2 | 3, exact: number): PickVerdict => {
-    if (!picked) return { points: 0, correct: false, partial: false };
-    if (byPos.get(slot) === picked.id) return { points: exact, correct: true, partial: false };
-    if (podium.includes(picked.id)) return { points: 1, correct: false, partial: true };
-    return { points: 0, correct: false, partial: false };
-  };
-  const simple = (picked: Driver | null, actual: number | null, pts: number): PickVerdict =>
-    picked && actual === picked.id
-      ? { points: pts, correct: true, partial: false }
-      : { points: 0, correct: false, partial: false };
-  return {
-    p1: podiumVerdict(prediction.p1, 1, 3),
-    p2: podiumVerdict(prediction.p2, 2, 2),
-    p3: podiumVerdict(prediction.p3, 3, 2),
-    pole: simple(prediction.pole, pole, 2),
-    fastestLap: simple(prediction.fastestLap, fastest, 1),
-    last: simple(prediction.lastClassified, last, 2),
-  };
-}
 
 // ── Page ───────────────────────────────────────────────────────────────────
 
@@ -336,7 +296,7 @@ const F1RaceDetail: React.FC = () => {
   }
 
   const flag = getFlagUrl(race.countryIso2?.toLowerCase());
-  const pickVerdicts = finished && myPrediction ? verdicts(myPrediction, race) : null;
+  const pickVerdicts = finished && myPrediction ? computeF1Verdicts(myPrediction, race) : null;
   // The credited total comes from the backend — verdicts only drive the per-slot chips.
   const totalPoints = finished && myPrediction ? myPrediction.pointsEarned : null;
 

@@ -3,6 +3,7 @@ package com.pronocore.service;
 import com.pronocore.dto.response.CompetitionResponse;
 import com.pronocore.dto.response.TeamResponse;
 import com.pronocore.entity.Competition;
+import com.pronocore.entity.Sport;
 import com.pronocore.entity.Team;
 import com.pronocore.repository.CompetitionRepository;
 import com.pronocore.repository.TeamRepository;
@@ -41,11 +42,11 @@ public class CompetitionService {
     }
 
     @Transactional
-    public void createCompetition(String name, com.pronocore.entity.Sport sport) {
+    public void createCompetition(String name, Sport sport) {
         if (competitionRepository.findByName(name).isEmpty()) {
             competitionRepository.save(Competition.builder()
                     .name(name)
-                    .sport(sport != null ? sport : com.pronocore.entity.Sport.FOOT)
+                    .sport(sport)
                     .build());
         }
     }

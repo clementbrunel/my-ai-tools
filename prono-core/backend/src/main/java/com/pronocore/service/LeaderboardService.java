@@ -1,6 +1,7 @@
 package com.pronocore.service;
 
 import com.pronocore.dto.response.LeaderboardEntryResponse;
+import com.pronocore.entity.Sport;
 import com.pronocore.entity.User;
 import com.pronocore.mapper.UserMapper;
 import com.pronocore.repository.BetParticipationRepository;
@@ -32,12 +33,12 @@ public class LeaderboardService {
 
     /** sport = null → all points combined; FOOT/F1 → only that sport's bets. */
     @Transactional(readOnly = true)
-    public List<LeaderboardEntryResponse> getGroupLeaderboard(Long groupId, com.pronocore.entity.Sport sport) {
+    public List<LeaderboardEntryResponse> getGroupLeaderboard(Long groupId, Sport sport) {
         List<User> members = userRepository.findAllByGroupId(groupId);
 
         List<Object[]> pointsRows = sport == null
             ? betParticipationRepository.sumPointsEarnedByGroupId(groupId)
-            : betParticipationRepository.sumPointsEarnedByGroupIdAndSport(groupId, sport == com.pronocore.entity.Sport.F1);
+            : betParticipationRepository.sumPointsEarnedByGroupIdAndSport(groupId, sport == Sport.F1);
         Map<Long, Integer> pointsByUser = new HashMap<>();
         for (Object[] row : pointsRows) {
             pointsByUser.put(((Number) row[0]).longValue(), ((Number) row[1]).intValue());
@@ -45,7 +46,7 @@ public class LeaderboardService {
 
         List<Object[]> betsWonRows = sport == null
             ? betParticipationRepository.countBetsWonByGroupId(groupId)
-            : betParticipationRepository.countBetsWonByGroupIdAndSport(groupId, sport == com.pronocore.entity.Sport.F1);
+            : betParticipationRepository.countBetsWonByGroupIdAndSport(groupId, sport == Sport.F1);
         Map<Long, Integer> betsWonByUser = new HashMap<>();
         for (Object[] row : betsWonRows) {
             betsWonByUser.put(((Number) row[0]).longValue(), ((Number) row[1]).intValue());

@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useTheme } from './ThemeContext';
+import { LocalStorageService, StorageKey } from '../utils/localStorage';
 
 export type Sport = 'foot' | 'f1';
 
@@ -12,14 +13,8 @@ interface SportContextValue {
 
 const SportContext = createContext<SportContextValue>({ sport: 'foot', basePath: '/foot' });
 
-const STORAGE_KEY = 'pronocore-sport';
-
 function storedSport(): Sport {
-  try {
-    return localStorage.getItem(STORAGE_KEY) === 'f1' ? 'f1' : 'foot';
-  } catch {
-    return 'foot';
-  }
+  return LocalStorageService.getString(StorageKey.Sport) === 'f1' ? 'f1' : 'foot';
 }
 
 /**
@@ -40,11 +35,7 @@ export function SportProvider({ children }: { children: ReactNode }) {
         : null;   // shared page → keep the last visited sport
     if (fromPath && fromPath !== sport) {
       setSport(fromPath);
-      try {
-        localStorage.setItem(STORAGE_KEY, fromPath);
-      } catch {
-        // localStorage unavailable — sport just won't survive a reload
-      }
+      LocalStorageService.setString(StorageKey.Sport, fromPath);
     }
   }, [pathname, sport]);
 

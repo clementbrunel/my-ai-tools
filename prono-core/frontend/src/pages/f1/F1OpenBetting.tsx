@@ -44,8 +44,8 @@ const F1OpenBetting: React.FC = () => {
         setOpenRaceIds(
           new Set(
             bets
-              .filter((b) => b.groupId === selectedGroupId && b.raceId != null)
-              .map((b) => b.raceId!),
+              .filter((b) => b.groupId === selectedGroupId && b.race != null)
+              .map((b) => b.race!.id),
           ),
         );
       })

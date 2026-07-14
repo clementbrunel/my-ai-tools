@@ -142,8 +142,7 @@ export interface Bet {
   groupId: number;
   groupName: string;
   match?: Match;
-  raceId?: number;
-  raceName?: string;
+  race?: Race;
   creator: User;
   betType: 'SCORE' | 'EVENT' | 'FORFEIT' | 'FREE' | 'RACE_PICKS';
   points: number;

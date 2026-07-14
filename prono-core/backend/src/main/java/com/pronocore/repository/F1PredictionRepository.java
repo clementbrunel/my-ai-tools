@@ -2,6 +2,7 @@ package com.pronocore.repository;
 
 import com.pronocore.entity.F1Prediction;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -15,7 +16,7 @@ public interface F1PredictionRepository extends JpaRepository<F1Prediction, Long
     Optional<F1Prediction> findByParticipationId(Long participationId);
 
     /** Bulk delete of every prediction attached to a bet's participations. */
-    @org.springframework.data.jpa.repository.Modifying
+    @Modifying
     @Query("DELETE FROM F1Prediction p WHERE p.participation.bet.id = :betId")
     void deleteByBetId(@Param("betId") Long betId);
 
