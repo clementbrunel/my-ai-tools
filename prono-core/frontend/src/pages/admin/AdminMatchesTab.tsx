@@ -8,16 +8,7 @@ import { formatDate } from '../../utils/dates';
 import ScrollableTableWrapper from '../../components/ScrollableTableWrapper';
 import ScoreInput from '../../components/ScoreInput';
 import ConfirmModal from '../../components/ConfirmModal';
-
-const KNOCKOUT_ROUNDS = [
-  '1/32 de finale',
-  '1/16 de finale',
-  '1/8 de finale',
-  '1/4 de finale',
-  '1/2 finale',
-  'Petite finale',
-  'Finale',
-];
+import { KNOCKOUT_ROUNDS } from '../../utils/bracket';
 
 const AdminMatchesTab: React.FC = () => {
   const { showToast } = useToast();
