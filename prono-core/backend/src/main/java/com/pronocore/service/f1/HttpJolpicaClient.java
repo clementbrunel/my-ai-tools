@@ -31,11 +31,14 @@ public class HttpJolpicaClient implements JolpicaClient {
     /** GETs the path, retrying twice on 429/5xx (jolpica rate-limits unauthenticated bursts). */
     @Override
     public String get(String path) {
+        // Spring's DefaultUriBuilderFactory concatenates baseUrl + uri literally:
+        // without the leading slash, "2026.json" would become ".../f12026.json" → 404.
+        String uri = path.startsWith("/") ? path : "/" + path;
         int attempts = 0;
         while (true) {
             attempts++;
             try {
-                return restClient.get().uri(path).retrieve().body(String.class);
+                return restClient.get().uri(uri).retrieve().body(String.class);
             } catch (RestClientResponseException e) {
                 boolean retryable = e.getStatusCode().value() == 429 || e.getStatusCode().is5xxServerError();
                 if (!retryable || attempts >= 3) {
