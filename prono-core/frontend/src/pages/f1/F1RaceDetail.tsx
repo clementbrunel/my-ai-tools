@@ -11,7 +11,8 @@ import {
   useSensors,
 } from '@dnd-kit/core';
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
-import { getDrivers, getMyPrediction, getRace, predict } from '../../api/f1';
+import { getDrivers, getMyPrediction, getRace, getRacePredictions, predict } from '../../api/f1';
+import { useAuth } from '../../context/AuthContext';
 import type { Driver, F1Prediction, Race } from '../../types';
 import { formatDate, formatTime } from '../../utils/dates';
 import { getFlagUrl } from '../../utils/countryFlags';
@@ -157,7 +158,8 @@ function verdicts(prediction: F1Prediction, race: Race): Record<SlotKey, PickVer
     if (r.fastestLap) fastest = r.driver.id;
   }
   const podium = [byPos.get(1), byPos.get(2), byPos.get(3)];
-  const podiumVerdict = (picked: Driver, slot: 1 | 2 | 3, exact: number): PickVerdict => {
+  const podiumVerdict = (picked: Driver | null, slot: 1 | 2 | 3, exact: number): PickVerdict => {
+    if (!picked) return { points: 0, correct: false, partial: false };
     if (byPos.get(slot) === picked.id) return { points: exact, correct: true, partial: false };
     if (podium.includes(picked.id)) return { points: 1, correct: false, partial: true };
     return { points: 0, correct: false, partial: false };
@@ -182,10 +184,12 @@ const F1RaceDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const raceId = Number(id);
   const { showToast } = useToast();
+  const { user } = useAuth();
 
   const [race, setRace] = useState<Race | null>(null);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [myPrediction, setMyPrediction] = useState<F1Prediction | null>(null);
+  const [groupPredictions, setGroupPredictions] = useState<F1Prediction[]>([]);
   const [slots, setSlots] = useState<Slots>(emptySlots());
   const [armedSlot, setArmedSlot] = useState<SlotKey | null>(null);
   const [draggedDriver, setDraggedDriver] = useState<Driver | null>(null);
@@ -215,6 +219,15 @@ const F1RaceDetail: React.FC = () => {
       .catch(() => setError('Impossible de charger la course'))
       .finally(() => setIsLoading(false));
   }, [raceId]);
+
+  // The group's picks are revealed milestone by milestone (poles at
+  // qualifying, everything at lights out) — only fetch once unlocked.
+  useEffect(() => {
+    if (!race || new Date(race.qualifyingDate) > new Date()) return;
+    getRacePredictions(race.id)
+      .then(setGroupPredictions)
+      .catch(() => { /* stays hidden */ });
+  }, [race]);
 
   const now = new Date();
   const poleLocked = race ? new Date(race.qualifyingDate) <= now : false;
@@ -449,6 +462,60 @@ const F1RaceDetail: React.FC = () => {
           )}
         </DragOverlay>
       </DndContext>
+
+      {/* Group predictions — revealed per milestone (same spirit as football) */}
+      {!poleLocked ? (
+        <div className="card text-center py-4 text-gray-500 dark:text-gray-400 text-sm">
+          <p>
+            🔒 <strong>{race.predictionsCount} prono{race.predictionsCount !== 1 ? 's' : ''}</strong> déposé
+            {race.predictionsCount !== 1 ? 's' : ''}
+          </p>
+          <p className="text-xs mt-1 text-gray-400">
+            Les poles seront révélées aux qualifs, le reste au départ de la course
+          </p>
+        </div>
+      ) : groupPredictions.length > 0 && (
+        <div className="card">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+            👥 Pronostics ({groupPredictions.length})
+          </h2>
+          <p className="text-xs text-gray-400 mb-3">
+            {raceLocked
+              ? 'Pronos complets — plus modifiables depuis le départ.'
+              : 'Seules les poles sont révélées (verrouillées aux qualifs) — le reste au départ de la course.'}
+          </p>
+          <div className="space-y-2">
+            {groupPredictions.map((p) => {
+              const isMe = p.username === user?.username;
+              return (
+                <div
+                  key={p.username}
+                  className={`flex items-center justify-between gap-3 p-3 rounded-lg text-sm ${
+                    isMe
+                      ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700'
+                      : 'bg-gray-50 dark:bg-gray-700/30 border border-gray-100 dark:border-gray-700'
+                  }`}
+                >
+                  <span className="font-semibold text-gray-900 dark:text-white truncate">
+                    {p.displayName || p.username}{isMe ? ' (toi)' : ''}
+                  </span>
+                  <span className="flex items-center gap-2 text-xs font-bold text-gray-600 dark:text-gray-300 shrink-0 flex-wrap justify-end">
+                    {raceLocked && (
+                      <span>{[p.p1, p.p2, p.p3].map((d) => d?.code ?? '—').join(' · ')}</span>
+                    )}
+                    <span title="Pole">⏱ {p.pole?.code ?? '—'}</span>
+                    {raceLocked && <span title="Meilleur tour">🟣 {p.fastestLap?.code ?? '—'}</span>}
+                    {raceLocked && <span title="Lanterne rouge">🔦 {p.lastClassified?.code ?? '—'}</span>}
+                    {finished && (
+                      <span className="text-wc-green font-black">+{p.pointsEarned}</span>
+                    )}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Full classification */}
       {finished && race.results && race.results.length > 0 && (

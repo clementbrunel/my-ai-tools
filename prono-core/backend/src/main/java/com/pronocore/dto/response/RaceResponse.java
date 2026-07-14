@@ -30,6 +30,8 @@ public class RaceResponse {
     private boolean openInUserGroups;
     /** True if the caller already submitted a prediction. */
     private boolean userPredicted;
+    /** Distinct players with a prediction on this race across the caller's groups. */
+    private long predictionsCount;
 
     /** Full classification — only populated once the race is FINISHED. */
     private List<RaceResultResponse> results;

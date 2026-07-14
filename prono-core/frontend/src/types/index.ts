@@ -340,14 +340,19 @@ export interface Race {
   competitionId: number;
   openInUserGroups: boolean;
   userPredicted: boolean;
+  predictionsCount: number;
   results?: RaceResultEntry[];
 }
 
 export interface F1Prediction {
   raceId: number;
-  p1: Driver;
-  p2: Driver;
-  p3: Driver;
+  /** Author — present on the group-visible listings only. */
+  username?: string;
+  displayName?: string;
+  /** Podium picks are masked (null) between qualifying and race start on group listings. */
+  p1: Driver | null;
+  p2: Driver | null;
+  p3: Driver | null;
   pole: Driver | null;
   fastestLap: Driver | null;
   lastClassified: Driver | null;

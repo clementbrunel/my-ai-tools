@@ -75,11 +75,13 @@ public class F1RaceService {
         User user = requireUser(username);
         Set<Long> openRaceIds = betRepository.findRaceIdsWithBetsInUserGroups(user.getId());
         Set<Long> predictedRaceIds = participationRepository.findParticipatedRaceIdsByUserId(user.getId());
+        Map<Long, Long> predictionCounts = predictionCountsByRace(user.getId());
         return raceRepository.findAllByOrderByRaceDateAsc().stream()
                 .map(race -> {
                     RaceResponse r = toRaceResponse(race);
                     r.setOpenInUserGroups(openRaceIds.contains(race.getId()));
                     r.setUserPredicted(predictedRaceIds.contains(race.getId()));
+                    r.setPredictionsCount(predictionCounts.getOrDefault(race.getId(), 0L));
                     return r;
                 })
                 .toList();
@@ -94,6 +96,8 @@ public class F1RaceService {
                 !betRepository.findByRaceIdInUserActiveGroups(raceId, user.getId()).isEmpty());
         response.setUserPredicted(
                 !predictionRepository.findByRaceIdAndUserId(raceId, user.getId()).isEmpty());
+        response.setPredictionsCount(
+                predictionCountsByRace(user.getId()).getOrDefault(raceId, 0L));
         if (race.getStatus() == Race.Status.FINISHED) {
             response.setResults(raceResultRepository.findByRaceIdWithDrivers(raceId).stream()
                     .map(this::toResultResponse)
@@ -112,14 +116,22 @@ public class F1RaceService {
                 .map(p -> toPredictionResponse(p, race));
     }
 
-    /** Everyone's predictions for a race — hidden until the race has started. */
+    /**
+     * The group's predictions, revealed milestone by milestone: nothing before
+     * qualifying; only the (frozen) pole picks between qualifying and the race;
+     * everything once the race has started. A pick is only ever shown once it
+     * can no longer be changed.
+     */
     @Transactional(readOnly = true)
     public List<F1PredictionResponse> getRacePredictions(Long raceId, String username) {
         User user = requireUser(username);
         Race race = requireRace(raceId);
-        if (LocalDateTime.now().isBefore(race.getRaceDate())) {
-            throw new IllegalStateException("Les pronostics des autres joueurs sont cachés jusqu'au départ");
+        LocalDateTime now = LocalDateTime.now();
+        if (now.isBefore(race.getQualifyingDate())) {
+            throw new IllegalStateException("Les pronostics des autres joueurs sont cachés jusqu'aux qualifs");
         }
+        boolean poleOnly = now.isBefore(race.getRaceDate());
+
         Set<Long> userGroupBetIds = betRepository.findByRaceIdInUserActiveGroups(raceId, user.getId())
                 .stream().map(Bet::getId).collect(Collectors.toSet());
         return predictionRepository.findByRaceId(raceId).stream()
@@ -127,8 +139,35 @@ public class F1RaceService {
                 .collect(Collectors.toMap(
                         p -> p.getParticipation().getUser().getId(), p -> p, (a, b) -> a))
                 .values().stream()
-                .map(p -> toPredictionResponse(p, race))
+                .map(p -> {
+                    F1PredictionResponse response = toPredictionResponse(p, race);
+                    User author = p.getParticipation().getUser();
+                    response.setUsername(author.getUsername());
+                    response.setDisplayName(author.getDisplayName());
+                    if (poleOnly) {
+                        // Podium, meilleur tour and lanterne rouge stay editable until
+                        // lights out — mask them so nobody can copy a rival's picks.
+                        response.setP1(null);
+                        response.setP2(null);
+                        response.setP3(null);
+                        response.setFastestLap(null);
+                        response.setLastClassified(null);
+                    }
+                    return response;
+                })
+                .sorted(Comparator
+                        .comparingInt((F1PredictionResponse r) -> -r.getPointsEarned())
+                        .thenComparing(r -> r.getDisplayName() != null ? r.getDisplayName() : r.getUsername(),
+                                String.CASE_INSENSITIVE_ORDER))
                 .toList();
+    }
+
+    private Map<Long, Long> predictionCountsByRace(Long userId) {
+        Map<Long, Long> counts = new HashMap<>();
+        for (Object[] row : participationRepository.countRacePredictionsInUserGroups(userId)) {
+            counts.put(((Number) row[0]).longValue(), ((Number) row[1]).longValue());
+        }
+        return counts;
     }
 
     // ---------------------------------------------------------------

@@ -12,6 +12,9 @@ import lombok.NoArgsConstructor;
 public class F1PredictionResponse {
 
     private Long raceId;
+    /** Author — filled on the group-visible listings. */
+    private String username;
+    private String displayName;
     private DriverResponse p1;
     private DriverResponse p2;
     private DriverResponse p3;

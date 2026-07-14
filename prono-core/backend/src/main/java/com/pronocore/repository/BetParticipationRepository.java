@@ -136,6 +136,19 @@ public interface BetParticipationRepository extends JpaRepository<BetParticipati
     @Query("SELECT DISTINCT bp.bet.race.id FROM BetParticipation bp WHERE bp.user.id = :userId AND bp.bet.race IS NOT NULL")
     Set<Long> findParticipatedRaceIdsByUserId(@Param("userId") Long userId);
 
+    /** [raceId, distinct players] with a prediction, restricted to the user's ACTIVE groups. */
+    @Query("""
+            SELECT b.race.id, COUNT(DISTINCT bp.user.id)
+            FROM BetParticipation bp
+            JOIN bp.bet b
+            JOIN GroupMember gm ON gm.group = b.group
+            WHERE b.race IS NOT NULL
+              AND gm.user.id = :userId
+              AND gm.status = com.pronocore.entity.GroupMember.MemberStatus.ACTIVE
+            GROUP BY b.race.id
+            """)
+    List<Object[]> countRacePredictionsInUserGroups(@Param("userId") Long userId);
+
     /** True if the user has already placed at least one bet for the given match (across any group). */
     @Query("""
             SELECT COUNT(bp) > 0 FROM BetParticipation bp
