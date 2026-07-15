@@ -6,12 +6,15 @@ import com.pronocore.dto.response.GroupMemberResponse;
 import com.pronocore.dto.response.GroupResponse;
 import com.pronocore.dto.response.MatchResponse;
 import com.pronocore.dto.response.PublicGroupResponse;
+import com.pronocore.dto.response.RaceResponse;
 import com.pronocore.entity.Group;
 import com.pronocore.entity.Sport;
 import com.pronocore.entity.GroupMember;
 import com.pronocore.entity.Match;
+import com.pronocore.entity.Race;
 import com.pronocore.entity.User;
 import com.pronocore.mapper.MatchMapper;
+import com.pronocore.mapper.RaceMapper;
 import com.pronocore.repository.BetRepository;
 import com.pronocore.repository.GroupMemberRepository;
 import com.pronocore.repository.GroupRepository;
@@ -39,6 +42,7 @@ public class GroupService {
     private final UserRepository userRepository;
     private final BetRepository betRepository;
     private final MatchMapper matchMapper;
+    private final RaceMapper raceMapper;
     private final EmailService emailService;
 
     @Transactional
@@ -349,6 +353,41 @@ public class GroupService {
         }
         log.info("Group {} leader {} notified {} member(s) about {} new match(es)",
             groupId, leaderUsername, recipients.size(), matches.size());
+    }
+
+    /** Future races (start not yet passed) open for pronostics in this group (Group admin only). */
+    @Transactional(readOnly = true)
+    public List<RaceResponse> getFutureOpenRaces(Long groupId, String username) {
+        assertGroupAdmin(groupId, username);
+        return betRepository.findFutureDistinctRacesWithOpenBetsForGroup(groupId, LocalDateTime.now()).stream()
+            .map(raceMapper::toResponse)
+            .toList();
+    }
+
+    /** Notify all active members of the group that the given future open races were added (Group admin only). */
+    @Transactional(readOnly = true)
+    public void notifyNewRaces(Long groupId, List<Long> raceIds, String leaderUsername) {
+        User leader = findUser(leaderUsername);
+        assertGroupAdmin(groupId, leaderUsername);
+        Group group = findGroup(groupId);
+
+        Set<Long> requestedIds = Set.copyOf(raceIds);
+        List<Race> races = betRepository.findFutureDistinctRacesWithOpenBetsForGroup(groupId, LocalDateTime.now()).stream()
+            .filter(r -> requestedIds.contains(r.getId()))
+            .toList();
+        if (races.isEmpty()) {
+            throw new IllegalArgumentException("No matching future open races found for this group");
+        }
+
+        List<User> recipients = groupMemberRepository.findByGroupIdAndStatus(groupId, GroupMember.MemberStatus.ACTIVE).stream()
+            .map(GroupMember::getUser)
+            .toList();
+
+        for (User recipient : recipients) {
+            emailService.sendGroupNewRacesEmail(recipient, group.getName(), leader, races);
+        }
+        log.info("Group {} leader {} notified {} member(s) about {} new race(s)",
+            groupId, leaderUsername, recipients.size(), races.size());
     }
 
     // -------------------------------------------------------------------------

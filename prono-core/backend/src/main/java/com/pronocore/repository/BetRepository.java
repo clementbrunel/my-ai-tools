@@ -2,6 +2,7 @@ package com.pronocore.repository;
 
 import com.pronocore.entity.Bet;
 import com.pronocore.entity.Match;
+import com.pronocore.entity.Race;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -165,6 +166,17 @@ public interface BetRepository extends JpaRepository<Bet, Long> {
             ORDER BY b.match.matchDate ASC
             """)
     List<Match> findFutureDistinctMatchesWithOpenBetsForGroup(@Param("groupId") Long groupId, @Param("now") LocalDateTime now);
+
+    /** Distinct future races (start after now) with at least one OPEN bet for a group, ordered by date. */
+    @Query("""
+            SELECT DISTINCT b.race FROM Bet b
+            WHERE b.group.id = :groupId
+              AND b.status = com.pronocore.entity.Bet.Status.OPEN
+              AND b.race IS NOT NULL
+              AND b.race.raceDate > :now
+            ORDER BY b.race.raceDate ASC
+            """)
+    List<Race> findFutureDistinctRacesWithOpenBetsForGroup(@Param("groupId") Long groupId, @Param("now") LocalDateTime now);
 
     /** Count of UPCOMING matches that have no bet (any status) in the given group. */
     @Query("""

@@ -1,5 +1,5 @@
 import apiClient from './axios';
-import type { Group, GroupMember, PublicGroup, CreateGroupRequest, JoinGroupRequest, Match, Sport } from '../types';
+import type { Group, GroupMember, PublicGroup, CreateGroupRequest, JoinGroupRequest, Match, Race, Sport } from '../types';
 
 export const getAllGroups = async (): Promise<Group[]> => {
   const response = await apiClient.get<Group[]>('/groups');
@@ -80,4 +80,13 @@ export const getFutureOpenMatches = async (groupId: number): Promise<Match[]> =>
 
 export const notifyNewMatches = async (groupId: number, matchIds: number[]): Promise<void> => {
   await apiClient.post(`/groups/${groupId}/notify-new-matches`, { matchIds });
+};
+
+export const getFutureOpenRaces = async (groupId: number): Promise<Race[]> => {
+  const response = await apiClient.get<Race[]>(`/groups/${groupId}/future-open-races`);
+  return response.data;
+};
+
+export const notifyNewRaces = async (groupId: number, raceIds: number[]): Promise<void> => {
+  await apiClient.post(`/groups/${groupId}/notify-new-races`, { raceIds });
 };

@@ -45,6 +45,7 @@ const AdminEmailsTab: React.FC = () => {
               <option value="MATCH_REMINDER">Rappel de match</option>
               <option value="GAGE_RESOLUTION">Résolution du gage du jour</option>
               <option value="GROUP_NEW_MATCHES">Nouveaux matchs ouverts (chef de groupe)</option>
+              <option value="GROUP_NEW_RACES">Nouveaux Grands Prix ouverts (chef de groupe)</option>
               <option value="TEST_CEDRIC">test cédric 🏦</option>
             </select>
           </div>
@@ -106,6 +107,14 @@ const AdminEmailsTab: React.FC = () => {
                 Envoyé par un chef de groupe aux membres actifs pour signaler l'ouverture aux pronostics de nouveaux matchs futurs.
                 Déclenché depuis les paramètres admin d'un groupe (sélection des matchs par cases à cocher).
                 Le test utilise des données fictives (groupe "Groupe des Amis", 2 matchs, chef "Le Chef").
+              </td>
+            </tr>
+            <tr className="border-b border-gray-100 dark:border-gray-700">
+              <td className="py-3 px-4 font-medium text-gray-900 dark:text-white">Nouveaux Grands Prix ouverts (chef de groupe)</td>
+              <td className="py-3 px-4 text-gray-500">
+                Envoyé par un chef de groupe aux membres actifs pour signaler l'ouverture aux pronos de nouveaux Grands Prix futurs.
+                Déclenché depuis les paramètres admin d'un groupe (sélection des GP par cases à cocher).
+                Le test utilise des données fictives (groupe "Groupe des Amis", 2 GP, chef "Le Chef").
               </td>
             </tr>
             <tr className="border-b border-gray-100 dark:border-gray-700">

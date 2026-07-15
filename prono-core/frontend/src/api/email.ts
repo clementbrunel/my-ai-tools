@@ -1,6 +1,6 @@
 import apiClient from './axios';
 
-export type EmailType = 'VERIFICATION' | 'PASSWORD_RESET' | 'MATCH_REMINDER' | 'GAGE_RESOLUTION' | 'GROUP_NEW_MATCHES' | 'TEST_CEDRIC';
+export type EmailType = 'VERIFICATION' | 'PASSWORD_RESET' | 'MATCH_REMINDER' | 'GAGE_RESOLUTION' | 'GROUP_NEW_MATCHES' | 'GROUP_NEW_RACES' | 'TEST_CEDRIC';
 
 export type EmailThemeName = 'FOOTBALL' | 'F1';
 
