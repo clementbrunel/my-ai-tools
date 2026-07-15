@@ -55,7 +55,11 @@ const Profile: React.FC = () => {
       }
     };
     fetchData();
-  }, [user]);
+    // Depend on user.id rather than the user object: AuthContext replaces the
+    // user object with a new reference on background revalidation, which would
+    // otherwise refire this fetch even though the logical user hasn't changed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   const handleComplete = async (userForfeitId: number) => {
     setCompletingId(userForfeitId);
