@@ -125,6 +125,7 @@ const StandingsChart: React.FC<{ history: F1StandingHistory }> = ({ history }) =
               />
             </svg>
             <span className="text-gray-700 dark:text-gray-300 font-medium truncate max-w-[9rem]">
+              {s.code && <span className="text-gray-400 dark:text-gray-500">{s.code} · </span>}
               {s.label}
             </span>
           </div>

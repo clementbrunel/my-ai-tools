@@ -151,6 +151,81 @@ class F1RaceServiceTest {
         assertThat(standings.get(1).getPoints()).isEqualTo(26);
     }
 
+    // ── standings history — cumulative points per round ───────────────────────
+
+    private Race raceRound(Long id, int round) {
+        Competition competition = Competition.builder().id(9L).name("Formule 1 2026").sport(Sport.F1).build();
+        return Race.builder().id(id).name("GP " + round).round(round).competition(competition)
+                .qualifyingDate(LocalDateTime.now()).raceDate(LocalDateTime.now()).build();
+    }
+
+    private RaceResult resultAt(Race race, Driver d, Integer position) {
+        return RaceResult.builder().race(race).driver(d).position(position).build();
+    }
+
+    @Test
+    void driverStandingsHistory_accumulatesPointsInRoundOrder() {
+        Competition competition = Competition.builder().id(9L).name("Formule 1 2026").sport(Sport.F1).build();
+        // Rounds inserted out of order — history must still walk them 1, then 2.
+        Race round2 = raceRound(101L, 2);
+        Race round1 = raceRound(100L, 1);
+
+        when(competitionRepository.findFirstBySportOrderByIdDesc(Sport.F1)).thenReturn(Optional.of(competition));
+        when(raceResultRepository.findByCompetitionIdWithDrivers(9L)).thenReturn(List.of(
+                resultAt(round2, nor, 2),   // round 2: NOR P2 (18)
+                resultAt(round2, pia, 1),   // round 2: PIA P1 (25)
+                resultAt(round1, nor, 1),   // round 1: NOR P1 (25)
+                resultAt(round1, pia, 2)    // round 1: PIA P2 (18)
+        ));
+
+        var history = f1RaceService.getDriverStandingsHistory();
+
+        assertThat(history.getRaces()).extracting("round").containsExactly(1, 2);
+
+        var norSeries = history.getSeries().stream().filter(s -> s.getLabel().equals("NOR")).findFirst().orElseThrow();
+        assertThat(norSeries.getPoints()).containsExactly(25, 43); // 25, then +18
+        var piaSeries = history.getSeries().stream().filter(s -> s.getLabel().equals("PIA")).findFirst().orElseThrow();
+        assertThat(piaSeries.getPoints()).containsExactly(18, 43); // 18, then +25
+    }
+
+    @Test
+    void driverStandingsHistory_limitsSeriesToTopTen() {
+        Competition competition = Competition.builder().id(9L).name("Formule 1 2026").sport(Sport.F1).build();
+        Race round1 = raceRound(100L, 1);
+
+        Constructor c = Constructor.builder().id(3L).name("Alpine").color("#00A1E8").build();
+        List<RaceResult> results = new java.util.ArrayList<>();
+        for (int i = 1; i <= 12; i++) {
+            results.add(resultAt(round1, driver((long) (10 + i), "D" + i, c), i));
+        }
+
+        when(competitionRepository.findFirstBySportOrderByIdDesc(Sport.F1)).thenReturn(Optional.of(competition));
+        when(raceResultRepository.findByCompetitionIdWithDrivers(9L)).thenReturn(results);
+
+        var history = f1RaceService.getDriverStandingsHistory();
+
+        assertThat(history.getSeries()).hasSize(10);
+        assertThat(history.getSeries().get(0).getLabel()).isEqualTo("D1"); // P1 scores highest, ranked first
+    }
+
+    @Test
+    void constructorStandingsHistory_sumsBothDriversOfATeam() {
+        Competition competition = Competition.builder().id(9L).name("Formule 1 2026").sport(Sport.F1).build();
+        Race round1 = raceRound(100L, 1);
+
+        when(competitionRepository.findFirstBySportOrderByIdDesc(Sport.F1)).thenReturn(Optional.of(competition));
+        when(raceResultRepository.findByCompetitionIdWithDrivers(9L)).thenReturn(List.of(
+                resultAt(round1, nor, 1),  // McLaren P1 (25)
+                resultAt(round1, pia, 2),  // McLaren P2 (18)
+                resultAt(round1, lec, 3)   // Ferrari P3 (15)
+        ));
+
+        var history = f1RaceService.getConstructorStandingsHistory();
+
+        var mclarenSeries = history.getSeries().stream().filter(s -> s.getLabel().equals("McLaren")).findFirst().orElseThrow();
+        assertThat(mclarenSeries.getPoints()).containsExactly(43); // 25 + 18 combined
+    }
+
     // ── predict — deadlines ───────────────────────────────────────────────────
 
     private Race raceAt(LocalDateTime quali, LocalDateTime raceDate) {

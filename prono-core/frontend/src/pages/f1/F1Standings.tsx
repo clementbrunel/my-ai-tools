@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   getConstructorStandings,
   getConstructorStandingsHistory,
@@ -51,7 +51,14 @@ const F1Standings: React.FC = () => {
     drivers: null,
     constructors: null,
   });
-  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState<Record<Tab, boolean>>({
+    drivers: false,
+    constructors: false,
+  });
+  const [historyError, setHistoryError] = useState<Record<Tab, boolean>>({
+    drivers: false,
+    constructors: false,
+  });
 
   useEffect(() => {
     Promise.all([getDriverStandings(), getConstructorStandings()])
@@ -63,15 +70,20 @@ const F1Standings: React.FC = () => {
       .finally(() => setIsLoading(false));
   }, []);
 
-  useEffect(() => {
-    if (viewMode !== 'chart' || history[tab]) return;
-    setIsHistoryLoading(true);
-    const fetchHistory = tab === 'drivers' ? getDriverStandingsHistory : getConstructorStandingsHistory;
+  const loadHistory = useCallback((targetTab: Tab) => {
+    setHistoryLoading((prev) => ({ ...prev, [targetTab]: true }));
+    setHistoryError((prev) => ({ ...prev, [targetTab]: false }));
+    const fetchHistory = targetTab === 'drivers' ? getDriverStandingsHistory : getConstructorStandingsHistory;
     fetchHistory()
-      .then((data) => setHistory((prev) => ({ ...prev, [tab]: data })))
-      .catch(() => setError('Impossible de charger le graphique'))
-      .finally(() => setIsHistoryLoading(false));
-  }, [viewMode, tab, history]);
+      .then((data) => setHistory((prev) => ({ ...prev, [targetTab]: data })))
+      .catch(() => setHistoryError((prev) => ({ ...prev, [targetTab]: true })))
+      .finally(() => setHistoryLoading((prev) => ({ ...prev, [targetTab]: false })));
+  }, []);
+
+  useEffect(() => {
+    if (viewMode !== 'chart' || history[tab] || historyLoading[tab]) return;
+    loadHistory(tab);
+  }, [viewMode, tab, history, historyLoading, loadHistory]);
 
   const rows = tab === 'drivers' ? drivers : constructors;
 
@@ -139,15 +151,25 @@ const F1Standings: React.FC = () => {
           </p>
         </div>
       ) : viewMode === 'chart' ? (
-        isHistoryLoading || !history[tab] ? (
-          <div className="card text-center py-12 text-gray-500">Chargement…</div>
-        ) : (
+        history[tab] ? (
           <>
           <StandingsChart history={history[tab]!} />
           <p className="text-xs text-gray-400 text-center">
             Points cumulés par Grand Prix — top {history[tab]!.series.length} · barème FIA (25…1) et sprints (8…1) inclus.
           </p>
           </>
+        ) : historyError[tab] ? (
+          <div className="card text-center py-12 space-y-3">
+            <p className="text-gray-500 dark:text-gray-400">Impossible de charger le graphique.</p>
+            <button
+              onClick={() => loadHistory(tab)}
+              className="px-3 py-1.5 rounded-lg text-sm font-medium bg-wc-green text-white hover:opacity-90"
+            >
+              Réessayer
+            </button>
+          </div>
+        ) : (
+          <div className="card text-center py-12 text-gray-500">Chargement…</div>
         )
       ) : (
         <>

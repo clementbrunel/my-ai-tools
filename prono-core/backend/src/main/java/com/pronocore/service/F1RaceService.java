@@ -497,7 +497,15 @@ public class F1RaceService {
 
     @Transactional(readOnly = true)
     public List<F1StandingResponse> getDriverStandings() {
-        List<RaceResult> results = findSeasonResults();
+        return computeDriverStandings(findSeasonResults());
+    }
+
+    @Transactional(readOnly = true)
+    public List<F1StandingResponse> getConstructorStandings() {
+        return computeConstructorStandings(findSeasonResults());
+    }
+
+    private List<F1StandingResponse> computeDriverStandings(List<RaceResult> results) {
         Map<Long, F1StandingResponse> byDriver = new LinkedHashMap<>();
         Map<Long, Integer> points = new HashMap<>();
         Map<Long, Integer> wins = new HashMap<>();
@@ -511,16 +519,14 @@ public class F1RaceService {
                     .constructorName(rr.getDriver().getConstructor().getName())
                     .constructorColor(rr.getDriver().getConstructor().getColor())
                     .build());
-            points.merge(driverId, fiaPoints(rr.getPosition()) + fiaSprintPoints(rr.getSprintPosition()), Integer::sum);
+            points.merge(driverId, pointsFor(rr), Integer::sum);
             if (rr.getPosition() != null && rr.getPosition() == 1) wins.merge(driverId, 1, Integer::sum);
             if (rr.getPosition() != null && rr.getPosition() <= 3) podiums.merge(driverId, 1, Integer::sum);
         }
         return rank(byDriver, points, wins, podiums);
     }
 
-    @Transactional(readOnly = true)
-    public List<F1StandingResponse> getConstructorStandings() {
-        List<RaceResult> results = findSeasonResults();
+    private List<F1StandingResponse> computeConstructorStandings(List<RaceResult> results) {
         Map<Long, F1StandingResponse> byConstructor = new LinkedHashMap<>();
         Map<Long, Integer> points = new HashMap<>();
         Map<Long, Integer> wins = new HashMap<>();
@@ -534,7 +540,7 @@ public class F1RaceService {
                     .constructorName(constructor.getName())
                     .constructorColor(constructor.getColor())
                     .build());
-            points.merge(constructorId, fiaPoints(rr.getPosition()) + fiaSprintPoints(rr.getSprintPosition()), Integer::sum);
+            points.merge(constructorId, pointsFor(rr), Integer::sum);
             if (rr.getPosition() != null && rr.getPosition() == 1) wins.merge(constructorId, 1, Integer::sum);
             if (rr.getPosition() != null && rr.getPosition() <= 3) podiums.merge(constructorId, 1, Integer::sum);
         }
@@ -545,19 +551,20 @@ public class F1RaceService {
 
     @Transactional(readOnly = true)
     public F1StandingHistoryResponse getDriverStandingsHistory() {
-        return buildStandingsHistory(getDriverStandings(), rr -> rr.getDriver().getId());
+        List<RaceResult> results = findSeasonResults();
+        return buildStandingsHistory(computeDriverStandings(results), results, rr -> rr.getDriver().getId());
     }
 
     @Transactional(readOnly = true)
     public F1StandingHistoryResponse getConstructorStandingsHistory() {
-        return buildStandingsHistory(getConstructorStandings(), rr -> rr.getDriver().getConstructor().getId());
+        List<RaceResult> results = findSeasonResults();
+        return buildStandingsHistory(computeConstructorStandings(results), results, rr -> rr.getDriver().getConstructor().getId());
     }
 
     /** Walks the season's race results in round order to build a cumulative points series per entity. */
     private F1StandingHistoryResponse buildStandingsHistory(List<F1StandingResponse> standings,
+                                                             List<RaceResult> results,
                                                              Function<RaceResult, Long> entityIdOf) {
-        List<RaceResult> results = findSeasonResults();
-
         Map<Long, Race> racesById = new LinkedHashMap<>();
         for (RaceResult rr : results) {
             racesById.putIfAbsent(rr.getRace().getId(), rr.getRace());
@@ -570,9 +577,8 @@ public class F1RaceService {
         for (RaceResult rr : results) {
             long raceId = rr.getRace().getId();
             long entityId = entityIdOf.apply(rr);
-            int pts = fiaPoints(rr.getPosition()) + fiaSprintPoints(rr.getSprintPosition());
             pointsByRaceThenEntity.computeIfAbsent(raceId, id -> new HashMap<>())
-                    .merge(entityId, pts, Integer::sum);
+                    .merge(entityId, pointsFor(rr), Integer::sum);
         }
 
         List<F1StandingHistoryResponse.Series> series = new ArrayList<>();
@@ -639,6 +645,11 @@ public class F1RaceService {
     static int fiaSprintPoints(Integer sprintPosition) {
         if (sprintPosition == null || sprintPosition < 1 || sprintPosition > FIA_SPRINT_POINTS.length) return 0;
         return FIA_SPRINT_POINTS[sprintPosition - 1];
+    }
+
+    /** Race + sprint points scored by a single result — the one formula every standings computation shares. */
+    private static int pointsFor(RaceResult rr) {
+        return fiaPoints(rr.getPosition()) + fiaSprintPoints(rr.getSprintPosition());
     }
 
     // ---------------------------------------------------------------
