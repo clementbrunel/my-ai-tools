@@ -2,13 +2,13 @@ import { useState } from 'react';
 import {
   approveApplication, rejectApplication,
   promoteMember, demoteMember, removeMember, leaveGroup,
-} from '../../api/groups';
-import type { Group } from '../../types';
-import { useAuth } from '../../context/AuthContext';
-import ConfirmModal from '../../components/ConfirmModal';
+} from '@/api/groups';
+import type { Group } from '@/types';
+import { useAuth } from '@/context/AuthContext';
+import ConfirmModal from '@/components/ConfirmModal';
 import GroupAdminSettings from './GroupAdminSettings';
-import { logger } from '../../utils/logger';
-import Avatar from '../../components/Avatar';
+import { logger } from '@/utils/logger';
+import Avatar from '@/components/Avatar';
 
 interface Props {
   group: Group;

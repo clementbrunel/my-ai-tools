@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { getMyGroups } from '../../api/groups';
-import { getBets } from '../../api/bets';
-import { closeRaceForBetting, getRaces, openCompetitionRaces, openRaceForBetting } from '../../api/f1';
-import type { Group, Race } from '../../types';
-import { formatDate } from '../../utils/dates';
-import { useToast } from '../../components/Toast';
-import PillTabs from '../../components/PillTabs';
+import { getMyGroups } from '@/api/groups';
+import { getBets } from '@/api/bets';
+import { closeRaceForBetting, getRaces, openCompetitionRaces, openRaceForBetting } from '@/api/f1';
+import type { Group, Race } from '@/types';
+import { formatDate } from '@/utils/dates';
+import { useToast } from '@/components/Toast';
+import PillTabs from '@/components/PillTabs';
 
 type StatusFilter = 'CLOSED' | 'OPEN';
 

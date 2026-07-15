@@ -1,12 +1,12 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { useGroupAdminCounts } from '../context/GroupAdminCountsContext';
-import { useUserCounts } from '../context/UserCountsContext';
-import { useSport } from '../context/SportContext';
-import { isAdmin } from '../types';
+import { useAuth } from '@/context/AuthContext';
+import { useGroupAdminCounts } from '@/context/GroupAdminCountsContext';
+import { useUserCounts } from '@/context/UserCountsContext';
+import { useSport } from '@/context/SportContext';
+import { isAdmin } from '@/types';
 import { useState } from 'react';
 import Avatar from './Avatar';
-import { getEquivalentPath } from '../utils/sportPaths';
+import { getEquivalentPath } from '@/utils/sportPaths';
 
 const Navbar: React.FC = () => {
   const { user, logout } = useAuth();

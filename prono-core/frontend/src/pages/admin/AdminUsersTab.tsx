@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { useToast } from '../../components/Toast';
-import { getAllUsersAdmin, adminUnlockUser } from '../../api/users';
-import type { UserAdminInfo } from '../../types';
-import { formatDate } from '../../utils/dates';
-import ScrollableTableWrapper from '../../components/ScrollableTableWrapper';
-import { logger } from '../../utils/logger';
-import Avatar from '../../components/Avatar';
+import { useToast } from '@/components/Toast';
+import { getAllUsersAdmin, adminUnlockUser } from '@/api/users';
+import type { UserAdminInfo } from '@/types';
+import { formatDate } from '@/utils/dates';
+import ScrollableTableWrapper from '@/components/ScrollableTableWrapper';
+import { logger } from '@/utils/logger';
+import Avatar from '@/components/Avatar';
 
 const AdminUsersTab: React.FC = () => {
   const { showToast } = useToast();

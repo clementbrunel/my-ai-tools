@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { resetPassword, validateResetToken } from '../api/auth';
+import { resetPassword, validateResetToken } from '@/api/auth';
 
 type Status = 'validating' | 'invalid' | 'ready' | 'success' | 'error';
 

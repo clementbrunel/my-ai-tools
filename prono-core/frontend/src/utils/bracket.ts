@@ -1,4 +1,4 @@
-import type { Match } from '../types';
+import type { Match } from '@/types';
 
 /**
  * Ordre canonique des tours de la phase éliminatoire — même liste que le

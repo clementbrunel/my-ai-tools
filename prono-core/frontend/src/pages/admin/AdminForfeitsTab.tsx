@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import ConfirmModal from '../../components/ConfirmModal';
-import { useToast } from '../../components/Toast';
-import { getAllForfeitsAdmin, createForfeit, updateForfeit, deleteForfeit } from '../../api/forfeits';
-import { getAllGroups } from '../../api/groups';
-import DailyGagePanel from '../../components/DailyGagePanel';
-import { useFormMessages } from '../../hooks/useFormMessages';
-import type { Forfeit, Group } from '../../types';
-import ScrollableTableWrapper from '../../components/ScrollableTableWrapper';
-import { logger } from '../../utils/logger';
+import ConfirmModal from '@/components/ConfirmModal';
+import { useToast } from '@/components/Toast';
+import { getAllForfeitsAdmin, createForfeit, updateForfeit, deleteForfeit } from '@/api/forfeits';
+import { getAllGroups } from '@/api/groups';
+import DailyGagePanel from '@/components/DailyGagePanel';
+import { useFormMessages } from '@/hooks/useFormMessages';
+import type { Forfeit, Group } from '@/types';
+import ScrollableTableWrapper from '@/components/ScrollableTableWrapper';
+import { logger } from '@/utils/logger';
 
 const FORFEIT_CATEGORIES = ['General', 'Nourriture', 'Humiliation', 'Spectacle', 'Réseaux sociaux', 'Boissons'];
 

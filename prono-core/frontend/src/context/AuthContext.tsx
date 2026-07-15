@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { jwtDecode } from 'jwt-decode';
-import type { User, LoginRequest, RegisterRequest, AuthResponse, DecodedToken } from '../types';
-import { login as apiLogin, register as apiRegister } from '../api/auth';
-import { LocalStorageService, StorageKey } from '../utils/localStorage';
+import type { User, LoginRequest, RegisterRequest, AuthResponse, DecodedToken } from '@/types';
+import { login as apiLogin, register as apiRegister } from '@/api/auth';
+import { LocalStorageService, StorageKey } from '@/utils/localStorage';
 
 interface AuthContextType {
   user: User | null;

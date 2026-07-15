@@ -2,14 +2,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import LeaderboardRow from './LeaderboardRow';
-import type { LeaderboardEntry, UserBetSummary } from '../types';
-import { makeUser } from '../test-utils/factories';
+import type { LeaderboardEntry, UserBetSummary } from '@/types';
+import { makeUser } from '@/test-utils/factories';
 
 vi.mock('../api/bets', () => ({
   getUserBetsInGroup: vi.fn(),
 }));
 
-import * as betsApi from '../api/bets';
+import * as betsApi from '@/api/bets';
 
 const makeEntry = (overrides?: Partial<LeaderboardEntry>): LeaderboardEntry => ({
   rank: 2,

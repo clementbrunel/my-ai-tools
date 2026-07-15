@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { type Theme, defaultTheme, themes } from '../themes';
-import { LocalStorageService, StorageKey } from '../utils/localStorage';
+import { type Theme, defaultTheme, themes } from '@/themes';
+import { LocalStorageService, StorageKey } from '@/utils/localStorage';
 
 interface ThemeContextValue {
   theme: Theme;

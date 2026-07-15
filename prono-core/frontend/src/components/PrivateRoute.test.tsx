@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
 import { screen } from '@testing-library/react';
 import PrivateRoute from './PrivateRoute';
-import * as AuthContextModule from '../context/AuthContext';
-import { makeMockAuth } from '../test-utils/auth-mock';
-import { renderWithRouter } from '../test-utils/render-helpers';
+import * as AuthContextModule from '@/context/AuthContext';
+import { makeMockAuth } from '@/test-utils/auth-mock';
+import { renderWithRouter } from '@/test-utils/render-helpers';
 
 function renderRoute(authState: { isAuthenticated: boolean; isLoading: boolean }) {
   vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue(makeMockAuth(authState));

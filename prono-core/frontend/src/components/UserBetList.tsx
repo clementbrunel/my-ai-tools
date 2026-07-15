@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { UserBetSummary } from '../types';
+import type { UserBetSummary } from '@/types';
 import Pagination from './Pagination';
 
 const PAGE_SIZE = 8;

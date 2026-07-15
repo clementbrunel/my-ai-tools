@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, act, waitFor } from '@testing-library/react';
 import { MatchesProvider, useMatches } from './MatchesContext';
-import { makeMatch } from '../test-utils/factories';
+import { makeMatch } from '@/test-utils/factories';
 
 vi.mock('../api/matches', () => ({
   getMatchesForMyGroups: vi.fn(),
@@ -11,8 +11,8 @@ vi.mock('../api/groups', () => ({
   getMyGroups: vi.fn(),
 }));
 
-import * as matchesApi from '../api/matches';
-import * as groupsApi from '../api/groups';
+import * as matchesApi from '@/api/matches';
+import * as groupsApi from '@/api/groups';
 
 // ── Test consumer ──────────────────────────────────────────────────────────────
 

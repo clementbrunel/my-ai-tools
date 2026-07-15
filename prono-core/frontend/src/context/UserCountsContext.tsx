@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
-import { getUserCounts } from '../api/userCounts';
+import { getUserCounts } from '@/api/userCounts';
 
 interface UserCountsContextType {
   pendingGages: number;

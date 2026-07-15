@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { verifyEmail, resendVerification } from '../api/auth';
-import { useAuth } from '../context/AuthContext';
+import { verifyEmail, resendVerification } from '@/api/auth';
+import { useAuth } from '@/context/AuthContext';
 
 type State = 'pending' | 'verifying' | 'success' | 'error' | 'expired' | 'resent';
 

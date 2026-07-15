@@ -1,4 +1,4 @@
-import type { Sport } from '../context/SportContext';
+import type { Sport } from '@/context/SportContext';
 
 /**
  * Maps a path in one sport's universe to its equivalent in the other, so

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { getForfeits, proposeForfeit, voteForfeit } from '../api/forfeits';
-import { getMyGroups } from '../api/groups';
-import type { Forfeit, Group } from '../types';
-import { logger } from '../utils/logger';
+import { getForfeits, proposeForfeit, voteForfeit } from '@/api/forfeits';
+import { getMyGroups } from '@/api/groups';
+import type { Forfeit, Group } from '@/types';
+import { logger } from '@/utils/logger';
 
 const categoryEmoji: Record<string, string> = {
   Nourriture: '🥐',

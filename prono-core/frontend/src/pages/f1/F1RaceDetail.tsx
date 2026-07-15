@@ -11,15 +11,15 @@ import {
   useSensors,
 } from '@dnd-kit/core';
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
-import { getDrivers, getMyPrediction, getRace, getRacePredictions, predict } from '../../api/f1';
-import { useAuth } from '../../context/AuthContext';
-import type { Driver, F1Prediction, Race } from '../../types';
-import { formatDate, formatTime } from '../../utils/dates';
-import { getFlagUrl } from '../../utils/countryFlags';
-import { useToast } from '../../components/Toast';
-import { computeF1Verdicts } from '../../utils/f1Calculations';
-import MiniF1Car from '../../components/f1/MiniF1Car';
-import DriverChip from '../../components/f1/DriverChip';
+import { getDrivers, getMyPrediction, getRace, getRacePredictions, predict } from '@/api/f1';
+import { useAuth } from '@/context/AuthContext';
+import type { Driver, F1Prediction, Race } from '@/types';
+import { formatDate, formatTime } from '@/utils/dates';
+import { getFlagUrl } from '@/utils/countryFlags';
+import { useToast } from '@/components/Toast';
+import { computeF1Verdicts } from '@/utils/f1Calculations';
+import MiniF1Car from '@/components/f1/MiniF1Car';
+import DriverChip from '@/components/f1/DriverChip';
 
 type SlotKey = 'p1' | 'p2' | 'p3' | 'pole' | 'fastestLap' | 'last';
 type Slots = Record<SlotKey, Driver | null>;

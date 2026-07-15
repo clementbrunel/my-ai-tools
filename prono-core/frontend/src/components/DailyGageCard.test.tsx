@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi } from 'vitest';
 import DailyGageCard from './DailyGageCard';
-import type { DailyGage, Forfeit, DailyGageCandidate } from '../types';
+import type { DailyGage, Forfeit, DailyGageCandidate } from '@/types';
 
 // ── test factories ────────────────────────────────────────────────────────────
 

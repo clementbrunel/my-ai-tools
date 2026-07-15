@@ -1,8 +1,8 @@
 import { createContext, useCallback, useContext, useRef, useState } from 'react';
-import { getMatchesForMyGroups } from '../api/matches';
-import { getMyGroups } from '../api/groups';
-import type { Match } from '../types';
-import { logger } from '../utils/logger';
+import { getMatchesForMyGroups } from '@/api/matches';
+import { getMyGroups } from '@/api/groups';
+import type { Match } from '@/types';
+import { logger } from '@/utils/logger';
 
 const STALE_MS = 5 * 60 * 1000;
 

@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { getMatches } from '../api/matches';
-import { getDashboardStats } from '../api/dashboard';
-import type { GroupRankEntry } from '../api/dashboard';
-import { getDailyGagesByDate, voteOnCandidate } from '../api/dailyGages';
-import type { Match, DailyGage } from '../types';
-import MatchCard from '../components/MatchCard';
-import DailyGageCard from '../components/DailyGageCard';
-import { useToast } from '../components/Toast';
-import { logger } from '../utils/logger';
+import { useAuth } from '@/context/AuthContext';
+import { getMatches } from '@/api/matches';
+import { getDashboardStats } from '@/api/dashboard';
+import type { GroupRankEntry } from '@/api/dashboard';
+import { getDailyGagesByDate, voteOnCandidate } from '@/api/dailyGages';
+import type { Match, DailyGage } from '@/types';
+import MatchCard from '@/components/MatchCard';
+import DailyGageCard from '@/components/DailyGageCard';
+import { useToast } from '@/components/Toast';
+import { logger } from '@/utils/logger';
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();

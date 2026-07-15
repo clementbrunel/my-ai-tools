@@ -1,5 +1,5 @@
 import apiClient from './axios';
-import type { Forfeit, GroupUserForfeit, UserForfeitEntry } from '../types';
+import type { Forfeit, GroupUserForfeit, UserForfeitEntry } from '@/types';
 
 // -----------------------------------------------------------------------
 // Forfeit library

@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import type { LeaderboardEntry, UserBetSummary } from '../types';
-import { isAdmin } from '../types';
-import { getUserBetsInGroup } from '../api/bets';
+import type { LeaderboardEntry, UserBetSummary } from '@/types';
+import { isAdmin } from '@/types';
+import { getUserBetsInGroup } from '@/api/bets';
 import UserBetList from './UserBetList';
 import Avatar from './Avatar';
 

@@ -1,20 +1,20 @@
 import { useEffect, useState } from 'react';
-import { useAuth } from '../context/AuthContext';
-import { getMyParticipations } from '../api/bets';
-import UserBetList from '../components/UserBetList';
-import Pagination from '../components/Pagination';
-import { getGroupLeaderboard } from '../api/leaderboard';
-import { getDashboardStats } from '../api/dashboard';
-import { getMyForfeits, completeForfeit } from '../api/forfeits';
-import type { UserBetSummary, LeaderboardEntry, UserForfeitEntry } from '../types';
-import { isAdmin } from '../types';
-import { formatDate } from '../utils/dates';
-import { useToast } from '../components/Toast';
-import { useUserCounts } from '../context/UserCountsContext';
+import { useAuth } from '@/context/AuthContext';
+import { getMyParticipations } from '@/api/bets';
+import UserBetList from '@/components/UserBetList';
+import Pagination from '@/components/Pagination';
+import { getGroupLeaderboard } from '@/api/leaderboard';
+import { getDashboardStats } from '@/api/dashboard';
+import { getMyForfeits, completeForfeit } from '@/api/forfeits';
+import type { UserBetSummary, LeaderboardEntry, UserForfeitEntry } from '@/types';
+import { isAdmin } from '@/types';
+import { formatDate } from '@/utils/dates';
+import { useToast } from '@/components/Toast';
+import { useUserCounts } from '@/context/UserCountsContext';
 import ProfileInfoForm from './profile/ProfileInfoForm';
 import PasswordForm from './profile/PasswordForm';
-import Avatar from '../components/Avatar';
-import { logger } from '../utils/logger';
+import Avatar from '@/components/Avatar';
+import { logger } from '@/utils/logger';
 
 const FORFEITS_PAGE_SIZE = 5;
 

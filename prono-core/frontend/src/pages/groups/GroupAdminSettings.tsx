@@ -3,18 +3,18 @@ import { Link } from 'react-router-dom';
 import {
   getGroupPendingForfeits, getGroupForfeits,
   approveGroupForfeit, deleteGroupForfeit,
-} from '../../api/forfeits';
+} from '@/api/forfeits';
 import {
   updateGroupPrivacy, updateGroupSports,
   getFutureOpenMatches, notifyNewMatches,
   getFutureOpenRaces, notifyNewRaces,
-} from '../../api/groups';
-import DailyGagePanel from '../../components/DailyGagePanel';
-import ConfirmModal from '../../components/ConfirmModal';
-import PillTabs from '../../components/PillTabs';
-import type { Group, Forfeit, Match, Race, Sport } from '../../types';
-import { formatDate } from '../../utils/dates';
-import { useGroupAdminCounts } from '../../context/GroupAdminCountsContext';
+} from '@/api/groups';
+import DailyGagePanel from '@/components/DailyGagePanel';
+import ConfirmModal from '@/components/ConfirmModal';
+import PillTabs from '@/components/PillTabs';
+import type { Group, Forfeit, Match, Race, Sport } from '@/types';
+import { formatDate } from '@/utils/dates';
+import { useGroupAdminCounts } from '@/context/GroupAdminCountsContext';
 
 type AdminSection = 'forfeits' | 'daily-gages' | 'notify-matches';
 

@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getRaces } from '../../api/f1';
-import type { Race } from '../../types';
-import { useScrollRestoration } from '../../hooks/useScrollRestoration';
-import { formatDate, formatTime } from '../../utils/dates';
-import { getFlagUrl } from '../../utils/countryFlags';
+import { getRaces } from '@/api/f1';
+import type { Race } from '@/types';
+import { useScrollRestoration } from '@/hooks/useScrollRestoration';
+import { formatDate, formatTime } from '@/utils/dates';
+import { getFlagUrl } from '@/utils/countryFlags';
 
 type FilterStatus = 'ALL' | 'UPCOMING' | 'FINISHED';
 type ViewMode = 'grid' | 'list';

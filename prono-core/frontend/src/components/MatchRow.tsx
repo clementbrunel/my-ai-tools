@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
-import type { Match } from '../types';
-import { formatDate, formatTime } from '../utils/dates';
-import { getFlagUrl } from '../utils/countryFlags';
+import type { Match } from '@/types';
+import { formatDate, formatTime } from '@/utils/dates';
+import { getFlagUrl } from '@/utils/countryFlags';
 
 interface MatchRowProps {
   match: Match;

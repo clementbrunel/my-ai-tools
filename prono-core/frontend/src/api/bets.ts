@@ -1,7 +1,7 @@
 import apiClient from './axios';
 import type {
   Bet, BetParticipation, CreateBetRequest, OpenBettingRequest, OpenCompetitionRequest, UserBetSummary,
-} from '../types';
+} from '@/types';
 
 export const getBets = async (): Promise<Bet[]> => {
   const response = await apiClient.get<Bet[]>('/bets');

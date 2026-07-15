@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
-import { getAdminCounts } from '../api/adminCounts';
-import { LocalStorageService, StorageKey } from '../utils/localStorage';
+import { getAdminCounts } from '@/api/adminCounts';
+import { LocalStorageService, StorageKey } from '@/utils/localStorage';
 
 interface GroupAdminCountsContextType {
   totalBadge: number;

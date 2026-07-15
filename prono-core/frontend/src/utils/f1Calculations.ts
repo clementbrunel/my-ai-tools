@@ -1,4 +1,4 @@
-import type { Driver, F1Prediction, Race } from '../types';
+import type { Driver, F1Prediction, Race } from '@/types';
 
 /**
  * Client-side helpers for the F1 "Podium +" scoring — the F1 twin of

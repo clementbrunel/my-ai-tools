@@ -1,5 +1,5 @@
 import apiClient from './axios';
-import type { LeaderboardEntry } from '../types';
+import type { LeaderboardEntry } from '@/types';
 
 export const getGroupLeaderboard = async (
   groupId: number,

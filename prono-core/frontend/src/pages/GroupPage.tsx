@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getMyGroups, getPublicGroups, createGroup, joinGroup, applyToGroup } from '../api/groups';
-import type { Group, PublicGroup, Sport } from '../types';
+import { getMyGroups, getPublicGroups, createGroup, joinGroup, applyToGroup } from '@/api/groups';
+import type { Group, PublicGroup, Sport } from '@/types';
 import GroupCard from './groups/GroupCard';
 
 type Tab = 'mine' | 'discover';

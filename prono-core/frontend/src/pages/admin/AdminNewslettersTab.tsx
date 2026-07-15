@@ -10,9 +10,9 @@ import {
   type Newsletter,
   type NewsletterInput,
   type NewsletterTheme,
-} from '../../api/newsletter';
-import { useFormMessages } from '../../hooks/useFormMessages';
-import ConfirmModal from '../../components/ConfirmModal';
+} from '@/api/newsletter';
+import { useFormMessages } from '@/hooks/useFormMessages';
+import ConfirmModal from '@/components/ConfirmModal';
 
 const EMPTY: NewsletterInput = { title: '', subtitle: '', bodyMd: '', theme: 'FOOTBALL', ctaLabel: '', ctaUrl: '' };
 

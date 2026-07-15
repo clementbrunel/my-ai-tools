@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react';
-import { getGroupLeaderboard } from '../api/leaderboard';
-import { useSport } from '../context/SportContext';
-import { getMyGroups } from '../api/groups';
-import { getGroupAssignments } from '../api/forfeits';
-import type { GroupUserForfeit, LeaderboardEntry, Group } from '../types';
-import LeaderboardRow from '../components/LeaderboardRow';
-import NoGroupBanner from '../components/NoGroupBanner';
-import Avatar from '../components/Avatar';
-import ScrollableTableWrapper from '../components/ScrollableTableWrapper';
-import { useAuth } from '../context/AuthContext';
-import { logger } from '../utils/logger';
+import { getGroupLeaderboard } from '@/api/leaderboard';
+import { useSport } from '@/context/SportContext';
+import { getMyGroups } from '@/api/groups';
+import { getGroupAssignments } from '@/api/forfeits';
+import type { GroupUserForfeit, LeaderboardEntry, Group } from '@/types';
+import LeaderboardRow from '@/components/LeaderboardRow';
+import NoGroupBanner from '@/components/NoGroupBanner';
+import Avatar from '@/components/Avatar';
+import ScrollableTableWrapper from '@/components/ScrollableTableWrapper';
+import { useAuth } from '@/context/AuthContext';
+import { logger } from '@/utils/logger';
 
 // ─── Pending Gages Section ────────────────────────────────────────────────────
 

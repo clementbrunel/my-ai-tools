@@ -8,7 +8,7 @@ import type {
   F1StandingHistory,
   Race,
   RaceResultEntryRequest,
-} from '../types';
+} from '@/types';
 
 export const getDrivers = async (): Promise<Driver[]> => {
   const response = await apiClient.get<Driver[]>('/f1/drivers');
