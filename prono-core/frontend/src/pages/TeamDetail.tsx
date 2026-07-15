@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { getTeam, getTeamMatches } from '@/api/teams';
 import type { Team, Match } from '@/types';
 import { getFlagUrl } from '@/utils/countryFlags';

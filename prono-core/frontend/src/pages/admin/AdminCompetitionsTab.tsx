@@ -42,7 +42,7 @@ const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) =>
       const first = comps.find((c) => c.sport === sport);
       if (first) await loadRoster(first);
     })();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadRoster = async (competition: CompetitionDto) => {
     loadingForRef.current = competition.id;

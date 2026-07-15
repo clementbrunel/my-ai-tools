@@ -24,7 +24,7 @@ interface Props {
 }
 
 const GroupAdminSettings: React.FC<Props> = ({ group, onGroupUpdate }) => {
-  const { pendingForfeitsPerGroup, missingGagesPerGroup, groupsWithNoBets, matchesWithoutBetsPerGroup, refresh: refreshCounts } = useGroupAdminCounts();
+  const { pendingForfeitsPerGroup, missingGagesPerGroup, matchesWithoutBetsPerGroup, refresh: refreshCounts } = useGroupAdminCounts();
 
   const groupSports = group.sports ?? ['FOOT'];
 

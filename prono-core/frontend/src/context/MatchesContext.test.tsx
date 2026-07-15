@@ -1,7 +1,8 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, act, waitFor } from '@testing-library/react';
 import { MatchesProvider, useMatches } from './MatchesContext';
 import { makeMatch } from '@/test-utils/factories';
+import type { Group, Match } from '@/types';
 
 vi.mock('../api/matches', () => ({
   getMatchesForMyGroups: vi.fn(),
@@ -45,7 +46,7 @@ const renderContext = () =>
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-const oneGroup = [{ id: 1 } as any];
+const oneGroup = [{ id: 1 } as Group];
 const twoMatches = [
   makeMatch({ id: 1, userParticipated: false }),
   makeMatch({ id: 2, userParticipated: false }),
@@ -103,7 +104,7 @@ describe('MatchesContext — fetchIfNeeded', () => {
   });
 
   it('isLoading: true pendant le premier fetch, false après', async () => {
-    let resolveMatches!: (v: any) => void;
+    let resolveMatches!: (v: Match[]) => void;
     vi.mocked(matchesApi.getMatchesForMyGroups).mockReturnValue(
       new Promise((r) => { resolveMatches = r; })
     );

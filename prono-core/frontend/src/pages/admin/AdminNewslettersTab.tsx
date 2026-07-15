@@ -40,7 +40,7 @@ const AdminNewslettersTab: React.FC = () => {
 
   useEffect(() => {
     refresh();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const openNew = () => {
     clear();
