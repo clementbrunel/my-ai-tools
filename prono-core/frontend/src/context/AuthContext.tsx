@@ -2,7 +2,9 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { jwtDecode } from 'jwt-decode';
 import type { User, LoginRequest, RegisterRequest, AuthResponse, DecodedToken } from '@/types';
 import { login as apiLogin, register as apiRegister } from '@/api/auth';
+import { getCurrentUser } from '@/api/users';
 import { LocalStorageService, StorageKey } from '@/utils/localStorage';
+import { logger } from '@/utils/logger';
 
 interface AuthContextType {
   user: User | null;
@@ -49,6 +51,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else {
         setToken(storedToken);
         setUser(storedUser);
+        // The cached profile can be stale (e.g. a new field's default value
+        // added server-side while the user stayed logged in across a deploy) —
+        // refresh it from the server in the background.
+        getCurrentUser()
+          .then((fresh) => {
+            LocalStorageService.setJSON(StorageKey.User, fresh);
+            setUser(fresh);
+          })
+          .catch((err) => logger.error('Failed to refresh user profile', err));
       }
     }
     setIsLoading(false);
