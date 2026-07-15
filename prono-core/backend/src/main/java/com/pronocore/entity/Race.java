@@ -52,6 +52,10 @@ public class Race {
     @JoinColumn(name = "competition_id", nullable = false)
     private Competition competition;
 
+    @Column(name = "reminder_sent", nullable = false)
+    @Builder.Default
+    private boolean reminderSent = false;
+
     public enum Status {
         UPCOMING, FINISHED
     }

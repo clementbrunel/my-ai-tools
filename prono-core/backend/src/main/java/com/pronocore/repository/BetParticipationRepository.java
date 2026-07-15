@@ -157,6 +157,13 @@ public interface BetParticipationRepository extends JpaRepository<BetParticipati
             """)
     boolean existsByUserIdAndMatchId(@Param("userId") Long userId, @Param("matchId") Long matchId);
 
+    /** True if the user has already placed at least one bet for the given race (across any group). */
+    @Query("""
+            SELECT COUNT(bp) > 0 FROM BetParticipation bp
+            WHERE bp.user.id = :userId AND bp.bet.race.id = :raceId
+            """)
+    boolean existsByUserIdAndRaceId(@Param("userId") Long userId, @Param("raceId") Long raceId);
+
     /** All participations a user has for a given match, across all groups. */
     @Query("""
             SELECT bp FROM BetParticipation bp

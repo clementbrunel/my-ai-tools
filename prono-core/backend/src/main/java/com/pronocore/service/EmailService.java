@@ -14,6 +14,7 @@ import com.pronocore.service.email.template.GroupNewMatchesEmailTemplate;
 import com.pronocore.service.email.template.GroupNewRacesEmailTemplate;
 import com.pronocore.service.email.template.MatchReminderEmailTemplate;
 import com.pronocore.service.email.template.PasswordResetEmailTemplate;
+import com.pronocore.service.email.template.RaceReminderEmailTemplate;
 import com.pronocore.service.email.template.TestCedricEmailTemplate;
 import com.pronocore.service.email.template.VerificationEmailTemplate;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +33,9 @@ public class EmailService {
 
     private static final Competition FIFA_WORLD_CUP_2026 =
             Competition.builder().id(1L).name("FIFA World Cup 2026").build();
+
+    private static final Competition F1_CHAMPIONSHIP_2026 =
+            Competition.builder().id(2L).name("Championnat du monde F1 2026").sport(com.pronocore.entity.Sport.F1).build();
 
     private final EmailSender emailSender;
 
@@ -60,6 +64,17 @@ public class EmailService {
                         .reminderSent(false).build()
                 );
                 sendMatchReminder(fakeUser, fakeMatches, theme);
+            }
+            case RACE_REMINDER -> {
+                User fakeUser = User.builder().username("joueur_test").email(to).emailReminderEnabled(true).build();
+                List<Race> fakeRaces = List.of(
+                    Race.builder().id(0L).name("Grand Prix de Monaco").circuit("Circuit de Monaco")
+                        .round(7).qualifyingDate(LocalDateTime.now().plusMinutes(65))
+                        .raceDate(LocalDateTime.now().plusHours(1))
+                        .competition(F1_CHAMPIONSHIP_2026).reminderSent(false).build()
+                );
+                emailSender.send(to, RaceReminderEmailTemplate.subject(fakeRaces),
+                    RaceReminderEmailTemplate.build(EmailTheme.F1, fakeUser, fakeRaces, frontendUrl));
             }
             case GAGE_RESOLUTION -> {
                 User fakeRecipient = User.builder().username("joueur_test").displayName("Joueur Test").email(to).build();
@@ -146,6 +161,17 @@ public class EmailService {
             log.info("Match reminder sent to {} ({} match(es))", user.getEmail(), matches.size());
         } catch (Exception e) {
             log.error("Failed to send match reminder to {}: {}", user.getEmail(), e.getMessage());
+        }
+    }
+
+    public void sendRaceReminder(User user, List<Race> races) {
+        if (races.isEmpty()) return;
+        try {
+            emailSender.send(user.getEmail(), RaceReminderEmailTemplate.subject(races),
+                RaceReminderEmailTemplate.build(EmailTheme.F1, user, races, frontendUrl));
+            log.info("Race reminder sent to {} ({} race(s))", user.getEmail(), races.size());
+        } catch (Exception e) {
+            log.error("Failed to send race reminder to {}: {}", user.getEmail(), e.getMessage());
         }
     }
 
