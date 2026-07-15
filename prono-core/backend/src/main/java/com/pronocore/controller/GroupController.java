@@ -4,11 +4,13 @@ import com.pronocore.dto.request.UpdateGroupSportsRequest;
 import com.pronocore.dto.request.CreateGroupRequest;
 import com.pronocore.dto.request.JoinGroupRequest;
 import com.pronocore.dto.request.NotifyNewMatchesRequest;
+import com.pronocore.dto.request.NotifyNewRacesRequest;
 import com.pronocore.dto.request.UpdateGroupPrivacyRequest;
 import com.pronocore.dto.response.GroupMemberResponse;
 import com.pronocore.dto.response.GroupResponse;
 import com.pronocore.dto.response.MatchResponse;
 import com.pronocore.dto.response.PublicGroupResponse;
+import com.pronocore.dto.response.RaceResponse;
 import com.pronocore.service.GroupService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -153,6 +155,21 @@ public class GroupController {
                                                   @Valid @RequestBody NotifyNewMatchesRequest request,
                                                   Authentication auth) {
         groupService.notifyNewMatches(groupId, request.getMatchIds(), auth.getName());
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{groupId}/future-open-races")
+    @Operation(summary = "List future F1 races open for pronostics in this group (Group admin only)")
+    public ResponseEntity<List<RaceResponse>> getFutureOpenRaces(@PathVariable Long groupId, Authentication auth) {
+        return ResponseEntity.ok(groupService.getFutureOpenRaces(groupId, auth.getName()));
+    }
+
+    @PostMapping("/{groupId}/notify-new-races")
+    @Operation(summary = "Notify active group members by email about newly opened future F1 races (Group admin only)")
+    public ResponseEntity<Void> notifyNewRaces(@PathVariable Long groupId,
+                                                @Valid @RequestBody NotifyNewRacesRequest request,
+                                                Authentication auth) {
+        groupService.notifyNewRaces(groupId, request.getRaceIds(), auth.getName());
         return ResponseEntity.noContent().build();
     }
 }

@@ -4,12 +4,14 @@ import com.pronocore.dto.request.EmailThemeName;
 import com.pronocore.dto.request.EmailType;
 import com.pronocore.entity.Competition;
 import com.pronocore.entity.Match;
+import com.pronocore.entity.Race;
 import com.pronocore.entity.Team;
 import com.pronocore.entity.User;
 import com.pronocore.service.email.EmailSender;
 import com.pronocore.service.email.EmailTheme;
 import com.pronocore.service.email.template.GageResolutionEmailTemplate;
 import com.pronocore.service.email.template.GroupNewMatchesEmailTemplate;
+import com.pronocore.service.email.template.GroupNewRacesEmailTemplate;
 import com.pronocore.service.email.template.MatchReminderEmailTemplate;
 import com.pronocore.service.email.template.PasswordResetEmailTemplate;
 import com.pronocore.service.email.template.TestCedricEmailTemplate;
@@ -85,6 +87,18 @@ public class EmailService {
                         .round("Quart de finale").build()
                 );
                 sendGroupNewMatchesEmail(fakeRecipient, "Groupe des Amis", fakeLeader, fakeNewMatches, theme);
+            }
+            case GROUP_NEW_RACES -> {
+                User fakeRecipient = User.builder().username("joueur_test").displayName("Joueur Test").email(to).build();
+                User fakeLeader = User.builder().username("chef_test").displayName("Le Chef").build();
+                Competition f1Championship = Competition.builder().id(2L).name("Formule 1 2026").build();
+                List<Race> fakeNewRaces = List.of(
+                    Race.builder().id(0L).name("Grand Prix de Monaco").round(8)
+                        .raceDate(LocalDateTime.now().plusDays(5)).competition(f1Championship).build(),
+                    Race.builder().id(1L).name("Grand Prix du Canada").round(9)
+                        .raceDate(LocalDateTime.now().plusDays(12)).competition(f1Championship).build()
+                );
+                sendGroupNewRacesEmail(fakeRecipient, "Groupe des Amis", fakeLeader, fakeNewRaces);
             }
             case TEST_CEDRIC -> sendTestCedricEmail(to, theme);
         }
@@ -167,6 +181,19 @@ public class EmailService {
             log.info("Group new matches email sent to {} (group {}, {} match(es))", recipient.getEmail(), groupName, matches.size());
         } catch (Exception e) {
             log.error("Failed to send group new matches email to {}: {}", recipient.getEmail(), e.getMessage());
+        }
+    }
+
+    public void sendGroupNewRacesEmail(User recipient, String groupName, User leader, List<Race> races) {
+        if (races.isEmpty()) return;
+        String displayName = recipient.getDisplayName() != null ? recipient.getDisplayName() : recipient.getUsername();
+        String leaderName = leader.getDisplayName() != null ? leader.getDisplayName() : leader.getUsername();
+        try {
+            emailSender.send(recipient.getEmail(), GroupNewRacesEmailTemplate.subject(groupName, races),
+                GroupNewRacesEmailTemplate.build(EmailTheme.F1, displayName, groupName, leaderName, races, frontendUrl));
+            log.info("Group new races email sent to {} (group {}, {} race(s))", recipient.getEmail(), groupName, races.size());
+        } catch (Exception e) {
+            log.error("Failed to send group new races email to {}: {}", recipient.getEmail(), e.getMessage());
         }
     }
 
