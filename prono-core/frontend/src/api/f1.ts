@@ -1,6 +1,7 @@
 import apiClient from './axios';
 import type {
   Driver,
+  DriverRaceResult,
   F1Prediction,
   F1PredictionRequest,
   F1Standing,
@@ -10,6 +11,16 @@ import type {
 
 export const getDrivers = async (): Promise<Driver[]> => {
   const response = await apiClient.get<Driver[]>('/f1/drivers');
+  return response.data;
+};
+
+export const getDriver = async (driverId: number): Promise<Driver> => {
+  const response = await apiClient.get<Driver>(`/f1/drivers/${driverId}`);
+  return response.data;
+};
+
+export const getDriverResults = async (driverId: number): Promise<DriverRaceResult[]> => {
+  const response = await apiClient.get<DriverRaceResult[]>(`/f1/drivers/${driverId}/results`);
   return response.data;
 };
 

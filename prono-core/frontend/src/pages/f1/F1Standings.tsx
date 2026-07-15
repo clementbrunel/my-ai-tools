@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { getConstructorStandings, getDriverStandings } from '../../api/f1';
 import type { F1Standing } from '../../types';
 import MiniF1Car from '../../components/f1/MiniF1Car';
@@ -6,31 +7,42 @@ import PillTabs from '../../components/PillTabs';
 
 type Tab = 'drivers' | 'constructors';
 
-const StandingRow: React.FC<{ standing: F1Standing; isDriver: boolean }> = ({ standing, isDriver }) => (
-  <div className="flex items-center gap-3 py-2">
-    <span className={`w-8 text-right font-black ${standing.rank <= 3 ? 'text-wc-gold' : 'text-gray-400'}`}>
-      {standing.rank}
-    </span>
-    <span className="w-1.5 h-7 rounded" style={{ backgroundColor: standing.constructorColor }} />
-    <div className="flex-1 min-w-0">
-      <div className="font-bold text-gray-900 dark:text-white truncate">
-        {isDriver && standing.driver ? standing.driver.name : standing.constructorName}
+const StandingRow: React.FC<{ standing: F1Standing; isDriver: boolean }> = ({ standing, isDriver }) => {
+  const content = (
+    <>
+      <span className={`w-8 text-right font-black ${standing.rank <= 3 ? 'text-wc-gold' : 'text-gray-400'}`}>
+        {standing.rank}
+      </span>
+      <span className="w-1.5 h-7 rounded" style={{ backgroundColor: standing.constructorColor }} />
+      <div className="flex-1 min-w-0">
+        <div className="font-bold text-gray-900 dark:text-white truncate">
+          {isDriver && standing.driver ? standing.driver.name : standing.constructorName}
+        </div>
+        <div className="text-xs text-gray-400">
+          {isDriver && standing.driver
+            ? `${standing.constructorName} · #${standing.driver.number}`
+            : `${standing.wins} victoire${standing.wins > 1 ? 's' : ''} · ${standing.podiums} podium${standing.podiums > 1 ? 's' : ''}`}
+        </div>
       </div>
-      <div className="text-xs text-gray-400">
-        {isDriver && standing.driver
-          ? `${standing.constructorName} · #${standing.driver.number}`
-          : `${standing.wins} victoire${standing.wins > 1 ? 's' : ''} · ${standing.podiums} podium${standing.podiums > 1 ? 's' : ''}`}
+      {isDriver && standing.driver && (
+        <MiniF1Car color={standing.constructorColor} size={36} className="hidden sm:block" />
+      )}
+      <div className="text-right">
+        <div className="font-black text-lg text-gray-900 dark:text-white">{standing.points}</div>
+        <div className="text-[10px] uppercase text-gray-400">pts</div>
       </div>
-    </div>
-    {isDriver && standing.driver && (
-      <MiniF1Car color={standing.constructorColor} size={36} className="hidden sm:block" />
-    )}
-    <div className="text-right">
-      <div className="font-black text-lg text-gray-900 dark:text-white">{standing.points}</div>
-      <div className="text-[10px] uppercase text-gray-400">pts</div>
-    </div>
-  </div>
-);
+    </>
+  );
+
+  if (isDriver && standing.driver) {
+    return (
+      <Link to={`/f1/drivers/${standing.driver.id}`} className="flex items-center gap-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-800/50 -mx-2 px-2 rounded-lg transition-colors">
+        {content}
+      </Link>
+    );
+  }
+  return <div className="flex items-center gap-3 py-2">{content}</div>;
+};
 
 const F1Standings: React.FC = () => {
   const [tab, setTab] = useState<Tab>('drivers');
