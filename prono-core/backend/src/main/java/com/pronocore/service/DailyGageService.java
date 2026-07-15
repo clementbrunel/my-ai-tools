@@ -7,6 +7,7 @@ import com.pronocore.dto.response.DailyGageResponse;
 import com.pronocore.dto.response.ForfeitResponse;
 import com.pronocore.entity.*;
 import com.pronocore.repository.*;
+import com.pronocore.service.email.EmailTheme;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -339,6 +340,7 @@ public class DailyGageService {
                         e -> e.getKey().getDisplayName() != null ? e.getKey().getDisplayName() : e.getKey().getUsername(),
                         Map.Entry::getValue));
         String groupName = dg.getGroup().getName();
+        EmailTheme gageTheme = themeForGageDay(participations);
 
         groupMemberRepository.findByGroupId(groupId).stream()
                 .filter(m -> m.getStatus() == GroupMember.MemberStatus.ACTIVE)
@@ -346,7 +348,20 @@ public class DailyGageService {
                 .filter(User::isEmailGageEnabled)
                 .forEach(subscriber -> emailService.sendGageResolutionEmail(
                         subscriber, resolvedForfeit.getTitle(), resolvedForfeit.getDescription(),
-                        resolvedUnlucky, groupName, namedScores));
+                        resolvedUnlucky, groupName, namedScores, gageTheme));
+    }
+
+    /**
+     * The gage email's theme reflects what was actually resolved that day: a pure foot
+     * day gets the foot palette, a pure F1 day gets the F1 palette, and a mixed group
+     * (or an ambiguous/empty case) falls back to neutral rather than favoring one sport.
+     */
+    private EmailTheme themeForGageDay(List<BetParticipation> participations) {
+        boolean hasFoot = participations.stream().anyMatch(p -> p.getBet() != null && p.getBet().getMatch() != null);
+        boolean hasF1 = participations.stream().anyMatch(p -> p.getBet() != null && p.getBet().getRace() != null);
+        if (hasFoot && !hasF1) return EmailTheme.FOOTBALL;
+        if (hasF1 && !hasFoot) return EmailTheme.F1;
+        return EmailTheme.NEUTRAL;
     }
 
     // ---------------------------------------------------------------

@@ -57,8 +57,10 @@ const EMAIL_TEMPLATES: EmailTemplateInfo[] = [
     theme: 'NEUTRAL',
     description: (
       <>
-        Envoyé automatiquement à la fin de la journée de matchs ou de courses aux membres du groupe ayant activé cette notification.
+        Envoyé automatiquement à la fin de la journée de matchs et/ou de courses aux membres du groupe ayant activé cette notification.
         Commun aux groupes Foot et F1 : contient le classement du jour (points gagnés par joueur) et l'identité du joueur qui écope du gage.
+        Seul template dont le thème est calculé au runtime (⚽ si journée 100% foot, 🏎️ si 100% F1, 🎯 sinon) plutôt que fixé par le template —
+        l'aperçu de test ci-dessus utilise toujours 🎯 Neutre, faute de vraie journée derrière.
         Désactivé par défaut dans le profil utilisateur.
         Le test utilise des données fictives (groupe "Groupe des Amis", 3 joueurs).
       </>
