@@ -1,7 +1,8 @@
-import { createContext, useContext, useEffect } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useTheme } from './ThemeContext';
+import { LocalStorageService, StorageKey } from '../utils/localStorage';
 
 export type Sport = 'foot' | 'f1';
 
@@ -12,11 +13,32 @@ interface SportContextValue {
 
 const SportContext = createContext<SportContextValue>({ sport: 'foot', basePath: '/foot' });
 
+function storedSport(): Sport {
+  return LocalStorageService.getString(StorageKey.Sport) === 'f1' ? 'f1' : 'foot';
+}
+
+/**
+ * The active sport follows the URL prefix (/foot, /f1) and is remembered on
+ * shared pages (/groups, /admin, /profile) so navigating there keeps the
+ * current universe — theme, navbar and back-links included.
+ */
 export function SportProvider({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
   const { setTheme } = useTheme();
+  const [sport, setSport] = useState<Sport>(storedSport);
 
-  const sport: Sport = pathname.startsWith('/f1') ? 'f1' : 'foot';
+  useEffect(() => {
+    const fromPath: Sport | null = pathname.startsWith('/f1')
+      ? 'f1'
+      : pathname.startsWith('/foot')
+        ? 'foot'
+        : null;   // shared page → keep the last visited sport
+    if (fromPath && fromPath !== sport) {
+      setSport(fromPath);
+      LocalStorageService.setString(StorageKey.Sport, fromPath);
+    }
+  }, [pathname, sport]);
+
   const basePath = `/${sport}`;
 
   useEffect(() => {
@@ -27,7 +49,7 @@ export function SportProvider({ children }: { children: ReactNode }) {
     if (favicon) {
       favicon.href = `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>${emoji}</text></svg>`;
     }
-  }, [sport]);
+  }, [sport]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <SportContext.Provider value={{ sport, basePath }}>

@@ -2,6 +2,7 @@ package com.pronocore.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.pronocore.entity.GroupMember;
+import com.pronocore.entity.Sport;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -9,6 +10,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 
 @Data
 @Builder
@@ -32,4 +34,7 @@ public class GroupResponse {
 
     /** Role of the requesting user within this group (null if not a member). */
     private GroupMember.GroupRole currentUserRole;
+
+    /** Sports this group plays. */
+    private Set<Sport> sports;
 }

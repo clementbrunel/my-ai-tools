@@ -1,3 +1,5 @@
 package com.pronocore.dto.response;
 
-public record CompetitionResponse(Long id, String name) {}
+import com.pronocore.entity.Sport;
+
+public record CompetitionResponse(Long id, String name, Sport sport) {}

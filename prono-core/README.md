@@ -1,6 +1,6 @@
 # Prono Core ⚽🏆
 
-**Application de pronostics Coupe du Monde 2026 entre amis — Pas d'argent réel, que du fun et des gages !**
+**Application de pronostics entre amis — Coupe du Monde 2026 ⚽ et Formule 1 🏎 — Pas d'argent réel, que du fun et des gages !**
 
 ## Stack technique
 
@@ -207,6 +207,22 @@ Le scoring est **additif** : chaque élément correct rapporte des points indép
 
 > Le score réglementaire est le score nul à l'issue des prolongations (ex. 1-1) qui déclenche les tirs au but.
 > Le score pénalty n'est pris en compte que si l'administrateur l'a saisi lors de la validation du match.
+
+---
+
+### Grand Prix F1 — formule « Podium + » (additif, max 14)
+
+| Pick | Points | Verrou |
+|---|:---:|---|
+| P1 / P2 / P3 exacts | **3 / 2 / 2** | Départ course |
+| Pilote sur le podium, mauvaise marche | **1** | Départ course |
+| Pole position | **2** | Début des qualifs |
+| Meilleur tour | **1** | Départ course |
+| Lanterne rouge (dernier classé) | **2** | Départ course |
+| Bonus Grand Chelem (pole + P1 + meilleur tour) | **+2** | — |
+
+> Saisie par drag & drop de mini-F1 aux couleurs des écuries. Les groupes
+> choisissent leurs sports (⚽ / 🏎) ; classement du groupe filtrable par sport.
 
 ---
 

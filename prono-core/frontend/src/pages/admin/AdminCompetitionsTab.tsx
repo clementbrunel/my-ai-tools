@@ -8,9 +8,16 @@ import {
   setCompetitionTeams,
   findOrCreateTeam,
 } from '../../api/competitions';
-import type { CompetitionDto, TeamDto } from '../../types';
+import { getDrivers } from '../../api/f1';
+import type { CompetitionDto, Driver, Sport, TeamDto } from '../../types';
+import MiniF1Car from '../../components/f1/MiniF1Car';
 
-const AdminCompetitionsTab: React.FC = () => {
+interface AdminCompetitionsTabProps {
+  /** Sport scope selected at the top of the admin page. */
+  sport: Sport;
+}
+
+const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) => {
   const { showToast } = useToast();
 
   const [competitions, setCompetitions] = useState<CompetitionDto[]>([]);
@@ -24,6 +31,7 @@ const AdminCompetitionsTab: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [isLoadingTeams, setIsLoadingTeams] = useState(false);
+  const [f1Drivers, setF1Drivers] = useState<Driver[] | null>(null);
   const loadingForRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -31,9 +39,8 @@ const AdminCompetitionsTab: React.FC = () => {
       const [comps, known] = await Promise.all([getCompetitions(), getAllKnownTeams()]);
       setCompetitions(comps);
       setKnownTeams(known);
-      if (comps.length > 0) {
-        await loadRoster(comps[0]);
-      }
+      const first = comps.find((c) => c.sport === sport);
+      if (first) await loadRoster(first);
     })();
   }, []);
 
@@ -89,11 +96,29 @@ const AdminCompetitionsTab: React.FC = () => {
     }
   };
 
+  const visibleCompetitions = competitions.filter((c) => c.sport === sport);
+
+  // Load the F1 entry list once an F1 competition is shown.
+  useEffect(() => {
+    if (selectedCompetition?.sport === 'F1' && f1Drivers === null) {
+      getDrivers().then(setF1Drivers).catch(() => setF1Drivers([]));
+    }
+  }, [selectedCompetition, f1Drivers]);
+
+  // Follow the admin-page sport switch.
+  useEffect(() => {
+    if (selectedCompetition && selectedCompetition.sport !== sport) {
+      const first = competitions.find((c) => c.sport === sport);
+      if (first) loadRoster(first);
+      else setSelectedCompetition(null);
+    }
+  }, [sport]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleCreateCompetition = async (e: React.FormEvent) => {
     e.preventDefault();
     const name = newCompetitionName.trim();
     if (!name || competitions.some((c) => c.name === name)) return;
-    await createCompetition(name);
+    await createCompetition(name, sport);
     const updated = await getCompetitions();
     setCompetitions(updated);
     setNewCompetitionName('');
@@ -108,8 +133,10 @@ const AdminCompetitionsTab: React.FC = () => {
     <div className="space-y-6">
       {/* Competition selector */}
       <div className="card">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-bold text-gray-900 dark:text-white">🏆 Compétitions</h3>
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+          <h3 className="font-bold text-gray-900 dark:text-white">
+            🏆 Compétitions {sport === 'F1' ? '🏎' : '⚽'}
+          </h3>
           <button
             onClick={() => setShowNewCompetitionForm((v) => !v)}
             className="btn-secondary text-sm"
@@ -125,17 +152,19 @@ const AdminCompetitionsTab: React.FC = () => {
               value={newCompetitionName}
               onChange={(e) => setNewCompetitionName(e.target.value)}
               className="input-field flex-1"
-              placeholder="Ex: FIFA World Cup 2026"
+              placeholder={sport === 'F1' ? 'Ex: Formule 1 2027' : 'Ex: FIFA World Cup 2026'}
               autoFocus
               required
             />
-            <button type="submit" className="btn-primary whitespace-nowrap">Créer</button>
+            <button type="submit" className="btn-primary whitespace-nowrap">
+              Créer ({sport === 'F1' ? '🏎 F1' : '⚽ Foot'})
+            </button>
             <button type="button" onClick={() => setShowNewCompetitionForm(false)} className="btn-secondary">Annuler</button>
           </form>
         )}
 
         <div className="flex flex-wrap gap-2">
-          {competitions.map((c) => (
+          {visibleCompetitions.map((c) => (
             <button
               key={c.id}
               onClick={() => loadRoster(c)}
@@ -148,14 +177,65 @@ const AdminCompetitionsTab: React.FC = () => {
               {c.name}
             </button>
           ))}
-          {competitions.length === 0 && (
-            <p className="text-sm text-gray-400">Aucune compétition — créez-en une ci-dessus.</p>
+          {visibleCompetitions.length === 0 && (
+            <p className="text-sm text-gray-400">Aucune compétition pour ce sport — créez-en une ci-dessus.</p>
           )}
         </div>
       </div>
 
-      {/* Team roster */}
-      {selectedCompetition && (
+      {/* F1 competitions: the entry list (drivers per constructor) is the roster */}
+      {selectedCompetition && selectedCompetition.sport === 'F1' && (
+        <div className="card">
+          <div className="flex items-center justify-between mb-1">
+            <h3 className="font-bold text-gray-900 dark:text-white">
+              Pilotes engagés — <span className="text-wc-green">{selectedCompetition.name}</span>
+            </h3>
+            <span className="text-sm text-gray-500">
+              {f1Drivers ? `${f1Drivers.length} pilote${f1Drivers.length > 1 ? 's' : ''}` : ''}
+            </span>
+          </div>
+          <p className="text-xs text-gray-400 mb-4">
+            Grille mise à jour par l'import jolpica (onglet 🏁 Courses) — calendrier et résultats s'y gèrent aussi.
+          </p>
+
+          {f1Drivers === null ? (
+            <p className="text-sm text-gray-400">Chargement de la grille…</p>
+          ) : f1Drivers.length === 0 ? (
+            <p className="text-sm text-gray-400">
+              Aucun pilote — lance l'import jolpica depuis l'onglet 🏁 Courses pour charger la grille.
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {[...new Map(f1Drivers.map((d) => [d.constructorId, d])).values()].map((ref) => (
+                <div key={ref.constructorId} className="rounded-lg border border-gray-100 dark:border-gray-800 p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="w-1.5 h-5 rounded" style={{ backgroundColor: ref.constructorColor }} />
+                    <span className="font-bold text-sm text-gray-900 dark:text-white">{ref.constructorName}</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {f1Drivers
+                      .filter((d) => d.constructorId === ref.constructorId)
+                      .map((driver) => (
+                        <div key={driver.id} className="flex items-center gap-2 text-sm">
+                          <MiniF1Car color={driver.constructorColor} size={26} />
+                          <span className="font-medium text-gray-900 dark:text-white flex-1 truncate">
+                            {driver.name}
+                          </span>
+                          <span className="text-xs font-bold text-gray-400">
+                            {driver.code} · #{driver.number}
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Team roster (football competitions) */}
+      {selectedCompetition && selectedCompetition.sport !== 'F1' && (
         <div className="card">
           <div className="flex items-center justify-between mb-1">
             <h3 className="font-bold text-gray-900 dark:text-white">

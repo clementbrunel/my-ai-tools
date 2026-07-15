@@ -3,6 +3,7 @@ package com.pronocore.service;
 import com.pronocore.dto.response.CompetitionResponse;
 import com.pronocore.dto.response.TeamResponse;
 import com.pronocore.entity.Competition;
+import com.pronocore.entity.Sport;
 import com.pronocore.entity.Team;
 import com.pronocore.repository.CompetitionRepository;
 import com.pronocore.repository.TeamRepository;
@@ -23,7 +24,7 @@ public class CompetitionService {
     @Transactional(readOnly = true)
     public List<CompetitionResponse> getAllCompetitions() {
         return competitionRepository.findAllByOrderByNameAsc()
-                .stream().map(c -> new CompetitionResponse(c.getId(), c.getName())).toList();
+                .stream().map(c -> new CompetitionResponse(c.getId(), c.getName(), c.getSport())).toList();
     }
 
     @Transactional(readOnly = true)
@@ -41,9 +42,12 @@ public class CompetitionService {
     }
 
     @Transactional
-    public void createCompetition(String name) {
+    public void createCompetition(String name, Sport sport) {
         if (competitionRepository.findByName(name).isEmpty()) {
-            competitionRepository.save(Competition.builder().name(name).build());
+            competitionRepository.save(Competition.builder()
+                    .name(name)
+                    .sport(sport)
+                    .build());
         }
     }
 

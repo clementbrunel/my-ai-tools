@@ -7,6 +7,7 @@ import com.pronocore.dto.response.GroupResponse;
 import com.pronocore.dto.response.MatchResponse;
 import com.pronocore.dto.response.PublicGroupResponse;
 import com.pronocore.entity.Group;
+import com.pronocore.entity.Sport;
 import com.pronocore.entity.GroupMember;
 import com.pronocore.entity.Match;
 import com.pronocore.entity.User;
@@ -21,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -49,6 +51,9 @@ public class GroupService {
             .inviteCode(generateUniqueCode())
             .createdBy(creator)
             .build();
+        if (request.getSports() != null && !request.getSports().isEmpty()) {
+            group.setSports(new HashSet<>(request.getSports()));
+        }
         groupRepository.save(group);
 
         GroupMember membership = GroupMember.builder()
@@ -148,6 +153,21 @@ public class GroupService {
 
         Group group = findGroup(groupId);
         group.setPrivate(isPrivate);
+        groupRepository.save(group);
+
+        return toResponse(group, GroupMember.GroupRole.GROUP_ADMIN, true);
+    }
+
+    @Transactional
+    public GroupResponse updateSports(Long groupId, Set<Sport> sports, String adminUsername) {
+        assertGroupAdmin(groupId, adminUsername);
+        if (sports == null || sports.isEmpty()) {
+            throw new IllegalArgumentException("Un groupe doit jouer à au moins un sport");
+        }
+
+        Group group = findGroup(groupId);
+        group.getSports().clear();
+        group.getSports().addAll(sports);
         groupRepository.save(group);
 
         return toResponse(group, GroupMember.GroupRole.GROUP_ADMIN, true);
@@ -386,6 +406,7 @@ public class GroupService {
             .pendingApplications(pendingApplications)
             .createdAt(group.getCreatedAt())
             .currentUserRole(currentUserRole)
+            .sports(new HashSet<>(group.getSports()))
             .build();
     }
 

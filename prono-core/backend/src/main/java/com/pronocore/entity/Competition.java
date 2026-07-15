@@ -22,6 +22,11 @@ public class Competition {
     @Column(nullable = false, length = 100, unique = true)
     private String name;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 10)
+    @Builder.Default
+    private Sport sport = Sport.FOOT;
+
     @ManyToMany
     @JoinTable(
         name = "competition_teams",

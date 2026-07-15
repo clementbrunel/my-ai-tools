@@ -309,6 +309,11 @@ public class BetService {
         if (bet.getStatus() != Bet.Status.OPEN) {
             throw new IllegalStateException("Bet is not open — it has already been settled or cancelled");
         }
+        // F1 bets are settled by F1RaceService with the Podium+ scale — a generic
+        // string-match validation would credit flat points and corrupt the scoring.
+        if (bet.getBetType() == Bet.BetType.RACE_PICKS) {
+            throw new IllegalStateException("Les paris F1 se règlent via la saisie des résultats de course, pas ici");
+        }
 
         bet.setStatus(Bet.Status.VALIDATED);
         bet.setWinningOption(winningOption);

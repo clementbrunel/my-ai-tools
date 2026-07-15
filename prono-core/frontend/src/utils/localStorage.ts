@@ -4,6 +4,7 @@ export const StorageKey = {
   User: 'user',
   Theme: 'app-theme',
   AdminMatchesWithoutBetsAck: 'admin_matches_without_bets_ack',
+  Sport: 'pronocore-sport',
 } as const;
 
 export type StorageKey = (typeof StorageKey)[keyof typeof StorageKey];

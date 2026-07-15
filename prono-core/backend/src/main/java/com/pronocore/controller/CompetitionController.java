@@ -1,9 +1,11 @@
 package com.pronocore.controller;
 
+import com.pronocore.dto.request.CreateCompetitionRequest;
 import com.pronocore.dto.response.CompetitionResponse;
 import com.pronocore.dto.response.TeamResponse;
 import com.pronocore.service.CompetitionService;
 import io.swagger.v3.oas.annotations.Operation;
+import jakarta.validation.Valid;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -35,8 +37,8 @@ public class CompetitionController {
     @PostMapping
     @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     @Operation(summary = "Create a competition (Admin only)")
-    public ResponseEntity<Void> createCompetition(@RequestBody String name) {
-        competitionService.createCompetition(name.trim());
+    public ResponseEntity<Void> createCompetition(@Valid @RequestBody CreateCompetitionRequest request) {
+        competitionService.createCompetition(request.getName().trim(), request.getSport());
         return ResponseEntity.noContent().build();
     }
 

@@ -7,7 +7,7 @@ import com.pronocore.entity.BetParticipation;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
-@Mapper(componentModel = "spring", uses = {UserMapper.class, MatchMapper.class})
+@Mapper(componentModel = "spring", uses = {UserMapper.class, MatchMapper.class, RaceMapper.class})
 public interface BetMapper {
 
     @Mapping(target = "participationsCount", ignore = true)

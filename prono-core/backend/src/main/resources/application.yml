@@ -46,3 +46,8 @@ logging:
     com.pronocore: INFO
     com.pronocore.aspect: INFO
     org.springframework.security: WARN
+
+# jolpica-f1 (Ergast-compatible) — source des calendriers, grilles et résultats F1
+f1:
+  jolpica:
+    base-url: https://api.jolpi.ca/ergast/f1

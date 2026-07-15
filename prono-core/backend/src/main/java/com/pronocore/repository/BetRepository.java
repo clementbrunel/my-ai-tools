@@ -52,6 +52,45 @@ public interface BetRepository extends JpaRepository<Bet, Long> {
 
     List<Bet> findByStatusOrderByCreatedAtDesc(Bet.Status status);
 
+    // ---------------------------------------------------------------
+    // F1 races (mirror of the match-scoped queries)
+    // ---------------------------------------------------------------
+
+    boolean existsByRaceIdAndGroupId(Long raceId, Long groupId);
+
+    boolean existsByRaceId(Long raceId);
+
+    List<Bet> findByRaceIdAndGroupId(Long raceId, Long groupId);
+
+    List<Bet> findByRaceIdAndStatusOrderByCreatedAtDesc(Long raceId, Bet.Status status);
+
+    /** Bets for a given race, restricted to the user's ACTIVE groups. */
+    @Query("""
+            SELECT DISTINCT b FROM Bet b
+            JOIN FETCH b.group g
+            JOIN FETCH b.creator
+            JOIN GroupMember gm ON gm.group = b.group
+            WHERE b.race.id = :raceId
+              AND gm.user.id = :userId
+              AND gm.status = com.pronocore.entity.GroupMember.MemberStatus.ACTIVE
+            ORDER BY b.createdAt DESC
+            """)
+    List<Bet> findByRaceIdInUserActiveGroups(@Param("raceId") Long raceId, @Param("userId") Long userId);
+
+    /** Race ids that already have a bet in the given group. */
+    @Query("SELECT b.race.id FROM Bet b WHERE b.group.id = :groupId AND b.race IS NOT NULL")
+    Set<Long> findRaceIdsWithBetsForGroup(@Param("groupId") Long groupId);
+
+    /** Race ids that have at least one bet (any status) in the user's active groups. */
+    @Query("""
+            SELECT DISTINCT b.race.id FROM Bet b
+            JOIN GroupMember gm ON gm.group = b.group
+            WHERE b.race IS NOT NULL
+              AND gm.user.id = :userId
+              AND gm.status = com.pronocore.entity.GroupMember.MemberStatus.ACTIVE
+            """)
+    Set<Long> findRaceIdsWithBetsInUserGroups(@Param("userId") Long userId);
+
     List<Bet> findAllByOrderByCreatedAtDesc();
 
     @Query("SELECT b FROM Bet b WHERE b.creator.id = :creatorId ORDER BY b.createdAt DESC")
@@ -82,14 +121,15 @@ public interface BetRepository extends JpaRepository<Bet, Long> {
     @Query("SELECT DISTINCT b.group.id FROM Bet b WHERE b.group.id IN :groupIds AND b.status = com.pronocore.entity.Bet.Status.OPEN")
     Set<Long> findGroupIdsWithOpenBets(@Param("groupIds") List<Long> groupIds);
 
-    /** Returns true if at least one OPEN bet exists for the given group on the given calendar day. */
+    /** Returns true if at least one OPEN bet exists for the given group on the given calendar day (match kick-off or race start). */
     @Query("""
             SELECT COUNT(b) > 0 FROM Bet b
+            LEFT JOIN b.match m
+            LEFT JOIN b.race r
             WHERE b.group.id = :groupId
               AND b.status = com.pronocore.entity.Bet.Status.OPEN
-              AND b.match IS NOT NULL
-              AND b.match.matchDate >= :startOfDay
-              AND b.match.matchDate < :endOfDay
+              AND ((m.matchDate >= :startOfDay AND m.matchDate < :endOfDay)
+                OR (r.raceDate  >= :startOfDay AND r.raceDate  < :endOfDay))
             """)
     boolean existsOpenBetForGroupOnDay(@Param("groupId") Long groupId,
                                        @Param("startOfDay") LocalDateTime startOfDay,

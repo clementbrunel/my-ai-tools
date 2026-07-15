@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getMyGroups, getPublicGroups, createGroup, joinGroup, applyToGroup } from '../api/groups';
-import type { Group, PublicGroup } from '../types';
+import type { Group, PublicGroup, Sport } from '../types';
 import GroupCard from './groups/GroupCard';
 
 type Tab = 'mine' | 'discover';
@@ -17,6 +17,7 @@ const GroupPage: React.FC = () => {
   const [showCreate, setShowCreate] = useState(false);
   const [createName, setCreateName] = useState('');
   const [createDesc, setCreateDesc] = useState('');
+  const [createSports, setCreateSports] = useState<Sport[]>(['FOOT']);
 
   const [showJoin, setShowJoin] = useState(false);
   const [joinCode, setJoinCode] = useState('');
@@ -39,12 +40,15 @@ const GroupPage: React.FC = () => {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const g = await createGroup({ name: createName, description: createDesc });
+      const g = await createGroup({ name: createName, description: createDesc, sports: createSports });
       setGroups((prev) => [...prev, g]);
       setShowCreate(false);
       setCreateName('');
       setCreateDesc('');
-      navigate('/foot/open-betting');
+      setCreateSports(['FOOT']);
+      navigate(createSports.includes('F1') && !createSports.includes('FOOT')
+        ? '/f1/open-betting'
+        : '/foot/open-betting');
     } catch {
       setError('Erreur lors de la création du groupe');
     }
@@ -151,6 +155,29 @@ const GroupPage: React.FC = () => {
             rows={2}
             maxLength={500}
           />
+          <div className="flex gap-4 items-center">
+            <span className="text-sm text-gray-600 dark:text-gray-300 font-medium">Sports :</span>
+            {(
+              [
+                ['FOOT', '⚽ Foot'],
+                ['F1', '🏎 F1'],
+              ] as [Sport, string][]
+            ).map(([sport, label]) => (
+              <label key={sport} className="flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-200 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={createSports.includes(sport)}
+                  onChange={(e) =>
+                    setCreateSports((prev) =>
+                      e.target.checked ? [...prev, sport] : prev.filter((x) => x !== sport),
+                    )
+                  }
+                  className="accent-wc-green w-4 h-4"
+                />
+                {label}
+              </label>
+            ))}
+          </div>
           <div className="flex gap-2">
             <button type="submit" className="btn-primary text-sm">Créer</button>
             <button type="button" onClick={() => setShowCreate(false)} className="btn-secondary text-sm">Annuler</button>

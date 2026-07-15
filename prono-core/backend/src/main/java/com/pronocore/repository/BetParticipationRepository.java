@@ -3,6 +3,7 @@ package com.pronocore.repository;
 import com.pronocore.entity.Bet;
 import com.pronocore.entity.BetParticipation;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -40,6 +41,10 @@ public interface BetParticipationRepository extends JpaRepository<BetParticipati
 
     Optional<BetParticipation> findByBetIdAndUserId(Long betId, Long userId);
 
+    @Modifying
+    @Query("DELETE FROM BetParticipation bp WHERE bp.bet.id = :betId")
+    void deleteByBetId(@Param("betId") Long betId);
+
     boolean existsByBetIdAndUserId(Long betId, Long userId);
 
     @Query("SELECT bp FROM BetParticipation bp WHERE bp.bet.id = :betId AND bp.chosenOption = :option")
@@ -63,6 +68,28 @@ public interface BetParticipationRepository extends JpaRepository<BetParticipati
     List<Object[]> countBetsWonByGroupId(@Param("groupId") Long groupId);
 
     /**
+     * Sport-filtered variant: F1 = bets on a race; FOOT = everything else
+     * (match bets and free-standing bets, which historically are football).
+     */
+    @Query("""
+            SELECT bp.user.id, COALESCE(SUM(bp.pointsEarned), 0)
+            FROM BetParticipation bp
+            WHERE bp.bet.group.id = :groupId AND bp.bet.status = 'VALIDATED'
+              AND ((:f1 = true AND bp.bet.race IS NOT NULL) OR (:f1 = false AND bp.bet.race IS NULL))
+            GROUP BY bp.user.id
+            """)
+    List<Object[]> sumPointsEarnedByGroupIdAndSport(@Param("groupId") Long groupId, @Param("f1") boolean f1);
+
+    @Query("""
+            SELECT bp.user.id, COUNT(bp)
+            FROM BetParticipation bp
+            WHERE bp.bet.group.id = :groupId AND bp.bet.status = 'VALIDATED' AND bp.pointsEarned > 0
+              AND ((:f1 = true AND bp.bet.race IS NOT NULL) OR (:f1 = false AND bp.bet.race IS NULL))
+            GROUP BY bp.user.id
+            """)
+    List<Object[]> countBetsWonByGroupIdAndSport(@Param("groupId") Long groupId, @Param("f1") boolean f1);
+
+    /**
      * All settled participations for bets linked to matches on the given day.
      * Used to compute per-user daily points for the daily gage loser selection.
      */
@@ -76,21 +103,28 @@ public interface BetParticipationRepository extends JpaRepository<BetParticipati
 
     @Query("""
             SELECT bp FROM BetParticipation bp
-            WHERE bp.bet.match.matchDate >= :startOfDay
-              AND bp.bet.match.matchDate <  :endOfDay
-              AND bp.bet.status = :validatedStatus
+            JOIN bp.bet b
+            LEFT JOIN b.match m
+            LEFT JOIN b.race r
+            WHERE b.status = :validatedStatus
+              AND ((m.matchDate >= :startOfDay AND m.matchDate < :endOfDay)
+                OR (r.raceDate  >= :startOfDay AND r.raceDate  < :endOfDay))
             """)
     List<BetParticipation> findSettledByMatchDay(@Param("startOfDay")      LocalDateTime startOfDay,
                                                   @Param("endOfDay")        LocalDateTime endOfDay,
                                                   @Param("validatedStatus") Bet.Status    validatedStatus);
 
-    /** Settled participations for a single group's bets on the given day (daily gage loser). */
+    /** Settled participations for a single group's bets on the given day — match kick-off
+     *  or F1 race start — used to pick the daily gage loser. */
     @Query("""
             SELECT bp FROM BetParticipation bp
-            WHERE bp.bet.match.matchDate >= :startOfDay
-              AND bp.bet.match.matchDate <  :endOfDay
-              AND bp.bet.status = :validatedStatus
-              AND bp.bet.group.id = :groupId
+            JOIN bp.bet b
+            LEFT JOIN b.match m
+            LEFT JOIN b.race r
+            WHERE b.status = :validatedStatus
+              AND b.group.id = :groupId
+              AND ((m.matchDate >= :startOfDay AND m.matchDate < :endOfDay)
+                OR (r.raceDate  >= :startOfDay AND r.raceDate  < :endOfDay))
             """)
     List<BetParticipation> findSettledByMatchDayAndGroup(@Param("startOfDay")      LocalDateTime startOfDay,
                                                           @Param("endOfDay")        LocalDateTime endOfDay,
@@ -99,6 +133,22 @@ public interface BetParticipationRepository extends JpaRepository<BetParticipati
 
     @Query("SELECT DISTINCT bp.bet.match.id FROM BetParticipation bp WHERE bp.user.id = :userId AND bp.bet.match IS NOT NULL")
     Set<Long> findParticipatedMatchIdsByUserId(@Param("userId") Long userId);
+
+    @Query("SELECT DISTINCT bp.bet.race.id FROM BetParticipation bp WHERE bp.user.id = :userId AND bp.bet.race IS NOT NULL")
+    Set<Long> findParticipatedRaceIdsByUserId(@Param("userId") Long userId);
+
+    /** [raceId, distinct players] with a prediction, restricted to the user's ACTIVE groups. */
+    @Query("""
+            SELECT b.race.id, COUNT(DISTINCT bp.user.id)
+            FROM BetParticipation bp
+            JOIN bp.bet b
+            JOIN GroupMember gm ON gm.group = b.group
+            WHERE b.race IS NOT NULL
+              AND gm.user.id = :userId
+              AND gm.status = com.pronocore.entity.GroupMember.MemberStatus.ACTIVE
+            GROUP BY b.race.id
+            """)
+    List<Object[]> countRacePredictionsInUserGroups(@Param("userId") Long userId);
 
     /** True if the user has already placed at least one bet for the given match (across any group). */
     @Query("""

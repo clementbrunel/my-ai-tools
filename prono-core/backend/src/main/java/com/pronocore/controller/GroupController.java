@@ -1,5 +1,6 @@
 package com.pronocore.controller;
 
+import com.pronocore.dto.request.UpdateGroupSportsRequest;
 import com.pronocore.dto.request.CreateGroupRequest;
 import com.pronocore.dto.request.JoinGroupRequest;
 import com.pronocore.dto.request.NotifyNewMatchesRequest;
@@ -98,6 +99,14 @@ public class GroupController {
                                                         @RequestBody UpdateGroupPrivacyRequest request,
                                                         Authentication auth) {
         return ResponseEntity.ok(groupService.updatePrivacy(groupId, request.isPrivate(), auth.getName()));
+    }
+
+    @PatchMapping("/{groupId}/sports")
+    @Operation(summary = "Update the sports a group plays (Group admin only)")
+    public ResponseEntity<GroupResponse> updateSports(@PathVariable Long groupId,
+                                                      @Valid @RequestBody UpdateGroupSportsRequest request,
+                                                      Authentication auth) {
+        return ResponseEntity.ok(groupService.updateSports(groupId, request.getSports(), auth.getName()));
     }
 
     @DeleteMapping("/{groupId}/leave")

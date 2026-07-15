@@ -34,6 +34,7 @@ public class DailyGageService {
     private final BetParticipationRepository   betParticipationRepository;
     private final BetRepository                betRepository;
     private final MatchRepository              matchRepository;
+    private final RaceRepository               raceRepository;
     private final GroupRepository              groupRepository;
     private final GroupMemberRepository        groupMemberRepository;
     private final GroupMemberGuard             groupMemberGuard;
@@ -97,7 +98,7 @@ public class DailyGageService {
         if (!betRepository.existsOpenBetForGroupOnDay(req.getGroupId(), startOfDay, endOfDay)) {
             throw new IllegalArgumentException(
                     "Aucun pari ouvert le " + req.getMatchDate()
-                    + " dans ce groupe — ouvrez d'abord les paris sur les matchs de cette journée.");
+                    + " dans ce groupe — ouvrez d'abord les paris sur les matchs ou courses de cette journée.");
         }
         DailyGage dg = DailyGage.builder()
                 .group(group)
@@ -235,18 +236,20 @@ public class DailyGageService {
     // ---------------------------------------------------------------
 
     /**
-     * Called after every match settlement. Once all matches of the calendar day
-     * are FINISHED, each group's daily gage for that day is assigned to the group
-     * member who earned the fewest points among that group's participations.
+     * Called after every match or F1 race settlement. Once every event of the
+     * calendar day (matches AND races) is FINISHED, each group's daily gage for
+     * that day is assigned to the group member who earned the fewest points
+     * among that group's participations (football and F1 points combined).
      */
     @Transactional
     public void onMatchSettled(LocalDate matchDay) {
         LocalDateTime startOfDay = matchDay.atStartOfDay();
         LocalDateTime endOfDay   = matchDay.plusDays(1).atStartOfDay();
 
-        long unfinished = matchRepository.countUnfinishedMatchesOnDay(startOfDay, endOfDay, Match.Status.FINISHED);
+        long unfinished = matchRepository.countUnfinishedMatchesOnDay(startOfDay, endOfDay, Match.Status.FINISHED)
+                        + raceRepository.countUnfinishedRacesOnDay(startOfDay, endOfDay);
         if (unfinished > 0) {
-            log.debug("⏳ {} match(es) still unfinished on {} — gage deferred", unfinished, matchDay);
+            log.debug("⏳ {} event(s) still unfinished on {} — gage deferred", unfinished, matchDay);
             return;
         }
 
@@ -372,10 +375,11 @@ public class DailyGageService {
         LocalDateTime startOfDay = matchDay.atStartOfDay();
         LocalDateTime endOfDay   = matchDay.plusDays(1).atStartOfDay();
 
-        long unfinished = matchRepository.countUnfinishedMatchesOnDay(startOfDay, endOfDay, Match.Status.FINISHED);
+        long unfinished = matchRepository.countUnfinishedMatchesOnDay(startOfDay, endOfDay, Match.Status.FINISHED)
+                        + raceRepository.countUnfinishedRacesOnDay(startOfDay, endOfDay);
         if (unfinished > 0) {
             throw new IllegalStateException(
-                    unfinished + " match(es) non terminé(s) ce jour-là — impossible de forcer l'attribution");
+                    unfinished + " match(s) ou course(s) non terminé(s) ce jour-là — impossible de forcer l'attribution");
         }
 
         settleGage(dg, startOfDay, endOfDay, matchDay);
@@ -390,7 +394,8 @@ public class DailyGageService {
     private boolean allMatchesFinishedOnDay(LocalDate date) {
         LocalDateTime start = date.atStartOfDay();
         LocalDateTime end   = date.plusDays(1).atStartOfDay();
-        return matchRepository.countUnfinishedMatchesOnDay(start, end, Match.Status.FINISHED) == 0;
+        return matchRepository.countUnfinishedMatchesOnDay(start, end, Match.Status.FINISHED) == 0
+            && raceRepository.countUnfinishedRacesOnDay(start, end) == 0;
     }
 
     private Forfeit selectWinnerByVotes(DailyGage dg) {
@@ -464,22 +469,24 @@ public class DailyGageService {
                 .toList();
     }
 
-    /** For every distinct gage day, whether all of that calendar day's matches are FINISHED —
-     *  computed with a single ranged query instead of one COUNT query per gage. */
+    /** For every distinct gage day, whether all of that calendar day's events
+     *  (matches and F1 races) are FINISHED — computed with two ranged queries
+     *  instead of one COUNT query per gage. */
     private Map<LocalDate, Boolean> computeFinishedByDay(List<DailyGage> gages) {
         List<LocalDate> dates = gages.stream().map(DailyGage::getMatchDate).distinct().toList();
         if (dates.isEmpty()) return Map.of();
 
         LocalDate min = Collections.min(dates);
         LocalDate max = Collections.max(dates);
-        List<Object[]> rows = matchRepository.findMatchDatesAndStatusesInRange(
-                min.atStartOfDay(), max.plusDays(1).atStartOfDay());
-
-        Map<LocalDate, Long> unfinishedCountByDay = rows.stream()
+        Map<LocalDate, Long> unfinishedCountByDay = new HashMap<>();
+        matchRepository.findMatchDatesAndStatusesInRange(
+                        min.atStartOfDay(), max.plusDays(1).atStartOfDay()).stream()
                 .filter(r -> r[1] != Match.Status.FINISHED)
-                .collect(Collectors.groupingBy(
-                        r -> ((LocalDateTime) r[0]).toLocalDate(),
-                        Collectors.counting()));
+                .forEach(r -> unfinishedCountByDay.merge(((LocalDateTime) r[0]).toLocalDate(), 1L, Long::sum));
+        raceRepository.findRaceDatesAndStatusesInRange(
+                        min.atStartOfDay(), max.plusDays(1).atStartOfDay()).stream()
+                .filter(r -> r[1] != Race.Status.FINISHED)
+                .forEach(r -> unfinishedCountByDay.merge(((LocalDateTime) r[0]).toLocalDate(), 1L, Long::sum));
 
         Map<LocalDate, Boolean> result = new HashMap<>();
         for (LocalDate d : dates) {

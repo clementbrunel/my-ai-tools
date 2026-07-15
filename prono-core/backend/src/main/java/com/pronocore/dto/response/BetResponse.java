@@ -20,6 +20,8 @@ public class BetResponse {
     private Long groupId;
     private String groupName;
     private MatchResponse match;
+    /** F1: set when the bet is about a race instead of a match. */
+    private RaceResponse race;
     private UserResponse creator;
     private Bet.BetType betType;
     private int points;

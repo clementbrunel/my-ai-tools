@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getGroupLeaderboard } from '../api/leaderboard';
+import { useSport } from '../context/SportContext';
 import { getMyGroups } from '../api/groups';
 import { getGroupAssignments } from '../api/forfeits';
 import type { GroupUserForfeit, LeaderboardEntry, Group } from '../types';
@@ -115,6 +116,7 @@ const GagesSection: React.FC<GagesSectionProps> = ({ gages, currentUsername, com
 
 const Leaderboard: React.FC = () => {
   const { user } = useAuth();
+  const { sport } = useSport();
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
@@ -139,14 +141,15 @@ const Leaderboard: React.FC = () => {
       return;
     }
     setIsLoading(true);
-    getGroupLeaderboard(selectedGroupId).then(setEntries).catch(logger.error).finally(() => setIsLoading(false));
+    getGroupLeaderboard(selectedGroupId, sport === 'f1' ? 'F1' : 'FOOT')
+      .then(setEntries).catch(logger.error).finally(() => setIsLoading(false));
 
     if (selectedGroupId != null) {
       getGroupAssignments(selectedGroupId).then(setAllGages).catch(logger.error);
     } else {
       setAllGages([]);
     }
-  }, [selectedGroupId]);
+  }, [selectedGroupId, sport]);
 
   if (isLoading) {
     return (

@@ -484,10 +484,30 @@ Tokens à usage unique pour la réinitialisation de mot de passe.
 | `GroupMemberRole` | `GROUP_ADMIN`, `MEMBER` | `group_members.role` |
 | `GroupMemberStatus` | `ACTIVE`, `PENDING` | `group_members.status` |
 | `MatchStatus` | `UPCOMING`, `ONGOING`, `FINISHED` | `matches.status` |
-| `BetType` | `SCORE`, `EVENT`, `FORFEIT`, `FREE` | `bets.bet_type` |
+| `BetType` | `SCORE`, `EVENT`, `FORFEIT`, `FREE`, `RACE_PICKS` | `bets.bet_type` |
+| `Sport` | `FOOT`, `F1` | `competitions.sport`, `group_sports.sport` |
+| `Race.Status` | `UPCOMING`, `FINISHED` | `races.status` |
 | `BetStatus` | `OPEN`, `VALIDATED`, `CANCELLED` | `bets.status` |
 | `DailyGageMode` | `DIRECT`, `VOTE` | `daily_gages.mode` |
 | `DailyGageStatus` | `PENDING`, `ACTIVE`, `SETTLED` | `daily_gages.status` |
+
+---
+
+## Module F1 (V44)
+
+Un pari F1 est un `bets` ordinaire pointant vers une course (`bets.race_id`,
+exclusif de `match_id`, type `RACE_PICKS`). Le détail du prono part dans
+`f1_predictions` (liée à `bet_participations`) ; le règlement écrit
+`points_earned`, donc classement, gages et forfeits fonctionnent sans code F1.
+
+| Table | Rôle |
+|---|---|
+| `constructors` | Écuries (nom, couleur hex qui teinte les mini-F1 du frontend) |
+| `drivers` | Pilotes (code FIA, numéro, FK écurie, actif) |
+| `races` | Grands Prix (manche, dates qualifs/course = les deux verrous, statut) |
+| `race_results` | Classement complet saisi par l'admin (position nullable, pole, meilleur tour, dnf) — source des standings pilotes/constructeurs (barème FIA calculé) |
+| `f1_predictions` | Payload « Podium + » : P1/P2/P3, pole, meilleur tour, lanterne rouge |
+| `group_sports` | Sports joués par un groupe (`FOOT` seedé pour l'existant) |
 
 ---
 
@@ -523,3 +543,7 @@ Les migrations sont dans `backend/src/main/resources/db/migration/`.
 | V27 | `users.reminder_sent_date` |
 | V28 | Seed du groupe GU |
 | V29 | `users.email_gage_enabled` |
+| V30–V43 | Suppression score global, phases/pénaltys, refonte compétitions/équipes (FK), matchs 8e/quarts/demies |
+| V44 | Module F1 : `constructors`, `drivers`, `races`, `race_results`, `f1_predictions`, `group_sports`, `bets.race_id`, `competitions.sport` |
+| V45 | Seed saison F1 2026 (écuries, pilotes, calendrier) |
+| V46 | `races.sprint_date`, `race_results.sprint_position` (points sprint au championnat) |
