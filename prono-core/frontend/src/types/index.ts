@@ -9,6 +9,7 @@ export interface User {
   customAvatarUrl?: string;
   emailReminderEnabled: boolean;
   emailGageEnabled: boolean;
+  emailNewsletterEnabled: boolean;
   createdAt?: string;
 }
 

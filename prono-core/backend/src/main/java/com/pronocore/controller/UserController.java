@@ -77,6 +77,7 @@ public class UserController {
         return ResponseEntity.ok(userService.updateEmailPreferences(
                 authentication.getName(),
                 request.getEmailReminderEnabled(),
-                request.getEmailGageEnabled()));
+                request.getEmailGageEnabled(),
+                request.getEmailNewsletterEnabled()));
     }
 }

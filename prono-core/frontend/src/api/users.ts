@@ -1,8 +1,16 @@
 import apiClient from './axios';
 import type { User, UserAdminInfo } from '../types';
 
-export const updateEmailPreferences = async (emailReminderEnabled: boolean, emailGageEnabled: boolean): Promise<User> => {
-  const response = await apiClient.patch<User>('/users/me/email-reminder', { emailReminderEnabled, emailGageEnabled });
+export const updateEmailPreferences = async (
+  emailReminderEnabled: boolean,
+  emailGageEnabled: boolean,
+  emailNewsletterEnabled: boolean,
+): Promise<User> => {
+  const response = await apiClient.patch<User>('/users/me/email-reminder', {
+    emailReminderEnabled,
+    emailGageEnabled,
+    emailNewsletterEnabled,
+  });
   return response.data;
 };
 

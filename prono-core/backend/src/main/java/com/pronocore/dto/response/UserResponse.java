@@ -24,5 +24,6 @@ public class UserResponse {
     private String customAvatarUrl;
     private boolean emailReminderEnabled;
     private boolean emailGageEnabled;
+    private boolean emailNewsletterEnabled;
     private LocalDateTime createdAt;
 }
