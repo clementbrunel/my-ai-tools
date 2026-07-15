@@ -147,6 +147,12 @@ const Profile: React.FC = () => {
                 {user?.emailGageEnabled ? 'Activé' : 'Désactivé'}
               </span>
             </div>
+            <div className="flex items-center justify-between">
+              <span className="text-gray-500 dark:text-gray-400">📣 Nouveautés &amp; annonces</span>
+              <span className={user?.emailNewsletterEnabled ? 'text-wc-green font-semibold' : 'text-gray-400'}>
+                {user?.emailNewsletterEnabled ? 'Activé' : 'Désactivé'}
+              </span>
+            </div>
           </div>
         )}
 

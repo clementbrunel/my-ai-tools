@@ -25,4 +25,16 @@ public interface RaceResultRepository extends JpaRepository<RaceResult, Long> {
               AND rr.race.status = com.pronocore.entity.Race.Status.FINISHED
             """)
     List<RaceResult> findByCompetitionIdWithDrivers(@Param("competitionId") Long competitionId);
+
+    /** A driver's results across a competition's finished races, most recent first — feeds the driver detail page. */
+    @Query("""
+            SELECT rr FROM RaceResult rr
+            JOIN FETCH rr.race r
+            WHERE rr.driver.id = :driverId
+              AND r.competition.id = :competitionId
+              AND r.status = com.pronocore.entity.Race.Status.FINISHED
+            ORDER BY r.raceDate DESC
+            """)
+    List<RaceResult> findByDriverIdAndCompetitionIdWithRace(@Param("driverId") Long driverId,
+                                                             @Param("competitionId") Long competitionId);
 }

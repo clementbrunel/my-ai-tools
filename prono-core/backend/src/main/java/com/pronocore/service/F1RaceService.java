@@ -72,6 +72,23 @@ public class F1RaceService {
     }
 
     @Transactional(readOnly = true)
+    public DriverResponse getDriver(Long driverId) {
+        return toDriverResponse(requireDriver(driverId));
+    }
+
+    /** A driver's results across the current season's finished races, most recent first. */
+    @Transactional(readOnly = true)
+    public List<DriverRaceResultResponse> getDriverRaceResults(Long driverId) {
+        requireDriver(driverId);
+        return competitionRepository.findFirstBySportOrderByIdDesc(Sport.F1)
+                .map(c -> raceResultRepository.findByDriverIdAndCompetitionIdWithRace(driverId, c.getId()))
+                .orElse(List.of())
+                .stream()
+                .map(this::toDriverRaceResultResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public List<RaceResponse> getRaces(String username) {
         User user = requireUser(username);
         Set<Long> openRaceIds = betRepository.findRaceIdsWithBetsInUserGroups(user.getId());
@@ -666,6 +683,23 @@ public class F1RaceService {
                 .constructorId(driver.getConstructor().getId())
                 .constructorName(driver.getConstructor().getName())
                 .constructorColor(driver.getConstructor().getColor())
+                .build();
+    }
+
+    private DriverRaceResultResponse toDriverRaceResultResponse(RaceResult rr) {
+        Race race = rr.getRace();
+        return DriverRaceResultResponse.builder()
+                .raceId(race.getId())
+                .raceName(race.getName())
+                .round(race.getRound())
+                .countryIso2(race.getCountryIso2())
+                .raceDate(race.getRaceDate())
+                .position(rr.getPosition())
+                .sprintPosition(rr.getSprintPosition())
+                .pole(rr.isPole())
+                .fastestLap(rr.isFastestLap())
+                .dnf(rr.isDnf())
+                .points(fiaPoints(rr.getPosition()) + fiaSprintPoints(rr.getSprintPosition()))
                 .build();
     }
 

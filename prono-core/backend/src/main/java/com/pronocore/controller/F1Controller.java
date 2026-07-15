@@ -29,6 +29,18 @@ public class F1Controller {
         return ResponseEntity.ok(f1RaceService.getDrivers());
     }
 
+    @GetMapping("/drivers/{driverId}")
+    @Operation(summary = "Get a driver by ID")
+    public ResponseEntity<DriverResponse> getDriver(@PathVariable Long driverId) {
+        return ResponseEntity.ok(f1RaceService.getDriver(driverId));
+    }
+
+    @GetMapping("/drivers/{driverId}/results")
+    @Operation(summary = "A driver's race-by-race results this season, most recent first")
+    public ResponseEntity<List<DriverRaceResultResponse>> getDriverResults(@PathVariable Long driverId) {
+        return ResponseEntity.ok(f1RaceService.getDriverRaceResults(driverId));
+    }
+
     @GetMapping("/races")
     @Operation(summary = "Season calendar, with open/predicted flags for the caller")
     public ResponseEntity<List<RaceResponse>> getRaces(Authentication authentication) {

@@ -6,6 +6,7 @@ import { useSport } from '../context/SportContext';
 import { isAdmin } from '../types';
 import { useState } from 'react';
 import Avatar from './Avatar';
+import { getEquivalentPath } from '../utils/sportPaths';
 
 const Navbar: React.FC = () => {
   const { user, logout } = useAuth();
@@ -64,7 +65,7 @@ const Navbar: React.FC = () => {
             </Link>
             <div className="flex gap-0.5 bg-black/25 rounded-lg p-1">
               <button
-                onClick={() => navigate('/foot')}
+                onClick={() => navigate(getEquivalentPath(location.pathname, 'foot'))}
                 className={`px-2.5 py-1 rounded text-sm font-bold transition-colors ${
                   sport === 'foot' ? 'bg-wc-gold text-gray-900' : 'text-gray-300 hover:text-white'
                 }`}
@@ -72,7 +73,7 @@ const Navbar: React.FC = () => {
                 ⚽
               </button>
               <button
-                onClick={() => navigate('/f1')}
+                onClick={() => navigate(getEquivalentPath(location.pathname, 'f1'))}
                 className={`px-2.5 py-1 rounded text-sm font-bold transition-colors ${
                   sport === 'f1' ? 'bg-wc-gold text-gray-900' : 'text-gray-300 hover:text-white'
                 }`}
