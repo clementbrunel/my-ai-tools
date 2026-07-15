@@ -87,6 +87,7 @@ function App() {
                           <Route path="/f1/standings" element={<F1Standings />} />
                           <Route path="/f1/drivers/:id" element={<DriverDetail />} />
                           <Route path="/f1/leaderboard" element={<Leaderboard />} />
+                          <Route path="/f1/gages" element={<Gages />} />
                           <Route path="/f1/open-betting" element={<F1OpenBetting />} />
                           <Route path="/f1/bets" element={<F1Bets />} />
 
