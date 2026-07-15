@@ -12,6 +12,7 @@ import {
   type NewsletterTheme,
 } from '../../api/newsletter';
 import { useFormMessages } from '../../hooks/useFormMessages';
+import ConfirmModal from '../../components/ConfirmModal';
 
 const EMPTY: NewsletterInput = { title: '', subtitle: '', bodyMd: '', theme: 'FOOTBALL', ctaLabel: '', ctaUrl: '' };
 
@@ -22,6 +23,7 @@ const AdminNewslettersTab: React.FC = () => {
   const [previewHtml, setPreviewHtml] = useState('');
   const [testEmail, setTestEmail] = useState('');
   const [confirmSend, setConfirmSend] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Newsletter | null>(null);
   const [busy, setBusy] = useState(false);
   const { msg, setSuccess, setError, clear } = useFormMessages();
 
@@ -89,8 +91,14 @@ const AdminNewslettersTab: React.FC = () => {
     }
   };
 
-  const handleDelete = async (n: Newsletter) => {
-    if (!window.confirm(`Supprimer le brouillon « ${n.title} » ?`)) return;
+  const handleDelete = (n: Newsletter) => {
+    setDeleteTarget(n);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    const n = deleteTarget;
+    setDeleteTarget(null);
     try {
       await deleteNewsletter(n.id);
       if (selectedId === n.id) setSelectedId(null);
@@ -285,6 +293,16 @@ const AdminNewslettersTab: React.FC = () => {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={deleteTarget !== null}
+        title="Supprimer le brouillon"
+        message={`Supprimer le brouillon « ${deleteTarget?.title ?? ''} » ? Cette action est irréversible.`}
+        confirmLabel="Supprimer"
+        variant="danger"
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 };
