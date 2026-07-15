@@ -10,7 +10,7 @@ const FOOT_TO_F1: Record<string, string> = {
   '/foot': '/f1',
   '/foot/matches': '/f1/races',
   '/foot/leaderboard': '/f1/leaderboard',
-  '/foot/gages': '/f1',
+  '/foot/gages': '/f1/gages',
   '/foot/open-betting': '/f1/open-betting',
 };
 
@@ -18,6 +18,7 @@ const F1_TO_FOOT: Record<string, string> = {
   '/f1': '/foot',
   '/f1/races': '/foot/matches',
   '/f1/standings': '/foot',
+  '/f1/gages': '/foot/gages',
   '/f1/leaderboard': '/foot/leaderboard',
   '/f1/open-betting': '/foot/open-betting',
   '/f1/bets': '/foot',

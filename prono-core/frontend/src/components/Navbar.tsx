@@ -52,6 +52,7 @@ const Navbar: React.FC = () => {
           { to: '/f1', label: '🏎 Accueil' },
           { to: '/f1/races', label: '🏁 Courses' },
           { to: '/f1/standings', label: '📊 Championnat' },
+          { to: '/f1/gages', label: '🃏 Gages' },
           { to: '/f1/leaderboard', label: '🏆 Classement' },
         ]
       : [
