@@ -94,9 +94,11 @@ public class NewsletterService {
     }
 
     /**
-     * Broadcasts the campaign once. Flips the status to SENT synchronously so a
-     * double-click can't re-blast everyone (409 on the second call), then hands
-     * the actual delivery to the async dispatcher. Returns the recipient count.
+     * Broadcasts the campaign once. Flips the status to SENT synchronously via an
+     * atomic {@code UPDATE ... WHERE status = DRAFT}, so two concurrent calls
+     * can't both win the race and double-blast every recipient — the loser sees
+     * 0 rows updated and fails instead. The winner hands the actual delivery to
+     * the async dispatcher. Returns the recipient count.
      */
     @Transactional
     public int broadcast(Long id) {
@@ -105,13 +107,14 @@ public class NewsletterService {
 
         List<User> recipients = newsletterRepository.findNewsletterRecipients();
         List<String> emails = recipients.stream().map(User::getEmail).toList();
+        String html = render(n);
 
-        n.setStatus(Newsletter.Status.SENT);
-        n.setSentAt(LocalDateTime.now());
-        n.setSentCount(emails.size());
-        newsletterRepository.save(n);
+        int updated = newsletterRepository.markAsSent(id, LocalDateTime.now(), emails.size());
+        if (updated == 0) {
+            throw new IllegalStateException("Cette newsletter a déjà été envoyée et ne peut plus être modifiée.");
+        }
 
-        dispatcher.dispatch(n.getId(), emails, n.getTitle(), render(n));
+        dispatcher.dispatch(id, emails, n.getTitle(), html);
         log.info("Newsletter {} queued for {} recipient(s)", id, emails.size());
         return emails.size();
     }

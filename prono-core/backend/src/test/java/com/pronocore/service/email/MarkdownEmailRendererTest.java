@@ -34,4 +34,14 @@ class MarkdownEmailRendererTest {
         assertThat(renderer.toInlineStyledHtml("")).isEmpty();
         assertThat(renderer.toInlineStyledHtml(null)).isEmpty();
     }
+
+    @Test
+    void rawHtmlIsEscapedNotPassedThrough() {
+        String html = renderer.toInlineStyledHtml(
+                "Salut <img src=x onerror=alert(1)> <script>alert(document.cookie)</script>");
+
+        assertThat(html).doesNotContain("<img src=x onerror=alert(1)>");
+        assertThat(html).doesNotContain("<script>");
+        assertThat(html).contains("&lt;script&gt;");
+    }
 }

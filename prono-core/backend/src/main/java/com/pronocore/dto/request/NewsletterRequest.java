@@ -2,6 +2,7 @@ package com.pronocore.dto.request;
 
 import com.pronocore.entity.Newsletter;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
@@ -24,5 +25,6 @@ public class NewsletterRequest {
     private String ctaLabel;
 
     @Size(max = 500)
+    @Pattern(regexp = "^$|^https?://.+", message = "L'URL du CTA doit commencer par http:// ou https://")
     private String ctaUrl;
 }

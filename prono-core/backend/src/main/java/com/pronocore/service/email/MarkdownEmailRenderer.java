@@ -22,6 +22,7 @@ public class MarkdownEmailRenderer {
 
     private final HtmlRenderer renderer = HtmlRenderer.builder()
             .sanitizeUrls(true)
+            .escapeHtml(true)
             .attributeProviderFactory(context -> new InlineStyleAttributeProvider())
             .build();
 

@@ -55,14 +55,12 @@ class NewsletterServiceTest {
         when(newsletterRepository.findNewsletterRecipients()).thenReturn(List.of(
                 User.builder().id(1L).email("a@test.com").build(),
                 User.builder().id(2L).email("b@test.com").build()));
+        when(newsletterRepository.markAsSent(eq(1L), any(), eq(2))).thenReturn(1);
 
         int count = service.broadcast(1L);
 
         assertThat(count).isEqualTo(2);
-        assertThat(n.getStatus()).isEqualTo(Newsletter.Status.SENT);
-        assertThat(n.getSentCount()).isEqualTo(2);
-        assertThat(n.getSentAt()).isNotNull();
-        verify(newsletterRepository).save(n);
+        verify(newsletterRepository).markAsSent(eq(1L), any(), eq(2));
         verify(dispatcher).dispatch(eq(1L), eq(List.of("a@test.com", "b@test.com")), eq("Grosse feature"), anyString());
     }
 
@@ -76,6 +74,20 @@ class NewsletterServiceTest {
                 .isInstanceOf(IllegalStateException.class);
 
         verify(newsletterRepository, never()).findNewsletterRecipients();
+        verifyNoInteractions(dispatcher);
+    }
+
+    @Test
+    void broadcast_racingCall_losesAndThrows() {
+        Newsletter n = draft();
+        when(newsletterRepository.findById(1L)).thenReturn(Optional.of(n));
+        when(newsletterRepository.findNewsletterRecipients()).thenReturn(List.of(
+                User.builder().id(1L).email("a@test.com").build()));
+        when(newsletterRepository.markAsSent(eq(1L), any(), eq(1))).thenReturn(0);
+
+        assertThatThrownBy(() -> service.broadcast(1L))
+                .isInstanceOf(IllegalStateException.class);
+
         verifyNoInteractions(dispatcher);
     }
 
