@@ -335,8 +335,8 @@ const F1RaceDetail: React.FC = () => {
           <div className="text-4xl font-black text-wc-green">+{totalPoints} pts</div>
           <div className="text-sm text-gray-500 dark:text-gray-400">
             ton prono : {[slots.p1, slots.p2, slots.p3].map((d) => d?.code ?? '—').join(' · ')}
-            {pickVerdicts?.pole.correct && pickVerdicts.p1.correct && pickVerdicts.fastestLap.correct && (
-              <span className="ml-2 font-bold text-wc-gold">👑 Grand Chelem !</span>
+            {myPrediction.grandChelem && (
+              <span className="ml-2 font-bold text-wc-gold">👑 Grand Chelem ! +2 pts</span>
             )}
           </div>
         </div>
@@ -386,6 +386,11 @@ const F1RaceDetail: React.FC = () => {
                   </div>
                 );
               })}
+            </div>
+          )}
+          {pickVerdicts && myPrediction?.grandChelem && (
+            <div className="text-center text-[11px] font-bold rounded-lg py-1 bg-yellow-100 dark:bg-yellow-900/30 text-wc-gold">
+              👑 Bonus Grand Chelem (pole + victoire + meilleur tour) : +2 pts
             </div>
           )}
 
@@ -466,6 +471,9 @@ const F1RaceDetail: React.FC = () => {
                     <span title="Pole">⏱ {p.pole?.code ?? '—'}</span>
                     {raceLocked && <span title="Meilleur tour">🟣 {p.fastestLap?.code ?? '—'}</span>}
                     {raceLocked && <span title="Lanterne rouge">🔦 {p.lastClassified?.code ?? '—'}</span>}
+                    {finished && p.grandChelem && (
+                      <span title="Grand Chelem : pole + victoire + meilleur tour (+2 pts)">👑</span>
+                    )}
                     {finished && (
                       <span className="text-wc-green font-black">+{p.pointsEarned}</span>
                     )}

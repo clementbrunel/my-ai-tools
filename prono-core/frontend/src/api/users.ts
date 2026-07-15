@@ -1,6 +1,11 @@
 import apiClient from './axios';
 import type { User, UserAdminInfo } from '@/types';
 
+export const getCurrentUser = async (): Promise<User> => {
+  const response = await apiClient.get<User>('/users/me');
+  return response.data;
+};
+
 export const updateEmailPreferences = async (
   emailReminderEnabled: boolean,
   emailGageEnabled: boolean,

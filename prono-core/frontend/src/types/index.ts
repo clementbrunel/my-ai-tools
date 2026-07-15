@@ -379,6 +379,8 @@ export interface F1Prediction {
   fastestLap: Driver | null;
   lastClassified: Driver | null;
   pointsEarned: number;
+  /** True once settled if pole + P1 + fastest lap picks were all correct (+2 pts, included in pointsEarned). */
+  grandChelem: boolean;
   poleLocked: boolean;
   raceLocked: boolean;
 }

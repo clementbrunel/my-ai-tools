@@ -153,13 +153,14 @@ public class F1RaceService {
 
         Set<Long> userGroupBetIds = betRepository.findByRaceIdInUserActiveGroups(raceId, user.getId())
                 .stream().map(Bet::getId).collect(Collectors.toSet());
+        RaceOutcome outcome = raceOutcomeIfFinished(race);
         return predictionRepository.findByRaceId(raceId).stream()
                 .filter(p -> userGroupBetIds.contains(p.getParticipation().getBet().getId()))
                 .collect(Collectors.toMap(
                         p -> p.getParticipation().getUser().getId(), p -> p, (a, b) -> a))
                 .values().stream()
                 .map(p -> {
-                    F1PredictionResponse response = toPredictionResponse(p, race);
+                    F1PredictionResponse response = toPredictionResponse(p, race, outcome);
                     User author = p.getParticipation().getUser();
                     response.setUsername(author.getUsername());
                     response.setDisplayName(author.getDisplayName());
@@ -450,7 +451,6 @@ public class F1RaceService {
                 && Objects.equals(idOf(prediction.getPole()), outcome.poleDriverId());
         boolean fastestCorrect = prediction.getFastestLap() != null
                 && Objects.equals(idOf(prediction.getFastestLap()), outcome.fastestLapDriverId());
-        boolean p1Exact = Objects.equals(idOf(prediction.getP1()), outcome.driverAt(1));
 
         if (poleCorrect) points += POINTS_POLE;
         if (fastestCorrect) points += POINTS_FASTEST_LAP;
@@ -458,10 +458,20 @@ public class F1RaceService {
                 && Objects.equals(idOf(prediction.getLastClassified()), outcome.lastClassifiedDriverId())) {
             points += POINTS_LAST_CLASSIFIED;
         }
-        if (poleCorrect && fastestCorrect && p1Exact) {
+        if (isGrandChelem(prediction, outcome)) {
             points += POINTS_GRAND_CHELEM;
         }
         return points;
+    }
+
+    /** Pole + P1 + fastest lap picks all correct (+2 bonus, see {@link #computePoints}). */
+    private boolean isGrandChelem(F1Prediction prediction, RaceOutcome outcome) {
+        boolean poleCorrect = prediction.getPole() != null
+                && Objects.equals(idOf(prediction.getPole()), outcome.poleDriverId());
+        boolean fastestCorrect = prediction.getFastestLap() != null
+                && Objects.equals(idOf(prediction.getFastestLap()), outcome.fastestLapDriverId());
+        boolean p1Exact = Objects.equals(idOf(prediction.getP1()), outcome.driverAt(1));
+        return poleCorrect && fastestCorrect && p1Exact;
     }
 
     private int podiumPoints(Driver picked, int slot, int exactPoints, RaceOutcome outcome) {
@@ -733,6 +743,10 @@ public class F1RaceService {
     }
 
     private F1PredictionResponse toPredictionResponse(F1Prediction p, Race race) {
+        return toPredictionResponse(p, race, raceOutcomeIfFinished(race));
+    }
+
+    private F1PredictionResponse toPredictionResponse(F1Prediction p, Race race, RaceOutcome outcome) {
         LocalDateTime now = LocalDateTime.now();
         return F1PredictionResponse.builder()
                 .raceId(race.getId())
@@ -743,9 +757,17 @@ public class F1RaceService {
                 .fastestLap(p.getFastestLap() != null ? toDriverResponse(p.getFastestLap()) : null)
                 .lastClassified(p.getLastClassified() != null ? toDriverResponse(p.getLastClassified()) : null)
                 .pointsEarned(p.getParticipation() != null ? p.getParticipation().getPointsEarned() : 0)
+                .grandChelem(outcome != null && isGrandChelem(p, outcome))
                 .poleLocked(!now.isBefore(race.getQualifyingDate()))
                 .raceLocked(!now.isBefore(race.getRaceDate()))
                 .build();
+    }
+
+    /** Race results, only once the race is settled — null beforehand (nothing to compute yet). */
+    private RaceOutcome raceOutcomeIfFinished(Race race) {
+        return race.getStatus() == Race.Status.FINISHED
+                ? RaceOutcome.from(raceResultRepository.findByRaceIdWithDrivers(race.getId()))
+                : null;
     }
 
     private DriverResponse toDriverResponse(Driver driver) {
