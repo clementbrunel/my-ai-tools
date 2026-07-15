@@ -1,11 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getConstructorStandings, getDriverStandings } from '../../api/f1';
-import type { F1Standing } from '../../types';
+import {
+  getConstructorStandings,
+  getConstructorStandingsHistory,
+  getDriverStandings,
+  getDriverStandingsHistory,
+} from '../../api/f1';
+import type { F1Standing, F1StandingHistory } from '../../types';
 import MiniF1Car from '../../components/f1/MiniF1Car';
+import StandingsChart from '../../components/f1/StandingsChart';
 import PillTabs from '../../components/PillTabs';
 
 type Tab = 'drivers' | 'constructors';
+type ViewMode = 'list' | 'chart';
 
 const StandingRow: React.FC<{ standing: F1Standing; isDriver: boolean }> = ({ standing, isDriver }) => {
   const content = (
@@ -46,10 +53,24 @@ const StandingRow: React.FC<{ standing: F1Standing; isDriver: boolean }> = ({ st
 
 const F1Standings: React.FC = () => {
   const [tab, setTab] = useState<Tab>('drivers');
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [drivers, setDrivers] = useState<F1Standing[]>([]);
   const [constructors, setConstructors] = useState<F1Standing[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [history, setHistory] = useState<Record<Tab, F1StandingHistory | null>>({
+    drivers: null,
+    constructors: null,
+  });
+  const [historyLoading, setHistoryLoading] = useState<Record<Tab, boolean>>({
+    drivers: false,
+    constructors: false,
+  });
+  const [historyError, setHistoryError] = useState<Record<Tab, boolean>>({
+    drivers: false,
+    constructors: false,
+  });
 
   useEffect(() => {
     Promise.all([getDriverStandings(), getConstructorStandings()])
@@ -61,20 +82,71 @@ const F1Standings: React.FC = () => {
       .finally(() => setIsLoading(false));
   }, []);
 
+  const loadHistory = useCallback((targetTab: Tab) => {
+    setHistoryLoading((prev) => ({ ...prev, [targetTab]: true }));
+    setHistoryError((prev) => ({ ...prev, [targetTab]: false }));
+    const fetchHistory = targetTab === 'drivers' ? getDriverStandingsHistory : getConstructorStandingsHistory;
+    fetchHistory()
+      .then((data) => setHistory((prev) => ({ ...prev, [targetTab]: data })))
+      .catch(() => setHistoryError((prev) => ({ ...prev, [targetTab]: true })))
+      .finally(() => setHistoryLoading((prev) => ({ ...prev, [targetTab]: false })));
+  }, []);
+
+  useEffect(() => {
+    if (viewMode !== 'chart' || history[tab] || historyLoading[tab]) return;
+    loadHistory(tab);
+  }, [viewMode, tab, history, historyLoading, loadHistory]);
+
   const rows = tab === 'drivers' ? drivers : constructors;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h1 className="page-title mb-0">📊 Championnat</h1>
-        <PillTabs
-          options={[
-            ['drivers', '🏎 Pilotes'],
-            ['constructors', '🔧 Constructeurs'],
-          ]}
-          value={tab}
-          onChange={setTab}
-        />
+        <div className="flex items-center gap-2 flex-wrap">
+          <PillTabs
+            options={[
+              ['drivers', '🏎 Pilotes'],
+              ['constructors', '🔧 Constructeurs'],
+            ]}
+            value={tab}
+            onChange={setTab}
+          />
+
+          {/* View mode toggle — same visual grammar as the races/matches list */}
+          <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1 shrink-0">
+            <button
+              onClick={() => setViewMode('list')}
+              title="Vue liste"
+              className={`p-1.5 rounded-md transition-colors ${
+                viewMode === 'list'
+                  ? 'bg-white dark:bg-gray-600 shadow text-wc-green'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+              }`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+              </svg>
+            </button>
+            <button
+              onClick={() => setViewMode('chart')}
+              title="Vue graphique"
+              className={`p-1.5 rounded-md transition-colors ${
+                viewMode === 'chart'
+                  ? 'bg-white dark:bg-gray-600 shadow text-wc-green'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+              }`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <line x1="4" y1="21" x2="4" y2="14" />
+                <line x1="10" y1="21" x2="10" y2="9" />
+                <line x1="16" y1="21" x2="16" y2="4" />
+              </svg>
+            </button>
+          </div>
+        </div>
       </div>
 
       {error && (
@@ -90,6 +162,27 @@ const F1Standings: React.FC = () => {
             Le classement apparaîtra dès le premier résultat de course saisi.
           </p>
         </div>
+      ) : viewMode === 'chart' ? (
+        history[tab] ? (
+          <>
+          <StandingsChart history={history[tab]!} />
+          <p className="text-xs text-gray-400 text-center">
+            Points cumulés par Grand Prix — top {history[tab]!.series.length} · barème FIA (25…1) et sprints (8…1) inclus.
+          </p>
+          </>
+        ) : historyError[tab] ? (
+          <div className="card text-center py-12 space-y-3">
+            <p className="text-gray-500 dark:text-gray-400">Impossible de charger le graphique.</p>
+            <button
+              onClick={() => loadHistory(tab)}
+              className="px-3 py-1.5 rounded-lg text-sm font-medium bg-wc-green text-white hover:opacity-90"
+            >
+              Réessayer
+            </button>
+          </div>
+        ) : (
+          <div className="card text-center py-12 text-gray-500">Chargement…</div>
+        )
       ) : (
         <>
         <div className="card divide-y divide-gray-100 dark:divide-gray-800">

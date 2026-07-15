@@ -5,6 +5,7 @@ import type {
   F1Prediction,
   F1PredictionRequest,
   F1Standing,
+  F1StandingHistory,
   Race,
   RaceResultEntryRequest,
 } from '../types';
@@ -57,6 +58,16 @@ export const getDriverStandings = async (): Promise<F1Standing[]> => {
 
 export const getConstructorStandings = async (): Promise<F1Standing[]> => {
   const response = await apiClient.get<F1Standing[]>('/f1/standings/constructors');
+  return response.data;
+};
+
+export const getDriverStandingsHistory = async (): Promise<F1StandingHistory> => {
+  const response = await apiClient.get<F1StandingHistory>('/f1/standings/drivers/history');
+  return response.data;
+};
+
+export const getConstructorStandingsHistory = async (): Promise<F1StandingHistory> => {
+  const response = await apiClient.get<F1StandingHistory>('/f1/standings/constructors/history');
   return response.data;
 };
 
