@@ -44,4 +44,9 @@ public class Forfeit {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "group_id")
     private Group group;
+
+    /** Null = generic gage, shown regardless of sport. Non-null = only shown to groups playing that sport. */
+    @Enumerated(EnumType.STRING)
+    @Column(length = 10)
+    private Sport sport;
 }

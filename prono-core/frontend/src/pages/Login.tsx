@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
+import { useTheme } from '@/context/ThemeContext';
 
 const Login: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -9,6 +10,8 @@ const Login: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+  const { theme } = useTheme();
+  const isF1 = theme.id === 'f1';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,11 +37,13 @@ const Login: React.FC = () => {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="text-7xl mb-4 animate-bounce-slow">⚽</div>
+          <div className="text-7xl mb-4 animate-bounce-slow">{isF1 ? '🏎️' : '⚽'}</div>
           <h1 className="text-4xl font-black text-white">
             <span className="text-wc-gold">Prono</span>Core
           </h1>
-          <p className="text-green-200 mt-2">🏆 World Cup 2026 - Paris entre amis !</p>
+          <p className="text-green-200 mt-2">
+            {isF1 ? '🏁 Formule 1 2026 - Paris entre amis !' : '🏆 World Cup 2026 - Paris entre amis !'}
+          </p>
         </div>
 
         {/* Card */}

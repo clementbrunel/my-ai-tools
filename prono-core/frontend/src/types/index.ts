@@ -175,6 +175,8 @@ export interface Forfeit {
   /** null = shared gage (visible to all groups); set = belongs to that group only */
   groupId?: number | null;
   groupName?: string | null;
+  /** null = generic gage, shown regardless of sport; set = only shown to groups playing that sport */
+  sport?: 'FOOT' | 'F1' | null;
   /** Sum of all upvotes and downvotes. */
   voteScore: number;
   /** Current user's vote: +1, -1, or 0 (no vote). */

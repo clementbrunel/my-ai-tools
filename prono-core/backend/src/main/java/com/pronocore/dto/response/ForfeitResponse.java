@@ -1,6 +1,7 @@
 package com.pronocore.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.pronocore.entity.Sport;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -31,6 +32,9 @@ public class ForfeitResponse {
     /** Null = shared gage (visible to all groups). Non-null = belongs to that group only. */
     private Long groupId;
     private String groupName;
+
+    /** Null = generic gage, shown regardless of sport. Non-null = only shown to groups playing that sport. */
+    private Sport sport;
 
     /** Sum of all upvotes (+1) and downvotes (-1) across all users. */
     private int voteScore;

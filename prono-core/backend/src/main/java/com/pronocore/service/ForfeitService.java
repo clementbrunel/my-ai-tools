@@ -7,6 +7,7 @@ import com.pronocore.entity.Forfeit;
 import com.pronocore.entity.ForfeitVote;
 import com.pronocore.entity.Group;
 import com.pronocore.entity.GroupMember;
+import com.pronocore.entity.Sport;
 import com.pronocore.entity.User;
 import com.pronocore.entity.UserForfeit;
 import com.pronocore.repository.ForfeitRepository;
@@ -25,6 +26,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -43,11 +45,12 @@ public class ForfeitService {
     // ---------------------------------------------------------------
 
     /**
-     * Library visible to the caller: shared gages (group=null) plus the gages
-     * owned by the groups the caller is an ACTIVE member of.
+     * Library visible to the caller: shared gages (group=null, filtered by sport
+     * when given — null sport = no filter) plus the gages owned by the groups the
+     * caller is an ACTIVE member of.
      */
     @Transactional(readOnly = true)
-    public List<ForfeitResponse> getForfeitsForUser(String username) {
+    public List<ForfeitResponse> getForfeitsForUser(String username, Sport sport) {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
 
@@ -57,8 +60,8 @@ public class ForfeitService {
                 .toList();
 
         List<Forfeit> visible = groupIds.isEmpty()
-                ? forfeitRepository.findByActiveTrueAndGroupIsNullOrderById()
-                : forfeitRepository.findActiveVisibleToGroups(groupIds);
+                ? forfeitRepository.findActiveSharedForSport(sport)
+                : forfeitRepository.findActiveVisibleToGroups(groupIds, sport);
 
         return toForfeitResponsesForUser(visible, user.getId());
     }
@@ -75,13 +78,14 @@ public class ForfeitService {
     // Forfeit library commands
     // ---------------------------------------------------------------
 
-    /** Admin creates a gage (no proposedBy). */
+    /** Admin creates a gage (no proposedBy). Null sport = generic, shown regardless of sport. */
     @Transactional
-    public ForfeitResponse createForfeit(String title, String description, String category) {
+    public ForfeitResponse createForfeit(String title, String description, String category, Sport sport) {
         Forfeit forfeit = Forfeit.builder()
                 .title(title)
                 .description(description)
                 .category(category)
+                .sport(sport)
                 .active(true)
                 .build();
         return toForfeitResponse(forfeitRepository.save(forfeit));
@@ -113,14 +117,15 @@ public class ForfeitService {
         return toForfeitResponse(forfeitRepository.save(forfeit));
     }
 
-    /** Admin updates title, description and category of any forfeit. */
+    /** Admin updates title, description, category and sport of any forfeit. */
     @Transactional
-    public ForfeitResponse updateForfeit(Long forfeitId, String title, String description, String category) {
+    public ForfeitResponse updateForfeit(Long forfeitId, String title, String description, String category, Sport sport) {
         Forfeit forfeit = forfeitRepository.findById(forfeitId)
                 .orElseThrow(() -> new EntityNotFoundException("Forfeit not found: " + forfeitId));
         forfeit.setTitle(title);
         forfeit.setDescription(description);
         forfeit.setCategory(category);
+        forfeit.setSport(sport);
         return toForfeitResponse(forfeitRepository.save(forfeit));
     }
 
@@ -143,9 +148,15 @@ public class ForfeitService {
         String username = currentUsername();
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
-        groupMemberGuard.requireActiveMembership(groupId, user.getId());
+        GroupMember member = groupMemberGuard.requireActiveMembership(groupId, user.getId());
+
+        // A group playing a single sport filters shared gages to that sport;
+        // a multi-sport group sees the full shared library (no single filter applies).
+        Set<Sport> groupSports = member.getGroup().getSports();
+        Sport sportFilter = groupSports.size() == 1 ? groupSports.iterator().next() : null;
+
         return toForfeitResponsesForUser(
-                forfeitRepository.findActiveVisibleToGroups(List.of(groupId)), user.getId());
+                forfeitRepository.findActiveVisibleToGroups(List.of(groupId), sportFilter), user.getId());
     }
 
     /** Returns active group-specific forfeits (visible to any group member). */
@@ -374,6 +385,7 @@ public class ForfeitService {
                 .proposedByDisplayName(f.getProposedBy() != null ? f.getProposedBy().getDisplayName() : null)
                 .groupId(f.getGroup() != null ? f.getGroup().getId() : null)
                 .groupName(f.getGroup() != null ? f.getGroup().getName() : null)
+                .sport(f.getSport())
                 .voteScore(voteScore)
                 .userVote(userVote)
                 .build();

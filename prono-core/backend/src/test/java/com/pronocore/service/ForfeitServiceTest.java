@@ -96,15 +96,15 @@ class ForfeitServiceTest {
         when(userRepository.findByUsername("player")).thenReturn(Optional.of(regularUser));
         when(groupMemberRepository.findByUserIdAndStatus(2L, GroupMember.MemberStatus.ACTIVE))
                 .thenReturn(List.of(m));
-        when(forfeitRepository.findActiveVisibleToGroups(List.of(7L))).thenReturn(List.of(forfeit));
+        when(forfeitRepository.findActiveVisibleToGroups(List.of(7L), null)).thenReturn(List.of(forfeit));
         when(forfeitVoteRepository.sumVoteScoresByForfeitIds(List.of(10L))).thenReturn(List.of());
         when(forfeitVoteRepository.findByForfeitIdInAndUserId(List.of(10L), 2L)).thenReturn(List.of());
 
-        List<ForfeitResponse> result = forfeitService.getForfeitsForUser("player");
+        List<ForfeitResponse> result = forfeitService.getForfeitsForUser("player", null);
 
         assertThat(result).hasSize(1);
-        verify(forfeitRepository).findActiveVisibleToGroups(List.of(7L));
-        verify(forfeitRepository, never()).findByActiveTrueAndGroupIsNullOrderById();
+        verify(forfeitRepository).findActiveVisibleToGroups(List.of(7L), null);
+        verify(forfeitRepository, never()).findActiveSharedForSport(any());
     }
 
     @Test
@@ -112,15 +112,15 @@ class ForfeitServiceTest {
         when(userRepository.findByUsername("player")).thenReturn(Optional.of(regularUser));
         when(groupMemberRepository.findByUserIdAndStatus(2L, GroupMember.MemberStatus.ACTIVE))
                 .thenReturn(List.of());
-        when(forfeitRepository.findByActiveTrueAndGroupIsNullOrderById()).thenReturn(List.of(forfeit));
+        when(forfeitRepository.findActiveSharedForSport(null)).thenReturn(List.of(forfeit));
         when(forfeitVoteRepository.sumVoteScoresByForfeitIds(List.of(10L))).thenReturn(List.of());
         when(forfeitVoteRepository.findByForfeitIdInAndUserId(List.of(10L), 2L)).thenReturn(List.of());
 
-        List<ForfeitResponse> result = forfeitService.getForfeitsForUser("player");
+        List<ForfeitResponse> result = forfeitService.getForfeitsForUser("player", null);
 
         assertThat(result).hasSize(1);
-        verify(forfeitRepository).findByActiveTrueAndGroupIsNullOrderById();
-        verify(forfeitRepository, never()).findActiveVisibleToGroups(any());
+        verify(forfeitRepository).findActiveSharedForSport(null);
+        verify(forfeitRepository, never()).findActiveVisibleToGroups(any(), any());
     }
 
     // ── getAllForfeitsAdmin ─────────────────────────────────────────────────────
@@ -150,7 +150,7 @@ class ForfeitServiceTest {
     void createForfeit_shouldSaveWithActiveTrueAndNoProposedBy() {
         when(forfeitRepository.save(any(Forfeit.class))).thenReturn(forfeit);
 
-        forfeitService.createForfeit("Drink water", "Drink a glass", "Fun");
+        forfeitService.createForfeit("Drink water", "Drink a glass", "Fun", null);
 
         ArgumentCaptor<Forfeit> captor = ArgumentCaptor.forClass(Forfeit.class);
         verify(forfeitRepository).save(captor.capture());

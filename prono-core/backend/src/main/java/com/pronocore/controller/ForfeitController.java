@@ -5,6 +5,7 @@ import com.pronocore.dto.request.VoteForfeitRequest;
 import com.pronocore.dto.response.ForfeitResponse;
 import com.pronocore.dto.response.GroupUserForfeitResponse;
 import com.pronocore.dto.response.UserForfeitResponse;
+import com.pronocore.entity.Sport;
 import com.pronocore.service.ForfeitService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -31,9 +32,11 @@ public class ForfeitController {
     // ---------------------------------------------------------------
 
     @GetMapping
-    @Operation(summary = "Get active forfeits visible to the caller (shared + their groups)")
-    public ResponseEntity<List<ForfeitResponse>> getAllForfeits(Authentication authentication) {
-        return ResponseEntity.ok(forfeitService.getForfeitsForUser(authentication.getName()));
+    @Operation(summary = "Get active forfeits visible to the caller (shared + their groups), optionally filtered by sport")
+    public ResponseEntity<List<ForfeitResponse>> getAllForfeits(
+            Authentication authentication,
+            @RequestParam(required = false) Sport sport) {
+        return ResponseEntity.ok(forfeitService.getForfeitsForUser(authentication.getName(), sport));
     }
 
     @GetMapping("/all")
@@ -49,9 +52,10 @@ public class ForfeitController {
     public ResponseEntity<ForfeitResponse> createForfeit(
             @RequestParam String title,
             @RequestParam String description,
-            @RequestParam(defaultValue = "General") String category) {
+            @RequestParam(defaultValue = "General") String category,
+            @RequestParam(required = false) Sport sport) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(forfeitService.createForfeit(title, description, category));
+                .body(forfeitService.createForfeit(title, description, category, sport));
     }
 
     @PostMapping("/propose")
@@ -72,13 +76,14 @@ public class ForfeitController {
 
     @PutMapping("/{forfeitId}")
     @PreAuthorize("hasRole('PLATFORM_ADMIN')")
-    @Operation(summary = "Update a forfeit's title, description and category (Admin only)")
+    @Operation(summary = "Update a forfeit's title, description, category and sport (Admin only)")
     public ResponseEntity<ForfeitResponse> updateForfeit(
             @PathVariable Long forfeitId,
             @RequestParam String title,
             @RequestParam String description,
-            @RequestParam(defaultValue = "General") String category) {
-        return ResponseEntity.ok(forfeitService.updateForfeit(forfeitId, title, description, category));
+            @RequestParam(defaultValue = "General") String category,
+            @RequestParam(required = false) Sport sport) {
+        return ResponseEntity.ok(forfeitService.updateForfeit(forfeitId, title, description, category, sport));
     }
 
     @DeleteMapping("/{forfeitId}")

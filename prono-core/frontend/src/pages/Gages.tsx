@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getForfeits, proposeForfeit, voteForfeit } from '@/api/forfeits';
 import { getMyGroups } from '@/api/groups';
+import { useSport } from '@/context/SportContext';
 import type { Forfeit, Group } from '@/types';
 import { logger } from '@/utils/logger';
 
@@ -21,6 +22,7 @@ const GAGE_EMOJIS = [
 const DEFAULT_GAGE_EMOJI = '🎯';
 
 const Gages: React.FC = () => {
+  const { sport } = useSport();
   const [forfeits, setForfeits] = useState<Forfeit[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -37,7 +39,8 @@ const Gages: React.FC = () => {
   const [propSuccess, setPropSuccess] = useState('');
 
   useEffect(() => {
-    Promise.all([getForfeits(), getMyGroups()])
+    setIsLoading(true);
+    Promise.all([getForfeits(sport === 'f1' ? 'F1' : 'FOOT'), getMyGroups()])
       .then(([f, g]) => {
         setForfeits(f);
         setGroups(g);
@@ -45,7 +48,7 @@ const Gages: React.FC = () => {
       })
       .catch(logger.error)
       .finally(() => setIsLoading(false));
-  }, []);
+  }, [sport]);
 
   const handleVote = async (forfeitId: number, vote: 1 | -1 | 0) => {
     try {
