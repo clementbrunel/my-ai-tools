@@ -14,4 +14,7 @@ public record EmailTheme(String gradientStart, String gradientEnd, String accent
     public static final EmailTheme FOOTBALL = new EmailTheme("#006400", "#009900", "#FFD700", "#FFA500");
 
     public static final EmailTheme F1 = new EmailTheme("#9B0400", "#E10600", "#C0C0C0", "#A0A0A0");
+
+    /** Sport-neutral palette for templates that aren't tied to Foot or F1 (account emails, tech tests). */
+    public static final EmailTheme NEUTRAL = new EmailTheme("#1E3A5F", "#2C5F8A", "#FFC857", "#8FB8D8");
 }

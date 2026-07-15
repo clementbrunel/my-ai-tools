@@ -1,6 +1,5 @@
 package com.pronocore.controller;
 
-import com.pronocore.dto.request.EmailThemeName;
 import com.pronocore.dto.request.TestEmailRequest;
 import com.pronocore.service.EmailService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -23,8 +22,7 @@ public class AdminEmailController {
     @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     @Operation(summary = "Send a test email using the specified template to a given address")
     public ResponseEntity<Void> sendTestEmail(@Valid @RequestBody TestEmailRequest request) {
-        EmailThemeName theme = request.getTheme() != null ? request.getTheme() : EmailThemeName.FOOTBALL;
-        emailService.sendTestEmail(request.getTargetEmail(), request.getEmailType(), theme);
+        emailService.sendTestEmail(request.getTargetEmail(), request.getEmailType());
         return ResponseEntity.noContent().build();
     }
 }
