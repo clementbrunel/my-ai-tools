@@ -179,23 +179,24 @@ public class EmailService {
     public void sendGageResolutionEmail(User recipient, String forfeitTitle, String forfeitDescription,
                                         User assignedTo, String groupName, Map<String, Integer> dailyScores) {
         sendGageResolutionEmail(recipient, forfeitTitle, forfeitDescription, assignedTo, groupName, dailyScores,
-            themeFor(EmailType.GAGE_RESOLUTION));
+            themeFor(EmailType.GAGE_RESOLUTION), "de pronostics");
     }
 
     /**
      * Unlike every other template, the gage's sport isn't fixed by the {@link EmailType} —
      * a daily gage can be settled from foot matches, F1 races, or both in a mixed group.
-     * The caller (whoever actually looked at that day's participations) picks the theme;
-     * {@link #themeFor} still supplies the neutral fallback used by previews.
+     * The caller (whoever actually looked at that day's participations) picks the theme
+     * and the day label so the wording matches the palette; {@link #themeFor} and the
+     * "de pronostics" default only cover the neutral fallback used by previews.
      */
     public void sendGageResolutionEmail(User recipient, String forfeitTitle, String forfeitDescription,
                                         User assignedTo, String groupName, Map<String, Integer> dailyScores,
-                                        EmailTheme theme) {
+                                        EmailTheme theme, String dayLabel) {
         String displayName = recipient.getDisplayName() != null ? recipient.getDisplayName() : recipient.getUsername();
         String assignedToName = assignedTo.getDisplayName() != null ? assignedTo.getDisplayName() : assignedTo.getUsername();
         try {
             emailSender.send(recipient.getEmail(), GageResolutionEmailTemplate.subject(groupName),
-                GageResolutionEmailTemplate.build(theme, displayName, forfeitTitle, forfeitDescription, assignedToName, groupName, dailyScores));
+                GageResolutionEmailTemplate.build(theme, displayName, forfeitTitle, forfeitDescription, assignedToName, groupName, dailyScores, dayLabel));
             log.info("Gage resolution email sent to {} (group {})", recipient.getEmail(), groupName);
         } catch (Exception e) {
             log.error("Failed to send gage resolution email to {}: {}", recipient.getEmail(), e.getMessage());

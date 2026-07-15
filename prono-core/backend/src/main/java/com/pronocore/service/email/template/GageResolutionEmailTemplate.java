@@ -17,7 +17,7 @@ public final class GageResolutionEmailTemplate {
     }
 
     public static String build(EmailTheme theme, String recipientName, String forfeitTitle, String forfeitDescription,
-                                String assignedToName, String groupName, Map<String, Integer> dailyScores) {
+                                String assignedToName, String groupName, Map<String, Integer> dailyScores, String dayLabel) {
         List<Map.Entry<String, Integer>> sorted = dailyScores.entrySet().stream()
                 .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
                 .toList();
@@ -41,7 +41,7 @@ public final class GageResolutionEmailTemplate {
             <h2 style="color:#1a1a1a;margin-top:0">Le gage du jour est attribué !</h2>
             <p style="color:#444;line-height:1.6">Bonjour <strong>%s</strong>,</p>
             <p style="color:#444;line-height:1.6">
-              La journée de matchs est terminée. Voici le bilan des pronostics et l'attribution du gage du jour.
+              La journée %s est terminée. Voici le bilan des pronostics et l'attribution du gage du jour.
             </p>
 
             <h3 style="color:#1a472a;margin-bottom:8px">📊 Paris du jour</h3>
@@ -73,7 +73,7 @@ public final class GageResolutionEmailTemplate {
               Tu reçois cet email car les notifications de gage sont activées dans ton profil.<br>
               Pour les désactiver : <em>Mon profil → Notifications</em>.
             </p>
-            """.formatted(recipientName, scoreRows, assignedToName, forfeitTitle, forfeitDescription);
+            """.formatted(recipientName, dayLabel, scoreRows, assignedToName, forfeitTitle, forfeitDescription);
 
         return EmailLayout.wrap(theme, "🃏", groupName, body);
     }
