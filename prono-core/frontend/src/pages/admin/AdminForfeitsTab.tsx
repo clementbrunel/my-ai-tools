@@ -3,6 +3,7 @@ import ConfirmModal from '@/components/ConfirmModal';
 import { useToast } from '@/components/Toast';
 import { getAllForfeitsAdmin, createForfeit, updateForfeit, deleteForfeit } from '@/api/forfeits';
 import { getAllGroups } from '@/api/groups';
+import { useSport } from '@/context/SportContext';
 import DailyGagePanel from '@/components/DailyGagePanel';
 import { useFormMessages } from '@/hooks/useFormMessages';
 import type { Forfeit, Group } from '@/types';
@@ -10,11 +11,13 @@ import ScrollableTableWrapper from '@/components/ScrollableTableWrapper';
 import { logger } from '@/utils/logger';
 
 const FORFEIT_CATEGORIES = ['General', 'Nourriture', 'Humiliation', 'Spectacle', 'Réseaux sociaux', 'Boissons'];
+const SPORT_LABEL: Record<string, string> = { FOOT: '⚽ Foot', F1: '🏎️ F1' };
 
 type SubTab = 'bibliotheque' | 'gages-par-groupe';
 
 const AdminForfeitsTab: React.FC = () => {
   const { showToast } = useToast();
+  const { sport } = useSport();
   const { msg: forfeitMsg, setError: setForfeitError, setSuccess: setForfeitSuccess, clear: clearForfeitMessages } = useFormMessages();
 
   const [activeSubTab, setActiveSubTab] = useState<SubTab>('bibliotheque');
@@ -47,7 +50,7 @@ const AdminForfeitsTab: React.FC = () => {
     e.preventDefault();
     clearForfeitMessages();
     try {
-      const created = await createForfeit(newForfeitTitle, newForfeitDesc, newForfeitCategory);
+      const created = await createForfeit(newForfeitTitle, newForfeitDesc, newForfeitCategory, sport === 'f1' ? 'F1' : 'FOOT');
       setForfeits([...forfeits, created]);
       setNewForfeitTitle(''); setNewForfeitDesc(''); setNewForfeitCategory('General');
       setForfeitSuccess('Gage créé !');
@@ -80,7 +83,7 @@ const AdminForfeitsTab: React.FC = () => {
   const handleSaveEditForfeit = async () => {
     if (!editingForfeit) return;
     try {
-      const updated = await updateForfeit(editingForfeit.id, editForfeitTitle, editForfeitDesc, editForfeitCategory);
+      const updated = await updateForfeit(editingForfeit.id, editForfeitTitle, editForfeitDesc, editForfeitCategory, editingForfeit.sport);
       setForfeits(prev => prev.map((f) => f.id === updated.id ? updated : f));
       setEditingForfeit(null);
       showToast('Gage mis à jour !', 'success');
@@ -140,6 +143,9 @@ const AdminForfeitsTab: React.FC = () => {
                 {FORFEIT_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
+            <p className="col-span-3 text-xs text-gray-400">
+              Ce gage sera tagué {SPORT_LABEL[sport === 'f1' ? 'F1' : 'FOOT']} (le sport actif dans la navbar).
+            </p>
             {forfeitMsg?.type === 'error' && <p className="col-span-3 text-red-500 text-sm">{forfeitMsg.text}</p>}
             {forfeitMsg?.type === 'success' && <p className="col-span-3 text-green-500 text-sm">✅ {forfeitMsg.text}</p>}
             <div className="md:col-span-3">
@@ -155,6 +161,7 @@ const AdminForfeitsTab: React.FC = () => {
                 <tr className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
                   <th className="py-3 px-4 text-left text-xs text-gray-500 uppercase">Gage</th>
                   <th className="py-3 px-4 text-left text-xs text-gray-500 uppercase">Catégorie</th>
+                  <th className="py-3 px-4 text-left text-xs text-gray-500 uppercase">Sport</th>
                   <th className="py-3 px-4 text-center text-xs text-gray-500 uppercase">Effectué</th>
                   <th className="py-3 px-4 text-center text-xs text-gray-500 uppercase">Statut</th>
                   <th className="py-3 px-4 text-center text-xs text-gray-500 uppercase">Action</th>
@@ -173,6 +180,7 @@ const AdminForfeitsTab: React.FC = () => {
                       <div className="text-xs text-gray-400 truncate max-w-xs">{f.description}</div>
                     </td>
                     <td className="py-3 px-4 text-xs text-gray-500">{f.category}</td>
+                    <td className="py-3 px-4 text-xs text-gray-500">{f.sport ? SPORT_LABEL[f.sport] : '🌍 Générique'}</td>
                     <td className="py-3 px-4 text-center text-sm font-semibold text-amber-600">
                       {f.timesCompleted > 0 ? `✅ ×${f.timesCompleted}` : '—'}
                     </td>

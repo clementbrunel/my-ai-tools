@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -332,8 +333,10 @@ public class BetService {
                 .toList();
 
             // Pick from the gages visible to THIS group (shared + group-specific), not all gages.
+            Set<Sport> groupSports = bet.getGroup().getSports();
+            Sport sportFilter = groupSports.size() == 1 ? groupSports.iterator().next() : null;
             List<Forfeit> activeForfeit =
-                forfeitRepository.findActiveVisibleToGroups(List.of(bet.getGroup().getId()));
+                forfeitRepository.findActiveVisibleToGroups(List.of(bet.getGroup().getId()), sportFilter);
             if (!activeForfeit.isEmpty() && !losers.isEmpty()) {
                 Forfeit randomForfeit = activeForfeit.get(
                     (int)(Math.random() * activeForfeit.size())

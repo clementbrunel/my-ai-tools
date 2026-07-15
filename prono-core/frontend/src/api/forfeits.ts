@@ -5,8 +5,8 @@ import type { Forfeit, GroupUserForfeit, UserForfeitEntry } from '@/types';
 // Forfeit library
 // -----------------------------------------------------------------------
 
-export const getForfeits = async (): Promise<Forfeit[]> => {
-  const response = await apiClient.get<Forfeit[]>('/forfeits');
+export const getForfeits = async (sport?: 'FOOT' | 'F1'): Promise<Forfeit[]> => {
+  const response = await apiClient.get<Forfeit[]>('/forfeits', { params: { sport } });
   return response.data;
 };
 
@@ -18,10 +18,11 @@ export const getAllForfeitsAdmin = async (): Promise<Forfeit[]> => {
 export const createForfeit = async (
   title: string,
   description: string,
-  category: string
+  category: string,
+  sport?: 'FOOT' | 'F1' | null
 ): Promise<Forfeit> => {
   const response = await apiClient.post<Forfeit>('/forfeits', null, {
-    params: { title, description, category },
+    params: { title, description, category, sport: sport || undefined },
   });
   return response.data;
 };
@@ -50,10 +51,11 @@ export const updateForfeit = async (
   forfeitId: number,
   title: string,
   description: string,
-  category: string
+  category: string,
+  sport?: 'FOOT' | 'F1' | null
 ): Promise<Forfeit> => {
   const response = await apiClient.put<Forfeit>(`/forfeits/${forfeitId}`, null, {
-    params: { title, description, category },
+    params: { title, description, category, sport: sport || undefined },
   });
   return response.data;
 };
