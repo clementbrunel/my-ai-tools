@@ -24,6 +24,8 @@ public class F1PredictionResponse {
 
     /** Points earned once settled (0 before settlement). */
     private int pointsEarned;
+    /** True once settled if pole + P1 + fastest lap picks were all correct (+2 pts, included in pointsEarned). */
+    private boolean grandChelem;
     /** True once the pole pick can no longer change (qualifying started). */
     private boolean poleLocked;
     /** True once nothing can change anymore (race started). */
