@@ -340,7 +340,7 @@ public class DailyGageService {
                         e -> e.getKey().getDisplayName() != null ? e.getKey().getDisplayName() : e.getKey().getUsername(),
                         Map.Entry::getValue));
         String groupName = dg.getGroup().getName();
-        EmailTheme gageTheme = themeForGageDay(participations);
+        GageDayContext dayContext = contextForGageDay(participations);
 
         groupMemberRepository.findByGroupId(groupId).stream()
                 .filter(m -> m.getStatus() == GroupMember.MemberStatus.ACTIVE)
@@ -348,20 +348,24 @@ public class DailyGageService {
                 .filter(User::isEmailGageEnabled)
                 .forEach(subscriber -> emailService.sendGageResolutionEmail(
                         subscriber, resolvedForfeit.getTitle(), resolvedForfeit.getDescription(),
-                        resolvedUnlucky, groupName, namedScores, gageTheme));
+                        resolvedUnlucky, groupName, namedScores, dayContext.theme(), dayContext.dayLabel()));
+    }
+
+    private record GageDayContext(EmailTheme theme, String dayLabel) {
     }
 
     /**
-     * The gage email's theme reflects what was actually resolved that day: a pure foot
-     * day gets the foot palette, a pure F1 day gets the F1 palette, and a mixed group
-     * (or an ambiguous/empty case) falls back to neutral rather than favoring one sport.
+     * The gage email's theme and wording reflect what was actually resolved that day: a pure
+     * foot day talks about "matchs" and gets the foot palette, a pure F1 day talks about
+     * "Grand Prix" and gets the F1 palette, and a mixed group (or an ambiguous/empty case)
+     * falls back to sport-neutral wording and palette rather than favoring one sport.
      */
-    private EmailTheme themeForGageDay(List<BetParticipation> participations) {
+    private GageDayContext contextForGageDay(List<BetParticipation> participations) {
         boolean hasFoot = participations.stream().anyMatch(p -> p.getBet() != null && p.getBet().getMatch() != null);
         boolean hasF1 = participations.stream().anyMatch(p -> p.getBet() != null && p.getBet().getRace() != null);
-        if (hasFoot && !hasF1) return EmailTheme.FOOTBALL;
-        if (hasF1 && !hasFoot) return EmailTheme.F1;
-        return EmailTheme.NEUTRAL;
+        if (hasFoot && !hasF1) return new GageDayContext(EmailTheme.FOOTBALL, "de matchs");
+        if (hasF1 && !hasFoot) return new GageDayContext(EmailTheme.F1, "de Grand Prix");
+        return new GageDayContext(EmailTheme.NEUTRAL, "de pronostics");
     }
 
     // ---------------------------------------------------------------

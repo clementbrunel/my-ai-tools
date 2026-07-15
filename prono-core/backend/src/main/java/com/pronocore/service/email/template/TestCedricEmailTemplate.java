@@ -34,9 +34,9 @@ public final class TestCedricEmailTemplate {
               Ce message confirme que la chaîne d'envoi Resend est opérationnelle. Aucune action n'est requise.
             </p>
             <hr style="border:none;border-top:1px solid #eee;margin:24px 0">
-            <p style="color:#aaa;font-size:12px;text-align:center">PronoCore — Le meilleur pronostiqueur remporte la coupe ⚽</p>
+            <p style="color:#aaa;font-size:12px;text-align:center">PronoCore — Pronostics entre amis</p>
             """;
 
-        return EmailLayout.wrap(theme, "🏆", "Coupe du Monde 2026", body);
+        return EmailLayout.wrap(theme, "🏆", "Pronostics entre amis", body);
     }
 }

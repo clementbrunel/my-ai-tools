@@ -22,9 +22,9 @@ public final class PasswordResetEmailTemplate {
             </div>
             <p style="color:#888;font-size:14px">Ce lien est valable <strong>1 heure</strong>. Si tu n'es pas à l'origine de cette demande, ignore cet email — ton mot de passe restera inchangé.</p>
             <hr style="border:none;border-top:1px solid #eee;margin:24px 0">
-            <p style="color:#aaa;font-size:12px;text-align:center">PronoCore — Le meilleur pronostiqueur remporte la coupe ⚽</p>
+            <p style="color:#aaa;font-size:12px;text-align:center">PronoCore — Pronostics entre amis</p>
             """.formatted(resetUrl);
 
-        return EmailLayout.wrap(theme, "🏆", "Coupe du Monde 2026", body);
+        return EmailLayout.wrap(theme, "🏆", "Pronostics entre amis", body);
     }
 }
