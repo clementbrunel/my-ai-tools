@@ -8,7 +8,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import type { F1StandingHistory } from '../../types';
+import type { F1StandingHistory } from '@/types';
 
 /** Recessive, one-step-off-surface gray — reads on both light and dark cards. */
 const AXIS_COLOR = '#9ca3af';

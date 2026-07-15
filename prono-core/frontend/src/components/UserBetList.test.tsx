@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import UserBetList from './UserBetList';
-import type { UserBetSummary } from '../types';
+import type { UserBetSummary } from '@/types';
 
 const makeBet = (overrides?: Partial<UserBetSummary>): UserBetSummary => ({
   participationId: 1,

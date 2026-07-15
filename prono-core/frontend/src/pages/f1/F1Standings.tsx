@@ -5,11 +5,11 @@ import {
   getConstructorStandingsHistory,
   getDriverStandings,
   getDriverStandingsHistory,
-} from '../../api/f1';
-import type { F1Standing, F1StandingHistory } from '../../types';
-import MiniF1Car from '../../components/f1/MiniF1Car';
-import StandingsChart from '../../components/f1/StandingsChart';
-import PillTabs from '../../components/PillTabs';
+} from '@/api/f1';
+import type { F1Standing, F1StandingHistory } from '@/types';
+import MiniF1Car from '@/components/f1/MiniF1Car';
+import StandingsChart from '@/components/f1/StandingsChart';
+import PillTabs from '@/components/PillTabs';
 
 type Tab = 'drivers' | 'constructors';
 type ViewMode = 'list' | 'chart';

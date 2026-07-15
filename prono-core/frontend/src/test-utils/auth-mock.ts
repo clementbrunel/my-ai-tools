@@ -1,5 +1,5 @@
 import { vi } from 'vitest';
-import type { User } from '../types';
+import type { User } from '@/types';
 
 interface MockAuthOverrides {
   user?: User | null;

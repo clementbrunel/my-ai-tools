@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { LocalStorageService, StorageKey } from '../utils/localStorage';
+import { LocalStorageService, StorageKey } from '@/utils/localStorage';
 
 const apiClient = axios.create({
   baseURL: '/api',

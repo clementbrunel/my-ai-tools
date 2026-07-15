@@ -1,4 +1,4 @@
-import type { Driver } from '../../types';
+import type { Driver } from '@/types';
 import MiniF1Car from './MiniF1Car';
 
 interface DriverChipProps {

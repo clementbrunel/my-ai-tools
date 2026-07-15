@@ -1,14 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useToast } from '../../components/Toast';
-import { getMatches, createMatch, updateMatchScore, deleteMatch, forceSettleMatch } from '../../api/matches';
-import { getCompetitions as fetchAllCompetitions, getCompetitionTeams } from '../../api/competitions';
-import { useFormMessages } from '../../hooks/useFormMessages';
-import type { CompetitionDto, Match, MatchPhase, TeamDto } from '../../types';
-import { formatDate } from '../../utils/dates';
-import ScrollableTableWrapper from '../../components/ScrollableTableWrapper';
-import ScoreInput from '../../components/ScoreInput';
-import ConfirmModal from '../../components/ConfirmModal';
-import { KNOCKOUT_ROUNDS } from '../../utils/bracket';
+import { useToast } from '@/components/Toast';
+import { getMatches, createMatch, updateMatchScore, deleteMatch, forceSettleMatch } from '@/api/matches';
+import { getCompetitions as fetchAllCompetitions, getCompetitionTeams } from '@/api/competitions';
+import { useFormMessages } from '@/hooks/useFormMessages';
+import type { CompetitionDto, Match, MatchPhase, TeamDto } from '@/types';
+import { formatDate } from '@/utils/dates';
+import ScrollableTableWrapper from '@/components/ScrollableTableWrapper';
+import ScoreInput from '@/components/ScoreInput';
+import ConfirmModal from '@/components/ConfirmModal';
+import { KNOCKOUT_ROUNDS } from '@/utils/bracket';
 
 type StatusFilter = 'TO_RESOLVE' | 'ALL' | 'UPCOMING' | 'ONGOING' | 'FINISHED';
 

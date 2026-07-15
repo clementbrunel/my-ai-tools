@@ -1,4 +1,4 @@
-import type { AuthResponse, CompetitionDto, Match, TeamDto, User } from '../types';
+import type { AuthResponse, CompetitionDto, Match, TeamDto, User } from '@/types';
 
 export const makeTeam = (overrides?: Partial<TeamDto>): TeamDto => ({
   id: 1,

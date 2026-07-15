@@ -1,15 +1,15 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { useScrollRestoration } from '../hooks/useScrollRestoration';
-import { isAdmin } from '../types';
-import type { Match } from '../types';
-import MatchCard from '../components/MatchCard';
-import MatchRow from '../components/MatchRow';
-import BracketView from '../components/BracketView';
-import NoGroupBanner from '../components/NoGroupBanner';
-import { useAuth } from '../context/AuthContext';
-import { useMatches } from '../context/MatchesContext';
-import { formatDate } from '../utils/dates';
+import { useScrollRestoration } from '@/hooks/useScrollRestoration';
+import { isAdmin } from '@/types';
+import type { Match } from '@/types';
+import MatchCard from '@/components/MatchCard';
+import MatchRow from '@/components/MatchRow';
+import BracketView from '@/components/BracketView';
+import NoGroupBanner from '@/components/NoGroupBanner';
+import { useAuth } from '@/context/AuthContext';
+import { useMatches } from '@/context/MatchesContext';
+import { formatDate } from '@/utils/dates';
 
 type FilterStatus = 'ALL' | 'UPCOMING' | 'FINISHED';
 type ViewMode = 'grid' | 'list' | 'bracket';

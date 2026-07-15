@@ -1,5 +1,5 @@
 import apiClient from './axios';
-import type { Team, Match } from '../types';
+import type { Team, Match } from '@/types';
 
 export const getTeam = async (id: number): Promise<Team> => {
   const response = await apiClient.get<Team>(`/teams/${id}`);

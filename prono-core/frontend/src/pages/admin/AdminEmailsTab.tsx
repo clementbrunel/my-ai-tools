@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { sendTestEmail, type EmailType } from '../../api/email';
-import { useFormMessages } from '../../hooks/useFormMessages';
+import { sendTestEmail, type EmailType } from '@/api/email';
+import { useFormMessages } from '@/hooks/useFormMessages';
 
 type TemplateTheme = 'FOOTBALL' | 'F1' | 'NEUTRAL';
 

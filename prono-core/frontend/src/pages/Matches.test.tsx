@@ -10,8 +10,8 @@ import {
   TEAM_ITALIE,
   TEAM_PORTUGAL,
   TEAM_ANGLETERRE,
-} from '../test-utils/factories';
-import { renderWithRouter } from '../test-utils/render-helpers';
+} from '@/test-utils/factories';
+import { renderWithRouter } from '@/test-utils/render-helpers';
 
 // Le composant lit ses données depuis MatchesContext — on le mocke directement
 // pour tester le comportement du composant en isolation.
@@ -26,7 +26,7 @@ vi.mock('../context/AuthContext', () => ({
 
 vi.mock('../utils/countryFlags');
 
-import * as matchesCtx from '../context/MatchesContext';
+import * as matchesCtx from '@/context/MatchesContext';
 
 type CtxValue = ReturnType<typeof matchesCtx.useMatches>;
 

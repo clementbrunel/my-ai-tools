@@ -1,5 +1,5 @@
 import React from 'react';
-import type { DailyGage } from '../types';
+import type { DailyGage } from '@/types';
 
 interface Props {
   gage: DailyGage;

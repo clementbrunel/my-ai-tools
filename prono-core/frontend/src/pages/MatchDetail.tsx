@@ -1,19 +1,19 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
-import { getMatch } from '../api/matches';
-import { getBetsByMatch, getParticipationsByMatch, upsertParticipateByMatch } from '../api/bets';
-import { getDailyGagesByDate, voteOnCandidate } from '../api/dailyGages';
-import { useAuth } from '../context/AuthContext';
-import type { Match, Bet, BetParticipation, DailyGage } from '../types';
-import { formatDate, formatDateTime } from '../utils/dates';
-import { useToast } from '../components/Toast';
-import { useMatches } from '../context/MatchesContext';
-import { getFlagUrl } from '../utils/countryFlags';
-import { computePoints, parseOption } from '../utils/matchCalculations';
-import { getStatusBadgeText } from '../utils/matchStatus';
-import DailyGageCard from '../components/DailyGageCard';
-import ScoreInput from '../components/ScoreInput';
-import Avatar from '../components/Avatar';
+import { getMatch } from '@/api/matches';
+import { getBetsByMatch, getParticipationsByMatch, upsertParticipateByMatch } from '@/api/bets';
+import { getDailyGagesByDate, voteOnCandidate } from '@/api/dailyGages';
+import { useAuth } from '@/context/AuthContext';
+import type { Match, Bet, BetParticipation, DailyGage } from '@/types';
+import { formatDate, formatDateTime } from '@/utils/dates';
+import { useToast } from '@/components/Toast';
+import { useMatches } from '@/context/MatchesContext';
+import { getFlagUrl } from '@/utils/countryFlags';
+import { computePoints, parseOption } from '@/utils/matchCalculations';
+import { getStatusBadgeText } from '@/utils/matchStatus';
+import DailyGageCard from '@/components/DailyGageCard';
+import ScoreInput from '@/components/ScoreInput';
+import Avatar from '@/components/Avatar';
 
 // ── component ─────────────────────────────────────────────────────────────────
 

@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom';
-import type { Match } from '../types';
-import { formatDate, formatTime } from '../utils/dates';
-import { getFlagUrl } from '../utils/countryFlags';
-import { getStatusBadgeText } from '../utils/matchStatus';
+import type { Match } from '@/types';
+import { formatDate, formatTime } from '@/utils/dates';
+import { getFlagUrl } from '@/utils/countryFlags';
+import { getStatusBadgeText } from '@/utils/matchStatus';
 
 interface MatchCardProps {
   match: Match;

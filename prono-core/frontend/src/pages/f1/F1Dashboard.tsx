@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getDriverStandings, getRaces } from '../../api/f1';
-import type { F1Standing, Race } from '../../types';
-import { formatDate, formatTime } from '../../utils/dates';
-import { getFlagUrl } from '../../utils/countryFlags';
-import MiniF1Car from '../../components/f1/MiniF1Car';
+import { getDriverStandings, getRaces } from '@/api/f1';
+import type { F1Standing, Race } from '@/types';
+import { formatDate, formatTime } from '@/utils/dates';
+import { getFlagUrl } from '@/utils/countryFlags';
+import MiniF1Car from '@/components/f1/MiniF1Car';
 
 const F1Dashboard: React.FC = () => {
   const [races, setRaces] = useState<Race[]>([]);

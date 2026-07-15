@@ -1,5 +1,5 @@
 import apiClient from './axios';
-import type { CompetitionDto, Sport, TeamDto } from '../types';
+import type { CompetitionDto, Sport, TeamDto } from '@/types';
 
 /** The sport is required — competitions are always created in an explicit sport. */
 export const createCompetition = async (name: string, sport: Sport): Promise<void> => {

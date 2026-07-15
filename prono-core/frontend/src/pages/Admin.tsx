@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { useSport } from '../context/SportContext';
-import { isAdmin } from '../types';
+import { useAuth } from '@/context/AuthContext';
+import { useSport } from '@/context/SportContext';
+import { isAdmin } from '@/types';
 import AdminMatchesTab from './admin/AdminMatchesTab';
 import AdminCompetitionsTab from './admin/AdminCompetitionsTab';
 import AdminForfeitsTab from './admin/AdminForfeitsTab';

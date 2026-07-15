@@ -6,7 +6,7 @@ import type {
   RegisterRequest,
   RegisterResponse,
   ResetPasswordRequest,
-} from '../types';
+} from '@/types';
 
 export const login = async (data: LoginRequest): Promise<AuthResponse> => {
   const response = await apiClient.post<AuthResponse>('/auth/login', data);

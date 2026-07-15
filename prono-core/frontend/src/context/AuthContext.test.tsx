@@ -1,14 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, act, waitFor } from '@testing-library/react';
 import { AuthProvider, useAuth } from './AuthContext';
-import { makeUser, makeToken, makeAuthResponse } from '../test-utils/factories';
+import { makeUser, makeToken, makeAuthResponse } from '@/test-utils/factories';
 
 vi.mock('../api/auth', () => ({
   login: vi.fn(),
   register: vi.fn(),
 }));
 
-import * as authApi from '../api/auth';
+import * as authApi from '@/api/auth';
 
 const TestConsumer: React.FC = () => {
   const { user, token, isAuthenticated } = useAuth();

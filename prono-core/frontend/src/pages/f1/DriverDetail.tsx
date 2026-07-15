@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { getDriver, getDriverResults } from '../../api/f1';
-import type { Driver, DriverRaceResult } from '../../types';
-import { formatDate } from '../../utils/dates';
-import { getFlagUrl } from '../../utils/countryFlags';
-import MiniF1Car from '../../components/f1/MiniF1Car';
+import { getDriver, getDriverResults } from '@/api/f1';
+import type { Driver, DriverRaceResult } from '@/types';
+import { formatDate } from '@/utils/dates';
+import { getFlagUrl } from '@/utils/countryFlags';
+import MiniF1Car from '@/components/f1/MiniF1Car';
 
 const DriverDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();

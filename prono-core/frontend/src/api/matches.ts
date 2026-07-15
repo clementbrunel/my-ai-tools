@@ -1,5 +1,5 @@
 import apiClient from './axios';
-import type { Match, CreateMatchRequest, UpdateMatchScoreRequest } from '../types';
+import type { Match, CreateMatchRequest, UpdateMatchScoreRequest } from '@/types';
 
 export const getMatches = async (status?: string): Promise<Match[]> => {
   const params = status ? { status } : {};

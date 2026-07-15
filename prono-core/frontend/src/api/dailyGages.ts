@@ -1,5 +1,5 @@
 import apiClient from './axios';
-import type { DailyGage } from '../types';
+import type { DailyGage } from '@/types';
 
 export const getAllDailyGages = async (): Promise<DailyGage[]> => {
   const response = await apiClient.get<DailyGage[]>('/daily-gages');

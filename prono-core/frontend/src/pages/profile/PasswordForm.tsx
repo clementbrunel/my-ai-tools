@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { updatePassword } from '../../api/users';
-import { useFormMessages } from '../../hooks/useFormMessages';
+import { updatePassword } from '@/api/users';
+import { useFormMessages } from '@/hooks/useFormMessages';
 
 const PasswordForm: React.FC = () => {
   const [currentPassword, setCurrentPassword] = useState('');

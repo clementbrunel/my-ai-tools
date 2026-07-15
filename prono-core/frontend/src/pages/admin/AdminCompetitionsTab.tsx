@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useToast } from '../../components/Toast';
+import { useToast } from '@/components/Toast';
 import {
   createCompetition,
   getCompetitions,
@@ -7,10 +7,10 @@ import {
   getAllKnownTeams,
   setCompetitionTeams,
   findOrCreateTeam,
-} from '../../api/competitions';
-import { getDrivers } from '../../api/f1';
-import type { CompetitionDto, Driver, Sport, TeamDto } from '../../types';
-import MiniF1Car from '../../components/f1/MiniF1Car';
+} from '@/api/competitions';
+import { getDrivers } from '@/api/f1';
+import type { CompetitionDto, Driver, Sport, TeamDto } from '@/types';
+import MiniF1Car from '@/components/f1/MiniF1Car';
 
 interface AdminCompetitionsTabProps {
   /** Sport scope selected at the top of the admin page. */
@@ -42,7 +42,7 @@ const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) =>
       const first = comps.find((c) => c.sport === sport);
       if (first) await loadRoster(first);
     })();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadRoster = async (competition: CompetitionDto) => {
     loadingForRef.current = competition.id;

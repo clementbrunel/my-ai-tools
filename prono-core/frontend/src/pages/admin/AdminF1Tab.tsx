@@ -15,11 +15,11 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { enterRaceResults, getDrivers, getRace, getRaces, syncSeason } from '../../api/f1';
-import type { Driver, Race } from '../../types';
-import { formatDate } from '../../utils/dates';
-import { useToast } from '../../components/Toast';
-import MiniF1Car from '../../components/f1/MiniF1Car';
+import { enterRaceResults, getDrivers, getRace, getRaces, syncSeason } from '@/api/f1';
+import type { Driver, Race } from '@/types';
+import { formatDate } from '@/utils/dates';
+import { useToast } from '@/components/Toast';
+import MiniF1Car from '@/components/f1/MiniF1Car';
 
 interface RowProps {
   driver: Driver;

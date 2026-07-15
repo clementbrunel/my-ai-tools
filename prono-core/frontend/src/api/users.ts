@@ -1,5 +1,5 @@
 import apiClient from './axios';
-import type { User, UserAdminInfo } from '../types';
+import type { User, UserAdminInfo } from '@/types';
 
 export const updateEmailPreferences = async (
   emailReminderEnabled: boolean,

@@ -1,5 +1,5 @@
 import apiClient from './axios';
-import type { Group, GroupMember, PublicGroup, CreateGroupRequest, JoinGroupRequest, Match, Race, Sport } from '../types';
+import type { Group, GroupMember, PublicGroup, CreateGroupRequest, JoinGroupRequest, Match, Race, Sport } from '@/types';
 
 export const getAllGroups = async (): Promise<Group[]> => {
   const response = await apiClient.get<Group[]>('/groups');

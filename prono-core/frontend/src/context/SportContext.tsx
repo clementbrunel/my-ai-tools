@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useTheme } from './ThemeContext';
-import { LocalStorageService, StorageKey } from '../utils/localStorage';
+import { LocalStorageService, StorageKey } from '@/utils/localStorage';
 
 export type Sport = 'foot' | 'f1';
 

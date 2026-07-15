@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { updateDisplayName, updateAvatar, updateEmail, updateEmailPreferences } from '../../api/users';
-import { useAuth } from '../../context/AuthContext';
-import { useFormMessages } from '../../hooks/useFormMessages';
+import { updateDisplayName, updateAvatar, updateEmail, updateEmailPreferences } from '@/api/users';
+import { useAuth } from '@/context/AuthContext';
+import { useFormMessages } from '@/hooks/useFormMessages';
 
 interface Props {
   initialDisplayName: string;

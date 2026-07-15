@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { getMyGroups } from '../api/groups';
-import { getMatches } from '../api/matches';
-import { getBets, openMatchForBetting, openCompetitionForBetting, closeMatchForBetting } from '../api/bets';
-import { getCompetitions } from '../api/competitions';
-import type { CompetitionDto, Group, Match, MatchPhase } from '../types';
-import { formatDate } from '../utils/dates';
-import ConfirmModal from '../components/ConfirmModal';
-import { useGroupAdminCounts } from '../context/GroupAdminCountsContext';
+import { getMyGroups } from '@/api/groups';
+import { getMatches } from '@/api/matches';
+import { getBets, openMatchForBetting, openCompetitionForBetting, closeMatchForBetting } from '@/api/bets';
+import { getCompetitions } from '@/api/competitions';
+import type { CompetitionDto, Group, Match, MatchPhase } from '@/types';
+import { formatDate } from '@/utils/dates';
+import ConfirmModal from '@/components/ConfirmModal';
+import { useGroupAdminCounts } from '@/context/GroupAdminCountsContext';
 
 type StatusFilter = 'CLOSED' | 'OPEN';
 

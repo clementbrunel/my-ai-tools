@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react';
 import {
   getDailyGagesByGroup, createDailyGage,
   selectForfeitDirectly, addCandidate, removeCandidate, forceSettleGage, deleteDailyGage,
-} from '../api/dailyGages';
-import { getForfeitsVisibleToGroup } from '../api/forfeits';
-import { getBets } from '../api/bets';
-import type { DailyGage, Forfeit, Bet } from '../types';
-import { formatDate, parseDDMMYYYY } from '../utils/dates';
+} from '@/api/dailyGages';
+import { getForfeitsVisibleToGroup } from '@/api/forfeits';
+import { getBets } from '@/api/bets';
+import type { DailyGage, Forfeit, Bet } from '@/types';
+import { formatDate, parseDDMMYYYY } from '@/utils/dates';
 
 interface Props {
   groupId: number;

@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { screen } from '@testing-library/react';
 import MatchRow from './MatchRow';
-import { makeMatch, makeTeam, TEAM_ALLEMAGNE, TEAM_ESPAGNE } from '../test-utils/factories';
-import { renderWithRouter } from '../test-utils/render-helpers';
+import { makeMatch, makeTeam, TEAM_ALLEMAGNE, TEAM_ESPAGNE } from '@/test-utils/factories';
+import { renderWithRouter } from '@/test-utils/render-helpers';
 
 vi.mock('../utils/countryFlags');
 

@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom';
-import type { Match } from '../types';
-import { formatDate, formatTime } from '../utils/dates';
-import { getFlagUrl } from '../utils/countryFlags';
-import { buildBracketData } from '../utils/bracket';
+import type { Match } from '@/types';
+import { formatDate, formatTime } from '@/utils/dates';
+import { getFlagUrl } from '@/utils/countryFlags';
+import { buildBracketData } from '@/utils/bracket';
 
 interface BracketViewProps {
   matches: Match[];
