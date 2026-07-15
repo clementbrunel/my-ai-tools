@@ -43,6 +43,7 @@ const AdminEmailsTab: React.FC = () => {
               <option value="VERIFICATION">Vérification d'email</option>
               <option value="PASSWORD_RESET">Réinitialisation de mot de passe</option>
               <option value="MATCH_REMINDER">Rappel de match</option>
+              <option value="RACE_REMINDER">Rappel de course F1</option>
               <option value="GAGE_RESOLUTION">Résolution du gage du jour</option>
               <option value="GROUP_NEW_MATCHES">Nouveaux matchs ouverts (chef de groupe)</option>
               <option value="GROUP_NEW_RACES">Nouveaux Grands Prix ouverts (chef de groupe)</option>
