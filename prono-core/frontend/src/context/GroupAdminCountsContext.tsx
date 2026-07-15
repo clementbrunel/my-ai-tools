@@ -107,7 +107,11 @@ export const GroupAdminCountsProvider: React.FC<{ children: React.ReactNode }> =
     })();
 
     return () => { cancelled = true; };
-  }, [user, tick]);
+    // Depend on user.id rather than the user object: AuthContext replaces the
+    // user object with a new reference on background revalidation, which would
+    // otherwise refire this fetch even though the logical user hasn't changed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, tick]);
 
   return (
     <GroupAdminCountsContext.Provider value={{ totalBadge, pendingForfeitsPerGroup, missingGagesPerGroup, groupsWithNoBets, matchesWithoutBetsPerGroup, refresh, clearMatchesWithoutBetsAlert }}>
