@@ -387,6 +387,23 @@ export interface F1Standing {
   podiums: number;
 }
 
+export interface F1StandingHistoryRacePoint {
+  round: number;
+  name: string;
+}
+
+export interface F1StandingHistorySeries {
+  label: string;
+  code: string | null;
+  color: string;
+  points: number[];
+}
+
+export interface F1StandingHistory {
+  races: F1StandingHistoryRacePoint[];
+  series: F1StandingHistorySeries[];
+}
+
 export interface RaceResultEntryRequest {
   driverId: number;
   position: number | null;

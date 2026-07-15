@@ -79,6 +79,18 @@ public class F1Controller {
         return ResponseEntity.ok(f1RaceService.getConstructorStandings());
     }
 
+    @GetMapping("/standings/drivers/history")
+    @Operation(summary = "Driver points evolution across the season, top 10 (feeds the chart view)")
+    public ResponseEntity<F1StandingHistoryResponse> getDriverStandingsHistory() {
+        return ResponseEntity.ok(f1RaceService.getDriverStandingsHistory());
+    }
+
+    @GetMapping("/standings/constructors/history")
+    @Operation(summary = "Constructor points evolution across the season, top 10 (feeds the chart view)")
+    public ResponseEntity<F1StandingHistoryResponse> getConstructorStandingsHistory() {
+        return ResponseEntity.ok(f1RaceService.getConstructorStandingsHistory());
+    }
+
     // ---------------------------------------------------------------
     // Group admin — opening races for betting
     // ---------------------------------------------------------------

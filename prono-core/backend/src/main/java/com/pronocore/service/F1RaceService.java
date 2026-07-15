@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -538,6 +539,68 @@ public class F1RaceService {
             if (rr.getPosition() != null && rr.getPosition() <= 3) podiums.merge(constructorId, 1, Integer::sum);
         }
         return rank(byConstructor, points, wins, podiums);
+    }
+
+    private static final int STANDINGS_HISTORY_TOP_N = 10;
+
+    @Transactional(readOnly = true)
+    public F1StandingHistoryResponse getDriverStandingsHistory() {
+        return buildStandingsHistory(getDriverStandings(), rr -> rr.getDriver().getId());
+    }
+
+    @Transactional(readOnly = true)
+    public F1StandingHistoryResponse getConstructorStandingsHistory() {
+        return buildStandingsHistory(getConstructorStandings(), rr -> rr.getDriver().getConstructor().getId());
+    }
+
+    /** Walks the season's race results in round order to build a cumulative points series per entity. */
+    private F1StandingHistoryResponse buildStandingsHistory(List<F1StandingResponse> standings,
+                                                             Function<RaceResult, Long> entityIdOf) {
+        List<RaceResult> results = findSeasonResults();
+
+        Map<Long, Race> racesById = new LinkedHashMap<>();
+        for (RaceResult rr : results) {
+            racesById.putIfAbsent(rr.getRace().getId(), rr.getRace());
+        }
+        List<Race> races = racesById.values().stream()
+                .sorted(Comparator.comparingInt(Race::getRound))
+                .toList();
+
+        Map<Long, Map<Long, Integer>> pointsByRaceThenEntity = new HashMap<>();
+        for (RaceResult rr : results) {
+            long raceId = rr.getRace().getId();
+            long entityId = entityIdOf.apply(rr);
+            int pts = fiaPoints(rr.getPosition()) + fiaSprintPoints(rr.getSprintPosition());
+            pointsByRaceThenEntity.computeIfAbsent(raceId, id -> new HashMap<>())
+                    .merge(entityId, pts, Integer::sum);
+        }
+
+        List<F1StandingHistoryResponse.Series> series = new ArrayList<>();
+        for (F1StandingResponse row : standings.stream().limit(STANDINGS_HISTORY_TOP_N).toList()) {
+            Long entityId = row.getDriver() != null ? row.getDriver().getId() : row.getConstructorId();
+            String label = row.getDriver() != null ? row.getDriver().getName() : row.getConstructorName();
+            String code = row.getDriver() != null ? row.getDriver().getCode() : null;
+            int running = 0;
+            List<Integer> cumulative = new ArrayList<>(races.size());
+            for (Race race : races) {
+                running += pointsByRaceThenEntity
+                        .getOrDefault(race.getId(), Map.of())
+                        .getOrDefault(entityId, 0);
+                cumulative.add(running);
+            }
+            series.add(F1StandingHistoryResponse.Series.builder()
+                    .label(label)
+                    .code(code)
+                    .color(row.getConstructorColor())
+                    .points(cumulative)
+                    .build());
+        }
+
+        List<F1StandingHistoryResponse.RacePoint> racePoints = races.stream()
+                .map(r -> new F1StandingHistoryResponse.RacePoint(r.getRound(), r.getName()))
+                .toList();
+
+        return F1StandingHistoryResponse.builder().races(racePoints).series(series).build();
     }
 
     private List<RaceResult> findSeasonResults() {
