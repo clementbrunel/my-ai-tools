@@ -4,10 +4,15 @@ import {
   getGroupPendingForfeits, getGroupForfeits,
   approveGroupForfeit, deleteGroupForfeit,
 } from '../../api/forfeits';
-import { updateGroupPrivacy, updateGroupSports, getFutureOpenMatches, notifyNewMatches } from '../../api/groups';
+import {
+  updateGroupPrivacy, updateGroupSports,
+  getFutureOpenMatches, notifyNewMatches,
+  getFutureOpenRaces, notifyNewRaces,
+} from '../../api/groups';
 import DailyGagePanel from '../../components/DailyGagePanel';
 import ConfirmModal from '../../components/ConfirmModal';
-import type { Group, Forfeit, Match, Sport } from '../../types';
+import PillTabs from '../../components/PillTabs';
+import type { Group, Forfeit, Match, Race, Sport } from '../../types';
 import { formatDate } from '../../utils/dates';
 import { useGroupAdminCounts } from '../../context/GroupAdminCountsContext';
 
@@ -21,11 +26,16 @@ interface Props {
 const GroupAdminSettings: React.FC<Props> = ({ group, onGroupUpdate }) => {
   const { pendingForfeitsPerGroup, missingGagesPerGroup, groupsWithNoBets, matchesWithoutBetsPerGroup, refresh: refreshCounts } = useGroupAdminCounts();
 
+  const groupSports = group.sports ?? ['FOOT'];
+
   const [openSection, setOpenSection] = useState<AdminSection | null>(null);
   const [pendingForfeits, setPendingForfeits] = useState<Forfeit[] | null>(null);
   const [activeForfeits, setActiveForfeits] = useState<Forfeit[]>([]);
+  const [notifySport, setNotifySport] = useState<Sport>(groupSports[0] ?? 'FOOT');
   const [futureOpenMatches, setFutureOpenMatches] = useState<Match[] | null>(null);
   const [selectedMatchIds, setSelectedMatchIds] = useState<Set<number>>(new Set());
+  const [futureOpenRaces, setFutureOpenRaces] = useState<Race[] | null>(null);
+  const [selectedRaceIds, setSelectedRaceIds] = useState<Set<number>>(new Set());
   const [notifyLoading, setNotifyLoading] = useState(false);
   const [notifyMessage, setNotifyMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -54,14 +64,24 @@ const GroupAdminSettings: React.FC<Props> = ({ group, onGroupUpdate }) => {
     }
   };
 
-  const loadFutureOpenMatches = async () => {
-    try {
-      const matches = await getFutureOpenMatches(group.id);
-      setFutureOpenMatches(matches);
-      setSelectedMatchIds(new Set());
-      setNotifyMessage(null);
-    } catch {
-      setFutureOpenMatches([]);
+  const loadFutureOpenBets = async (sport: Sport) => {
+    setNotifyMessage(null);
+    if (sport === 'FOOT') {
+      try {
+        const matches = await getFutureOpenMatches(group.id);
+        setFutureOpenMatches(matches);
+        setSelectedMatchIds(new Set());
+      } catch {
+        setFutureOpenMatches([]);
+      }
+    } else {
+      try {
+        const races = await getFutureOpenRaces(group.id);
+        setFutureOpenRaces(races);
+        setSelectedRaceIds(new Set());
+      } catch {
+        setFutureOpenRaces([]);
+      }
     }
   };
 
@@ -69,7 +89,12 @@ const GroupAdminSettings: React.FC<Props> = ({ group, onGroupUpdate }) => {
     const next = openSection === section ? null : section;
     setOpenSection(next);
     if (next === 'forfeits') await loadForfeits();
-    if (next === 'notify-matches') await loadFutureOpenMatches();
+    if (next === 'notify-matches') await loadFutureOpenBets(notifySport);
+  };
+
+  const handleSwitchNotifySport = async (sport: Sport) => {
+    setNotifySport(sport);
+    if (openSection === 'notify-matches') await loadFutureOpenBets(sport);
   };
 
   const handleToggleMatchSelection = (matchId: number) => {
@@ -81,14 +106,29 @@ const GroupAdminSettings: React.FC<Props> = ({ group, onGroupUpdate }) => {
     });
   };
 
-  const handleSendNotifyMatches = async () => {
-    if (selectedMatchIds.size === 0) return;
+  const handleToggleRaceSelection = (raceId: number) => {
+    setSelectedRaceIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(raceId)) next.delete(raceId);
+      else next.add(raceId);
+      return next;
+    });
+  };
+
+  const handleSendNotify = async () => {
+    const selectedIds = notifySport === 'FOOT' ? selectedMatchIds : selectedRaceIds;
+    if (selectedIds.size === 0) return;
     setNotifyLoading(true);
     setNotifyMessage(null);
     try {
-      await notifyNewMatches(group.id, Array.from(selectedMatchIds));
+      if (notifySport === 'FOOT') {
+        await notifyNewMatches(group.id, Array.from(selectedMatchIds));
+        setSelectedMatchIds(new Set());
+      } else {
+        await notifyNewRaces(group.id, Array.from(selectedRaceIds));
+        setSelectedRaceIds(new Set());
+      }
       setNotifyMessage({ type: 'success', text: 'Les membres du groupe ont été notifiés par email !' });
-      setSelectedMatchIds(new Set());
     } catch {
       setNotifyMessage({ type: 'error', text: "Erreur lors de l'envoi de la notification." });
     } finally {
@@ -256,20 +296,22 @@ const GroupAdminSettings: React.FC<Props> = ({ group, onGroupUpdate }) => {
       {/* Workflow guide */}
       <div className="text-xs text-yellow-800 dark:text-yellow-300 pt-1 space-y-2 border-t border-yellow-200 dark:border-yellow-800/40">
         <p className="font-semibold pt-1">Configuration des paris de votre groupe</p>
-        <div className="flex items-center justify-between gap-3">
-          <p>1. Ouvrez les matchs aux paris pour la journée.</p>
-          <Link to="/foot/open-betting" className="relative btn-primary text-xs whitespace-nowrap inline-flex items-center gap-1.5 shrink-0">
-            🎲 Ouvrir aux paris
-            {(matchesWithoutBetsPerGroup[group.id] ?? 0) > 0 && (
-              <span className="inline-flex items-center justify-center bg-red-500 text-white text-[10px] font-bold leading-none rounded-full min-w-[16px] h-4 px-1">
-                {matchesWithoutBetsPerGroup[group.id]}
-              </span>
-            )}
-          </Link>
-        </div>
+        {(group.sports ?? ['FOOT']).includes('FOOT') && (
+          <div className="flex items-center justify-between gap-3">
+            <p>1. <span className="font-semibold">⚽ Foot</span> — Ouvrez les matchs aux paris pour la journée.</p>
+            <Link to="/foot/open-betting" className="relative btn-primary text-xs whitespace-nowrap inline-flex items-center gap-1.5 shrink-0">
+              🎲 Ouvrir aux paris
+              {(matchesWithoutBetsPerGroup[group.id] ?? 0) > 0 && (
+                <span className="inline-flex items-center justify-center bg-red-500 text-white text-[10px] font-bold leading-none rounded-full min-w-[16px] h-4 px-1">
+                  {matchesWithoutBetsPerGroup[group.id]}
+                </span>
+              )}
+            </Link>
+          </div>
+        )}
         {(group.sports ?? []).includes('F1') && (
           <div className="flex items-center justify-between gap-3">
-            <p>1bis. Ouvrez les Grands Prix F1 aux pronos.</p>
+            <p>1bis. <span className="font-semibold">🏎 F1</span> — Ouvrez les Grands Prix aux pronos.</p>
             <Link to="/f1/open-betting" className="btn-primary text-xs whitespace-nowrap inline-flex items-center gap-1.5 shrink-0">
               🏎 Ouvrir les GP
             </Link>
@@ -294,7 +336,7 @@ const GroupAdminSettings: React.FC<Props> = ({ group, onGroupUpdate }) => {
           </button>
         </div>
         <div className="flex items-center justify-between gap-3">
-          <p>3. Prévenez le groupe quand de nouveaux matchs sont ouverts aux pronos 📣</p>
+          <p>3. Prévenez le groupe quand de nouveaux paris sont ouverts 📣</p>
           <button
             onClick={() => handleToggleSection('notify-matches')}
             className={`relative text-xs px-3 py-1.5 rounded-lg font-medium transition-colors inline-flex items-center gap-1.5 shrink-0 ${
@@ -303,7 +345,7 @@ const GroupAdminSettings: React.FC<Props> = ({ group, onGroupUpdate }) => {
                 : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-200'
             }`}
           >
-            📣 Prévenir des nouveaux matchs
+            📣 Prévenir de nouveaux paris
           </button>
         </div>
       </div>
@@ -401,60 +443,114 @@ const GroupAdminSettings: React.FC<Props> = ({ group, onGroupUpdate }) => {
         </div>
       )}
 
-      {/* Notify new matches panel */}
-      {openSection === 'notify-matches' && (
-        <div className="space-y-3 pt-3 border-t border-yellow-200 dark:border-yellow-800/40">
-          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-            📣 Prévenir le groupe des nouveaux matchs
-          </h3>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            Sélectionnez les matchs à venir déjà ouverts aux pronostics pour ce groupe :
-            un email sera envoyé à tous les membres actifs.
-          </p>
-          {futureOpenMatches === null ? (
-            <p className="text-xs text-gray-400 italic">Chargement...</p>
-          ) : futureOpenMatches.length === 0 ? (
-            <p className="text-xs text-gray-400 italic">Aucun match futur ouvert aux pronostics pour ce groupe.</p>
-          ) : (
-            <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
-              {futureOpenMatches.map((m) => (
-                <label
-                  key={m.id}
-                  className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2 cursor-pointer"
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedMatchIds.has(m.id)}
-                    onChange={() => handleToggleMatchSelection(m.id)}
-                    className="shrink-0"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                      {m.teamA.name} – {m.teamB.name}
-                    </p>
-                    <p className="text-xs text-gray-400">{m.round} · {formatDate(m.matchDate)}</p>
+      {/* Notify new bets panel */}
+      {openSection === 'notify-matches' && (() => {
+        const selectedCount = notifySport === 'FOOT' ? selectedMatchIds.size : selectedRaceIds.size;
+        const itemLabel = notifySport === 'FOOT' ? 'match' : 'GP';
+        return (
+          <div className="space-y-3 pt-3 border-t border-yellow-200 dark:border-yellow-800/40">
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+              📣 Prévenir le groupe de nouveaux paris
+            </h3>
+
+            {groupSports.length > 1 && (
+              <PillTabs
+                options={[
+                  ['FOOT', '⚽ Foot'],
+                  ['F1', '🏎 F1'],
+                ]}
+                value={notifySport}
+                onChange={handleSwitchNotifySport}
+              />
+            )}
+
+            {notifySport === 'FOOT' ? (
+              <>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Sélectionnez les matchs à venir déjà ouverts aux pronostics pour ce groupe :
+                  un email sera envoyé à tous les membres actifs.
+                </p>
+                {futureOpenMatches === null ? (
+                  <p className="text-xs text-gray-400 italic">Chargement...</p>
+                ) : futureOpenMatches.length === 0 ? (
+                  <p className="text-xs text-gray-400 italic">Aucun match futur ouvert aux pronostics pour ce groupe.</p>
+                ) : (
+                  <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
+                    {futureOpenMatches.map((m) => (
+                      <label
+                        key={m.id}
+                        className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedMatchIds.has(m.id)}
+                          onChange={() => handleToggleMatchSelection(m.id)}
+                          className="shrink-0"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                            {m.teamA.name} – {m.teamB.name}
+                          </p>
+                          <p className="text-xs text-gray-400">{m.round} · {formatDate(m.matchDate)}</p>
+                        </div>
+                      </label>
+                    ))}
                   </div>
-                </label>
-              ))}
-            </div>
-          )}
+                )}
+              </>
+            ) : (
+              <>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Sélectionnez les Grands Prix à venir déjà ouverts aux pronos pour ce groupe :
+                  un email sera envoyé à tous les membres actifs.
+                </p>
+                {futureOpenRaces === null ? (
+                  <p className="text-xs text-gray-400 italic">Chargement...</p>
+                ) : futureOpenRaces.length === 0 ? (
+                  <p className="text-xs text-gray-400 italic">Aucun Grand Prix futur ouvert aux pronos pour ce groupe.</p>
+                ) : (
+                  <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
+                    {futureOpenRaces.map((r) => (
+                      <label
+                        key={r.id}
+                        className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedRaceIds.has(r.id)}
+                          onChange={() => handleToggleRaceSelection(r.id)}
+                          className="shrink-0"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                            {r.name}
+                          </p>
+                          <p className="text-xs text-gray-400">Manche {r.round} · {formatDate(r.raceDate)}</p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
 
-          {futureOpenMatches !== null && futureOpenMatches.length > 0 && (
-            <button
-              onClick={handleSendNotifyMatches}
-              disabled={selectedMatchIds.size === 0 || notifyLoading}
-              className="btn-primary text-xs w-full disabled:opacity-50"
-            >
-              {notifyLoading
-                ? 'Envoi...'
-                : `📤 Notifier les membres (${selectedMatchIds.size} match${selectedMatchIds.size > 1 ? 's' : ''} sélectionné${selectedMatchIds.size > 1 ? 's' : ''})`}
-            </button>
-          )}
+            {selectedCount > 0 && (
+              <button
+                onClick={handleSendNotify}
+                disabled={notifyLoading}
+                className="btn-primary text-xs w-full disabled:opacity-50"
+              >
+                {notifyLoading
+                  ? 'Envoi...'
+                  : `📤 Notifier les membres (${selectedCount} ${itemLabel}${selectedCount > 1 ? 's' : ''} sélectionné${selectedCount > 1 ? 's' : ''})`}
+              </button>
+            )}
 
-          {notifyMessage?.type === 'error' && <p className="text-red-500 text-xs">{notifyMessage.text}</p>}
-          {notifyMessage?.type === 'success' && <p className="text-green-500 text-xs">✅ {notifyMessage.text}</p>}
-        </div>
-      )}
+            {notifyMessage?.type === 'error' && <p className="text-red-500 text-xs">{notifyMessage.text}</p>}
+            {notifyMessage?.type === 'success' && <p className="text-green-500 text-xs">✅ {notifyMessage.text}</p>}
+          </div>
+        );
+      })()}
 
       <ConfirmModal
         isOpen={confirmDialog !== null}

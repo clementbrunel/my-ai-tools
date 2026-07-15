@@ -6,12 +6,13 @@ import { useSport } from '../context/SportContext';
 import { isAdmin } from '../types';
 import { useState } from 'react';
 import Avatar from './Avatar';
+import { getEquivalentPath } from '../utils/sportPaths';
 
 const Navbar: React.FC = () => {
   const { user, logout } = useAuth();
   const { totalBadge } = useGroupAdminCounts();
   const { totalBadge: userTotalBadge } = useUserCounts();
-  const { sport, basePath } = useSport();
+  const { sport, basePath, setSport } = useSport();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -19,6 +20,15 @@ const Navbar: React.FC = () => {
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  // On shared pages (/admin, /profile, /groups) the target path is the same
+  // as the current one — navigate() would be a no-op there, so flip the
+  // sport directly instead.
+  const switchSport = (target: 'foot' | 'f1') => {
+    const path = getEquivalentPath(location.pathname, target);
+    if (path === location.pathname) setSport(target);
+    else navigate(path);
   };
 
   const isActive = (path: string) => {
@@ -64,7 +74,7 @@ const Navbar: React.FC = () => {
             </Link>
             <div className="flex gap-0.5 bg-black/25 rounded-lg p-1">
               <button
-                onClick={() => navigate('/foot')}
+                onClick={() => switchSport('foot')}
                 className={`px-2.5 py-1 rounded text-sm font-bold transition-colors ${
                   sport === 'foot' ? 'bg-wc-gold text-gray-900' : 'text-gray-300 hover:text-white'
                 }`}
@@ -72,7 +82,7 @@ const Navbar: React.FC = () => {
                 ⚽
               </button>
               <button
-                onClick={() => navigate('/f1')}
+                onClick={() => switchSport('f1')}
                 className={`px-2.5 py-1 rounded text-sm font-bold transition-colors ${
                   sport === 'f1' ? 'bg-wc-gold text-gray-900' : 'text-gray-300 hover:text-white'
                 }`}

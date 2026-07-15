@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSport } from '../context/SportContext';
 import { isAdmin } from '../types';
-import type { Sport } from '../types';
 import AdminMatchesTab from './admin/AdminMatchesTab';
 import AdminCompetitionsTab from './admin/AdminCompetitionsTab';
 import AdminForfeitsTab from './admin/AdminForfeitsTab';
@@ -20,9 +19,9 @@ const Admin: React.FC = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<AdminTab>('competitions');
   // The whole admin page is scoped to one sport: competitions are filtered
-  // and the events tab shows either matches or races. Defaults to the
-  // universe the admin navigated from.
-  const [adminSport, setAdminSport] = useState<Sport>(sport === 'f1' ? 'F1' : 'FOOT');
+  // and the events tab shows either matches or races. Follows the global
+  // sport switcher (navbar) — same source of truth everywhere.
+  const adminSport = sport === 'f1' ? 'F1' : 'FOOT';
 
   useEffect(() => {
     if (!isAdmin(user)) navigate('/dashboard');
@@ -44,28 +43,9 @@ const Admin: React.FC = () => {
       <div className="flex items-center gap-3 flex-wrap">
         <h1 className="page-title mb-0">⚙️ Administration</h1>
         <span className="badge-admin">ADMIN</span>
-
-        {/* Sport scope — conditions competitions and the events tab */}
-        <div className="flex gap-0.5 bg-gray-100 dark:bg-gray-800 rounded-lg p-1 ml-auto">
-          {(
-            [
-              ['FOOT', '⚽ Foot'],
-              ['F1', '🏎 F1'],
-            ] as [Sport, string][]
-          ).map(([value, label]) => (
-            <button
-              key={value}
-              onClick={() => setAdminSport(value)}
-              className={`px-3 py-1 rounded text-sm font-bold transition-colors ${
-                adminSport === value
-                  ? 'bg-white dark:bg-wc-dark-secondary text-gray-900 dark:text-white shadow'
-                  : 'text-gray-500 dark:text-gray-400'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <span className="text-sm text-gray-400 dark:text-gray-500 ml-auto">
+          {adminSport === 'F1' ? '🏎 F1' : '⚽ Foot'} — bascule via le sélecteur en haut à gauche
+        </span>
       </div>
 
       {/* Mobile: native select */}

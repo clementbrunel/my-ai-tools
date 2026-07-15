@@ -47,14 +47,14 @@ const DailyGagePanel: React.FC<Props> = ({ groupId }) => {
       .then(([dgs, forfeits, bets]) => {
         setDailyGages(dgs);
         setAvailableForfeits(forfeits);
-        setOpenGroupBets(bets.filter((b) => b.groupId === groupId && b.status === 'OPEN' && b.match));
+        setOpenGroupBets(bets.filter((b) => b.groupId === groupId && b.status === 'OPEN' && (b.match || b.race)));
       })
       .finally(() => setIsLoading(false));
   }, [groupId]);
 
   const configuredDates = new Set(dailyGages.map((dg) => dg.matchDate));
   const unconfiguredMatchDays = [
-    ...new Set(openGroupBets.map((b) => b.match!.matchDate.slice(0, 10))),
+    ...new Set(openGroupBets.map((b) => (b.match?.matchDate ?? b.race!.raceDate).slice(0, 10))),
   ]
     .filter((d) => !configuredDates.has(d))
     .sort();
@@ -176,7 +176,7 @@ const DailyGagePanel: React.FC<Props> = ({ groupId }) => {
       {unconfiguredMatchDays.length > 0 && (
         <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-300 dark:border-amber-700/40 rounded-lg p-3">
           <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 mb-2">
-            ⚠️ Jours de match sans gage ({unconfiguredMatchDays.length})
+            ⚠️ Jours de pronos sans gage ({unconfiguredMatchDays.length})
           </p>
           <div className="flex flex-wrap gap-1.5">
             {unconfiguredMatchDays.map((d) => (

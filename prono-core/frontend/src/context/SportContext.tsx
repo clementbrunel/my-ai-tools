@@ -9,9 +9,17 @@ export type Sport = 'foot' | 'f1';
 interface SportContextValue {
   sport: Sport;
   basePath: string;
+  /** Force the active sport without a navigation — needed on shared pages
+   * (/admin, /profile, /groups) where the URL doesn't carry a sport prefix,
+   * so the usual "sport follows the URL" sync never fires. */
+  setSport: (sport: Sport) => void;
 }
 
-const SportContext = createContext<SportContextValue>({ sport: 'foot', basePath: '/foot' });
+const SportContext = createContext<SportContextValue>({
+  sport: 'foot',
+  basePath: '/foot',
+  setSport: () => {},
+});
 
 function storedSport(): Sport {
   return LocalStorageService.getString(StorageKey.Sport) === 'f1' ? 'f1' : 'foot';
@@ -25,7 +33,12 @@ function storedSport(): Sport {
 export function SportProvider({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
   const { setTheme } = useTheme();
-  const [sport, setSport] = useState<Sport>(storedSport);
+  const [sport, setSportState] = useState<Sport>(storedSport);
+
+  const setSport = (next: Sport) => {
+    setSportState(next);
+    LocalStorageService.setString(StorageKey.Sport, next);
+  };
 
   useEffect(() => {
     const fromPath: Sport | null = pathname.startsWith('/f1')
@@ -35,7 +48,6 @@ export function SportProvider({ children }: { children: ReactNode }) {
         : null;   // shared page → keep the last visited sport
     if (fromPath && fromPath !== sport) {
       setSport(fromPath);
-      LocalStorageService.setString(StorageKey.Sport, fromPath);
     }
   }, [pathname, sport]);
 
@@ -52,7 +64,7 @@ export function SportProvider({ children }: { children: ReactNode }) {
   }, [sport]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <SportContext.Provider value={{ sport, basePath }}>
+    <SportContext.Provider value={{ sport, basePath, setSport }}>
       {children}
     </SportContext.Provider>
   );

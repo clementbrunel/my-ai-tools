@@ -331,6 +331,20 @@ export interface RaceResultEntry {
   dnf: boolean;
 }
 
+export interface DriverRaceResult {
+  raceId: number;
+  raceName: string;
+  round: number;
+  countryIso2?: string;
+  raceDate: string;
+  position: number | null;
+  sprintPosition?: number | null;
+  pole: boolean;
+  fastestLap: boolean;
+  dnf: boolean;
+  points: number;
+}
+
 export type RaceStatus = 'UPCOMING' | 'FINISHED';
 
 export interface Race {

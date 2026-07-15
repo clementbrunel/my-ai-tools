@@ -3,11 +3,13 @@ package com.pronocore.service;
 import com.pronocore.entity.Bet;
 import com.pronocore.entity.GroupMember;
 import com.pronocore.entity.Match;
+import com.pronocore.entity.Race;
 import com.pronocore.entity.User;
 import com.pronocore.repository.BetParticipationRepository;
 import com.pronocore.repository.BetRepository;
 import com.pronocore.repository.GroupMemberRepository;
 import com.pronocore.repository.MatchRepository;
+import com.pronocore.repository.RaceRepository;
 import com.pronocore.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +29,7 @@ import java.util.Map;
 public class ReminderSchedulerService {
 
     private final MatchRepository matchRepository;
+    private final RaceRepository raceRepository;
     private final BetRepository betRepository;
     private final GroupMemberRepository groupMemberRepository;
     private final BetParticipationRepository betParticipationRepository;
@@ -109,6 +112,73 @@ public class ReminderSchedulerService {
         triggerMatches.forEach(m -> {
             m.setReminderSent(true);
             matchRepository.save(m);
+        });
+    }
+
+    /**
+     * F1 counterpart of {@link #sendMatchReminders()}: when a race enters the 4h-before
+     * window, reminds every user who hasn't predicted it yet and hasn't already been
+     * reminded for that trigger day. There is no equivalent reminder for the sprint —
+     * the sprint has no betting attached, only championship points (see Race.sprintDate).
+     */
+    @Scheduled(fixedDelay = 60_000)
+    @Transactional
+    public void sendRaceReminders() {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDate today = now.toLocalDate();
+
+        List<Race> triggerRaces = raceRepository.findUpcomingRacesForReminder(
+                now.plusMinutes(239), now.plusMinutes(241));
+
+        if (triggerRaces.isEmpty()) return;
+
+        LocalDate latestTriggerDay = triggerRaces.stream()
+                .map(r -> r.getRaceDate().toLocalDate())
+                .max(LocalDate::compareTo)
+                .orElse(today);
+
+        Map<Long, User> usersToRemind = new LinkedHashMap<>();
+
+        for (Race race : triggerRaces) {
+            List<Bet> openBets = betRepository.findByRaceIdAndStatusOrderByCreatedAtDesc(
+                    race.getId(), Bet.Status.OPEN);
+
+            for (Bet bet : openBets) {
+                List<GroupMember> members = groupMemberRepository.findByGroupIdAndStatus(
+                        bet.getGroup().getId(), GroupMember.MemberStatus.ACTIVE);
+
+                for (GroupMember gm : members) {
+                    User user = gm.getUser();
+                    if (!user.isEmailReminderEnabled()) continue;
+                    if (latestTriggerDay.equals(user.getRaceReminderSentDate())) continue;
+                    if (betParticipationRepository.existsByUserIdAndRaceId(user.getId(), race.getId())) continue;
+                    usersToRemind.put(user.getId(), user);
+                }
+            }
+        }
+
+        log.info("Triggered by {} race(s), reminding {} user(s)", triggerRaces.size(), usersToRemind.size());
+
+        LocalDateTime startOfDay = today.atStartOfDay();
+        LocalDateTime endOfWindow = latestTriggerDay.plusDays(1).atStartOfDay();
+
+        for (User user : usersToRemind.values()) {
+            List<Race> allPending = raceRepository.findPendingRacesTodayForUser(
+                    user.getId(), startOfDay, endOfWindow, now);
+
+            if (!allPending.isEmpty()) {
+                emailService.sendRaceReminder(user, allPending);
+                log.info("Race reminder sent to {} ({}) for {} race(s): {}",
+                        user.getUsername(), user.getEmail(), allPending.size(),
+                        allPending.stream().map(Race::getName).toList());
+            }
+            user.setRaceReminderSentDate(latestTriggerDay);
+            userRepository.save(user);
+        }
+
+        triggerRaces.forEach(r -> {
+            r.setReminderSent(true);
+            raceRepository.save(r);
         });
     }
 }
