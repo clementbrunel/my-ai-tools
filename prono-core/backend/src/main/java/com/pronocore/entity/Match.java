@@ -66,6 +66,17 @@ public class Match {
     @Builder.Default
     private boolean reminderSent = false;
 
+    @Column(name = "sync_locked", nullable = false)
+    @Builder.Default
+    private boolean syncLocked = false;
+
+    @Column(name = "auto_synced", nullable = false)
+    @Builder.Default
+    private boolean autoSynced = false;
+
+    @OneToOne(mappedBy = "match", cascade = CascadeType.ALL, orphanRemoval = true)
+    private MatchExternalLinks externalLinks;
+
     public enum Status {
         UPCOMING, ONGOING, FINISHED
     }

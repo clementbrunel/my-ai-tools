@@ -51,3 +51,10 @@ logging:
 f1:
   jolpica:
     base-url: https://api.jolpi.ca/ergast/f1
+
+# api-football.com (v3) — source des scores de football en temps réel
+api-football:
+  base-url: https://v3.football.api-sports.io
+  api-key: ${API_FOOTBALL_KEY:}
+  league-id: 1
+  season: 2026

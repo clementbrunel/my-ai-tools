@@ -5,8 +5,12 @@ import com.pronocore.entity.Match;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
-@Mapper(componentModel = "spring")
+import java.util.Map;
+
+@Mapper(componentModel = "spring", imports = {Map.class})
 public interface MatchMapper {
 
+    @Mapping(target = "externalLinks",
+             expression = "java(match.getExternalLinks() != null ? match.getExternalLinks().toMap() : null)")
     MatchResponse toResponse(Match match);
 }

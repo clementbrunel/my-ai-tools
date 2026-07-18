@@ -2,8 +2,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useToast } from '@/components/Toast';
 import { getMatches, createMatch, updateMatchScore, deleteMatch, forceSettleMatch } from '@/api/matches';
 import { getCompetitions as fetchAllCompetitions, getCompetitionTeams } from '@/api/competitions';
+import { getFixtureCandidates, linkMatch, unlinkMatch, triggerSync } from '@/api/sync';
 import { useFormMessages } from '@/hooks/useFormMessages';
-import type { CompetitionDto, Match, MatchPhase, TeamDto } from '@/types';
+import type { CompetitionDto, FixtureCandidate, Match, MatchPhase, TeamDto } from '@/types';
 import { formatDate } from '@/utils/dates';
 import ScrollableTableWrapper from '@/components/ScrollableTableWrapper';
 import ScoreInput from '@/components/ScoreInput';
@@ -41,6 +42,11 @@ const AdminMatchesTab: React.FC = () => {
     title: string; message: string; confirmLabel?: string;
     variant?: 'danger' | 'default'; onConfirm: () => void;
   } | null>(null);
+
+  const [linkingMatch, setLinkingMatch] = useState<Match | null>(null);
+  const [candidates, setCandidates] = useState<FixtureCandidate[]>([]);
+  const [candidatesLoading, setCandidatesLoading] = useState(false);
+  const [syncingAll, setSyncingAll] = useState(false);
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('TO_RESOLVE');
   const [competitionFilter, setCompetitionFilter] = useState<number | 'ALL'>('ALL');
@@ -161,6 +167,58 @@ const AdminMatchesTab: React.FC = () => {
       showToast('Erreur lors du recalcul des points');
     } finally {
       setRecalculatingMatchId(null);
+    }
+  };
+
+  const handleOpenLinkModal = async (match: Match) => {
+    setLinkingMatch(match);
+    setCandidates([]);
+    setCandidatesLoading(true);
+    try {
+      const data = await getFixtureCandidates(match.id);
+      setCandidates(data);
+    } catch {
+      showToast('Erreur lors du chargement des fixtures');
+    } finally {
+      setCandidatesLoading(false);
+    }
+  };
+
+  const handleLink = async (fixtureId: number) => {
+    if (!linkingMatch) return;
+    try {
+      await linkMatch(linkingMatch.id, fixtureId, 'API-FOOTBALL');
+      const updated = await getMatches();
+      setMatches(updated);
+      setLinkingMatch(null);
+      showToast('Fixture liée avec succès');
+    } catch {
+      showToast('Erreur lors de la liaison');
+    }
+  };
+
+  const handleUnlink = async (match: Match) => {
+    try {
+      await unlinkMatch(match.id, 'API-FOOTBALL');
+      const updated = await getMatches();
+      setMatches(updated);
+      showToast('Liaison supprimée');
+    } catch {
+      showToast('Erreur lors de la suppression de la liaison');
+    }
+  };
+
+  const handleTriggerSync = async () => {
+    setSyncingAll(true);
+    try {
+      await triggerSync();
+      const updated = await getMatches();
+      setMatches(updated);
+      showToast('Sync déclenché');
+    } catch {
+      showToast('Erreur lors du sync');
+    } finally {
+      setSyncingAll(false);
     }
   };
 
@@ -310,6 +368,13 @@ const AdminMatchesTab: React.FC = () => {
           <p className="text-xs text-gray-500 dark:text-gray-400 pb-2">
             {filteredMatches.length} match{filteredMatches.length !== 1 ? 's' : ''}
           </p>
+          <button
+            onClick={handleTriggerSync}
+            disabled={syncingAll}
+            className="text-xs btn-secondary py-1 px-2 disabled:opacity-50"
+          >
+            {syncingAll ? '⏳' : '🔄'} Sync API
+          </button>
         </div>
       </div>
 
@@ -323,13 +388,14 @@ const AdminMatchesTab: React.FC = () => {
                 <th className="py-3 px-4 text-center text-xs text-gray-500 uppercase">Date</th>
                 <th className="py-3 px-4 text-center text-xs text-gray-500 uppercase">Score</th>
                 <th className="py-3 px-4 text-center text-xs text-gray-500 uppercase">Statut</th>
+                <th className="py-3 px-4 text-center text-xs text-gray-500 uppercase">Sync</th>
                 <th className="py-3 px-4 text-center text-xs text-gray-500 uppercase">Action</th>
               </tr>
             </thead>
             <tbody>
               {paginatedMatches.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-sm text-gray-400">
+                  <td colSpan={7} className="py-8 text-center text-sm text-gray-400">
                     Aucun match ne correspond aux filtres.
                   </td>
                 </tr>
@@ -350,6 +416,20 @@ const AdminMatchesTab: React.FC = () => {
                   </td>
                   <td className="py-3 px-4 text-center">
                     <span className={`badge-${match.status.toLowerCase()} text-xs`}>{match.status}</span>
+                  </td>
+                  <td className="py-3 px-4 text-center">
+                    <div className="flex items-center justify-center gap-1">
+                      {match.externalLinks?.['API-FOOTBALL'] ? (
+                        <>
+                          <span className="text-xs text-blue-500" title={`Fixture #${match.externalLinks['API-FOOTBALL']}`}>🔗</span>
+                          {match.autoSynced && <span className="text-xs text-green-500">✓</span>}
+                          <button onClick={() => handleUnlink(match)} className="text-xs text-red-400 hover:text-red-600">✕</button>
+                        </>
+                      ) : (
+                        <button onClick={() => handleOpenLinkModal(match)} className="text-xs btn-secondary py-0.5 px-1.5">Lier</button>
+                      )}
+                      {match.syncLocked && <span className="text-xs text-gray-400" title="Sync désactivé (score manuel)">🔒</span>}
+                    </div>
                   </td>
                   <td className="py-3 px-4 text-center">
                     <div className="flex items-center justify-center gap-2">
@@ -483,6 +563,47 @@ const AdminMatchesTab: React.FC = () => {
         onConfirm={() => confirmDialog?.onConfirm()}
         onCancel={() => setConfirmDialog(null)}
       />
+
+      {linkingMatch && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-wc-dark-secondary rounded-xl p-6 w-full max-w-lg">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+              🔗 Lier une fixture API-Football
+            </h2>
+            <p className="text-sm text-gray-500 mb-4">
+              {linkingMatch.teamA.name} vs {linkingMatch.teamB.name}
+            </p>
+            {candidatesLoading ? (
+              <p className="text-center text-gray-400 py-6">Chargement...</p>
+            ) : candidates.length === 0 ? (
+              <p className="text-center text-gray-400 py-6">Aucune fixture trouvée.</p>
+            ) : (
+              <ul className="space-y-2 max-h-80 overflow-y-auto">
+                {candidates.map((c) => (
+                  <li key={c.fixtureId}
+                      className="flex items-center justify-between p-2 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        {c.homeTeam} vs {c.awayTeam}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {formatDate(c.date)} · confiance {Math.round(c.confidence * 100)}%
+                        {c.autoLinkable && <span className="ml-1 text-green-500">✓ auto</span>}
+                      </p>
+                    </div>
+                    <button onClick={() => handleLink(c.fixtureId)} className="text-xs btn-primary py-1 px-3">
+                      Lier
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <button onClick={() => setLinkingMatch(null)} className="mt-4 btn-secondary w-full">
+              Annuler
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

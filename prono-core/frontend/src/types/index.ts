@@ -109,6 +109,18 @@ export interface Match {
   penaltyScoreA?: number;
   penaltyScoreB?: number;
   userParticipated?: boolean;
+  syncLocked?: boolean;
+  autoSynced?: boolean;
+  externalLinks?: Record<string, number>;
+}
+
+export interface FixtureCandidate {
+  fixtureId: number;
+  homeTeam: string;
+  awayTeam: string;
+  date: string;
+  confidence: number;
+  autoLinkable: boolean;
 }
 
 export interface Team {

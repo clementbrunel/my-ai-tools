@@ -49,6 +49,18 @@ public interface MatchRepository extends JpaRepository<Match, Long> {
     List<Object[]> findMatchDatesAndStatusesInRange(@Param("start") LocalDateTime start,
                                                      @Param("end")   LocalDateTime end);
 
+    /** Matches eligible for auto-sync: not FINISHED, not sync-locked, kick-off in [from, to]. */
+    @Query("""
+            SELECT m FROM Match m JOIN FETCH m.teamA JOIN FETCH m.teamB JOIN FETCH m.competition
+            LEFT JOIN FETCH m.externalLinks
+            WHERE m.status <> com.pronocore.entity.Match.Status.FINISHED
+              AND m.syncLocked = false
+              AND m.matchDate >= :from
+              AND m.matchDate <= :to
+            """)
+    List<Match> findSyncableMatchesInWindow(@Param("from") LocalDateTime from,
+                                             @Param("to")   LocalDateTime to);
+
     /** Upcoming matches whose kick-off falls in [from, to] and for which no reminder has been sent yet. */
     @Query("""
             SELECT m FROM Match m

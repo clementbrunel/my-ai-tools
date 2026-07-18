@@ -119,6 +119,8 @@ public class MatchService {
         match.setScoreA(request.getScoreA());
         match.setScoreB(request.getScoreB());
         match.setStatus(request.getStatus());
+        match.setSyncLocked(true);
+        match.setAutoSynced(false);
         if (request.getPenaltyWinner() != null) {
             match.setPenaltyWinner(request.getPenaltyWinner());
             match.setPenaltyScoreA(request.getPenaltyScoreA());
@@ -146,6 +148,27 @@ public class MatchService {
     }
 
     public Match findById(Long id) { return requireMatch(id); }
+
+    @Transactional
+    public MatchResponse syncMatchScore(Long id, int scoreA, int scoreB, Match.Status newStatus) {
+        Match match = requireMatch(id);
+        if (match.isSyncLocked()) {
+            log.debug("Match {} is sync-locked — skipping auto-sync", id);
+            return toEnrichedResponse(match);
+        }
+        boolean transitionsToFinished =
+                match.getStatus() != Match.Status.FINISHED && newStatus == Match.Status.FINISHED;
+        match.setScoreA(scoreA);
+        match.setScoreB(scoreB);
+        match.setStatus(newStatus);
+        match.setAutoSynced(true);
+        match = matchRepository.save(match);
+        if (transitionsToFinished) {
+            settleBetsForMatch(match);
+            dailyGageService.onMatchSettled(match.getMatchDate().toLocalDate());
+        }
+        return toEnrichedResponse(match);
+    }
 
     // ---------------------------------------------------------------
     // Settlement logic
