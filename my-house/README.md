@@ -1,25 +1,51 @@
 # my-house
 
-Configuration domotique personnelle : Home Assistant en Docker sur un NAS Synology,
-avec intégration des volets roulants Somfy RTS (télécommande 433.42MHz).
+Configuration domotique personnelle : Home Assistant, en remplacement de l'ancienne
+config Jeedom (abandonnée). Deux options de déploiement documentées en parallèle :
 
-## Contexte
+- **Option A — NAS Synology (Docker)** : mutualisé avec le reste de l'infra (`mottaret-watch`,
+  `prono-core`), mais le passthrough USB vers un conteneur est capricieux sur Synology.
+- **Option B — Raspberry Pi 3 B+ en direct (Home Assistant OS)** : machine dédiée comme
+  l'était Jeedom, matériel USB branché nativement sans souci de passthrough.
 
-- NAS : Synology (DSM 7+, Container Manager)
-- Volets : Somfy RTS (télécommandes classiques, pas de box io-homecontrol)
-- Ancienne config Jeedom abandonnée — on repart de zéro sur Home Assistant.
+## Matériel existant (récupéré de la config Jeedom)
 
-## 1. Déployer Home Assistant sur le Synology
+- **Antenne RTS : RFXCOM RFXtrx433E (réf. 14103)** — émetteur/récepteur USB 433.92MHz,
+  supporte le protocole Somfy RTS. Intégration native `RFXtrx` dans Home Assistant
+  (config flow, détection USB automatique).
+- **Dongle Zigbee USB** — référence à confirmer (voir plus bas comment l'identifier).
+
+Pas besoin de racheter d'antenne RF : le RFXCOM fait à la fois RTS et peut coexister
+avec le dongle Zigbee sur le même hôte.
+
+### Identifier le dongle Zigbee
+
+Une fois branché sur une machine Linux (Pi ou NAS en SSH) :
+
+```bash
+lsusb
+# et pour le chemin stable /dev/serial/by-id/... :
+ls -l /dev/serial/by-id/
+```
+
+Le nom du fabricant/chipset dans la sortie (`dresden elektronik` = Conbee,
+`Silicon Labs` ou `ITead`/`Sonoff` = dongle Zigbee 3.0, `Texas Instruments` = CC2531/CC2652)
+permet de savoir si tu pars sur l'intégration **ZHA** (native Home Assistant, la plus simple)
+ou **Zigbee2MQTT** (plus de contrôle, nécessite Mosquitto). Envoie-moi la sortie de `lsusb`
+quand tu l'as et on choisit l'intégration adaptée.
+
+---
+
+## Option A — Home Assistant en Docker sur le NAS Synology
 
 ### Pré-requis
 
 1. Installer le package **Container Manager** depuis le Centre de paquets Synology (DSM 7+).
-2. Activer SSH sur le NAS (Panneau de configuration > Terminal & SNMP) pour pouvoir lancer
+2. Activer SSH sur le NAS (Panneau de configuration > Terminal & SNMP) pour lancer
    `docker compose` en ligne de commande — l'interface graphique de Container Manager ne
-   propose pas toujours le mode réseau `host`, qui est fortement recommandé pour Home
-   Assistant (découverte réseau, mDNS, intégrations qui scannent le LAN comme HomeKit ou
-   les ampoules Wi-Fi).
-3. Créer les dossiers de config sur le NAS :
+   propose pas toujours le mode réseau `host`, recommandé pour Home Assistant (découverte
+   réseau, mDNS, intégrations qui scannent le LAN).
+3. Créer les dossiers de config :
    ```bash
    mkdir -p /volume1/docker/my-house/homeassistant
    mkdir -p /volume1/docker/my-house/esphome
@@ -27,83 +53,99 @@ avec intégration des volets roulants Somfy RTS (télécommande 433.42MHz).
 
 ### Lancer le stack
 
-Copier `docker-compose.yml` sur le NAS (via File Station ou `scp`), puis en SSH :
+Copier `docker-compose.yml` sur le NAS, puis en SSH :
 
 ```bash
 cd /volume1/docker/my-house
 docker compose up -d
 ```
 
-Home Assistant est ensuite accessible sur `http://<ip-nas>:8123`, ESPHome sur
+Home Assistant : `http://<ip-nas>:8123` — ESPHome (optionnel, voir plus bas) :
 `http://<ip-nas>:6052`.
 
-> Si le mode `host` pose problème sur ton modèle Synology (certains DSM/appliances le
-> bloquent), passe en mode `bridge` classique en retirant `network_mode: host` et en
-> ajoutant :
-> ```yaml
->     ports:
->       - "8123:8123"
-> ```
-> Tu perdras juste la découverte automatique de certains appareils réseau (pas bloquant
-> pour la suite de ce guide).
+> Si le mode `host` pose problème sur ton modèle, repasse en `bridge` (retirer
+> `network_mode: host`, ajouter `ports: ["8123:8123"]`). Tu perds juste la découverte
+> auto de certains appareils réseau.
 
-### Onboarding
+### Brancher le RFXCOM et le dongle Zigbee sur le NAS (passthrough USB)
 
-Ouvrir `http://<ip-nas>:8123`, créer le compte admin, définir le nom du foyer et
-l'emplacement (pour les automatisations liées au soleil/météo).
+C'est le point délicat de cette option : Container Manager ne propose pas de mapping USB
+en interface graphique. Il faut passer par le `docker-compose.yml` directement, en
+ajoutant les périphériques détectés :
 
-## 2. Volets Somfy RTS — pourquoi pas d'antenne branchée sur le NAS
+```yaml
+    devices:
+      - /dev/serial/by-id/usb-RFXCOM_RFXtrx433-if00-port0:/dev/rfxtrx
+      - /dev/serial/by-id/<ton-dongle-zigbee>:/dev/zigbee
+```
 
-Le protocole RTS (433.42MHz) est propriétaire Somfy et fonctionne en émission "one-way"
-(pas d'accusé de réception). Brancher une antenne RF directement sur le NAS est
-compliqué :
+Utilise les chemins stables `/dev/serial/by-id/...` (pas `/dev/ttyUSB0`, qui peut changer
+d'ordre au reboot). Si le NAS ne détecte pas les périphériques USB série au reboot du
+conteneur (fréquent sur certains modèles Synology), c'est le principal argument pour
+préférer l'**Option B** avec ces deux périphériques.
 
-- Le NAS n'a pas de port RF, il faudrait passer par USB (ex: **RFXtrx433E**), et le
-  passthrough USB vers un conteneur Docker sur Synology est capricieux (dépend du modèle,
-  des droits, et Container Manager ne facilite pas le mapping `/dev/ttyUSB0`).
+### Alternative sans passthrough : ESPHome pour le RTS uniquement
 
-**Solution recommandée : un petit module ESP32 + émetteur CC1101, indépendant du NAS.**
+Si le passthrough du RFXCOM vers le NAS ne fonctionne pas de façon fiable, il reste
+possible de piloter les volets sans lui via un petit module ESP32 + CC1101 flashé avec
+ESPHome (déjà inclus dans le `docker-compose.yml`), indépendant du NAS. Détails dans
+la section RTS de l'Option B ci-dessous (le principe ESPHome est identique, seule la
+question du passthrough change).
 
-- Coût : ~10-15€ (ESP32 dev board + module CC1101, ou une carte toute faite type
-  "M5Stack Atom" + CC1101).
-- Il se flashe avec **ESPHome** (déjà dans le `docker-compose.yml` ci-dessus), qui a un
-  composant natif `remote_transmitter` + protocole Somfy RTS.
-- Il tourne en Wi-Fi, se place à portée des volets (pas besoin d'être près du NAS), et
-  remonte dans Home Assistant comme une entité `cover` classique dès qu'il est flashé.
+---
 
-### Étapes
+## Option B — Raspberry Pi 3 B+ en direct (Home Assistant OS)
 
-1. Aller sur `http://<ip-nas>:6052` (interface ESPHome).
-2. Créer un nouveau device ESP32, renseigner le Wi-Fi.
-3. Ajouter la config Somfy RTS dans le YAML généré (exemple pour un volet) :
-   ```yaml
-   remote_transmitter:
-     pin: GPIO4
-     carrier_duty_percent: 100
+Le Pi 3 B+ (1 Go RAM) est la config minimale officiellement supportée par Home Assistant.
+Suffisant pour un usage "volets + capteurs + automatisations", plus juste si tu ajoutes
+des flux caméra ou beaucoup d'historique. Avantage clé ici : le RFXCOM et le dongle
+Zigbee se branchent nativement en USB, sans les soucis de passthrough du NAS.
 
-   cover:
-     - platform: somfy
-       name: "Volet Salon"
-       remote_transmitter_id: <id du remote_transmitter défini plus haut>
-   ```
-4. Flasher le module (USB depuis le PC la première fois, OTA ensuite).
-5. Dans Home Assistant : **Paramètres > Appareils > Ajouter une intégration > ESPHome**,
-   renseigner l'IP du module. Le volet apparaît automatiquement comme entité `cover`.
-6. Programmer chaque volet en mode "association" via son bouton PROG existant (comme pour
-   ajouter une télécommande Somfy classique) — l'ESP32 émule une télécommande RTS.
+### Installation
 
-> Pour du multi-volets, un seul module ESP32 peut piloter plusieurs `cover:` (plusieurs
-> `remote_transmitter` codes différents), pas besoin d'un module par volet.
+1. Télécharger **Raspberry Pi Imager**, choisir l'image officielle
+   **Home Assistant OS** (image "Raspberry Pi 3"), flasher sur une carte SD (ou, mieux,
+   une clé USB/SSD — plus fiable dans la durée que la SD pour l'écriture continue de la
+   base recorder).
+2. Démarrer le Pi, attendre ~10-20 min (première init), puis accéder à
+   `http://homeassistant.local:8123`.
+3. Créer le compte admin, définir nom du foyer et localisation.
 
-## 3. Raspberry Pi — à considérer plus tard
+### Configurer le RFXCOM (Somfy RTS)
 
-Si tu remets un OS sur ta vieille Raspberry, elle peut servir de second point Zigbee/
-Z-Wave (via un dongle USB comme un SkyConnect ou un Sonoff Zigbee 3.0) sans dépendre du
-NAS, ou tourner Home Assistant OS complet si le NAS s'avère limitant. Pas nécessaire pour
-démarrer : le stack Docker ci-dessus suffit pour Home Assistant + Somfy RTS.
+1. Brancher le RFXtrx433E en USB sur le Pi.
+2. **Paramètres > Appareils et services > Ajouter une intégration > RFXtrx** — Home
+   Assistant détecte automatiquement le périphérique USB série.
+3. Mettre chaque volet en mode association (bouton PROG existant sur le rail/moteur,
+   comme pour apprendre une télécommande Somfy classique), puis dans HA :
+   **Paramètres > Appareils > RFXtrx > Ajouter un appareil**, sélectionner "Somfy RTS" et
+   suivre l'assistant d'appairage (il envoie une commande RTS que le volet apprend).
+4. Chaque volet apparaît comme entité `cover.xxx`.
+
+### Configurer le dongle Zigbee
+
+Une fois la référence identifiée (voir plus haut) :
+
+- **ZHA** (recommandé pour démarrer, intégré nativement) :
+  **Paramètres > Appareils et services > Ajouter une intégration > ZHA**, sélectionner
+  le port série du dongle.
+- **Zigbee2MQTT** (si tu veux plus de contrôle/logs, ou support d'appareils exotiques) :
+  s'installe comme add-on HAOS depuis le Add-on Store, nécessite aussi l'add-on
+  **Mosquitto broker**.
+
+### Fiabilité / bonnes pratiques
+
+- Démarrer sur clé USB/SSD plutôt que carte SD si possible (l'écriture continue de
+  l'historique use les cartes SD plus vite).
+- Réduire la rétention du recorder si le stockage est limité (`recorder: purge_keep_days`
+  dans `configuration.yaml`).
+- Sauvegardes : Add-on **Backup** natif HAOS, à exporter régulièrement vers le NAS
+  (ex: partage réseau monté, ou copie manuelle du fichier `.tar` généré).
+
+---
 
 ## Prochaines étapes possibles
 
-- Ajouter Zigbee2MQTT + Mosquitto si tu ajoutes des capteurs/prises Zigbee.
-- Sauvegardes automatiques du dossier `homeassistant/` (déjà sur NAS, donc couvert par
-  les snapshots Synology si configurés).
+- Une fois un des deux chemins choisi, ajouter Zigbee2MQTT + Mosquitto si besoin de
+  capteurs/prises Zigbee au-delà de ZHA.
+- Automatisations de base : ouverture/fermeture des volets au lever/coucher du soleil.
