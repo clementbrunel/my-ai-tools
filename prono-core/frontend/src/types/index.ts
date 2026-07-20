@@ -429,3 +429,20 @@ export interface RaceResultEntryRequest {
   fastestLap: boolean;
   dnf: boolean;
 }
+
+export type LogLevel = 'TRACE' | 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
+
+export interface LogEntry {
+  timestamp: string;
+  level: LogLevel;
+  logger: string;
+  thread: string;
+  message: string;
+}
+
+export interface LogPage {
+  content: LogEntry[];
+  page: number;
+  size: number;
+  totalElements: number;
+}
