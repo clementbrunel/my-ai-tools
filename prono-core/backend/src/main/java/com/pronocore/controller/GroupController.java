@@ -6,11 +6,13 @@ import com.pronocore.dto.request.JoinGroupRequest;
 import com.pronocore.dto.request.NotifyNewMatchesRequest;
 import com.pronocore.dto.request.NotifyNewRacesRequest;
 import com.pronocore.dto.request.UpdateGroupPrivacyRequest;
+import com.pronocore.dto.response.AdminCountsResponse;
 import com.pronocore.dto.response.GroupMemberResponse;
 import com.pronocore.dto.response.GroupResponse;
 import com.pronocore.dto.response.MatchResponse;
 import com.pronocore.dto.response.PublicGroupResponse;
 import com.pronocore.dto.response.RaceResponse;
+import com.pronocore.service.AdminCountsService;
 import com.pronocore.service.GroupService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -22,6 +24,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.security.Principal;
 import java.util.List;
 
 @RestController
@@ -31,6 +34,7 @@ import java.util.List;
 public class GroupController {
 
     private final GroupService groupService;
+    private final AdminCountsService adminCountsService;
 
     @GetMapping
     @PreAuthorize("hasRole('PLATFORM_ADMIN')")
@@ -43,6 +47,12 @@ public class GroupController {
     @Operation(summary = "List all public groups with current user's membership status")
     public ResponseEntity<List<PublicGroupResponse>> getPublicGroups(Authentication auth) {
         return ResponseEntity.ok(groupService.getPublicGroups(auth.getName()));
+    }
+
+    @GetMapping("/admin-counts")
+    @Operation(summary = "Returns aggregated admin badge counts for the current user's admin groups")
+    public ResponseEntity<AdminCountsResponse> getAdminCounts(Principal principal) {
+        return ResponseEntity.ok(adminCountsService.getCounts(principal.getName()));
     }
 
     @GetMapping("/mine")

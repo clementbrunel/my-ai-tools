@@ -50,7 +50,7 @@ test.beforeEach(async ({ page, context }) => {
     if (url.includes('/user/counts')) {
       return route.fulfill({ json: { pendingInvites: 0 } });
     }
-    if (url.includes('/admin/counts')) {
+    if (url.includes('/groups/admin-counts')) {
       return route.fulfill({ json: { pendingUsers: 0 } });
     }
     if (url.includes('/groups')) {
