@@ -12,6 +12,7 @@ import com.pronocore.service.email.template.GageResolutionEmailTemplate;
 import com.pronocore.service.email.template.GroupNewMatchesEmailTemplate;
 import com.pronocore.service.email.template.GroupNewRacesEmailTemplate;
 import com.pronocore.service.email.template.MatchReminderEmailTemplate;
+import com.pronocore.service.email.template.MembershipRequestEmailTemplate;
 import com.pronocore.service.email.template.PasswordResetEmailTemplate;
 import com.pronocore.service.email.template.RaceReminderEmailTemplate;
 import com.pronocore.service.email.template.TestCedricEmailTemplate;
@@ -48,7 +49,7 @@ public class EmailService {
      */
     private EmailTheme themeFor(EmailType emailType) {
         return switch (emailType) {
-            case VERIFICATION, PASSWORD_RESET, TEST_CEDRIC, GAGE_RESOLUTION -> EmailTheme.NEUTRAL;
+            case VERIFICATION, PASSWORD_RESET, TEST_CEDRIC, GAGE_RESOLUTION, GROUP_MEMBERSHIP_REQUEST -> EmailTheme.NEUTRAL;
             case MATCH_REMINDER, GROUP_NEW_MATCHES -> EmailTheme.FOOTBALL;
             case RACE_REMINDER, GROUP_NEW_RACES -> EmailTheme.F1;
         };
@@ -125,6 +126,11 @@ public class EmailService {
                         .raceDate(LocalDateTime.now().plusDays(12)).competition(f1Championship).build()
                 );
                 sendGroupNewRacesEmail(fakeRecipient, "Groupe des Amis", fakeLeader, fakeNewRaces);
+            }
+            case GROUP_MEMBERSHIP_REQUEST -> {
+                User fakeLeader = User.builder().username("chef_test").displayName("Le Chef").email(to).build();
+                User fakeApplicant = User.builder().username("nouveau_test").displayName("Le Nouveau").build();
+                sendMembershipRequestEmail(fakeLeader, "Groupe des Amis", fakeApplicant);
             }
             case TEST_CEDRIC -> sendTestCedricEmail(to);
         }
@@ -226,6 +232,28 @@ public class EmailService {
             log.info("Group new races email sent to {} (group {}, {} race(s))", recipient.getEmail(), groupName, races.size());
         } catch (Exception e) {
             log.error("Failed to send group new races email to {}: {}", recipient.getEmail(), e.getMessage());
+        }
+    }
+
+    public void sendMembershipRequestEmail(User recipient, String groupName, User applicant) {
+        sendMembershipRequestEmail(recipient, groupName, applicant, themeFor(EmailType.GROUP_MEMBERSHIP_REQUEST));
+    }
+
+    /**
+     * Like the gage resolution email, the theme here isn't fixed by the {@link EmailType} —
+     * it depends on the sport(s) the group plays, not on the request itself. The caller
+     * (whoever knows the group's sports) picks the theme; {@link #themeFor} only covers
+     * the neutral fallback used by previews.
+     */
+    public void sendMembershipRequestEmail(User recipient, String groupName, User applicant, EmailTheme theme) {
+        String recipientName = recipient.getDisplayName() != null ? recipient.getDisplayName() : recipient.getUsername();
+        String applicantName = applicant.getDisplayName() != null ? applicant.getDisplayName() : applicant.getUsername();
+        try {
+            emailSender.send(recipient.getEmail(), MembershipRequestEmailTemplate.subject(groupName),
+                MembershipRequestEmailTemplate.build(theme, recipientName, applicantName, groupName, frontendUrl));
+            log.info("Membership request email sent to {} (group {}, applicant {})", recipient.getEmail(), groupName, applicantName);
+        } catch (Exception e) {
+            log.error("Failed to send membership request email to {}: {}", recipient.getEmail(), e.getMessage());
         }
     }
 

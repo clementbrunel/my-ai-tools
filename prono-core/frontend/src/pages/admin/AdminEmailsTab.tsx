@@ -91,6 +91,21 @@ const EMAIL_TEMPLATES: EmailTemplateInfo[] = [
     ),
   },
   {
+    type: 'GROUP_MEMBERSHIP_REQUEST',
+    label: "Demande d'adhésion (chef de groupe)",
+    theme: 'NEUTRAL',
+    description: (
+      <>
+        Envoyé automatiquement au(x) chef(s) de groupe quand un utilisateur demande à rejoindre un groupe public,
+        pour l'inviter à accepter ou refuser la demande.
+        Comme pour la résolution du gage, le thème est calculé au runtime selon les sports du groupe
+        (⚽ si groupe 100% foot, 🏎️ si 100% F1, 🎯 sinon) plutôt que fixé par le template —
+        l'aperçu de test ci-dessus utilise toujours 🎯 Neutre, faute de vrai groupe derrière.
+        Le test utilise des données fictives (groupe "Groupe des Amis", chef "Le Chef", candidat "Le Nouveau").
+      </>
+    ),
+  },
+  {
     type: 'TEST_CEDRIC',
     label: 'test cédric 🏦',
     theme: 'NEUTRAL',

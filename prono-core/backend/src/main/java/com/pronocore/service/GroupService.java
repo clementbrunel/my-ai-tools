@@ -19,6 +19,7 @@ import com.pronocore.repository.BetRepository;
 import com.pronocore.repository.GroupMemberRepository;
 import com.pronocore.repository.GroupRepository;
 import com.pronocore.repository.UserRepository;
+import com.pronocore.service.email.EmailTheme;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -117,6 +118,9 @@ public class GroupService {
             .build();
         groupMemberRepository.save(application);
         log.info("User {} applied to group '{}'", username, group.getName());
+
+        EmailTheme theme = themeForGroup(group);
+        groupAdminsOf(groupId).forEach(admin -> emailService.sendMembershipRequestEmail(admin, group.getName(), user, theme));
 
         return toPublicResponse(group, GroupMember.MemberStatus.PENDING);
     }
@@ -400,6 +404,23 @@ public class GroupService {
                 || membership.getRole() != GroupMember.GroupRole.GROUP_ADMIN) {
             throw new IllegalStateException("Group admin role required");
         }
+    }
+
+    /** Active group admins for a group — a group can have more than one, so notify them all. */
+    private List<User> groupAdminsOf(Long groupId) {
+        return groupMemberRepository.findByGroupIdAndStatus(groupId, GroupMember.MemberStatus.ACTIVE).stream()
+            .filter(m -> m.getRole() == GroupMember.GroupRole.GROUP_ADMIN)
+            .map(GroupMember::getUser)
+            .toList();
+    }
+
+    /** Mirrors DailyGageService's foot/F1/mixed logic: a group's email theme follows the sport(s) it plays. */
+    private EmailTheme themeForGroup(Group group) {
+        boolean hasFoot = group.getSports().contains(Sport.FOOT);
+        boolean hasF1 = group.getSports().contains(Sport.F1);
+        if (hasFoot && !hasF1) return EmailTheme.FOOTBALL;
+        if (hasF1 && !hasFoot) return EmailTheme.F1;
+        return EmailTheme.NEUTRAL;
     }
 
     private User findUser(String username) {
