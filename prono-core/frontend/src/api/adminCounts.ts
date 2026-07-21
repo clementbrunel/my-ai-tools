@@ -9,6 +9,6 @@ export interface AdminCounts {
 }
 
 export const getAdminCounts = async (): Promise<AdminCounts> => {
-  const response = await apiClient.get<AdminCounts>('/admin/counts');
+  const response = await apiClient.get<AdminCounts>('/groups/admin-counts');
   return response.data;
 };
