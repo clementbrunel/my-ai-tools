@@ -172,14 +172,15 @@ public interface BetParticipationRepository extends JpaRepository<BetParticipati
     List<BetParticipation> findByUserIdAndMatchId(@Param("userId") Long userId,
                                                    @Param("matchId") Long matchId);
 
-    /** Participations a user has in a given group for past matches, ordered by match date desc. */
+    /** Participations a user has in a given group for past matches or races, ordered by kick-off/race date desc. */
     @Query("""
             SELECT bp FROM BetParticipation bp
             JOIN FETCH bp.bet b
-            JOIN FETCH b.match m
+            LEFT JOIN FETCH b.match m
+            LEFT JOIN FETCH b.race r
             WHERE bp.user.id = :userId AND b.group.id = :groupId
-              AND m.matchDate < :now
-            ORDER BY m.matchDate DESC
+              AND ((m IS NOT NULL AND m.matchDate < :now) OR (r IS NOT NULL AND r.raceDate < :now))
+            ORDER BY COALESCE(m.matchDate, r.raceDate) DESC
             """)
     List<BetParticipation> findByUserIdAndGroupId(@Param("userId") Long userId,
                                                    @Param("groupId") Long groupId,
