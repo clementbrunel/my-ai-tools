@@ -81,7 +81,7 @@ JUnit 5 + Mockito — `backend/src/test/java/com/pronocore/service/`
 cd backend && mvn test
 ```
 
-11 fichiers de test couvrant tous les services (BetService, DailyGageService, GroupService, MatchService, ForfeitService, LeaderboardService, DashboardService, UserService, AuthService, AdminCountsService, F1RaceService). Tests frontend : Vitest (`cd frontend && npm test`). Pas de tests d'intégration.
+11 fichiers de test couvrant tous les services (BetService, DailyGageService, GroupService, MatchService, ForfeitService, LeaderboardService, DashboardService, UserService, AuthService, GroupAdminCountsService, F1RaceService). Tests frontend : Vitest (`cd frontend && npm test`). Pas de tests d'intégration.
 
 ## Domain Concepts
 

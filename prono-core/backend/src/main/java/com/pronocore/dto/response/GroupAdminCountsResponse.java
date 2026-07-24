@@ -11,7 +11,7 @@ import java.util.Map;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class AdminCountsResponse {
+public class GroupAdminCountsResponse {
     private int pendingApplications;
     private Map<Long, Integer> pendingForfeitsPerGroup;
     private Map<Long, Integer> missingGagesPerGroup;

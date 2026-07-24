@@ -1,6 +1,6 @@
 import apiClient from './axios';
 
-export interface AdminCounts {
+export interface GroupAdminCounts {
   pendingApplications: number;
   pendingForfeitsPerGroup: Record<number, number>;
   missingGagesPerGroup: Record<number, number>;
@@ -8,7 +8,7 @@ export interface AdminCounts {
   matchesWithoutBetsPerGroup: Record<number, number>;
 }
 
-export const getAdminCounts = async (): Promise<AdminCounts> => {
-  const response = await apiClient.get<AdminCounts>('/groups/admin-counts');
+export const getGroupAdminCounts = async (): Promise<GroupAdminCounts> => {
+  const response = await apiClient.get<GroupAdminCounts>('/groups/admin-counts');
   return response.data;
 };

@@ -1,6 +1,6 @@
 package com.pronocore.service;
 
-import com.pronocore.dto.response.AdminCountsResponse;
+import com.pronocore.dto.response.GroupAdminCountsResponse;
 import com.pronocore.entity.*;
 import com.pronocore.repository.*;
 import jakarta.persistence.EntityNotFoundException;
@@ -22,7 +22,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-class AdminCountsServiceTest {
+class GroupAdminCountsServiceTest {
 
     @Mock private UserRepository userRepository;
     @Mock private GroupMemberRepository groupMemberRepository;
@@ -31,7 +31,7 @@ class AdminCountsServiceTest {
     @Mock private DailyGageRepository dailyGageRepository;
 
     @InjectMocks
-    private AdminCountsService adminCountsService;
+    private GroupAdminCountsService groupAdminCountsService;
 
     private User user;
     private Group groupA;
@@ -77,7 +77,7 @@ class AdminCountsServiceTest {
     void getCounts_unknownUser_throwsEntityNotFound() {
         when(userRepository.findByUsername("ghost")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> adminCountsService.getCounts("ghost"))
+        assertThatThrownBy(() -> groupAdminCountsService.getCounts("ghost"))
                 .isInstanceOf(EntityNotFoundException.class)
                 .hasMessageContaining("ghost");
     }
@@ -92,7 +92,7 @@ class AdminCountsServiceTest {
         when(groupMemberRepository.findByUserIdAndStatus(1L, GroupMember.MemberStatus.ACTIVE))
                 .thenReturn(List.of(regularMember));
 
-        AdminCountsResponse result = adminCountsService.getCounts("alice");
+        GroupAdminCountsResponse result = groupAdminCountsService.getCounts("alice");
 
         assertThat(result.getPendingApplications()).isZero();
         assertThat(result.getPendingForfeitsPerGroup()).isEmpty();
@@ -140,7 +140,7 @@ class AdminCountsServiceTest {
         // 5 upcoming matches not yet open in groupA
         when(betRepository.countUpcomingMatchesWithoutBetsForGroup(12L)).thenReturn(5L);
 
-        AdminCountsResponse result = adminCountsService.getCounts("alice");
+        GroupAdminCountsResponse result = groupAdminCountsService.getCounts("alice");
 
         assertThat(result.getPendingApplications()).isEqualTo(2);
         assertThat(result.getPendingForfeitsPerGroup()).containsEntry(12L, 3);
@@ -183,7 +183,7 @@ class AdminCountsServiceTest {
         when(betRepository.countUpcomingMatchesWithoutBetsForGroup(12L)).thenReturn(0L);
         when(betRepository.countUpcomingMatchesWithoutBetsForGroup(17L)).thenReturn(16L);
 
-        AdminCountsResponse result = adminCountsService.getCounts("alice");
+        GroupAdminCountsResponse result = groupAdminCountsService.getCounts("alice");
 
         assertThat(result.getPendingApplications()).isEqualTo(1);
         assertThat(result.getPendingForfeitsPerGroup()).containsEntry(12L, 1).containsEntry(17L, 0);
@@ -217,7 +217,7 @@ class AdminCountsServiceTest {
         when(betRepository.findGroupIdsWithOpenBets(List.of(12L))).thenReturn(Set.of(12L));
         when(betRepository.countUpcomingMatchesWithoutBetsForGroup(12L)).thenReturn(0L);
 
-        AdminCountsResponse result = adminCountsService.getCounts("alice");
+        GroupAdminCountsResponse result = groupAdminCountsService.getCounts("alice");
 
         // No forfeit assigned → still missing
         assertThat(result.getMissingGagesPerGroup()).containsEntry(12L, 1);
@@ -244,7 +244,7 @@ class AdminCountsServiceTest {
         when(betRepository.findGroupIdsWithOpenBets(List.of(12L))).thenReturn(Set.of(12L));
         when(betRepository.countUpcomingMatchesWithoutBetsForGroup(12L)).thenReturn(0L);
 
-        AdminCountsResponse result = adminCountsService.getCounts("alice");
+        GroupAdminCountsResponse result = groupAdminCountsService.getCounts("alice");
 
         // Two matches same day → only 1 missing date, not 2
         assertThat(result.getMissingGagesPerGroup()).containsEntry(12L, 1);
@@ -268,7 +268,7 @@ class AdminCountsServiceTest {
         when(betRepository.findGroupIdsWithOpenBets(List.of(12L))).thenReturn(Set.of());
         when(betRepository.countUpcomingMatchesWithoutBetsForGroup(12L)).thenReturn(16L);
 
-        AdminCountsResponse result = adminCountsService.getCounts("alice");
+        GroupAdminCountsResponse result = groupAdminCountsService.getCounts("alice");
 
         // No open bets → no active days → no missing gages
         assertThat(result.getMissingGagesPerGroup()).containsEntry(12L, 0);

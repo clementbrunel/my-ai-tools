@@ -1,6 +1,6 @@
 package com.pronocore.service;
 
-import com.pronocore.dto.response.AdminCountsResponse;
+import com.pronocore.dto.response.GroupAdminCountsResponse;
 import com.pronocore.entity.Bet;
 import com.pronocore.entity.DailyGage;
 import com.pronocore.entity.GroupMember;
@@ -17,7 +17,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-public class AdminCountsService {
+public class GroupAdminCountsService {
 
     private final UserRepository userRepository;
     private final GroupMemberRepository groupMemberRepository;
@@ -26,7 +26,7 @@ public class AdminCountsService {
     private final DailyGageRepository dailyGageRepository;
 
     @Transactional(readOnly = true)
-    public AdminCountsResponse getCounts(String username) {
+    public GroupAdminCountsResponse getCounts(String username) {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
 
@@ -36,7 +36,7 @@ public class AdminCountsService {
                 .toList();
 
         if (adminMemberships.isEmpty()) {
-            return AdminCountsResponse.builder()
+            return GroupAdminCountsResponse.builder()
                     .pendingApplications(0)
                     .pendingForfeitsPerGroup(Map.of())
                     .missingGagesPerGroup(Map.of())
@@ -107,7 +107,7 @@ public class AdminCountsService {
                         gid -> (int) betRepository.countUpcomingMatchesWithoutBetsForGroup(gid)
                 ));
 
-        return AdminCountsResponse.builder()
+        return GroupAdminCountsResponse.builder()
                 .pendingApplications(pendingApplications)
                 .pendingForfeitsPerGroup(pendingForfeitsPerGroup)
                 .missingGagesPerGroup(missingGagesPerGroup)

@@ -6,13 +6,13 @@ import com.pronocore.dto.request.JoinGroupRequest;
 import com.pronocore.dto.request.NotifyNewMatchesRequest;
 import com.pronocore.dto.request.NotifyNewRacesRequest;
 import com.pronocore.dto.request.UpdateGroupPrivacyRequest;
-import com.pronocore.dto.response.AdminCountsResponse;
+import com.pronocore.dto.response.GroupAdminCountsResponse;
 import com.pronocore.dto.response.GroupMemberResponse;
 import com.pronocore.dto.response.GroupResponse;
 import com.pronocore.dto.response.MatchResponse;
 import com.pronocore.dto.response.PublicGroupResponse;
 import com.pronocore.dto.response.RaceResponse;
-import com.pronocore.service.AdminCountsService;
+import com.pronocore.service.GroupAdminCountsService;
 import com.pronocore.service.GroupService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -34,7 +34,7 @@ import java.util.List;
 public class GroupController {
 
     private final GroupService groupService;
-    private final AdminCountsService adminCountsService;
+    private final GroupAdminCountsService groupAdminCountsService;
 
     @GetMapping
     @PreAuthorize("hasRole('PLATFORM_ADMIN')")
@@ -51,8 +51,8 @@ public class GroupController {
 
     @GetMapping("/admin-counts")
     @Operation(summary = "Returns aggregated admin badge counts for the current user's admin groups")
-    public ResponseEntity<AdminCountsResponse> getAdminCounts(Principal principal) {
-        return ResponseEntity.ok(adminCountsService.getCounts(principal.getName()));
+    public ResponseEntity<GroupAdminCountsResponse> getAdminCounts(Principal principal) {
+        return ResponseEntity.ok(groupAdminCountsService.getCounts(principal.getName()));
     }
 
     @GetMapping("/mine")
