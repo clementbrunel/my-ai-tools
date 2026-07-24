@@ -19,7 +19,7 @@ const Login: React.FC = () => {
     setIsLoading(true);
     try {
       await login({ username, password });
-      navigate('/dashboard');
+      navigate(isF1 ? '/f1' : '/foot');
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string }; status?: number } };
       if (axiosErr.response?.status === 401) {
