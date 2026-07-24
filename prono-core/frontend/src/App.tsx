@@ -4,7 +4,8 @@ import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider } from './context/AuthContext';
 import { GroupAdminCountsProvider } from './context/GroupAdminCountsContext';
 import { UserCountsProvider } from './context/UserCountsContext';
-import { SportProvider } from './context/SportContext';
+import { SportProvider, useSport } from './context/SportContext';
+import { getEquivalentPath } from './utils/sportPaths';
 import { ToastProvider } from './components/Toast';
 import { MatchesProvider } from './context/MatchesContext';
 import PrivateRoute from './components/PrivateRoute';
@@ -31,6 +32,11 @@ import F1Standings from './pages/f1/F1Standings';
 import DriverDetail from './pages/f1/DriverDetail';
 import F1OpenBetting from './pages/f1/F1OpenBetting';
 import F1Bets from './pages/f1/F1Bets';
+
+function LegacyRedirect({ footPath }: { footPath: string }) {
+  const { sport } = useSport();
+  return <Navigate to={getEquivalentPath(footPath, sport)} replace />;
+}
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -97,12 +103,12 @@ function App() {
                           <Route path="/admin" element={<Admin />} />
 
                           {/* Redirects */}
-                          <Route path="/" element={<Navigate to="/foot" replace />} />
-                          <Route path="/dashboard" element={<Navigate to="/foot" replace />} />
-                          <Route path="/matches" element={<Navigate to="/foot/matches" replace />} />
-                          <Route path="/leaderboard" element={<Navigate to="/foot/leaderboard" replace />} />
-                          <Route path="/gages" element={<Navigate to="/foot/gages" replace />} />
-                          <Route path="/open-betting" element={<Navigate to="/foot/open-betting" replace />} />
+                          <Route path="/" element={<LegacyRedirect footPath="/foot" />} />
+                          <Route path="/dashboard" element={<LegacyRedirect footPath="/foot" />} />
+                          <Route path="/matches" element={<LegacyRedirect footPath="/foot/matches" />} />
+                          <Route path="/leaderboard" element={<LegacyRedirect footPath="/foot/leaderboard" />} />
+                          <Route path="/gages" element={<LegacyRedirect footPath="/foot/gages" />} />
+                          <Route path="/open-betting" element={<LegacyRedirect footPath="/foot/open-betting" />} />
                         </Routes>
                       </main>
                     </div>
