@@ -44,6 +44,7 @@ import java.util.stream.Collectors;
 public class GroupAdminService {
 
     private final GroupService groupService;
+    private final GroupMemberGuard groupMemberGuard;
     private final GroupRepository groupRepository;
     private final GroupMemberRepository groupMemberRepository;
     private final UserRepository userRepository;
@@ -335,12 +336,7 @@ public class GroupAdminService {
     // -------------------------------------------------------------------------
 
     private void assertGroupAdmin(Long groupId, String username) {
-        User user = groupService.findUser(username);
-        GroupMember membership = groupMemberRepository.findByGroupIdAndUserId(groupId, user.getId())
-            .orElseThrow(() -> new IllegalArgumentException("Not a member of this group"));
-        if (membership.getStatus() != GroupMember.MemberStatus.ACTIVE
-                || membership.getRole() != GroupMember.GroupRole.GROUP_ADMIN) {
-            throw new IllegalStateException("Group admin role required");
-        }
+        Long userId = groupService.findUser(username).getId();
+        groupMemberGuard.requireGroupAdmin(groupId, userId);
     }
 }

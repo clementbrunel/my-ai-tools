@@ -14,6 +14,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.access.AccessDeniedException;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -29,6 +30,7 @@ import static org.mockito.Mockito.*;
 class GroupAdminServiceTest {
 
     @Mock private GroupService          groupService;
+    @Mock private GroupMemberGuard      groupMemberGuard;
     @Mock private GroupRepository       groupRepository;
     @Mock private GroupMemberRepository groupMemberRepository;
     @Mock private UserRepository        userRepository;
@@ -103,10 +105,7 @@ class GroupAdminServiceTest {
 
     @Test
     void approveApplication_shouldThrowWhenApplicantNotFound() {
-        GroupMember adminMembership = activeAdmin(creator);
-
         when(groupService.findUser("creator")).thenReturn(creator);
-        when(groupMemberRepository.findByGroupIdAndUserId(10L, 1L)).thenReturn(Optional.of(adminMembership));
         when(groupMemberRepository.findByGroupIdAndUserId(10L, 2L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> groupAdminService.approveApplication(10L, 2L, "creator"))
@@ -116,11 +115,9 @@ class GroupAdminServiceTest {
 
     @Test
     void approveApplication_shouldThrowWhenApplicantAlreadyActive() {
-        GroupMember adminMembership  = activeAdmin(creator);
-        GroupMember alreadyActive    = activeMember(member);
+        GroupMember alreadyActive = activeMember(member);
 
         when(groupService.findUser("creator")).thenReturn(creator);
-        when(groupMemberRepository.findByGroupIdAndUserId(10L, 1L)).thenReturn(Optional.of(adminMembership));
         when(groupMemberRepository.findByGroupIdAndUserId(10L, 2L)).thenReturn(Optional.of(alreadyActive));
 
         assertThatThrownBy(() -> groupAdminService.approveApplication(10L, 2L, "creator"))
@@ -130,15 +127,13 @@ class GroupAdminServiceTest {
 
     @Test
     void approveApplication_shouldSetStatusToActive() {
-        GroupMember adminMembership = activeAdmin(creator);
-        GroupMember pendingMember   = GroupMember.builder()
+        GroupMember pendingMember = GroupMember.builder()
                 .id(2L).group(group).user(member)
                 .role(GroupMember.GroupRole.MEMBER)
                 .status(MemberStatus.PENDING)
                 .build();
 
         when(groupService.findUser("creator")).thenReturn(creator);
-        when(groupMemberRepository.findByGroupIdAndUserId(10L, 1L)).thenReturn(Optional.of(adminMembership));
         when(groupMemberRepository.findByGroupIdAndUserId(10L, 2L)).thenReturn(Optional.of(pendingMember));
         when(groupMemberRepository.save(pendingMember)).thenReturn(pendingMember);
 
@@ -152,15 +147,13 @@ class GroupAdminServiceTest {
 
     @Test
     void rejectApplication_shouldDeletePendingMembership() {
-        GroupMember adminMembership = activeAdmin(creator);
-        GroupMember pendingMember   = GroupMember.builder()
+        GroupMember pendingMember = GroupMember.builder()
                 .id(2L).group(group).user(member)
                 .role(GroupMember.GroupRole.MEMBER)
                 .status(MemberStatus.PENDING)
                 .build();
 
         when(groupService.findUser("creator")).thenReturn(creator);
-        when(groupMemberRepository.findByGroupIdAndUserId(10L, 1L)).thenReturn(Optional.of(adminMembership));
         when(groupMemberRepository.findByGroupIdAndUserId(10L, 2L)).thenReturn(Optional.of(pendingMember));
 
         groupAdminService.rejectApplication(10L, 2L, "creator");
@@ -172,26 +165,23 @@ class GroupAdminServiceTest {
 
     @Test
     void promoteMember_shouldThrowWhenRequesterIsNotGroupAdmin() {
-        GroupMember memberMembership = activeMember(member);
-
         when(groupService.findUser("member")).thenReturn(member);
-        when(groupMemberRepository.findByGroupIdAndUserId(10L, 2L)).thenReturn(Optional.of(memberMembership));
+        when(groupMemberGuard.requireGroupAdmin(10L, 2L))
+                .thenThrow(new AccessDeniedException("Group admin role required"));
 
         assertThatThrownBy(() -> groupAdminService.promoteMember(10L, 1L, "member"))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(AccessDeniedException.class)
                 .hasMessageContaining("Group admin role required");
     }
 
     @Test
     void promoteMember_shouldThrowWhenTargetIsPending() {
-        GroupMember adminMembership  = activeAdmin(creator);
         GroupMember pendingMembership = GroupMember.builder()
                 .id(2L).group(group).user(member)
                 .role(GroupMember.GroupRole.MEMBER).status(MemberStatus.PENDING)
                 .build();
 
         when(groupService.findUser("creator")).thenReturn(creator);
-        when(groupMemberRepository.findByGroupIdAndUserId(10L, 1L)).thenReturn(Optional.of(adminMembership));
         when(groupMemberRepository.findByGroupIdAndUserId(10L, 2L)).thenReturn(Optional.of(pendingMembership));
 
         assertThatThrownBy(() -> groupAdminService.promoteMember(10L, 2L, "creator"))
@@ -201,11 +191,9 @@ class GroupAdminServiceTest {
 
     @Test
     void promoteMember_shouldSetRoleToGroupAdmin() {
-        GroupMember adminMembership  = activeAdmin(creator);
         GroupMember targetMembership = activeMember(member);
 
         when(groupService.findUser("creator")).thenReturn(creator);
-        when(groupMemberRepository.findByGroupIdAndUserId(10L, 1L)).thenReturn(Optional.of(adminMembership));
         when(groupMemberRepository.findByGroupIdAndUserId(10L, 2L)).thenReturn(Optional.of(targetMembership));
         when(groupMemberRepository.save(targetMembership)).thenReturn(targetMembership);
 
@@ -222,6 +210,7 @@ class GroupAdminServiceTest {
         GroupMember adminMembership = activeAdmin(creator);
 
         when(groupService.findUser("creator")).thenReturn(creator);
+        // demoteMember(groupId, targetUserId=1L, ...) targets the requester itself here
         when(groupMemberRepository.findByGroupIdAndUserId(10L, 1L)).thenReturn(Optional.of(adminMembership));
         // Only one active admin → demotion forbidden
         when(groupMemberRepository.findByGroupIdAndStatus(10L, MemberStatus.ACTIVE))
@@ -241,7 +230,6 @@ class GroupAdminServiceTest {
                 .build();
 
         when(groupService.findUser("creator")).thenReturn(creator);
-        when(groupMemberRepository.findByGroupIdAndUserId(10L, 1L)).thenReturn(Optional.of(requesterAdmin));
         when(groupMemberRepository.findByGroupIdAndUserId(10L, 2L)).thenReturn(Optional.of(targetAdmin));
         // Two admins → demotion is allowed
         when(groupMemberRepository.findByGroupIdAndStatus(10L, MemberStatus.ACTIVE))
@@ -258,23 +246,20 @@ class GroupAdminServiceTest {
 
     @Test
     void removeMember_shouldThrowWhenRequesterIsNotGroupAdmin() {
-        GroupMember memberMembership = activeMember(member);
-
         when(groupService.findUser("member")).thenReturn(member);
-        when(groupMemberRepository.findByGroupIdAndUserId(10L, 2L)).thenReturn(Optional.of(memberMembership));
+        when(groupMemberGuard.requireGroupAdmin(10L, 2L))
+                .thenThrow(new AccessDeniedException("Group admin role required"));
 
         assertThatThrownBy(() -> groupAdminService.removeMember(10L, 1L, "member"))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(AccessDeniedException.class)
                 .hasMessageContaining("Group admin role required");
     }
 
     @Test
     void removeMember_shouldDeleteTargetMembership() {
-        GroupMember adminMembership  = activeAdmin(creator);
         GroupMember targetMembership = activeMember(member);
 
         when(groupService.findUser("creator")).thenReturn(creator);
-        when(groupMemberRepository.findByGroupIdAndUserId(10L, 1L)).thenReturn(Optional.of(adminMembership));
         when(groupMemberRepository.findByGroupIdAndUserId(10L, 2L)).thenReturn(Optional.of(targetMembership));
 
         groupAdminService.removeMember(10L, 2L, "creator");
@@ -286,23 +271,20 @@ class GroupAdminServiceTest {
 
     @Test
     void getFutureOpenRaces_shouldThrowWhenRequesterIsNotGroupAdmin() {
-        GroupMember memberMembership = activeMember(member);
-
         when(groupService.findUser("member")).thenReturn(member);
-        when(groupMemberRepository.findByGroupIdAndUserId(10L, 2L)).thenReturn(Optional.of(memberMembership));
+        when(groupMemberGuard.requireGroupAdmin(10L, 2L))
+                .thenThrow(new AccessDeniedException("Group admin role required"));
 
         assertThatThrownBy(() -> groupAdminService.getFutureOpenRaces(10L, "member"))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(AccessDeniedException.class)
                 .hasMessageContaining("Group admin role required");
     }
 
     @Test
     void getFutureOpenRaces_shouldReturnMappedFutureRaces() {
-        GroupMember adminMembership = activeAdmin(creator);
         Race race = f1Race(100L);
 
         when(groupService.findUser("creator")).thenReturn(creator);
-        when(groupMemberRepository.findByGroupIdAndUserId(10L, 1L)).thenReturn(Optional.of(adminMembership));
         when(betRepository.findFutureDistinctRacesWithOpenBetsForGroup(eq(10L), any(LocalDateTime.class)))
                 .thenReturn(List.of(race));
         RaceResponse response = RaceResponse.builder().id(100L).name("Grand Prix Test").build();
@@ -315,10 +297,7 @@ class GroupAdminServiceTest {
 
     @Test
     void notifyNewRaces_shouldThrowWhenNoRequestedRaceMatchesFutureOpenRaces() {
-        GroupMember adminMembership = activeAdmin(creator);
-
         when(groupService.findUser("creator")).thenReturn(creator);
-        when(groupMemberRepository.findByGroupIdAndUserId(10L, 1L)).thenReturn(Optional.of(adminMembership));
         when(groupService.findGroup(10L)).thenReturn(group);
         when(betRepository.findFutureDistinctRacesWithOpenBetsForGroup(eq(10L), any(LocalDateTime.class)))
                 .thenReturn(List.of());
@@ -335,7 +314,6 @@ class GroupAdminServiceTest {
         Race race = f1Race(100L);
 
         when(groupService.findUser("creator")).thenReturn(creator);
-        when(groupMemberRepository.findByGroupIdAndUserId(10L, 1L)).thenReturn(Optional.of(adminMembership));
         when(groupService.findGroup(10L)).thenReturn(group);
         when(betRepository.findFutureDistinctRacesWithOpenBetsForGroup(eq(10L), any(LocalDateTime.class)))
                 .thenReturn(List.of(race));
