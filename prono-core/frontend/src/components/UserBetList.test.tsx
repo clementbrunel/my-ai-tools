@@ -8,6 +8,7 @@ const makeBet = (overrides?: Partial<UserBetSummary>): UserBetSummary => ({
   participationId: 1,
   betId: 10,
   betTitle: 'Résultat France-Brésil',
+  sport: 'FOOT',
   betStatus: 'VALIDATED',
   betPoints: 3,
   chosenOption: '2-1',
@@ -85,6 +86,42 @@ describe('UserBetList — mode compact', () => {
   it('affiche le symbole ✗ pour un pari perdu (compact)', () => {
     render(<UserBetList bets={[makeBet({ pointsEarned: 0, winningOption: '1-0' })]} compact />);
     expect(screen.getByText('✗')).toBeDefined();
+  });
+});
+
+describe('UserBetList — distinction visuelle multi-sport', () => {
+  it("n'affiche pas d'icône de sport si tous les paris sont du même sport (compact)", () => {
+    render(<UserBetList bets={[makeBet({ sport: 'FOOT' }), makeBet({ participationId: 2, sport: 'FOOT' })]} compact />);
+    expect(screen.queryByText('🏎️')).toBeNull();
+    expect(screen.queryByText('⚽')).toBeNull();
+  });
+
+  it('affiche une icône par pari quand le groupe mélange foot et F1 (compact)', () => {
+    render(
+      <UserBetList
+        bets={[
+          makeBet({ participationId: 1, sport: 'FOOT' }),
+          makeBet({ participationId: 2, betTitle: 'GP de Monaco', sport: 'F1' }),
+        ]}
+        compact
+      />
+    );
+    expect(screen.getByText('⚽')).toBeDefined();
+    expect(screen.getByText('🏎️')).toBeDefined();
+  });
+
+  it('affiche une icône par pari quand le groupe mélange foot et F1 (mode card)', () => {
+    render(
+      <UserBetList
+        bets={[
+          makeBet({ participationId: 1, sport: 'FOOT' }),
+          makeBet({ participationId: 2, betTitle: 'GP de Monaco', sport: 'F1' }),
+        ]}
+        showOpen
+      />
+    );
+    expect(screen.getByText('⚽')).toBeDefined();
+    expect(screen.getByText('🏎️')).toBeDefined();
   });
 });
 

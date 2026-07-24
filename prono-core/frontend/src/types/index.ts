@@ -235,6 +235,7 @@ export interface UserBetSummary {
   participationId: number;
   betId: number;
   betTitle: string;
+  sport: Sport;
   matchTeamA?: string;
   matchTeamB?: string;
   matchDate?: string;

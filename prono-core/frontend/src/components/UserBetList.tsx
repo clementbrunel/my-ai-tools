@@ -7,6 +7,10 @@ const PAGE_SIZE = 8;
 const isWon = (bet: UserBetSummary) => bet.betStatus === 'VALIDATED' && bet.pointsEarned > 0;
 const isLost = (bet: UserBetSummary) => bet.betStatus === 'VALIDATED' && bet.pointsEarned === 0;
 
+const sportIcon = (bet: UserBetSummary) => (bet.sport === 'F1' ? '🏎️' : '⚽');
+const sportBorderColor = (bet: UserBetSummary) =>
+  bet.sport === 'F1' ? 'border-l-red-400 dark:border-l-red-500' : 'border-l-wc-green dark:border-l-green-500';
+
 interface UserBetListProps {
   bets: UserBetSummary[];
   /** Show bets with status OPEN (future/pending). Default: false (leaderboard behaviour). */
@@ -23,6 +27,7 @@ const UserBetList: React.FC<UserBetListProps> = ({ bets, showOpen = false, compa
   const visible = compact
     ? filtered
     : filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const isMixedSports = filtered.some((b) => b.sport !== filtered[0]?.sport);
 
   if (visible.length === 0) {
     return (
@@ -36,8 +41,16 @@ const UserBetList: React.FC<UserBetListProps> = ({ bets, showOpen = false, compa
     return (
       <div className="divide-y divide-gray-100 dark:divide-gray-700 pt-1">
         {visible.map((bet) => (
-          <div key={bet.participationId} className="flex items-center justify-between py-2 gap-3 text-xs">
-            <span className="text-gray-700 dark:text-gray-300 truncate">{bet.betTitle}</span>
+          <div
+            key={bet.participationId}
+            className={`flex items-center justify-between py-2 gap-3 text-xs ${
+              isMixedSports ? `border-l-2 pl-2 ${sportBorderColor(bet)}` : ''
+            }`}
+          >
+            <span className="text-gray-700 dark:text-gray-300 truncate">
+              {isMixedSports && <span className="mr-1">{sportIcon(bet)}</span>}
+              {bet.betTitle}
+            </span>
             <div className="flex items-center gap-2 shrink-0">
               <span className="text-gray-500 dark:text-gray-400">{bet.chosenOption}</span>
               {bet.betStatus === 'VALIDATED' && (
@@ -62,10 +75,13 @@ const UserBetList: React.FC<UserBetListProps> = ({ bets, showOpen = false, compa
         {visible.map((p) => (
           <div
             key={p.participationId}
-            className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
+            className={`flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg ${
+              isMixedSports ? `border-l-4 ${sportBorderColor(p)}` : ''
+            }`}
           >
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                {isMixedSports && <span className="mr-1">{sportIcon(p)}</span>}
                 {p.matchTeamA && p.matchTeamB ? `${p.matchTeamA} – ${p.matchTeamB}` : p.betTitle}
               </div>
               <div className="text-xs text-gray-500 truncate">

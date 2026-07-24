@@ -24,6 +24,7 @@ const makeBet = (overrides?: Partial<UserBetSummary>): UserBetSummary => ({
   participationId: 1,
   betId: 10,
   betTitle: 'Résultat France-Brésil',
+  sport: 'FOOT',
   betStatus: 'VALIDATED',
   betPoints: 3,
   chosenOption: '2-1',

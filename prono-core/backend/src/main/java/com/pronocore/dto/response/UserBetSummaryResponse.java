@@ -1,6 +1,7 @@
 package com.pronocore.dto.response;
 
 import com.pronocore.entity.Bet;
+import com.pronocore.entity.Sport;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -17,6 +18,7 @@ public class UserBetSummaryResponse {
     private Long participationId;
     private Long betId;
     private String betTitle;
+    private Sport sport;
     private String matchTeamA;
     private String matchTeamB;
     private LocalDateTime matchDate;
