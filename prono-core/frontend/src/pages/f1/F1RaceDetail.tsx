@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   DndContext,
@@ -180,6 +180,15 @@ const F1RaceDetail: React.FC = () => {
       .finally(() => setIsLoading(false));
   }, [raceId]);
 
+  // Re-fetched after a save so predictionsCount (and, via the effect below, the
+  // revealed groupPredictions list) reflect the server truth — same spirit as
+  // football's refreshParticipations().
+  const refreshRace = useCallback(async () => {
+    if (!raceId) return;
+    const raceData = await getRace(raceId);
+    setRace(raceData);
+  }, [raceId]);
+
   // The group's picks are revealed milestone by milestone (poles at
   // qualifying, everything at lights out) — only fetch once unlocked.
   useEffect(() => {
@@ -281,6 +290,7 @@ const F1RaceDetail: React.FC = () => {
         lastClassifiedDriverId: slots.last?.id ?? null,
       });
       setMyPrediction(saved);
+      await refreshRace();
       showToast('Prono enregistré ! 🏁', 'success');
     } catch (e: unknown) {
       const message = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
