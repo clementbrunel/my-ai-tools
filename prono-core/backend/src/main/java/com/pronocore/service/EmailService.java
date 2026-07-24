@@ -2,10 +2,14 @@ package com.pronocore.service;
 
 import com.pronocore.dto.request.EmailType;
 import com.pronocore.entity.Competition;
+import com.pronocore.entity.Group;
+import com.pronocore.entity.GroupMember;
 import com.pronocore.entity.Match;
 import com.pronocore.entity.Race;
+import com.pronocore.entity.Sport;
 import com.pronocore.entity.Team;
 import com.pronocore.entity.User;
+import com.pronocore.repository.GroupMemberRepository;
 import com.pronocore.service.email.EmailSender;
 import com.pronocore.service.email.EmailTheme;
 import com.pronocore.service.email.template.GageResolutionEmailTemplate;
@@ -38,6 +42,7 @@ public class EmailService {
             Competition.builder().id(2L).name("Championnat du monde F1 2026").sport(com.pronocore.entity.Sport.F1).build();
 
     private final EmailSender emailSender;
+    private final GroupMemberRepository groupMemberRepository;
 
     @Value("${app.frontend-url}")
     private String frontendUrl;
@@ -239,6 +244,13 @@ public class EmailService {
         sendMembershipRequestEmail(recipient, groupName, applicant, themeFor(EmailType.GROUP_MEMBERSHIP_REQUEST));
     }
 
+    /** Notifies every active admin of the group that someone applied to join, themed after the group's sport(s). */
+    public void sendMembershipRequestEmail(Group group, User applicant) {
+        EmailTheme theme = themeForGroup(group);
+        groupAdminsOf(group.getId())
+            .forEach(admin -> sendMembershipRequestEmail(admin, group.getName(), applicant, theme));
+    }
+
     /**
      * Like the gage resolution email, the theme here isn't fixed by the {@link EmailType} —
      * it depends on the sport(s) the group plays, not on the request itself. The caller
@@ -265,5 +277,22 @@ public class EmailService {
             log.error("Failed to send Test Cédric email to {}: {}", to, e.getMessage());
             throw new RuntimeException("Impossible d'envoyer l'email de test. Vérifie ta configuration Resend.");
         }
+    }
+
+    /** Active group admins for a group — a group can have more than one, so notify them all. */
+    private List<User> groupAdminsOf(Long groupId) {
+        return groupMemberRepository.findByGroupIdAndStatus(groupId, GroupMember.MemberStatus.ACTIVE).stream()
+            .filter(m -> m.getRole() == GroupMember.GroupRole.GROUP_ADMIN)
+            .map(GroupMember::getUser)
+            .toList();
+    }
+
+    /** Mirrors DailyGageService's foot/F1/mixed logic: a group's email theme follows the sport(s) it plays. */
+    private EmailTheme themeForGroup(Group group) {
+        boolean hasFoot = group.getSports().contains(Sport.FOOT);
+        boolean hasF1 = group.getSports().contains(Sport.F1);
+        if (hasFoot && !hasF1) return EmailTheme.FOOTBALL;
+        if (hasF1 && !hasFoot) return EmailTheme.F1;
+        return EmailTheme.NEUTRAL;
     }
 }
