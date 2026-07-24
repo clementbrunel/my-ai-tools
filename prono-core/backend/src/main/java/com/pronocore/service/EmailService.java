@@ -2,16 +2,21 @@ package com.pronocore.service;
 
 import com.pronocore.dto.request.EmailType;
 import com.pronocore.entity.Competition;
+import com.pronocore.entity.Group;
+import com.pronocore.entity.GroupMember;
 import com.pronocore.entity.Match;
 import com.pronocore.entity.Race;
+import com.pronocore.entity.Sport;
 import com.pronocore.entity.Team;
 import com.pronocore.entity.User;
+import com.pronocore.repository.GroupMemberRepository;
 import com.pronocore.service.email.EmailSender;
 import com.pronocore.service.email.EmailTheme;
 import com.pronocore.service.email.template.GageResolutionEmailTemplate;
 import com.pronocore.service.email.template.GroupNewMatchesEmailTemplate;
 import com.pronocore.service.email.template.GroupNewRacesEmailTemplate;
 import com.pronocore.service.email.template.MatchReminderEmailTemplate;
+import com.pronocore.service.email.template.MembershipRequestEmailTemplate;
 import com.pronocore.service.email.template.PasswordResetEmailTemplate;
 import com.pronocore.service.email.template.RaceReminderEmailTemplate;
 import com.pronocore.service.email.template.TestCedricEmailTemplate;
@@ -37,6 +42,7 @@ public class EmailService {
             Competition.builder().id(2L).name("Championnat du monde F1 2026").sport(com.pronocore.entity.Sport.F1).build();
 
     private final EmailSender emailSender;
+    private final GroupMemberRepository groupMemberRepository;
 
     @Value("${app.frontend-url}")
     private String frontendUrl;
@@ -48,7 +54,7 @@ public class EmailService {
      */
     private EmailTheme themeFor(EmailType emailType) {
         return switch (emailType) {
-            case VERIFICATION, PASSWORD_RESET, TEST_CEDRIC, GAGE_RESOLUTION -> EmailTheme.NEUTRAL;
+            case VERIFICATION, PASSWORD_RESET, TEST_CEDRIC, GAGE_RESOLUTION, GROUP_MEMBERSHIP_REQUEST -> EmailTheme.NEUTRAL;
             case MATCH_REMINDER, GROUP_NEW_MATCHES -> EmailTheme.FOOTBALL;
             case RACE_REMINDER, GROUP_NEW_RACES -> EmailTheme.F1;
         };
@@ -125,6 +131,11 @@ public class EmailService {
                         .raceDate(LocalDateTime.now().plusDays(12)).competition(f1Championship).build()
                 );
                 sendGroupNewRacesEmail(fakeRecipient, "Groupe des Amis", fakeLeader, fakeNewRaces);
+            }
+            case GROUP_MEMBERSHIP_REQUEST -> {
+                User fakeLeader = User.builder().username("chef_test").displayName("Le Chef").email(to).build();
+                User fakeApplicant = User.builder().username("nouveau_test").displayName("Le Nouveau").build();
+                sendMembershipRequestEmail(fakeLeader, "Groupe des Amis", fakeApplicant);
             }
             case TEST_CEDRIC -> sendTestCedricEmail(to);
         }
@@ -229,6 +240,35 @@ public class EmailService {
         }
     }
 
+    public void sendMembershipRequestEmail(User recipient, String groupName, User applicant) {
+        sendMembershipRequestEmail(recipient, groupName, applicant, themeFor(EmailType.GROUP_MEMBERSHIP_REQUEST));
+    }
+
+    /** Notifies every active admin of the group that someone applied to join, themed after the group's sport(s). */
+    public void sendMembershipRequestEmail(Group group, User applicant) {
+        EmailTheme theme = themeForGroup(group);
+        groupAdminsOf(group.getId())
+            .forEach(admin -> sendMembershipRequestEmail(admin, group.getName(), applicant, theme));
+    }
+
+    /**
+     * Like the gage resolution email, the theme here isn't fixed by the {@link EmailType} —
+     * it depends on the sport(s) the group plays, not on the request itself. The caller
+     * (whoever knows the group's sports) picks the theme; {@link #themeFor} only covers
+     * the neutral fallback used by previews.
+     */
+    public void sendMembershipRequestEmail(User recipient, String groupName, User applicant, EmailTheme theme) {
+        String recipientName = recipient.getDisplayName() != null ? recipient.getDisplayName() : recipient.getUsername();
+        String applicantName = applicant.getDisplayName() != null ? applicant.getDisplayName() : applicant.getUsername();
+        try {
+            emailSender.send(recipient.getEmail(), MembershipRequestEmailTemplate.subject(groupName),
+                MembershipRequestEmailTemplate.build(theme, recipientName, applicantName, groupName, frontendUrl));
+            log.info("Membership request email sent to {} (group {}, applicant {})", recipient.getEmail(), groupName, applicantName);
+        } catch (Exception e) {
+            log.error("Failed to send membership request email to {}: {}", recipient.getEmail(), e.getMessage());
+        }
+    }
+
     public void sendTestCedricEmail(String to) {
         try {
             emailSender.send(to, TestCedricEmailTemplate.SUBJECT, TestCedricEmailTemplate.build(themeFor(EmailType.TEST_CEDRIC)));
@@ -237,5 +277,22 @@ public class EmailService {
             log.error("Failed to send Test Cédric email to {}: {}", to, e.getMessage());
             throw new RuntimeException("Impossible d'envoyer l'email de test. Vérifie ta configuration Resend.");
         }
+    }
+
+    /** Active group admins for a group — a group can have more than one, so notify them all. */
+    private List<User> groupAdminsOf(Long groupId) {
+        return groupMemberRepository.findByGroupIdAndStatus(groupId, GroupMember.MemberStatus.ACTIVE).stream()
+            .filter(m -> m.getRole() == GroupMember.GroupRole.GROUP_ADMIN)
+            .map(GroupMember::getUser)
+            .toList();
+    }
+
+    /** Mirrors DailyGageService's foot/F1/mixed logic: a group's email theme follows the sport(s) it plays. */
+    private EmailTheme themeForGroup(Group group) {
+        boolean hasFoot = group.getSports().contains(Sport.FOOT);
+        boolean hasF1 = group.getSports().contains(Sport.F1);
+        if (hasFoot && !hasF1) return EmailTheme.FOOTBALL;
+        if (hasF1 && !hasFoot) return EmailTheme.F1;
+        return EmailTheme.NEUTRAL;
     }
 }

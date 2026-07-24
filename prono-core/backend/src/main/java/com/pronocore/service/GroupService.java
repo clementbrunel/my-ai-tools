@@ -106,6 +106,8 @@ public class GroupService {
         groupMemberRepository.save(application);
         log.info("User {} applied to group '{}'", username, group.getName());
 
+        emailService.sendMembershipRequestEmail(group, user);
+
         return toPublicResponse(group, GroupMember.MemberStatus.PENDING);
     }
 
