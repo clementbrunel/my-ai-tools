@@ -52,7 +52,6 @@ public class SecurityConfig {
                 // Making them public avoids spurious 401s when the JWT hasn't loaded yet.
                 .requestMatchers(HttpMethod.GET,
                                  "/api/daily-gages", "/api/daily-gages/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/admin/counts").authenticated()
                 .requestMatchers("/api/admin/**").hasRole("PLATFORM_ADMIN")
                 .anyRequest().authenticated())
             // Return 401 (not 403) for requests that are missing/have an invalid JWT.

@@ -2,17 +2,11 @@ package com.pronocore.service;
 
 import com.pronocore.dto.request.CreateGroupRequest;
 import com.pronocore.dto.request.JoinGroupRequest;
-import com.pronocore.dto.response.GroupMemberResponse;
 import com.pronocore.dto.response.GroupResponse;
-import com.pronocore.dto.response.RaceResponse;
-import com.pronocore.entity.Competition;
 import com.pronocore.entity.Group;
 import com.pronocore.entity.GroupMember;
 import com.pronocore.entity.GroupMember.MemberStatus;
-import com.pronocore.entity.Race;
 import com.pronocore.entity.User;
-import com.pronocore.mapper.RaceMapper;
-import com.pronocore.repository.BetRepository;
 import com.pronocore.repository.GroupMemberRepository;
 import com.pronocore.repository.GroupRepository;
 import com.pronocore.repository.UserRepository;
@@ -24,8 +18,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -39,9 +31,6 @@ class GroupServiceTest {
     @Mock private GroupRepository       groupRepository;
     @Mock private GroupMemberRepository groupMemberRepository;
     @Mock private UserRepository        userRepository;
-    @Mock private BetRepository         betRepository;
-    @Mock private RaceMapper            raceMapper;
-    @Mock private EmailService          emailService;
 
     @InjectMocks
     private GroupService groupService;
@@ -217,75 +206,6 @@ class GroupServiceTest {
         assertThat(captor.getValue().getRole()).isEqualTo(GroupMember.GroupRole.MEMBER);
     }
 
-    // ── approveApplication ────────────────────────────────────────────────────
-
-    @Test
-    void approveApplication_shouldThrowWhenApplicantNotFound() {
-        GroupMember adminMembership = activeAdmin(creator);
-
-        when(userRepository.findByUsername("creator")).thenReturn(Optional.of(creator));
-        when(groupMemberRepository.findByGroupIdAndUserId(10L, 1L)).thenReturn(Optional.of(adminMembership));
-        when(groupMemberRepository.findByGroupIdAndUserId(10L, 2L)).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> groupService.approveApplication(10L, 2L, "creator"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Application not found");
-    }
-
-    @Test
-    void approveApplication_shouldThrowWhenApplicantAlreadyActive() {
-        GroupMember adminMembership  = activeAdmin(creator);
-        GroupMember alreadyActive    = activeMember(member);
-
-        when(userRepository.findByUsername("creator")).thenReturn(Optional.of(creator));
-        when(groupMemberRepository.findByGroupIdAndUserId(10L, 1L)).thenReturn(Optional.of(adminMembership));
-        when(groupMemberRepository.findByGroupIdAndUserId(10L, 2L)).thenReturn(Optional.of(alreadyActive));
-
-        assertThatThrownBy(() -> groupService.approveApplication(10L, 2L, "creator"))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("already an active member");
-    }
-
-    @Test
-    void approveApplication_shouldSetStatusToActive() {
-        GroupMember adminMembership = activeAdmin(creator);
-        GroupMember pendingMember   = GroupMember.builder()
-                .id(2L).group(group).user(member)
-                .role(GroupMember.GroupRole.MEMBER)
-                .status(MemberStatus.PENDING)
-                .build();
-
-        when(userRepository.findByUsername("creator")).thenReturn(Optional.of(creator));
-        when(groupMemberRepository.findByGroupIdAndUserId(10L, 1L)).thenReturn(Optional.of(adminMembership));
-        when(groupMemberRepository.findByGroupIdAndUserId(10L, 2L)).thenReturn(Optional.of(pendingMember));
-        when(groupMemberRepository.save(pendingMember)).thenReturn(pendingMember);
-
-        groupService.approveApplication(10L, 2L, "creator");
-
-        assertThat(pendingMember.getStatus()).isEqualTo(MemberStatus.ACTIVE);
-        verify(groupMemberRepository).save(pendingMember);
-    }
-
-    // ── rejectApplication ─────────────────────────────────────────────────────
-
-    @Test
-    void rejectApplication_shouldDeletePendingMembership() {
-        GroupMember adminMembership = activeAdmin(creator);
-        GroupMember pendingMember   = GroupMember.builder()
-                .id(2L).group(group).user(member)
-                .role(GroupMember.GroupRole.MEMBER)
-                .status(MemberStatus.PENDING)
-                .build();
-
-        when(userRepository.findByUsername("creator")).thenReturn(Optional.of(creator));
-        when(groupMemberRepository.findByGroupIdAndUserId(10L, 1L)).thenReturn(Optional.of(adminMembership));
-        when(groupMemberRepository.findByGroupIdAndUserId(10L, 2L)).thenReturn(Optional.of(pendingMember));
-
-        groupService.rejectApplication(10L, 2L, "creator");
-
-        verify(groupMemberRepository).delete(pendingMember);
-    }
-
     // ── leaveGroup ────────────────────────────────────────────────────────────
 
     @Test
@@ -338,195 +258,6 @@ class GroupServiceTest {
         groupService.leaveGroup(10L, "member");
 
         verify(groupMemberRepository).delete(memberMembership);
-    }
-
-    // ── promoteMember ─────────────────────────────────────────────────────────
-
-    @Test
-    void promoteMember_shouldThrowWhenRequesterIsNotGroupAdmin() {
-        GroupMember memberMembership = activeMember(member);
-
-        when(userRepository.findByUsername("member")).thenReturn(Optional.of(member));
-        when(groupMemberRepository.findByGroupIdAndUserId(10L, 2L)).thenReturn(Optional.of(memberMembership));
-
-        assertThatThrownBy(() -> groupService.promoteMember(10L, 1L, "member"))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("Group admin role required");
-    }
-
-    @Test
-    void promoteMember_shouldThrowWhenTargetIsPending() {
-        GroupMember adminMembership  = activeAdmin(creator);
-        GroupMember pendingMembership = GroupMember.builder()
-                .id(2L).group(group).user(member)
-                .role(GroupMember.GroupRole.MEMBER).status(MemberStatus.PENDING)
-                .build();
-
-        when(userRepository.findByUsername("creator")).thenReturn(Optional.of(creator));
-        when(groupMemberRepository.findByGroupIdAndUserId(10L, 1L)).thenReturn(Optional.of(adminMembership));
-        when(groupMemberRepository.findByGroupIdAndUserId(10L, 2L)).thenReturn(Optional.of(pendingMembership));
-
-        assertThatThrownBy(() -> groupService.promoteMember(10L, 2L, "creator"))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("pending applicant");
-    }
-
-    @Test
-    void promoteMember_shouldSetRoleToGroupAdmin() {
-        GroupMember adminMembership  = activeAdmin(creator);
-        GroupMember targetMembership = activeMember(member);
-
-        when(userRepository.findByUsername("creator")).thenReturn(Optional.of(creator));
-        when(groupMemberRepository.findByGroupIdAndUserId(10L, 1L)).thenReturn(Optional.of(adminMembership));
-        when(groupMemberRepository.findByGroupIdAndUserId(10L, 2L)).thenReturn(Optional.of(targetMembership));
-        when(groupMemberRepository.save(targetMembership)).thenReturn(targetMembership);
-
-        groupService.promoteMember(10L, 2L, "creator");
-
-        assertThat(targetMembership.getRole()).isEqualTo(GroupMember.GroupRole.GROUP_ADMIN);
-        verify(groupMemberRepository).save(targetMembership);
-    }
-
-    // ── demoteMember ──────────────────────────────────────────────────────────
-
-    @Test
-    void demoteMember_shouldThrowWhenDemotingLastActiveAdmin() {
-        GroupMember adminMembership = activeAdmin(creator);
-
-        when(userRepository.findByUsername("creator")).thenReturn(Optional.of(creator));
-        when(groupMemberRepository.findByGroupIdAndUserId(10L, 1L)).thenReturn(Optional.of(adminMembership));
-        // Only one active admin → demotion forbidden
-        when(groupMemberRepository.findByGroupIdAndStatus(10L, MemberStatus.ACTIVE))
-                .thenReturn(List.of(adminMembership));
-
-        assertThatThrownBy(() -> groupService.demoteMember(10L, 1L, "creator"))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("at least one admin");
-    }
-
-    @Test
-    void demoteMember_shouldSetRoleToMemberWhenAnotherAdminExists() {
-        GroupMember requesterAdmin = activeAdmin(creator);
-        GroupMember targetAdmin    = GroupMember.builder()
-                .id(2L).group(group).user(member)
-                .role(GroupMember.GroupRole.GROUP_ADMIN).status(MemberStatus.ACTIVE)
-                .build();
-
-        when(userRepository.findByUsername("creator")).thenReturn(Optional.of(creator));
-        when(groupMemberRepository.findByGroupIdAndUserId(10L, 1L)).thenReturn(Optional.of(requesterAdmin));
-        when(groupMemberRepository.findByGroupIdAndUserId(10L, 2L)).thenReturn(Optional.of(targetAdmin));
-        // Two admins → demotion is allowed
-        when(groupMemberRepository.findByGroupIdAndStatus(10L, MemberStatus.ACTIVE))
-                .thenReturn(List.of(requesterAdmin, targetAdmin));
-        when(groupMemberRepository.save(targetAdmin)).thenReturn(targetAdmin);
-
-        groupService.demoteMember(10L, 2L, "creator");
-
-        assertThat(targetAdmin.getRole()).isEqualTo(GroupMember.GroupRole.MEMBER);
-        verify(groupMemberRepository).save(targetAdmin);
-    }
-
-    // ── removeMember ──────────────────────────────────────────────────────────
-
-    @Test
-    void removeMember_shouldThrowWhenRequesterIsNotGroupAdmin() {
-        GroupMember memberMembership = activeMember(member);
-
-        when(userRepository.findByUsername("member")).thenReturn(Optional.of(member));
-        when(groupMemberRepository.findByGroupIdAndUserId(10L, 2L)).thenReturn(Optional.of(memberMembership));
-
-        assertThatThrownBy(() -> groupService.removeMember(10L, 1L, "member"))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("Group admin role required");
-    }
-
-    @Test
-    void removeMember_shouldDeleteTargetMembership() {
-        GroupMember adminMembership  = activeAdmin(creator);
-        GroupMember targetMembership = activeMember(member);
-
-        when(userRepository.findByUsername("creator")).thenReturn(Optional.of(creator));
-        when(groupMemberRepository.findByGroupIdAndUserId(10L, 1L)).thenReturn(Optional.of(adminMembership));
-        when(groupMemberRepository.findByGroupIdAndUserId(10L, 2L)).thenReturn(Optional.of(targetMembership));
-
-        groupService.removeMember(10L, 2L, "creator");
-
-        verify(groupMemberRepository).delete(targetMembership);
-    }
-
-    // ── getFutureOpenRaces / notifyNewRaces ─────────────────────────────────────
-
-    @Test
-    void getFutureOpenRaces_shouldThrowWhenRequesterIsNotGroupAdmin() {
-        GroupMember memberMembership = activeMember(member);
-
-        when(userRepository.findByUsername("member")).thenReturn(Optional.of(member));
-        when(groupMemberRepository.findByGroupIdAndUserId(10L, 2L)).thenReturn(Optional.of(memberMembership));
-
-        assertThatThrownBy(() -> groupService.getFutureOpenRaces(10L, "member"))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("Group admin role required");
-    }
-
-    @Test
-    void getFutureOpenRaces_shouldReturnMappedFutureRaces() {
-        GroupMember adminMembership = activeAdmin(creator);
-        Race race = f1Race(100L);
-
-        when(userRepository.findByUsername("creator")).thenReturn(Optional.of(creator));
-        when(groupMemberRepository.findByGroupIdAndUserId(10L, 1L)).thenReturn(Optional.of(adminMembership));
-        when(betRepository.findFutureDistinctRacesWithOpenBetsForGroup(eq(10L), any(LocalDateTime.class)))
-                .thenReturn(List.of(race));
-        RaceResponse response = RaceResponse.builder().id(100L).name("Grand Prix Test").build();
-        when(raceMapper.toResponse(race)).thenReturn(response);
-
-        List<RaceResponse> result = groupService.getFutureOpenRaces(10L, "creator");
-
-        assertThat(result).containsExactly(response);
-    }
-
-    @Test
-    void notifyNewRaces_shouldThrowWhenNoRequestedRaceMatchesFutureOpenRaces() {
-        GroupMember adminMembership = activeAdmin(creator);
-
-        when(userRepository.findByUsername("creator")).thenReturn(Optional.of(creator));
-        when(groupMemberRepository.findByGroupIdAndUserId(10L, 1L)).thenReturn(Optional.of(adminMembership));
-        when(groupRepository.findById(10L)).thenReturn(Optional.of(group));
-        when(betRepository.findFutureDistinctRacesWithOpenBetsForGroup(eq(10L), any(LocalDateTime.class)))
-                .thenReturn(List.of());
-
-        assertThatThrownBy(() -> groupService.notifyNewRaces(10L, List.of(999L), "creator"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("No matching future open races");
-    }
-
-    @Test
-    void notifyNewRaces_shouldEmailEveryActiveMemberAboutSelectedRaces() {
-        GroupMember adminMembership = activeAdmin(creator);
-        GroupMember memberMembership = activeMember(member);
-        Race race = f1Race(100L);
-
-        when(userRepository.findByUsername("creator")).thenReturn(Optional.of(creator));
-        when(groupMemberRepository.findByGroupIdAndUserId(10L, 1L)).thenReturn(Optional.of(adminMembership));
-        when(groupRepository.findById(10L)).thenReturn(Optional.of(group));
-        when(betRepository.findFutureDistinctRacesWithOpenBetsForGroup(eq(10L), any(LocalDateTime.class)))
-                .thenReturn(List.of(race));
-        when(groupMemberRepository.findByGroupIdAndStatus(10L, MemberStatus.ACTIVE))
-                .thenReturn(List.of(adminMembership, memberMembership));
-
-        groupService.notifyNewRaces(10L, List.of(100L), "creator");
-
-        verify(emailService).sendGroupNewRacesEmail(creator, group.getName(), creator, List.of(race));
-        verify(emailService).sendGroupNewRacesEmail(member, group.getName(), creator, List.of(race));
-    }
-
-    private Race f1Race(Long id) {
-        Competition f1 = Competition.builder().id(2L).name("Formule 1 2026").build();
-        return Race.builder().id(id).name("Grand Prix Test").round(5)
-                .qualifyingDate(LocalDateTime.now().plusDays(1))
-                .raceDate(LocalDateTime.now().plusDays(2))
-                .competition(f1)
-                .build();
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────

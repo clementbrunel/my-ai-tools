@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
-import { getAdminCounts } from '@/api/adminCounts';
+import { getGroupAdminCounts } from '@/api/groupAdminCounts';
 import { LocalStorageService, StorageKey } from '@/utils/localStorage';
 
 interface GroupAdminCountsContextType {
@@ -85,7 +85,7 @@ export const GroupAdminCountsProvider: React.FC<{ children: React.ReactNode }> =
 
     (async () => {
       try {
-        const counts = await getAdminCounts();
+        const counts = await getGroupAdminCounts();
         if (cancelled) return;
 
         const pendingForfeits = Object.values(counts.pendingForfeitsPerGroup).reduce((s, v) => s + v, 0);

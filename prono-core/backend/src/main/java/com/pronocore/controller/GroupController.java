@@ -6,11 +6,13 @@ import com.pronocore.dto.request.JoinGroupRequest;
 import com.pronocore.dto.request.NotifyNewMatchesRequest;
 import com.pronocore.dto.request.NotifyNewRacesRequest;
 import com.pronocore.dto.request.UpdateGroupPrivacyRequest;
+import com.pronocore.dto.response.GroupAdminCountsResponse;
 import com.pronocore.dto.response.GroupMemberResponse;
 import com.pronocore.dto.response.GroupResponse;
 import com.pronocore.dto.response.MatchResponse;
 import com.pronocore.dto.response.PublicGroupResponse;
 import com.pronocore.dto.response.RaceResponse;
+import com.pronocore.service.GroupAdminService;
 import com.pronocore.service.GroupService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -22,6 +24,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.security.Principal;
 import java.util.List;
 
 @RestController
@@ -31,6 +34,7 @@ import java.util.List;
 public class GroupController {
 
     private final GroupService groupService;
+    private final GroupAdminService groupAdminService;
 
     @GetMapping
     @PreAuthorize("hasRole('PLATFORM_ADMIN')")
@@ -43,6 +47,12 @@ public class GroupController {
     @Operation(summary = "List all public groups with current user's membership status")
     public ResponseEntity<List<PublicGroupResponse>> getPublicGroups(Authentication auth) {
         return ResponseEntity.ok(groupService.getPublicGroups(auth.getName()));
+    }
+
+    @GetMapping("/admin-counts")
+    @Operation(summary = "Returns aggregated admin badge counts for the current user's admin groups")
+    public ResponseEntity<GroupAdminCountsResponse> getAdminCounts(Principal principal) {
+        return ResponseEntity.ok(groupAdminService.getCounts(principal.getName()));
     }
 
     @GetMapping("/mine")
@@ -78,12 +88,19 @@ public class GroupController {
         return ResponseEntity.ok(groupService.applyToGroup(groupId, auth.getName()));
     }
 
+    @DeleteMapping("/{groupId}/leave")
+    @Operation(summary = "Leave a group")
+    public ResponseEntity<Void> leaveGroup(@PathVariable Long groupId, Authentication auth) {
+        groupService.leaveGroup(groupId, auth.getName());
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/{groupId}/applications/{userId}/approve")
     @Operation(summary = "Approve a membership application (Group admin only)")
     public ResponseEntity<GroupMemberResponse> approveApplication(@PathVariable Long groupId,
                                                                    @PathVariable Long userId,
                                                                    Authentication auth) {
-        return ResponseEntity.ok(groupService.approveApplication(groupId, userId, auth.getName()));
+        return ResponseEntity.ok(groupAdminService.approveApplication(groupId, userId, auth.getName()));
     }
 
     @DeleteMapping("/{groupId}/applications/{userId}/reject")
@@ -91,7 +108,7 @@ public class GroupController {
     public ResponseEntity<Void> rejectApplication(@PathVariable Long groupId,
                                                    @PathVariable Long userId,
                                                    Authentication auth) {
-        groupService.rejectApplication(groupId, userId, auth.getName());
+        groupAdminService.rejectApplication(groupId, userId, auth.getName());
         return ResponseEntity.noContent().build();
     }
 
@@ -100,7 +117,7 @@ public class GroupController {
     public ResponseEntity<GroupResponse> updatePrivacy(@PathVariable Long groupId,
                                                         @RequestBody UpdateGroupPrivacyRequest request,
                                                         Authentication auth) {
-        return ResponseEntity.ok(groupService.updatePrivacy(groupId, request.isPrivate(), auth.getName()));
+        return ResponseEntity.ok(groupAdminService.updatePrivacy(groupId, request.isPrivate(), auth.getName()));
     }
 
     @PatchMapping("/{groupId}/sports")
@@ -108,14 +125,7 @@ public class GroupController {
     public ResponseEntity<GroupResponse> updateSports(@PathVariable Long groupId,
                                                       @Valid @RequestBody UpdateGroupSportsRequest request,
                                                       Authentication auth) {
-        return ResponseEntity.ok(groupService.updateSports(groupId, request.getSports(), auth.getName()));
-    }
-
-    @DeleteMapping("/{groupId}/leave")
-    @Operation(summary = "Leave a group")
-    public ResponseEntity<Void> leaveGroup(@PathVariable Long groupId, Authentication auth) {
-        groupService.leaveGroup(groupId, auth.getName());
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(groupAdminService.updateSports(groupId, request.getSports(), auth.getName()));
     }
 
     @PostMapping("/{groupId}/members/{userId}/promote")
@@ -123,7 +133,7 @@ public class GroupController {
     public ResponseEntity<GroupMemberResponse> promoteMember(@PathVariable Long groupId,
                                                               @PathVariable Long userId,
                                                               Authentication auth) {
-        return ResponseEntity.ok(groupService.promoteMember(groupId, userId, auth.getName()));
+        return ResponseEntity.ok(groupAdminService.promoteMember(groupId, userId, auth.getName()));
     }
 
     @PostMapping("/{groupId}/members/{userId}/demote")
@@ -131,7 +141,7 @@ public class GroupController {
     public ResponseEntity<GroupMemberResponse> demoteMember(@PathVariable Long groupId,
                                                              @PathVariable Long userId,
                                                              Authentication auth) {
-        return ResponseEntity.ok(groupService.demoteMember(groupId, userId, auth.getName()));
+        return ResponseEntity.ok(groupAdminService.demoteMember(groupId, userId, auth.getName()));
     }
 
     @DeleteMapping("/{groupId}/members/{userId}")
@@ -139,14 +149,14 @@ public class GroupController {
     public ResponseEntity<Void> removeMember(@PathVariable Long groupId,
                                               @PathVariable Long userId,
                                               Authentication auth) {
-        groupService.removeMember(groupId, userId, auth.getName());
+        groupAdminService.removeMember(groupId, userId, auth.getName());
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{groupId}/future-open-matches")
     @Operation(summary = "List future matches open for pronostics in this group (Group admin only)")
     public ResponseEntity<List<MatchResponse>> getFutureOpenMatches(@PathVariable Long groupId, Authentication auth) {
-        return ResponseEntity.ok(groupService.getFutureOpenMatches(groupId, auth.getName()));
+        return ResponseEntity.ok(groupAdminService.getFutureOpenMatches(groupId, auth.getName()));
     }
 
     @PostMapping("/{groupId}/notify-new-matches")
@@ -154,14 +164,14 @@ public class GroupController {
     public ResponseEntity<Void> notifyNewMatches(@PathVariable Long groupId,
                                                   @Valid @RequestBody NotifyNewMatchesRequest request,
                                                   Authentication auth) {
-        groupService.notifyNewMatches(groupId, request.getMatchIds(), auth.getName());
+        groupAdminService.notifyNewMatches(groupId, request.getMatchIds(), auth.getName());
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{groupId}/future-open-races")
     @Operation(summary = "List future F1 races open for pronostics in this group (Group admin only)")
     public ResponseEntity<List<RaceResponse>> getFutureOpenRaces(@PathVariable Long groupId, Authentication auth) {
-        return ResponseEntity.ok(groupService.getFutureOpenRaces(groupId, auth.getName()));
+        return ResponseEntity.ok(groupAdminService.getFutureOpenRaces(groupId, auth.getName()));
     }
 
     @PostMapping("/{groupId}/notify-new-races")
@@ -169,7 +179,7 @@ public class GroupController {
     public ResponseEntity<Void> notifyNewRaces(@PathVariable Long groupId,
                                                 @Valid @RequestBody NotifyNewRacesRequest request,
                                                 Authentication auth) {
-        groupService.notifyNewRaces(groupId, request.getRaceIds(), auth.getName());
+        groupAdminService.notifyNewRaces(groupId, request.getRaceIds(), auth.getName());
         return ResponseEntity.noContent().build();
     }
 }
