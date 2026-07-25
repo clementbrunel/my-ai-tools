@@ -7,6 +7,7 @@ import com.pronocore.entity.Race;
 import com.pronocore.entity.User;
 import com.pronocore.repository.BetParticipationRepository;
 import com.pronocore.repository.BetRepository;
+import com.pronocore.repository.F1PredictionRepository;
 import com.pronocore.repository.GroupMemberRepository;
 import com.pronocore.repository.MatchRepository;
 import com.pronocore.repository.RaceRepository;
@@ -33,6 +34,7 @@ public class ReminderSchedulerService {
     private final BetRepository betRepository;
     private final GroupMemberRepository groupMemberRepository;
     private final BetParticipationRepository betParticipationRepository;
+    private final F1PredictionRepository f1PredictionRepository;
     private final UserRepository userRepository;
     private final EmailService emailService;
 
@@ -120,6 +122,9 @@ public class ReminderSchedulerService {
      * window, reminds every user who hasn't predicted it yet and hasn't already been
      * reminded for that trigger day. There is no equivalent reminder for the sprint —
      * the sprint has no betting attached, only championship points (see Race.sprintDate).
+     * "Hasn't predicted" here means no participation at all — this reminder deliberately
+     * ignores whether the pole pick specifically is filled in; only
+     * {@link #sendQualifyingReminders()} cares about that field.
      */
     @Scheduled(fixedDelay = 60_000)
     @Transactional
@@ -186,8 +191,11 @@ public class ReminderSchedulerService {
      * F1-only reminder that fires 4h ahead of qualifying rather than the race start, since the
      * pole pick locks at {@code qualifyingDate} while the rest of the prediction (podium, fastest
      * lap, last place) still locks at {@code raceDate} — see {@link #sendRaceReminders()}, which
-     * still runs independently and covers those other picks. Same dedup rules (one email per user
-     * per trigger day, only to users who haven't bet at all on the race yet), just windowed on
+     * still runs independently and covers those other picks. Unlike the race reminder, "needs a
+     * reminder" here is based specifically on the pole field being unset ({@link
+     * F1PredictionRepository#existsPoleByUserIdAndRaceId}), not on participation existence — a
+     * user can already have a full prediction for everything else and still be missing their
+     * pole pick. Same dedup rules otherwise (one email per user per trigger day), windowed on
      * qualifyingDate and tracked via its own flags so the two reminders don't interfere.
      */
     @Scheduled(fixedDelay = 60_000)
@@ -220,7 +228,7 @@ public class ReminderSchedulerService {
                     User user = gm.getUser();
                     if (!user.isEmailReminderEnabled()) continue;
                     if (latestTriggerDay.equals(user.getQualifyingReminderSentDate())) continue;
-                    if (betParticipationRepository.existsByUserIdAndRaceId(user.getId(), race.getId())) continue;
+                    if (f1PredictionRepository.existsPoleByUserIdAndRaceId(user.getId(), race.getId())) continue;
                     usersToRemind.put(user.getId(), user);
                 }
             }

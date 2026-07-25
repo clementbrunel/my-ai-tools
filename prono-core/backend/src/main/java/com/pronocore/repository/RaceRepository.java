@@ -76,7 +76,10 @@ public interface RaceRepository extends JpaRepository<Race, Long> {
                                             @Param("now")        LocalDateTime now);
 
     /** Same as {@link #findPendingRacesTodayForUser} but windowed on qualifyingDate instead of
-     *  raceDate — used by the qualifying reminder, which fires ahead of the race reminder. */
+     *  raceDate, and checking the pole pick specifically rather than participation existence —
+     *  used by the qualifying reminder, which fires ahead of the race reminder and cares only
+     *  about whether the pole field is still unset (a user can already have a full prediction
+     *  for everything else and still be missing their pole pick). */
     @Query("""
             SELECT DISTINCT r FROM Race r
             JOIN Bet b ON b.race = r
@@ -89,8 +92,10 @@ public interface RaceRepository extends JpaRepository<Race, Long> {
               AND r.qualifyingDate < :endOfDay
               AND r.qualifyingDate > :now
               AND NOT EXISTS (
-                  SELECT bp FROM BetParticipation bp
-                  WHERE bp.bet.race = r AND bp.user.id = :userId
+                  SELECT fp FROM F1Prediction fp
+                  WHERE fp.participation.bet.race = r
+                    AND fp.participation.user.id = :userId
+                    AND fp.pole IS NOT NULL
               )
             ORDER BY r.qualifyingDate ASC
             """)

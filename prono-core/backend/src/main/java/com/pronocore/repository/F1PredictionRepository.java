@@ -40,4 +40,19 @@ public interface F1PredictionRepository extends JpaRepository<F1Prediction, Long
               AND p.participation.user.id = :userId
             """)
     List<F1Prediction> findByRaceIdAndUserId(@Param("raceId") Long raceId, @Param("userId") Long userId);
+
+    /**
+     * True if the user has already set a pole pick for the given race (across any group).
+     * Unlike {@code BetParticipationRepository.existsByUserIdAndRaceId}, which only checks
+     * whether a prediction exists at all, this looks at the pole field specifically — used
+     * by the qualifying reminder, since a user can have submitted P1/P2/P3 etc. without ever
+     * picking a pole (the field is optional until qualifying locks it).
+     */
+    @Query("""
+            SELECT COUNT(p) > 0 FROM F1Prediction p
+            WHERE p.participation.bet.race.id = :raceId
+              AND p.participation.user.id = :userId
+              AND p.pole IS NOT NULL
+            """)
+    boolean existsPoleByUserIdAndRaceId(@Param("userId") Long userId, @Param("raceId") Long raceId);
 }
