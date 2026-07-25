@@ -1,6 +1,7 @@
 services:
   mottaret-watch:
     build: .
+    container_name: mottaret-watch
     restart: "no"
     environment:
       - RESEND_API_KEY=${RESEND_API_KEY}
@@ -8,6 +9,11 @@ services:
       - DATA_DIR=/app/data
     volumes:
       - mottaret-data:/app/data
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
 
 volumes:
   mottaret-data:
