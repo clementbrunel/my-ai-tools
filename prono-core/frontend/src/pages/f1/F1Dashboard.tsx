@@ -1,23 +1,29 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getDriverStandings, getRaces } from '@/api/f1';
+import { getDashboardStats } from '@/api/dashboard';
+import type { GroupRankEntry } from '@/api/dashboard';
 import type { F1Standing, Race } from '@/types';
 import { formatDate, formatTime } from '@/utils/dates';
 import { getFlagUrl } from '@/utils/countryFlags';
 import MiniF1Car from '@/components/f1/MiniF1Car';
+import { logger } from '@/utils/logger';
 
 const F1Dashboard: React.FC = () => {
   const [races, setRaces] = useState<Race[]>([]);
   const [standings, setStandings] = useState<F1Standing[]>([]);
+  const [groupRanks, setGroupRanks] = useState<GroupRankEntry[]>([]);
+  const [selectedGroupIdx, setSelectedGroupIdx] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([getRaces(), getDriverStandings()])
-      .then(([raceRows, standingRows]) => {
+    Promise.all([getRaces(), getDriverStandings(), getDashboardStats('F1')])
+      .then(([raceRows, standingRows, statsData]) => {
         setRaces(raceRows);
         setStandings(standingRows);
+        setGroupRanks(statsData.groupRanks);
       })
-      .catch(() => { /* dashboard stays minimal on error */ })
+      .catch((err) => logger.error('Error loading F1 dashboard:', err))
       .finally(() => setIsLoading(false));
   }, []);
 
@@ -90,11 +96,42 @@ const F1Dashboard: React.FC = () => {
             <div className="text-sm text-gray-500 dark:text-gray-400">Pilotes & constructeurs</div>
           </div>
         </Link>
-        <Link to="/f1/leaderboard" className="card flex items-center gap-4 hover:border hover:border-wc-green transition-all group">
-          <span className="text-4xl">🏆</span>
-          <div>
-            <div className="font-bold text-gray-900 dark:text-white group-hover:text-wc-green">Classement</div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">Ton groupe, points F1</div>
+        <Link
+          to={
+            groupRanks.length === 0
+              ? '/f1/leaderboard'
+              : `/f1/leaderboard?groupId=${(groupRanks[selectedGroupIdx] ?? groupRanks[0]).groupId}`
+          }
+          className="card flex items-center gap-4 hover:border hover:border-wc-green transition-all group"
+        >
+          <span className="text-4xl shrink-0">🏆</span>
+          <div className="flex-1 min-w-0">
+            {groupRanks.length > 1 && (
+              <div className="mb-1" onClick={(e) => e.preventDefault()}>
+                <select
+                  value={selectedGroupIdx}
+                  onChange={(e) => setSelectedGroupIdx(Number(e.target.value))}
+                  className="input-field text-xs py-0.5"
+                >
+                  {groupRanks.map((g, i) => (
+                    <option key={g.groupId} value={i}>{g.groupName}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {groupRanks.length === 0 ? (
+              <>
+                <div className="font-bold text-gray-900 dark:text-white group-hover:text-wc-green">Classement</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">Ton groupe, points F1</div>
+              </>
+            ) : (() => {
+              const gr = groupRanks[selectedGroupIdx] ?? groupRanks[0];
+              return (
+                <div className="font-bold text-gray-900 dark:text-white group-hover:text-wc-green truncate">
+                  #{gr.rank}/{gr.total} · {gr.points} pts{groupRanks.length === 1 ? ` · ${gr.groupName}` : ''}
+                </div>
+              );
+            })()}
           </div>
         </Link>
       </div>

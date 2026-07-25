@@ -101,6 +101,16 @@ public interface BetParticipationRepository extends JpaRepository<BetParticipati
             """)
     List<Object[]> sumPointsByGroupIds(@Param("groupIds") List<Long> groupIds);
 
+    /** Sport-filtered variant of {@link #sumPointsByGroupIds}, same F1/FOOT split as {@link #sumPointsEarnedByGroupIdAndSport}. */
+    @Query("""
+            SELECT bp.bet.group.id, bp.user.id, COALESCE(SUM(bp.pointsEarned), 0)
+            FROM BetParticipation bp
+            WHERE bp.bet.group.id IN :groupIds AND bp.bet.status = 'VALIDATED'
+              AND ((:f1 = true AND bp.bet.race IS NOT NULL) OR (:f1 = false AND bp.bet.race IS NULL))
+            GROUP BY bp.bet.group.id, bp.user.id
+            """)
+    List<Object[]> sumPointsByGroupIdsAndSport(@Param("groupIds") List<Long> groupIds, @Param("f1") boolean f1);
+
     @Query("""
             SELECT bp FROM BetParticipation bp
             JOIN bp.bet b

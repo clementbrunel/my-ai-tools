@@ -33,19 +33,23 @@ public class DashboardService {
     private final UserRepository userRepository;
 
     @Transactional(readOnly = true)
-    public DashboardStatsResponse getStats(String username) {
+    public DashboardStatsResponse getStats(String username, Sport sport) {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
 
-        // Query 1: distinct upcoming matches with OPEN bets in user's groups
-        long upcomingCount = betRepository.countDistinctUpcomingMatchesInUserGroups(
-                user.getId(), Bet.Status.OPEN, Match.Status.UPCOMING);
+        // Query 1: distinct upcoming matches with OPEN bets in user's groups. Matches are a
+        // football-only concept (F1 has races instead), so this stays 0 outside FOOT.
+        long upcomingCount = sport == Sport.FOOT
+                ? betRepository.countDistinctUpcomingMatchesInUserGroups(
+                        user.getId(), Bet.Status.OPEN, Match.Status.UPCOMING)
+                : 0L;
 
         // Query 2: all group memberships for the user (with group info), restricted to
-        // groups that actually have football enabled — the dashboard is a football-only
-        // page, so groups without FOOT (e.g. F1-only groups) must not show up here.
+        // groups that actually have this sport enabled — the dashboard is a single-sport
+        // page, so a group without it (e.g. an F1-only group on the football dashboard)
+        // must not show up here.
         List<GroupMember> userMemberships = groupMemberRepository.findByUserId(user.getId()).stream()
-                .filter(gm -> gm.getGroup().getSports().contains(Sport.FOOT))
+                .filter(gm -> gm.getGroup().getSports().contains(sport))
                 .collect(Collectors.toList());
         List<Long> groupIds = userMemberships.stream()
                 .map(gm -> gm.getGroup().getId())
@@ -56,9 +60,9 @@ public class DashboardService {
             // Query 3: all members across all the user's groups
             List<GroupMember> allMembers = groupMemberRepository.findByGroupIdIn(groupIds);
 
-            // Query 4: sum of points per (groupId, userId) from validated bets
+            // Query 4: sum of points per (groupId, userId) from validated bets of this sport
             Map<Long, Map<Long, Integer>> pointsByGroupAndUser = new HashMap<>();
-            for (Object[] row : betParticipationRepository.sumPointsByGroupIds(groupIds)) {
+            for (Object[] row : betParticipationRepository.sumPointsByGroupIdsAndSport(groupIds, sport == Sport.F1)) {
                 Long groupId = ((Number) row[0]).longValue();
                 Long userId  = ((Number) row[1]).longValue();
                 int  points  = ((Number) row[2]).intValue();

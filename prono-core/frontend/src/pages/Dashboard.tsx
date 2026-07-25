@@ -28,7 +28,7 @@ const Dashboard: React.FC = () => {
       try {
         const [matchesData, statsData] = await Promise.all([
           getMatches(),
-          getDashboardStats(),
+          getDashboardStats('FOOT'),
         ]);
         setMatches(matchesData);
         setUpcomingMatchCount(statsData.upcomingMatchesInMyGroups);
