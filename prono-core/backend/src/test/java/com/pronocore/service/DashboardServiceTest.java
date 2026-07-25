@@ -176,6 +176,34 @@ class DashboardServiceTest {
     }
 
     /**
+     * On equal points, the member with more bets won ranks higher — same tie-break
+     * the leaderboard page uses, so the two rankings never disagree.
+     */
+    @Test
+    void getStats_shouldBreakPointsTieByBetsWon() {
+        GroupMember aliceMembership = membership(alice, group);
+        GroupMember bobMembership   = membership(bob,   group);
+
+        when(userRepository.findByUsername("bob")).thenReturn(Optional.of(bob));
+        when(betRepository.countDistinctUpcomingMatchesInUserGroups(any(), any(), any())).thenReturn(0L);
+        when(groupMemberRepository.findByUserId(2L)).thenReturn(List.of(bobMembership));
+        when(groupMemberRepository.findByGroupIdIn(List.of(10L)))
+                .thenReturn(List.of(aliceMembership, bobMembership));
+
+        // Alice and bob are tied on points, but bob has won more bets
+        when(betParticipationRepository.sumPointsByGroupIdsAndSport(List.of(10L), false))
+                .thenReturn(pointRows(new Object[]{10L, 1L, 30}, new Object[]{10L, 2L, 30}));
+        when(betParticipationRepository.countBetsWonByGroupIdsAndSport(List.of(10L), false))
+                .thenReturn(pointRows(new Object[]{10L, 1L, 2}, new Object[]{10L, 2L, 3}));
+
+        DashboardStatsResponse result = dashboardService.getStats("bob", Sport.FOOT);
+
+        var rank = result.getGroupRanks().get(0);
+        assertThat(rank.getPoints()).isEqualTo(30);
+        assertThat(rank.getRank()).isEqualTo(1); // bob wins the tie-break on bets won
+    }
+
+    /**
      * A group with F1 only (no FOOT) must not contribute a groupRank, since the
      * dashboard is a football-only page.
      */

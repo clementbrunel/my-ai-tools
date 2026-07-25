@@ -71,6 +71,18 @@ public class DashboardService {
                         .put(userId, points);
             }
 
+            // Query 5: bets won per (groupId, userId) — tie-break on equal points, same
+            // criterion the leaderboard page uses, so the two rankings never disagree.
+            Map<Long, Map<Long, Integer>> betsWonByGroupAndUser = new HashMap<>();
+            for (Object[] row : betParticipationRepository.countBetsWonByGroupIdsAndSport(groupIds, sport == Sport.F1)) {
+                Long groupId = ((Number) row[0]).longValue();
+                Long userId  = ((Number) row[1]).longValue();
+                int  won     = ((Number) row[2]).intValue();
+                betsWonByGroupAndUser
+                        .computeIfAbsent(groupId, k -> new HashMap<>())
+                        .put(userId, won);
+            }
+
             // Group members by groupId
             Map<Long, List<GroupMember>> membersByGroup = allMembers.stream()
                     .collect(Collectors.groupingBy(gm -> gm.getGroup().getId()));
@@ -78,14 +90,17 @@ public class DashboardService {
             for (GroupMember membership : userMemberships) {
                 Long groupId   = membership.getGroup().getId();
                 String groupName = membership.getGroup().getName();
-                Map<Long, Integer> groupPoints = pointsByGroupAndUser.getOrDefault(groupId, Map.of());
+                Map<Long, Integer> groupPoints  = pointsByGroupAndUser.getOrDefault(groupId, Map.of());
+                Map<Long, Integer> groupBetsWon = betsWonByGroupAndUser.getOrDefault(groupId, Map.of());
                 List<GroupMember> members = membersByGroup.getOrDefault(groupId, List.of());
 
-                // Sort member IDs by their points descending to determine rank
+                // Sort member IDs by points then bets won descending to determine rank
                 List<Long> ranked = members.stream()
                         .map(gm -> gm.getUser().getId())
-                        .sorted(Comparator.comparingInt(
-                                (Long uid) -> groupPoints.getOrDefault(uid, 0)).reversed())
+                        .sorted(Comparator
+                                .comparingInt((Long uid) -> groupPoints.getOrDefault(uid, 0))
+                                .thenComparingInt(uid -> groupBetsWon.getOrDefault(uid, 0))
+                                .reversed())
                         .collect(Collectors.toList());
 
                 int userPoints = groupPoints.getOrDefault(user.getId(), 0);

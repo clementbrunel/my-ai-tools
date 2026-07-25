@@ -90,18 +90,9 @@ public interface BetParticipationRepository extends JpaRepository<BetParticipati
     List<Object[]> countBetsWonByGroupIdAndSport(@Param("groupId") Long groupId, @Param("f1") boolean f1);
 
     /**
-     * All settled participations for bets linked to matches on the given day.
-     * Used to compute per-user daily points for the daily gage loser selection.
+     * Bulk, sport-filtered sum of points per (groupId, userId), same F1/FOOT split as
+     * {@link #sumPointsEarnedByGroupIdAndSport}. Used to compute the dashboard's group ranks.
      */
-    @Query("""
-            SELECT bp.bet.group.id, bp.user.id, COALESCE(SUM(bp.pointsEarned), 0)
-            FROM BetParticipation bp
-            WHERE bp.bet.group.id IN :groupIds AND bp.bet.status = 'VALIDATED'
-            GROUP BY bp.bet.group.id, bp.user.id
-            """)
-    List<Object[]> sumPointsByGroupIds(@Param("groupIds") List<Long> groupIds);
-
-    /** Sport-filtered variant of {@link #sumPointsByGroupIds}, same F1/FOOT split as {@link #sumPointsEarnedByGroupIdAndSport}. */
     @Query("""
             SELECT bp.bet.group.id, bp.user.id, COALESCE(SUM(bp.pointsEarned), 0)
             FROM BetParticipation bp
@@ -110,6 +101,16 @@ public interface BetParticipationRepository extends JpaRepository<BetParticipati
             GROUP BY bp.bet.group.id, bp.user.id
             """)
     List<Object[]> sumPointsByGroupIdsAndSport(@Param("groupIds") List<Long> groupIds, @Param("f1") boolean f1);
+
+    /** Bulk, sport-filtered variant of {@link #countBetsWonByGroupIdAndSport} — the dashboard's rank tie-break, matching the leaderboard page. */
+    @Query("""
+            SELECT bp.bet.group.id, bp.user.id, COUNT(bp)
+            FROM BetParticipation bp
+            WHERE bp.bet.group.id IN :groupIds AND bp.bet.status = 'VALIDATED' AND bp.pointsEarned > 0
+              AND ((:f1 = true AND bp.bet.race IS NOT NULL) OR (:f1 = false AND bp.bet.race IS NULL))
+            GROUP BY bp.bet.group.id, bp.user.id
+            """)
+    List<Object[]> countBetsWonByGroupIdsAndSport(@Param("groupIds") List<Long> groupIds, @Param("f1") boolean f1);
 
     @Query("""
             SELECT bp FROM BetParticipation bp
