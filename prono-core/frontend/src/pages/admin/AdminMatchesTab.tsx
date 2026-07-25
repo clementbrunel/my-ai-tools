@@ -80,7 +80,8 @@ const AdminMatchesTab: React.FC = () => {
         setIsLoading(false);
       }
       try {
-        const competitionsData = await fetchAllCompetitions();
+        const allCompetitions = await fetchAllCompetitions();
+        const competitionsData = allCompetitions.filter((c) => c.sport === 'FOOT');
         setCompetitions(competitionsData);
         if (competitionsData.length > 0) {
           const first = competitionsData[0];
