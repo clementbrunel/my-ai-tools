@@ -5,6 +5,7 @@ import com.pronocore.dto.response.GroupRankResponse;
 import com.pronocore.entity.Bet;
 import com.pronocore.entity.GroupMember;
 import com.pronocore.entity.Match;
+import com.pronocore.entity.Sport;
 import com.pronocore.entity.User;
 import com.pronocore.repository.BetParticipationRepository;
 import com.pronocore.repository.BetRepository;
@@ -32,16 +33,24 @@ public class DashboardService {
     private final UserRepository userRepository;
 
     @Transactional(readOnly = true)
-    public DashboardStatsResponse getStats(String username) {
+    public DashboardStatsResponse getStats(String username, Sport sport) {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
 
-        // Query 1: distinct upcoming matches with OPEN bets in user's groups
-        long upcomingCount = betRepository.countDistinctUpcomingMatchesInUserGroups(
-                user.getId(), Bet.Status.OPEN, Match.Status.UPCOMING);
+        // Query 1: distinct upcoming matches with OPEN bets in user's groups. Matches are a
+        // football-only concept (F1 has races instead), so this stays 0 outside FOOT.
+        long upcomingCount = sport == Sport.FOOT
+                ? betRepository.countDistinctUpcomingMatchesInUserGroups(
+                        user.getId(), Bet.Status.OPEN, Match.Status.UPCOMING)
+                : 0L;
 
-        // Query 2: all group memberships for the user (with group info)
-        List<GroupMember> userMemberships = groupMemberRepository.findByUserId(user.getId());
+        // Query 2: all group memberships for the user (with group info), restricted to
+        // groups that actually have this sport enabled — the dashboard is a single-sport
+        // page, so a group without it (e.g. an F1-only group on the football dashboard)
+        // must not show up here.
+        List<GroupMember> userMemberships = groupMemberRepository.findByUserId(user.getId()).stream()
+                .filter(gm -> gm.getGroup().getSports().contains(sport))
+                .collect(Collectors.toList());
         List<Long> groupIds = userMemberships.stream()
                 .map(gm -> gm.getGroup().getId())
                 .collect(Collectors.toList());
@@ -51,15 +60,27 @@ public class DashboardService {
             // Query 3: all members across all the user's groups
             List<GroupMember> allMembers = groupMemberRepository.findByGroupIdIn(groupIds);
 
-            // Query 4: sum of points per (groupId, userId) from validated bets
+            // Query 4: sum of points per (groupId, userId) from validated bets of this sport
             Map<Long, Map<Long, Integer>> pointsByGroupAndUser = new HashMap<>();
-            for (Object[] row : betParticipationRepository.sumPointsByGroupIds(groupIds)) {
+            for (Object[] row : betParticipationRepository.sumPointsByGroupIdsAndSport(groupIds, sport == Sport.F1)) {
                 Long groupId = ((Number) row[0]).longValue();
                 Long userId  = ((Number) row[1]).longValue();
                 int  points  = ((Number) row[2]).intValue();
                 pointsByGroupAndUser
                         .computeIfAbsent(groupId, k -> new HashMap<>())
                         .put(userId, points);
+            }
+
+            // Query 5: bets won per (groupId, userId) — tie-break on equal points, same
+            // criterion the leaderboard page uses, so the two rankings never disagree.
+            Map<Long, Map<Long, Integer>> betsWonByGroupAndUser = new HashMap<>();
+            for (Object[] row : betParticipationRepository.countBetsWonByGroupIdsAndSport(groupIds, sport == Sport.F1)) {
+                Long groupId = ((Number) row[0]).longValue();
+                Long userId  = ((Number) row[1]).longValue();
+                int  won     = ((Number) row[2]).intValue();
+                betsWonByGroupAndUser
+                        .computeIfAbsent(groupId, k -> new HashMap<>())
+                        .put(userId, won);
             }
 
             // Group members by groupId
@@ -69,14 +90,17 @@ public class DashboardService {
             for (GroupMember membership : userMemberships) {
                 Long groupId   = membership.getGroup().getId();
                 String groupName = membership.getGroup().getName();
-                Map<Long, Integer> groupPoints = pointsByGroupAndUser.getOrDefault(groupId, Map.of());
+                Map<Long, Integer> groupPoints  = pointsByGroupAndUser.getOrDefault(groupId, Map.of());
+                Map<Long, Integer> groupBetsWon = betsWonByGroupAndUser.getOrDefault(groupId, Map.of());
                 List<GroupMember> members = membersByGroup.getOrDefault(groupId, List.of());
 
-                // Sort member IDs by their points descending to determine rank
+                // Sort member IDs by points then bets won descending to determine rank
                 List<Long> ranked = members.stream()
                         .map(gm -> gm.getUser().getId())
-                        .sorted(Comparator.comparingInt(
-                                (Long uid) -> groupPoints.getOrDefault(uid, 0)).reversed())
+                        .sorted(Comparator
+                                .comparingInt((Long uid) -> groupPoints.getOrDefault(uid, 0))
+                                .thenComparingInt(uid -> groupBetsWon.getOrDefault(uid, 0))
+                                .reversed())
                         .collect(Collectors.toList());
 
                 int userPoints = groupPoints.getOrDefault(user.getId(), 0);
