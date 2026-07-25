@@ -7,11 +7,13 @@ import {
   getAllKnownTeams,
   setCompetitionTeams,
   setCompetitionActive,
+  deleteCompetition,
   findOrCreateTeam,
 } from '@/api/competitions';
 import { getDrivers } from '@/api/f1';
 import type { CompetitionDto, Driver, Sport, TeamDto } from '@/types';
 import MiniF1Car from '@/components/f1/MiniF1Car';
+import ConfirmModal from '@/components/ConfirmModal';
 
 interface AdminCompetitionsTabProps {
   /** Sport scope selected at the top of the admin page. */
@@ -34,6 +36,10 @@ const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) =>
   const [isLoadingTeams, setIsLoadingTeams] = useState(false);
   const [f1Drivers, setF1Drivers] = useState<Driver[] | null>(null);
   const loadingForRef = useRef<number | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    title: string; message: string; confirmLabel?: string;
+    variant?: 'danger' | 'default'; onConfirm: () => void;
+  } | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -141,6 +147,31 @@ const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) =>
     }
   };
 
+  const handleDeleteCompetition = (competition: CompetitionDto) => {
+    setConfirmDialog({
+      title: 'Supprimer la compétition',
+      message: `Êtes-vous sûr de vouloir supprimer « ${competition.name} » ? Cette action est irréversible.`,
+      confirmLabel: 'Supprimer',
+      variant: 'danger',
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        try {
+          await deleteCompetition(competition.id);
+          const remaining = competitions.filter((c) => c.id !== competition.id);
+          setCompetitions(remaining);
+          if (selectedCompetition?.id === competition.id) {
+            const next = remaining.find((c) => c.sport === sport);
+            if (next) await loadRoster(next);
+            else setSelectedCompetition(null);
+          }
+          showToast('Compétition supprimée');
+        } catch {
+          showToast('Impossible de supprimer cette compétition — elle a probablement des matchs ou courses associés');
+        }
+      },
+    });
+  };
+
   return (
     <div className="space-y-6">
       {/* Competition selector */}
@@ -177,10 +208,10 @@ const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) =>
 
         <div className="flex flex-wrap gap-2">
           {visibleCompetitions.map((c) => (
-            <div key={c.id} className="flex items-center rounded-lg overflow-hidden">
+            <div key={c.id} className="flex items-stretch rounded-lg overflow-hidden">
               <button
                 onClick={() => loadRoster(c)}
-                className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+                className={`h-8 flex items-center px-3 text-sm font-medium transition-colors ${
                   selectedCompetition?.id === c.id
                     ? 'bg-wc-green text-white'
                     : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
@@ -191,13 +222,20 @@ const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) =>
               <button
                 onClick={() => toggleActive(c)}
                 title={c.active ? 'Active — visible par défaut dans les filtres' : 'Inactive — masquée par défaut dans les filtres'}
-                className={`px-2 py-1.5 text-xs border-l border-white/20 transition-colors ${
-                  selectedCompetition?.id === c.id
-                    ? 'bg-wc-green text-white'
-                    : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                className={`h-8 flex items-center px-2 text-xs font-semibold border-l transition-colors ${
+                  c.active
+                    ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-200 dark:hover:bg-emerald-900/60'
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-300 dark:border-gray-600 hover:bg-gray-300 dark:hover:bg-gray-600'
                 }`}
               >
                 {c.active ? '● Active' : '○ Inactive'}
+              </button>
+              <button
+                onClick={() => handleDeleteCompetition(c)}
+                title="Supprimer la compétition"
+                className="h-8 flex items-center px-2 text-xs font-semibold border-l border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 text-gray-400 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/40 dark:hover:text-red-400 transition-colors"
+              >
+                🗑
               </button>
             </div>
           ))}
@@ -331,6 +369,16 @@ const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) =>
           )}
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={confirmDialog !== null}
+        title={confirmDialog?.title ?? ''}
+        message={confirmDialog?.message ?? ''}
+        confirmLabel={confirmDialog?.confirmLabel}
+        variant={confirmDialog?.variant}
+        onConfirm={() => confirmDialog?.onConfirm()}
+        onCancel={() => setConfirmDialog(null)}
+      />
     </div>
   );
 };

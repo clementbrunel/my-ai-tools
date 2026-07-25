@@ -6,6 +6,8 @@ import com.pronocore.entity.Competition;
 import com.pronocore.entity.Sport;
 import com.pronocore.entity.Team;
 import com.pronocore.repository.CompetitionRepository;
+import com.pronocore.repository.MatchRepository;
+import com.pronocore.repository.RaceRepository;
 import com.pronocore.repository.TeamRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +22,8 @@ public class CompetitionService {
 
     private final CompetitionRepository competitionRepository;
     private final TeamRepository        teamRepository;
+    private final MatchRepository       matchRepository;
+    private final RaceRepository        raceRepository;
 
     @Transactional(readOnly = true)
     public List<CompetitionResponse> getAllCompetitions() {
@@ -54,6 +58,15 @@ public class CompetitionService {
     @Transactional
     public void setActive(Long competitionId, boolean active) {
         requireCompetition(competitionId).setActive(active);
+    }
+
+    @Transactional
+    public void deleteCompetition(Long competitionId) {
+        Competition competition = requireCompetition(competitionId);
+        if (matchRepository.existsByCompetition_Id(competitionId) || raceRepository.existsByCompetition_Id(competitionId)) {
+            throw new IllegalStateException("Impossible de supprimer une compétition qui a des matchs ou courses associés");
+        }
+        competitionRepository.delete(competition);
     }
 
     @Transactional

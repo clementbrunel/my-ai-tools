@@ -21,6 +21,8 @@ public interface MatchRepository extends JpaRepository<Match, Long> {
     @Query("SELECT m FROM Match m JOIN FETCH m.teamA JOIN FETCH m.teamB JOIN FETCH m.competition WHERE m.competition.id = :competitionId ORDER BY m.matchDate ASC")
     List<Match> findByCompetition_IdOrderByMatchDateAsc(@Param("competitionId") Long competitionId);
 
+    boolean existsByCompetition_Id(Long competitionId);
+
     @Query("""
             SELECT m FROM Match m JOIN FETCH m.teamA JOIN FETCH m.teamB JOIN FETCH m.competition
             WHERE m.teamA.id = :teamId OR m.teamB.id = :teamId
