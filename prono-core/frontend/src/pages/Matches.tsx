@@ -5,6 +5,7 @@ import MatchCard from '@/components/MatchCard';
 import MatchRow from '@/components/MatchRow';
 import BracketView from '@/components/BracketView';
 import NoGroupBanner from '@/components/NoGroupBanner';
+import CompetitionFilterPills from '@/components/CompetitionFilterPills';
 import { useMatches } from '@/context/MatchesContext';
 import { formatDate } from '@/utils/dates';
 
@@ -16,6 +17,7 @@ const Matches: React.FC = () => {
   const [filter, setFilter] = useState<FilterStatus>('UPCOMING');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [search, setSearch] = useState('');
+  const [selectedCompetitions, setSelectedCompetitions] = useState<Set<number> | null>(null);
 
   useScrollRestoration('matches-scroll-y', !isLoading);
 
@@ -30,10 +32,11 @@ const Matches: React.FC = () => {
     const q = search.trim().toLowerCase();
     return matches.filter((m) => {
       if (filter !== 'ALL' && m.status !== filter) return false;
+      if (selectedCompetitions && !selectedCompetitions.has(m.competition.id)) return false;
       if (!q) return true;
       return m.teamA.name.toLowerCase().includes(q) || m.teamB.name.toLowerCase().includes(q);
     });
-  }, [matches, filter, hasGroups, search]);
+  }, [matches, filter, hasGroups, search, selectedCompetitions]);
 
   const filters: { label: string; value: FilterStatus }[] = [
     { label: '📅 À venir', value: 'UPCOMING' },
@@ -82,6 +85,9 @@ const Matches: React.FC = () => {
             </button>
           )}
         </div>
+        {viewMode !== 'bracket' && (
+          <CompetitionFilterPills sport="FOOT" selected={selectedCompetitions ?? new Set()} onChange={setSelectedCompetitions} />
+        )}
         <div className="flex items-center justify-between gap-2">
           <div className="flex gap-1 min-w-0">
             {viewMode !== 'bracket' && filters.map((f) => (

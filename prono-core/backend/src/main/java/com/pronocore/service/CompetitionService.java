@@ -24,7 +24,7 @@ public class CompetitionService {
     @Transactional(readOnly = true)
     public List<CompetitionResponse> getAllCompetitions() {
         return competitionRepository.findAllByOrderByNameAsc()
-                .stream().map(c -> new CompetitionResponse(c.getId(), c.getName(), c.getSport())).toList();
+                .stream().map(c -> new CompetitionResponse(c.getId(), c.getName(), c.getSport(), c.isActive())).toList();
     }
 
     @Transactional(readOnly = true)
@@ -49,6 +49,11 @@ public class CompetitionService {
                     .sport(sport)
                     .build());
         }
+    }
+
+    @Transactional
+    public void setActive(Long competitionId, boolean active) {
+        requireCompetition(competitionId).setActive(active);
     }
 
     @Transactional

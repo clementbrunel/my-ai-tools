@@ -27,6 +27,11 @@ public class Competition {
     @Builder.Default
     private Sport sport = Sport.FOOT;
 
+    /** Inactive competitions are hidden by default from the public match/race filters. */
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean active = true;
+
     @ManyToMany
     @JoinTable(
         name = "competition_teams",

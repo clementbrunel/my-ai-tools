@@ -5,6 +5,7 @@ import type { Race } from '@/types';
 import { useScrollRestoration } from '@/hooks/useScrollRestoration';
 import { formatDate, formatTime } from '@/utils/dates';
 import { getFlagUrl } from '@/utils/countryFlags';
+import CompetitionFilterPills from '@/components/CompetitionFilterPills';
 
 type FilterStatus = 'ALL' | 'UPCOMING' | 'FINISHED';
 type ViewMode = 'grid' | 'list';
@@ -140,6 +141,7 @@ const F1Races: React.FC = () => {
   const [filter, setFilter] = useState<FilterStatus>('UPCOMING');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [search, setSearch] = useState('');
+  const [selectedCompetitions, setSelectedCompetitions] = useState<Set<number> | null>(null);
 
   useScrollRestoration('f1-races-scroll-y', !isLoading);
 
@@ -156,13 +158,14 @@ const F1Races: React.FC = () => {
     const q = search.trim().toLowerCase();
     return races.filter((race) => {
       if (filter !== 'ALL' && race.status !== filter) return false;
+      if (selectedCompetitions && !selectedCompetitions.has(race.competitionId)) return false;
       if (!q) return true;
       return (
         race.name.toLowerCase().includes(q) ||
         (race.circuit ?? '').toLowerCase().includes(q)
       );
     });
-  }, [races, filter, search]);
+  }, [races, filter, search, selectedCompetitions]);
 
   const filters: { label: string; value: FilterStatus }[] = [
     { label: '📅 À venir', value: 'UPCOMING' },
@@ -207,6 +210,7 @@ const F1Races: React.FC = () => {
             </button>
           )}
         </div>
+        <CompetitionFilterPills sport="F1" selected={selectedCompetitions ?? new Set()} onChange={setSelectedCompetitions} />
         <div className="flex items-center justify-between gap-2">
           <div className="flex gap-1 min-w-0">
             {filters.map((f) => (

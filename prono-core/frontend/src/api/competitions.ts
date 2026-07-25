@@ -32,6 +32,12 @@ export const setCompetitionTeams = async (competitionId: number, teamIds: number
   await apiClient.put(`/competitions/${competitionId}/teams`, teamIds);
 };
 
+export const setCompetitionActive = async (competitionId: number, active: boolean): Promise<void> => {
+  await apiClient.put(`/competitions/${competitionId}/active`, active, {
+    headers: { 'Content-Type': 'application/json' },
+  });
+};
+
 export const addTeamToCompetition = async (competitionId: number, teamId: number): Promise<void> => {
   await apiClient.post(`/competitions/${competitionId}/teams`, teamId, {
     headers: { 'Content-Type': 'application/json' },
