@@ -16,6 +16,8 @@ public interface RaceRepository extends JpaRepository<Race, Long> {
 
     List<Race> findByCompetition_IdOrderByRaceDateAsc(Long competitionId);
 
+    boolean existsByCompetition_Id(Long competitionId);
+
     /** Races of the day whose results are not entered yet — blocks daily gage settlement. */
     @Query("""
             SELECT COUNT(r) FROM Race r

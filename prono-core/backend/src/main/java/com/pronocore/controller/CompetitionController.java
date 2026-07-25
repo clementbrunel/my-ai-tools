@@ -50,6 +50,14 @@ public class CompetitionController {
         return ResponseEntity.noContent().build();
     }
 
+    @DeleteMapping("/{competitionId}")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+    @Operation(summary = "Delete a competition — rejected if it still has matches or races (Admin only)")
+    public ResponseEntity<Void> deleteCompetition(@PathVariable Long competitionId) {
+        competitionService.deleteCompetition(competitionId);
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/known-teams")
     @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     @Operation(summary = "All distinct teams across every competition (Admin only)")

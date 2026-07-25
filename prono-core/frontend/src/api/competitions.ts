@@ -38,6 +38,10 @@ export const setCompetitionActive = async (competitionId: number, active: boolea
   });
 };
 
+export const deleteCompetition = async (competitionId: number): Promise<void> => {
+  await apiClient.delete(`/competitions/${competitionId}`);
+};
+
 export const addTeamToCompetition = async (competitionId: number, teamId: number): Promise<void> => {
   await apiClient.post(`/competitions/${competitionId}/teams`, teamId, {
     headers: { 'Content-Type': 'application/json' },
