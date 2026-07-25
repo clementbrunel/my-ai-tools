@@ -41,15 +41,21 @@ const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) =>
     variant?: 'danger' | 'default'; onConfirm: () => void;
   } | null>(null);
 
+  // Known teams span every sport's rosters — fetched once.
+  useEffect(() => {
+    getAllKnownTeams().then(setKnownTeams);
+  }, []);
+
+  // (Re)load this sport's competitions whenever the admin-page sport switch changes.
   useEffect(() => {
     (async () => {
-      const [comps, known] = await Promise.all([getCompetitions(), getAllKnownTeams()]);
+      const comps = await getCompetitions([sport]);
       setCompetitions(comps);
-      setKnownTeams(known);
-      const first = comps.find((c) => c.sport === sport);
+      const first = comps[0];
       if (first) await loadRoster(first);
+      else setSelectedCompetition(null);
     })();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sport]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadRoster = async (competition: CompetitionDto) => {
     loadingForRef.current = competition.id;
@@ -103,8 +109,6 @@ const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) =>
     }
   };
 
-  const visibleCompetitions = competitions.filter((c) => c.sport === sport);
-
   // Load the F1 entry list once an F1 competition is shown.
   useEffect(() => {
     if (selectedCompetition?.sport === 'F1' && f1Drivers === null) {
@@ -112,21 +116,12 @@ const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) =>
     }
   }, [selectedCompetition, f1Drivers]);
 
-  // Follow the admin-page sport switch.
-  useEffect(() => {
-    if (selectedCompetition && selectedCompetition.sport !== sport) {
-      const first = competitions.find((c) => c.sport === sport);
-      if (first) loadRoster(first);
-      else setSelectedCompetition(null);
-    }
-  }, [sport]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const handleCreateCompetition = async (e: React.FormEvent) => {
     e.preventDefault();
     const name = newCompetitionName.trim();
     if (!name || competitions.some((c) => c.name === name)) return;
     await createCompetition(name, sport);
-    const updated = await getCompetitions();
+    const updated = await getCompetitions([sport]);
     setCompetitions(updated);
     setNewCompetitionName('');
     setShowNewCompetitionForm(false);
@@ -160,7 +155,7 @@ const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) =>
           const remaining = competitions.filter((c) => c.id !== competition.id);
           setCompetitions(remaining);
           if (selectedCompetition?.id === competition.id) {
-            const next = remaining.find((c) => c.sport === sport);
+            const next = remaining[0];
             if (next) await loadRoster(next);
             else setSelectedCompetition(null);
           }
@@ -207,7 +202,7 @@ const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) =>
         )}
 
         <div className="flex flex-wrap gap-2">
-          {visibleCompetitions.map((c) => (
+          {competitions.map((c) => (
             <div key={c.id} className="flex items-stretch rounded-lg overflow-hidden">
               <button
                 onClick={() => loadRoster(c)}
@@ -239,7 +234,7 @@ const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) =>
               </button>
             </div>
           ))}
-          {visibleCompetitions.length === 0 && (
+          {competitions.length === 0 && (
             <p className="text-sm text-gray-400">Aucune compétition pour ce sport — créez-en une ci-dessus.</p>
           )}
         </div>

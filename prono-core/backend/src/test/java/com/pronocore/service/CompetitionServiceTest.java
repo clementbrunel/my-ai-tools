@@ -42,13 +42,23 @@ class CompetitionServiceTest {
     // ── getAllCompetitions ──────────────────────────────────────────────────────
 
     @Test
-    void getAllCompetitions_returnsNamesInOrder() {
+    void getAllCompetitions_returnsNamesInOrderWhenNoSportFilter() {
         when(competitionRepository.findAllByOrderByNameAsc())
                 .thenReturn(List.of(COMPETITION_COPA, COMPETITION_WORLD_CUP));
 
-        assertThat(competitionService.getAllCompetitions())
+        assertThat(competitionService.getAllCompetitions(null))
                 .extracting("name")
                 .containsExactly("Copa América 2026", "FIFA World Cup 2026");
+    }
+
+    @Test
+    void getAllCompetitions_filtersBySportWhenProvided() {
+        when(competitionRepository.findAllBySportInOrderByNameAsc(List.of(com.pronocore.entity.Sport.FOOT)))
+                .thenReturn(List.of(COMPETITION_COPA));
+
+        assertThat(competitionService.getAllCompetitions(List.of(com.pronocore.entity.Sport.FOOT)))
+                .extracting("name")
+                .containsExactly("Copa América 2026");
     }
 
     // ── getTeamsForCompetition ─────────────────────────────────────────────────

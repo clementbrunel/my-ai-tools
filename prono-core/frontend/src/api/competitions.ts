@@ -6,8 +6,11 @@ export const createCompetition = async (name: string, sport: Sport): Promise<voi
   await apiClient.post('/competitions', { name, sport });
 };
 
-export const getCompetitions = async (): Promise<CompetitionDto[]> => {
-  const response = await apiClient.get<CompetitionDto[]>('/competitions');
+/** Omit `sports` (or pass an empty list) to get every competition regardless of sport. */
+export const getCompetitions = async (sports?: Sport[]): Promise<CompetitionDto[]> => {
+  const response = await apiClient.get<CompetitionDto[]>('/competitions', {
+    params: sports && sports.length > 0 ? { sport: sports.join(',') } : undefined,
+  });
   return response.data;
 };
 
