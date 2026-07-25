@@ -30,16 +30,19 @@ cp .env.example .env
 # puis éditer .env avec ta vraie RESEND_API_KEY
 ```
 
-### 3. Construire l'image
+### 3. Construire l'image et créer le container
 
 ```bash
 docker compose build
+docker compose create
 ```
+
+`create` crée le container **une seule fois**, sans le démarrer. C'est ce même container (nommé `mottaret-watch`) qui sera redémarré à chaque exécution planifiée — il n'est plus recréé toutes les heures, donc ses logs (`docker logs`) restent consultables même après un crash.
 
 ### 4. Tester un premier run
 
 ```bash
-docker compose run --rm mottaret-watch
+docker start -a mottaret-watch
 ```
 
 Le cache est persisté dans le volume Docker nommé `mottaret-data` (géré automatiquement).
@@ -55,10 +58,33 @@ docker volume rm mottaret-watch_mottaret-data
 Dans **Synology Task Scheduler** → Tâche déclenchée → Script utilisateur :
 
 ```bash
-cd /volume1/scripts/mottaret-watch && docker compose run --rm mottaret-watch
+docker start -a mottaret-watch
 ```
 
 Fréquence : toutes les heures.
+
+`docker start -a` démarre le container existant et attend qu'il se termine (comportement bloquant identique à l'ancien `docker compose run --rm`), mais **sans le détruire** à la fin. Le code de sortie du script (0 si OK, ≠0 si crash) reste répercuté normalement, donc Container Manager continue de signaler un vrai crash.
+
+### 6. Consulter les logs
+
+```bash
+docker logs mottaret-watch          # historique complet (toutes les exécutions passées)
+docker logs -f mottaret-watch       # suivre en direct
+docker logs --since 24h mottaret-watch
+```
+
+Les logs sont conservés par Docker avec rotation automatique (5 fichiers de 10 Mo max, voir `docker-compose.yml`), donc plus besoin d'aller chercher un container éphémère qui a disparu.
+
+### 7. Déployer une mise à jour du script
+
+Comme le container n'est plus recréé à chaque run, un changement de code nécessite de le recréer explicitement pour qu'il utilise la nouvelle image :
+
+```bash
+docker compose build
+docker compose up --no-start --force-recreate mottaret-watch
+```
+
+⚠️ Recréer le container repart avec des logs vides (nouvel ID de container) — le cache, lui, n'est pas affecté car il vit dans le volume `mottaret-data`, séparé du container.
 
 ---
 
