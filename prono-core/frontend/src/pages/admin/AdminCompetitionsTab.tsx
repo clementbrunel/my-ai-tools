@@ -6,6 +6,7 @@ import {
   getCompetitionTeams,
   getAllKnownTeams,
   setCompetitionTeams,
+  setCompetitionActive,
   findOrCreateTeam,
 } from '@/api/competitions';
 import { getDrivers } from '@/api/f1';
@@ -129,6 +130,17 @@ const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) =>
 
   const inRoster = (teamId: number) => rosterTeamIds.has(teamId);
 
+  const toggleActive = async (competition: CompetitionDto) => {
+    const active = !competition.active;
+    try {
+      await setCompetitionActive(competition.id, active);
+      setCompetitions((prev) => prev.map((c) => (c.id === competition.id ? { ...c, active } : c)));
+      setSelectedCompetition((prev) => (prev?.id === competition.id ? { ...prev, active } : prev));
+    } catch {
+      showToast('Erreur lors de la mise à jour du statut');
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Competition selector */}
@@ -165,17 +177,29 @@ const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) =>
 
         <div className="flex flex-wrap gap-2">
           {visibleCompetitions.map((c) => (
-            <button
-              key={c.id}
-              onClick={() => loadRoster(c)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                selectedCompetition?.id === c.id
-                  ? 'bg-wc-green text-white'
-                  : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-              }`}
-            >
-              {c.name}
-            </button>
+            <div key={c.id} className="flex items-center rounded-lg overflow-hidden">
+              <button
+                onClick={() => loadRoster(c)}
+                className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+                  selectedCompetition?.id === c.id
+                    ? 'bg-wc-green text-white'
+                    : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                } ${!c.active ? 'opacity-50' : ''}`}
+              >
+                {c.name}
+              </button>
+              <button
+                onClick={() => toggleActive(c)}
+                title={c.active ? 'Active — visible par défaut dans les filtres' : 'Inactive — masquée par défaut dans les filtres'}
+                className={`px-2 py-1.5 text-xs border-l border-white/20 transition-colors ${
+                  selectedCompetition?.id === c.id
+                    ? 'bg-wc-green text-white'
+                    : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                }`}
+              >
+                {c.active ? '● Active' : '○ Inactive'}
+              </button>
+            </div>
           ))}
           {visibleCompetitions.length === 0 && (
             <p className="text-sm text-gray-400">Aucune compétition pour ce sport — créez-en une ci-dessus.</p>

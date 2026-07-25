@@ -42,6 +42,14 @@ public class CompetitionController {
         return ResponseEntity.noContent().build();
     }
 
+    @PutMapping("/{competitionId}/active")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+    @Operation(summary = "Activate or deactivate a competition — inactive competitions are hidden by default from the public filters (Admin only)")
+    public ResponseEntity<Void> setActive(@PathVariable Long competitionId, @RequestBody boolean active) {
+        competitionService.setActive(competitionId, active);
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/known-teams")
     @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     @Operation(summary = "All distinct teams across every competition (Admin only)")

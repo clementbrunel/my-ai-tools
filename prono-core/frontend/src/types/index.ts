@@ -95,6 +95,7 @@ export interface CompetitionDto {
   id: number;
   name: string;
   sport: Sport;
+  active: boolean;
 }
 
 export type MatchPhase = 'POOL' | 'KNOCKOUT';
