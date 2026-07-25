@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   getConstructorStandings,
   getConstructorStandingsHistory,
@@ -52,7 +52,9 @@ const StandingRow: React.FC<{ standing: F1Standing; isDriver: boolean }> = ({ st
 };
 
 const F1Standings: React.FC = () => {
-  const [tab, setTab] = useState<Tab>('drivers');
+  const [searchParams] = useSearchParams();
+  const initialTab: Tab = searchParams.get('tab') === 'constructors' ? 'constructors' : 'drivers';
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [drivers, setDrivers] = useState<F1Standing[]>([]);
   const [constructors, setConstructors] = useState<F1Standing[]>([]);
