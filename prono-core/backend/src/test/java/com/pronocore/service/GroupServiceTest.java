@@ -31,6 +31,7 @@ class GroupServiceTest {
     @Mock private GroupRepository       groupRepository;
     @Mock private GroupMemberRepository groupMemberRepository;
     @Mock private UserRepository        userRepository;
+    @Mock private EmailService          emailService;
 
     @InjectMocks
     private GroupService groupService;

@@ -32,6 +32,7 @@ public class GroupService {
     private final GroupRepository groupRepository;
     private final GroupMemberRepository groupMemberRepository;
     private final UserRepository userRepository;
+    private final EmailService emailService;
 
     @Transactional
     public GroupResponse createGroup(CreateGroupRequest request, String username) {
