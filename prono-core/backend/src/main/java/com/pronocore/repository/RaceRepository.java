@@ -39,6 +39,17 @@ public interface RaceRepository extends JpaRepository<Race, Long> {
     List<Race> findUpcomingRacesForReminder(@Param("from") LocalDateTime from,
                                             @Param("to")   LocalDateTime to);
 
+    /** Upcoming races whose qualifying falls in [from, to] and for which no qualifying reminder has been sent yet. */
+    @Query("""
+            SELECT r FROM Race r
+            WHERE r.status = com.pronocore.entity.Race.Status.UPCOMING
+              AND r.qualifyingReminderSent = false
+              AND r.qualifyingDate >= :from
+              AND r.qualifyingDate <= :to
+            """)
+    List<Race> findUpcomingRacesForQualifyingReminder(@Param("from") LocalDateTime from,
+                                                      @Param("to")   LocalDateTime to);
+
     /** All UPCOMING races today (in [startOfDay, endOfDay)) that have at least one OPEN bet
      *  in one of the user's ACTIVE groups and on which the user has not yet predicted.
      *  Only races that have not yet started (raceDate > now) are returned. */
@@ -63,4 +74,28 @@ public interface RaceRepository extends JpaRepository<Race, Long> {
                                             @Param("startOfDay") LocalDateTime startOfDay,
                                             @Param("endOfDay")   LocalDateTime endOfDay,
                                             @Param("now")        LocalDateTime now);
+
+    /** Same as {@link #findPendingRacesTodayForUser} but windowed on qualifyingDate instead of
+     *  raceDate — used by the qualifying reminder, which fires ahead of the race reminder. */
+    @Query("""
+            SELECT DISTINCT r FROM Race r
+            JOIN Bet b ON b.race = r
+            JOIN GroupMember gm ON gm.group = b.group
+            WHERE gm.user.id = :userId
+              AND gm.status = com.pronocore.entity.GroupMember.MemberStatus.ACTIVE
+              AND b.status = com.pronocore.entity.Bet.Status.OPEN
+              AND r.status = com.pronocore.entity.Race.Status.UPCOMING
+              AND r.qualifyingDate >= :startOfDay
+              AND r.qualifyingDate < :endOfDay
+              AND r.qualifyingDate > :now
+              AND NOT EXISTS (
+                  SELECT bp FROM BetParticipation bp
+                  WHERE bp.bet.race = r AND bp.user.id = :userId
+              )
+            ORDER BY r.qualifyingDate ASC
+            """)
+    List<Race> findPendingRacesTodayForUserBeforeQualifying(@Param("userId")     Long          userId,
+                                                            @Param("startOfDay") LocalDateTime startOfDay,
+                                                            @Param("endOfDay")   LocalDateTime endOfDay,
+                                                            @Param("now")        LocalDateTime now);
 }

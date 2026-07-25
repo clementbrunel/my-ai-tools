@@ -181,4 +181,73 @@ public class ReminderSchedulerService {
             raceRepository.save(r);
         });
     }
+
+    /**
+     * F1-only reminder that fires 4h ahead of qualifying rather than the race start, since the
+     * pole pick locks at {@code qualifyingDate} while the rest of the prediction (podium, fastest
+     * lap, last place) still locks at {@code raceDate} — see {@link #sendRaceReminders()}, which
+     * still runs independently and covers those other picks. Same dedup rules (one email per user
+     * per trigger day, only to users who haven't bet at all on the race yet), just windowed on
+     * qualifyingDate and tracked via its own flags so the two reminders don't interfere.
+     */
+    @Scheduled(fixedDelay = 60_000)
+    @Transactional
+    public void sendQualifyingReminders() {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDate today = now.toLocalDate();
+
+        List<Race> triggerRaces = raceRepository.findUpcomingRacesForQualifyingReminder(
+                now.plusMinutes(239), now.plusMinutes(241));
+
+        if (triggerRaces.isEmpty()) return;
+
+        LocalDate latestTriggerDay = triggerRaces.stream()
+                .map(r -> r.getQualifyingDate().toLocalDate())
+                .max(LocalDate::compareTo)
+                .orElse(today);
+
+        Map<Long, User> usersToRemind = new LinkedHashMap<>();
+
+        for (Race race : triggerRaces) {
+            List<Bet> openBets = betRepository.findByRaceIdAndStatusOrderByCreatedAtDesc(
+                    race.getId(), Bet.Status.OPEN);
+
+            for (Bet bet : openBets) {
+                List<GroupMember> members = groupMemberRepository.findByGroupIdAndStatus(
+                        bet.getGroup().getId(), GroupMember.MemberStatus.ACTIVE);
+
+                for (GroupMember gm : members) {
+                    User user = gm.getUser();
+                    if (!user.isEmailReminderEnabled()) continue;
+                    if (latestTriggerDay.equals(user.getQualifyingReminderSentDate())) continue;
+                    if (betParticipationRepository.existsByUserIdAndRaceId(user.getId(), race.getId())) continue;
+                    usersToRemind.put(user.getId(), user);
+                }
+            }
+        }
+
+        log.info("Triggered by {} race qualifying(s), reminding {} user(s)", triggerRaces.size(), usersToRemind.size());
+
+        LocalDateTime startOfDay = today.atStartOfDay();
+        LocalDateTime endOfWindow = latestTriggerDay.plusDays(1).atStartOfDay();
+
+        for (User user : usersToRemind.values()) {
+            List<Race> allPending = raceRepository.findPendingRacesTodayForUserBeforeQualifying(
+                    user.getId(), startOfDay, endOfWindow, now);
+
+            if (!allPending.isEmpty()) {
+                emailService.sendQualifyingReminder(user, allPending);
+                log.info("Qualifying reminder sent to {} ({}) for {} race(s): {}",
+                        user.getUsername(), user.getEmail(), allPending.size(),
+                        allPending.stream().map(Race::getName).toList());
+            }
+            user.setQualifyingReminderSentDate(latestTriggerDay);
+            userRepository.save(user);
+        }
+
+        triggerRaces.forEach(r -> {
+            r.setQualifyingReminderSent(true);
+            raceRepository.save(r);
+        });
+    }
 }

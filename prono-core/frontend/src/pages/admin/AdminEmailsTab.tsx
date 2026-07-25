@@ -52,6 +52,19 @@ const EMAIL_TEMPLATES: EmailTemplateInfo[] = [
     ),
   },
   {
+    type: 'QUALIFYING_REMINDER',
+    label: 'Rappel de qualifs F1',
+    theme: 'F1',
+    description: (
+      <>
+        Envoyé automatiquement 4 heures avant les qualifs de chaque Grand Prix aux joueurs n'ayant pas encore saisi leur pronostic.
+        S'ajoute au rappel de course : la pole se verrouille aux qualifs, le reste du prono (podium, meilleur tour, lanterne rouge) reste jouable jusqu'au départ.
+        Activable / désactivable par chaque utilisateur dans son profil (même réglage que les autres rappels).
+        Le test utilise une course fictive (Grand Prix de Monaco).
+      </>
+    ),
+  },
+  {
     type: 'GAGE_RESOLUTION',
     label: 'Résolution du gage du jour',
     theme: 'NEUTRAL',
