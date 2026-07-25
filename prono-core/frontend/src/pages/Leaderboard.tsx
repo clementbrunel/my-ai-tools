@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getGroupLeaderboard } from '@/api/leaderboard';
-import { useSport } from '@/context/SportContext';
+import { useSport, toApiSport } from '@/context/SportContext';
 import { getMyGroups } from '@/api/groups';
 import { getGroupAssignments } from '@/api/forfeits';
 import type { GroupUserForfeit, LeaderboardEntry, Group } from '@/types';
@@ -124,15 +124,26 @@ const Leaderboard: React.FC = () => {
   const [gagesFilter, setGagesFilter] = useState<'pending' | 'completed'>('pending');
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load the user's groups and select the first one
+  // Load the user's groups
   useEffect(() => {
     getMyGroups()
-      .then((g) => {
-        setGroups(g);
-        if (g.length > 0) setSelectedGroupId(g[0].id);
-      })
+      .then(setGroups)
       .catch(logger.error);
   }, []);
+
+  // Keep the selected group in sync with the active sport: only groups
+  // playing the current sport are selectable, so switching sports (or the
+  // initial load) picks the first matching group instead of leaving a
+  // group from the other sport selected.
+  const sportKey = toApiSport(sport);
+  const filteredGroups = groups.filter((g) => g.sports.includes(sportKey));
+
+  useEffect(() => {
+    if (!filteredGroups.some((g) => g.id === selectedGroupId)) {
+      setSelectedGroupId(filteredGroups.length > 0 ? filteredGroups[0].id : null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sportKey, groups]);
 
   // Load the leaderboard for the selected group
   useEffect(() => {
@@ -141,7 +152,7 @@ const Leaderboard: React.FC = () => {
       return;
     }
     setIsLoading(true);
-    getGroupLeaderboard(selectedGroupId, sport === 'f1' ? 'F1' : 'FOOT')
+    getGroupLeaderboard(selectedGroupId, sportKey)
       .then(setEntries).catch(logger.error).finally(() => setIsLoading(false));
 
     if (selectedGroupId != null) {
@@ -149,7 +160,7 @@ const Leaderboard: React.FC = () => {
     } else {
       setAllGages([]);
     }
-  }, [selectedGroupId, sport]);
+  }, [selectedGroupId, sportKey]);
 
   if (isLoading) {
     return (
@@ -166,7 +177,7 @@ const Leaderboard: React.FC = () => {
     <div className="space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="page-title mb-0">🏆 Classement</h1>
-        {groups.length > 0 ? (
+        {filteredGroups.length > 0 ? (
           <div className="flex items-center gap-2">
             <label className="label mb-0">Groupe</label>
             <select
@@ -174,7 +185,7 @@ const Leaderboard: React.FC = () => {
               onChange={(e) => setSelectedGroupId(Number(e.target.value))}
               className="input-field"
             >
-              {groups.map((g) => (
+              {filteredGroups.map((g) => (
                 <option key={g.id} value={g.id}>{g.name}</option>
               ))}
             </select>
