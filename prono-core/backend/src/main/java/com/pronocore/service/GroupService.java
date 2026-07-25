@@ -249,7 +249,7 @@ public class GroupService {
 
     // -------------------------------------------------------------------------
 
-    private String generateUniqueCode() {
+    String generateUniqueCode() {
         String chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
         Random rnd = new Random();
         String code;

@@ -1,5 +1,5 @@
 import apiClient from './axios';
-import type { Group, GroupMember, PublicGroup, CreateGroupRequest, JoinGroupRequest, Match, Race, Sport } from '@/types';
+import type { Group, GroupMember, PublicGroup, CreateGroupRequest, JoinGroupRequest, UpdateGroupInfoRequest, Match, Race, Sport } from '@/types';
 
 export const getAllGroups = async (): Promise<Group[]> => {
   const response = await apiClient.get<Group[]>('/groups');
@@ -52,6 +52,17 @@ export const updateGroupSports = async (groupId: number, sports: Sport[]): Promi
 
 export const updateGroupPrivacy = async (groupId: number, isPrivate: boolean): Promise<Group> => {
   const response = await apiClient.patch<Group>(`/groups/${groupId}/privacy`, { isPrivate });
+  return response.data;
+};
+
+export const updateGroupInfo = async (groupId: number, data: UpdateGroupInfoRequest): Promise<Group> => {
+  const response = await apiClient.patch<Group>(`/groups/${groupId}/info`, data);
+  return response.data;
+};
+
+/** Pass a custom code to set it, or omit/empty to have the server generate a new random one. */
+export const updateGroupInviteCode = async (groupId: number, inviteCode?: string): Promise<Group> => {
+  const response = await apiClient.patch<Group>(`/groups/${groupId}/invite-code`, { inviteCode });
   return response.data;
 };
 

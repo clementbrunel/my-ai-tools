@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   approveApplication, rejectApplication,
   promoteMember, demoteMember, removeMember, leaveGroup,
+  updateGroupInfo, updateGroupInviteCode,
 } from '@/api/groups';
 import type { Group } from '@/types';
 import { useAuth } from '@/context/AuthContext';
@@ -23,6 +24,18 @@ const GroupCard: React.FC<Props> = ({ group, onLeave, onUpdate }) => {
 
   const [copiedCode, setCopiedCode] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
+
+  const [isEditingInfo, setIsEditingInfo] = useState(false);
+  const [editName, setEditName] = useState(group.name);
+  const [editDescription, setEditDescription] = useState(group.description ?? '');
+  const [savingInfo, setSavingInfo] = useState(false);
+  const [infoError, setInfoError] = useState<string | null>(null);
+
+  const [isEditingCode, setIsEditingCode] = useState(false);
+  const [editInviteCode, setEditInviteCode] = useState(group.inviteCode);
+  const [savingCode, setSavingCode] = useState(false);
+  const [codeError, setCodeError] = useState<string | null>(null);
+
   const [confirmDialog, setConfirmDialog] = useState<{
     title: string;
     message: string;
@@ -35,6 +48,68 @@ const GroupCard: React.FC<Props> = ({ group, onLeave, onUpdate }) => {
     navigator.clipboard.writeText(group.inviteCode);
     setCopiedCode(true);
     setTimeout(() => setCopiedCode(false), 2000);
+  };
+
+  const openEditInfo = () => {
+    setEditName(group.name);
+    setEditDescription(group.description ?? '');
+    setInfoError(null);
+    setIsEditingInfo(true);
+  };
+
+  const handleSaveInfo = async () => {
+    if (editName.trim().length < 2) {
+      setInfoError('Le nom doit contenir au moins 2 caractères.');
+      return;
+    }
+    setSavingInfo(true);
+    setInfoError(null);
+    try {
+      const updated = await updateGroupInfo(group.id, {
+        name: editName.trim(),
+        description: editDescription.trim() || undefined,
+      });
+      onUpdate(updated);
+      setIsEditingInfo(false);
+    } catch {
+      setInfoError('Erreur lors de la mise à jour du groupe.');
+    } finally {
+      setSavingInfo(false);
+    }
+  };
+
+  const openEditCode = () => {
+    setEditInviteCode(group.inviteCode);
+    setCodeError(null);
+    setIsEditingCode(true);
+  };
+
+  const handleSaveCode = async () => {
+    setSavingCode(true);
+    setCodeError(null);
+    try {
+      const updated = await updateGroupInviteCode(group.id, editInviteCode.trim());
+      onUpdate(updated);
+      setIsEditingCode(false);
+    } catch {
+      setCodeError("Ce code n'est pas disponible ou invalide (4 à 20 lettres/chiffres).");
+    } finally {
+      setSavingCode(false);
+    }
+  };
+
+  const handleRegenerateCode = async () => {
+    setSavingCode(true);
+    setCodeError(null);
+    try {
+      const updated = await updateGroupInviteCode(group.id);
+      onUpdate(updated);
+      setEditInviteCode(updated.inviteCode);
+    } catch {
+      setCodeError('Erreur lors de la régénération du code.');
+    } finally {
+      setSavingCode(false);
+    }
   };
 
   const handleLeave = () => {
@@ -134,25 +209,74 @@ const GroupCard: React.FC<Props> = ({ group, onLeave, onUpdate }) => {
     <div className="card space-y-4">
       {/* Header */}
       <div className="flex items-start justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-xl font-black text-gray-900 dark:text-white">{group.name}</h2>
-            {group.isPrivate && (
-              <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-1.5 py-0.5 rounded">
-                🔒 Privé
-              </span>
-            )}
+        {isEditingInfo ? (
+          <div className="flex-1 mr-3 space-y-2">
+            <input
+              type="text"
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              minLength={2}
+              maxLength={100}
+              className="input-field w-full font-black text-lg"
+              placeholder="Nom du groupe"
+            />
+            <textarea
+              value={editDescription}
+              onChange={(e) => setEditDescription(e.target.value)}
+              maxLength={500}
+              rows={2}
+              className="input-field w-full text-sm"
+              placeholder="Description (optionnelle)"
+            />
+            {infoError && <p className="text-red-500 text-xs">{infoError}</p>}
+            <div className="flex gap-2">
+              <button
+                onClick={handleSaveInfo}
+                disabled={savingInfo}
+                className="btn-primary text-xs disabled:opacity-50"
+              >
+                {savingInfo ? 'Enregistrement...' : 'Enregistrer'}
+              </button>
+              <button
+                onClick={() => setIsEditingInfo(false)}
+                disabled={savingInfo}
+                className="btn-secondary text-xs"
+              >
+                Annuler
+              </button>
+            </div>
           </div>
-          {group.description && (
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{group.description}</p>
-          )}
-          <p className="text-xs text-gray-400 mt-1">
-            {group.memberCount} membre{group.memberCount > 1 ? 's' : ''}
-          </p>
-        </div>
+        ) : (
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-black text-gray-900 dark:text-white">{group.name}</h2>
+              {group.isPrivate && (
+                <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-1.5 py-0.5 rounded">
+                  🔒 Privé
+                </span>
+              )}
+              {isGroupAdmin && (
+                <button
+                  onClick={openEditInfo}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs"
+                  title="Modifier le nom et la description"
+                  aria-label="Modifier le nom et la description"
+                >
+                  ✏️
+                </button>
+              )}
+            </div>
+            {group.description && (
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{group.description}</p>
+            )}
+            <p className="text-xs text-gray-400 mt-1">
+              {group.memberCount} membre{group.memberCount > 1 ? 's' : ''}
+            </p>
+          </div>
+        )}
         <button
           onClick={handleLeave}
-          className="text-xs text-red-400 hover:text-red-600 transition-colors"
+          className="text-xs text-red-400 hover:text-red-600 transition-colors shrink-0"
         >
           Quitter
         </button>
@@ -216,16 +340,62 @@ const GroupCard: React.FC<Props> = ({ group, onLeave, onUpdate }) => {
       )}
 
       {/* Invite code */}
-      <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 flex items-center justify-between gap-3">
-        <div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Code d'invitation</p>
-          <span className="font-mono font-bold text-lg tracking-widest text-gray-900 dark:text-white">
-            {group.inviteCode}
-          </span>
-        </div>
-        <button onClick={copyCode} className="btn-secondary text-xs whitespace-nowrap">
-          {copiedCode ? '✓ Copié !' : 'Copier'}
-        </button>
+      <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 space-y-2">
+        {isEditingCode ? (
+          <div className="space-y-2">
+            <p className="text-xs text-gray-500 dark:text-gray-400">Code d'invitation</p>
+            <input
+              type="text"
+              value={editInviteCode}
+              onChange={(e) => setEditInviteCode(e.target.value.toUpperCase())}
+              maxLength={20}
+              className="input-field w-full font-mono font-bold tracking-widest uppercase"
+            />
+            {codeError && <p className="text-red-500 text-xs">{codeError}</p>}
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={handleSaveCode}
+                disabled={savingCode}
+                className="btn-primary text-xs disabled:opacity-50"
+              >
+                {savingCode ? 'Enregistrement...' : 'Enregistrer'}
+              </button>
+              <button
+                onClick={handleRegenerateCode}
+                disabled={savingCode}
+                className="btn-secondary text-xs disabled:opacity-50"
+              >
+                🔄 Régénérer
+              </button>
+              <button
+                onClick={() => setIsEditingCode(false)}
+                disabled={savingCode}
+                className="btn-secondary text-xs"
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Code d'invitation</p>
+              <span className="font-mono font-bold text-lg tracking-widest text-gray-900 dark:text-white">
+                {group.inviteCode}
+              </span>
+            </div>
+            <div className="flex gap-2 shrink-0">
+              {isGroupAdmin && (
+                <button onClick={openEditCode} className="btn-secondary text-xs whitespace-nowrap">
+                  Modifier
+                </button>
+              )}
+              <button onClick={copyCode} className="btn-secondary text-xs whitespace-nowrap">
+                {copiedCode ? '✓ Copié !' : 'Copier'}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Members list */}
