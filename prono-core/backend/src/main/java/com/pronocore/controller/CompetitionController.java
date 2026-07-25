@@ -3,8 +3,10 @@ package com.pronocore.controller;
 import com.pronocore.dto.request.CreateCompetitionRequest;
 import com.pronocore.dto.response.CompetitionResponse;
 import com.pronocore.dto.response.TeamResponse;
+import com.pronocore.entity.Sport;
 import com.pronocore.service.CompetitionService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.validation.Valid;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -23,9 +25,11 @@ public class CompetitionController {
     private final CompetitionService competitionService;
 
     @GetMapping
-    @Operation(summary = "All competitions")
-    public ResponseEntity<List<CompetitionResponse>> getAllCompetitions() {
-        return ResponseEntity.ok(competitionService.getAllCompetitions());
+    @Operation(summary = "Competitions, optionally restricted to a set of sports")
+    public ResponseEntity<List<CompetitionResponse>> getAllCompetitions(
+            @Parameter(description = "Sports to filter by; omit to get every competition")
+            @RequestParam(required = false) List<Sport> sport) {
+        return ResponseEntity.ok(competitionService.getAllCompetitions(sport));
     }
 
     @GetMapping("/{competitionId}/teams")

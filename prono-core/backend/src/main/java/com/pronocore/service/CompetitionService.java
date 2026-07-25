@@ -25,10 +25,16 @@ public class CompetitionService {
     private final MatchRepository       matchRepository;
     private final RaceRepository        raceRepository;
 
+    /**
+     * @param sports restricts the result to these sports; null or empty returns every competition.
+     */
     @Transactional(readOnly = true)
-    public List<CompetitionResponse> getAllCompetitions() {
-        return competitionRepository.findAllByOrderByNameAsc()
-                .stream().map(c -> new CompetitionResponse(c.getId(), c.getName(), c.getSport(), c.isActive())).toList();
+    public List<CompetitionResponse> getAllCompetitions(List<Sport> sports) {
+        List<Competition> competitions = (sports == null || sports.isEmpty())
+                ? competitionRepository.findAllByOrderByNameAsc()
+                : competitionRepository.findAllBySportInOrderByNameAsc(sports);
+        return competitions.stream()
+                .map(c -> new CompetitionResponse(c.getId(), c.getName(), c.getSport(), c.isActive())).toList();
     }
 
     @Transactional(readOnly = true)

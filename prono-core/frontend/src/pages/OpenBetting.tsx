@@ -47,9 +47,9 @@ const OpenBetting: React.FC = () => {
       .finally(() => setIsLoading(false));
   }, []);
 
-  // Load the full list of registered competitions for the filter dropdown
+  // Load the full list of registered football competitions for the filter dropdown
   useEffect(() => {
-    getCompetitions()
+    getCompetitions(['FOOT'])
       .then(setAllCompetitions)
       .catch(() => setError('Impossible de charger les compétitions'));
   }, []);
