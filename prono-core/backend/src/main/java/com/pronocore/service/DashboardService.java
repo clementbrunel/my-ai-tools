@@ -5,6 +5,7 @@ import com.pronocore.dto.response.GroupRankResponse;
 import com.pronocore.entity.Bet;
 import com.pronocore.entity.GroupMember;
 import com.pronocore.entity.Match;
+import com.pronocore.entity.Sport;
 import com.pronocore.entity.User;
 import com.pronocore.repository.BetParticipationRepository;
 import com.pronocore.repository.BetRepository;
@@ -40,8 +41,12 @@ public class DashboardService {
         long upcomingCount = betRepository.countDistinctUpcomingMatchesInUserGroups(
                 user.getId(), Bet.Status.OPEN, Match.Status.UPCOMING);
 
-        // Query 2: all group memberships for the user (with group info)
-        List<GroupMember> userMemberships = groupMemberRepository.findByUserId(user.getId());
+        // Query 2: all group memberships for the user (with group info), restricted to
+        // groups that actually have football enabled — the dashboard is a football-only
+        // page, so groups without FOOT (e.g. F1-only groups) must not show up here.
+        List<GroupMember> userMemberships = groupMemberRepository.findByUserId(user.getId()).stream()
+                .filter(gm -> gm.getGroup().getSports().contains(Sport.FOOT))
+                .collect(Collectors.toList());
         List<Long> groupIds = userMemberships.stream()
                 .map(gm -> gm.getGroup().getId())
                 .collect(Collectors.toList());

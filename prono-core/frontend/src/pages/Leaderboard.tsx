@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { getGroupLeaderboard } from '@/api/leaderboard';
 import { useSport, toApiSport } from '@/context/SportContext';
 import { getMyGroups } from '@/api/groups';
@@ -117,6 +118,8 @@ const GagesSection: React.FC<GagesSectionProps> = ({ gages, currentUsername, com
 const Leaderboard: React.FC = () => {
   const { user } = useAuth();
   const { sport } = useSport();
+  const [searchParams] = useSearchParams();
+  const groupIdFromUrl = searchParams.get('groupId') ? Number(searchParams.get('groupId')) : null;
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
@@ -134,13 +137,18 @@ const Leaderboard: React.FC = () => {
   // Keep the selected group in sync with the active sport: only groups
   // playing the current sport are selectable, so switching sports (or the
   // initial load) picks the first matching group instead of leaving a
-  // group from the other sport selected.
+  // group from the other sport selected. A ?groupId= from the URL (e.g. a
+  // link from the dashboard) takes priority over that default pick.
   const sportKey = toApiSport(sport);
   const filteredGroups = groups.filter((g) => g.sports.includes(sportKey));
 
   useEffect(() => {
     if (!filteredGroups.some((g) => g.id === selectedGroupId)) {
-      setSelectedGroupId(filteredGroups.length > 0 ? filteredGroups[0].id : null);
+      if (groupIdFromUrl != null && filteredGroups.some((g) => g.id === groupIdFromUrl)) {
+        setSelectedGroupId(groupIdFromUrl);
+      } else {
+        setSelectedGroupId(filteredGroups.length > 0 ? filteredGroups[0].id : null);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sportKey, groups]);

@@ -5,6 +5,7 @@ import com.pronocore.entity.Bet;
 import com.pronocore.entity.Group;
 import com.pronocore.entity.GroupMember;
 import com.pronocore.entity.Match;
+import com.pronocore.entity.Sport;
 import com.pronocore.entity.User;
 import com.pronocore.repository.BetParticipationRepository;
 import com.pronocore.repository.BetRepository;
@@ -172,6 +173,28 @@ class DashboardServiceTest {
         assertThat(rank.getPoints()).isEqualTo(0);
         assertThat(rank.getRank()).isEqualTo(2); // alice is first, bob is last
         assertThat(rank.getTotal()).isEqualTo(2);
+    }
+
+    /**
+     * A group with F1 only (no FOOT) must not contribute a groupRank, since the
+     * dashboard is a football-only page.
+     */
+    @Test
+    void getStats_shouldExcludeGroupsWithoutFootballEnabled() {
+        Group f1OnlyGroup = Group.builder()
+                .id(20L).name("F1 Only Group").inviteCode("F1CODE").createdBy(alice)
+                .sports(java.util.Set.of(Sport.F1))
+                .build();
+        GroupMember aliceF1Membership = membership(alice, f1OnlyGroup);
+
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(alice));
+        when(betRepository.countDistinctUpcomingMatchesInUserGroups(any(), any(), any())).thenReturn(0L);
+        when(groupMemberRepository.findByUserId(1L)).thenReturn(List.of(aliceF1Membership));
+
+        DashboardStatsResponse result = dashboardService.getStats("alice");
+
+        assertThat(result.getGroupRanks()).isEmpty();
+        verifyNoInteractions(betParticipationRepository);
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────

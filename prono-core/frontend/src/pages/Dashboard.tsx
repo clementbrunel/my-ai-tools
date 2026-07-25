@@ -92,7 +92,14 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* Classement & Points — double tile, cliquable vers le classement */}
-        <Link to="/foot/leaderboard" className="stat-card sm:col-span-2 block hover:ring-2 hover:ring-wc-green transition-all cursor-pointer">
+        <Link
+          to={
+            groupRanks.length === 0
+              ? '/foot/leaderboard'
+              : `/foot/leaderboard?groupId=${(groupRanks[selectedGroupIdx] ?? groupRanks[0]).groupId}`
+          }
+          className="stat-card sm:col-span-2 block hover:ring-2 hover:ring-wc-green transition-all cursor-pointer"
+        >
           {groupRanks.length === 0 ? (
             <div className="text-gray-400 dark:text-gray-500 text-sm">Rejoins un groupe pour voir ton classement</div>
           ) : (() => {
