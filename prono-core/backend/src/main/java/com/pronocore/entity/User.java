@@ -60,6 +60,9 @@ public class User {
     @Column(name = "race_reminder_sent_date")
     private java.time.LocalDate raceReminderSentDate;
 
+    @Column(name = "qualifying_reminder_sent_date")
+    private java.time.LocalDate qualifyingReminderSentDate;
+
     @Column(name = "email_gage_enabled", nullable = false)
     @Builder.Default
     private boolean emailGageEnabled = false;

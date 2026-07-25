@@ -18,6 +18,7 @@ import com.pronocore.service.email.template.GroupNewRacesEmailTemplate;
 import com.pronocore.service.email.template.MatchReminderEmailTemplate;
 import com.pronocore.service.email.template.MembershipRequestEmailTemplate;
 import com.pronocore.service.email.template.PasswordResetEmailTemplate;
+import com.pronocore.service.email.template.QualifyingReminderEmailTemplate;
 import com.pronocore.service.email.template.RaceReminderEmailTemplate;
 import com.pronocore.service.email.template.TestCedricEmailTemplate;
 import com.pronocore.service.email.template.VerificationEmailTemplate;
@@ -56,7 +57,7 @@ public class EmailService {
         return switch (emailType) {
             case VERIFICATION, PASSWORD_RESET, TEST_CEDRIC, GAGE_RESOLUTION, GROUP_MEMBERSHIP_REQUEST -> EmailTheme.NEUTRAL;
             case MATCH_REMINDER, GROUP_NEW_MATCHES -> EmailTheme.FOOTBALL;
-            case RACE_REMINDER, GROUP_NEW_RACES -> EmailTheme.F1;
+            case RACE_REMINDER, QUALIFYING_REMINDER, GROUP_NEW_RACES -> EmailTheme.F1;
         };
     }
 
@@ -92,6 +93,17 @@ public class EmailService {
                 );
                 emailSender.send(to, RaceReminderEmailTemplate.subject(fakeRaces),
                     RaceReminderEmailTemplate.build(themeFor(EmailType.RACE_REMINDER), fakeUser, fakeRaces, frontendUrl));
+            }
+            case QUALIFYING_REMINDER -> {
+                User fakeUser = User.builder().username("joueur_test").email(to).emailReminderEnabled(true).build();
+                List<Race> fakeRaces = List.of(
+                    Race.builder().id(0L).name("Grand Prix de Monaco").circuit("Circuit de Monaco")
+                        .round(7).qualifyingDate(LocalDateTime.now().plusHours(1))
+                        .raceDate(LocalDateTime.now().plusDays(1))
+                        .competition(F1_CHAMPIONSHIP_2026).qualifyingReminderSent(false).build()
+                );
+                emailSender.send(to, QualifyingReminderEmailTemplate.subject(fakeRaces),
+                    QualifyingReminderEmailTemplate.build(themeFor(EmailType.QUALIFYING_REMINDER), fakeUser, fakeRaces, frontendUrl));
             }
             case GAGE_RESOLUTION -> {
                 User fakeRecipient = User.builder().username("joueur_test").displayName("Joueur Test").email(to).build();
@@ -184,6 +196,17 @@ public class EmailService {
             log.info("Race reminder sent to {} ({} race(s))", user.getEmail(), races.size());
         } catch (Exception e) {
             log.error("Failed to send race reminder to {}: {}", user.getEmail(), e.getMessage());
+        }
+    }
+
+    public void sendQualifyingReminder(User user, List<Race> races) {
+        if (races.isEmpty()) return;
+        try {
+            emailSender.send(user.getEmail(), QualifyingReminderEmailTemplate.subject(races),
+                QualifyingReminderEmailTemplate.build(themeFor(EmailType.QUALIFYING_REMINDER), user, races, frontendUrl));
+            log.info("Qualifying reminder sent to {} ({} race(s))", user.getEmail(), races.size());
+        } catch (Exception e) {
+            log.error("Failed to send qualifying reminder to {}: {}", user.getEmail(), e.getMessage());
         }
     }
 

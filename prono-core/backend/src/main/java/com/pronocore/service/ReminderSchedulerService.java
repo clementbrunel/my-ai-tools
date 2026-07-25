@@ -7,6 +7,7 @@ import com.pronocore.entity.Race;
 import com.pronocore.entity.User;
 import com.pronocore.repository.BetParticipationRepository;
 import com.pronocore.repository.BetRepository;
+import com.pronocore.repository.F1PredictionRepository;
 import com.pronocore.repository.GroupMemberRepository;
 import com.pronocore.repository.MatchRepository;
 import com.pronocore.repository.RaceRepository;
@@ -33,6 +34,7 @@ public class ReminderSchedulerService {
     private final BetRepository betRepository;
     private final GroupMemberRepository groupMemberRepository;
     private final BetParticipationRepository betParticipationRepository;
+    private final F1PredictionRepository f1PredictionRepository;
     private final UserRepository userRepository;
     private final EmailService emailService;
 
@@ -120,6 +122,9 @@ public class ReminderSchedulerService {
      * window, reminds every user who hasn't predicted it yet and hasn't already been
      * reminded for that trigger day. There is no equivalent reminder for the sprint —
      * the sprint has no betting attached, only championship points (see Race.sprintDate).
+     * "Hasn't predicted" here means no participation at all — this reminder deliberately
+     * ignores whether the pole pick specifically is filled in; only
+     * {@link #sendQualifyingReminders()} cares about that field.
      */
     @Scheduled(fixedDelay = 60_000)
     @Transactional
@@ -178,6 +183,78 @@ public class ReminderSchedulerService {
 
         triggerRaces.forEach(r -> {
             r.setReminderSent(true);
+            raceRepository.save(r);
+        });
+    }
+
+    /**
+     * F1-only reminder that fires 4h ahead of qualifying rather than the race start, since the
+     * pole pick locks at {@code qualifyingDate} while the rest of the prediction (podium, fastest
+     * lap, last place) still locks at {@code raceDate} — see {@link #sendRaceReminders()}, which
+     * still runs independently and covers those other picks. Unlike the race reminder, "needs a
+     * reminder" here is based specifically on the pole field being unset ({@link
+     * F1PredictionRepository#existsPoleByUserIdAndRaceId}), not on participation existence — a
+     * user can already have a full prediction for everything else and still be missing their
+     * pole pick. Same dedup rules otherwise (one email per user per trigger day), windowed on
+     * qualifyingDate and tracked via its own flags so the two reminders don't interfere.
+     */
+    @Scheduled(fixedDelay = 60_000)
+    @Transactional
+    public void sendQualifyingReminders() {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDate today = now.toLocalDate();
+
+        List<Race> triggerRaces = raceRepository.findUpcomingRacesForQualifyingReminder(
+                now.plusMinutes(239), now.plusMinutes(241));
+
+        if (triggerRaces.isEmpty()) return;
+
+        LocalDate latestTriggerDay = triggerRaces.stream()
+                .map(r -> r.getQualifyingDate().toLocalDate())
+                .max(LocalDate::compareTo)
+                .orElse(today);
+
+        Map<Long, User> usersToRemind = new LinkedHashMap<>();
+
+        for (Race race : triggerRaces) {
+            List<Bet> openBets = betRepository.findByRaceIdAndStatusOrderByCreatedAtDesc(
+                    race.getId(), Bet.Status.OPEN);
+
+            for (Bet bet : openBets) {
+                List<GroupMember> members = groupMemberRepository.findByGroupIdAndStatus(
+                        bet.getGroup().getId(), GroupMember.MemberStatus.ACTIVE);
+
+                for (GroupMember gm : members) {
+                    User user = gm.getUser();
+                    if (!user.isEmailReminderEnabled()) continue;
+                    if (latestTriggerDay.equals(user.getQualifyingReminderSentDate())) continue;
+                    if (f1PredictionRepository.existsPoleByUserIdAndRaceId(user.getId(), race.getId())) continue;
+                    usersToRemind.put(user.getId(), user);
+                }
+            }
+        }
+
+        log.info("Triggered by {} race qualifying(s), reminding {} user(s)", triggerRaces.size(), usersToRemind.size());
+
+        LocalDateTime startOfDay = today.atStartOfDay();
+        LocalDateTime endOfWindow = latestTriggerDay.plusDays(1).atStartOfDay();
+
+        for (User user : usersToRemind.values()) {
+            List<Race> allPending = raceRepository.findPendingRacesTodayForUserBeforeQualifying(
+                    user.getId(), startOfDay, endOfWindow, now);
+
+            if (!allPending.isEmpty()) {
+                emailService.sendQualifyingReminder(user, allPending);
+                log.info("Qualifying reminder sent to {} ({}) for {} race(s): {}",
+                        user.getUsername(), user.getEmail(), allPending.size(),
+                        allPending.stream().map(Race::getName).toList());
+            }
+            user.setQualifyingReminderSentDate(latestTriggerDay);
+            userRepository.save(user);
+        }
+
+        triggerRaces.forEach(r -> {
+            r.setQualifyingReminderSent(true);
             raceRepository.save(r);
         });
     }

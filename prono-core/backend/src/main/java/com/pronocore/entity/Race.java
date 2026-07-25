@@ -52,9 +52,15 @@ public class Race {
     @JoinColumn(name = "competition_id", nullable = false)
     private Competition competition;
 
+    /** Race-start reminder (locks every pick but the pole). */
     @Column(name = "reminder_sent", nullable = false)
     @Builder.Default
     private boolean reminderSent = false;
+
+    /** Qualifying reminder (locks the pole pick) — independent of {@link #reminderSent}. */
+    @Column(name = "qualifying_reminder_sent", nullable = false)
+    @Builder.Default
+    private boolean qualifyingReminderSent = false;
 
     public enum Status {
         UPCOMING, FINISHED
