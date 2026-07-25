@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { useSport } from '@/context/SportContext';
+import { useSport, toApiSport } from '@/context/SportContext';
 import { isAdmin } from '@/types';
 import AdminMatchesTab from './admin/AdminMatchesTab';
 import AdminCompetitionsTab from './admin/AdminCompetitionsTab';
@@ -22,7 +22,7 @@ const Admin: React.FC = () => {
   // The whole admin page is scoped to one sport: competitions are filtered
   // and the events tab shows either matches or races. Follows the global
   // sport switcher (navbar) — same source of truth everywhere.
-  const adminSport = sport === 'f1' ? 'F1' : 'FOOT';
+  const adminSport = toApiSport(sport);
 
   useEffect(() => {
     if (!isAdmin(user)) navigate('/dashboard');

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getGroupLeaderboard } from '@/api/leaderboard';
-import { useSport } from '@/context/SportContext';
+import { useSport, toApiSport } from '@/context/SportContext';
 import { getMyGroups } from '@/api/groups';
 import { getGroupAssignments } from '@/api/forfeits';
 import type { GroupUserForfeit, LeaderboardEntry, Group } from '@/types';
@@ -135,7 +135,7 @@ const Leaderboard: React.FC = () => {
   // playing the current sport are selectable, so switching sports (or the
   // initial load) picks the first matching group instead of leaving a
   // group from the other sport selected.
-  const sportKey = sport === 'f1' ? 'F1' : 'FOOT';
+  const sportKey = toApiSport(sport);
   const filteredGroups = groups.filter((g) => g.sports.includes(sportKey));
 
   useEffect(() => {
@@ -152,7 +152,7 @@ const Leaderboard: React.FC = () => {
       return;
     }
     setIsLoading(true);
-    getGroupLeaderboard(selectedGroupId, sport === 'f1' ? 'F1' : 'FOOT')
+    getGroupLeaderboard(selectedGroupId, sportKey)
       .then(setEntries).catch(logger.error).finally(() => setIsLoading(false));
 
     if (selectedGroupId != null) {
@@ -160,7 +160,7 @@ const Leaderboard: React.FC = () => {
     } else {
       setAllGages([]);
     }
-  }, [selectedGroupId, sport]);
+  }, [selectedGroupId, sportKey]);
 
   if (isLoading) {
     return (
