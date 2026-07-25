@@ -3,7 +3,7 @@ import ConfirmModal from '@/components/ConfirmModal';
 import { useToast } from '@/components/Toast';
 import { getAllForfeitsAdmin, createForfeit, updateForfeit, deleteForfeit } from '@/api/forfeits';
 import { getAllGroups } from '@/api/groups';
-import { useSport } from '@/context/SportContext';
+import { useSport, toApiSport } from '@/context/SportContext';
 import DailyGagePanel from '@/components/DailyGagePanel';
 import { useFormMessages } from '@/hooks/useFormMessages';
 import type { Forfeit, Group } from '@/types';
@@ -50,7 +50,7 @@ const AdminForfeitsTab: React.FC = () => {
     e.preventDefault();
     clearForfeitMessages();
     try {
-      const created = await createForfeit(newForfeitTitle, newForfeitDesc, newForfeitCategory, sport === 'f1' ? 'F1' : 'FOOT');
+      const created = await createForfeit(newForfeitTitle, newForfeitDesc, newForfeitCategory, toApiSport(sport));
       setForfeits([...forfeits, created]);
       setNewForfeitTitle(''); setNewForfeitDesc(''); setNewForfeitCategory('General');
       setForfeitSuccess('Gage créé !');
@@ -144,7 +144,7 @@ const AdminForfeitsTab: React.FC = () => {
               </select>
             </div>
             <p className="col-span-3 text-xs text-gray-400">
-              Ce gage sera tagué {SPORT_LABEL[sport === 'f1' ? 'F1' : 'FOOT']} (le sport actif dans la navbar).
+              Ce gage sera tagué {SPORT_LABEL[toApiSport(sport)]} (le sport actif dans la navbar).
             </p>
             {forfeitMsg?.type === 'error' && <p className="col-span-3 text-red-500 text-sm">{forfeitMsg.text}</p>}
             {forfeitMsg?.type === 'success' && <p className="col-span-3 text-green-500 text-sm">✅ {forfeitMsg.text}</p>}

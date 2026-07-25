@@ -3,8 +3,19 @@ import type { ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useTheme } from './ThemeContext';
 import { LocalStorageService, StorageKey } from '@/utils/localStorage';
+import type { Sport as ApiSport } from '@/types';
 
 export type Sport = 'foot' | 'f1';
+
+/**
+ * Converts the UI-facing sport ('foot' | 'f1', driven by the URL prefix) to
+ * the API enum ('FOOT' | 'F1', the backend's `group_sports`/DTO values).
+ * Centralized here so the two casings don't get re-derived ad hoc at every
+ * call site.
+ */
+export function toApiSport(sport: Sport): ApiSport {
+  return sport === 'f1' ? 'F1' : 'FOOT';
+}
 
 interface SportContextValue {
   sport: Sport;

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getForfeits, proposeForfeit, voteForfeit } from '@/api/forfeits';
 import { getMyGroups } from '@/api/groups';
-import { useSport } from '@/context/SportContext';
+import { useSport, toApiSport } from '@/context/SportContext';
 import type { Forfeit, Group } from '@/types';
 import { logger } from '@/utils/logger';
 
@@ -40,7 +40,7 @@ const Gages: React.FC = () => {
 
   useEffect(() => {
     setIsLoading(true);
-    Promise.all([getForfeits(sport === 'f1' ? 'F1' : 'FOOT'), getMyGroups()])
+    Promise.all([getForfeits(toApiSport(sport)), getMyGroups()])
       .then(([f, g]) => {
         setForfeits(f);
         setGroups(g);
