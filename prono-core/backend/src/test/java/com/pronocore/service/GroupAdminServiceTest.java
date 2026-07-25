@@ -161,6 +161,123 @@ class GroupAdminServiceTest {
         verify(groupMemberRepository).delete(pendingMember);
     }
 
+    // ── updateInfo ────────────────────────────────────────────────────────────
+
+    @Test
+    void updateInfo_shouldThrowWhenRequesterIsNotGroupAdmin() {
+        when(groupService.findUser("member")).thenReturn(member);
+        when(groupMemberGuard.requireGroupAdmin(10L, 2L))
+                .thenThrow(new AccessDeniedException("Group admin role required"));
+
+        assertThatThrownBy(() -> groupAdminService.updateInfo(10L, "New name", "New description", "member"))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("Group admin role required");
+    }
+
+    @Test
+    void updateInfo_shouldUpdateNameAndDescription() {
+        when(groupService.findUser("creator")).thenReturn(creator);
+        when(groupService.findGroup(10L)).thenReturn(group);
+        when(groupRepository.save(group)).thenReturn(group);
+        when(groupService.toResponse(group, GroupMember.GroupRole.GROUP_ADMIN, true))
+                .thenReturn(com.pronocore.dto.response.GroupResponse.builder().id(10L).name("New name").build());
+
+        groupAdminService.updateInfo(10L, " New name ", " New description ", "creator");
+
+        assertThat(group.getName()).isEqualTo("New name");
+        assertThat(group.getDescription()).isEqualTo("New description");
+        verify(groupRepository).save(group);
+    }
+
+    @Test
+    void updateInfo_shouldClearDescriptionWhenBlank() {
+        when(groupService.findUser("creator")).thenReturn(creator);
+        when(groupService.findGroup(10L)).thenReturn(group);
+        when(groupRepository.save(group)).thenReturn(group);
+        when(groupService.toResponse(group, GroupMember.GroupRole.GROUP_ADMIN, true))
+                .thenReturn(com.pronocore.dto.response.GroupResponse.builder().id(10L).build());
+
+        groupAdminService.updateInfo(10L, "Test Group", "   ", "creator");
+
+        assertThat(group.getDescription()).isNull();
+    }
+
+    // ── updateInviteCode ──────────────────────────────────────────────────────
+
+    @Test
+    void updateInviteCode_shouldThrowWhenRequesterIsNotGroupAdmin() {
+        when(groupService.findUser("member")).thenReturn(member);
+        when(groupMemberGuard.requireGroupAdmin(10L, 2L))
+                .thenThrow(new AccessDeniedException("Group admin role required"));
+
+        assertThatThrownBy(() -> groupAdminService.updateInviteCode(10L, "CUSTOM01", "member"))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("Group admin role required");
+    }
+
+    @Test
+    void updateInviteCode_shouldGenerateRandomCodeWhenBlank() {
+        when(groupService.findUser("creator")).thenReturn(creator);
+        when(groupService.findGroup(10L)).thenReturn(group);
+        when(groupService.generateUniqueCode()).thenReturn("RANDOM99");
+        when(groupRepository.save(group)).thenReturn(group);
+        when(groupService.toResponse(group, GroupMember.GroupRole.GROUP_ADMIN, true))
+                .thenReturn(com.pronocore.dto.response.GroupResponse.builder().id(10L).build());
+
+        groupAdminService.updateInviteCode(10L, "  ", "creator");
+
+        assertThat(group.getInviteCode()).isEqualTo("RANDOM99");
+    }
+
+    @Test
+    void updateInviteCode_shouldSetNormalizedCustomCode() {
+        when(groupService.findUser("creator")).thenReturn(creator);
+        when(groupService.findGroup(10L)).thenReturn(group);
+        when(groupRepository.existsByInviteCode("CUSTOM01")).thenReturn(false);
+        when(groupRepository.save(group)).thenReturn(group);
+        when(groupService.toResponse(group, GroupMember.GroupRole.GROUP_ADMIN, true))
+                .thenReturn(com.pronocore.dto.response.GroupResponse.builder().id(10L).build());
+
+        groupAdminService.updateInviteCode(10L, " custom01 ", "creator");
+
+        assertThat(group.getInviteCode()).isEqualTo("CUSTOM01");
+    }
+
+    @Test
+    void updateInviteCode_shouldThrowWhenCodeAlreadyUsed() {
+        when(groupService.findUser("creator")).thenReturn(creator);
+        when(groupService.findGroup(10L)).thenReturn(group);
+        when(groupRepository.existsByInviteCode("TAKEN123")).thenReturn(true);
+
+        assertThatThrownBy(() -> groupAdminService.updateInviteCode(10L, "TAKEN123", "creator"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("déjà utilisé");
+    }
+
+    @Test
+    void updateInviteCode_shouldThrowWhenCodeFormatInvalid() {
+        when(groupService.findUser("creator")).thenReturn(creator);
+        when(groupService.findGroup(10L)).thenReturn(group);
+
+        assertThatThrownBy(() -> groupAdminService.updateInviteCode(10L, "ab", "creator"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("4 et 20");
+    }
+
+    @Test
+    void updateInviteCode_shouldAllowReSettingSameCode() {
+        when(groupService.findUser("creator")).thenReturn(creator);
+        when(groupService.findGroup(10L)).thenReturn(group);
+        when(groupRepository.save(group)).thenReturn(group);
+        when(groupService.toResponse(group, GroupMember.GroupRole.GROUP_ADMIN, true))
+                .thenReturn(com.pronocore.dto.response.GroupResponse.builder().id(10L).build());
+
+        groupAdminService.updateInviteCode(10L, "TESTCODE", "creator");
+
+        assertThat(group.getInviteCode()).isEqualTo("TESTCODE");
+        verify(groupRepository, never()).existsByInviteCode(anyString());
+    }
+
     // ── promoteMember ─────────────────────────────────────────────────────────
 
     @Test

@@ -97,6 +97,40 @@ public class GroupAdminService {
     }
 
     @Transactional
+    public GroupResponse updateInfo(Long groupId, String name, String description, String adminUsername) {
+        assertGroupAdmin(groupId, adminUsername);
+
+        Group group = groupService.findGroup(groupId);
+        group.setName(name.trim());
+        group.setDescription(description != null && !description.isBlank() ? description.trim() : null);
+        groupRepository.save(group);
+
+        return groupService.toResponse(group, GroupMember.GroupRole.GROUP_ADMIN, true);
+    }
+
+    @Transactional
+    public GroupResponse updateInviteCode(Long groupId, String requestedCode, String adminUsername) {
+        assertGroupAdmin(groupId, adminUsername);
+
+        Group group = groupService.findGroup(groupId);
+        if (requestedCode == null || requestedCode.isBlank()) {
+            group.setInviteCode(groupService.generateUniqueCode());
+        } else {
+            String normalized = requestedCode.trim().toUpperCase();
+            if (!normalized.matches("[A-Z0-9]{4,20}")) {
+                throw new IllegalArgumentException("Le code d'invitation doit contenir entre 4 et 20 lettres/chiffres");
+            }
+            if (!normalized.equals(group.getInviteCode()) && groupRepository.existsByInviteCode(normalized)) {
+                throw new IllegalStateException("Ce code d'invitation est déjà utilisé");
+            }
+            group.setInviteCode(normalized);
+        }
+        groupRepository.save(group);
+
+        return groupService.toResponse(group, GroupMember.GroupRole.GROUP_ADMIN, true);
+    }
+
+    @Transactional
     public GroupResponse updateSports(Long groupId, Set<Sport> sports, String adminUsername) {
         assertGroupAdmin(groupId, adminUsername);
         if (sports == null || sports.isEmpty()) {

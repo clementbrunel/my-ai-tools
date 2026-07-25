@@ -80,6 +80,11 @@ export interface JoinGroupRequest {
   inviteCode: string;
 }
 
+export interface UpdateGroupInfoRequest {
+  name: string;
+  description?: string;
+}
+
 export interface TeamDto {
   id: number;
   name: string;

@@ -6,6 +6,8 @@ import com.pronocore.dto.request.JoinGroupRequest;
 import com.pronocore.dto.request.NotifyNewMatchesRequest;
 import com.pronocore.dto.request.NotifyNewRacesRequest;
 import com.pronocore.dto.request.UpdateGroupPrivacyRequest;
+import com.pronocore.dto.request.UpdateGroupInfoRequest;
+import com.pronocore.dto.request.UpdateGroupInviteCodeRequest;
 import com.pronocore.dto.response.GroupAdminCountsResponse;
 import com.pronocore.dto.response.GroupMemberResponse;
 import com.pronocore.dto.response.GroupResponse;
@@ -110,6 +112,22 @@ public class GroupController {
                                                    Authentication auth) {
         groupAdminService.rejectApplication(groupId, userId, auth.getName());
         return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/{groupId}/info")
+    @Operation(summary = "Update group name and description (Group admin only)")
+    public ResponseEntity<GroupResponse> updateInfo(@PathVariable Long groupId,
+                                                     @Valid @RequestBody UpdateGroupInfoRequest request,
+                                                     Authentication auth) {
+        return ResponseEntity.ok(groupAdminService.updateInfo(groupId, request.getName(), request.getDescription(), auth.getName()));
+    }
+
+    @PatchMapping("/{groupId}/invite-code")
+    @Operation(summary = "Update or regenerate the group's invite code (Group admin only)")
+    public ResponseEntity<GroupResponse> updateInviteCode(@PathVariable Long groupId,
+                                                           @RequestBody UpdateGroupInviteCodeRequest request,
+                                                           Authentication auth) {
+        return ResponseEntity.ok(groupAdminService.updateInviteCode(groupId, request.getInviteCode(), auth.getName()));
     }
 
     @PatchMapping("/{groupId}/privacy")
