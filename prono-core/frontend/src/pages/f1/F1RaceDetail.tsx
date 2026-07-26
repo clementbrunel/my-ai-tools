@@ -371,6 +371,17 @@ const F1RaceDetail: React.FC = () => {
             )}
           </div>
 
+          {/* Barème complet — garder synchro avec F1RaceService.computePoints */}
+          <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-500 dark:text-gray-400">
+            <span>🥇 Vainqueur exact <b className="text-gray-700 dark:text-gray-300">+3</b></span>
+            <span>🥈🥉 2e / 3e exact <b className="text-gray-700 dark:text-gray-300">+2</b></span>
+            <span>🏎️ Sur le podium mais mauvaise place <b className="text-gray-700 dark:text-gray-300">+1</b></span>
+            <span>⏱ Pole <b className="text-gray-700 dark:text-gray-300">+2</b></span>
+            <span>🟣 Meilleur tour <b className="text-gray-700 dark:text-gray-300">+1</b></span>
+            <span>🔦 Lanterne rouge <b className="text-gray-700 dark:text-gray-300">+2</b></span>
+            <span>👑 Grand Chelem (pole + victoire + meilleur tour) <b className="text-wc-gold">+2</b></span>
+          </div>
+
           {/* Podium */}
           <div className="flex items-end justify-center gap-3">
             <div className="pt-6"><Slot slot="p2" driver={slots.p2} locked={readOnly} armed={armedSlot === 'p2'} onArm={() => setArmedSlot(armedSlot === 'p2' ? null : 'p2')} onClear={() => setSlots((s) => ({ ...s, p2: null }))} /></div>
