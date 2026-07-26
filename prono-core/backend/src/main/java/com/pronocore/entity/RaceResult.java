@@ -44,4 +44,8 @@ public class RaceResult {
     @Column(nullable = false)
     @Builder.Default
     private boolean dnf = false;
+
+    /** Winner's total race time, others' gap to the winner, as formatted by jolpica (e.g. "+22.792") — display only. */
+    @Column(name = "race_time", length = 20)
+    private String time;
 }

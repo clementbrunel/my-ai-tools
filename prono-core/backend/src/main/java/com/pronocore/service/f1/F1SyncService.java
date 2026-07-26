@@ -311,6 +311,8 @@ public class F1SyncService {
             entry.setFastestLap(result.path("FastestLap").path("rank").asText("").equals("1"));
             entry.setPole(driver.getCode().equals(poleDriverCode));
             entry.setSprintPosition(sprintPositionByCode.get(driver.getCode()));
+            String time = result.path("Time").path("time").asText("");
+            entry.setTime(!time.isBlank() ? time : null);
             entries.add(entry);
         }
 

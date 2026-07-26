@@ -32,5 +32,8 @@ public class EnterRaceResultsRequest {
         private boolean fastestLap;
 
         private boolean dnf;
+
+        /** Winner's total race time, others' gap to the winner; null = not entered. */
+        private String time;
     }
 }
