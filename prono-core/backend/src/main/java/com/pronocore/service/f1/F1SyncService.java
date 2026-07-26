@@ -231,46 +231,67 @@ public class F1SyncService {
     // Results
     // ---------------------------------------------------------------
 
-    /** Imports results for every finished round not yet FINISHED locally. Returns settled rounds. */
+    /**
+     * Imports results for every round not yet FINISHED locally and settles them. Skips already
+     * FINISHED races as a cost-saving default — a post-race penalty confirmed after the fact
+     * still needs {@link #syncResultsForRace}. Returns settled rounds.
+     */
     private List<Integer> syncResults(int season, Competition competition) {
         List<Integer> settled = new ArrayList<>();
-        List<Race> localRaces = raceRepository.findByCompetition_IdOrderByRaceDateAsc(competition.getId());
-
-        for (Race race : localRaces) {
+        for (Race race : raceRepository.findByCompetition_IdOrderByRaceDateAsc(competition.getId())) {
             if (race.getStatus() == Race.Status.FINISHED) continue;
             throttle();
-
-            JsonNode raceNode = read(season + "/" + race.getRound() + "/results.json?limit=40")
-                    .path("MRData").path("RaceTable").path("Races");
-            if (!raceNode.isArray() || raceNode.isEmpty()) continue;   // not raced yet
-            JsonNode results = raceNode.get(0).path("Results");
-            if (!results.isArray() || results.isEmpty()) continue;
-
-            String poleDriverCode = polePositionDriverCode(race.getId());
-            Map<String, Integer> sprintPositionByCode = fetchSprintPositions(season, race.getRound());
-
-            List<EnterRaceResultsRequest.Entry> entries = new ArrayList<>();
-            for (JsonNode result : results) {
-                Driver driver = upsertDriver(result.path("Driver"), result.path("Constructor"));
-
-                EnterRaceResultsRequest.Entry entry = new EnterRaceResultsRequest.Entry();
-                entry.setDriverId(driver.getId());
-                String positionText = result.path("positionText").asText("");
-                entry.setPosition(positionText.matches("\\d+") ? Integer.parseInt(positionText) : null);
-                String status = result.path("status").asText("");
-                entry.setDnf(!status.equals("Finished") && !status.startsWith("+"));
-                entry.setFastestLap(result.path("FastestLap").path("rank").asText("").equals("1"));
-                entry.setPole(driver.getCode().equals(poleDriverCode));
-                entry.setSprintPosition(sprintPositionByCode.get(driver.getCode()));
-                entries.add(entry);
-            }
-
-            EnterRaceResultsRequest request = new EnterRaceResultsRequest();
-            request.setResults(entries);
-            f1RaceService.enterResults(race.getId(), request);
-            settled.add(race.getRound());
+            if (fetchAndSettleResults(season, race)) settled.add(race.getRound());
         }
         return settled;
+    }
+
+    /**
+     * Forces a re-import of one race's full classification from jolpica and re-settles it,
+     * regardless of its FINISHED status — for admin corrections when a penalty is confirmed
+     * (or jolpica's own data is amended) after {@link #syncResults} already settled and
+     * skipped it. Re-settling recomputes points/gages/forfeits, same as a manual re-entry.
+     */
+    @Transactional
+    public String syncResultsForRace(int season, Long raceId) {
+        Race race = raceRepository.findById(raceId)
+                .orElseThrow(() -> new EntityNotFoundException("Race not found: " + raceId));
+        return fetchAndSettleResults(season, race)
+                ? "Résultats réimportés et paris réglés pour " + race.getName()
+                : "Aucun résultat disponible sur jolpica pour " + race.getName();
+    }
+
+    /** Fetches the full classification from jolpica and settles it — false if jolpica has nothing yet. */
+    private boolean fetchAndSettleResults(int season, Race race) {
+        JsonNode raceNode = read(season + "/" + race.getRound() + "/results.json?limit=40")
+                .path("MRData").path("RaceTable").path("Races");
+        if (!raceNode.isArray() || raceNode.isEmpty()) return false;   // not raced yet
+        JsonNode results = raceNode.get(0).path("Results");
+        if (!results.isArray() || results.isEmpty()) return false;
+
+        String poleDriverCode = polePositionDriverCode(race.getId());
+        Map<String, Integer> sprintPositionByCode = fetchSprintPositions(season, race.getRound());
+
+        List<EnterRaceResultsRequest.Entry> entries = new ArrayList<>();
+        for (JsonNode result : results) {
+            Driver driver = upsertDriver(result.path("Driver"), result.path("Constructor"));
+
+            EnterRaceResultsRequest.Entry entry = new EnterRaceResultsRequest.Entry();
+            entry.setDriverId(driver.getId());
+            String positionText = result.path("positionText").asText("");
+            entry.setPosition(positionText.matches("\\d+") ? Integer.parseInt(positionText) : null);
+            String status = result.path("status").asText("");
+            entry.setDnf(!status.equals("Finished") && !status.startsWith("+"));
+            entry.setFastestLap(result.path("FastestLap").path("rank").asText("").equals("1"));
+            entry.setPole(driver.getCode().equals(poleDriverCode));
+            entry.setSprintPosition(sprintPositionByCode.get(driver.getCode()));
+            entries.add(entry);
+        }
+
+        EnterRaceResultsRequest request = new EnterRaceResultsRequest();
+        request.setResults(entries);
+        f1RaceService.enterResults(race.getId(), request);
+        return true;
     }
 
     /** Sprint classification by driver code — empty map when the weekend has no sprint. */

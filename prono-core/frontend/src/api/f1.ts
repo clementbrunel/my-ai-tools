@@ -109,3 +109,12 @@ export const enterRaceResults = async (
   const response = await apiClient.post<Race>(`/admin/f1/races/${raceId}/results`, { results });
   return response.data;
 };
+
+/** Forces a re-import of one race's full classification, even once already finished
+ *  (post-race penalty confirmed after the fact, jolpica data corrected). Re-settles all bets. */
+export const resyncResults = async (raceId: number, season: number): Promise<string> => {
+  const response = await apiClient.post<string>(`/admin/f1/races/${raceId}/results/resync`, null, {
+    params: { season },
+  });
+  return response.data;
+};

@@ -116,21 +116,7 @@ class F1SyncServiceTest {
         when(qualifyingResultRepository.findByRaceIdWithDrivers(101L)).thenReturn(List.of(
                 QualifyingResult.builder().position(1).driver(Driver.builder().code("ANT").build()).build()));
 
-        // Entry-list upserts: everything is new
-        when(constructorRepository.findByName(anyString())).thenReturn(Optional.empty());
-        when(constructorRepository.save(any(Constructor.class))).thenAnswer(inv -> {
-            Constructor c = inv.getArgument(0);
-            c.setId((long) c.getName().hashCode());
-            return c;
-        });
-        when(driverRepository.findByCode(anyString())).thenReturn(Optional.empty());
-        when(driverRepository.findByName(anyString())).thenReturn(Optional.empty());
-        long[] driverSeq = {0};
-        when(driverRepository.save(any(Driver.class))).thenAnswer(inv -> {
-            Driver d = inv.getArgument(0);
-            if (d.getId() == null) d.setId(++driverSeq[0]);
-            return d;
-        });
+        stubEntryListUpserts();
 
         String summary = f1SyncService.syncSeason(2026);
 
@@ -192,5 +178,79 @@ class F1SyncServiceTest {
         f1SyncService.syncSeason(2026);
 
         verify(f1RaceService, never()).enterResults(any(), any());
+    }
+
+    // ── Forced single-race resync — admin corrections after the fact ──────────
+
+    @Test
+    void syncQualifyingForRace_forcesReimportEvenWhenFinished() {
+        Competition competition = Competition.builder().id(9L).name("Formule 1 2026").sport(Sport.F1).build();
+        Race round1 = race(101L, 1, Race.Status.FINISHED, competition);
+
+        when(raceRepository.findById(101L)).thenReturn(Optional.of(round1));
+        when(jolpicaClient.get("2026/1/qualifying.json?limit=40")).thenReturn(ROUND1_QUALI_JSON);
+        stubEntryListUpserts();
+
+        String message = f1SyncService.syncQualifyingForRace(2026, 101L);
+
+        verify(qualifyingResultRepository).deleteByRaceId(101L);
+        verify(qualifyingResultRepository).saveAll(anyList());
+        assertThat(message).contains("Grille de départ réimportée");
+    }
+
+    @Test
+    void syncQualifyingForRace_unknownRace_throws() {
+        when(raceRepository.findById(999L)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> f1SyncService.syncQualifyingForRace(2026, 999L))
+                .isInstanceOf(jakarta.persistence.EntityNotFoundException.class);
+    }
+
+    @Test
+    void syncResultsForRace_forcesReimportAndResettlesEvenWhenFinished() {
+        Competition competition = Competition.builder().id(9L).name("Formule 1 2026").sport(Sport.F1).build();
+        Race round1 = race(101L, 1, Race.Status.FINISHED, competition);
+
+        when(raceRepository.findById(101L)).thenReturn(Optional.of(round1));
+        when(jolpicaClient.get("2026/1/results.json?limit=40")).thenReturn(ROUND1_RESULTS_JSON);
+        when(jolpicaClient.get("2026/1/sprint.json?limit=40")).thenReturn(ROUND1_SPRINT_JSON);
+        when(qualifyingResultRepository.findByRaceIdWithDrivers(101L)).thenReturn(List.of());
+        stubEntryListUpserts();
+
+        String message = f1SyncService.syncResultsForRace(2026, 101L);
+
+        verify(f1RaceService).enterResults(eq(101L), any());
+        assertThat(message).contains("Résultats réimportés");
+    }
+
+    @Test
+    void syncResultsForRace_noJolpicaDataYet_returnsWithoutSettling() {
+        Competition competition = Competition.builder().id(9L).name("Formule 1 2026").sport(Sport.F1).build();
+        Race round2 = race(102L, 2, Race.Status.UPCOMING, competition);
+
+        when(raceRepository.findById(102L)).thenReturn(Optional.of(round2));
+        when(jolpicaClient.get("2026/2/results.json?limit=40")).thenReturn(EMPTY_RESULTS_JSON);
+
+        String message = f1SyncService.syncResultsForRace(2026, 102L);
+
+        verify(f1RaceService, never()).enterResults(any(), any());
+        assertThat(message).contains("Aucun résultat disponible");
+    }
+
+    /** Entry-list upserts (drivers/constructors) — everything created fresh, no pre-existing match. */
+    private void stubEntryListUpserts() {
+        when(constructorRepository.findByName(anyString())).thenReturn(Optional.empty());
+        when(constructorRepository.save(any(Constructor.class))).thenAnswer(inv -> {
+            Constructor c = inv.getArgument(0);
+            c.setId((long) c.getName().hashCode());
+            return c;
+        });
+        when(driverRepository.findByCode(anyString())).thenReturn(Optional.empty());
+        when(driverRepository.findByName(anyString())).thenReturn(Optional.empty());
+        long[] driverSeq = {0};
+        when(driverRepository.save(any(Driver.class))).thenAnswer(inv -> {
+            Driver d = inv.getArgument(0);
+            if (d.getId() == null) d.setId(++driverSeq[0]);
+            return d;
+        });
     }
 }
