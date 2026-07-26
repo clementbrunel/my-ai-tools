@@ -64,16 +64,19 @@ class F1SyncServiceTest {
            "Constructor":{"name":"Red Bull"}}
         ]}]}}}""";
 
+    // NOR is eliminated in Q2 with a Q2 lap (1:21.100) numerically faster than RUS's Q3 lap
+    // (1:21.450, e.g. changing weather) — grid time must still come from each driver's own
+    // last session reached, never compared against another driver's session.
     private static final String ROUND1_QUALI_JSON = """
         {"MRData":{"RaceTable":{"Races":[{"QualifyingResults":[
           {"position":"1","Driver":{"code":"ANT","permanentNumber":"12","givenName":"Kimi","familyName":"Antonelli"},
-           "Constructor":{"name":"Mercedes"}},
+           "Constructor":{"name":"Mercedes"},"Q1":"1:22.500","Q2":"1:21.800","Q3":"1:21.203"},
           {"position":"2","Driver":{"code":"RUS","permanentNumber":"63","givenName":"George","familyName":"Russell"},
-           "Constructor":{"name":"Mercedes"}},
+           "Constructor":{"name":"Mercedes"},"Q1":"1:22.700","Q2":"1:22.000","Q3":"1:21.450"},
           {"position":"3","Driver":{"code":"NOR","permanentNumber":"4","givenName":"Lando","familyName":"Norris"},
-           "Constructor":{"name":"McLaren"}},
+           "Constructor":{"name":"McLaren"},"Q1":"1:22.900","Q2":"1:21.100"},
           {"position":"4","Driver":{"code":"VER","permanentNumber":"33","givenName":"Max","familyName":"Verstappen"},
-           "Constructor":{"name":"Red Bull"}}
+           "Constructor":{"name":"Red Bull"},"Q1":"1:23.000"}
         ]}]}}}""";
 
     private static final String ROUND1_SPRINT_JSON = """
@@ -133,7 +136,14 @@ class F1SyncServiceTest {
         verify(qualifyingResultRepository).deleteByRaceId(101L);
         ArgumentCaptor<List<QualifyingResult>> gridCaptor = ArgumentCaptor.forClass(List.class);
         verify(qualifyingResultRepository).saveAll(gridCaptor.capture());
-        assertThat(gridCaptor.getValue()).hasSize(4);
+        List<QualifyingResult> grid = gridCaptor.getValue();
+        assertThat(grid).hasSize(4);
+        // Each driver's own last session reached — never a cross-session comparison (NOR's Q2
+        // lap is numerically faster than RUS's Q3 lap, yet each keeps their own session's time).
+        assertThat(grid.get(0).getTime()).isEqualTo("1:21.203");   // ANT — reached Q3
+        assertThat(grid.get(1).getTime()).isEqualTo("1:21.450");   // RUS — reached Q3
+        assertThat(grid.get(2).getTime()).isEqualTo("1:21.100");   // NOR — eliminated in Q2
+        assertThat(grid.get(3).getTime()).isEqualTo("1:23.000");   // VER — eliminated in Q1
         assertThat(summary).contains("grille de départ importée pour les manches [1]");
 
         // Results: settled through the same path as a manual entry

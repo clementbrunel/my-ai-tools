@@ -726,6 +726,7 @@ public class F1RaceService {
         return QualifyingResultResponse.builder()
                 .driver(toDriverResponse(qr.getDriver()))
                 .position(qr.getPosition())
+                .time(qr.getTime())
                 .build();
     }
 

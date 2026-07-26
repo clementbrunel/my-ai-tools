@@ -208,6 +208,7 @@ public class F1SyncService {
                     .race(race)
                     .driver(driver)
                     .position(Integer.parseInt(positionText))
+                    .time(bestQualifyingTime(q))
                     .build());
         }
         if (grid.isEmpty()) return false;
@@ -215,6 +216,22 @@ public class F1SyncService {
         qualifyingResultRepository.deleteByRaceId(race.getId());
         qualifyingResultRepository.saveAll(grid);
         return true;
+    }
+
+    /**
+     * The grid time shown for a driver: their time in the last knockout session they reached
+     * (Q3, else Q2, else Q1) — never a comparison across sessions. A driver eliminated in Q2
+     * can post a numerically faster lap than a Q3 finisher (changing weather, track evolution)
+     * and still start further back: the grid position (from jolpica's own {@code position}
+     * field) already reflects the knockout hierarchy, this only picks which time to display
+     * next to it.
+     */
+    private String bestQualifyingTime(JsonNode qualifyingResult) {
+        for (String session : List.of("Q3", "Q2", "Q1")) {
+            String time = qualifyingResult.path(session).asText("");
+            if (!time.isBlank()) return time;
+        }
+        return null;
     }
 
     /** Pole driver code from the stored qualifying grid — populated by {@link #syncQualifying}

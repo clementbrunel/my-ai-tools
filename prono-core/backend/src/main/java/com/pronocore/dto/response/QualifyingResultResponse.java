@@ -13,4 +13,5 @@ public class QualifyingResultResponse {
 
     private DriverResponse driver;
     private Integer position;
+    private String time;
 }

@@ -32,4 +32,8 @@ public class QualifyingResult {
 
     @Column(nullable = false)
     private Integer position;
+
+    /** Best time reached (Q3 > Q2 > Q1), as formatted by jolpica (e.g. "1:24.083") — display only. */
+    @Column(name = "qualifying_time", length = 20)
+    private String time;
 }

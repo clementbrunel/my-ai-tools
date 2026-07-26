@@ -343,6 +343,7 @@ export interface RaceResultEntry {
 export interface QualifyingResultEntry {
   driver: Driver;
   position: number;
+  time: string | null;
 }
 
 export interface DriverRaceResult {
