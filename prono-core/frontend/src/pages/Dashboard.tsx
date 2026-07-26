@@ -91,7 +91,7 @@ const Dashboard: React.FC = () => {
         />
       </div>
 
-      <DailyGageWidget />
+      <DailyGageWidget allowedGroupIds={groupRanks.map((g) => g.groupId)} />
 
       {/* Upcoming Matches */}
       <section>

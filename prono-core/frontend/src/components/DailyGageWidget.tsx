@@ -4,10 +4,18 @@ import type { DailyGage } from '@/types';
 import DailyGageCard from '@/components/DailyGageCard';
 import { useToast } from '@/components/Toast';
 
-/** Today's gage(s) across the user's groups, regardless of sport — a group's
- * daily gage is settled from its foot matches or F1 races alike. Self-contained
+interface DailyGageWidgetProps {
+  /** Group IDs eligible for the current dashboard's sport (e.g. groupRanks' groupIds) —
+   * the API returns gages across every group regardless of sport, so a foot-only
+   * group's gage must not leak onto the F1 dashboard and vice versa. */
+  allowedGroupIds: number[];
+}
+
+/** Today's gage(s), restricted to the groups relevant to the current sport. A
+ * group's daily gage can be settled from its foot matches or F1 races alike, but
+ * each dashboard only shows the gages of the groups it actually lists. Self-contained
  * so both dashboards render it identically without duplicating the fetch/vote logic. */
-const DailyGageWidget: React.FC = () => {
+const DailyGageWidget: React.FC<DailyGageWidgetProps> = ({ allowedGroupIds }) => {
   const { showToast } = useToast();
   const [todayGages, setTodayGages] = useState<DailyGage[]>([]);
 
@@ -28,13 +36,15 @@ const DailyGageWidget: React.FC = () => {
     }
   };
 
-  if (todayGages.length === 0) return null;
+  const gages = todayGages.filter((g) => allowedGroupIds.includes(g.groupId));
+
+  if (gages.length === 0) return null;
 
   return (
     <section className="space-y-4">
       <h2 className="text-xl font-bold text-gray-900 dark:text-white">🃏 Gage du jour</h2>
-      {todayGages.map((g) => (
-        <DailyGageCard key={g.id} gage={g} onVote={handleVote} showGroupName={todayGages.length > 1} />
+      {gages.map((g) => (
+        <DailyGageCard key={g.id} gage={g} onVote={handleVote} showGroupName={gages.length > 1} />
       ))}
     </section>
   );
