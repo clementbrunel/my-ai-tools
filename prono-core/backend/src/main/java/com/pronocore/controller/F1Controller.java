@@ -4,6 +4,7 @@ import com.pronocore.aspect.LoggedAt;
 import com.pronocore.dto.request.F1PredictionRequest;
 import com.pronocore.dto.response.*;
 import com.pronocore.service.F1RaceService;
+import com.pronocore.service.f1.F1StandingsService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -22,6 +23,7 @@ import java.util.List;
 public class F1Controller {
 
     private final F1RaceService f1RaceService;
+    private final F1StandingsService f1StandingsService;
 
     @GetMapping("/drivers")
     @Operation(summary = "Active drivers with their constructor colors")
@@ -82,25 +84,25 @@ public class F1Controller {
     @GetMapping("/standings/drivers")
     @Operation(summary = "Driver championship standings (computed from race results, FIA scale)")
     public ResponseEntity<List<F1StandingResponse>> getDriverStandings() {
-        return ResponseEntity.ok(f1RaceService.getDriverStandings());
+        return ResponseEntity.ok(f1StandingsService.getDriverStandings());
     }
 
     @GetMapping("/standings/constructors")
     @Operation(summary = "Constructor championship standings")
     public ResponseEntity<List<F1StandingResponse>> getConstructorStandings() {
-        return ResponseEntity.ok(f1RaceService.getConstructorStandings());
+        return ResponseEntity.ok(f1StandingsService.getConstructorStandings());
     }
 
     @GetMapping("/standings/drivers/history")
     @Operation(summary = "Driver points evolution across the season, top 10 (feeds the chart view)")
     public ResponseEntity<F1StandingHistoryResponse> getDriverStandingsHistory() {
-        return ResponseEntity.ok(f1RaceService.getDriverStandingsHistory());
+        return ResponseEntity.ok(f1StandingsService.getDriverStandingsHistory());
     }
 
     @GetMapping("/standings/constructors/history")
     @Operation(summary = "Constructor points evolution across the season, top 10 (feeds the chart view)")
     public ResponseEntity<F1StandingHistoryResponse> getConstructorStandingsHistory() {
-        return ResponseEntity.ok(f1RaceService.getConstructorStandingsHistory());
+        return ResponseEntity.ok(f1StandingsService.getConstructorStandingsHistory());
     }
 
     // ---------------------------------------------------------------
