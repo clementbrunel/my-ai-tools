@@ -213,6 +213,36 @@ class CompetitionServiceTest {
                 () -> competitionService.setTeams(99L, List.of(TEAM_FRANCE.getId())));
     }
 
+    // ── setSeason ─────────────────────────────────────────────────────────────
+
+    @Test
+    void setSeason_updatesCompetitionSeason() {
+        Competition comp = competition(COMPETITION_WORLD_CUP.getId(), "FIFA World Cup 2026");
+        when(competitionRepository.findById(COMPETITION_WORLD_CUP.getId())).thenReturn(Optional.of(comp));
+
+        competitionService.setSeason(COMPETITION_WORLD_CUP.getId(), 2027);
+
+        assertThat(comp.getSeason()).isEqualTo(2027);
+    }
+
+    @Test
+    void setSeason_canClearSeason() {
+        Competition comp = competition(COMPETITION_WORLD_CUP.getId(), "FIFA World Cup 2026");
+        comp.setSeason(2026);
+        when(competitionRepository.findById(COMPETITION_WORLD_CUP.getId())).thenReturn(Optional.of(comp));
+
+        competitionService.setSeason(COMPETITION_WORLD_CUP.getId(), null);
+
+        assertThat(comp.getSeason()).isNull();
+    }
+
+    @Test
+    void setSeason_throwsWhenCompetitionUnknown() {
+        when(competitionRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThrows(EntityNotFoundException.class, () -> competitionService.setSeason(99L, 2027));
+    }
+
     // ── helpers ───────────────────────────────────────────────────────────────
 
     private static Competition competition(Long id, String name, Team... teams) {

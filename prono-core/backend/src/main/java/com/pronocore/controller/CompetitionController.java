@@ -54,6 +54,15 @@ public class CompetitionController {
         return ResponseEntity.noContent().build();
     }
 
+    @PutMapping("/{competitionId}/season")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+    @Operation(summary = "Set (or clear) a competition's season year — used by F1 to derive the jolpica season, "
+            + "free-form for other sports (Admin only)")
+    public ResponseEntity<Void> setSeason(@PathVariable Long competitionId, @RequestBody(required = false) Integer season) {
+        competitionService.setSeason(competitionId, season);
+        return ResponseEntity.noContent().build();
+    }
+
     @DeleteMapping("/{competitionId}")
     @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     @Operation(summary = "Delete a competition — rejected if it still has matches or races (Admin only)")

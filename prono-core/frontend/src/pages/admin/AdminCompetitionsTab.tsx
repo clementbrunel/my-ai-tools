@@ -7,6 +7,7 @@ import {
   getAllKnownTeams,
   setCompetitionTeams,
   setCompetitionActive,
+  setCompetitionSeason,
   deleteCompetition,
   findOrCreateTeam,
 } from '@/api/competitions';
@@ -34,6 +35,8 @@ const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) =>
   const [isSaving, setIsSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [isLoadingTeams, setIsLoadingTeams] = useState(false);
+  const [seasonInput, setSeasonInput] = useState('');
+  const [isSavingSeason, setIsSavingSeason] = useState(false);
   const [f1Drivers, setF1Drivers] = useState<Driver[] | null>(null);
   const loadingForRef = useRef<number | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -60,6 +63,7 @@ const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) =>
   const loadRoster = async (competition: CompetitionDto) => {
     loadingForRef.current = competition.id;
     setSelectedCompetition(competition);
+    setSeasonInput(competition.season?.toString() ?? '');
     setIsDirty(false);
     setIsLoadingTeams(true);
     try {
@@ -139,6 +143,27 @@ const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) =>
       setSelectedCompetition((prev) => (prev?.id === competition.id ? { ...prev, active } : prev));
     } catch {
       showToast('Erreur lors de la mise à jour du statut');
+    }
+  };
+
+  const isSeasonDirty = selectedCompetition !== null
+    && seasonInput !== (selectedCompetition.season?.toString() ?? '');
+
+  const handleSaveSeason = async () => {
+    if (!selectedCompetition) return;
+    const trimmed = seasonInput.trim();
+    const season = trimmed === '' ? null : Number(trimmed);
+    if (season !== null && !Number.isInteger(season)) return;
+    setIsSavingSeason(true);
+    try {
+      await setCompetitionSeason(selectedCompetition.id, season);
+      setCompetitions((prev) => prev.map((c) => (c.id === selectedCompetition.id ? { ...c, season } : c)));
+      setSelectedCompetition((prev) => (prev?.id === selectedCompetition.id ? { ...prev, season } : prev));
+      showToast('Saison mise à jour ✅');
+    } catch {
+      showToast('Erreur lors de la mise à jour de la saison');
+    } finally {
+      setIsSavingSeason(false);
     }
   };
 
@@ -239,6 +264,37 @@ const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) =>
           )}
         </div>
       </div>
+
+      {/* Season — generic field, any sport (drives the jolpica sync for F1, free-form for foot) */}
+      {selectedCompetition && (
+        <div className="card">
+          <h3 className="font-bold text-gray-900 dark:text-white mb-1">
+            Saison — <span className="text-wc-green">{selectedCompetition.name}</span>
+          </h3>
+          <p className="text-xs text-gray-400 mb-4">
+            {selectedCompetition.sport === 'F1'
+              ? "Année utilisée pour l'import jolpica (calendrier, grille, résultats)."
+              : 'Année ou saison de la compétition (facultatif).'}
+          </p>
+          <div className="flex gap-2 items-center">
+            <input
+              type="number"
+              value={seasonInput}
+              onChange={(e) => setSeasonInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleSaveSeason())}
+              className="input-field w-32"
+              placeholder="Ex: 2026"
+            />
+            <button
+              onClick={handleSaveSeason}
+              disabled={!isSeasonDirty || isSavingSeason}
+              className="btn-primary disabled:opacity-50"
+            >
+              {isSavingSeason ? '⏳ Sauvegarde...' : '💾 Sauvegarder'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* F1 competitions: the entry list (drivers per constructor) is the roster */}
       {selectedCompetition && selectedCompetition.sport === 'F1' && (

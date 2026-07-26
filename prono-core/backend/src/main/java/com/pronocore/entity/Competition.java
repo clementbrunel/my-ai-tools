@@ -32,7 +32,7 @@ public class Competition {
     @Builder.Default
     private boolean active = true;
 
-    /** jolpica season year (e.g. 2026) — F1 only, null for FOOT competitions. */
+    /** Season year (e.g. 2026), admin-editable — optional for any sport, used by F1 to derive the jolpica season. */
     private Integer season;
 
     @ManyToMany
