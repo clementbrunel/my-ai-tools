@@ -45,6 +45,17 @@ const SLOT_META: Record<SlotKey, { label: string; icon: string; points: string }
   last: { label: 'Lanterne rouge', icon: '🔦', points: '2 pts' },
 };
 
+/** Barème complet affiché sur l'écran de prono — garder synchro avec F1RaceService.computePoints. */
+const LEGEND_ROWS: { icon: string; label: string; points: number; gold?: boolean }[] = [
+  { icon: '🥇', label: 'Vainqueur exact', points: 3 },
+  { icon: '🥈🥉', label: '2e / 3e exact', points: 2 },
+  { icon: '🏎️', label: 'Sur le podium mais mauvaise place', points: 1 },
+  { icon: '⏱', label: 'Pole', points: 2 },
+  { icon: '🟣', label: 'Meilleur tour', points: 1 },
+  { icon: '🔦', label: 'Lanterne rouge', points: 2 },
+  { icon: '👑', label: 'Grand Chelem (pole + victoire + meilleur tour)', points: 2, gold: true },
+];
+
 const emptySlots = (): Slots => ({
   p1: null, p2: null, p3: null, pole: null, fastestLap: null, last: null,
 });
@@ -371,15 +382,33 @@ const F1RaceDetail: React.FC = () => {
             )}
           </div>
 
-          {/* Barème complet — garder synchro avec F1RaceService.computePoints */}
-          <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-500 dark:text-gray-400">
-            <span>🥇 Vainqueur exact <b className="text-gray-700 dark:text-gray-300">+3</b></span>
-            <span>🥈🥉 2e / 3e exact <b className="text-gray-700 dark:text-gray-300">+2</b></span>
-            <span>🏎️ Sur le podium mais mauvaise place <b className="text-gray-700 dark:text-gray-300">+1</b></span>
-            <span>⏱ Pole <b className="text-gray-700 dark:text-gray-300">+2</b></span>
-            <span>🟣 Meilleur tour <b className="text-gray-700 dark:text-gray-300">+1</b></span>
-            <span>🔦 Lanterne rouge <b className="text-gray-700 dark:text-gray-300">+2</b></span>
-            <span>👑 Grand Chelem (pole + victoire + meilleur tour) <b className="text-wc-gold">+2</b></span>
+          {/* Barème complet */}
+          <div className="rounded-xl bg-gray-50 dark:bg-gray-900/40 p-3 space-y-1">
+            <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-1">
+              Barème
+            </div>
+            {LEGEND_ROWS.map((row, i) => (
+              <div
+                key={row.label}
+                className={`flex items-center justify-between gap-3 py-1 ${
+                  i > 0 ? 'border-t border-gray-200/70 dark:border-gray-800' : ''
+                } ${row.gold ? 'pt-2' : ''}`}
+              >
+                <span className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                  <span className="text-sm">{row.icon}</span>
+                  {row.label}
+                </span>
+                <span
+                  className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums ${
+                    row.gold
+                      ? 'bg-yellow-100 dark:bg-yellow-900/30 text-wc-gold'
+                      : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+                  }`}
+                >
+                  +{row.points}
+                </span>
+              </div>
+            ))}
           </div>
 
           {/* Podium */}
