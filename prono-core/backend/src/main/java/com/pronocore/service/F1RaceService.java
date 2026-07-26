@@ -393,6 +393,7 @@ public class F1RaceService {
                         .pole(entry.isPole())
                         .fastestLap(entry.isFastestLap())
                         .dnf(entry.isDnf())
+                        .time(entry.getTime())
                         .build())
                 .toList();
         raceResultRepository.saveAll(results);
@@ -738,6 +739,7 @@ public class F1RaceService {
                 .pole(rr.isPole())
                 .fastestLap(rr.isFastestLap())
                 .dnf(rr.isDnf())
+                .time(rr.getTime())
                 .build();
     }
 

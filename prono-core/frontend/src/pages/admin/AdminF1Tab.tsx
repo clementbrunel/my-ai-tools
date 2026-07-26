@@ -27,14 +27,16 @@ interface RowProps {
   unclassified: boolean;
   pole: boolean;
   fastestLap: boolean;
+  time: string;
   onToggleUnclassified: () => void;
   onSetPole: () => void;
   onSetFastestLap: () => void;
+  onTimeChange: (value: string) => void;
 }
 
 const SortableDriverRow: React.FC<RowProps> = ({
-  driver, index, unclassified, pole, fastestLap,
-  onToggleUnclassified, onSetPole, onSetFastestLap,
+  driver, index, unclassified, pole, fastestLap, time,
+  onToggleUnclassified, onSetPole, onSetFastestLap, onTimeChange,
 }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: driver.id,
@@ -62,6 +64,15 @@ const SortableDriverRow: React.FC<RowProps> = ({
         {driver.name}
         <span className="text-gray-400 font-medium text-xs ml-2 hidden sm:inline">{driver.constructorName}</span>
       </span>
+      <input
+        type="text"
+        value={time}
+        onChange={(e) => onTimeChange(e.target.value)}
+        disabled={unclassified}
+        placeholder="temps / écart"
+        title="Temps (vainqueur) ou écart au vainqueur, ex: 1:32:53.435 ou +22.792"
+        className="input-field !w-24 !py-0.5 !px-1.5 text-xs tabular-nums disabled:opacity-40"
+      />
       <label className="flex items-center gap-1 text-xs cursor-pointer" title="Pole position">
         <input type="radio" name="pole" checked={pole} onChange={onSetPole} className="accent-wc-green" />⏱
       </label>
@@ -89,6 +100,7 @@ const AdminF1Tab: React.FC = () => {
   const [unclassifiedIds, setUnclassifiedIds] = useState<Set<number>>(new Set());
   const [poleId, setPoleId] = useState<number | null>(null);
   const [fastestLapId, setFastestLapId] = useState<number | null>(null);
+  const [timeById, setTimeById] = useState<Record<number, string>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isResyncingGrid, setIsResyncingGrid] = useState(false);
@@ -115,17 +127,25 @@ const AdminF1Tab: React.FC = () => {
 
   // Prefills the form from a race's stored results — shared by the initial load and by a
   // forced resync, which needs to reflect the freshly re-imported classification right away.
+  // Always resets DNF/pole/fastest-lap/time, even when the newly selected race has no results
+  // yet — otherwise those picks leak over from whichever race was selected before it.
   const applyRaceResultsToForm = useCallback((race: Race) => {
-    if (!race.results || race.results.length === 0) return;
-    const sorted = [...race.results].sort((a, b) => (a.position ?? 99) - (b.position ?? 99));
-    setOrder((current) => {
-      const inResults = sorted.map((r) => current.find((d) => d.id === r.driver.id) ?? r.driver);
-      const missing = current.filter((d) => !sorted.some((r) => r.driver.id === d.id));
-      return [...inResults, ...missing];
-    });
+    const sorted = race.results && race.results.length > 0
+      ? [...race.results].sort((a, b) => (a.position ?? 99) - (b.position ?? 99))
+      : [];
+    if (sorted.length > 0) {
+      setOrder((current) => {
+        const inResults = sorted.map((r) => current.find((d) => d.id === r.driver.id) ?? r.driver);
+        const missing = current.filter((d) => !sorted.some((r) => r.driver.id === d.id));
+        return [...inResults, ...missing];
+      });
+    }
     setUnclassifiedIds(new Set(sorted.filter((r) => r.position == null).map((r) => r.driver.id)));
     setPoleId(sorted.find((r) => r.pole)?.driver.id ?? null);
     setFastestLapId(sorted.find((r) => r.fastestLap)?.driver.id ?? null);
+    setTimeById(Object.fromEntries(
+      sorted.filter((r) => r.time).map((r) => [r.driver.id, r.time as string]),
+    ));
   }, []);
 
   // Prefill from existing results when selecting an already-finished race
@@ -223,6 +243,7 @@ const AdminF1Tab: React.FC = () => {
         pole: driver.id === poleId,
         fastestLap: driver.id === fastestLapId,
         dnf: unclassifiedIds.has(driver.id),
+        time: unclassifiedIds.has(driver.id) ? null : (timeById[driver.id]?.trim() || null),
       }));
       await enterRaceResults(selectedRaceId, entries);
       showToast('Résultats enregistrés — paris réglés ! 🏁', 'success');
@@ -297,6 +318,7 @@ const AdminF1Tab: React.FC = () => {
                   unclassified={unclassifiedIds.has(driver.id)}
                   pole={poleId === driver.id}
                   fastestLap={fastestLapId === driver.id}
+                  time={timeById[driver.id] ?? ''}
                   onToggleUnclassified={() =>
                     setUnclassifiedIds((prev) => {
                       const next = new Set(prev);
@@ -307,6 +329,7 @@ const AdminF1Tab: React.FC = () => {
                   }
                   onSetPole={() => setPoleId(driver.id)}
                   onSetFastestLap={() => setFastestLapId(driver.id)}
+                  onTimeChange={(value) => setTimeById((prev) => ({ ...prev, [driver.id]: value }))}
                 />
               ))}
             </div>
