@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { getMatches } from '@/api/matches';
@@ -7,8 +7,11 @@ import type { GroupRankEntry } from '@/api/dashboard';
 import { getDailyGagesByDate, voteOnCandidate } from '@/api/dailyGages';
 import type { Match, DailyGage } from '@/types';
 import MatchCard from '@/components/MatchCard';
+import MatchRow from '@/components/MatchRow';
 import DailyGageCard from '@/components/DailyGageCard';
+import GroupRankTile from '@/components/GroupRankTile';
 import { useToast } from '@/components/Toast';
+import { formatDate } from '@/utils/dates';
 import { logger } from '@/utils/logger';
 
 const Dashboard: React.FC = () => {
@@ -60,6 +63,17 @@ const Dashboard: React.FC = () => {
 
   const upcomingMatches = matches.filter((m) => m.status === 'UPCOMING');
 
+  // Last matchday with finished matches — grouped by calendar day, same as the Matches page.
+  const lastResults = useMemo(() => {
+    const finished = matches.filter((m) => m.status === 'FINISHED');
+    if (finished.length === 0) return null;
+    const lastDay = finished.reduce((max, m) => {
+      const day = m.matchDate.slice(0, 10);
+      return day > max ? day : max;
+    }, finished[0].matchDate.slice(0, 10));
+    return { day: lastDay, matches: finished.filter((m) => m.matchDate.slice(0, 10) === lastDay) };
+  }, [matches]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -86,54 +100,17 @@ const Dashboard: React.FC = () => {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="stat-card">
+        <Link to="/foot/matches" className="stat-card hover:ring-2 hover:ring-wc-green transition-all cursor-pointer">
           <div className="stat-value">{upcomingMatchCount}</div>
           <div className="stat-label">⚽ Matchs à venir</div>
-        </div>
-
-        {/* Classement & Points — double tile, cliquable vers le classement */}
-        <Link
-          to={
-            groupRanks.length === 0
-              ? '/foot/leaderboard'
-              : `/foot/leaderboard?groupId=${(groupRanks[selectedGroupIdx] ?? groupRanks[0]).groupId}`
-          }
-          className="stat-card sm:col-span-2 block hover:ring-2 hover:ring-wc-green transition-all cursor-pointer"
-        >
-          {groupRanks.length === 0 ? (
-            <div className="text-gray-400 dark:text-gray-500 text-sm">Rejoins un groupe pour voir ton classement</div>
-          ) : (() => {
-            const gr = groupRanks[selectedGroupIdx] ?? groupRanks[0];
-            return (
-              <>
-                {groupRanks.length > 1 && (
-                  <div className="mb-3" onClick={(e) => e.preventDefault()}>
-                    <select
-                      value={selectedGroupIdx}
-                      onChange={(e) => setSelectedGroupIdx(Number(e.target.value))}
-                      className="input-field text-sm py-1"
-                    >
-                      {groupRanks.map((g, i) => (
-                        <option key={g.groupId} value={i}>{g.groupName}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="stat-value text-wc-gold">#{gr.rank}<span className="text-base font-normal text-gray-400">/{gr.total}</span></div>
-                    <div className="stat-label">🏅 Classement{groupRanks.length === 1 ? ` · ${gr.groupName}` : ''}</div>
-                  </div>
-                  <div>
-                    <div className="stat-value">{gr.points}</div>
-                    <div className="stat-label">⭐ Points</div>
-                  </div>
-                </div>
-              </>
-            );
-          })()}
-          <div className="text-xs text-wc-green dark:text-green-400 mt-2">Voir le classement complet →</div>
         </Link>
+
+        <GroupRankTile
+          groupRanks={groupRanks}
+          selectedGroupIdx={selectedGroupIdx}
+          onSelectGroupIdx={setSelectedGroupIdx}
+          leaderboardPath="/foot/leaderboard"
+        />
       </div>
 
       {/* Daily Gage Widget — one per group that configured one today */}
@@ -166,6 +143,21 @@ const Dashboard: React.FC = () => {
           </div>
         )}
       </section>
+
+      {/* Last results — one full-width tile with the last matchday's finished matches */}
+      {lastResults && (
+        <div className="card space-y-1">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="font-bold text-gray-900 dark:text-white">📅 Dernier résultat</h2>
+            <span className="text-xs text-gray-400 dark:text-gray-500">{formatDate(lastResults.day)}</span>
+          </div>
+          <div className="space-y-1">
+            {lastResults.matches.map((match) => (
+              <MatchRow key={match.id} match={match} />
+            ))}
+          </div>
+        </div>
+      )}
 
     </div>
   );
