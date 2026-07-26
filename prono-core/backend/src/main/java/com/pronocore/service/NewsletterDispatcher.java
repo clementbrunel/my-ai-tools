@@ -1,6 +1,7 @@
 package com.pronocore.service;
 
 import com.pronocore.service.email.EmailSender;
+import com.pronocore.service.scheduler.ReminderSchedulerService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;

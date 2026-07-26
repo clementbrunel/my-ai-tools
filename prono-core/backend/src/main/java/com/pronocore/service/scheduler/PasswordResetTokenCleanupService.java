@@ -1,4 +1,4 @@
-package com.pronocore.service;
+package com.pronocore.service.scheduler;
 
 import com.pronocore.repository.PasswordResetTokenRepository;
 import lombok.RequiredArgsConstructor;
