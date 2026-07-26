@@ -20,6 +20,7 @@ import { useToast } from '@/components/Toast';
 import { computeF1Verdicts } from '@/utils/f1Calculations';
 import MiniF1Car from '@/components/f1/MiniF1Car';
 import DriverChip from '@/components/f1/DriverChip';
+import PointsLegend from '@/components/f1/PointsLegend';
 
 type SlotKey = 'p1' | 'p2' | 'p3' | 'pole' | 'fastestLap' | 'last';
 type Slots = Record<SlotKey, Driver | null>;
@@ -383,6 +384,8 @@ const F1RaceDetail: React.FC = () => {
               </span>
             )}
           </div>
+
+          <PointsLegend />
 
           {/* Podium */}
           <div className="flex items-end justify-center gap-3">
