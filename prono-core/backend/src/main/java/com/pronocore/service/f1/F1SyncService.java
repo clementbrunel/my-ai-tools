@@ -6,6 +6,7 @@ import com.pronocore.dto.request.EnterRaceResultsRequest;
 import com.pronocore.entity.*;
 import com.pronocore.repository.*;
 import com.pronocore.service.F1RaceService;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -40,6 +41,7 @@ public class F1SyncService {
     private final JolpicaClient jolpicaClient;
     private final CompetitionRepository competitionRepository;
     private final RaceRepository raceRepository;
+    private final QualifyingResultRepository qualifyingResultRepository;
     private final DriverRepository driverRepository;
     private final ConstructorRepository constructorRepository;
     private final BetRepository betRepository;
@@ -75,25 +77,36 @@ public class F1SyncService {
             Map.entry("Brazil", "BR"), Map.entry("Qatar", "QA"), Map.entry("UAE", "AE"),
             Map.entry("United Arab Emirates", "AE"));
 
-    /**
-     * Full season sync. Returns a human-readable summary of what was done.
-     *
-     * @param season e.g. 2026 — matched to the (single) F1 competition.
-     */
+    /** Full season sync, for the season configured on the (single) F1 competition. Returns a human-readable summary. */
     @Transactional
-    public String syncSeason(int season) {
+    public String syncSeason() {
         Competition competition = competitionRepository.findFirstBySportOrderByIdDesc(Sport.F1)
                 .orElseThrow(() -> new IllegalStateException("No F1 competition configured"));
+        int season = requireSeason(competition);
 
         int racesUpserted = syncCalendar(season, competition);
+        List<Integer> qualifyingRounds = syncQualifying(season, competition);
         List<Integer> settledRounds = syncResults(season, competition);
 
         String summary = "Calendrier : " + racesUpserted + " course(s) synchronisée(s)"
+                + (qualifyingRounds.isEmpty()
+                    ? ""
+                    : " — grille de départ importée pour les manches " + qualifyingRounds)
                 + (settledRounds.isEmpty()
                     ? " — aucun nouveau résultat"
                     : " — résultats importés et paris réglés pour les manches " + settledRounds);
         log.info("🔄 F1 sync {} — {}", season, summary);
         return summary;
+    }
+
+    /** The jolpica season year configured on the competition — set once via migration/seed when the season starts. */
+    private int requireSeason(Competition competition) {
+        Integer season = competition.getSeason();
+        if (season == null) {
+            throw new IllegalStateException(
+                    "No jolpica season configured on competition " + competition.getId());
+        }
+        return season;
     }
 
     // ---------------------------------------------------------------
@@ -149,49 +162,162 @@ public class F1SyncService {
     }
 
     // ---------------------------------------------------------------
+    // Qualifying grid — known well before the race, helps players adjust their prono
+    // ---------------------------------------------------------------
+
+    /**
+     * Imports the starting grid as soon as qualifying is over, independently of the race
+     * itself (jolpica exposes {@code /qualifying.json} the same evening). Display only —
+     * settlement still runs off {@link #syncResults}. Re-fetches (delete + recreate) on every
+     * call while the race hasn't been run yet, so a correction on jolpica's side is picked up.
+     * Skips FINISHED races here as a cost-saving default for the full-season sync — grid
+     * penalties confirmed after the fact still need {@link #syncQualifyingForRace}.
+     */
+    private List<Integer> syncQualifying(int season, Competition competition) {
+        List<Integer> imported = new ArrayList<>();
+        LocalDateTime now = LocalDateTime.now();
+
+        for (Race race : raceRepository.findByCompetition_IdOrderByRaceDateAsc(competition.getId())) {
+            if (race.getStatus() == Race.Status.FINISHED) continue;
+            if (race.getQualifyingDate() == null || race.getQualifyingDate().isAfter(now)) continue;
+            throttle();
+            if (fetchAndStoreQualifyingGrid(season, race)) imported.add(race.getRound());
+        }
+        return imported;
+    }
+
+    /**
+     * Forces a re-import of one race's qualifying grid from jolpica, regardless of its
+     * FINISHED status — for admin corrections when a grid penalty is confirmed (or jolpica's
+     * own data is amended) after {@link #syncQualifying} already skipped it.
+     */
+    @Transactional
+    public String syncQualifyingForRace(Long raceId) {
+        Race race = raceRepository.findById(raceId)
+                .orElseThrow(() -> new EntityNotFoundException("Race not found: " + raceId));
+        int season = requireSeason(race.getCompetition());
+        return fetchAndStoreQualifyingGrid(season, race)
+                ? "Grille de départ réimportée pour " + race.getName()
+                : "Aucune grille de départ disponible sur jolpica pour " + race.getName();
+    }
+
+    /** Fetches the grid from jolpica and replaces it (delete + recreate) — false if jolpica has nothing yet. */
+    private boolean fetchAndStoreQualifyingGrid(int season, Race race) {
+        JsonNode races = read(season + "/" + race.getRound() + "/qualifying.json?limit=40")
+                .path("MRData").path("RaceTable").path("Races");
+        if (!races.isArray() || races.isEmpty()) return false;
+
+        List<QualifyingResult> grid = new ArrayList<>();
+        for (JsonNode q : races.get(0).path("QualifyingResults")) {
+            String positionText = q.path("position").asText("");
+            if (!positionText.matches("\\d+")) continue;
+            Driver driver = upsertDriver(q.path("Driver"), q.path("Constructor"));
+            grid.add(QualifyingResult.builder()
+                    .race(race)
+                    .driver(driver)
+                    .position(Integer.parseInt(positionText))
+                    .time(bestQualifyingTime(q))
+                    .build());
+        }
+        if (grid.isEmpty()) return false;
+
+        qualifyingResultRepository.deleteByRaceId(race.getId());
+        qualifyingResultRepository.saveAll(grid);
+        return true;
+    }
+
+    /**
+     * The grid time shown for a driver: their time in the last knockout session they reached
+     * (Q3, else Q2, else Q1) — never a comparison across sessions. A driver eliminated in Q2
+     * can post a numerically faster lap than a Q3 finisher (changing weather, track evolution)
+     * and still start further back: the grid position (from jolpica's own {@code position}
+     * field) already reflects the knockout hierarchy, this only picks which time to display
+     * next to it.
+     */
+    private String bestQualifyingTime(JsonNode qualifyingResult) {
+        for (String session : List.of("Q3", "Q2", "Q1")) {
+            String time = qualifyingResult.path(session).asText("");
+            if (!time.isBlank()) return time;
+        }
+        return null;
+    }
+
+    /** Pole driver code from the stored qualifying grid — populated by {@link #syncQualifying}
+     *  earlier in the same sync pass (qualifying always precedes the race). */
+    private String polePositionDriverCode(Long raceId) {
+        return qualifyingResultRepository.findByRaceIdWithDrivers(raceId).stream()
+                .filter(qr -> qr.getPosition() == 1)
+                .map(qr -> qr.getDriver().getCode())
+                .findFirst()
+                .orElse(null);
+    }
+
+    // ---------------------------------------------------------------
     // Results
     // ---------------------------------------------------------------
 
-    /** Imports results for every finished round not yet FINISHED locally. Returns settled rounds. */
+    /**
+     * Imports results for every round not yet FINISHED locally and settles them. Skips already
+     * FINISHED races as a cost-saving default — a post-race penalty confirmed after the fact
+     * still needs {@link #syncResultsForRace}. Returns settled rounds.
+     */
     private List<Integer> syncResults(int season, Competition competition) {
         List<Integer> settled = new ArrayList<>();
-        List<Race> localRaces = raceRepository.findByCompetition_IdOrderByRaceDateAsc(competition.getId());
-
-        for (Race race : localRaces) {
+        for (Race race : raceRepository.findByCompetition_IdOrderByRaceDateAsc(competition.getId())) {
             if (race.getStatus() == Race.Status.FINISHED) continue;
             throttle();
-
-            JsonNode raceNode = read(season + "/" + race.getRound() + "/results.json?limit=40")
-                    .path("MRData").path("RaceTable").path("Races");
-            if (!raceNode.isArray() || raceNode.isEmpty()) continue;   // not raced yet
-            JsonNode results = raceNode.get(0).path("Results");
-            if (!results.isArray() || results.isEmpty()) continue;
-
-            String poleDriverCode = fetchPoleDriverCode(season, race.getRound());
-            Map<String, Integer> sprintPositionByCode = fetchSprintPositions(season, race.getRound());
-
-            List<EnterRaceResultsRequest.Entry> entries = new ArrayList<>();
-            for (JsonNode result : results) {
-                Driver driver = upsertDriver(result.path("Driver"), result.path("Constructor"));
-
-                EnterRaceResultsRequest.Entry entry = new EnterRaceResultsRequest.Entry();
-                entry.setDriverId(driver.getId());
-                String positionText = result.path("positionText").asText("");
-                entry.setPosition(positionText.matches("\\d+") ? Integer.parseInt(positionText) : null);
-                String status = result.path("status").asText("");
-                entry.setDnf(!status.equals("Finished") && !status.startsWith("+"));
-                entry.setFastestLap(result.path("FastestLap").path("rank").asText("").equals("1"));
-                entry.setPole(driver.getCode().equals(poleDriverCode));
-                entry.setSprintPosition(sprintPositionByCode.get(driver.getCode()));
-                entries.add(entry);
-            }
-
-            EnterRaceResultsRequest request = new EnterRaceResultsRequest();
-            request.setResults(entries);
-            f1RaceService.enterResults(race.getId(), request);
-            settled.add(race.getRound());
+            if (fetchAndSettleResults(season, race)) settled.add(race.getRound());
         }
         return settled;
+    }
+
+    /**
+     * Forces a re-import of one race's full classification from jolpica and re-settles it,
+     * regardless of its FINISHED status — for admin corrections when a penalty is confirmed
+     * (or jolpica's own data is amended) after {@link #syncResults} already settled and
+     * skipped it. Re-settling recomputes points/gages/forfeits, same as a manual re-entry.
+     */
+    @Transactional
+    public String syncResultsForRace(Long raceId) {
+        Race race = raceRepository.findById(raceId)
+                .orElseThrow(() -> new EntityNotFoundException("Race not found: " + raceId));
+        int season = requireSeason(race.getCompetition());
+        return fetchAndSettleResults(season, race)
+                ? "Résultats réimportés et paris réglés pour " + race.getName()
+                : "Aucun résultat disponible sur jolpica pour " + race.getName();
+    }
+
+    /** Fetches the full classification from jolpica and settles it — false if jolpica has nothing yet. */
+    private boolean fetchAndSettleResults(int season, Race race) {
+        JsonNode raceNode = read(season + "/" + race.getRound() + "/results.json?limit=40")
+                .path("MRData").path("RaceTable").path("Races");
+        if (!raceNode.isArray() || raceNode.isEmpty()) return false;   // not raced yet
+        JsonNode results = raceNode.get(0).path("Results");
+        if (!results.isArray() || results.isEmpty()) return false;
+
+        String poleDriverCode = polePositionDriverCode(race.getId());
+        Map<String, Integer> sprintPositionByCode = fetchSprintPositions(season, race.getRound());
+
+        List<EnterRaceResultsRequest.Entry> entries = new ArrayList<>();
+        for (JsonNode result : results) {
+            Driver driver = upsertDriver(result.path("Driver"), result.path("Constructor"));
+
+            EnterRaceResultsRequest.Entry entry = new EnterRaceResultsRequest.Entry();
+            entry.setDriverId(driver.getId());
+            String positionText = result.path("positionText").asText("");
+            entry.setPosition(positionText.matches("\\d+") ? Integer.parseInt(positionText) : null);
+            String status = result.path("status").asText("");
+            entry.setDnf(!status.equals("Finished") && !status.startsWith("+"));
+            entry.setFastestLap(result.path("FastestLap").path("rank").asText("").equals("1"));
+            entry.setPole(driver.getCode().equals(poleDriverCode));
+            entry.setSprintPosition(sprintPositionByCode.get(driver.getCode()));
+            entries.add(entry);
+        }
+
+        EnterRaceResultsRequest request = new EnterRaceResultsRequest();
+        request.setResults(entries);
+        f1RaceService.enterResults(race.getId(), request);
+        return true;
     }
 
     /** Sprint classification by driver code — empty map when the weekend has no sprint. */
@@ -216,18 +342,6 @@ public class F1SyncService {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
-    }
-
-    private String fetchPoleDriverCode(int season, int round) {
-        JsonNode races = read(season + "/" + round + "/qualifying.json?limit=5")
-                .path("MRData").path("RaceTable").path("Races");
-        if (!races.isArray() || races.isEmpty()) return null;
-        for (JsonNode q : races.get(0).path("QualifyingResults")) {
-            if (q.path("position").asText("").equals("1")) {
-                return q.path("Driver").path("code").asText(null);
-            }
-        }
-        return null;
     }
 
     // ---------------------------------------------------------------

@@ -340,6 +340,12 @@ export interface RaceResultEntry {
   dnf: boolean;
 }
 
+export interface QualifyingResultEntry {
+  driver: Driver;
+  position: number;
+  time: string | null;
+}
+
 export interface DriverRaceResult {
   raceId: number;
   raceName: string;
@@ -371,6 +377,8 @@ export interface Race {
   userPredicted: boolean;
   predictionsCount: number;
   results?: RaceResultEntry[];
+  /** Starting grid — populated as soon as qualifying is over, well before the race. */
+  qualifyingResults?: QualifyingResultEntry[];
 }
 
 export interface F1Prediction {

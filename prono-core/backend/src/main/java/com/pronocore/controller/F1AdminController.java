@@ -24,12 +24,31 @@ public class F1AdminController {
     private final F1RaceService f1RaceService;
     private final F1SyncService f1SyncService;
 
-    @PostMapping("/sync/{season}")
+    @PostMapping("/sync")
     @PreAuthorize("hasRole('PLATFORM_ADMIN')")
-    @Operation(summary = "Import calendar, entry list and results from jolpica-f1, settling finished races")
+    @Operation(summary = "Import calendar, entry list and results from jolpica-f1 for the configured season, "
+            + "settling finished races")
     @LoggedAt(Level.INFO)
-    public ResponseEntity<String> sync(@PathVariable int season) {
-        return ResponseEntity.ok(f1SyncService.syncSeason(season));
+    public ResponseEntity<String> sync() {
+        return ResponseEntity.ok(f1SyncService.syncSeason());
+    }
+
+    @PostMapping("/races/{raceId}/qualifying/resync")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+    @Operation(summary = "Force re-import of a race's qualifying grid from jolpica — works even once the race "
+            + "is finished, for corrections (grid penalty confirmed after the fact)")
+    @LoggedAt(Level.INFO)
+    public ResponseEntity<String> resyncQualifying(@PathVariable Long raceId) {
+        return ResponseEntity.ok(f1SyncService.syncQualifyingForRace(raceId));
+    }
+
+    @PostMapping("/races/{raceId}/results/resync")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+    @Operation(summary = "Force re-import of a race's full classification from jolpica and re-settle it — works "
+            + "even once already finished, for corrections (post-race penalty confirmed after the fact)")
+    @LoggedAt(Level.INFO)
+    public ResponseEntity<String> resyncResults(@PathVariable Long raceId) {
+        return ResponseEntity.ok(f1SyncService.syncResultsForRace(raceId));
     }
 
     @PostMapping("/races/{raceId}/results")

@@ -438,6 +438,44 @@ const F1RaceDetail: React.FC = () => {
         </DragOverlay>
       </DndContext>
 
+      {/* Starting grid — known as soon as qualifying is over, to help fine-tune the prono before lights out */}
+      {!finished && race.qualifyingResults && race.qualifyingResults.length > 0 && (
+        <div className="card space-y-2">
+          <h2 className="font-bold text-gray-900 dark:text-white">Grille de départ</h2>
+          <p className="text-xs text-gray-400">
+            Résultat des qualifs — de quoi ajuster ton prono avant le départ (le podium reste modifiable jusqu'au départ).
+          </p>
+          <div className="flex gap-3 overflow-x-auto pt-2 pb-1 -mx-4 px-4">
+            {race.qualifyingResults.map((r, i) => (
+              <div
+                key={r.driver.id}
+                className={`flex flex-col items-center shrink-0 w-12 ${i % 2 === 1 ? 'mt-3' : ''}`}
+              >
+                <div className="relative w-9 h-9 flex items-center justify-center">
+                  <div className="-rotate-90">
+                    <MiniF1Car color={r.driver.constructorColor} size={36} />
+                  </div>
+                  {r.position === 1 && (
+                    <span className="absolute -top-1 right-0 text-xs" title="Pole position">⏱</span>
+                  )}
+                </div>
+                <span className="text-[10px] font-black text-gray-400 dark:text-gray-500 leading-tight">
+                  P{r.position}
+                </span>
+                <span className="text-xs font-bold text-gray-900 dark:text-white leading-tight">
+                  {r.driver.code}
+                </span>
+                {r.time && (
+                  <span className="text-[9px] text-gray-400 dark:text-gray-500 tabular-nums leading-tight whitespace-nowrap">
+                    {r.time}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Group predictions — revealed per milestone (same spirit as football) */}
       {!poleLocked ? (
         <div className="card text-center py-4 text-gray-500 dark:text-gray-400 text-sm">

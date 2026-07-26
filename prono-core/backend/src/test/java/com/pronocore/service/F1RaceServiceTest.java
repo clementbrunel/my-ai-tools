@@ -24,6 +24,7 @@ class F1RaceServiceTest {
 
     @Mock private RaceRepository raceRepository;
     @Mock private RaceResultRepository raceResultRepository;
+    @Mock private QualifyingResultRepository qualifyingResultRepository;
     @Mock private DriverRepository driverRepository;
     @Mock private F1PredictionRepository predictionRepository;
     @Mock private BetRepository betRepository;

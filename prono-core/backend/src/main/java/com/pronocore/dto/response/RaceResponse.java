@@ -35,4 +35,7 @@ public class RaceResponse {
 
     /** Full classification — only populated once the race is FINISHED. */
     private List<RaceResultResponse> results;
+
+    /** Starting grid — populated as soon as qualifying is over, well before the race. */
+    private List<QualifyingResultResponse> qualifyingResults;
 }

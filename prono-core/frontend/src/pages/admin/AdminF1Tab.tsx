@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   DndContext,
   PointerSensor,
@@ -15,7 +15,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { enterRaceResults, getDrivers, getRace, getRaces, syncSeason } from '@/api/f1';
+import { enterRaceResults, getDrivers, getRace, getRaces, resyncQualifying, resyncResults, syncSeason } from '@/api/f1';
 import type { Driver, Race } from '@/types';
 import { formatDate } from '@/utils/dates';
 import { useToast } from '@/components/Toast';
@@ -91,6 +91,8 @@ const AdminF1Tab: React.FC = () => {
   const [fastestLapId, setFastestLapId] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isResyncingGrid, setIsResyncingGrid] = useState(false);
+  const [isResyncingResults, setIsResyncingResults] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const sensors = useSensors(
@@ -111,33 +113,35 @@ const AdminF1Tab: React.FC = () => {
       .catch(() => setError('Impossible de charger les courses'));
   }, []);
 
+  // Prefills the form from a race's stored results — shared by the initial load and by a
+  // forced resync, which needs to reflect the freshly re-imported classification right away.
+  const applyRaceResultsToForm = useCallback((race: Race) => {
+    if (!race.results || race.results.length === 0) return;
+    const sorted = [...race.results].sort((a, b) => (a.position ?? 99) - (b.position ?? 99));
+    setOrder((current) => {
+      const inResults = sorted.map((r) => current.find((d) => d.id === r.driver.id) ?? r.driver);
+      const missing = current.filter((d) => !sorted.some((r) => r.driver.id === d.id));
+      return [...inResults, ...missing];
+    });
+    setUnclassifiedIds(new Set(sorted.filter((r) => r.position == null).map((r) => r.driver.id)));
+    setPoleId(sorted.find((r) => r.pole)?.driver.id ?? null);
+    setFastestLapId(sorted.find((r) => r.fastestLap)?.driver.id ?? null);
+  }, []);
+
   // Prefill from existing results when selecting an already-finished race
   useEffect(() => {
     if (selectedRaceId == null) return;
     getRace(selectedRaceId)
-      .then((race) => {
-        if (!race.results || race.results.length === 0) return;
-        const sorted = [...race.results].sort(
-          (a, b) => (a.position ?? 99) - (b.position ?? 99),
-        );
-        setOrder((current) => {
-          const inResults = sorted.map((r) => current.find((d) => d.id === r.driver.id) ?? r.driver);
-          const missing = current.filter((d) => !sorted.some((r) => r.driver.id === d.id));
-          return [...inResults, ...missing];
-        });
-        setUnclassifiedIds(new Set(sorted.filter((r) => r.position == null).map((r) => r.driver.id)));
-        setPoleId(sorted.find((r) => r.pole)?.driver.id ?? null);
-        setFastestLapId(sorted.find((r) => r.fastestLap)?.driver.id ?? null);
-      })
+      .then(applyRaceResultsToForm)
       .catch(() => { /* keep current grid order */ });
-  }, [selectedRaceId]);
+  }, [selectedRaceId, applyRaceResultsToForm]);
 
   const selectedRace = races.find((r) => r.id === selectedRaceId);
 
   const handleSync = async () => {
     setIsSyncing(true);
     try {
-      const summary = await syncSeason(2026);
+      const summary = await syncSeason();
       showToast(summary, 'success');
       const [raceRows, driverRows] = await Promise.all([getRaces(), getDrivers()]);
       setRaces(raceRows);
@@ -147,6 +151,44 @@ const AdminF1Tab: React.FC = () => {
       showToast(message ?? "Échec de l'import jolpica (réseau ?) — saisie manuelle possible ci-dessous", 'error');
     } finally {
       setIsSyncing(false);
+    }
+  };
+
+  // Forces a fresh pull of the qualifying grid even once the race is FINISHED — the
+  // regular sync skips finished races, but a grid penalty can be confirmed after the fact.
+  const handleResyncQualifying = async () => {
+    if (selectedRaceId == null) return;
+    setIsResyncingGrid(true);
+    try {
+      const message = await resyncQualifying(selectedRaceId);
+      showToast(message, 'success');
+    } catch (e: unknown) {
+      const message = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      showToast(message ?? 'Échec du re-import de la grille de qualifs', 'error');
+    } finally {
+      setIsResyncingGrid(false);
+    }
+  };
+
+  // Forces a fresh pull of the full classification even once the race is FINISHED — the
+  // regular sync skips finished races, but a post-race penalty can be confirmed after the fact.
+  const handleResyncResults = async () => {
+    if (selectedRaceId == null) return;
+    setIsResyncingResults(true);
+    try {
+      const message = await resyncResults(selectedRaceId);
+      showToast(message, 'success');
+      // The server's status is authoritative — a "nothing to import yet" resync (e.g. forced
+      // on a race jolpica hasn't raced yet) settles nothing, so it must not flip the local
+      // "✓ Déjà réglée" badge.
+      const race = await getRace(selectedRaceId);
+      applyRaceResultsToForm(race);
+      setRaces((prev) => prev.map((r) => (r.id === selectedRaceId ? { ...r, status: race.status } : r)));
+    } catch (e: unknown) {
+      const message = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      showToast(message ?? 'Échec du re-import des résultats', 'error');
+    } finally {
+      setIsResyncingResults(false);
     }
   };
 
@@ -212,7 +254,23 @@ const AdminF1Tab: React.FC = () => {
             Déjà réglée — réenregistrer recalcule les points
           </span>
         )}
-        <button onClick={handleSync} disabled={isSyncing} className="btn-gold ml-auto" title="Importe calendrier, grille et résultats depuis l'API jolpica-f1, et règle les paris des courses terminées">
+        <button
+          onClick={handleResyncQualifying}
+          disabled={isResyncingGrid || selectedRaceId == null}
+          className="btn-secondary ml-auto"
+          title="Force le re-import de la grille de qualifs de cette course depuis jolpica, même si elle est déjà terminée (utile après une pénalité sur grille confirmée après coup)"
+        >
+          {isResyncingGrid ? 'Import…' : '⏱ Resync grille qualifs'}
+        </button>
+        <button
+          onClick={handleResyncResults}
+          disabled={isResyncingResults || selectedRaceId == null}
+          className="btn-secondary"
+          title="Force le re-import du classement de cette course depuis jolpica et re-règle les paris, même si elle est déjà terminée (utile après une pénalité post-course confirmée après coup)"
+        >
+          {isResyncingResults ? 'Import…' : '🏁 Resync résultats course'}
+        </button>
+        <button onClick={handleSync} disabled={isSyncing} className="btn-gold" title="Importe calendrier, grille et résultats depuis l'API jolpica-f1, et règle les paris des courses terminées">
           {isSyncing ? 'Import en cours…' : '🔄 Importer les résultats (jolpica)'}
         </button>
       </div>
