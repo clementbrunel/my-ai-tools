@@ -445,11 +445,14 @@ const F1RaceDetail: React.FC = () => {
           <p className="text-xs text-gray-400">
             Résultat des qualifs — de quoi ajuster ton prono avant le départ (le podium reste modifiable jusqu'au départ).
           </p>
-          <div className="grid grid-cols-2 gap-x-2 gap-y-1 pt-1">
+          <div className="flex gap-3 overflow-x-auto pt-2 pb-1 -mx-4 px-4">
             {race.qualifyingResults.map((r, i) => (
-              <div key={r.driver.id} className={`flex flex-col items-center ${i % 2 === 1 ? 'mt-5' : ''}`}>
+              <div
+                key={r.driver.id}
+                className={`flex flex-col items-center shrink-0 w-12 ${i % 2 === 1 ? 'mt-3' : ''}`}
+              >
                 <div className="relative">
-                  <MiniF1Car color={r.driver.constructorColor} size={40} />
+                  <MiniF1Car color={r.driver.constructorColor} size={36} />
                   {r.position === 1 && (
                     <span className="absolute -top-1 -right-2 text-xs" title="Pole position">⏱</span>
                   )}
@@ -461,7 +464,7 @@ const F1RaceDetail: React.FC = () => {
                   {r.driver.code}
                 </span>
                 {r.time && (
-                  <span className="text-[10px] text-gray-400 dark:text-gray-500 tabular-nums leading-tight">
+                  <span className="text-[9px] text-gray-400 dark:text-gray-500 tabular-nums leading-tight whitespace-nowrap">
                     {r.time}
                   </span>
                 )}
