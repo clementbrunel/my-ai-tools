@@ -118,7 +118,7 @@ const F1Dashboard: React.FC = () => {
         />
       </div>
 
-      <DailyGageWidget />
+      <DailyGageWidget allowedGroupIds={groupRanks.map((g) => g.groupId)} />
 
       {/* Quick links */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
