@@ -7,6 +7,7 @@ import type { Race } from '@/types';
 import { formatDate, formatTime } from '@/utils/dates';
 import { getFlagUrl } from '@/utils/countryFlags';
 import MiniF1Car from '@/components/f1/MiniF1Car';
+import GroupRankTile from '@/components/GroupRankTile';
 import { logger } from '@/utils/logger';
 
 const F1Dashboard: React.FC = () => {
@@ -49,7 +50,16 @@ const F1Dashboard: React.FC = () => {
 
   const nextRaceFlag = getFlagUrl(nextRace?.countryIso2?.toLowerCase());
   const lastRaceFlag = getFlagUrl(lastFinished?.countryIso2?.toLowerCase());
-  const podium = lastRaceDetail?.results?.slice(0, 3) ?? [];
+  const raceResults = lastRaceDetail?.results ?? [];
+  const podium = raceResults.slice(0, 3);
+  // Pole and fastest lap can go to a driver outside the podium — call them out
+  // separately so that info isn't silently lost when the tile only shows the top 3.
+  const poleHolder = raceResults.find((r) => r.pole);
+  const fastestLapHolder = raceResults.find((r) => r.fastestLap);
+  const extraHighlights = [
+    poleHolder && !podium.includes(poleHolder) ? { icon: '⏱', label: 'Pole', entry: poleHolder } : null,
+    fastestLapHolder && !podium.includes(fastestLapHolder) ? { icon: '🟣', label: 'Meilleur tour', entry: fastestLapHolder } : null,
+  ].filter((h): h is { icon: string; label: string; entry: (typeof raceResults)[number] } => h !== null);
 
   return (
     <div className="space-y-8">
@@ -99,49 +109,12 @@ const F1Dashboard: React.FC = () => {
           )}
         </Link>
 
-        {/* Classement & Points — double tile, cliquable vers le classement */}
-        <Link
-          to={
-            groupRanks.length === 0
-              ? '/f1/leaderboard'
-              : `/f1/leaderboard?groupId=${(groupRanks[selectedGroupIdx] ?? groupRanks[0]).groupId}`
-          }
-          className="stat-card sm:col-span-2 block hover:ring-2 hover:ring-wc-green transition-all cursor-pointer"
-        >
-          {groupRanks.length === 0 ? (
-            <div className="text-gray-400 dark:text-gray-500 text-sm">Rejoins un groupe pour voir ton classement</div>
-          ) : (() => {
-            const gr = groupRanks[selectedGroupIdx] ?? groupRanks[0];
-            return (
-              <>
-                {groupRanks.length > 1 && (
-                  <div className="mb-3" onClick={(e) => e.preventDefault()}>
-                    <select
-                      value={selectedGroupIdx}
-                      onChange={(e) => setSelectedGroupIdx(Number(e.target.value))}
-                      className="input-field text-sm py-1"
-                    >
-                      {groupRanks.map((g, i) => (
-                        <option key={g.groupId} value={i}>{g.groupName}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="stat-value text-wc-gold">#{gr.rank}<span className="text-base font-normal text-gray-400">/{gr.total}</span></div>
-                    <div className="stat-label">🏅 Classement{groupRanks.length === 1 ? ` · ${gr.groupName}` : ''}</div>
-                  </div>
-                  <div>
-                    <div className="stat-value">{gr.points}</div>
-                    <div className="stat-label">⭐ Points</div>
-                  </div>
-                </div>
-              </>
-            );
-          })()}
-          <div className="text-xs text-wc-green dark:text-green-400 mt-2">Voir le classement complet →</div>
-        </Link>
+        <GroupRankTile
+          groupRanks={groupRanks}
+          selectedGroupIdx={selectedGroupIdx}
+          onSelectGroupIdx={setSelectedGroupIdx}
+          leaderboardPath="/f1/leaderboard"
+        />
       </div>
 
       {/* Quick links */}
@@ -189,23 +162,40 @@ const F1Dashboard: React.FC = () => {
             </Link>
           </div>
           {podium.length > 0 ? (
-            <div className="divide-y divide-gray-100 dark:divide-gray-800">
-              {podium.map((r) => (
-                <div key={r.driver.id} className="flex items-center gap-3 py-1.5 text-sm">
-                  <span className="w-8 text-right font-black text-gray-400">{r.position ?? 'NC'}</span>
-                  <MiniF1Car color={r.driver.constructorColor} size={32} />
-                  <span className="font-bold text-gray-900 dark:text-white flex-1 truncate">
-                    {r.driver.name}
-                    <span className="text-gray-400 font-medium text-xs ml-2">{r.driver.constructorName}</span>
-                  </span>
-                  <span className="flex gap-1 text-xs items-center shrink-0">
-                    {r.pole && <span title="Pole position">⏱</span>}
-                    {r.fastestLap && <span title="Meilleur tour">🟣</span>}
-                    {r.dnf && <span className="text-gray-400" title="Abandon">DNF</span>}
-                  </span>
+            <>
+              <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                {podium.map((r) => (
+                  <div key={r.driver.id} className="flex items-center gap-3 py-1.5 text-sm">
+                    <span className="w-8 text-right font-black text-gray-400">{r.position ?? 'NC'}</span>
+                    <MiniF1Car color={r.driver.constructorColor} size={32} />
+                    <span className="font-bold text-gray-900 dark:text-white flex-1 truncate">
+                      {r.driver.name}
+                      <span className="text-gray-400 font-medium text-xs ml-2">{r.driver.constructorName}</span>
+                    </span>
+                    <span className="flex gap-1 text-xs items-center shrink-0">
+                      {r.pole && <span title="Pole position">⏱</span>}
+                      {r.fastestLap && <span title="Meilleur tour">🟣</span>}
+                      {r.dnf && <span className="text-gray-400" title="Abandon">DNF</span>}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              {/* Pole / meilleur tour when held outside the podium — otherwise silently lost */}
+              {extraHighlights.length > 0 && (
+                <div className="pt-2 border-t border-gray-100 dark:border-gray-800 space-y-1">
+                  {extraHighlights.map(({ icon, label, entry }) => (
+                    <div key={label} className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+                      <span className="w-8 text-right shrink-0">{icon}</span>
+                      <span className="shrink-0">{label} :</span>
+                      <span className="font-bold text-gray-700 dark:text-gray-300 truncate">
+                        {entry.driver.name}
+                        <span className="text-gray-400 font-normal ml-1">({entry.driver.constructorName})</span>
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           ) : (
             <div className="text-sm text-gray-400">Résultats en cours de saisie…</div>
           )}
