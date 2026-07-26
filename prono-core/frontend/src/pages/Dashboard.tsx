@@ -4,27 +4,21 @@ import { useAuth } from '@/context/AuthContext';
 import { getMatches } from '@/api/matches';
 import { getDashboardStats } from '@/api/dashboard';
 import type { GroupRankEntry } from '@/api/dashboard';
-import { getDailyGagesByDate, voteOnCandidate } from '@/api/dailyGages';
-import type { Match, DailyGage } from '@/types';
+import type { Match } from '@/types';
 import MatchCard from '@/components/MatchCard';
 import MatchRow from '@/components/MatchRow';
-import DailyGageCard from '@/components/DailyGageCard';
 import GroupRankTile from '@/components/GroupRankTile';
-import { useToast } from '@/components/Toast';
+import DailyGageWidget from '@/components/DailyGageWidget';
 import { formatDate } from '@/utils/dates';
 import { logger } from '@/utils/logger';
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
-  const { showToast } = useToast();
   const [matches, setMatches] = useState<Match[]>([]);
-  const [todayGages, setTodayGages] = useState<DailyGage[]>([]);
   const [upcomingMatchCount, setUpcomingMatchCount] = useState<number>(0);
   const [groupRanks, setGroupRanks] = useState<GroupRankEntry[]>([]);
   const [selectedGroupIdx, setSelectedGroupIdx] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
-
-  const today = new Date().toISOString().split('T')[0]; // "2026-06-11"
 
   useEffect(() => {
     const fetchData = async () => {
@@ -36,13 +30,6 @@ const Dashboard: React.FC = () => {
         setMatches(matchesData);
         setUpcomingMatchCount(statsData.upcomingMatchesInMyGroups);
         setGroupRanks(statsData.groupRanks);
-
-        // Load today's gages across the user's groups (empty if none configured)
-        try {
-          setTodayGages(await getDailyGagesByDate(today));
-        } catch {
-          // No gage today — that's fine
-        }
       } catch (err) {
         logger.error('Error loading dashboard:', err);
       } finally {
@@ -50,16 +37,7 @@ const Dashboard: React.FC = () => {
       }
     };
     fetchData();
-  }, [today]);
-
-  const handleVote = async (gageId: number, forfeitId: number, vote: number) => {
-    try {
-      const updated = await voteOnCandidate(gageId, forfeitId, vote);
-      setTodayGages((prev) => prev.map((g) => (g.id === updated.id ? updated : g)));
-    } catch {
-      showToast('Erreur lors du vote');
-    }
-  };
+  }, []);
 
   const upcomingMatches = matches.filter((m) => m.status === 'UPCOMING');
 
@@ -113,15 +91,7 @@ const Dashboard: React.FC = () => {
         />
       </div>
 
-      {/* Daily Gage Widget — one per group that configured one today */}
-      {todayGages.length > 0 && (
-        <section className="space-y-4">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">🃏 Gage du jour</h2>
-          {todayGages.map((g) => (
-            <DailyGageCard key={g.id} gage={g} onVote={handleVote} showGroupName={todayGages.length > 1} />
-          ))}
-        </section>
-      )}
+      <DailyGageWidget />
 
       {/* Upcoming Matches */}
       <section>

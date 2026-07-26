@@ -8,6 +8,7 @@ import { formatDate, formatTime } from '@/utils/dates';
 import { getFlagUrl } from '@/utils/countryFlags';
 import MiniF1Car from '@/components/f1/MiniF1Car';
 import GroupRankTile from '@/components/GroupRankTile';
+import DailyGageWidget from '@/components/DailyGageWidget';
 import { logger } from '@/utils/logger';
 
 const F1Dashboard: React.FC = () => {
@@ -116,6 +117,8 @@ const F1Dashboard: React.FC = () => {
           leaderboardPath="/f1/leaderboard"
         />
       </div>
+
+      <DailyGageWidget />
 
       {/* Quick links */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
