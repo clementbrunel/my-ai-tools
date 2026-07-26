@@ -96,6 +96,8 @@ export interface CompetitionDto {
   name: string;
   sport: Sport;
   active: boolean;
+  /** Season year (e.g. 2026), admin-editable — optional for any sport. */
+  season: number | null;
 }
 
 export type MatchPhase = 'POOL' | 'KNOCKOUT';

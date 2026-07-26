@@ -20,6 +20,7 @@ export const makeCompetition = (overrides?: Partial<CompetitionDto>): Competitio
   name: 'Coupe du Monde 2026',
   sport: 'FOOT',
   active: true,
+  season: null,
   ...overrides,
 });
 

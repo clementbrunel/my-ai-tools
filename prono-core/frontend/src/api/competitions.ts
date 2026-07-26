@@ -41,6 +41,13 @@ export const setCompetitionActive = async (competitionId: number, active: boolea
   });
 };
 
+/** Pass `null` to clear the season. */
+export const setCompetitionSeason = async (competitionId: number, season: number | null): Promise<void> => {
+  await apiClient.put(`/competitions/${competitionId}/season`, season, {
+    headers: { 'Content-Type': 'application/json' },
+  });
+};
+
 export const deleteCompetition = async (competitionId: number): Promise<void> => {
   await apiClient.delete(`/competitions/${competitionId}`);
 };
