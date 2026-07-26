@@ -141,7 +141,7 @@ const AdminF1Tab: React.FC = () => {
   const handleSync = async () => {
     setIsSyncing(true);
     try {
-      const summary = await syncSeason(2026);
+      const summary = await syncSeason();
       showToast(summary, 'success');
       const [raceRows, driverRows] = await Promise.all([getRaces(), getDrivers()]);
       setRaces(raceRows);
@@ -160,7 +160,7 @@ const AdminF1Tab: React.FC = () => {
     if (selectedRaceId == null) return;
     setIsResyncingGrid(true);
     try {
-      const message = await resyncQualifying(selectedRaceId, 2026);
+      const message = await resyncQualifying(selectedRaceId);
       showToast(message, 'success');
     } catch (e: unknown) {
       const message = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
@@ -176,7 +176,7 @@ const AdminF1Tab: React.FC = () => {
     if (selectedRaceId == null) return;
     setIsResyncingResults(true);
     try {
-      const message = await resyncResults(selectedRaceId, 2026);
+      const message = await resyncResults(selectedRaceId);
       showToast(message, 'success');
       // The server's status is authoritative — a "nothing to import yet" resync (e.g. forced
       // on a race jolpica hasn't raced yet) settles nothing, so it must not flip the local

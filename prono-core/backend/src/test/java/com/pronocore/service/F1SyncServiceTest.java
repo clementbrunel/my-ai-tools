@@ -97,7 +97,7 @@ class F1SyncServiceTest {
 
     @Test
     void syncSeason_importsCalendarResultsAndSettles() {
-        Competition competition = Competition.builder().id(9L).name("Formule 1 2026").sport(Sport.F1).build();
+        Competition competition = Competition.builder().id(9L).name("Formule 1 2026").sport(Sport.F1).season(2026).build();
         Race round1 = race(101L, 1, Race.Status.UPCOMING, competition);
         Race round2 = race(102L, 2, Race.Status.UPCOMING, competition);
         Race round3Seeded = race(103L, 3, Race.Status.UPCOMING, competition);   // not in the real calendar
@@ -121,7 +121,7 @@ class F1SyncServiceTest {
 
         stubEntryListUpserts();
 
-        String summary = f1SyncService.syncSeason(2026);
+        String summary = f1SyncService.syncSeason();
 
         // Calendar: names/dates converted from UTC to Paris time
         assertThat(round1.getName()).isEqualTo("GP d'Australie");
@@ -170,14 +170,23 @@ class F1SyncServiceTest {
     @Test
     void syncSeason_withoutF1Competition_fails() {
         when(competitionRepository.findFirstBySportOrderByIdDesc(Sport.F1)).thenReturn(Optional.empty());
-        assertThatThrownBy(() -> f1SyncService.syncSeason(2026))
+        assertThatThrownBy(() -> f1SyncService.syncSeason())
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("No F1 competition");
     }
 
     @Test
-    void syncSeason_alreadyFinishedRace_isNotResettled() {
+    void syncSeason_withoutConfiguredSeason_fails() {
         Competition competition = Competition.builder().id(9L).name("Formule 1 2026").sport(Sport.F1).build();
+        when(competitionRepository.findFirstBySportOrderByIdDesc(Sport.F1)).thenReturn(Optional.of(competition));
+        assertThatThrownBy(() -> f1SyncService.syncSeason())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("No jolpica season configured");
+    }
+
+    @Test
+    void syncSeason_alreadyFinishedRace_isNotResettled() {
+        Competition competition = Competition.builder().id(9L).name("Formule 1 2026").sport(Sport.F1).season(2026).build();
         Race round1 = race(101L, 1, Race.Status.FINISHED, competition);
 
         when(competitionRepository.findFirstBySportOrderByIdDesc(Sport.F1)).thenReturn(Optional.of(competition));
@@ -185,7 +194,7 @@ class F1SyncServiceTest {
         when(jolpicaClient.get("2026.json?limit=100")).thenReturn(CALENDAR_JSON);
         when(raceRepository.save(any(Race.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        f1SyncService.syncSeason(2026);
+        f1SyncService.syncSeason();
 
         verify(f1RaceService, never()).enterResults(any(), any());
     }
@@ -194,14 +203,14 @@ class F1SyncServiceTest {
 
     @Test
     void syncQualifyingForRace_forcesReimportEvenWhenFinished() {
-        Competition competition = Competition.builder().id(9L).name("Formule 1 2026").sport(Sport.F1).build();
+        Competition competition = Competition.builder().id(9L).name("Formule 1 2026").sport(Sport.F1).season(2026).build();
         Race round1 = race(101L, 1, Race.Status.FINISHED, competition);
 
         when(raceRepository.findById(101L)).thenReturn(Optional.of(round1));
         when(jolpicaClient.get("2026/1/qualifying.json?limit=40")).thenReturn(ROUND1_QUALI_JSON);
         stubEntryListUpserts();
 
-        String message = f1SyncService.syncQualifyingForRace(2026, 101L);
+        String message = f1SyncService.syncQualifyingForRace(101L);
 
         verify(qualifyingResultRepository).deleteByRaceId(101L);
         verify(qualifyingResultRepository).saveAll(anyList());
@@ -211,13 +220,13 @@ class F1SyncServiceTest {
     @Test
     void syncQualifyingForRace_unknownRace_throws() {
         when(raceRepository.findById(999L)).thenReturn(Optional.empty());
-        assertThatThrownBy(() -> f1SyncService.syncQualifyingForRace(2026, 999L))
+        assertThatThrownBy(() -> f1SyncService.syncQualifyingForRace(999L))
                 .isInstanceOf(jakarta.persistence.EntityNotFoundException.class);
     }
 
     @Test
     void syncResultsForRace_forcesReimportAndResettlesEvenWhenFinished() {
-        Competition competition = Competition.builder().id(9L).name("Formule 1 2026").sport(Sport.F1).build();
+        Competition competition = Competition.builder().id(9L).name("Formule 1 2026").sport(Sport.F1).season(2026).build();
         Race round1 = race(101L, 1, Race.Status.FINISHED, competition);
 
         when(raceRepository.findById(101L)).thenReturn(Optional.of(round1));
@@ -226,7 +235,7 @@ class F1SyncServiceTest {
         when(qualifyingResultRepository.findByRaceIdWithDrivers(101L)).thenReturn(List.of());
         stubEntryListUpserts();
 
-        String message = f1SyncService.syncResultsForRace(2026, 101L);
+        String message = f1SyncService.syncResultsForRace(101L);
 
         verify(f1RaceService).enterResults(eq(101L), any());
         assertThat(message).contains("Résultats réimportés");
@@ -234,13 +243,13 @@ class F1SyncServiceTest {
 
     @Test
     void syncResultsForRace_noJolpicaDataYet_returnsWithoutSettling() {
-        Competition competition = Competition.builder().id(9L).name("Formule 1 2026").sport(Sport.F1).build();
+        Competition competition = Competition.builder().id(9L).name("Formule 1 2026").sport(Sport.F1).season(2026).build();
         Race round2 = race(102L, 2, Race.Status.UPCOMING, competition);
 
         when(raceRepository.findById(102L)).thenReturn(Optional.of(round2));
         when(jolpicaClient.get("2026/2/results.json?limit=40")).thenReturn(EMPTY_RESULTS_JSON);
 
-        String message = f1SyncService.syncResultsForRace(2026, 102L);
+        String message = f1SyncService.syncResultsForRace(102L);
 
         verify(f1RaceService, never()).enterResults(any(), any());
         assertThat(message).contains("Aucun résultat disponible");

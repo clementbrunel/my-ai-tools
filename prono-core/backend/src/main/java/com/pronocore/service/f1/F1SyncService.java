@@ -77,15 +77,12 @@ public class F1SyncService {
             Map.entry("Brazil", "BR"), Map.entry("Qatar", "QA"), Map.entry("UAE", "AE"),
             Map.entry("United Arab Emirates", "AE"));
 
-    /**
-     * Full season sync. Returns a human-readable summary of what was done.
-     *
-     * @param season e.g. 2026 — matched to the (single) F1 competition.
-     */
+    /** Full season sync, for the season configured on the (single) F1 competition. Returns a human-readable summary. */
     @Transactional
-    public String syncSeason(int season) {
+    public String syncSeason() {
         Competition competition = competitionRepository.findFirstBySportOrderByIdDesc(Sport.F1)
                 .orElseThrow(() -> new IllegalStateException("No F1 competition configured"));
+        int season = requireSeason(competition);
 
         int racesUpserted = syncCalendar(season, competition);
         List<Integer> qualifyingRounds = syncQualifying(season, competition);
@@ -100,6 +97,16 @@ public class F1SyncService {
                     : " — résultats importés et paris réglés pour les manches " + settledRounds);
         log.info("🔄 F1 sync {} — {}", season, summary);
         return summary;
+    }
+
+    /** The jolpica season year configured on the competition — set once via migration/seed when the season starts. */
+    private int requireSeason(Competition competition) {
+        Integer season = competition.getSeason();
+        if (season == null) {
+            throw new IllegalStateException(
+                    "No jolpica season configured on competition " + competition.getId());
+        }
+        return season;
     }
 
     // ---------------------------------------------------------------
@@ -185,9 +192,10 @@ public class F1SyncService {
      * own data is amended) after {@link #syncQualifying} already skipped it.
      */
     @Transactional
-    public String syncQualifyingForRace(int season, Long raceId) {
+    public String syncQualifyingForRace(Long raceId) {
         Race race = raceRepository.findById(raceId)
                 .orElseThrow(() -> new EntityNotFoundException("Race not found: " + raceId));
+        int season = requireSeason(race.getCompetition());
         return fetchAndStoreQualifyingGrid(season, race)
                 ? "Grille de départ réimportée pour " + race.getName()
                 : "Aucune grille de départ disponible sur jolpica pour " + race.getName();
@@ -270,9 +278,10 @@ public class F1SyncService {
      * skipped it. Re-settling recomputes points/gages/forfeits, same as a manual re-entry.
      */
     @Transactional
-    public String syncResultsForRace(int season, Long raceId) {
+    public String syncResultsForRace(Long raceId) {
         Race race = raceRepository.findById(raceId)
                 .orElseThrow(() -> new EntityNotFoundException("Race not found: " + raceId));
+        int season = requireSeason(race.getCompetition());
         return fetchAndSettleResults(season, race)
                 ? "Résultats réimportés et paris réglés pour " + race.getName()
                 : "Aucun résultat disponible sur jolpica pour " + race.getName();

@@ -87,18 +87,16 @@ export const openCompetitionRaces = async (groupId: number, competitionId: numbe
 
 // ── Platform admin ─────────────────────────────────────────────────────────
 
-/** Imports calendar + results from jolpica-f1 and settles finished races. */
-export const syncSeason = async (season: number): Promise<string> => {
-  const response = await apiClient.post<string>(`/admin/f1/sync/${season}`);
+/** Imports calendar + results from jolpica-f1 for the configured season and settles finished races. */
+export const syncSeason = async (): Promise<string> => {
+  const response = await apiClient.post<string>('/admin/f1/sync');
   return response.data;
 };
 
 /** Forces a re-import of one race's qualifying grid, even once the race is finished
  *  (grid penalty confirmed after the fact, jolpica data corrected). */
-export const resyncQualifying = async (raceId: number, season: number): Promise<string> => {
-  const response = await apiClient.post<string>(`/admin/f1/races/${raceId}/qualifying/resync`, null, {
-    params: { season },
-  });
+export const resyncQualifying = async (raceId: number): Promise<string> => {
+  const response = await apiClient.post<string>(`/admin/f1/races/${raceId}/qualifying/resync`);
   return response.data;
 };
 
@@ -112,9 +110,7 @@ export const enterRaceResults = async (
 
 /** Forces a re-import of one race's full classification, even once already finished
  *  (post-race penalty confirmed after the fact, jolpica data corrected). Re-settles all bets. */
-export const resyncResults = async (raceId: number, season: number): Promise<string> => {
-  const response = await apiClient.post<string>(`/admin/f1/races/${raceId}/results/resync`, null, {
-    params: { season },
-  });
+export const resyncResults = async (raceId: number): Promise<string> => {
+  const response = await apiClient.post<string>(`/admin/f1/races/${raceId}/results/resync`);
   return response.data;
 };
