@@ -20,6 +20,7 @@ import { useToast } from '@/components/Toast';
 import { computeF1Verdicts } from '@/utils/f1Calculations';
 import MiniF1Car from '@/components/f1/MiniF1Car';
 import DriverChip from '@/components/f1/DriverChip';
+import PointsLegend from '@/components/f1/PointsLegend';
 
 type SlotKey = 'p1' | 'p2' | 'p3' | 'pole' | 'fastestLap' | 'last';
 type Slots = Record<SlotKey, Driver | null>;
@@ -44,17 +45,6 @@ const SLOT_META: Record<SlotKey, { label: string; icon: string; points: string }
   fastestLap: { label: 'Meilleur tour', icon: '🟣', points: '1 pt' },
   last: { label: 'Lanterne rouge', icon: '🔦', points: '2 pts' },
 };
-
-/** Barème complet affiché sur l'écran de prono — garder synchro avec F1RaceService.computePoints. */
-const LEGEND_ROWS: { icon: string; label: string; points: number; gold?: boolean }[] = [
-  { icon: '🥇', label: 'Vainqueur exact', points: 3 },
-  { icon: '🥈🥉', label: '2e / 3e exact', points: 2 },
-  { icon: '🏎️', label: 'Sur le podium mais mauvaise place', points: 1 },
-  { icon: '⏱', label: 'Pole', points: 2 },
-  { icon: '🟣', label: 'Meilleur tour', points: 1 },
-  { icon: '🔦', label: 'Lanterne rouge', points: 2 },
-  { icon: '👑', label: 'Grand Chelem (pole + victoire + meilleur tour)', points: 2, gold: true },
-];
 
 const emptySlots = (): Slots => ({
   p1: null, p2: null, p3: null, pole: null, fastestLap: null, last: null,
@@ -148,24 +138,6 @@ const Slot: React.FC<{
     </div>
   );
 };
-
-const LegendRow: React.FC<{ row: (typeof LEGEND_ROWS)[number] }> = ({ row }) => (
-  <div className="flex items-start justify-between gap-2">
-    <span className="flex items-start gap-1.5 text-xs text-gray-600 dark:text-gray-400">
-      <span className="text-sm shrink-0">{row.icon}</span>
-      {row.label}
-    </span>
-    <span
-      className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums ${
-        row.gold
-          ? 'bg-yellow-100 dark:bg-yellow-900/30 text-wc-gold'
-          : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-      }`}
-    >
-      +{row.points}
-    </span>
-  </div>
-);
 
 // ── Page ───────────────────────────────────────────────────────────────────
 
@@ -400,23 +372,7 @@ const F1RaceDetail: React.FC = () => {
             )}
           </div>
 
-          {/* Barème complet */}
-          <div className="rounded-xl bg-gray-50 dark:bg-gray-900/40 p-3">
-            <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-1.5">
-              Barème
-            </div>
-            <div className="grid grid-cols-2 gap-x-4">
-              <div className="space-y-1">
-                {LEGEND_ROWS.slice(0, 3).map((row) => <LegendRow key={row.label} row={row} />)}
-              </div>
-              <div className="space-y-1">
-                {LEGEND_ROWS.slice(3, 6).map((row) => <LegendRow key={row.label} row={row} />)}
-              </div>
-            </div>
-            <div className="mt-2 pt-2 border-t border-gray-200/70 dark:border-gray-800">
-              <LegendRow row={LEGEND_ROWS[6]} />
-            </div>
-          </div>
+          <PointsLegend />
 
           {/* Podium */}
           <div className="flex items-end justify-center gap-3">
