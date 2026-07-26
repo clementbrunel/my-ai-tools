@@ -8,9 +8,5 @@ const STATUS_META: Record<MatchStatus, { emoji: string; label: string }> = {
   FINISHED: { emoji: '✅', label: 'Terminé' },
 };
 
-export const getStatusEmoji = (status: MatchStatus): string => STATUS_META[status].emoji;
-
-export const getStatusLabel = (status: MatchStatus): string => STATUS_META[status].label;
-
 export const getStatusBadgeText = (status: MatchStatus): string =>
   `${STATUS_META[status].emoji} ${STATUS_META[status].label}`;

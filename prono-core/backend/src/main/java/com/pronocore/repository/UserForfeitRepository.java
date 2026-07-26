@@ -17,8 +17,6 @@ public interface UserForfeitRepository extends JpaRepository<UserForfeit, Long> 
     @Query("SELECT uf FROM UserForfeit uf JOIN FETCH uf.user JOIN FETCH uf.forfeit JOIN FETCH uf.assignedBy WHERE uf.user.id = :userId AND uf.completed = false")
     List<UserForfeit> findByUserIdAndCompletedFalse(@Param("userId") Long userId);
 
-    List<UserForfeit> findByCompletedFalse();
-
     /** Number of gages received per user within a group (for the "Roi des gages" badge). */
     @Query("SELECT uf.user.id, COUNT(uf) FROM UserForfeit uf WHERE uf.group.id = :groupId GROUP BY uf.user.id")
     List<Object[]> countByGroupIdGroupedByUser(@Param("groupId") Long groupId);
