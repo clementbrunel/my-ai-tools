@@ -495,6 +495,29 @@ const F1RaceDetail: React.FC = () => {
         </div>
       )}
 
+      {/* Starting grid — known as soon as qualifying is over, to help fine-tune the prono before lights out */}
+      {!finished && race.qualifyingResults && race.qualifyingResults.length > 0 && (
+        <div className="card space-y-2">
+          <h2 className="font-bold text-gray-900 dark:text-white">Grille de départ</h2>
+          <p className="text-xs text-gray-400">
+            Résultat des qualifs — de quoi ajuster ton prono avant le départ (le podium reste modifiable jusqu'au départ).
+          </p>
+          <div className="divide-y divide-gray-100 dark:divide-gray-800">
+            {race.qualifyingResults.map((r) => (
+              <div key={r.driver.id} className="flex items-center gap-3 py-1.5 text-sm">
+                <span className="w-8 text-right font-black text-gray-400">{r.position}</span>
+                <span className="w-1.5 h-5 rounded" style={{ backgroundColor: r.driver.constructorColor }} />
+                <span className="font-bold text-gray-900 dark:text-white flex-1">
+                  {r.driver.name}
+                  <span className="text-gray-400 font-medium text-xs ml-2">{r.driver.constructorName}</span>
+                </span>
+                {r.position === 1 && <span title="Pole position">⏱</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Full classification */}
       {finished && race.results && race.results.length > 0 && (
         <div className="card space-y-2">

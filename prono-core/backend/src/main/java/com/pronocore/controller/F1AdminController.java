@@ -32,6 +32,16 @@ public class F1AdminController {
         return ResponseEntity.ok(f1SyncService.syncSeason(season));
     }
 
+    @PostMapping("/races/{raceId}/qualifying/resync")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+    @Operation(summary = "Force re-import of a race's qualifying grid from jolpica — works even once the race "
+            + "is finished, for corrections (grid penalty confirmed after the fact)")
+    @LoggedAt(Level.INFO)
+    public ResponseEntity<String> resyncQualifying(@PathVariable Long raceId,
+                                                    @RequestParam(defaultValue = "2026") int season) {
+        return ResponseEntity.ok(f1SyncService.syncQualifyingForRace(season, raceId));
+    }
+
     @PostMapping("/races/{raceId}/results")
     @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     @Operation(summary = "Enter (or correct) the full classification of a race and settle all its bets")

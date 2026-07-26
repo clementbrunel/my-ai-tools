@@ -93,6 +93,15 @@ export const syncSeason = async (season: number): Promise<string> => {
   return response.data;
 };
 
+/** Forces a re-import of one race's qualifying grid, even once the race is finished
+ *  (grid penalty confirmed after the fact, jolpica data corrected). */
+export const resyncQualifying = async (raceId: number, season: number): Promise<string> => {
+  const response = await apiClient.post<string>(`/admin/f1/races/${raceId}/qualifying/resync`, null, {
+    params: { season },
+  });
+  return response.data;
+};
+
 export const enterRaceResults = async (
   raceId: number,
   results: RaceResultEntryRequest[],

@@ -33,6 +33,7 @@ public class F1RaceService {
 
     private final RaceRepository raceRepository;
     private final RaceResultRepository raceResultRepository;
+    private final QualifyingResultRepository qualifyingResultRepository;
     private final DriverRepository driverRepository;
     private final F1PredictionRepository predictionRepository;
     private final BetRepository betRepository;
@@ -120,6 +121,11 @@ public class F1RaceService {
         if (race.getStatus() == Race.Status.FINISHED) {
             response.setResults(raceResultRepository.findByRaceIdWithDrivers(raceId).stream()
                     .map(this::toResultResponse)
+                    .toList());
+        }
+        if (!LocalDateTime.now().isBefore(race.getQualifyingDate())) {
+            response.setQualifyingResults(qualifyingResultRepository.findByRaceIdWithDrivers(raceId).stream()
+                    .map(this::toQualifyingResultResponse)
                     .toList());
         }
         return response;
@@ -714,6 +720,13 @@ public class F1RaceService {
                 .map(this::toResultResponse)
                 .toList());
         return response;
+    }
+
+    private QualifyingResultResponse toQualifyingResultResponse(QualifyingResult qr) {
+        return QualifyingResultResponse.builder()
+                .driver(toDriverResponse(qr.getDriver()))
+                .position(qr.getPosition())
+                .build();
     }
 
     private RaceResultResponse toResultResponse(RaceResult rr) {

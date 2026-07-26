@@ -15,7 +15,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { enterRaceResults, getDrivers, getRace, getRaces, syncSeason } from '@/api/f1';
+import { enterRaceResults, getDrivers, getRace, getRaces, resyncQualifying, syncSeason } from '@/api/f1';
 import type { Driver, Race } from '@/types';
 import { formatDate } from '@/utils/dates';
 import { useToast } from '@/components/Toast';
@@ -91,6 +91,7 @@ const AdminF1Tab: React.FC = () => {
   const [fastestLapId, setFastestLapId] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isResyncingGrid, setIsResyncingGrid] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const sensors = useSensors(
@@ -147,6 +148,22 @@ const AdminF1Tab: React.FC = () => {
       showToast(message ?? "Échec de l'import jolpica (réseau ?) — saisie manuelle possible ci-dessous", 'error');
     } finally {
       setIsSyncing(false);
+    }
+  };
+
+  // Forces a fresh pull of the qualifying grid even once the race is FINISHED — the
+  // regular sync skips finished races, but a grid penalty can be confirmed after the fact.
+  const handleResyncQualifying = async () => {
+    if (selectedRaceId == null) return;
+    setIsResyncingGrid(true);
+    try {
+      const message = await resyncQualifying(selectedRaceId, 2026);
+      showToast(message, 'success');
+    } catch (e: unknown) {
+      const message = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      showToast(message ?? 'Échec du re-import de la grille de qualifs', 'error');
+    } finally {
+      setIsResyncingGrid(false);
     }
   };
 
@@ -212,7 +229,15 @@ const AdminF1Tab: React.FC = () => {
             Déjà réglée — réenregistrer recalcule les points
           </span>
         )}
-        <button onClick={handleSync} disabled={isSyncing} className="btn-gold ml-auto" title="Importe calendrier, grille et résultats depuis l'API jolpica-f1, et règle les paris des courses terminées">
+        <button
+          onClick={handleResyncQualifying}
+          disabled={isResyncingGrid || selectedRaceId == null}
+          className="btn-secondary ml-auto"
+          title="Force le re-import de la grille de qualifs de cette course depuis jolpica, même si elle est déjà terminée (utile après une pénalité sur grille confirmée après coup)"
+        >
+          {isResyncingGrid ? 'Import…' : '⏱ Resync grille qualifs'}
+        </button>
+        <button onClick={handleSync} disabled={isSyncing} className="btn-gold" title="Importe calendrier, grille et résultats depuis l'API jolpica-f1, et règle les paris des courses terminées">
           {isSyncing ? 'Import en cours…' : '🔄 Importer les résultats (jolpica)'}
         </button>
       </div>

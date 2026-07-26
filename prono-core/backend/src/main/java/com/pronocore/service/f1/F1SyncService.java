@@ -6,6 +6,7 @@ import com.pronocore.dto.request.EnterRaceResultsRequest;
 import com.pronocore.entity.*;
 import com.pronocore.repository.*;
 import com.pronocore.service.F1RaceService;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -40,6 +41,7 @@ public class F1SyncService {
     private final JolpicaClient jolpicaClient;
     private final CompetitionRepository competitionRepository;
     private final RaceRepository raceRepository;
+    private final QualifyingResultRepository qualifyingResultRepository;
     private final DriverRepository driverRepository;
     private final ConstructorRepository constructorRepository;
     private final BetRepository betRepository;
@@ -86,9 +88,13 @@ public class F1SyncService {
                 .orElseThrow(() -> new IllegalStateException("No F1 competition configured"));
 
         int racesUpserted = syncCalendar(season, competition);
+        List<Integer> qualifyingRounds = syncQualifying(season, competition);
         List<Integer> settledRounds = syncResults(season, competition);
 
         String summary = "Calendrier : " + racesUpserted + " course(s) synchronisée(s)"
+                + (qualifyingRounds.isEmpty()
+                    ? ""
+                    : " — grille de départ importée pour les manches " + qualifyingRounds)
                 + (settledRounds.isEmpty()
                     ? " — aucun nouveau résultat"
                     : " — résultats importés et paris réglés pour les manches " + settledRounds);
@@ -149,6 +155,79 @@ public class F1SyncService {
     }
 
     // ---------------------------------------------------------------
+    // Qualifying grid — known well before the race, helps players adjust their prono
+    // ---------------------------------------------------------------
+
+    /**
+     * Imports the starting grid as soon as qualifying is over, independently of the race
+     * itself (jolpica exposes {@code /qualifying.json} the same evening). Display only —
+     * settlement still runs off {@link #syncResults}. Re-fetches (delete + recreate) on every
+     * call while the race hasn't been run yet, so a correction on jolpica's side is picked up.
+     * Skips FINISHED races here as a cost-saving default for the full-season sync — grid
+     * penalties confirmed after the fact still need {@link #syncQualifyingForRace}.
+     */
+    private List<Integer> syncQualifying(int season, Competition competition) {
+        List<Integer> imported = new ArrayList<>();
+        LocalDateTime now = LocalDateTime.now();
+
+        for (Race race : raceRepository.findByCompetition_IdOrderByRaceDateAsc(competition.getId())) {
+            if (race.getStatus() == Race.Status.FINISHED) continue;
+            if (race.getQualifyingDate() == null || race.getQualifyingDate().isAfter(now)) continue;
+            throttle();
+            if (fetchAndStoreQualifyingGrid(season, race)) imported.add(race.getRound());
+        }
+        return imported;
+    }
+
+    /**
+     * Forces a re-import of one race's qualifying grid from jolpica, regardless of its
+     * FINISHED status — for admin corrections when a grid penalty is confirmed (or jolpica's
+     * own data is amended) after {@link #syncQualifying} already skipped it.
+     */
+    @Transactional
+    public String syncQualifyingForRace(int season, Long raceId) {
+        Race race = raceRepository.findById(raceId)
+                .orElseThrow(() -> new EntityNotFoundException("Race not found: " + raceId));
+        return fetchAndStoreQualifyingGrid(season, race)
+                ? "Grille de départ réimportée pour " + race.getName()
+                : "Aucune grille de départ disponible sur jolpica pour " + race.getName();
+    }
+
+    /** Fetches the grid from jolpica and replaces it (delete + recreate) — false if jolpica has nothing yet. */
+    private boolean fetchAndStoreQualifyingGrid(int season, Race race) {
+        JsonNode races = read(season + "/" + race.getRound() + "/qualifying.json?limit=40")
+                .path("MRData").path("RaceTable").path("Races");
+        if (!races.isArray() || races.isEmpty()) return false;
+
+        List<QualifyingResult> grid = new ArrayList<>();
+        for (JsonNode q : races.get(0).path("QualifyingResults")) {
+            String positionText = q.path("position").asText("");
+            if (!positionText.matches("\\d+")) continue;
+            Driver driver = upsertDriver(q.path("Driver"), q.path("Constructor"));
+            grid.add(QualifyingResult.builder()
+                    .race(race)
+                    .driver(driver)
+                    .position(Integer.parseInt(positionText))
+                    .build());
+        }
+        if (grid.isEmpty()) return false;
+
+        qualifyingResultRepository.deleteByRaceId(race.getId());
+        qualifyingResultRepository.saveAll(grid);
+        return true;
+    }
+
+    /** Pole driver code from the stored qualifying grid — populated by {@link #syncQualifying}
+     *  earlier in the same sync pass (qualifying always precedes the race). */
+    private String polePositionDriverCode(Long raceId) {
+        return qualifyingResultRepository.findByRaceIdWithDrivers(raceId).stream()
+                .filter(qr -> qr.getPosition() == 1)
+                .map(qr -> qr.getDriver().getCode())
+                .findFirst()
+                .orElse(null);
+    }
+
+    // ---------------------------------------------------------------
     // Results
     // ---------------------------------------------------------------
 
@@ -167,7 +246,7 @@ public class F1SyncService {
             JsonNode results = raceNode.get(0).path("Results");
             if (!results.isArray() || results.isEmpty()) continue;
 
-            String poleDriverCode = fetchPoleDriverCode(season, race.getRound());
+            String poleDriverCode = polePositionDriverCode(race.getId());
             Map<String, Integer> sprintPositionByCode = fetchSprintPositions(season, race.getRound());
 
             List<EnterRaceResultsRequest.Entry> entries = new ArrayList<>();
@@ -216,18 +295,6 @@ public class F1SyncService {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
-    }
-
-    private String fetchPoleDriverCode(int season, int round) {
-        JsonNode races = read(season + "/" + round + "/qualifying.json?limit=5")
-                .path("MRData").path("RaceTable").path("Races");
-        if (!races.isArray() || races.isEmpty()) return null;
-        for (JsonNode q : races.get(0).path("QualifyingResults")) {
-            if (q.path("position").asText("").equals("1")) {
-                return q.path("Driver").path("code").asText(null);
-            }
-        }
-        return null;
     }
 
     // ---------------------------------------------------------------

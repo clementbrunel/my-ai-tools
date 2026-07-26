@@ -28,6 +28,7 @@ class F1SyncServiceTest {
     @Mock private JolpicaClient jolpicaClient;
     @Mock private CompetitionRepository competitionRepository;
     @Mock private RaceRepository raceRepository;
+    @Mock private QualifyingResultRepository qualifyingResultRepository;
     @Mock private DriverRepository driverRepository;
     @Mock private ConstructorRepository constructorRepository;
     @Mock private BetRepository betRepository;
@@ -65,8 +66,14 @@ class F1SyncServiceTest {
 
     private static final String ROUND1_QUALI_JSON = """
         {"MRData":{"RaceTable":{"Races":[{"QualifyingResults":[
-          {"position":"1","Driver":{"code":"ANT"}},
-          {"position":"2","Driver":{"code":"RUS"}}
+          {"position":"1","Driver":{"code":"ANT","permanentNumber":"12","givenName":"Kimi","familyName":"Antonelli"},
+           "Constructor":{"name":"Mercedes"}},
+          {"position":"2","Driver":{"code":"RUS","permanentNumber":"63","givenName":"George","familyName":"Russell"},
+           "Constructor":{"name":"Mercedes"}},
+          {"position":"3","Driver":{"code":"NOR","permanentNumber":"4","givenName":"Lando","familyName":"Norris"},
+           "Constructor":{"name":"McLaren"}},
+          {"position":"4","Driver":{"code":"VER","permanentNumber":"33","givenName":"Max","familyName":"Verstappen"},
+           "Constructor":{"name":"Red Bull"}}
         ]}]}}}""";
 
     private static final String ROUND1_SPRINT_JSON = """
@@ -96,13 +103,18 @@ class F1SyncServiceTest {
         when(raceRepository.findByCompetition_IdOrderByRaceDateAsc(9L))
                 .thenReturn(List.of(round1, round2, round3Seeded));
         when(jolpicaClient.get("2026.json?limit=100")).thenReturn(CALENDAR_JSON);
+        when(jolpicaClient.get("2026/1/qualifying.json?limit=40")).thenReturn(ROUND1_QUALI_JSON);
+        when(jolpicaClient.get("2026/2/qualifying.json?limit=40")).thenReturn(EMPTY_RESULTS_JSON);
+        when(jolpicaClient.get("2026/3/qualifying.json?limit=40")).thenReturn(EMPTY_RESULTS_JSON);
         when(jolpicaClient.get("2026/1/results.json?limit=40")).thenReturn(ROUND1_RESULTS_JSON);
-        when(jolpicaClient.get("2026/1/qualifying.json?limit=5")).thenReturn(ROUND1_QUALI_JSON);
         when(jolpicaClient.get("2026/1/sprint.json?limit=40")).thenReturn(ROUND1_SPRINT_JSON);
         when(jolpicaClient.get("2026/2/results.json?limit=40")).thenReturn(EMPTY_RESULTS_JSON);
         when(jolpicaClient.get("2026/3/results.json?limit=40")).thenReturn(EMPTY_RESULTS_JSON);
         when(betRepository.existsByRaceId(103L)).thenReturn(false);
         when(raceRepository.save(any(Race.class))).thenAnswer(inv -> inv.getArgument(0));
+        // Pole lookup at settlement time now reads the stored grid instead of hitting jolpica again.
+        when(qualifyingResultRepository.findByRaceIdWithDrivers(101L)).thenReturn(List.of(
+                QualifyingResult.builder().position(1).driver(Driver.builder().code("ANT").build()).build()));
 
         // Entry-list upserts: everything is new
         when(constructorRepository.findByName(anyString())).thenReturn(Optional.empty());
@@ -129,6 +141,14 @@ class F1SyncServiceTest {
         assertThat(round1.getQualifyingDate()).isEqualTo(LocalDateTime.parse("2026-03-07T06:00"));
         // Seeded round 3 not in the official calendar and without bets → deleted
         verify(raceRepository).delete(round3Seeded);
+
+        // Qualifying grid: imported (replacing any prior grid) as soon as it's available,
+        // independently of the race result — round 2/3 have no grid yet, nothing to store.
+        verify(qualifyingResultRepository).deleteByRaceId(101L);
+        ArgumentCaptor<List<QualifyingResult>> gridCaptor = ArgumentCaptor.forClass(List.class);
+        verify(qualifyingResultRepository).saveAll(gridCaptor.capture());
+        assertThat(gridCaptor.getValue()).hasSize(4);
+        assertThat(summary).contains("grille de départ importée pour les manches [1]");
 
         // Results: settled through the same path as a manual entry
         ArgumentCaptor<EnterRaceResultsRequest> captor = ArgumentCaptor.forClass(EnterRaceResultsRequest.class);
