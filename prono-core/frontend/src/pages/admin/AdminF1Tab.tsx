@@ -178,9 +178,12 @@ const AdminF1Tab: React.FC = () => {
     try {
       const message = await resyncResults(selectedRaceId, 2026);
       showToast(message, 'success');
+      // The server's status is authoritative — a "nothing to import yet" resync (e.g. forced
+      // on a race jolpica hasn't raced yet) settles nothing, so it must not flip the local
+      // "✓ Déjà réglée" badge.
       const race = await getRace(selectedRaceId);
       applyRaceResultsToForm(race);
-      setRaces((prev) => prev.map((r) => (r.id === selectedRaceId ? { ...r, status: 'FINISHED' } : r)));
+      setRaces((prev) => prev.map((r) => (r.id === selectedRaceId ? { ...r, status: race.status } : r)));
     } catch (e: unknown) {
       const message = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
       showToast(message ?? 'Échec du re-import des résultats', 'error');
