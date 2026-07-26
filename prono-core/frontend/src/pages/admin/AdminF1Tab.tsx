@@ -146,6 +146,9 @@ const AdminF1Tab: React.FC = () => {
       const [raceRows, driverRows] = await Promise.all([getRaces(), getDrivers()]);
       setRaces(raceRows);
       setOrder(driverRows);
+      if (selectedRaceId != null) {
+        await getRace(selectedRaceId).then(applyRaceResultsToForm).catch(() => { /* keep current grid order */ });
+      }
     } catch (e: unknown) {
       const message = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
       showToast(message ?? "Échec de l'import jolpica (réseau ?) — saisie manuelle possible ci-dessous", 'error');
