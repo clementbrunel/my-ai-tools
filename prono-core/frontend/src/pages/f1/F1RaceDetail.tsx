@@ -451,10 +451,12 @@ const F1RaceDetail: React.FC = () => {
                 key={r.driver.id}
                 className={`flex flex-col items-center shrink-0 w-12 ${i % 2 === 1 ? 'mt-3' : ''}`}
               >
-                <div className="relative">
-                  <MiniF1Car color={r.driver.constructorColor} size={36} />
+                <div className="relative w-9 h-9 flex items-center justify-center">
+                  <div className="-rotate-90">
+                    <MiniF1Car color={r.driver.constructorColor} size={36} />
+                  </div>
                   {r.position === 1 && (
-                    <span className="absolute -top-1 -right-2 text-xs" title="Pole position">⏱</span>
+                    <span className="absolute -top-1 right-0 text-xs" title="Pole position">⏱</span>
                   )}
                 </div>
                 <span className="text-[10px] font-black text-gray-400 dark:text-gray-500 leading-tight">
