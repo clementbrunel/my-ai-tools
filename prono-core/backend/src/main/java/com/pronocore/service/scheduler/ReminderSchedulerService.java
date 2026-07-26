@@ -1,4 +1,4 @@
-package com.pronocore.service;
+package com.pronocore.service.scheduler;
 
 import com.pronocore.entity.Bet;
 import com.pronocore.entity.GroupMember;
@@ -12,6 +12,7 @@ import com.pronocore.repository.GroupMemberRepository;
 import com.pronocore.repository.MatchRepository;
 import com.pronocore.repository.RaceRepository;
 import com.pronocore.repository.UserRepository;
+import com.pronocore.service.EmailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
