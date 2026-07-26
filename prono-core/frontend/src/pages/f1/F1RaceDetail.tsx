@@ -149,6 +149,24 @@ const Slot: React.FC<{
   );
 };
 
+const LegendRow: React.FC<{ row: (typeof LEGEND_ROWS)[number] }> = ({ row }) => (
+  <div className="flex items-start justify-between gap-2">
+    <span className="flex items-start gap-1.5 text-xs text-gray-600 dark:text-gray-400">
+      <span className="text-sm shrink-0">{row.icon}</span>
+      {row.label}
+    </span>
+    <span
+      className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums ${
+        row.gold
+          ? 'bg-yellow-100 dark:bg-yellow-900/30 text-wc-gold'
+          : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+      }`}
+    >
+      +{row.points}
+    </span>
+  </div>
+);
+
 // ── Page ───────────────────────────────────────────────────────────────────
 
 const F1RaceDetail: React.FC = () => {
@@ -383,32 +401,21 @@ const F1RaceDetail: React.FC = () => {
           </div>
 
           {/* Barème complet */}
-          <div className="rounded-xl bg-gray-50 dark:bg-gray-900/40 p-3 space-y-1">
-            <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-1">
+          <div className="rounded-xl bg-gray-50 dark:bg-gray-900/40 p-3">
+            <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-1.5">
               Barème
             </div>
-            {LEGEND_ROWS.map((row, i) => (
-              <div
-                key={row.label}
-                className={`flex items-center justify-between gap-3 py-1 ${
-                  i > 0 ? 'border-t border-gray-200/70 dark:border-gray-800' : ''
-                } ${row.gold ? 'pt-2' : ''}`}
-              >
-                <span className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-                  <span className="text-sm">{row.icon}</span>
-                  {row.label}
-                </span>
-                <span
-                  className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums ${
-                    row.gold
-                      ? 'bg-yellow-100 dark:bg-yellow-900/30 text-wc-gold'
-                      : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-                  }`}
-                >
-                  +{row.points}
-                </span>
+            <div className="grid grid-cols-2 gap-x-4">
+              <div className="space-y-1">
+                {LEGEND_ROWS.slice(0, 3).map((row) => <LegendRow key={row.label} row={row} />)}
               </div>
-            ))}
+              <div className="space-y-1">
+                {LEGEND_ROWS.slice(3, 6).map((row) => <LegendRow key={row.label} row={row} />)}
+              </div>
+            </div>
+            <div className="mt-2 pt-2 border-t border-gray-200/70 dark:border-gray-800">
+              <LegendRow row={LEGEND_ROWS[6]} />
+            </div>
           </div>
 
           {/* Podium */}
