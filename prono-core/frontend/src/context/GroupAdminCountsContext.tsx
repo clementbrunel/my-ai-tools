@@ -7,7 +7,6 @@ interface GroupAdminCountsContextType {
   totalBadge: number;
   pendingForfeitsPerGroup: Record<number, number>;
   missingGagesPerGroup: Record<number, number>;
-  groupsWithNoBets: Record<number, boolean>;
   matchesWithoutBetsPerGroup: Record<number, number>;
   refresh: () => void;
   clearMatchesWithoutBetsAlert: () => void;
@@ -17,7 +16,6 @@ const GroupAdminCountsContext = createContext<GroupAdminCountsContextType>({
   totalBadge: 0,
   pendingForfeitsPerGroup: {},
   missingGagesPerGroup: {},
-  groupsWithNoBets: {},
   matchesWithoutBetsPerGroup: {},
   refresh: () => {},
   clearMatchesWithoutBetsAlert: () => {},
@@ -46,7 +44,6 @@ export const GroupAdminCountsProvider: React.FC<{ children: React.ReactNode }> =
   const [totalBadge, setTotalBadge] = useState(0);
   const [pendingForfeitsPerGroup, setPendingForfeitsPerGroup] = useState<Record<number, number>>({});
   const [missingGagesPerGroup, setMissingGagesPerGroup] = useState<Record<number, number>>({});
-  const [groupsWithNoBets, setGroupsWithNoBets] = useState<Record<number, boolean>>({});
   const [matchesWithoutBetsPerGroup, setMatchesWithoutBetsPerGroup] = useState<Record<number, number>>({});
   const [tick, setTick] = useState(0);
 
@@ -98,7 +95,6 @@ export const GroupAdminCountsProvider: React.FC<{ children: React.ReactNode }> =
 
         setPendingForfeitsPerGroup(counts.pendingForfeitsPerGroup);
         setMissingGagesPerGroup(counts.missingGagesPerGroup);
-        setGroupsWithNoBets(counts.groupsWithNoBets);
         setMatchesWithoutBetsPerGroup(effectiveMatches);
         setTotalBadge(counts.pendingApplications + pendingForfeits + missingGages + matchesWithoutBets);
       } catch {
@@ -114,7 +110,7 @@ export const GroupAdminCountsProvider: React.FC<{ children: React.ReactNode }> =
   }, [user?.id, tick]);
 
   return (
-    <GroupAdminCountsContext.Provider value={{ totalBadge, pendingForfeitsPerGroup, missingGagesPerGroup, groupsWithNoBets, matchesWithoutBetsPerGroup, refresh, clearMatchesWithoutBetsAlert }}>
+    <GroupAdminCountsContext.Provider value={{ totalBadge, pendingForfeitsPerGroup, missingGagesPerGroup, matchesWithoutBetsPerGroup, refresh, clearMatchesWithoutBetsAlert }}>
       {children}
     </GroupAdminCountsContext.Provider>
   );

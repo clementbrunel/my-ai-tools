@@ -21,8 +21,6 @@ public interface BetRepository extends JpaRepository<Bet, Long> {
 
     boolean existsByMatchIdAndGroupId(Long matchId, Long groupId);
 
-    boolean existsByGroupIdAndStatus(Long groupId, Bet.Status status);
-
     List<Bet> findByMatchIdAndGroupId(Long matchId, Long groupId);
 
     /** Bets belonging to any group the user is an ACTIVE member of. */
@@ -93,9 +91,6 @@ public interface BetRepository extends JpaRepository<Bet, Long> {
     Set<Long> findRaceIdsWithBetsInUserGroups(@Param("userId") Long userId);
 
     List<Bet> findAllByOrderByCreatedAtDesc();
-
-    @Query("SELECT b FROM Bet b WHERE b.creator.id = :creatorId ORDER BY b.createdAt DESC")
-    List<Bet> findByCreatorId(@Param("creatorId") Long creatorId);
 
     @Query("SELECT COUNT(bp) FROM BetParticipation bp WHERE bp.bet.id = :betId")
     long countParticipationsByBetId(@Param("betId") Long betId);

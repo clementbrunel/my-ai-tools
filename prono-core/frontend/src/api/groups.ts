@@ -16,11 +16,6 @@ export const getMyGroups = async (): Promise<Group[]> => {
   return response.data;
 };
 
-export const getGroup = async (groupId: number): Promise<Group> => {
-  const response = await apiClient.get<Group>(`/groups/${groupId}`);
-  return response.data;
-};
-
 export const createGroup = async (data: CreateGroupRequest): Promise<Group> => {
   const response = await apiClient.post<Group>('/groups', data);
   return response.data;

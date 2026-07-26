@@ -103,16 +103,6 @@ export const deleteGroupForfeit = async (groupId: number, forfeitId: number): Pr
 // Assignment & completion
 // -----------------------------------------------------------------------
 
-export const assignForfeit = async (
-  userId: number,
-  forfeitId: number,
-  assignedById: number
-): Promise<void> => {
-  await apiClient.post('/forfeits/assign', null, {
-    params: { userId, forfeitId, assignedById },
-  });
-};
-
 export const completeForfeit = async (userForfeitId: number): Promise<void> => {
   await apiClient.patch(`/forfeits/${userForfeitId}/complete`);
 };
@@ -123,10 +113,5 @@ export const completeForfeit = async (userForfeitId: number): Promise<void> => {
 
 export const getMyForfeits = async (): Promise<UserForfeitEntry[]> => {
   const response = await apiClient.get<UserForfeitEntry[]>('/forfeits/my');
-  return response.data;
-};
-
-export const getUserForfeits = async (userId: number): Promise<UserForfeitEntry[]> => {
-  const response = await apiClient.get<UserForfeitEntry[]>(`/forfeits/user/${userId}`);
   return response.data;
 };
