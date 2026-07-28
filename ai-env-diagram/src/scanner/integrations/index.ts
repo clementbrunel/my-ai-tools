@@ -6,6 +6,7 @@ import { detectRtk } from "./rtk.js";
 import { detectHeadroom } from "./headroom.js";
 import { detectEcc } from "./ecc.js";
 import { detectSocratiCode } from "./socraticode.js";
+import { detectKarpathySkills } from "./karpathy-skills.js";
 
 export function scanIntegrations(
   projectPath: string,
@@ -20,5 +21,6 @@ export function scanIntegrations(
     detectHeadroom(absPath, mcpServers),
     detectEcc(absPath, mcpServers),
     detectSocratiCode(absPath, mcpServers),
+    detectKarpathySkills(absPath),
   ];
 }

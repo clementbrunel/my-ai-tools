@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { detectHeadroom } from "../scanner/integrations/headroom.js";
 import { detectEcc } from "../scanner/integrations/ecc.js";
 import { detectSocratiCode } from "../scanner/integrations/socraticode.js";
+import { detectKarpathySkills } from "../scanner/integrations/karpathy-skills.js";
 import type { McpServer } from "../types.js";
 
 function makeTempDir(): { dir: string; cleanup: () => void } {
@@ -124,6 +125,43 @@ describe("detectSocratiCode", () => {
     try {
       writeFileSync(join(dir, ".socraticodeignore"), "node_modules/\n");
       const result = detectSocratiCode(dir, []);
+      expect(result.detected).toBe(true);
+    } finally {
+      cleanup();
+    }
+  });
+});
+
+// --- detectKarpathySkills ---
+
+describe("detectKarpathySkills", () => {
+  it("returns detected: false for an empty project with no plugin/rule/CLAUDE.md", () => {
+    const { dir, cleanup } = makeTempDir();
+    try {
+      const result = detectKarpathySkills(dir);
+      expect(result.detected).toBe(false);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("returns detected: true when the Cursor rule file exists", () => {
+    const { dir, cleanup } = makeTempDir();
+    try {
+      mkdirSync(join(dir, ".cursor", "rules"), { recursive: true });
+      writeFileSync(join(dir, ".cursor", "rules", "karpathy-guidelines.mdc"), "# Karpathy guidelines\n");
+      const result = detectKarpathySkills(dir);
+      expect(result.detected).toBe(true);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("returns detected: true when CLAUDE.md references karpathy", () => {
+    const { dir, cleanup } = makeTempDir();
+    try {
+      writeFileSync(join(dir, "CLAUDE.md"), "# Project\nFollowing the karpathy guidelines for surgical changes.\n");
+      const result = detectKarpathySkills(dir);
       expect(result.detected).toBe(true);
     } finally {
       cleanup();
