@@ -4,15 +4,15 @@ import com.pronocore.dto.request.CreateDailyGageRequest;
 import com.pronocore.entity.GroupMember;
 import com.pronocore.dto.response.DailyGageCandidateResponse;
 import com.pronocore.dto.response.DailyGageResponse;
-import com.pronocore.dto.response.ForfeitResponse;
 import com.pronocore.entity.*;
+import com.pronocore.mapper.ForfeitMapper;
 import com.pronocore.repository.*;
 import com.pronocore.service.email.EmailTheme;
+import com.pronocore.util.CurrentUserLookup;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,6 +40,7 @@ public class DailyGageService {
     private final GroupMemberRepository        groupMemberRepository;
     private final GroupMemberGuard             groupMemberGuard;
     private final EmailService                 emailService;
+    private final ForfeitMapper                forfeitMapper;
 
     // ---------------------------------------------------------------
     // Queries (scoped to the caller's groups)
@@ -47,7 +48,7 @@ public class DailyGageService {
 
     @Transactional(readOnly = true)
     public List<DailyGageResponse> getAllDailyGages() {
-        User user = currentUserOrNull();
+        User user = CurrentUserLookup.currentOrNull(userRepository);
         if (user == null) return List.of();
         List<Long> groupIds = activeGroupIds(user.getId());
         if (groupIds.isEmpty()) return List.of();
@@ -56,14 +57,14 @@ public class DailyGageService {
 
     @Transactional(readOnly = true)
     public List<DailyGageResponse> getDailyGagesByGroup(Long groupId) {
-        User user = currentUser();
+        User user = CurrentUserLookup.requireCurrent(userRepository);
         groupMemberGuard.requireActiveMembership(groupId, user.getId());
         return toResponseList(dailyGageRepository.findByGroupIdInOrderByMatchDateDesc(List.of(groupId)), user);
     }
 
     @Transactional(readOnly = true)
     public List<DailyGageResponse> getDailyGagesByDate(LocalDate date) {
-        User user = currentUserOrNull();
+        User user = CurrentUserLookup.currentOrNull(userRepository);
         if (user == null) return List.of();
         List<Long> groupIds = activeGroupIds(user.getId());
         if (groupIds.isEmpty()) return List.of();
@@ -72,7 +73,7 @@ public class DailyGageService {
 
     @Transactional(readOnly = true)
     public DailyGageResponse getDailyGageById(Long id) {
-        User user = currentUser();
+        User user = CurrentUserLookup.requireCurrent(userRepository);
         DailyGage dg = requireDailyGage(id);
         groupMemberGuard.requireActiveMembership(dg.getGroup().getId(), user.getId());
         return toResponse(dg, user);
@@ -84,7 +85,7 @@ public class DailyGageService {
 
     @Transactional
     public DailyGageResponse createDailyGage(CreateDailyGageRequest req) {
-        User user = currentUser();
+        User user = CurrentUserLookup.requireCurrent(userRepository);
         groupMemberGuard.requireGroupAdmin(req.getGroupId(), user.getId());
 
         Group group = groupRepository.findById(req.getGroupId())
@@ -116,7 +117,7 @@ public class DailyGageService {
     /** DIRECT mode: group admin picks the forfeit → status becomes ACTIVE. */
     @Transactional
     public DailyGageResponse selectForfeitDirectly(Long dailyGageId, Long forfeitId) {
-        User user = currentUser();
+        User user = CurrentUserLookup.requireCurrent(userRepository);
         DailyGage dg = requireDailyGage(dailyGageId);
         groupMemberGuard.requireGroupAdmin(dg.getGroup().getId(), user.getId());
         if (dg.getStatus() == DailyGage.Status.SETTLED) {
@@ -133,7 +134,7 @@ public class DailyGageService {
     /** VOTE mode: add a candidate forfeit to the pool. */
     @Transactional
     public DailyGageResponse addCandidate(Long dailyGageId, Long forfeitId) {
-        User user = currentUser();
+        User user = CurrentUserLookup.requireCurrent(userRepository);
         DailyGage dg = requireDailyGage(dailyGageId);
         groupMemberGuard.requireGroupAdmin(dg.getGroup().getId(), user.getId());
         if (dg.getStatus() == DailyGage.Status.SETTLED) {
@@ -159,7 +160,7 @@ public class DailyGageService {
     /** Delete a daily gage entirely (must not be SETTLED). */
     @Transactional
     public void deleteDailyGage(Long dailyGageId) {
-        User user = currentUser();
+        User user = CurrentUserLookup.requireCurrent(userRepository);
         DailyGage dg = requireDailyGage(dailyGageId);
         groupMemberGuard.requireGroupAdmin(dg.getGroup().getId(), user.getId());
         if (dg.getStatus() == DailyGage.Status.SETTLED) {
@@ -172,7 +173,7 @@ public class DailyGageService {
     /** VOTE mode: remove a candidate. */
     @Transactional
     public DailyGageResponse removeCandidate(Long dailyGageId, Long forfeitId) {
-        User user = currentUser();
+        User user = CurrentUserLookup.requireCurrent(userRepository);
         DailyGage dg = requireDailyGage(dailyGageId);
         groupMemberGuard.requireGroupAdmin(dg.getGroup().getId(), user.getId());
         DailyGageCandidate c = candidateRepository
@@ -199,7 +200,7 @@ public class DailyGageService {
      */
     @Transactional
     public DailyGageResponse vote(Long dailyGageId, Long forfeitId, int voteValue) {
-        User user = currentUser();
+        User user = CurrentUserLookup.requireCurrent(userRepository);
         DailyGage dg = requireDailyGage(dailyGageId);
         groupMemberGuard.requireActiveMembership(dg.getGroup().getId(), user.getId());
         if (dg.getStatus() == DailyGage.Status.SETTLED) {
@@ -378,7 +379,7 @@ public class DailyGageService {
      */
     @Transactional
     public DailyGageResponse forceSettle(Long id) {
-        User user = currentUser();
+        User user = CurrentUserLookup.requireCurrent(userRepository);
         DailyGage dg = requireDailyGage(id);
         groupMemberGuard.requireGroupAdmin(dg.getGroup().getId(), user.getId());
 
@@ -446,18 +447,6 @@ public class DailyGageService {
         return groupMemberRepository.findByUserIdAndStatus(userId, GroupMember.MemberStatus.ACTIVE).stream()
                 .map(m -> m.getGroup().getId())
                 .toList();
-    }
-
-    private User currentUser() {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        return userRepository.findByUsername(username)
-                .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
-    }
-
-    private User currentUserOrNull() {
-        var auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null) return null;
-        return userRepository.findByUsername(auth.getName()).orElse(null);
     }
 
     // ---------------------------------------------------------------
@@ -552,7 +541,7 @@ public class DailyGageService {
         List<DailyGageCandidateResponse> candidateResponses = candidates.stream()
                 .map(c -> DailyGageCandidateResponse.builder()
                         .id(c.getId())
-                        .forfeit(toForfeitResponse(c.getForfeit()))
+                        .forfeit(forfeitMapper.toResponse(c.getForfeit()))
                         .voteScore(finalScores.getOrDefault(c.getId(), 0))
                         .userVote(finalUserVotes.getOrDefault(c.getId(), 0))
                         .build())
@@ -568,7 +557,7 @@ public class DailyGageService {
                 .groupId(dg.getGroup().getId())
                 .groupName(dg.getGroup().getName())
                 .matchDate(dg.getMatchDate())
-                .forfeit(dg.getForfeit() != null ? toForfeitResponse(dg.getForfeit()) : null)
+                .forfeit(dg.getForfeit() != null ? forfeitMapper.toResponse(dg.getForfeit()) : null)
                 .mode(dg.getMode().name())
                 .status(dg.getStatus().name())
                 .assignedToUsername(dg.getAssignedTo() != null ? dg.getAssignedTo().getUsername() : null)
@@ -577,21 +566,6 @@ public class DailyGageService {
                 .candidates(candidateResponses)
                 .createdAt(dg.getCreatedAt())
                 .canForceSettle(canForceSettle)
-                .build();
-    }
-
-    private ForfeitResponse toForfeitResponse(Forfeit f) {
-        return ForfeitResponse.builder()
-                .id(f.getId())
-                .title(f.getTitle())
-                .description(f.getDescription())
-                .category(f.getCategory())
-                .isActive(f.isActive())
-                .timesCompleted(f.getTimesCompleted())
-                .proposedByUsername(f.getProposedBy() != null ? f.getProposedBy().getUsername() : null)
-                .proposedByDisplayName(f.getProposedBy() != null ? f.getProposedBy().getDisplayName() : null)
-                .groupId(f.getGroup() != null ? f.getGroup().getId() : null)
-                .groupName(f.getGroup() != null ? f.getGroup().getName() : null)
                 .build();
     }
 }

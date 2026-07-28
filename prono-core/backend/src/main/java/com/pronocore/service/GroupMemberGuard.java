@@ -28,4 +28,11 @@ public class GroupMemberGuard {
         }
         return member;
     }
+
+    /** Number of ACTIVE members holding the GROUP_ADMIN role in a group. */
+    public long countActiveAdmins(Long groupId) {
+        return groupMemberRepository.findByGroupIdAndStatus(groupId, GroupMember.MemberStatus.ACTIVE).stream()
+                .filter(m -> m.getRole() == GroupMember.GroupRole.GROUP_ADMIN)
+                .count();
+    }
 }

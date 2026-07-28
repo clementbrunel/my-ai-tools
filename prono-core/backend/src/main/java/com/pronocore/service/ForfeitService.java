@@ -10,15 +10,16 @@ import com.pronocore.entity.GroupMember;
 import com.pronocore.entity.Sport;
 import com.pronocore.entity.User;
 import com.pronocore.entity.UserForfeit;
+import com.pronocore.mapper.ForfeitMapper;
 import com.pronocore.repository.ForfeitRepository;
 import com.pronocore.repository.ForfeitVoteRepository;
 import com.pronocore.repository.GroupMemberRepository;
 import com.pronocore.repository.UserForfeitRepository;
 import com.pronocore.repository.UserRepository;
+import com.pronocore.util.CurrentUserLookup;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,6 +40,7 @@ public class ForfeitService {
     private final UserRepository         userRepository;
     private final GroupMemberRepository  groupMemberRepository;
     private final GroupMemberGuard       groupMemberGuard;
+    private final ForfeitMapper          forfeitMapper;
 
     // ---------------------------------------------------------------
     // Forfeit library queries
@@ -51,8 +53,7 @@ public class ForfeitService {
      */
     @Transactional(readOnly = true)
     public List<ForfeitResponse> getForfeitsForUser(String username, Sport sport) {
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
+        User user = CurrentUserLookup.require(userRepository, username);
 
         List<Long> groupIds = groupMemberRepository
                 .findByUserIdAndStatus(user.getId(), GroupMember.MemberStatus.ACTIVE).stream()
@@ -68,9 +69,7 @@ public class ForfeitService {
 
     @Transactional(readOnly = true)
     public List<ForfeitResponse> getAllForfeitsAdmin() {
-        String username = currentUsername();
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
+        User user = CurrentUserLookup.requireCurrent(userRepository);
         return toForfeitResponsesForUser(forfeitRepository.findAllByOrderByIdAsc(), user.getId());
     }
 
@@ -88,7 +87,7 @@ public class ForfeitService {
                 .sport(sport)
                 .active(true)
                 .build();
-        return toForfeitResponse(forfeitRepository.save(forfeit));
+        return forfeitMapper.toResponse(forfeitRepository.save(forfeit));
     }
 
     /**
@@ -98,9 +97,7 @@ public class ForfeitService {
      */
     @Transactional
     public ForfeitResponse proposeForfeit(Long groupId, String title, String description, String category) {
-        String username = currentUsername();
-        User proposer = userRepository.findByUsername(username)
-                .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
+        User proposer = CurrentUserLookup.requireCurrent(userRepository);
 
         GroupMember member = groupMemberGuard.requireActiveMembership(groupId, proposer.getId());
         Group group = member.getGroup();
@@ -114,7 +111,7 @@ public class ForfeitService {
                 .proposedBy(proposer)
                 .group(group)
                 .build();
-        return toForfeitResponse(forfeitRepository.save(forfeit));
+        return forfeitMapper.toResponse(forfeitRepository.save(forfeit));
     }
 
     /** Admin updates title, description, category and sport of any forfeit. */
@@ -126,7 +123,7 @@ public class ForfeitService {
         forfeit.setDescription(description);
         forfeit.setCategory(category);
         forfeit.setSport(sport);
-        return toForfeitResponse(forfeitRepository.save(forfeit));
+        return forfeitMapper.toResponse(forfeitRepository.save(forfeit));
     }
 
     /** Admin soft-deletes a gage (isActive=false). */
@@ -145,9 +142,7 @@ public class ForfeitService {
     /** Returns shared forfeits + active forfeits owned by this group (for forfeit selection UI). */
     @Transactional(readOnly = true)
     public List<ForfeitResponse> getForfeitsVisibleToGroup(Long groupId) {
-        String username = currentUsername();
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
+        User user = CurrentUserLookup.requireCurrent(userRepository);
         GroupMember member = groupMemberGuard.requireActiveMembership(groupId, user.getId());
 
         // A group playing a single sport filters shared gages to that sport;
@@ -162,9 +157,7 @@ public class ForfeitService {
     /** Returns active group-specific forfeits (visible to any group member). */
     @Transactional(readOnly = true)
     public List<ForfeitResponse> getGroupForfeits(Long groupId) {
-        String username = currentUsername();
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
+        User user = CurrentUserLookup.requireCurrent(userRepository);
         groupMemberGuard.requireActiveMembership(groupId, user.getId());
         return toForfeitResponsesForUser(
                 forfeitRepository.findByActiveTrueAndGroupIdOrderById(groupId), user.getId());
@@ -173,9 +166,7 @@ public class ForfeitService {
     /** Returns pending (inactive) proposed forfeits for a group (group admin only). */
     @Transactional(readOnly = true)
     public List<ForfeitResponse> getGroupPendingForfeits(Long groupId) {
-        String username = currentUsername();
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
+        User user = CurrentUserLookup.requireCurrent(userRepository);
         groupMemberGuard.requireGroupAdmin(groupId, user.getId());
         return toForfeitResponsesForUser(
                 forfeitRepository.findByActiveFalseAndGroupIdOrderById(groupId), user.getId());
@@ -184,9 +175,7 @@ public class ForfeitService {
     /** Group admin approves a proposed forfeit (sets active=true). */
     @Transactional
     public ForfeitResponse approveGroupForfeit(Long groupId, Long forfeitId) {
-        String username = currentUsername();
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
+        User user = CurrentUserLookup.requireCurrent(userRepository);
         groupMemberGuard.requireGroupAdmin(groupId, user.getId());
 
         Forfeit forfeit = forfeitRepository.findById(forfeitId)
@@ -195,15 +184,13 @@ public class ForfeitService {
             throw new AccessDeniedException("This forfeit does not belong to group " + groupId);
         }
         forfeit.setActive(true);
-        return toForfeitResponse(forfeitRepository.save(forfeit));
+        return forfeitMapper.toResponse(forfeitRepository.save(forfeit));
     }
 
     /** Group admin rejects/deletes a group forfeit (hard-delete). */
     @Transactional
     public void deleteGroupForfeit(Long groupId, Long forfeitId) {
-        String username = currentUsername();
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
+        User user = CurrentUserLookup.requireCurrent(userRepository);
         groupMemberGuard.requireGroupAdmin(groupId, user.getId());
 
         Forfeit forfeit = forfeitRepository.findById(forfeitId)
@@ -249,9 +236,7 @@ public class ForfeitService {
         UserForfeit uf = userForfeitRepository.findById(userForfeitId)
                 .orElseThrow(() -> new EntityNotFoundException("UserForfeit not found: " + userForfeitId));
 
-        String username = currentUsername();
-        User caller = userRepository.findByUsername(username)
-                .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
+        User caller = CurrentUserLookup.requireCurrent(userRepository);
 
         boolean isOwner = uf.getUser().getId().equals(caller.getId());
         boolean isAdmin = caller.getRole() == User.Role.PLATFORM_ADMIN;
@@ -296,9 +281,7 @@ public class ForfeitService {
     /** Returns all gage assignments for all members of a group, pending first then completed (any group member can call this). */
     @Transactional(readOnly = true)
     public List<GroupUserForfeitResponse> getGroupAssignments(Long groupId) {
-        String username = currentUsername();
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
+        User user = CurrentUserLookup.requireCurrent(userRepository);
         groupMemberGuard.requireActiveMembership(groupId, user.getId());
         return userForfeitRepository.findAllByGroupId(groupId).stream()
                 .map(this::toGroupUserForfeitResponse)
@@ -307,9 +290,7 @@ public class ForfeitService {
 
     @Transactional(readOnly = true)
     public List<UserForfeitResponse> getMyForfeits() {
-        String username = currentUsername();
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
+        User user = CurrentUserLookup.requireCurrent(userRepository);
         return getUserForfeits(user.getId());
     }
 
@@ -324,9 +305,7 @@ public class ForfeitService {
      */
     @Transactional
     public ForfeitResponse voteForfeit(Long forfeitId, int voteValue) {
-        String username = currentUsername();
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
+        User user = CurrentUserLookup.requireCurrent(userRepository);
         Forfeit forfeit = forfeitRepository.findById(forfeitId)
                 .orElseThrow(() -> new EntityNotFoundException("Forfeit not found: " + forfeitId));
 
@@ -363,38 +342,16 @@ public class ForfeitService {
                 .collect(Collectors.toMap(v -> v.getForfeit().getId(), ForfeitVote::getVote));
 
         return forfeits.stream()
-                .map(f -> toForfeitResponse(f,
+                .map(f -> forfeitMapper.toResponse(f,
                         scores.getOrDefault(f.getId(), 0),
                         userVotes.getOrDefault(f.getId(), 0)))
                 .toList();
     }
 
-    ForfeitResponse toForfeitResponse(Forfeit f) {
-        return toForfeitResponse(f, 0, 0);
-    }
-
-    private ForfeitResponse toForfeitResponse(Forfeit f, int voteScore, int userVote) {
-        return ForfeitResponse.builder()
-                .id(f.getId())
-                .title(f.getTitle())
-                .description(f.getDescription())
-                .category(f.getCategory())
-                .isActive(f.isActive())
-                .timesCompleted(f.getTimesCompleted())
-                .proposedByUsername(f.getProposedBy() != null ? f.getProposedBy().getUsername() : null)
-                .proposedByDisplayName(f.getProposedBy() != null ? f.getProposedBy().getDisplayName() : null)
-                .groupId(f.getGroup() != null ? f.getGroup().getId() : null)
-                .groupName(f.getGroup() != null ? f.getGroup().getName() : null)
-                .sport(f.getSport())
-                .voteScore(voteScore)
-                .userVote(userVote)
-                .build();
-    }
-
     private UserForfeitResponse toUserForfeitResponse(UserForfeit uf) {
         return UserForfeitResponse.builder()
                 .id(uf.getId())
-                .forfeit(toForfeitResponse(uf.getForfeit()))
+                .forfeit(forfeitMapper.toResponse(uf.getForfeit()))
                 .assignedByUsername(uf.getAssignedBy().getUsername())
                 .assignedByDisplayName(uf.getAssignedBy().getDisplayName())
                 .completed(uf.isCompleted())
@@ -409,16 +366,12 @@ public class ForfeitService {
                 .username(uf.getUser().getUsername())
                 .displayName(uf.getUser().getDisplayName())
                 .avatarUrl(uf.getUser().getEffectiveAvatarUrl())
-                .forfeit(toForfeitResponse(uf.getForfeit()))
+                .forfeit(forfeitMapper.toResponse(uf.getForfeit()))
                 .assignedByUsername(uf.getAssignedBy().getUsername())
                 .assignedByDisplayName(uf.getAssignedBy().getDisplayName())
                 .completed(uf.isCompleted())
                 .completedAt(uf.getCompletedAt())
                 .assignedAt(uf.getAssignedAt())
                 .build();
-    }
-
-    private String currentUsername() {
-        return SecurityContextHolder.getContext().getAuthentication().getName();
     }
 }

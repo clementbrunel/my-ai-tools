@@ -32,6 +32,7 @@ class GroupServiceTest {
     @Mock private GroupMemberRepository groupMemberRepository;
     @Mock private UserRepository        userRepository;
     @Mock private EmailService          emailService;
+    @Mock private GroupMemberGuard      groupMemberGuard;
 
     @InjectMocks
     private GroupService groupService;
@@ -243,6 +244,7 @@ class GroupServiceTest {
         when(groupMemberRepository.findByGroupIdAndUserId(10L, 1L)).thenReturn(Optional.of(adminMembership));
         when(groupMemberRepository.findByGroupIdAndStatus(10L, MemberStatus.ACTIVE))
                 .thenReturn(List.of(adminMembership, memberMembership));
+        when(groupMemberGuard.countActiveAdmins(10L)).thenReturn(1L);
 
         assertThatThrownBy(() -> groupService.leaveGroup(10L, "creator"))
                 .isInstanceOf(IllegalStateException.class)

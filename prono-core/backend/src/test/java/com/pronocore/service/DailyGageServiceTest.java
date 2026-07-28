@@ -3,6 +3,7 @@ package com.pronocore.service;
 import com.pronocore.dto.request.CreateDailyGageRequest;
 import com.pronocore.dto.response.DailyGageResponse;
 import com.pronocore.entity.*;
+import com.pronocore.mapper.ForfeitMapper;
 import com.pronocore.repository.*;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.AfterEach;
@@ -12,6 +13,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
@@ -43,6 +45,7 @@ class DailyGageServiceTest {
     @Mock private GroupRepository              groupRepository;
     @Mock private GroupMemberRepository        groupMemberRepository;
     @Mock private GroupMemberGuard             groupMemberGuard;
+    @Spy   private ForfeitMapper               forfeitMapper = new ForfeitMapper();
 
     @InjectMocks
     private DailyGageService dailyGageService;
