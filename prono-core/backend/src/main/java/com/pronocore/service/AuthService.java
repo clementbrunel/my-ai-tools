@@ -112,6 +112,7 @@ public class AuthService {
         emailService.sendVerificationEmail(user.getEmail(), verificationToken);
     }
 
+    @Transactional
     public AuthResponse login(LoginRequest request) {
         int pwdLen = request.getPassword() != null ? request.getPassword().length() : 0;
         log.info("Login attempt — username: {}, password length: {}", request.getUsername(), pwdLen);
@@ -136,6 +137,8 @@ public class AuthService {
             throw new IllegalStateException("Vérifie ton adresse email avant de te connecter. Consulte ta boîte mail.");
         }
 
+        user.setLastLoginAt(LocalDateTime.now());
+        userRepository.save(user);
         log.info("User logged in: {}", user.getUsername());
         String token = jwtTokenProvider.generateToken(user.getUsername());
         return AuthResponse.builder()

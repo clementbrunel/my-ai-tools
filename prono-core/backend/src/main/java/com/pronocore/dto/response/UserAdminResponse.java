@@ -22,5 +22,6 @@ public class UserAdminResponse {
     private User.Role role;
     private String avatarUrl;
     private LocalDateTime createdAt;
+    private LocalDateTime lastLoginAt;
     private List<UserGroupSummary> groups;
 }

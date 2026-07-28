@@ -135,5 +135,7 @@ class AuthServiceTest {
         assertThat(result).isNotNull();
         assertThat(result.getToken()).isEqualTo("jwt-token");
         assertThat(result.getUser().getUsername()).isEqualTo("testuser");
+        assertThat(testUser.getLastLoginAt()).isNotNull();
+        verify(userRepository).save(testUser);
     }
 }

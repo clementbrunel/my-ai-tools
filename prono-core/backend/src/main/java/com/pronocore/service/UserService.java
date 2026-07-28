@@ -133,6 +133,7 @@ public class UserService {
                 .role(user.getRole())
                 .avatarUrl(user.getEffectiveAvatarUrl())
                 .createdAt(user.getCreatedAt())
+                .lastLoginAt(user.getLastLoginAt())
                 .groups(groupsByUserId.getOrDefault(user.getId(), List.of()))
                 .build())
             .sorted(Comparator.comparing(UserAdminResponse::getCreatedAt,
