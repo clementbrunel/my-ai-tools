@@ -71,7 +71,7 @@ class AuthServiceTest {
         when(userRepository.save(any(User.class))).thenReturn(testUser);
         doNothing().when(emailService).sendVerificationEmail(anyString(), anyString());
 
-        RegisterResponse result = authService.register(request);
+        RegisterResponse result = authService.register(request, "127.0.0.1");
 
         assertThat(result).isNotNull();
         assertThat(result.getEmail()).isEqualTo("test@example.com");
@@ -89,7 +89,7 @@ class AuthServiceTest {
 
         when(userRepository.existsByUsername("existinguser")).thenReturn(true);
 
-        assertThatThrownBy(() -> authService.register(request))
+        assertThatThrownBy(() -> authService.register(request, "127.0.0.1"))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("Username already taken");
     }
@@ -104,7 +104,7 @@ class AuthServiceTest {
         when(userRepository.existsByUsername("newuser")).thenReturn(false);
         when(userRepository.existsByEmail("existing@example.com")).thenReturn(true);
 
-        assertThatThrownBy(() -> authService.register(request))
+        assertThatThrownBy(() -> authService.register(request, "127.0.0.1"))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("Email already in use");
     }
@@ -130,7 +130,7 @@ class AuthServiceTest {
         when(jwtTokenProvider.generateToken("testuser")).thenReturn("jwt-token");
         when(userMapper.toResponse(testUser)).thenReturn(userResponse);
 
-        AuthResponse result = authService.login(request);
+        AuthResponse result = authService.login(request, "127.0.0.1");
 
         assertThat(result).isNotNull();
         assertThat(result.getToken()).isEqualTo("jwt-token");
