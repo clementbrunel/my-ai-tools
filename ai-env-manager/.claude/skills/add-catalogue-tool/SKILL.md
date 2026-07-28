@@ -1,11 +1,11 @@
 ---
 name: add-catalogue-tool
-description: Add a new AI tool/library (plugin, MCP server, pip/npm package, CLAUDE.md drop-in, etc.) to ai-env-diagram's managed catalogue and scanner. Use this whenever the user wants to add, register, or wire up a new "managed library", "candidate", or "integration" for ai-env-diagram — phrases like "ajoute X à la bibliothèque/au catalogue", "add X to ai-env-diagram", "add a new candidate tool", or when given a GitHub link to a Claude Code plugin/skill/MCP server and asked to make ai-env-diagram detect and offer it for installation. Covers both the interactive `--prepare` installer (catalogue.ts) and the passive scanner (scanner/integrations/) that reports whether a tool is already in use.
+description: Add a new AI tool/library (plugin, MCP server, pip/npm package, CLAUDE.md drop-in, etc.) to ai-env-manager's managed catalogue and scanner. Use this whenever the user wants to add, register, or wire up a new "managed library", "candidate", or "integration" for ai-env-manager — phrases like "ajoute X à la bibliothèque/au catalogue", "add X to ai-env-manager", "add a new candidate tool", or when given a GitHub link to a Claude Code plugin/skill/MCP server and asked to make ai-env-manager detect and offer it for installation. Covers both the interactive `--prepare` installer (catalogue.ts) and the passive scanner (scanner/integrations/) that reports whether a tool is already in use.
 ---
 
-# Add a tool to ai-env-diagram's catalogue
+# Add a tool to ai-env-manager's catalogue
 
-`ai-env-diagram` (a tool in the `my-ai-tools` monorepo) has two coupled systems for "managed"
+`ai-env-manager` (a tool in the `my-ai-tools` monorepo) has two coupled systems for "managed"
 AI tools:
 
 1. **Catalogue** (`src/prepare/catalogue.ts`) — what the interactive `--prepare` installer
@@ -18,7 +18,7 @@ Adding a tool means touching both, plus tests and docs. Do the steps in order �
 depend on decisions made earlier (e.g. you can't write `INTEGRATION_TO_TOOL` until the catalogue
 `id` and the detector's `Integration.name` both exist).
 
-All paths below are relative to this package's root (`ai-env-diagram/`); run `npm run build` and
+All paths below are relative to this package's root (`ai-env-manager/`); run `npm run build` and
 `npx vitest run` from there before considering the job done.
 
 ## Step 1 — Research the tool

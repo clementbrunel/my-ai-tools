@@ -1,6 +1,6 @@
-# ai-env-diagram
+# ai-env-manager
 
-Scans your Claude Code / AI environment and prints a status report in the terminal. Optionally writes a Markdown report to a file.
+Scans, diagnoses, and manages your Claude Code / AI environment: prints a status report in the terminal (optionally writes a Markdown report to a file), checks for tool updates, and offers a catalogue of recommended tools with guided or automated installation.
 
 ## What it detects
 
@@ -26,13 +26,22 @@ Scans your Claude Code / AI environment and prints a status report in the termin
 
 ```bash
 # Scan current directory
-npx ai-env-diagram
+npx ai-env-manager
 
 # Scan a specific project
-npx ai-env-diagram --path /path/to/project
+npx ai-env-manager --path /path/to/project
 
 # Write a Markdown report to a file
-npx ai-env-diagram --output report.md
+npx ai-env-manager --output report.md
+
+# Check for updates on detected AI tools and apply them
+npx ai-env-manager update --path /path/to/project
+
+# Show the recommended tools catalogue and an install plan for missing ones
+npx ai-env-manager prepare --path /path/to/project
+
+# Install specific tools from the catalogue
+npx ai-env-manager prepare --with rtk,mempalace --install
 ```
 
 ## Example output
@@ -74,7 +83,7 @@ npx ai-env-diagram --output report.md
 
 ```bash
 git clone https://github.com/clementbrunel/my-ai-tools.git
-cd my-ai-tools/ai-env-diagram
+cd my-ai-tools/ai-env-manager
 npm install
 npm run build
 node dist/index.js --path /your/project
@@ -106,6 +115,10 @@ src/
     table.ts                  — Console table + Markdown report rendering
   updater/
     index.ts                  — Update checking & applying
+  prepare/
+    catalogue.ts               — Recommended tools catalogue & conflict rules
+    installer.ts               — Automated install execution
+    render.ts                  — Catalogue, install plan & suggestion rendering
 ```
 
 ## License

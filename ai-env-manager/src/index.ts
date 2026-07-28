@@ -16,9 +16,9 @@ import { runInstall } from "./prepare/installer.js";
 const program = new Command();
 
 program
-  .name("ai-env-diagram")
+  .name("ai-env-manager")
   .description(
-    "Scan and visualize the AI environment (MCP servers, context, hooks) of a Claude Code project"
+    "Scan, diagnose, and manage the AI environment (MCP servers, context, hooks, integrations) of a Claude Code project"
   )
   .version("0.1.0")
   .option("-p, --path <dir>", "project directory to scan", ".")
