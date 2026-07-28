@@ -167,10 +167,7 @@ public class GroupAdminService {
         GroupMember member = groupMemberRepository.findByGroupIdAndUserId(groupId, targetUserId)
             .orElseThrow(() -> new IllegalArgumentException("User is not a member of this group"));
 
-        long adminCount = groupMemberRepository.findByGroupIdAndStatus(groupId, GroupMember.MemberStatus.ACTIVE).stream()
-            .filter(m -> m.getRole() == GroupMember.GroupRole.GROUP_ADMIN)
-            .count();
-        if (adminCount == 1) {
+        if (groupMemberGuard.countActiveAdmins(groupId) == 1) {
             throw new IllegalStateException("Cannot demote: at least one admin must remain.");
         }
 
@@ -192,13 +189,8 @@ public class GroupAdminService {
         GroupMember member = groupMemberRepository.findByGroupIdAndUserId(groupId, targetUserId)
             .orElseThrow(() -> new IllegalArgumentException("User is not a member of this group"));
 
-        if (member.getRole() == GroupMember.GroupRole.GROUP_ADMIN) {
-            long adminCount = groupMemberRepository.findByGroupIdAndStatus(groupId, GroupMember.MemberStatus.ACTIVE).stream()
-                .filter(m -> m.getRole() == GroupMember.GroupRole.GROUP_ADMIN)
-                .count();
-            if (adminCount == 1) {
-                throw new IllegalStateException("Cannot remove: at least one admin must remain.");
-            }
+        if (member.getRole() == GroupMember.GroupRole.GROUP_ADMIN && groupMemberGuard.countActiveAdmins(groupId) == 1) {
+            throw new IllegalStateException("Cannot remove: at least one admin must remain.");
         }
 
         groupMemberRepository.delete(member);

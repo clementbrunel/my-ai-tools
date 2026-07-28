@@ -330,8 +330,7 @@ class GroupAdminServiceTest {
         // demoteMember(groupId, targetUserId=1L, ...) targets the requester itself here
         when(groupMemberRepository.findByGroupIdAndUserId(10L, 1L)).thenReturn(Optional.of(adminMembership));
         // Only one active admin → demotion forbidden
-        when(groupMemberRepository.findByGroupIdAndStatus(10L, MemberStatus.ACTIVE))
-                .thenReturn(List.of(adminMembership));
+        when(groupMemberGuard.countActiveAdmins(10L)).thenReturn(1L);
 
         assertThatThrownBy(() -> groupAdminService.demoteMember(10L, 1L, "creator"))
                 .isInstanceOf(IllegalStateException.class)
@@ -340,7 +339,6 @@ class GroupAdminServiceTest {
 
     @Test
     void demoteMember_shouldSetRoleToMemberWhenAnotherAdminExists() {
-        GroupMember requesterAdmin = activeAdmin(creator);
         GroupMember targetAdmin    = GroupMember.builder()
                 .id(2L).group(group).user(member)
                 .role(GroupMember.GroupRole.GROUP_ADMIN).status(MemberStatus.ACTIVE)
@@ -349,8 +347,7 @@ class GroupAdminServiceTest {
         when(groupService.findUser("creator")).thenReturn(creator);
         when(groupMemberRepository.findByGroupIdAndUserId(10L, 2L)).thenReturn(Optional.of(targetAdmin));
         // Two admins → demotion is allowed
-        when(groupMemberRepository.findByGroupIdAndStatus(10L, MemberStatus.ACTIVE))
-                .thenReturn(List.of(requesterAdmin, targetAdmin));
+        when(groupMemberGuard.countActiveAdmins(10L)).thenReturn(2L);
         when(groupMemberRepository.save(targetAdmin)).thenReturn(targetAdmin);
 
         groupAdminService.demoteMember(10L, 2L, "creator");

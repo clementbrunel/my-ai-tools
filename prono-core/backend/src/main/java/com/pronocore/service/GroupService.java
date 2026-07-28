@@ -33,6 +33,7 @@ public class GroupService {
     private final GroupMemberRepository groupMemberRepository;
     private final UserRepository userRepository;
     private final EmailService emailService;
+    private final GroupMemberGuard groupMemberGuard;
 
     @Transactional
     public GroupResponse createGroup(CreateGroupRequest request, String username) {
@@ -180,14 +181,9 @@ public class GroupService {
                 return;
             }
 
-            if (member.getRole() == GroupMember.GroupRole.GROUP_ADMIN) {
-                long adminCount = activeMembers.stream()
-                    .filter(m -> m.getRole() == GroupMember.GroupRole.GROUP_ADMIN)
-                    .count();
-                if (adminCount == 1) {
-                    log.warn("User {} cannot leave group {} — only admin remaining", username, groupId);
-                    throw new IllegalStateException("Cannot leave: you are the only admin. Promote another member first.");
-                }
+            if (member.getRole() == GroupMember.GroupRole.GROUP_ADMIN && groupMemberGuard.countActiveAdmins(groupId) == 1) {
+                log.warn("User {} cannot leave group {} — only admin remaining", username, groupId);
+                throw new IllegalStateException("Cannot leave: you are the only admin. Promote another member first.");
             }
         }
 

@@ -10,6 +10,7 @@ import com.pronocore.service.f1.F1Scoring;
 import com.pronocore.service.f1.F1ScoringService;
 import com.pronocore.service.f1.F1StandingsService;
 import com.pronocore.service.f1.RaceOutcome;
+import com.pronocore.util.CurrentUserLookup;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -83,7 +84,7 @@ public class F1RaceService {
 
     @Transactional(readOnly = true)
     public List<RaceResponse> getRaces(String username) {
-        User user = requireUser(username);
+        User user = CurrentUserLookup.require(userRepository, username);
         Set<Long> openRaceIds = betRepository.findRaceIdsWithBetsInUserGroups(user.getId());
         Set<Long> predictedRaceIds = participationRepository.findParticipatedRaceIdsByUserId(user.getId());
         Map<Long, Long> predictionCounts = predictionCountsByRace(user.getId());
@@ -100,7 +101,7 @@ public class F1RaceService {
 
     @Transactional(readOnly = true)
     public RaceResponse getRace(Long raceId, String username) {
-        User user = requireUser(username);
+        User user = CurrentUserLookup.require(userRepository, username);
         Race race = requireRace(raceId);
         RaceResponse response = toRaceResponse(race);
         response.setOpenInUserGroups(
@@ -125,7 +126,7 @@ public class F1RaceService {
     /** The caller's prediction for a race (identical across their groups). */
     @Transactional(readOnly = true)
     public Optional<F1PredictionResponse> getMyPrediction(Long raceId, String username) {
-        User user = requireUser(username);
+        User user = CurrentUserLookup.require(userRepository, username);
         Race race = requireRace(raceId);
         return predictionRepository.findByRaceIdAndUserId(raceId, user.getId()).stream()
                 .findFirst()
@@ -140,7 +141,7 @@ public class F1RaceService {
      */
     @Transactional(readOnly = true)
     public List<F1PredictionResponse> getRacePredictions(Long raceId, String username) {
-        User user = requireUser(username);
+        User user = CurrentUserLookup.require(userRepository, username);
         Race race = requireRace(raceId);
         LocalDateTime now = LocalDateTime.now();
         if (now.isBefore(race.getQualifyingDate())) {
@@ -193,7 +194,7 @@ public class F1RaceService {
 
     @Transactional
     public BetResponse openRaceForBetting(Long groupId, Long raceId, String username) {
-        User requester = requireUser(username);
+        User requester = CurrentUserLookup.require(userRepository, username);
         groupMemberGuard.requireGroupAdmin(groupId, requester.getId());
         Group group = requireF1Group(groupId);
         Race race = requireRace(raceId);
@@ -208,7 +209,7 @@ public class F1RaceService {
 
     @Transactional
     public void closeRaceForBetting(Long groupId, Long raceId, String username) {
-        User requester = requireUser(username);
+        User requester = CurrentUserLookup.require(userRepository, username);
         groupMemberGuard.requireGroupAdmin(groupId, requester.getId());
 
         for (Bet bet : betRepository.findByRaceIdAndGroupId(raceId, groupId)) {
@@ -221,7 +222,7 @@ public class F1RaceService {
     /** Open every race of an F1 competition in the group (idempotent). */
     @Transactional
     public List<BetResponse> openCompetitionRacesForBetting(Long groupId, Long competitionId, String username) {
-        User requester = requireUser(username);
+        User requester = CurrentUserLookup.require(userRepository, username);
         groupMemberGuard.requireGroupAdmin(groupId, requester.getId());
         Group group = requireF1Group(groupId);
 
@@ -270,7 +271,7 @@ public class F1RaceService {
      */
     @Transactional
     public F1PredictionResponse predict(Long raceId, F1PredictionRequest request, String username) {
-        User user = requireUser(username);
+        User user = CurrentUserLookup.require(userRepository, username);
         Race race = requireRace(raceId);
         LocalDateTime now = LocalDateTime.now();
 
@@ -507,11 +508,6 @@ public class F1RaceService {
         if (race.getStatus() == Race.Status.FINISHED || !LocalDateTime.now().isBefore(race.getRaceDate())) {
             throw new IllegalStateException("Cette course est déjà partie ou terminée — impossible de l'ouvrir aux paris");
         }
-    }
-
-    private User requireUser(String username) {
-        return userRepository.findByUsername(username)
-                .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
     }
 
     private Race requireRace(Long raceId) {

@@ -8,6 +8,7 @@ import com.pronocore.dto.response.UserBetSummaryResponse;
 import com.pronocore.entity.*;
 import com.pronocore.mapper.BetMapper;
 import com.pronocore.repository.*;
+import com.pronocore.util.CurrentUserLookup;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -38,14 +39,14 @@ public class BetService {
 
     @Transactional(readOnly = true)
     public List<BetResponse> getBetsForUser(String username) {
-        User user = requireUser(username);
+        User user = CurrentUserLookup.require(userRepository, username);
         List<Bet> bets = betRepository.findAllInUserActiveGroups(user.getId());
         return toBetResponsesWithCounts(bets);
     }
 
     @Transactional(readOnly = true)
     public List<BetResponse> getBetsByMatch(Long matchId, String username) {
-        User user = requireUser(username);
+        User user = CurrentUserLookup.require(userRepository, username);
         List<Bet> bets = betRepository.findByMatchIdInUserActiveGroups(matchId, user.getId());
         return toBetResponsesWithCounts(bets);
     }
@@ -53,14 +54,14 @@ public class BetService {
     @Transactional(readOnly = true)
     public BetResponse getBetById(Long id, String username) {
         Bet bet = requireBet(id);
-        groupMemberGuard.requireActiveMembership(bet.getGroup().getId(), requireUser(username).getId());
+        groupMemberGuard.requireActiveMembership(bet.getGroup().getId(), CurrentUserLookup.require(userRepository, username).getId());
         return toBetResponseWithCount(bet);
     }
 
     @Transactional(readOnly = true)
     public List<BetParticipationResponse> getParticipations(Long betId, String username) {
         Bet bet = requireBet(betId);
-        groupMemberGuard.requireActiveMembership(bet.getGroup().getId(), requireUser(username).getId());
+        groupMemberGuard.requireActiveMembership(bet.getGroup().getId(), CurrentUserLookup.require(userRepository, username).getId());
         return participationRepository.findByBetId(betId).stream()
             .map(betMapper::toParticipationResponse)
             .toList();
@@ -68,67 +69,49 @@ public class BetService {
 
     @Transactional(readOnly = true)
     public List<UserBetSummaryResponse> getMyParticipations(String username) {
-        User user = requireUser(username);
+        User user = CurrentUserLookup.require(userRepository, username);
         return participationRepository.findByUserId(user.getId()).stream()
             .sorted(java.util.Comparator.comparing(
                 bp -> bp.getBet().getMatch() != null ? bp.getBet().getMatch().getMatchDate() : bp.getCreatedAt(),
                 java.util.Comparator.reverseOrder()))
-            .map(bp -> {
-                Bet bet = bp.getBet();
-                var matchTeamA = bet.getMatch() != null ? bet.getMatch().getTeamA().getName() : null;
-                var matchTeamB = bet.getMatch() != null ? bet.getMatch().getTeamB().getName() : null;
-                var matchDate  = bet.getMatch() != null ? bet.getMatch().getMatchDate() : null;
-                return UserBetSummaryResponse.builder()
-                    .participationId(bp.getId())
-                    .betId(bet.getId())
-                    .betTitle(bet.getTitle())
-                    .sport(bet.getRace() != null ? Sport.F1 : Sport.FOOT)
-                    .matchTeamA(matchTeamA)
-                    .matchTeamB(matchTeamB)
-                    .matchDate(matchDate)
-                    .betStatus(bet.getStatus())
-                    .betPoints(bet.getPoints())
-                    .chosenOption(bp.getChosenOption())
-                    .winningOption(bet.getWinningOption())
-                    .pointsEarned(bp.getPointsEarned())
-                    .participatedAt(bp.getCreatedAt())
-                    .build();
-            })
+            .map(this::toUserBetSummary)
             .toList();
     }
 
     @Transactional(readOnly = true)
     public List<UserBetSummaryResponse> getUserBetsInGroup(Long groupId, Long userId, String callerUsername) {
-        User caller = requireUser(callerUsername);
+        User caller = CurrentUserLookup.require(userRepository, callerUsername);
         groupMemberGuard.requireActiveMembership(groupId, caller.getId());
         return participationRepository.findByUserIdAndGroupId(userId, groupId, java.time.LocalDateTime.now()).stream()
-            .map(bp -> {
-                Bet bet = bp.getBet();
-                var matchTeamA = bet.getMatch() != null ? bet.getMatch().getTeamA().getName() : null;
-                var matchTeamB = bet.getMatch() != null ? bet.getMatch().getTeamB().getName() : null;
-                var matchDate  = bet.getMatch() != null ? bet.getMatch().getMatchDate() : null;
-                return UserBetSummaryResponse.builder()
-                    .participationId(bp.getId())
-                    .betId(bet.getId())
-                    .betTitle(bet.getTitle())
-                    .sport(bet.getRace() != null ? Sport.F1 : Sport.FOOT)
-                    .matchTeamA(matchTeamA)
-                    .matchTeamB(matchTeamB)
-                    .matchDate(matchDate)
-                    .betStatus(bet.getStatus())
-                    .betPoints(bet.getPoints())
-                    .chosenOption(bp.getChosenOption())
-                    .winningOption(bet.getWinningOption())
-                    .pointsEarned(bp.getPointsEarned())
-                    .participatedAt(bp.getCreatedAt())
-                    .build();
-            })
+            .map(this::toUserBetSummary)
             .toList();
+    }
+
+    private UserBetSummaryResponse toUserBetSummary(BetParticipation bp) {
+        Bet bet = bp.getBet();
+        var matchTeamA = bet.getMatch() != null ? bet.getMatch().getTeamA().getName() : null;
+        var matchTeamB = bet.getMatch() != null ? bet.getMatch().getTeamB().getName() : null;
+        var matchDate  = bet.getMatch() != null ? bet.getMatch().getMatchDate() : null;
+        return UserBetSummaryResponse.builder()
+            .participationId(bp.getId())
+            .betId(bet.getId())
+            .betTitle(bet.getTitle())
+            .sport(bet.getRace() != null ? Sport.F1 : Sport.FOOT)
+            .matchTeamA(matchTeamA)
+            .matchTeamB(matchTeamB)
+            .matchDate(matchDate)
+            .betStatus(bet.getStatus())
+            .betPoints(bet.getPoints())
+            .chosenOption(bp.getChosenOption())
+            .winningOption(bet.getWinningOption())
+            .pointsEarned(bp.getPointsEarned())
+            .participatedAt(bp.getCreatedAt())
+            .build();
     }
 
     @Transactional(readOnly = true)
     public List<BetParticipationResponse> getParticipationsByMatch(Long matchId, String username) {
-        User user = requireUser(username);
+        User user = CurrentUserLookup.require(userRepository, username);
         return participationRepository.findByMatchIdInUserActiveGroups(matchId, user.getId()).stream()
             .collect(Collectors.toMap(
                 p -> p.getUser().getId(),
@@ -150,7 +133,7 @@ public class BetService {
      */
     @Transactional
     public BetResponse openMatchForBetting(Long groupId, Long matchId, String username) {
-        User requester = requireUser(username);
+        User requester = CurrentUserLookup.require(userRepository, username);
         groupMemberGuard.requireGroupAdmin(groupId, requester.getId());
 
         Group group = groupRepository.findById(groupId)
@@ -171,7 +154,7 @@ public class BetService {
      */
     @Transactional
     public void closeMatchForBetting(Long groupId, Long matchId, String username) {
-        User requester = requireUser(username);
+        User requester = CurrentUserLookup.require(userRepository, username);
         groupMemberGuard.requireGroupAdmin(groupId, requester.getId());
 
         List<Bet> bets = betRepository.findByMatchIdAndGroupId(matchId, groupId);
@@ -188,7 +171,7 @@ public class BetService {
      */
     @Transactional
     public List<BetResponse> openCompetitionForBetting(Long groupId, Long competitionId, String username) {
-        User requester = requireUser(username);
+        User requester = CurrentUserLookup.require(userRepository, username);
         groupMemberGuard.requireGroupAdmin(groupId, requester.getId());
 
         Group group = groupRepository.findById(groupId)
@@ -219,7 +202,7 @@ public class BetService {
      */
     @Transactional
     public BetResponse createBet(CreateBetRequest request, String username) {
-        User creator = requireUser(username);
+        User creator = CurrentUserLookup.require(userRepository, username);
         groupMemberGuard.requireGroupAdmin(request.getGroupId(), creator.getId());
 
         Group group = groupRepository.findById(request.getGroupId())
@@ -255,7 +238,7 @@ public class BetService {
         Bet bet = requireBet(betId);
         assertOpenForParticipation(bet);
 
-        User user = requireUser(username);
+        User user = CurrentUserLookup.require(userRepository, username);
         groupMemberGuard.requireActiveMembership(bet.getGroup().getId(), user.getId());
 
         if (participationRepository.existsByBetIdAndUserId(betId, user.getId())) {
@@ -274,7 +257,7 @@ public class BetService {
 
     @Transactional
     public List<BetParticipationResponse> upsertParticipateByMatch(Long matchId, ParticipateRequest request, String username) {
-        User user = requireUser(username);
+        User user = CurrentUserLookup.require(userRepository, username);
         List<Bet> bets = betRepository.findByMatchIdInUserActiveGroups(matchId, user.getId());
         return bets.stream()
             .filter(bet -> {
@@ -380,11 +363,6 @@ public class BetService {
         if (bet.getDeadline() != null && java.time.LocalDateTime.now().isAfter(bet.getDeadline())) {
             throw new IllegalStateException("Le match a déjà commencé, les paris sont fermés");
         }
-    }
-
-    private User requireUser(String username) {
-        return userRepository.findByUsername(username)
-            .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
     }
 
     private Bet requireBet(Long betId) {

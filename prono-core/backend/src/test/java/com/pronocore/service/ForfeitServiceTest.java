@@ -7,6 +7,7 @@ import com.pronocore.entity.Group;
 import com.pronocore.entity.GroupMember;
 import com.pronocore.entity.User;
 import com.pronocore.entity.UserForfeit;
+import com.pronocore.mapper.ForfeitMapper;
 import com.pronocore.repository.ForfeitRepository;
 import com.pronocore.repository.ForfeitVoteRepository;
 import com.pronocore.repository.GroupMemberRepository;
@@ -20,6 +21,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
@@ -42,6 +44,7 @@ class ForfeitServiceTest {
     @Mock private UserRepository        userRepository;
     @Mock private GroupMemberRepository groupMemberRepository;
     @Mock private GroupMemberGuard      groupMemberGuard;
+    @Spy   private ForfeitMapper        forfeitMapper = new ForfeitMapper();
 
     @InjectMocks
     private ForfeitService forfeitService;

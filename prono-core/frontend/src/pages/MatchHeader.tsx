@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import type { Match } from '@/types';
-import { formatDate } from '@/utils/dates';
+import { formatDate, formatTime } from '@/utils/dates';
 import { getFlagUrl } from '@/utils/countryFlags';
 import { getStatusBadgeText } from '@/utils/matchStatus';
 
@@ -9,8 +9,6 @@ interface Props {
 }
 
 const MatchHeader: React.FC<Props> = ({ match }) => {
-  const matchDate = new Date(match.matchDate);
-
   return (
     <div className="card">
       <div className="flex items-center justify-between mb-4">
@@ -50,10 +48,10 @@ const MatchHeader: React.FC<Props> = ({ match }) => {
             <div>
               <div className="text-2xl font-bold text-gray-400 dark:text-gray-500">VS</div>
               <div className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                {formatDate(matchDate)}
+                {formatDate(match.matchDate)}
               </div>
               <div className="text-lg font-bold text-gray-700 dark:text-gray-300">
-                {matchDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                {formatTime(match.matchDate)}
               </div>
             </div>
           )}
