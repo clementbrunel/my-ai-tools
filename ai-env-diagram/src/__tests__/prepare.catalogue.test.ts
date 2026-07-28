@@ -15,6 +15,12 @@ describe("getToolById", () => {
   it("returns undefined for an unknown id", () => {
     expect(getToolById("nonexistent")).toBeUndefined();
   });
+
+  it("returns the karpathy-skills tool with no conflict group", () => {
+    const tool = getToolById("karpathy-skills");
+    expect(tool).toBeDefined();
+    expect(tool!.conflictGroup).toBeUndefined();
+  });
 });
 
 // --- suggestMissing ---

@@ -1,4 +1,4 @@
-export type ToolId = "rtk" | "headroom" | "caveman" | "mempalace" | "socraticode" | "ecc";
+export type ToolId = "rtk" | "headroom" | "caveman" | "mempalace" | "socraticode" | "ecc" | "karpathy-skills";
 
 export interface InstallStep {
   label: string;
@@ -148,6 +148,27 @@ export const CATALOGUE: CatalogueTool[] = [
       },
     ],
   },
+  {
+    id: "karpathy-skills",
+    name: "Andrej Karpathy Skills",
+    tagline: "Guide-lines Claude Code inspirées d'Andrej Karpathy — évite les suppositions non vérifiées, la sur-ingénierie et les changements hors périmètre",
+    why: "Utile pour réduire les erreurs classiques des agents de code : suppositions non vérifiées, sur-complexification, modifications hors-sujet, absence de critères de succès clairs. Zéro infrastructure — soit un plugin Claude Code, soit un simple fichier CLAUDE.md à copier dans le projet. Complémentaire à ECC/Caveman (pas de recouvrement : ceux-ci gèrent tokens/agents, pas la discipline de modification du code).",
+    steps: [
+      {
+        label: "Ajouter le marketplace",
+        manual: "/plugin marketplace add forrestchang/andrej-karpathy-skills  (dans une session Claude Code)",
+      },
+      {
+        label: "Installer le plugin",
+        manual: "/plugin install andrej-karpathy-skills@karpathy-skills  (dans une session Claude Code)",
+      },
+      {
+        label: "Alternative — fichier CLAUDE.md",
+        command: "curl -o CLAUDE.md https://raw.githubusercontent.com/forrestchang/andrej-karpathy-skills/main/CLAUDE.md",
+        manual: "Ou ajouter le contenu à la fin d'un CLAUDE.md existant",
+      },
+    ],
+  },
 ];
 
 // Maps Integration.name (from scanner) to a catalogue ToolId.
@@ -158,6 +179,7 @@ export const INTEGRATION_TO_TOOL: Record<string, ToolId> = {
   "Headroom": "headroom",
   "ECC": "ecc",
   "SocratiCode": "socraticode",
+  "Andrej Karpathy Skills": "karpathy-skills",
 };
 
 // Default pick per conflict group when nothing is detected (easiest / least infra first).
