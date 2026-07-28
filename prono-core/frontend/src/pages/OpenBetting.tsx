@@ -193,7 +193,7 @@ const OpenBetting: React.FC = () => {
           <label className="label mb-0">Statut</label>
           <PillTabs
             options={[
-              ['CLOSED', 'Fermés'],
+              ['CLOSED', 'À ouvrir'],
               ['OPEN', 'Ouverts'],
             ]}
             value={statusFilter}
