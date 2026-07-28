@@ -1,4 +1,4 @@
-import type { Driver, F1Prediction, Race } from '@/types';
+import type { Driver, F1Prediction, Race, RaceResultEntry } from '@/types';
 
 /**
  * Client-side helpers for the F1 "Podium +" scoring — the F1 twin of
@@ -75,4 +75,35 @@ export function computeF1Verdicts(
     fastestLap: simple(prediction.fastestLap, fastest, 1),
     last: simple(prediction.lastClassified, last, 2),
   };
+}
+
+/** Parses a gap string like "+22.792" or "+1:03.828" into seconds — null for the leader's absolute time or anything unparsable. */
+function parseGapSeconds(time: string): number | null {
+  const match = time.match(/^\+(?:(\d+):)?(\d+(?:\.\d+)?)$/);
+  if (!match) return null;
+  const minutes = match[1] ? parseInt(match[1], 10) : 0;
+  return minutes * 60 + parseFloat(match[2]);
+}
+
+/**
+ * jolpica's live sync reports a lapped driver's "time" as their interval to the car
+ * directly ahead rather than a true gap-to-winner, so the number can drop between one
+ * classified row and the next instead of only growing. Each drop means one more lap
+ * lost — returns the driver → laps-down count for every row past such a drop (the count
+ * never decreases going down the order).
+ */
+export function computeLapsDown(results: RaceResultEntry[]): Map<number, number> {
+  const lapsDown = new Map<number, number>();
+  const sorted = [...results].sort((a, b) => (a.position ?? Infinity) - (b.position ?? Infinity));
+  let laps = 0;
+  let previousGap: number | null = null;
+  for (const r of sorted) {
+    if (r.position == null || !r.time) continue;
+    const gap = parseGapSeconds(r.time);
+    if (gap == null) { previousGap = null; continue; }
+    if (previousGap != null && gap < previousGap) laps += 1;
+    if (laps > 0) lapsDown.set(r.driver.id, laps);
+    previousGap = gap;
+  }
+  return lapsDown;
 }
