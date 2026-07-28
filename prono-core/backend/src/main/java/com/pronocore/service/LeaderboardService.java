@@ -7,6 +7,7 @@ import com.pronocore.mapper.UserMapper;
 import com.pronocore.repository.BetParticipationRepository;
 import com.pronocore.repository.UserForfeitRepository;
 import com.pronocore.repository.UserRepository;
+import com.pronocore.util.RankingComparator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -57,9 +58,7 @@ public class LeaderboardService {
             forfeitsByUser.put(((Number) row[0]).longValue(), ((Number) row[1]).intValue());
         }
 
-        members.sort(Comparator
-            .comparingInt((User u) -> -pointsByUser.getOrDefault(u.getId(), 0))
-            .thenComparingInt(u -> -betsWonByUser.getOrDefault(u.getId(), 0)));
+        members.sort(Comparator.comparing(User::getId, RankingComparator.byPointsThenBetsWonDesc(pointsByUser, betsWonByUser)));
 
         List<LeaderboardEntryResponse> leaderboard = new ArrayList<>();
         for (int i = 0; i < members.size(); i++) {
