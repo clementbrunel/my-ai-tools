@@ -11,13 +11,13 @@ import com.pronocore.repository.BetParticipationRepository;
 import com.pronocore.repository.BetRepository;
 import com.pronocore.repository.GroupMemberRepository;
 import com.pronocore.repository.UserRepository;
+import com.pronocore.util.RankingComparator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -94,13 +94,11 @@ public class DashboardService {
                 Map<Long, Integer> groupBetsWon = betsWonByGroupAndUser.getOrDefault(groupId, Map.of());
                 List<GroupMember> members = membersByGroup.getOrDefault(groupId, List.of());
 
-                // Sort member IDs by points then bets won descending to determine rank
+                // Sort member IDs by points then bets won descending to determine rank —
+                // same criterion as LeaderboardService, guaranteed by RankingComparator.
                 List<Long> ranked = members.stream()
                         .map(gm -> gm.getUser().getId())
-                        .sorted(Comparator
-                                .comparingInt((Long uid) -> groupPoints.getOrDefault(uid, 0))
-                                .thenComparingInt(uid -> groupBetsWon.getOrDefault(uid, 0))
-                                .reversed())
+                        .sorted(RankingComparator.byPointsThenBetsWonDesc(groupPoints, groupBetsWon))
                         .collect(Collectors.toList());
 
                 int userPoints = groupPoints.getOrDefault(user.getId(), 0);

@@ -6,6 +6,7 @@ import com.pronocore.dto.response.MatchResponse;
 import com.pronocore.entity.*;
 import com.pronocore.mapper.MatchMapper;
 import com.pronocore.repository.*;
+import com.pronocore.util.BetSettlement;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -185,31 +186,23 @@ public class MatchService {
                                 : "[no group]")
                         .collect(Collectors.joining(", ")));
 
-        for (Bet bet : openBets) {
-            String groupName = bet.getGroup() != null ? bet.getGroup().getName() : "?";
-            List<BetParticipation> participations = betParticipationRepository.findByBetId(bet.getId());
-
-            for (BetParticipation p : participations) {
-                User user = p.getUser();
-                int earned = computeEarnedPoints(p.getChosenOption().trim(), winningOption);
-                p.setPointsEarned(earned);
-                betParticipationRepository.save(p);
-
-                if (earned > 0) {
-                    log.info("  +{} pts → {} ({}) [group: {}]",
-                            earned, user.getUsername(), p.getChosenOption(), groupName);
-                } else {
-                    log.debug("  +0 pts → {} ({}) [group: {}]",
-                            user.getUsername(), p.getChosenOption(), groupName);
-                }
-            }
-
-            bet.setStatus(Bet.Status.VALIDATED);
-            bet.setWinningOption(winningOption);
-            betRepository.save(bet);
-            log.info("  ✓ Bet {} (group '{}') → VALIDATED ({} participant(s))",
-                    bet.getId(), groupName, participations.size());
-        }
+        BetSettlement.settle(openBets, winningOption, betRepository, betParticipationRepository,
+                p -> computeEarnedPoints(p.getChosenOption().trim(), winningOption),
+                (p, earned) -> {
+                    String groupName = p.getBet().getGroup() != null ? p.getBet().getGroup().getName() : "?";
+                    if (earned > 0) {
+                        log.info("  +{} pts → {} ({}) [group: {}]",
+                                earned, p.getUser().getUsername(), p.getChosenOption(), groupName);
+                    } else {
+                        log.debug("  +0 pts → {} ({}) [group: {}]",
+                                p.getUser().getUsername(), p.getChosenOption(), groupName);
+                    }
+                },
+                (bet, participations) -> {
+                    String groupName = bet.getGroup() != null ? bet.getGroup().getName() : "?";
+                    log.info("  ✓ Bet {} (group '{}') → VALIDATED ({} participant(s))",
+                            bet.getId(), groupName, participations.size());
+                });
     }
 
     /**

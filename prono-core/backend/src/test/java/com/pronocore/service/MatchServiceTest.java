@@ -181,11 +181,13 @@ class MatchServiceTest {
         when(matchRepository.save(any(Match.class))).thenAnswer(inv -> inv.getArgument(0));
         when(betRepository.findByMatchIdAndStatusOrderByCreatedAtDesc(1L, Bet.Status.OPEN))
                 .thenReturn(List.of(bet));
-        when(betParticipationRepository.findByBetId(10L)).thenReturn(List.of(
+        List<BetParticipation> participations = List.of(
                 participation(1L, exactUser,   "Victoire France 2-1"),
                 participation(2L, correctUser, "Victoire France 3-0"),
                 participation(3L, wrongUser,   "Match nul 0-0")
-        ));
+        );
+        participations.forEach(p -> p.setBet(bet)); // BetSettlement's log callback reads p.getBet()
+        when(betParticipationRepository.findByBetId(10L)).thenReturn(participations);
         when(matchMapper.toResponse(any(Match.class))).thenReturn(MatchResponse.builder().build());
 
         matchService.updateMatchScore(1L, req);

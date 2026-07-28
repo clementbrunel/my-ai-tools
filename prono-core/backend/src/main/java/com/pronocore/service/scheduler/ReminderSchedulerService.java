@@ -24,7 +24,21 @@ import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiConsumer;
+import java.util.function.BiPredicate;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
+/**
+ * Three near-identical reminder pipelines (match / race / qualifying), sharing one
+ * generic shape: find entities entering their 4h-before trigger window, collect every
+ * user who hasn't been reminded for that trigger day and hasn't already responded, then
+ * send each a single consolidated email and mark both the users and the trigger entities
+ * as reminded. The three flavors differ only in: the entity type, the "already responded"
+ * predicate, which per-user date field tracks the dedup, and how the entity gets flagged
+ * done — all threaded through as lambdas so each flavor keeps its own business wording
+ * (see the per-method javadoc below for the specific rules).
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -39,6 +53,11 @@ public class ReminderSchedulerService {
     private final UserRepository userRepository;
     private final EmailService emailService;
 
+    @FunctionalInterface
+    private interface PendingFetcher<T> {
+        List<T> fetch(Long userId, LocalDateTime startOfDay, LocalDateTime endOfWindow, LocalDateTime now);
+    }
+
     /**
      * Runs every minute. When a match enters the 4h-before window, collects every
      * user who hasn't been reminded for that trigger day yet, fetches ALL their pending
@@ -49,73 +68,29 @@ public class ReminderSchedulerService {
     @Scheduled(fixedDelay = 60_000)
     @Transactional
     public void sendMatchReminders() {
-        LocalDateTime now = LocalDateTime.now();
-        LocalDate today = now.toLocalDate();
-
         List<Match> triggerMatches = matchRepository.findUpcomingMatchesForReminder(
-                now.plusMinutes(239), now.plusMinutes(241));
-
+                LocalDateTime.now().plusMinutes(239), LocalDateTime.now().plusMinutes(241));
         if (triggerMatches.isEmpty()) return;
 
-        // Use the calendar day of the furthest trigger match as the reminder key.
-        // This handles early-morning matches (0h–4h) whose 4h window fires the
-        // previous evening: their date is tomorrow, so the window and the
-        // dedup key must extend into the next calendar day.
-        LocalDate latestTriggerDay = triggerMatches.stream()
-                .map(m -> m.getMatchDate().toLocalDate())
-                .max(LocalDate::compareTo)
-                .orElse(today);
-
-        // Collect users who need a reminder (not yet reminded for this trigger day,
-        // reminder enabled, and have at least one unbet match in the trigger window)
-        Map<Long, User> usersToRemind = new LinkedHashMap<>();
-
-        for (Match match : triggerMatches) {
-            List<Bet> openBets = betRepository.findByMatchIdAndStatusOrderByCreatedAtDesc(
-                    match.getId(), Bet.Status.OPEN);
-
-            for (Bet bet : openBets) {
-                List<GroupMember> members = groupMemberRepository.findByGroupIdAndStatus(
-                        bet.getGroup().getId(), GroupMember.MemberStatus.ACTIVE);
-
-                for (GroupMember gm : members) {
-                    User user = gm.getUser();
-                    if (!user.isEmailReminderEnabled()) continue;
-                    // Dedup against the trigger day (not "today") so a user reminded
-                    // earlier today for a 15h match still receives the 2h-next-morning email.
-                    if (latestTriggerDay.equals(user.getReminderSentDate())) continue;
-                    if (betParticipationRepository.existsByUserIdAndMatchId(user.getId(), match.getId())) continue;
-                    usersToRemind.put(user.getId(), user);
-                }
-            }
-        }
-
-        log.info("Triggered by {} match(es), reminding {} user(s)", triggerMatches.size(), usersToRemind.size());
-
-        // Window: from start of today to start of the day after the trigger match day.
-        // Covers both same-day matches and early-morning matches of the next calendar day.
-        LocalDateTime startOfDay = today.atStartOfDay();
-        LocalDateTime endOfWindow = latestTriggerDay.plusDays(1).atStartOfDay();
-
-        for (User user : usersToRemind.values()) {
-            // Fetch ALL pending matches in the window this user hasn't bet on yet
-            List<Match> allPending = matchRepository.findPendingMatchesTodayForUser(
-                    user.getId(), startOfDay, endOfWindow, now);
-
-            if (!allPending.isEmpty()) {
-                emailService.sendMatchReminder(user, allPending);
-                log.info("Reminder sent to {} ({}) for {} match(es): {}",
-                        user.getUsername(), user.getEmail(), allPending.size(),
-                        allPending.stream().map(m -> m.getTeamA().getName() + " vs " + m.getTeamB().getName()).toList());
-            }
-            user.setReminderSentDate(latestTriggerDay);
-            userRepository.save(user);
-        }
-
-        triggerMatches.forEach(m -> {
-            m.setReminderSent(true);
-            matchRepository.save(m);
-        });
+        runReminderPipeline(
+                triggerMatches,
+                Match::getMatchDate,
+                match -> betRepository.findByMatchIdAndStatusOrderByCreatedAtDesc(match.getId(), Bet.Status.OPEN),
+                User::getReminderSentDate,
+                (user, day) -> user.setReminderSentDate(day),
+                (user, match) -> betParticipationRepository.existsByUserIdAndMatchId(user.getId(), match.getId()),
+                "match(es)",
+                matchRepository::findPendingMatchesTodayForUser,
+                (user, allPending) -> {
+                    emailService.sendMatchReminder(user, allPending);
+                    log.info("Reminder sent to {} ({}) for {} match(es): {}",
+                            user.getUsername(), user.getEmail(), allPending.size(),
+                            allPending.stream().map(m -> m.getTeamA().getName() + " vs " + m.getTeamB().getName()).toList());
+                },
+                match -> {
+                    match.setReminderSent(true);
+                    matchRepository.save(match);
+                });
     }
 
     /**
@@ -130,62 +105,29 @@ public class ReminderSchedulerService {
     @Scheduled(fixedDelay = 60_000)
     @Transactional
     public void sendRaceReminders() {
-        LocalDateTime now = LocalDateTime.now();
-        LocalDate today = now.toLocalDate();
-
         List<Race> triggerRaces = raceRepository.findUpcomingRacesForReminder(
-                now.plusMinutes(239), now.plusMinutes(241));
-
+                LocalDateTime.now().plusMinutes(239), LocalDateTime.now().plusMinutes(241));
         if (triggerRaces.isEmpty()) return;
 
-        LocalDate latestTriggerDay = triggerRaces.stream()
-                .map(r -> r.getRaceDate().toLocalDate())
-                .max(LocalDate::compareTo)
-                .orElse(today);
-
-        Map<Long, User> usersToRemind = new LinkedHashMap<>();
-
-        for (Race race : triggerRaces) {
-            List<Bet> openBets = betRepository.findByRaceIdAndStatusOrderByCreatedAtDesc(
-                    race.getId(), Bet.Status.OPEN);
-
-            for (Bet bet : openBets) {
-                List<GroupMember> members = groupMemberRepository.findByGroupIdAndStatus(
-                        bet.getGroup().getId(), GroupMember.MemberStatus.ACTIVE);
-
-                for (GroupMember gm : members) {
-                    User user = gm.getUser();
-                    if (!user.isEmailReminderEnabled()) continue;
-                    if (latestTriggerDay.equals(user.getRaceReminderSentDate())) continue;
-                    if (betParticipationRepository.existsByUserIdAndRaceId(user.getId(), race.getId())) continue;
-                    usersToRemind.put(user.getId(), user);
-                }
-            }
-        }
-
-        log.info("Triggered by {} race(s), reminding {} user(s)", triggerRaces.size(), usersToRemind.size());
-
-        LocalDateTime startOfDay = today.atStartOfDay();
-        LocalDateTime endOfWindow = latestTriggerDay.plusDays(1).atStartOfDay();
-
-        for (User user : usersToRemind.values()) {
-            List<Race> allPending = raceRepository.findPendingRacesTodayForUser(
-                    user.getId(), startOfDay, endOfWindow, now);
-
-            if (!allPending.isEmpty()) {
-                emailService.sendRaceReminder(user, allPending);
-                log.info("Race reminder sent to {} ({}) for {} race(s): {}",
-                        user.getUsername(), user.getEmail(), allPending.size(),
-                        allPending.stream().map(Race::getName).toList());
-            }
-            user.setRaceReminderSentDate(latestTriggerDay);
-            userRepository.save(user);
-        }
-
-        triggerRaces.forEach(r -> {
-            r.setReminderSent(true);
-            raceRepository.save(r);
-        });
+        runReminderPipeline(
+                triggerRaces,
+                Race::getRaceDate,
+                race -> betRepository.findByRaceIdAndStatusOrderByCreatedAtDesc(race.getId(), Bet.Status.OPEN),
+                User::getRaceReminderSentDate,
+                (user, day) -> user.setRaceReminderSentDate(day),
+                (user, race) -> betParticipationRepository.existsByUserIdAndRaceId(user.getId(), race.getId()),
+                "race(s)",
+                raceRepository::findPendingRacesTodayForUser,
+                (user, allPending) -> {
+                    emailService.sendRaceReminder(user, allPending);
+                    log.info("Race reminder sent to {} ({}) for {} race(s): {}",
+                            user.getUsername(), user.getEmail(), allPending.size(),
+                            allPending.stream().map(Race::getName).toList());
+                },
+                race -> {
+                    race.setReminderSent(true);
+                    raceRepository.save(race);
+                });
     }
 
     /**
@@ -202,61 +144,115 @@ public class ReminderSchedulerService {
     @Scheduled(fixedDelay = 60_000)
     @Transactional
     public void sendQualifyingReminders() {
+        List<Race> triggerRaces = raceRepository.findUpcomingRacesForQualifyingReminder(
+                LocalDateTime.now().plusMinutes(239), LocalDateTime.now().plusMinutes(241));
+        if (triggerRaces.isEmpty()) return;
+
+        runReminderPipeline(
+                triggerRaces,
+                Race::getQualifyingDate,
+                race -> betRepository.findByRaceIdAndStatusOrderByCreatedAtDesc(race.getId(), Bet.Status.OPEN),
+                User::getQualifyingReminderSentDate,
+                (user, day) -> user.setQualifyingReminderSentDate(day),
+                (user, race) -> f1PredictionRepository.existsPoleByUserIdAndRaceId(user.getId(), race.getId()),
+                "race qualifying(s)",
+                raceRepository::findPendingRacesTodayForUserBeforeQualifying,
+                (user, allPending) -> {
+                    emailService.sendQualifyingReminder(user, allPending);
+                    log.info("Qualifying reminder sent to {} ({}) for {} race(s): {}",
+                            user.getUsername(), user.getEmail(), allPending.size(),
+                            allPending.stream().map(Race::getName).toList());
+                },
+                race -> {
+                    race.setQualifyingReminderSent(true);
+                    raceRepository.save(race);
+                });
+    }
+
+    /**
+     * Shared shape of the three reminder flows above.
+     *
+     * @param triggerEntities  entities that just entered their reminder window
+     * @param dateOf           the entity's trigger date (matchDate / raceDate / qualifyingDate)
+     * @param openBetsOf       OPEN bets for that entity, across all groups
+     * @param lastSentOf       per-user dedup date already recorded for this reminder flavor
+     * @param markUserSent     records today's trigger day on the user (mutates in place)
+     * @param alreadyResponded true if the user no longer needs this reminder (bet placed / predicted / pole picked)
+     * @param entityNounPlural used only for the summary log line
+     * @param fetchPending     entities still pending for a user within the reminder window
+     * @param sendAndLog       sends the consolidated email and logs it; only invoked when the pending list is non-empty
+     * @param markEntitySent   flags the trigger entity as reminded and persists it
+     */
+    private <T> void runReminderPipeline(
+            List<T> triggerEntities,
+            Function<T, LocalDateTime> dateOf,
+            Function<T, List<Bet>> openBetsOf,
+            Function<User, LocalDate> lastSentOf,
+            BiConsumer<User, LocalDate> markUserSent,
+            BiPredicate<User, T> alreadyResponded,
+            String entityNounPlural,
+            PendingFetcher<T> fetchPending,
+            BiConsumer<User, List<T>> sendAndLog,
+            Consumer<T> markEntitySent) {
+
         LocalDateTime now = LocalDateTime.now();
         LocalDate today = now.toLocalDate();
 
-        List<Race> triggerRaces = raceRepository.findUpcomingRacesForQualifyingReminder(
-                now.plusMinutes(239), now.plusMinutes(241));
-
-        if (triggerRaces.isEmpty()) return;
-
-        LocalDate latestTriggerDay = triggerRaces.stream()
-                .map(r -> r.getQualifyingDate().toLocalDate())
+        // Use the calendar day of the furthest trigger entity as the reminder key. This
+        // handles early-morning events (0h–4h) whose 4h window fires the previous evening:
+        // their date is tomorrow, so the window and the dedup key must extend into the next day.
+        LocalDate latestTriggerDay = triggerEntities.stream()
+                .map(dateOf).map(LocalDateTime::toLocalDate)
                 .max(LocalDate::compareTo)
                 .orElse(today);
 
+        Map<Long, User> usersToRemind = collectUsersToRemind(
+                triggerEntities, openBetsOf, latestTriggerDay, lastSentOf, alreadyResponded);
+
+        log.info("Triggered by {} {}, reminding {} user(s)", triggerEntities.size(), entityNounPlural, usersToRemind.size());
+
+        // Window: from start of today to start of the day after the trigger day. Covers
+        // both same-day events and early-morning events of the next calendar day.
+        LocalDateTime startOfDay = today.atStartOfDay();
+        LocalDateTime endOfWindow = latestTriggerDay.plusDays(1).atStartOfDay();
+
+        for (User user : usersToRemind.values()) {
+            List<T> allPending = fetchPending.fetch(user.getId(), startOfDay, endOfWindow, now);
+            if (!allPending.isEmpty()) {
+                sendAndLog.accept(user, allPending);
+            }
+            markUserSent.accept(user, latestTriggerDay);
+            userRepository.save(user);
+        }
+
+        triggerEntities.forEach(markEntitySent);
+    }
+
+    /** Users who need a reminder: enabled, not yet reminded for this trigger day, and haven't already responded. */
+    private <T> Map<Long, User> collectUsersToRemind(
+            List<T> triggerEntities,
+            Function<T, List<Bet>> openBetsOf,
+            LocalDate latestTriggerDay,
+            Function<User, LocalDate> lastSentOf,
+            BiPredicate<User, T> alreadyResponded) {
+
         Map<Long, User> usersToRemind = new LinkedHashMap<>();
-
-        for (Race race : triggerRaces) {
-            List<Bet> openBets = betRepository.findByRaceIdAndStatusOrderByCreatedAtDesc(
-                    race.getId(), Bet.Status.OPEN);
-
-            for (Bet bet : openBets) {
+        for (T entity : triggerEntities) {
+            for (Bet bet : openBetsOf.apply(entity)) {
                 List<GroupMember> members = groupMemberRepository.findByGroupIdAndStatus(
                         bet.getGroup().getId(), GroupMember.MemberStatus.ACTIVE);
 
                 for (GroupMember gm : members) {
                     User user = gm.getUser();
                     if (!user.isEmailReminderEnabled()) continue;
-                    if (latestTriggerDay.equals(user.getQualifyingReminderSentDate())) continue;
-                    if (f1PredictionRepository.existsPoleByUserIdAndRaceId(user.getId(), race.getId())) continue;
+                    // Dedup against the trigger day (not "today") so a user reminded
+                    // earlier today for a 15h event still receives the 2h-next-morning email.
+                    if (latestTriggerDay.equals(lastSentOf.apply(user))) continue;
+                    if (alreadyResponded.test(user, entity)) continue;
                     usersToRemind.put(user.getId(), user);
                 }
             }
         }
-
-        log.info("Triggered by {} race qualifying(s), reminding {} user(s)", triggerRaces.size(), usersToRemind.size());
-
-        LocalDateTime startOfDay = today.atStartOfDay();
-        LocalDateTime endOfWindow = latestTriggerDay.plusDays(1).atStartOfDay();
-
-        for (User user : usersToRemind.values()) {
-            List<Race> allPending = raceRepository.findPendingRacesTodayForUserBeforeQualifying(
-                    user.getId(), startOfDay, endOfWindow, now);
-
-            if (!allPending.isEmpty()) {
-                emailService.sendQualifyingReminder(user, allPending);
-                log.info("Qualifying reminder sent to {} ({}) for {} race(s): {}",
-                        user.getUsername(), user.getEmail(), allPending.size(),
-                        allPending.stream().map(Race::getName).toList());
-            }
-            user.setQualifyingReminderSentDate(latestTriggerDay);
-            userRepository.save(user);
-        }
-
-        triggerRaces.forEach(r -> {
-            r.setQualifyingReminderSent(true);
-            raceRepository.save(r);
-        });
+        return usersToRemind;
     }
 }

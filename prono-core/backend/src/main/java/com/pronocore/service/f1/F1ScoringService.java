@@ -8,6 +8,7 @@ import com.pronocore.entity.RaceResult;
 import com.pronocore.repository.BetParticipationRepository;
 import com.pronocore.repository.BetRepository;
 import com.pronocore.repository.F1PredictionRepository;
+import com.pronocore.util.BetSettlement;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -50,19 +51,12 @@ public class F1ScoringService {
         Map<Long, F1Prediction> predictionByParticipation = predictionRepository.findByRaceId(race.getId()).stream()
                 .collect(Collectors.toMap(pr -> pr.getParticipation().getId(), pr -> pr));
 
-        for (Bet bet : bets) {
-            for (BetParticipation p : participationRepository.findByBetId(bet.getId())) {
-                int earned = Optional.ofNullable(predictionByParticipation.get(p.getId()))
+        BetSettlement.settle(bets, winningOption, betRepository, participationRepository,
+                p -> Optional.ofNullable(predictionByParticipation.get(p.getId()))
                         .map(prediction -> F1Scoring.computePoints(prediction, outcome))
-                        .orElse(0);
-                p.setPointsEarned(earned);
-                participationRepository.save(p);
-                log.info("  +{} pts → {} [group: {}]", earned, p.getUser().getUsername(),
-                        bet.getGroup() != null ? bet.getGroup().getName() : "?");
-            }
-            bet.setStatus(Bet.Status.VALIDATED);
-            bet.setWinningOption(winningOption);
-            betRepository.save(bet);
-        }
+                        .orElse(0),
+                (p, earned) -> log.info("  +{} pts → {} [group: {}]", earned, p.getUser().getUsername(),
+                        p.getBet().getGroup() != null ? p.getBet().getGroup().getName() : "?"),
+                (bet, participations) -> { });
     }
 }
