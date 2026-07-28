@@ -8,7 +8,7 @@ Each tool lives in its own subdirectory with its own `package.json`, `src/`, and
 
 | Directory         | Tool             | Description                                                     |
 |-------------------|------------------|-----------------------------------------------------------------|
-| `ai-env-diagram/` | `ai-env-diagram` | Scans project, generates Mermaid diagram of AI setup            |
+| `ai-env-manager/` | `ai-env-manager` | Scans, diagnoses, and manages a Claude Code project's AI setup (MCP servers, context, hooks, tool updates, install catalogue) |
 | `mistral-chat/`   | `mistral-chat`   | Interactive CLI REPL for enterprise Mistral via browser cookies |
 | `mottaret-watch/`  | `mottaret-watch`  | Python cron (GitHub Actions) — scrapes rental availability, emails alerts |
 | `prono-core/`      | `prono-core`      | Full-stack World Cup 2026 betting app (Java/Spring + React)              |
@@ -22,7 +22,7 @@ Each tool lives in its own subdirectory with its own `package.json`, `src/`, and
 ## Common commands (per tool)
 
 ```bash
-cd ai-env-diagram
+cd ai-env-manager
 npm install       # install deps
 npm run build     # TS → dist/
 npm run dev       # build + run

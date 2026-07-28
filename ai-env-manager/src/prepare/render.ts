@@ -60,7 +60,7 @@ export function renderCatalogue(verbose = false, detectedIds: Set<string> = new 
 
   lines.push(RULE);
   lines.push(chalk.bold("\n  UTILISATION"));
-  lines.push(`    ${chalk.cyan("ai-env-diagram prepare --with <tool1,tool2>")}  ${chalk.dim("voir les étapes d'installation")}`);
+  lines.push(`    ${chalk.cyan("ai-env-manager prepare --with <tool1,tool2>")}  ${chalk.dim("voir les étapes d'installation")}`);
   lines.push(`    ${chalk.cyan("                         --install")}           ${chalk.dim("exécuter les commandes shell")}`);
   lines.push(`    ${chalk.cyan("                         --verbose")}           ${chalk.dim("descriptions complètes")}\n`);
 
@@ -134,7 +134,7 @@ export function renderSuggestion(suggested: string[], projectPath: string): stri
   lines.push(chalk.bold("\n  SUGGESTION — basée sur le scan de votre environnement"));
   lines.push(chalk.dim(`  Projet : ${projectPath}\n`));
   lines.push(chalk.dim("  Outils manquants détectés. Commande générée :\n"));
-  lines.push(`    ${chalk.cyan.bold(`ai-env-diagram prepare --with ${withArg}`)}`);
+  lines.push(`    ${chalk.cyan.bold(`ai-env-manager prepare --with ${withArg}`)}`);
   lines.push("");
   lines.push(`    ${chalk.dim("Ajouter")} ${chalk.white("--install")} ${chalk.dim("pour exécuter les étapes shell automatiquement.")}`);
   lines.push(`    ${chalk.dim("Modifier")} ${chalk.white(`--with ${withArg}`)} ${chalk.dim("selon vos préférences (voir catalogue ci-dessus).")}\n`);

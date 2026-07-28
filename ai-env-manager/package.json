@@ -4,7 +4,7 @@
   "description": "A personal collection of AI development tools",
   "type": "module",
   "bin": {
-    "ai-env-diagram": "./dist/index.js"
+    "ai-env-manager": "./dist/index.js"
   },
   "scripts": {
     "build": "tsc",

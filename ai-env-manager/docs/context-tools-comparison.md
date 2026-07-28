@@ -22,7 +22,7 @@ while preserving answer quality.
 - Multiple deployment surfaces: Python/TS library, local HTTP proxy (zero code
   change), MCP server, or `headroom wrap <agent>` CLI wrapper.
 
-**Detection signals in `ai-env-diagram`**
+**Detection signals in `ai-env-manager`**
 - `headroom` binary in PATH
 - `python -m headroom` available
 - MCP server entry matching `headroom`
@@ -46,7 +46,7 @@ rules, and MCP wiring, all evolved from 10+ months of production use.
 - Cross-platform Node.js scripts; supports npm / pnpm / yarn / bun.
 - Components can be installed selectively to reduce overhead.
 
-**Detection signals in `ai-env-diagram`**
+**Detection signals in `ai-env-manager`**
 - Plugin entry matching `ecc` in `~/.claude/settings.json`
 - Env vars: `ECC_HOOK_PROFILE`, `ECC_SESSION_START_MAX_CHARS`, `ECC_DISABLED_HOOKS`
 - MCP server entry matching `ecc`
@@ -70,7 +70,7 @@ impact analysis.
 - Plugin or manual MCP config; zero-config on first use.
 - Benchmarked at 61 % less context, 84 % fewer tool calls on large OSS codebases.
 
-**Detection signals in `ai-env-diagram`**
+**Detection signals in `ai-env-manager`**
 - MCP server entry matching `socraticode` / `socrati`
 - Plugin entry matching `socraticode`
 - `socraticode` binary in PATH
