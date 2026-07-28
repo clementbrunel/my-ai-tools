@@ -6,6 +6,7 @@ import { getCompetitions } from '@/api/competitions';
 import type { CompetitionDto, Group, Match, MatchPhase } from '@/types';
 import { formatDate } from '@/utils/dates';
 import ConfirmModal from '@/components/ConfirmModal';
+import PillTabs from '@/components/PillTabs';
 import { useGroupAdminCounts } from '@/context/GroupAdminCountsContext';
 
 type StatusFilter = 'CLOSED' | 'OPEN';
@@ -190,14 +191,14 @@ const OpenBetting: React.FC = () => {
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2">
           <label className="label mb-0">Statut</label>
-          <select
+          <PillTabs
+            options={[
+              ['CLOSED', 'Fermés'],
+              ['OPEN', 'Ouverts'],
+            ]}
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-            className="input-field"
-          >
-            <option value="CLOSED">Fermés</option>
-            <option value="OPEN">Ouverts</option>
-          </select>
+            onChange={setStatusFilter}
+          />
         </div>
         <div className="flex items-center gap-2">
           <label className="label mb-0">Compétition</label>

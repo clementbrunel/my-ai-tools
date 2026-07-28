@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { getMyGroups } from '@/api/groups';
 import { getBets } from '@/api/bets';
 import { closeRaceForBetting, getRaces, openCompetitionRaces, openRaceForBetting } from '@/api/f1';
-import type { Group, Race } from '@/types';
+import { getCompetitions } from '@/api/competitions';
+import type { CompetitionDto, Group, Race } from '@/types';
 import { formatDate } from '@/utils/dates';
 import { useToast } from '@/components/Toast';
 import PillTabs from '@/components/PillTabs';
@@ -22,7 +23,9 @@ const F1OpenBetting: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [allCompetitions, setAllCompetitions] = useState<CompetitionDto[]>([]);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('CLOSED');
+  const [competitionFilter, setCompetitionFilter] = useState<number | ''>('');
 
   useEffect(() => {
     getMyGroups()
@@ -33,6 +36,13 @@ const F1OpenBetting: React.FC = () => {
       })
       .catch(() => setError('Impossible de charger vos groupes'))
       .finally(() => setIsLoading(false));
+  }, []);
+
+  // Load the full list of registered F1 competitions (seasons) for the filter dropdown
+  useEffect(() => {
+    getCompetitions(['F1'])
+      .then(setAllCompetitions)
+      .catch(() => setError('Impossible de charger les compétitions'));
   }, []);
 
   useEffect(() => {
@@ -55,10 +65,14 @@ const F1OpenBetting: React.FC = () => {
   const upcoming = useMemo(() => races.filter((r) => r.status !== 'FINISHED'), [races]);
   const filtered = useMemo(
     () =>
-      upcoming.filter((race) =>
-        statusFilter === 'OPEN' ? openRaceIds.has(race.id) : !openRaceIds.has(race.id),
-      ),
-    [upcoming, openRaceIds, statusFilter],
+      upcoming.filter((race) => {
+        const isOpen = openRaceIds.has(race.id);
+        if (statusFilter === 'OPEN' && !isOpen) return false;
+        if (statusFilter === 'CLOSED' && isOpen) return false;
+        if (competitionFilter && race.competitionId !== competitionFilter) return false;
+        return true;
+      }),
+    [upcoming, openRaceIds, statusFilter, competitionFilter],
   );
 
   const handleOpen = async (race: Race) => {
@@ -125,32 +139,53 @@ const F1OpenBetting: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <h1 className="page-title mb-0">🔓 Ouvrir les Grands Prix</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="page-title mb-0">🔓 Ouvrir les Grands Prix</h1>
+        <div className="flex items-center gap-2">
+          <label className="label mb-0">Groupe</label>
+          <select
+            value={selectedGroupId ?? ''}
+            onChange={(e) => setSelectedGroupId(Number(e.target.value))}
+            className="input-field"
+          >
+            {adminGroups.map((g) => (
+              <option key={g.id} value={g.id}>{g.name}</option>
+            ))}
+          </select>
+        </div>
+      </div>
 
-      {error && <div className="card bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300">{error}</div>}
-
-      <div className="card flex flex-wrap items-center gap-3">
-        <select
-          className="input-field !w-auto"
-          value={selectedGroupId ?? ''}
-          onChange={(e) => setSelectedGroupId(Number(e.target.value))}
-        >
-          {adminGroups.map((g) => (
-            <option key={g.id} value={g.id}>{g.name}</option>
-          ))}
-        </select>
-        <PillTabs
-          options={[
-            ['CLOSED', 'À ouvrir'],
-            ['OPEN', 'Ouverts'],
-          ]}
-          value={statusFilter}
-          onChange={setStatusFilter}
-        />
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2">
+          <label className="label mb-0">Statut</label>
+          <PillTabs
+            options={[
+              ['CLOSED', 'À ouvrir'],
+              ['OPEN', 'Ouverts'],
+            ]}
+            value={statusFilter}
+            onChange={setStatusFilter}
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="label mb-0">Compétition</label>
+          <select
+            value={competitionFilter}
+            onChange={(e) => setCompetitionFilter(e.target.value ? Number(e.target.value) : '')}
+            className="input-field"
+          >
+            <option value="">Toutes</option>
+            {allCompetitions.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </div>
         <button onClick={handleOpenAll} disabled={busy !== null} className="btn-gold ml-auto">
           {busy === 'open-all' ? 'Ouverture…' : '🏆 Ouvrir toute la saison'}
         </button>
       </div>
+
+      {error && <div className="card bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300">{error}</div>}
 
       <div className="space-y-2">
         {filtered.map((race) => {
