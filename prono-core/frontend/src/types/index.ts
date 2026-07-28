@@ -11,6 +11,7 @@ export interface User {
   emailGageEnabled: boolean;
   emailNewsletterEnabled: boolean;
   createdAt?: string;
+  lastLoginAt?: string;
 }
 
 export const isAdmin = (user: User | null | undefined): boolean =>

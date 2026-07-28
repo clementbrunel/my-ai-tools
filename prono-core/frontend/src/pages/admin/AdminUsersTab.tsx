@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useToast } from '@/components/Toast';
 import { getAllUsersAdmin, adminUnlockUser } from '@/api/users';
 import type { UserAdminInfo } from '@/types';
-import { formatDate } from '@/utils/dates';
+import { formatDate, formatDateTime } from '@/utils/dates';
 import ScrollableTableWrapper from '@/components/ScrollableTableWrapper';
 import { logger } from '@/utils/logger';
 import Avatar from '@/components/Avatar';
@@ -61,6 +61,7 @@ const AdminUsersTab: React.FC = () => {
                 <th className="py-3 px-4 text-center text-xs text-gray-500 uppercase">Rôle</th>
                 <th className="py-3 px-4 text-center text-xs text-gray-500 uppercase">Groupes</th>
                 <th className="py-3 px-4 text-center text-xs text-gray-500 uppercase">Inscrit le</th>
+                <th className="py-3 px-4 text-center text-xs text-gray-500 uppercase">Dernière connexion</th>
                 <th className="py-3 px-4 text-center text-xs text-gray-500 uppercase">Action</th>
               </tr>
             </thead>
@@ -116,6 +117,9 @@ const AdminUsersTab: React.FC = () => {
                     <td className="py-3 px-4 text-center text-xs text-gray-400">
                       {u.createdAt ? formatDate(u.createdAt) : '—'}
                     </td>
+                    <td className="py-3 px-4 text-center text-xs text-gray-400">
+                      {u.lastLoginAt ? formatDateTime(u.lastLoginAt) : '—'}
+                    </td>
                     <td className="py-3 px-4 text-center" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => { setUnlockingUser(u); setUnlockPassword(''); }}
@@ -129,7 +133,7 @@ const AdminUsersTab: React.FC = () => {
 
                   {expandedUserId === u.id && (
                     <tr className="bg-indigo-50 dark:bg-indigo-900/10 border-b border-indigo-100 dark:border-indigo-800">
-                      <td colSpan={8} className="px-6 py-3">
+                      <td colSpan={9} className="px-6 py-3">
                         {u.groups.length === 0 ? (
                           <p className="text-sm text-gray-400 italic">Aucun groupe</p>
                         ) : (
