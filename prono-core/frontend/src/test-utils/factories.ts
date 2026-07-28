@@ -1,4 +1,4 @@
-import type { AuthResponse, CompetitionDto, Match, TeamDto, User } from '@/types';
+import type { AuthResponse, Bet, BetParticipation, CompetitionDto, Match, TeamDto, User } from '@/types';
 
 export const makeTeam = (overrides?: Partial<TeamDto>): TeamDto => ({
   id: 1,
@@ -66,5 +66,29 @@ export const makeMatch = (overrides?: Partial<Match> & { id?: number }): Match =
   phase: 'KNOCKOUT',
   competition: COMPETITION_WORLD_CUP,
   round: 'Finale',
+  ...overrides,
+});
+
+export const makeBet = (overrides?: Partial<Bet>): Bet => ({
+  id: 1,
+  title: 'France - Brésil',
+  groupId: 1,
+  groupName: 'Les Amis',
+  creator: makeUser(),
+  betType: 'SCORE',
+  points: 5,
+  deadline: '2026-07-01T20:00:00Z',
+  status: 'OPEN',
+  createdAt: '2026-06-01T00:00:00Z',
+  participationsCount: 0,
+  ...overrides,
+});
+
+export const makeBetParticipation = (overrides?: Partial<BetParticipation>): BetParticipation => ({
+  id: 1,
+  betId: 1,
+  user: makeUser(),
+  chosenOption: 'Match nul 1-1',
+  createdAt: '2026-06-15T10:00:00Z',
   ...overrides,
 });
