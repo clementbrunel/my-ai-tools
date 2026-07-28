@@ -12,7 +12,7 @@ const LEGEND_ROWS: LegendRow[] = [
   { icon: '🏎️', label: 'Sur le podium mais mauvaise place', points: 1 },
   { icon: '⏱', label: 'Pole', points: 2 },
   { icon: '🟣', label: 'Meilleur tour', points: 1 },
-  { icon: '🔦', label: 'Lanterne rouge', points: 2 },
+  { icon: '🔦', label: 'Lanterne rouge (dernier classé, pas 1er abandon)', points: 2 },
   { icon: '👑', label: 'Grand Chelem (pole + victoire + meilleur tour)', points: 2, gold: true },
 ];
 

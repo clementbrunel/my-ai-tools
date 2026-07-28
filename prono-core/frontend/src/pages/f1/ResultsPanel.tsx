@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Race } from '@/types';
 import MiniF1Car from '@/components/f1/MiniF1Car';
+import { computeLapsDown } from '@/utils/f1Calculations';
 
 type ResultsTab = 'qualifs' | 'course';
 
@@ -12,6 +13,7 @@ interface Props {
 const ResultsPanel: React.FC<Props> = ({ race }) => {
   const hasQualifs = !!race.qualifyingResults && race.qualifyingResults.length > 0;
   const hasRaceResults = !!race.results && race.results.length > 0;
+  const lapsDownByDriverId = hasRaceResults ? computeLapsDown(race.results!) : new Map<number, number>();
 
   const [resultsTab, setResultsTab] = useState<ResultsTab>(hasRaceResults ? 'course' : 'qualifs');
 
@@ -108,14 +110,23 @@ const ResultsPanel: React.FC<Props> = ({ race }) => {
                 {r.driver.name}
                 <span className="text-gray-400 font-medium text-xs ml-2">{r.driver.constructorName}</span>
               </span>
-              {r.time && (
-                <span
-                  className="text-[11px] text-gray-400 dark:text-gray-500 tabular-nums whitespace-nowrap"
-                  title={r.position === 1 ? 'Temps total' : 'Écart au vainqueur'}
-                >
-                  {r.time}
-                </span>
-              )}
+              {r.time && (() => {
+                const lapsDown = lapsDownByDriverId.get(r.driver.id);
+                return (
+                  <span
+                    className="text-[11px] text-gray-400 dark:text-gray-500 tabular-nums whitespace-nowrap"
+                    title={
+                      r.position === 1
+                        ? 'Temps total'
+                        : lapsDown
+                          ? `${lapsDown} tour${lapsDown > 1 ? 's' : ''} de retard · écart au précédent classé : ${r.time}`
+                          : 'Écart au vainqueur'
+                    }
+                  >
+                    {lapsDown ? `+${lapsDown} tour${lapsDown > 1 ? 's' : ''}` : r.time}
+                  </span>
+                );
+              })()}
               <span className="flex gap-1 text-xs items-center">
                 {r.sprintPosition != null && (
                   <span className="text-purple-500 font-bold" title={`Sprint : P${r.sprintPosition}`}>
