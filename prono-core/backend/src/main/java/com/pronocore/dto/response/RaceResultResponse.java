@@ -17,4 +17,5 @@ public class RaceResultResponse {
     private boolean pole;
     private boolean fastestLap;
     private boolean dnf;
+    private String time;
 }

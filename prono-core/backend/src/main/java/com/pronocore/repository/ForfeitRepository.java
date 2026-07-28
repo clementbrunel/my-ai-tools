@@ -12,11 +12,7 @@ import java.util.List;
 @Repository
 public interface ForfeitRepository extends JpaRepository<Forfeit, Long> {
 
-    List<Forfeit> findByActiveTrue();
-
     List<Forfeit> findAllByOrderByIdAsc();
-
-    List<Forfeit> findByCategory(String category);
 
     /** Active SHARED gages only (group_id IS NULL), optionally filtered by sport (null sport = no filter). */
     @Query("""

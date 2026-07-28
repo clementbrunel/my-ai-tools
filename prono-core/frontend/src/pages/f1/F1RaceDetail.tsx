@@ -1,16 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import {
-  DndContext,
-  DragOverlay,
-  PointerSensor,
-  TouchSensor,
-  useDraggable,
-  useDroppable,
-  useSensor,
-  useSensors,
-} from '@dnd-kit/core';
-import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
+import { DndContext, DragOverlay, PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { getDrivers, getMyPrediction, getRace, getRacePredictions, predict } from '@/api/f1';
 import { useAuth } from '@/context/AuthContext';
 import type { Driver, F1Prediction, Race } from '@/types';
@@ -18,128 +8,12 @@ import { formatDate, formatTime } from '@/utils/dates';
 import { getFlagUrl } from '@/utils/countryFlags';
 import { useToast } from '@/components/Toast';
 import { computeF1Verdicts } from '@/utils/f1Calculations';
-import MiniF1Car from '@/components/f1/MiniF1Car';
 import DriverChip from '@/components/f1/DriverChip';
-
-type SlotKey = 'p1' | 'p2' | 'p3' | 'pole' | 'fastestLap' | 'last';
-type Slots = Record<SlotKey, Driver | null>;
-type ResultsTab = 'qualifs' | 'course';
-
-const SLOT_ORDER: SlotKey[] = ['p1', 'p2', 'p3', 'pole', 'fastestLap', 'last'];
-
-/**
- * Slots sharing a domain are mutually exclusive for a same driver
- * (podium + lanterne rouge). Pole and meilleur tour are independent:
- * the same driver can hold them on top of a podium spot.
- */
-const SLOT_DOMAIN: Record<SlotKey, 'result' | 'pole' | 'fastestLap'> = {
-  p1: 'result', p2: 'result', p3: 'result', last: 'result',
-  pole: 'pole', fastestLap: 'fastestLap',
-};
-
-const SLOT_META: Record<SlotKey, { label: string; icon: string; points: string }> = {
-  p1: { label: 'Vainqueur', icon: '🥇', points: '3 pts' },
-  p2: { label: '2e', icon: '🥈', points: '2 pts' },
-  p3: { label: '3e', icon: '🥉', points: '2 pts' },
-  pole: { label: 'Pole', icon: '⏱', points: '2 pts' },
-  fastestLap: { label: 'Meilleur tour', icon: '🟣', points: '1 pt' },
-  last: { label: 'Lanterne rouge', icon: '🔦', points: '2 pts' },
-};
-
-const emptySlots = (): Slots => ({
-  p1: null, p2: null, p3: null, pole: null, fastestLap: null, last: null,
-});
-
-// ── Draggable / droppable building blocks ──────────────────────────────────
-
-const PaddockDriver: React.FC<{
-  driver: Driver;
-  placedCount: number;
-  disabled: boolean;
-  onTap: () => void;
-}> = ({ driver, placedCount, disabled, onTap }) => {
-  // Placed drivers stay draggable: pole and meilleur tour accept duplicates.
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: `paddock-${driver.id}`,
-    data: { driverId: driver.id },
-    disabled,
-  });
-  return (
-    <div ref={setNodeRef} {...listeners} {...attributes} className={isDragging ? 'opacity-30' : ''}>
-      <DriverChip driver={driver} placedCount={placedCount} onClick={disabled ? undefined : onTap} />
-    </div>
-  );
-};
-
-const Slot: React.FC<{
-  slot: SlotKey;
-  driver: Driver | null;
-  locked: boolean;
-  armed: boolean;
-  tall?: boolean;
-  onArm: () => void;
-  onClear: () => void;
-}> = ({ slot, driver, locked, armed, tall, onArm, onClear }) => {
-  const { setNodeRef, isOver } = useDroppable({ id: `slot-${slot}`, data: { slot }, disabled: locked });
-  const meta = SLOT_META[slot];
-  const dragProps = useDraggable({
-    id: `fromslot-${slot}`,
-    data: { driverId: driver?.id, fromSlot: slot },
-    disabled: locked || !driver,
-  });
-
-  return (
-    <div className="flex flex-col items-center gap-1">
-      <div
-        ref={setNodeRef}
-        onClick={locked ? undefined : onArm}
-        className={`relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed transition-all
-          ${tall ? 'w-20 h-28 sm:w-24 sm:h-32' : 'w-20 h-24 sm:w-24 sm:h-28'}
-          ${locked
-            ? 'border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 opacity-60'
-            : isOver
-              ? 'border-wc-green bg-green-50 dark:bg-green-900/20 scale-105'
-              : armed
-                ? 'border-wc-gold bg-yellow-50 dark:bg-yellow-900/20'
-                : driver
-                  ? 'border-transparent bg-gray-100 dark:bg-gray-800'
-                  : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900/40 cursor-pointer'}`}
-      >
-        {driver ? (
-          <div
-            ref={dragProps.setNodeRef}
-            {...dragProps.listeners}
-            {...dragProps.attributes}
-            className={`flex flex-col items-center ${dragProps.isDragging ? 'opacity-30' : ''} ${locked ? '' : 'cursor-grab active:cursor-grabbing'}`}
-          >
-            <MiniF1Car color={driver.constructorColor} size={tall ? 52 : 44} />
-            <span className="text-xs font-black text-gray-900 dark:text-white">{driver.code}</span>
-          </div>
-        ) : (
-          <span className="text-2xl opacity-40">{meta.icon}</span>
-        )}
-        {driver && !locked && (
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onClear(); }}
-            className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 text-[10px] font-bold flex items-center justify-center hover:bg-red-400 hover:text-white"
-            aria-label={`Retirer ${driver.code} de ${meta.label}`}
-          >
-            ✕
-          </button>
-        )}
-        {locked && <span className="absolute -top-2 -right-2 text-sm">🔒</span>}
-      </div>
-      <span className="text-[10px] font-bold uppercase text-gray-500 dark:text-gray-400 text-center leading-tight">
-        {meta.icon} {meta.label}
-        <br />
-        <span className="text-gray-400 dark:text-gray-500 font-medium">{meta.points}</span>
-      </span>
-    </div>
-  );
-};
-
-// ── Page ───────────────────────────────────────────────────────────────────
+import PointsLegend from '@/components/f1/PointsLegend';
+import PaddockDriver from '@/components/f1/PaddockDriver';
+import Slot from '@/components/f1/Slot';
+import { SLOT_META, SLOT_ORDER, usePodiumSlots } from '@/hooks/usePodiumSlots';
+import ResultsPanel from './ResultsPanel';
 
 const F1RaceDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -151,13 +25,20 @@ const F1RaceDetail: React.FC = () => {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [myPrediction, setMyPrediction] = useState<F1Prediction | null>(null);
   const [groupPredictions, setGroupPredictions] = useState<F1Prediction[]>([]);
-  const [slots, setSlots] = useState<Slots>(emptySlots());
-  const [armedSlot, setArmedSlot] = useState<SlotKey | null>(null);
-  const [resultsTab, setResultsTab] = useState<ResultsTab>('qualifs');
-  const [draggedDriver, setDraggedDriver] = useState<Driver | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const now = new Date();
+  const poleLocked = race ? new Date(race.qualifyingDate) <= now : false;
+  const raceLocked = race ? new Date(race.raceDate) <= now : false;
+  const finished = race?.status === 'FINISHED';
+  const readOnly = raceLocked || finished || !race?.openInUserGroups;
+
+  const {
+    slots, setSlots, armedSlot, toggleArm, draggedDriver, placedCounts,
+    isSlotLocked, clearSlot, handleTapDriver, handleDragStart, handleDragEnd,
+  } = usePodiumSlots(drivers, readOnly, poleLocked);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -180,6 +61,7 @@ const F1RaceDetail: React.FC = () => {
       })
       .catch(() => setError('Impossible de charger la course'))
       .finally(() => setIsLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [raceId]);
 
   // Re-fetched after a save so predictionsCount (and, via the effect below, the
@@ -199,92 +81,6 @@ const F1RaceDetail: React.FC = () => {
       .then(setGroupPredictions)
       .catch(() => { /* stays hidden */ });
   }, [race]);
-
-  // Default the Résultats tab to the race classification once it exists,
-  // otherwise fall back to qualifs — but only on navigation to a new race,
-  // never overriding a tab the user picked themselves on a background refresh.
-  useEffect(() => {
-    if (!race) return;
-    setResultsTab(race.results && race.results.length > 0 ? 'course' : 'qualifs');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [race?.id]);
-
-  const now = new Date();
-  const poleLocked = race ? new Date(race.qualifyingDate) <= now : false;
-  const raceLocked = race ? new Date(race.raceDate) <= now : false;
-  const finished = race?.status === 'FINISHED';
-  const readOnly = raceLocked || finished || !race?.openInUserGroups;
-
-  // Times each driver is used across the six picks — shown on the paddock chips.
-  const placedCounts = useMemo(() => {
-    const counts = new Map<number, number>();
-    for (const driver of Object.values(slots)) {
-      if (driver) counts.set(driver.id, (counts.get(driver.id) ?? 0) + 1);
-    }
-    return counts;
-  }, [slots]);
-
-  const isSlotLocked = (slot: SlotKey) => readOnly || (slot === 'pole' && poleLocked);
-
-  const assign = (slot: SlotKey, driver: Driver) => {
-    if (isSlotLocked(slot)) return;
-    setSlots((prev) => {
-      const next = { ...prev };
-      // Vacate the driver only within the same conflict domain — the same
-      // pilot may hold pole and/or meilleur tour on top of a podium spot.
-      for (const key of SLOT_ORDER) {
-        if (key !== slot && SLOT_DOMAIN[key] === SLOT_DOMAIN[slot]
-            && next[key]?.id === driver.id && !isSlotLocked(key)) {
-          next[key] = null;
-        }
-      }
-      next[slot] = driver;
-      return next;
-    });
-    setArmedSlot(null);
-  };
-
-  const handleTapDriver = (driver: Driver) => {
-    // Armed slot wins; otherwise fill the first empty slot the driver may take.
-    const target = armedSlot ?? SLOT_ORDER.find((key) => {
-      if (slots[key] || isSlotLocked(key)) return false;
-      if (SLOT_DOMAIN[key] !== 'result') return true;
-      return !SLOT_ORDER.some((other) =>
-        SLOT_DOMAIN[other] === 'result' && slots[other]?.id === driver.id);
-    });
-    if (target) assign(target, driver);
-  };
-
-  const handleDragStart = (event: DragStartEvent) => {
-    const driverId = event.active.data.current?.driverId as number | undefined;
-    setDraggedDriver(drivers.find((d) => d.id === driverId) ?? null);
-  };
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    setDraggedDriver(null);
-    const { active, over } = event;
-    if (!over) return;
-    const targetSlot = over.data.current?.slot as SlotKey | undefined;
-    const driverId = active.data.current?.driverId as number | undefined;
-    const fromSlot = active.data.current?.fromSlot as SlotKey | undefined;
-    if (!targetSlot || !driverId || isSlotLocked(targetSlot)) return;
-    const driver = drivers.find((d) => d.id === driverId);
-    if (!driver) return;
-
-    if (fromSlot && fromSlot !== targetSlot) {
-      if (isSlotLocked(fromSlot)) return;
-      if (SLOT_DOMAIN[fromSlot] === SLOT_DOMAIN[targetSlot]) {
-        // Same domain: swap occupants.
-        setSlots((prev) => ({ ...prev, [fromSlot]: prev[targetSlot], [targetSlot]: driver }));
-        setArmedSlot(null);
-      } else {
-        // Across domains (podium → pole…): copy, the source keeps its driver.
-        assign(targetSlot, driver);
-      }
-    } else if (!fromSlot) {
-      assign(targetSlot, driver);
-    }
-  };
 
   const canSave = slots.p1 && slots.p2 && slots.p3 && !readOnly;
 
@@ -317,8 +113,6 @@ const F1RaceDetail: React.FC = () => {
   }
 
   const flag = getFlagUrl(race.countryIso2?.toLowerCase());
-  const hasQualifs = !!race.qualifyingResults && race.qualifyingResults.length > 0;
-  const hasRaceResults = !!race.results && race.results.length > 0;
   const pickVerdicts = finished && myPrediction ? computeF1Verdicts(myPrediction, race) : null;
   // The credited total comes from the backend — verdicts only drive the per-slot chips.
   const totalPoints = finished && myPrediction ? myPrediction.pointsEarned : null;
@@ -384,18 +178,20 @@ const F1RaceDetail: React.FC = () => {
             )}
           </div>
 
+          <PointsLegend />
+
           {/* Podium */}
           <div className="flex items-end justify-center gap-3">
-            <div className="pt-6"><Slot slot="p2" driver={slots.p2} locked={readOnly} armed={armedSlot === 'p2'} onArm={() => setArmedSlot(armedSlot === 'p2' ? null : 'p2')} onClear={() => setSlots((s) => ({ ...s, p2: null }))} /></div>
-            <Slot slot="p1" driver={slots.p1} locked={readOnly} armed={armedSlot === 'p1'} tall onArm={() => setArmedSlot(armedSlot === 'p1' ? null : 'p1')} onClear={() => setSlots((s) => ({ ...s, p1: null }))} />
-            <div className="pt-6"><Slot slot="p3" driver={slots.p3} locked={readOnly} armed={armedSlot === 'p3'} onArm={() => setArmedSlot(armedSlot === 'p3' ? null : 'p3')} onClear={() => setSlots((s) => ({ ...s, p3: null }))} /></div>
+            <div className="pt-6"><Slot slot="p2" driver={slots.p2} locked={readOnly} armed={armedSlot === 'p2'} onArm={() => toggleArm('p2')} onClear={() => clearSlot('p2')} /></div>
+            <Slot slot="p1" driver={slots.p1} locked={readOnly} armed={armedSlot === 'p1'} tall onArm={() => toggleArm('p1')} onClear={() => clearSlot('p1')} />
+            <div className="pt-6"><Slot slot="p3" driver={slots.p3} locked={readOnly} armed={armedSlot === 'p3'} onArm={() => toggleArm('p3')} onClear={() => clearSlot('p3')} /></div>
           </div>
 
           {/* Special picks */}
           <div className="flex items-start justify-center gap-3 pt-2 border-t border-gray-100 dark:border-gray-800">
-            <Slot slot="pole" driver={slots.pole} locked={isSlotLocked('pole')} armed={armedSlot === 'pole'} onArm={() => setArmedSlot(armedSlot === 'pole' ? null : 'pole')} onClear={() => setSlots((s) => ({ ...s, pole: null }))} />
-            <Slot slot="fastestLap" driver={slots.fastestLap} locked={readOnly} armed={armedSlot === 'fastestLap'} onArm={() => setArmedSlot(armedSlot === 'fastestLap' ? null : 'fastestLap')} onClear={() => setSlots((s) => ({ ...s, fastestLap: null }))} />
-            <Slot slot="last" driver={slots.last} locked={readOnly} armed={armedSlot === 'last'} onArm={() => setArmedSlot(armedSlot === 'last' ? null : 'last')} onClear={() => setSlots((s) => ({ ...s, last: null }))} />
+            <Slot slot="pole" driver={slots.pole} locked={isSlotLocked('pole')} armed={armedSlot === 'pole'} onArm={() => toggleArm('pole')} onClear={() => clearSlot('pole')} />
+            <Slot slot="fastestLap" driver={slots.fastestLap} locked={readOnly} armed={armedSlot === 'fastestLap'} onArm={() => toggleArm('fastestLap')} onClear={() => clearSlot('fastestLap')} />
+            <Slot slot="last" driver={slots.last} locked={readOnly} armed={armedSlot === 'last'} onArm={() => toggleArm('last')} onClear={() => clearSlot('last')} />
           </div>
 
           {/* Verdicts per pick */}
@@ -451,111 +247,7 @@ const F1RaceDetail: React.FC = () => {
         </DragOverlay>
       </DndContext>
 
-      {/* Résultats — qualifs and race classification share one card, tabbed */}
-      {(hasQualifs || hasRaceResults) && (
-        <div className="card space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="font-bold text-gray-900 dark:text-white">Résultats</h2>
-            <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1 shrink-0">
-              <button
-                type="button"
-                onClick={() => setResultsTab('qualifs')}
-                className={`px-2.5 py-1 rounded-md text-xs font-bold transition-colors ${
-                  resultsTab === 'qualifs'
-                    ? 'bg-white dark:bg-gray-600 shadow text-wc-green'
-                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-                }`}
-              >
-                Qualifs
-              </button>
-              <button
-                type="button"
-                onClick={() => setResultsTab('course')}
-                className={`px-2.5 py-1 rounded-md text-xs font-bold transition-colors ${
-                  resultsTab === 'course'
-                    ? 'bg-white dark:bg-gray-600 shadow text-wc-green'
-                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-                }`}
-              >
-                Course
-              </button>
-            </div>
-          </div>
-
-          {resultsTab === 'qualifs' ? (
-            hasQualifs ? (
-              <>
-                <p className="text-xs text-gray-400">
-                  Résultat des qualifs — de quoi ajuster ton prono avant le départ (le podium reste modifiable jusqu'au départ).
-                </p>
-                <div className="flex gap-3 overflow-x-auto pt-2 pb-1 -mx-4 px-4">
-                  {race.qualifyingResults!.map((r, i) => (
-                    <div
-                      key={r.driver.id}
-                      className={`flex flex-col items-center shrink-0 w-12 ${i % 2 === 1 ? 'mt-3' : ''}`}
-                    >
-                      <div className="relative w-9 h-9 flex items-center justify-center">
-                        <div className="-rotate-90">
-                          <MiniF1Car color={r.driver.constructorColor} size={36} />
-                        </div>
-                        {r.position === 1 && (
-                          <span className="absolute -top-1 right-0 text-xs" title="Pole position">⏱</span>
-                        )}
-                      </div>
-                      <span className="text-[10px] font-black text-gray-400 dark:text-gray-500 leading-tight">
-                        P{r.position}
-                      </span>
-                      <span className="text-xs font-bold text-gray-900 dark:text-white leading-tight">
-                        {r.driver.code}
-                      </span>
-                      {r.time && (
-                        <span className="text-[9px] text-gray-400 dark:text-gray-500 tabular-nums leading-tight whitespace-nowrap">
-                          {r.time}
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <div className="text-center py-6 text-sm text-gray-500 dark:text-gray-400">
-                <div className="text-2xl animate-spin">⏳</div>
-                <p className="mt-1">En attente des résultats des qualifs…</p>
-              </div>
-            )
-          ) : hasRaceResults ? (
-            <div className="divide-y divide-gray-100 dark:divide-gray-800">
-              {race.results!.map((r) => (
-                <div key={r.driver.id} className="flex items-center gap-3 py-1.5 text-sm">
-                  <span className="w-8 text-right font-black text-gray-400">
-                    {r.position ?? 'NC'}
-                  </span>
-                  <span className="w-1.5 h-5 rounded" style={{ backgroundColor: r.driver.constructorColor }} />
-                  <span className="font-bold text-gray-900 dark:text-white flex-1">
-                    {r.driver.name}
-                    <span className="text-gray-400 font-medium text-xs ml-2">{r.driver.constructorName}</span>
-                  </span>
-                  <span className="flex gap-1 text-xs items-center">
-                    {r.sprintPosition != null && (
-                      <span className="text-purple-500 font-bold" title={`Sprint : P${r.sprintPosition}`}>
-                        S{r.sprintPosition}
-                      </span>
-                    )}
-                    {r.pole && <span title="Pole position">⏱</span>}
-                    {r.fastestLap && <span title="Meilleur tour">🟣</span>}
-                    {r.dnf && <span className="text-gray-400" title="Abandon">DNF</span>}
-                  </span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-6 text-sm text-gray-500 dark:text-gray-400">
-              <div className="text-2xl animate-spin">⏳</div>
-              <p className="mt-1">En attente des résultats de la course…</p>
-            </div>
-          )}
-        </div>
-      )}
+      <ResultsPanel race={race} />
 
       {/* Group predictions — revealed per milestone (same spirit as football) */}
       {!poleLocked ? (

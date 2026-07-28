@@ -340,6 +340,8 @@ export interface RaceResultEntry {
   pole: boolean;
   fastestLap: boolean;
   dnf: boolean;
+  /** Winner's total race time, others' gap to the winner, as formatted by jolpica (e.g. "+22.792"). */
+  time?: string | null;
 }
 
 export interface QualifyingResultEntry {
@@ -445,6 +447,7 @@ export interface RaceResultEntryRequest {
   pole: boolean;
   fastestLap: boolean;
   dnf: boolean;
+  time?: string | null;
 }
 
 export type LogLevel = 'TRACE' | 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
