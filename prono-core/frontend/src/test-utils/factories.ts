@@ -1,4 +1,4 @@
-import type { AuthResponse, CompetitionDto, Match, TeamDto, User } from '@/types';
+import type { AuthResponse, CompetitionDto, Forfeit, Group, GroupMember, Match, TeamDto, User } from '@/types';
 
 export const makeTeam = (overrides?: Partial<TeamDto>): TeamDto => ({
   id: 1,
@@ -66,5 +66,41 @@ export const makeMatch = (overrides?: Partial<Match> & { id?: number }): Match =
   phase: 'KNOCKOUT',
   competition: COMPETITION_WORLD_CUP,
   round: 'Finale',
+  ...overrides,
+});
+
+export const makeGroupMember = (overrides?: Partial<GroupMember>): GroupMember => ({
+  id: 1,
+  userId: 1,
+  username: 'alice',
+  role: 'MEMBER',
+  status: 'ACTIVE',
+  joinedAt: '2026-06-01T00:00:00Z',
+  ...overrides,
+});
+
+export const makeGroup = (overrides?: Partial<Group>): Group => ({
+  id: 1,
+  sports: ['FOOT'],
+  name: 'Les Potes',
+  inviteCode: 'ABCD1234',
+  createdByUsername: 'alice',
+  memberCount: 1,
+  isPrivate: false,
+  members: [makeGroupMember()],
+  createdAt: '2026-06-01T00:00:00Z',
+  currentUserRole: 'GROUP_ADMIN',
+  ...overrides,
+});
+
+export const makeForfeit = (overrides?: Partial<Forfeit>): Forfeit => ({
+  id: 1,
+  title: 'Karaoké solo',
+  description: 'Une chanson entière devant le groupe',
+  category: 'Nourriture',
+  isActive: true,
+  timesCompleted: 0,
+  voteScore: 0,
+  userVote: 0,
   ...overrides,
 });
