@@ -5,20 +5,21 @@ description: Add a new AI tool/library (plugin, MCP server, pip/npm package, CLA
 
 # Add a tool to ai-env-diagram's catalogue
 
-`ai-env-diagram` (in this monorepo) has two coupled systems for "managed" AI tools:
+`ai-env-diagram` (a tool in the `my-ai-tools` monorepo) has two coupled systems for "managed"
+AI tools:
 
-1. **Catalogue** (`ai-env-diagram/src/prepare/catalogue.ts`) — what the interactive `--prepare`
-   installer offers: name, pitch, install steps, conflict rules.
-2. **Scanner integration** (`ai-env-diagram/src/scanner/integrations/<id>.ts`) — how the passive
-   scan detects whether the tool is *already* configured in a project, so the report doesn't
-   suggest installing something that's already there.
+1. **Catalogue** (`src/prepare/catalogue.ts`) — what the interactive `--prepare` installer
+   offers: name, pitch, install steps, conflict rules.
+2. **Scanner integration** (`src/scanner/integrations/<id>.ts`) — how the passive scan detects
+   whether the tool is *already* configured in a project, so the report doesn't suggest
+   installing something that's already there.
 
 Adding a tool means touching both, plus tests and docs. Do the steps in order — later steps
 depend on decisions made earlier (e.g. you can't write `INTEGRATION_TO_TOOL` until the catalogue
 `id` and the detector's `Integration.name` both exist).
 
-All work happens inside `ai-env-diagram/`; run `npm run build` and `npx vitest run` from that
-directory before considering the job done.
+All paths below are relative to this package's root (`ai-env-diagram/`); run `npm run build` and
+`npx vitest run` from there before considering the job done.
 
 ## Step 1 — Research the tool
 
@@ -39,9 +40,9 @@ Before writing anything, pin down:
   for a distinctive phrase or heading — say so explicitly rather than inventing a config file
   that doesn't exist.
 
-Check first whether the tool is already in `CATALOGUE` (`ai-env-diagram/src/prepare/catalogue.ts`)
-under a different name/link — several plugins get re-hosted or forked, and duplicating an entry
-just adds confusion.
+Check first whether the tool is already in `CATALOGUE` (`src/prepare/catalogue.ts`) under a
+different name/link — several plugins get re-hosted or forked, and duplicating an entry just
+adds confusion.
 
 ## Step 2 — Add the `CatalogueTool` entry
 
@@ -112,15 +113,15 @@ or you added a special-case conflict rule).
 
 ## Step 8 — Docs
 
-Update `ai-env-diagram/README.md`: append the tool to the **Integrations** row's link list and to
-the **Project structure** file tree (list the new `integrations/<id>.ts` line). Only touch
+Update `README.md`: append the tool to the **Integrations** row's link list and to the
+**Project structure** file tree (list the new `integrations/<id>.ts` line). Only touch
 `docs/context-tools-comparison.md` if the new tool is genuinely comparable to what's already
 discussed there (same problem space) — it's a comparison note, not a full catalogue index, so
 don't force an entry that doesn't add a useful contrast.
 
 ## Step 9 — Verify
 
-From `ai-env-diagram/`, run:
+From this package's root, run:
 
 ```bash
 npm run build
