@@ -12,7 +12,7 @@ docker compose up --build
 - Frontend: http://localhost:3000
 - Backend API: http://localhost:8090
 - Swagger UI: http://localhost:8090/swagger-ui.html
-- pgAdmin: http://localhost:5050 (admin@local.dev / admin → host=postgres, user=pronocore, pass=pronocore)
+- pgAdmin: http://localhost:5050 (PGADMIN_EMAIL / PGADMIN_PASSWORD du .env → host=postgres, user=pronocore, pass=DB_PASS)
 
 ### Backend only
 ```bash
