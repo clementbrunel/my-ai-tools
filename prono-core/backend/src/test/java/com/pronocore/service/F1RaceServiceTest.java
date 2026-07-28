@@ -4,8 +4,10 @@ import com.pronocore.dto.request.EnterRaceResultsRequest;
 import com.pronocore.dto.request.F1PredictionRequest;
 import com.pronocore.entity.*;
 import com.pronocore.repository.*;
+import com.pronocore.service.f1.F1ScoringService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -35,6 +37,7 @@ class F1RaceServiceTest {
     @Mock private CompetitionRepository competitionRepository;
     @Mock private DailyGageService dailyGageService;
     @Mock private com.pronocore.mapper.BetMapper betMapper;
+    @Mock private F1ScoringService f1ScoringService;
 
     @InjectMocks
     private F1RaceService f1RaceService;
@@ -48,183 +51,10 @@ class F1RaceServiceTest {
     private final Driver pia = driver(2L, "PIA", mclaren);
     private final Driver lec = driver(3L, "LEC", ferrari);
     private final Driver ham = driver(4L, "HAM", ferrari);
-    private final Driver ver = driver(5L, "VER", ferrari);
     private final Driver bot = driver(6L, "BOT", ferrari);
 
     private Driver driver(Long id, String code, Constructor constructor) {
         return Driver.builder().id(id).code(code).name(code).number(id.intValue()).constructor(constructor).build();
-    }
-
-    /** Actual outcome: NOR wins, PIA 2nd, LEC 3rd, pole NOR, fastest lap HAM, last classified BOT. */
-    private F1RaceService.RaceOutcome outcome() {
-        return F1RaceService.RaceOutcome.from(List.of(
-                result(nor, 1, true, false),
-                result(pia, 2, false, false),
-                result(lec, 3, false, false),
-                result(ham, 4, false, true),
-                result(bot, 5, false, false),
-                result(ver, null, false, false)   // DNF, not classified
-        ));
-    }
-
-    private RaceResult result(Driver d, Integer position, boolean pole, boolean fastestLap) {
-        return RaceResult.builder().driver(d).position(position).pole(pole).fastestLap(fastestLap).build();
-    }
-
-    private F1Prediction prediction(Driver p1, Driver p2, Driver p3, Driver pole, Driver fl, Driver last) {
-        return F1Prediction.builder().p1(p1).p2(p2).p3(p3).pole(pole).fastestLap(fl).lastClassified(last).build();
-    }
-
-    // ── computePoints — formule "Podium +" ────────────────────────────────────
-
-    @Test
-    void computePoints_perfectPrediction_scoresMax14() {
-        // Podium exact (3+2+2) + pole (2) + fastest lap (1) + last (2) + grand chelem (2)
-        F1Prediction p = prediction(nor, pia, lec, nor, ham, bot);
-        assertThat(f1RaceService.computePoints(p, outcome())).isEqualTo(14);
-    }
-
-    @Test
-    void computePoints_podiumRightDriversWrongOrder_scoresOnePerDriver() {
-        F1Prediction p = prediction(lec, nor, pia, null, null, null);
-        assertThat(f1RaceService.computePoints(p, outcome())).isEqualTo(3);
-    }
-
-    @Test
-    void computePoints_partialPodium_mixesExactAndWrongSlot() {
-        // P1 exact (3) + LEC on podium but wrong slot (1), HAM not on podium (0)
-        F1Prediction p = prediction(nor, lec, ham, null, null, null);
-        assertThat(f1RaceService.computePoints(p, outcome())).isEqualTo(4);
-    }
-
-    @Test
-    void computePoints_poleAndFastestLapWithoutP1_noChelemBonus() {
-        // pole (2) + fastest lap (1) + podium all wrong (VER dnf, HAM 4th, BOT 5th)
-        F1Prediction p = prediction(ver, ham, bot, nor, ham, null);
-        assertThat(f1RaceService.computePoints(p, outcome())).isEqualTo(3);
-    }
-
-    @Test
-    void computePoints_lastClassifiedIgnoresDnf() {
-        // VER retired without classification — BOT (P5) is the lanterne rouge
-        F1Prediction wrongLast = prediction(ham, ver, bot, null, null, ver);
-        F1Prediction rightLast = prediction(ham, ver, bot, null, null, bot);
-        assertThat(f1RaceService.computePoints(wrongLast, outcome())).isEqualTo(0);
-        assertThat(f1RaceService.computePoints(rightLast, outcome())).isEqualTo(2);
-    }
-
-    @Test
-    void computePoints_nullPicks_scoreZeroSafely() {
-        F1Prediction p = prediction(bot, ham, ver, null, null, null);
-        assertThat(f1RaceService.computePoints(p, outcome())).isEqualTo(0);
-    }
-
-    @Test
-    void fiaPoints_matchesOfficialScale() {
-        assertThat(F1RaceService.fiaPoints(1)).isEqualTo(25);
-        assertThat(F1RaceService.fiaPoints(10)).isEqualTo(1);
-        assertThat(F1RaceService.fiaPoints(11)).isEqualTo(0);
-        assertThat(F1RaceService.fiaPoints(null)).isEqualTo(0);
-    }
-
-    @Test
-    void fiaSprintPoints_matchesOfficialScale() {
-        assertThat(F1RaceService.fiaSprintPoints(1)).isEqualTo(8);
-        assertThat(F1RaceService.fiaSprintPoints(8)).isEqualTo(1);
-        assertThat(F1RaceService.fiaSprintPoints(9)).isEqualTo(0);
-        assertThat(F1RaceService.fiaSprintPoints(null)).isEqualTo(0);
-    }
-
-    @Test
-    void driverStandings_addSprintPointsToRacePoints() {
-        Competition competition = Competition.builder().id(9L).name("Formule 1 2026").sport(Sport.F1).build();
-        // NOR: P1 course (25) + P2 sprint (7) = 32 ; PIA: P2 course (18) + P1 sprint (8) = 26
-        RaceResult norResult = result(nor, 1, false, false); norResult.setSprintPosition(2);
-        RaceResult piaResult = result(pia, 2, false, false); piaResult.setSprintPosition(1);
-
-        when(competitionRepository.findFirstBySportOrderByIdDesc(Sport.F1)).thenReturn(Optional.of(competition));
-        when(raceResultRepository.findByCompetitionIdWithDrivers(9L)).thenReturn(List.of(norResult, piaResult));
-
-        var standings = f1RaceService.getDriverStandings();
-
-        assertThat(standings.get(0).getDriver().getCode()).isEqualTo("NOR");
-        assertThat(standings.get(0).getPoints()).isEqualTo(32);
-        assertThat(standings.get(1).getPoints()).isEqualTo(26);
-    }
-
-    // ── standings history — cumulative points per round ───────────────────────
-
-    private Race raceRound(Long id, int round) {
-        Competition competition = Competition.builder().id(9L).name("Formule 1 2026").sport(Sport.F1).build();
-        return Race.builder().id(id).name("GP " + round).round(round).competition(competition)
-                .qualifyingDate(LocalDateTime.now()).raceDate(LocalDateTime.now()).build();
-    }
-
-    private RaceResult resultAt(Race race, Driver d, Integer position) {
-        return RaceResult.builder().race(race).driver(d).position(position).build();
-    }
-
-    @Test
-    void driverStandingsHistory_accumulatesPointsInRoundOrder() {
-        Competition competition = Competition.builder().id(9L).name("Formule 1 2026").sport(Sport.F1).build();
-        // Rounds inserted out of order — history must still walk them 1, then 2.
-        Race round2 = raceRound(101L, 2);
-        Race round1 = raceRound(100L, 1);
-
-        when(competitionRepository.findFirstBySportOrderByIdDesc(Sport.F1)).thenReturn(Optional.of(competition));
-        when(raceResultRepository.findByCompetitionIdWithDrivers(9L)).thenReturn(List.of(
-                resultAt(round2, nor, 2),   // round 2: NOR P2 (18)
-                resultAt(round2, pia, 1),   // round 2: PIA P1 (25)
-                resultAt(round1, nor, 1),   // round 1: NOR P1 (25)
-                resultAt(round1, pia, 2)    // round 1: PIA P2 (18)
-        ));
-
-        var history = f1RaceService.getDriverStandingsHistory();
-
-        assertThat(history.getRaces()).extracting("round").containsExactly(1, 2);
-
-        var norSeries = history.getSeries().stream().filter(s -> s.getLabel().equals("NOR")).findFirst().orElseThrow();
-        assertThat(norSeries.getPoints()).containsExactly(25, 43); // 25, then +18
-        var piaSeries = history.getSeries().stream().filter(s -> s.getLabel().equals("PIA")).findFirst().orElseThrow();
-        assertThat(piaSeries.getPoints()).containsExactly(18, 43); // 18, then +25
-    }
-
-    @Test
-    void driverStandingsHistory_limitsSeriesToTopTen() {
-        Competition competition = Competition.builder().id(9L).name("Formule 1 2026").sport(Sport.F1).build();
-        Race round1 = raceRound(100L, 1);
-
-        Constructor c = Constructor.builder().id(3L).name("Alpine").color("#00A1E8").build();
-        List<RaceResult> results = new java.util.ArrayList<>();
-        for (int i = 1; i <= 12; i++) {
-            results.add(resultAt(round1, driver((long) (10 + i), "D" + i, c), i));
-        }
-
-        when(competitionRepository.findFirstBySportOrderByIdDesc(Sport.F1)).thenReturn(Optional.of(competition));
-        when(raceResultRepository.findByCompetitionIdWithDrivers(9L)).thenReturn(results);
-
-        var history = f1RaceService.getDriverStandingsHistory();
-
-        assertThat(history.getSeries()).hasSize(10);
-        assertThat(history.getSeries().get(0).getLabel()).isEqualTo("D1"); // P1 scores highest, ranked first
-    }
-
-    @Test
-    void constructorStandingsHistory_sumsBothDriversOfATeam() {
-        Competition competition = Competition.builder().id(9L).name("Formule 1 2026").sport(Sport.F1).build();
-        Race round1 = raceRound(100L, 1);
-
-        when(competitionRepository.findFirstBySportOrderByIdDesc(Sport.F1)).thenReturn(Optional.of(competition));
-        when(raceResultRepository.findByCompetitionIdWithDrivers(9L)).thenReturn(List.of(
-                resultAt(round1, nor, 1),  // McLaren P1 (25)
-                resultAt(round1, pia, 2),  // McLaren P2 (18)
-                resultAt(round1, lec, 3)   // Ferrari P3 (15)
-        ));
-
-        var history = f1RaceService.getConstructorStandingsHistory();
-
-        var mclarenSeries = history.getSeries().stream().filter(s -> s.getLabel().equals("McLaren")).findFirst().orElseThrow();
-        assertThat(mclarenSeries.getPoints()).containsExactly(43); // 25 + 18 combined
     }
 
     // ── predict — deadlines ───────────────────────────────────────────────────
@@ -280,7 +110,7 @@ class F1RaceServiceTest {
         Group group = Group.builder().id(7L).name("g").build();
         Bet bet = Bet.builder().id(50L).group(group).race(race).status(Bet.Status.OPEN).build();
         BetParticipation existing = BetParticipation.builder().id(60L).bet(bet).user(alice).chosenOption("x").build();
-        F1Prediction stored = prediction(nor, pia, lec, lec /* pole picked before quali */, null, null);
+        F1Prediction stored = F1Prediction.builder().p1(nor).p2(pia).p3(lec).pole(lec /* pole picked before quali */).build();
         stored.setParticipation(existing);
 
         when(userRepository.findByUsername("alice")).thenReturn(Optional.of(alice));
@@ -320,17 +150,11 @@ class F1RaceServiceTest {
                 .hasMessageContaining("ouverte aux paris dans aucun");
     }
 
-    // ── enterResults — settlement ─────────────────────────────────────────────
+    // ── enterResults — orchestration (settlement math lives in F1ScoringServiceTest) ──
 
     @Test
-    void enterResults_settlesOpenBetsAndWritesPointsEarned() {
+    void enterResults_storesResultsAndDelegatesSettlement() {
         Race race = raceAt(LocalDateTime.now().minusDays(2), LocalDateTime.now().minusDays(1));
-        Group group = Group.builder().id(7L).name("g").build();
-        Bet bet = Bet.builder().id(50L).group(group).race(race).status(Bet.Status.OPEN).build();
-        User alice = user(1L, "alice");
-        BetParticipation participation = BetParticipation.builder().id(60L).bet(bet).user(alice).chosenOption("x").build();
-        F1Prediction alicePrediction = prediction(nor, pia, lec, nor, ham, bot);   // perfect → 14
-        alicePrediction.setParticipation(participation);
 
         when(raceRepository.findById(100L)).thenReturn(Optional.of(race));
         when(driverRepository.findById(1L)).thenReturn(Optional.of(nor));
@@ -338,12 +162,6 @@ class F1RaceServiceTest {
         when(driverRepository.findById(3L)).thenReturn(Optional.of(lec));
         when(driverRepository.findById(4L)).thenReturn(Optional.of(ham));
         when(driverRepository.findById(6L)).thenReturn(Optional.of(bot));
-        when(betRepository.findByRaceIdAndStatusOrderByCreatedAtDesc(100L, Bet.Status.OPEN)).thenReturn(List.of(bet));
-        when(betRepository.findByRaceIdAndStatusOrderByCreatedAtDesc(100L, Bet.Status.VALIDATED)).thenReturn(List.of());
-        when(participationRepository.findByBetId(50L)).thenReturn(List.of(participation));
-        when(predictionRepository.findByRaceId(100L)).thenReturn(List.of(alicePrediction));
-        when(participationRepository.save(any(BetParticipation.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(betRepository.save(any(Bet.class))).thenAnswer(inv -> inv.getArgument(0));
         when(raceRepository.save(any(Race.class))).thenAnswer(inv -> inv.getArgument(0));
         when(raceResultRepository.findByRaceIdWithDrivers(100L)).thenReturn(List.of());
 
@@ -359,12 +177,14 @@ class F1RaceServiceTest {
         f1RaceService.enterResults(100L, request);
 
         assertThat(race.getStatus()).isEqualTo(Race.Status.FINISHED);
-        assertThat(participation.getPointsEarned()).isEqualTo(14);
         verify(dailyGageService).onMatchSettled(race.getRaceDate().toLocalDate());
-        assertThat(bet.getStatus()).isEqualTo(Bet.Status.VALIDATED);
-        assertThat(bet.getWinningOption()).contains("NOR · PIA · LEC");
         verify(raceResultRepository).deleteByRaceId(100L);
         verify(raceResultRepository).saveAll(anyList());
+
+        ArgumentCaptor<List<RaceResult>> resultsCaptor = ArgumentCaptor.forClass(List.class);
+        verify(f1ScoringService).settleBetsForRace(eq(race), resultsCaptor.capture());
+        assertThat(resultsCaptor.getValue()).extracting(rr -> rr.getDriver().getCode())
+                .containsExactly("NOR", "PIA", "LEC", "HAM", "BOT");
     }
 
     @Test

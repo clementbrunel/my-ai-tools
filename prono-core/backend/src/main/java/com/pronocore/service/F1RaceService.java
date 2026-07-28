@@ -6,6 +6,10 @@ import com.pronocore.dto.response.*;
 import com.pronocore.mapper.BetMapper;
 import com.pronocore.entity.*;
 import com.pronocore.repository.*;
+import com.pronocore.service.f1.F1Scoring;
+import com.pronocore.service.f1.F1ScoringService;
+import com.pronocore.service.f1.F1StandingsService;
+import com.pronocore.service.f1.RaceOutcome;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,7 +18,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -25,6 +28,10 @@ import java.util.stream.Collectors;
  * plus a structured F1Prediction payload. Settlement writes pointsEarned
  * on the participation, so leaderboard / daily gages / forfeits all work
  * without F1-specific code downstream.
+ *
+ * The scoring formula lives in {@link F1Scoring} / {@link F1ScoringService},
+ * and championship standings in {@link F1StandingsService} — this class
+ * covers races, opening bets and predictions only.
  */
 @Slf4j
 @Service
@@ -44,23 +51,7 @@ public class F1RaceService {
     private final CompetitionRepository competitionRepository;
     private final DailyGageService dailyGageService;
     private final BetMapper betMapper;
-
-    // ---------------------------------------------------------------
-    // Scoring constants — formule "Podium +" (additive, max 14)
-    // ---------------------------------------------------------------
-
-    static final int POINTS_P1_EXACT          = 3;
-    static final int POINTS_P2_EXACT          = 2;
-    static final int POINTS_P3_EXACT          = 2;
-    static final int POINTS_PODIUM_WRONG_SLOT = 1;
-    static final int POINTS_POLE              = 2;
-    static final int POINTS_FASTEST_LAP       = 1;
-    static final int POINTS_LAST_CLASSIFIED   = 2;
-    static final int POINTS_GRAND_CHELEM      = 2;
-
-    /** FIA points scales — drive the driver/constructor standings. */
-    private static final int[] FIA_POINTS        = {25, 18, 15, 12, 10, 8, 6, 4, 2, 1};
-    private static final int[] FIA_SPRINT_POINTS = {8, 7, 6, 5, 4, 3, 2, 1};
+    private final F1ScoringService f1ScoringService;
 
     // ---------------------------------------------------------------
     // Queries
@@ -334,7 +325,7 @@ public class F1RaceService {
             prediction.setFastestLap(fastestLap);
             prediction.setLastClassified(lastClassified);
 
-            participation.setChosenOption(summarize(prediction));
+            participation.setChosenOption(F1Scoring.summarize(prediction));
             participation = participationRepository.save(participation);
             prediction.setParticipation(participation);
             lastSaved = predictionRepository.save(prediction);
@@ -401,319 +392,16 @@ public class F1RaceService {
         race.setStatus(Race.Status.FINISHED);
         raceRepository.save(race);
 
-        settleBetsForRace(race, results);
+        f1ScoringService.settleBetsForRace(race, results);
         // A race day is a gage day like any match day: once everything of the
         // day is finished, the group's daily gage is assigned to the day's loser.
         dailyGageService.onMatchSettled(race.getRaceDate().toLocalDate());
         return getRaceForAdmin(race);
     }
 
-    private void settleBetsForRace(Race race, List<RaceResult> results) {
-        RaceOutcome outcome = RaceOutcome.from(results);
-        String winningOption = summarizeOutcome(outcome, results);
-        log.info("🏁 Settling race {} ({}) — winning option: {}", race.getId(), race.getName(), winningOption);
-
-        List<Bet> bets = betRepository.findByRaceIdAndStatusOrderByCreatedAtDesc(race.getId(), Bet.Status.OPEN);
-        bets = new ArrayList<>(bets);
-        // Re-settlement: also refresh already validated bets (results correction).
-        betRepository.findByRaceIdAndStatusOrderByCreatedAtDesc(race.getId(), Bet.Status.VALIDATED)
-                .forEach(bets::add);
-
-        // One query for every prediction of the race, instead of one per participation.
-        Map<Long, F1Prediction> predictionByParticipation = predictionRepository.findByRaceId(race.getId()).stream()
-                .collect(Collectors.toMap(pr -> pr.getParticipation().getId(), pr -> pr));
-
-        for (Bet bet : bets) {
-            for (BetParticipation p : participationRepository.findByBetId(bet.getId())) {
-                int earned = Optional.ofNullable(predictionByParticipation.get(p.getId()))
-                        .map(prediction -> computePoints(prediction, outcome))
-                        .orElse(0);
-                p.setPointsEarned(earned);
-                participationRepository.save(p);
-                log.info("  +{} pts → {} [group: {}]", earned, p.getUser().getUsername(),
-                        bet.getGroup() != null ? bet.getGroup().getName() : "?");
-            }
-            bet.setStatus(Bet.Status.VALIDATED);
-            bet.setWinningOption(winningOption);
-            betRepository.save(bet);
-        }
-    }
-
-    /**
-     * Formule "Podium +" — additive, max 14:
-     *   P1/P2/P3 exact         → 3 / 2 / 2
-     *   podium, wrong slot     → 1 per driver
-     *   pole                   → 2
-     *   fastest lap            → 1
-     *   last classified        → 2
-     *   grand chelem bonus     → 2 (pole + P1 + fastest lap all correct)
-     */
-    int computePoints(F1Prediction prediction, RaceOutcome outcome) {
-        int points = 0;
-        points += podiumPoints(prediction.getP1(), 1, POINTS_P1_EXACT, outcome);
-        points += podiumPoints(prediction.getP2(), 2, POINTS_P2_EXACT, outcome);
-        points += podiumPoints(prediction.getP3(), 3, POINTS_P3_EXACT, outcome);
-
-        boolean poleCorrect = prediction.getPole() != null
-                && Objects.equals(idOf(prediction.getPole()), outcome.poleDriverId());
-        boolean fastestCorrect = prediction.getFastestLap() != null
-                && Objects.equals(idOf(prediction.getFastestLap()), outcome.fastestLapDriverId());
-
-        if (poleCorrect) points += POINTS_POLE;
-        if (fastestCorrect) points += POINTS_FASTEST_LAP;
-        if (prediction.getLastClassified() != null
-                && Objects.equals(idOf(prediction.getLastClassified()), outcome.lastClassifiedDriverId())) {
-            points += POINTS_LAST_CLASSIFIED;
-        }
-        if (isGrandChelem(prediction, outcome)) {
-            points += POINTS_GRAND_CHELEM;
-        }
-        return points;
-    }
-
-    /** Pole + P1 + fastest lap picks all correct (+2 bonus, see {@link #computePoints}). */
-    private boolean isGrandChelem(F1Prediction prediction, RaceOutcome outcome) {
-        boolean poleCorrect = prediction.getPole() != null
-                && Objects.equals(idOf(prediction.getPole()), outcome.poleDriverId());
-        boolean fastestCorrect = prediction.getFastestLap() != null
-                && Objects.equals(idOf(prediction.getFastestLap()), outcome.fastestLapDriverId());
-        boolean p1Exact = Objects.equals(idOf(prediction.getP1()), outcome.driverAt(1));
-        return poleCorrect && fastestCorrect && p1Exact;
-    }
-
-    private int podiumPoints(Driver picked, int slot, int exactPoints, RaceOutcome outcome) {
-        Long pickedId = idOf(picked);
-        if (pickedId == null) return 0;
-        if (Objects.equals(pickedId, outcome.driverAt(slot))) return exactPoints;
-        return outcome.isOnPodium(pickedId) ? POINTS_PODIUM_WRONG_SLOT : 0;
-    }
-
-    private static Long idOf(Driver driver) {
-        return driver != null ? driver.getId() : null;
-    }
-
-    /** Actual outcome of a race, extracted from its results. */
-    record RaceOutcome(Map<Integer, Long> driverByPosition,
-                       Long poleDriverId,
-                       Long fastestLapDriverId,
-                       Long lastClassifiedDriverId) {
-
-        static RaceOutcome from(List<RaceResult> results) {
-            Map<Integer, Long> byPosition = new HashMap<>();
-            Long pole = null, fastest = null, last = null;
-            int maxPosition = -1;
-            for (RaceResult rr : results) {
-                if (rr.getPosition() != null) {
-                    byPosition.put(rr.getPosition(), rr.getDriver().getId());
-                    if (rr.getPosition() > maxPosition) {
-                        maxPosition = rr.getPosition();
-                        last = rr.getDriver().getId();
-                    }
-                }
-                if (rr.isPole()) pole = rr.getDriver().getId();
-                if (rr.isFastestLap()) fastest = rr.getDriver().getId();
-            }
-            return new RaceOutcome(byPosition, pole, fastest, last);
-        }
-
-        Long driverAt(int position) { return driverByPosition.get(position); }
-
-        boolean isOnPodium(Long driverId) {
-            return Objects.equals(driverId, driverAt(1))
-                    || Objects.equals(driverId, driverAt(2))
-                    || Objects.equals(driverId, driverAt(3));
-        }
-    }
-
-    // ---------------------------------------------------------------
-    // Standings (computed from race results, FIA scale)
-    // ---------------------------------------------------------------
-
-    @Transactional(readOnly = true)
-    public List<F1StandingResponse> getDriverStandings() {
-        return computeDriverStandings(findSeasonResults());
-    }
-
-    @Transactional(readOnly = true)
-    public List<F1StandingResponse> getConstructorStandings() {
-        return computeConstructorStandings(findSeasonResults());
-    }
-
-    private List<F1StandingResponse> computeDriverStandings(List<RaceResult> results) {
-        Map<Long, F1StandingResponse> byDriver = new LinkedHashMap<>();
-        Map<Long, Integer> points = new HashMap<>();
-        Map<Long, Integer> wins = new HashMap<>();
-        Map<Long, Integer> podiums = new HashMap<>();
-
-        for (RaceResult rr : results) {
-            Long driverId = rr.getDriver().getId();
-            byDriver.computeIfAbsent(driverId, id -> F1StandingResponse.builder()
-                    .driver(toDriverResponse(rr.getDriver()))
-                    .constructorId(rr.getDriver().getConstructor().getId())
-                    .constructorName(rr.getDriver().getConstructor().getName())
-                    .constructorColor(rr.getDriver().getConstructor().getColor())
-                    .build());
-            points.merge(driverId, pointsFor(rr), Integer::sum);
-            if (rr.getPosition() != null && rr.getPosition() == 1) wins.merge(driverId, 1, Integer::sum);
-            if (rr.getPosition() != null && rr.getPosition() <= 3) podiums.merge(driverId, 1, Integer::sum);
-        }
-        return rank(byDriver, points, wins, podiums);
-    }
-
-    private List<F1StandingResponse> computeConstructorStandings(List<RaceResult> results) {
-        Map<Long, F1StandingResponse> byConstructor = new LinkedHashMap<>();
-        Map<Long, Integer> points = new HashMap<>();
-        Map<Long, Integer> wins = new HashMap<>();
-        Map<Long, Integer> podiums = new HashMap<>();
-
-        for (RaceResult rr : results) {
-            Constructor constructor = rr.getDriver().getConstructor();
-            Long constructorId = constructor.getId();
-            byConstructor.computeIfAbsent(constructorId, id -> F1StandingResponse.builder()
-                    .constructorId(constructorId)
-                    .constructorName(constructor.getName())
-                    .constructorColor(constructor.getColor())
-                    .build());
-            points.merge(constructorId, pointsFor(rr), Integer::sum);
-            if (rr.getPosition() != null && rr.getPosition() == 1) wins.merge(constructorId, 1, Integer::sum);
-            if (rr.getPosition() != null && rr.getPosition() <= 3) podiums.merge(constructorId, 1, Integer::sum);
-        }
-        return rank(byConstructor, points, wins, podiums);
-    }
-
-    private static final int STANDINGS_HISTORY_TOP_N = 10;
-
-    @Transactional(readOnly = true)
-    public F1StandingHistoryResponse getDriverStandingsHistory() {
-        List<RaceResult> results = findSeasonResults();
-        return buildStandingsHistory(computeDriverStandings(results), results, rr -> rr.getDriver().getId());
-    }
-
-    @Transactional(readOnly = true)
-    public F1StandingHistoryResponse getConstructorStandingsHistory() {
-        List<RaceResult> results = findSeasonResults();
-        return buildStandingsHistory(computeConstructorStandings(results), results, rr -> rr.getDriver().getConstructor().getId());
-    }
-
-    /** Walks the season's race results in round order to build a cumulative points series per entity. */
-    private F1StandingHistoryResponse buildStandingsHistory(List<F1StandingResponse> standings,
-                                                             List<RaceResult> results,
-                                                             Function<RaceResult, Long> entityIdOf) {
-        Map<Long, Race> racesById = new LinkedHashMap<>();
-        for (RaceResult rr : results) {
-            racesById.putIfAbsent(rr.getRace().getId(), rr.getRace());
-        }
-        List<Race> races = racesById.values().stream()
-                .sorted(Comparator.comparingInt(Race::getRound))
-                .toList();
-
-        Map<Long, Map<Long, Integer>> pointsByRaceThenEntity = new HashMap<>();
-        for (RaceResult rr : results) {
-            long raceId = rr.getRace().getId();
-            long entityId = entityIdOf.apply(rr);
-            pointsByRaceThenEntity.computeIfAbsent(raceId, id -> new HashMap<>())
-                    .merge(entityId, pointsFor(rr), Integer::sum);
-        }
-
-        List<F1StandingHistoryResponse.Series> series = new ArrayList<>();
-        for (F1StandingResponse row : standings.stream().limit(STANDINGS_HISTORY_TOP_N).toList()) {
-            Long entityId = row.getDriver() != null ? row.getDriver().getId() : row.getConstructorId();
-            String label = row.getDriver() != null ? row.getDriver().getName() : row.getConstructorName();
-            String code = row.getDriver() != null ? row.getDriver().getCode() : null;
-            int running = 0;
-            List<Integer> cumulative = new ArrayList<>(races.size());
-            for (Race race : races) {
-                running += pointsByRaceThenEntity
-                        .getOrDefault(race.getId(), Map.of())
-                        .getOrDefault(entityId, 0);
-                cumulative.add(running);
-            }
-            series.add(F1StandingHistoryResponse.Series.builder()
-                    .label(label)
-                    .code(code)
-                    .color(row.getConstructorColor())
-                    .points(cumulative)
-                    .build());
-        }
-
-        List<F1StandingHistoryResponse.RacePoint> racePoints = races.stream()
-                .map(r -> new F1StandingHistoryResponse.RacePoint(r.getRound(), r.getName()))
-                .toList();
-
-        return F1StandingHistoryResponse.builder().races(racePoints).series(series).build();
-    }
-
-    private List<RaceResult> findSeasonResults() {
-        return competitionRepository.findFirstBySportOrderByIdDesc(Sport.F1)
-                .map(c -> raceResultRepository.findByCompetitionIdWithDrivers(c.getId()))
-                .orElse(List.of());
-    }
-
-    private List<F1StandingResponse> rank(Map<Long, F1StandingResponse> entries,
-                                          Map<Long, Integer> points,
-                                          Map<Long, Integer> wins,
-                                          Map<Long, Integer> podiums) {
-        List<Map.Entry<Long, F1StandingResponse>> sorted = new ArrayList<>(entries.entrySet());
-        sorted.sort(Comparator
-                .comparingInt((Map.Entry<Long, F1StandingResponse> e) -> -points.getOrDefault(e.getKey(), 0))
-                .thenComparingInt(e -> -wins.getOrDefault(e.getKey(), 0)));
-
-        List<F1StandingResponse> standings = new ArrayList<>();
-        int rank = 1;
-        for (Map.Entry<Long, F1StandingResponse> entry : sorted) {
-            F1StandingResponse row = entry.getValue();
-            row.setRank(rank++);
-            row.setPoints(points.getOrDefault(entry.getKey(), 0));
-            row.setWins(wins.getOrDefault(entry.getKey(), 0));
-            row.setPodiums(podiums.getOrDefault(entry.getKey(), 0));
-            standings.add(row);
-        }
-        return standings;
-    }
-
-    static int fiaPoints(Integer position) {
-        if (position == null || position < 1 || position > FIA_POINTS.length) return 0;
-        return FIA_POINTS[position - 1];
-    }
-
-    static int fiaSprintPoints(Integer sprintPosition) {
-        if (sprintPosition == null || sprintPosition < 1 || sprintPosition > FIA_SPRINT_POINTS.length) return 0;
-        return FIA_SPRINT_POINTS[sprintPosition - 1];
-    }
-
-    /** Race + sprint points scored by a single result — the one formula every standings computation shares. */
-    private static int pointsFor(RaceResult rr) {
-        return fiaPoints(rr.getPosition()) + fiaSprintPoints(rr.getSprintPosition());
-    }
-
     // ---------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------
-
-    /** "NOR · PIA · VER | pole NOR | mt HAM | der BOT" — human-readable summary. */
-    private String summarize(F1Prediction p) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(p.getP1().getCode()).append(" · ")
-          .append(p.getP2().getCode()).append(" · ")
-          .append(p.getP3().getCode());
-        if (p.getPole() != null) sb.append(" | pole ").append(p.getPole().getCode());
-        if (p.getFastestLap() != null) sb.append(" | mt ").append(p.getFastestLap().getCode());
-        if (p.getLastClassified() != null) sb.append(" | der ").append(p.getLastClassified().getCode());
-        return sb.toString();
-    }
-
-    private String summarizeOutcome(RaceOutcome outcome, List<RaceResult> results) {
-        Map<Long, String> codeById = results.stream()
-                .collect(Collectors.toMap(rr -> rr.getDriver().getId(), rr -> rr.getDriver().getCode()));
-        StringBuilder sb = new StringBuilder();
-        sb.append(codeById.getOrDefault(outcome.driverAt(1), "?")).append(" · ")
-          .append(codeById.getOrDefault(outcome.driverAt(2), "?")).append(" · ")
-          .append(codeById.getOrDefault(outcome.driverAt(3), "?"));
-        if (outcome.poleDriverId() != null) sb.append(" | pole ").append(codeById.get(outcome.poleDriverId()));
-        if (outcome.fastestLapDriverId() != null) sb.append(" | mt ").append(codeById.get(outcome.fastestLapDriverId()));
-        if (outcome.lastClassifiedDriverId() != null) sb.append(" | der ").append(codeById.get(outcome.lastClassifiedDriverId()));
-        return sb.toString();
-    }
 
     private RaceResponse getRaceForAdmin(Race race) {
         RaceResponse response = toRaceResponse(race);
@@ -773,7 +461,7 @@ public class F1RaceService {
                 .fastestLap(p.getFastestLap() != null ? toDriverResponse(p.getFastestLap()) : null)
                 .lastClassified(p.getLastClassified() != null ? toDriverResponse(p.getLastClassified()) : null)
                 .pointsEarned(p.getParticipation() != null ? p.getParticipation().getPointsEarned() : 0)
-                .grandChelem(outcome != null && isGrandChelem(p, outcome))
+                .grandChelem(outcome != null && F1Scoring.isGrandChelem(p, outcome))
                 .poleLocked(!now.isBefore(race.getQualifyingDate()))
                 .raceLocked(!now.isBefore(race.getRaceDate()))
                 .build();
@@ -811,7 +499,7 @@ public class F1RaceService {
                 .pole(rr.isPole())
                 .fastestLap(rr.isFastestLap())
                 .dnf(rr.isDnf())
-                .points(fiaPoints(rr.getPosition()) + fiaSprintPoints(rr.getSprintPosition()))
+                .points(F1StandingsService.fiaPoints(rr.getPosition()) + F1StandingsService.fiaSprintPoints(rr.getSprintPosition()))
                 .build();
     }
 

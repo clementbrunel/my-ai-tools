@@ -1,15 +1,13 @@
 import { useState } from 'react';
-import {
-  approveApplication, rejectApplication,
-  promoteMember, demoteMember, removeMember, leaveGroup,
-  updateGroupInfo, updateGroupInviteCode,
-} from '@/api/groups';
+import { leaveGroup } from '@/api/groups';
 import type { Group } from '@/types';
 import { useAuth } from '@/context/AuthContext';
 import ConfirmModal from '@/components/ConfirmModal';
 import GroupAdminSettings from './GroupAdminSettings';
+import GroupNameEditor from './GroupNameEditor';
+import InviteCodeEditor from './InviteCodeEditor';
+import MembersList from './MembersList';
 import { logger } from '@/utils/logger';
-import Avatar from '@/components/Avatar';
 
 interface Props {
   group: Group;
@@ -20,22 +18,8 @@ interface Props {
 const GroupCard: React.FC<Props> = ({ group, onLeave, onUpdate }) => {
   const { user } = useAuth();
   const isGroupAdmin = group.currentUserRole === 'GROUP_ADMIN';
-  const pendingCount = group.pendingApplications?.length ?? 0;
 
-  const [copiedCode, setCopiedCode] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
-
-  const [isEditingInfo, setIsEditingInfo] = useState(false);
-  const [editName, setEditName] = useState(group.name);
-  const [editDescription, setEditDescription] = useState(group.description ?? '');
-  const [savingInfo, setSavingInfo] = useState(false);
-  const [infoError, setInfoError] = useState<string | null>(null);
-
-  const [isEditingCode, setIsEditingCode] = useState(false);
-  const [editInviteCode, setEditInviteCode] = useState(group.inviteCode);
-  const [savingCode, setSavingCode] = useState(false);
-  const [codeError, setCodeError] = useState<string | null>(null);
-
   const [confirmDialog, setConfirmDialog] = useState<{
     title: string;
     message: string;
@@ -43,74 +27,6 @@ const GroupCard: React.FC<Props> = ({ group, onLeave, onUpdate }) => {
     variant?: 'danger' | 'default';
     onConfirm: () => void;
   } | null>(null);
-
-  const copyCode = () => {
-    navigator.clipboard.writeText(group.inviteCode);
-    setCopiedCode(true);
-    setTimeout(() => setCopiedCode(false), 2000);
-  };
-
-  const openEditInfo = () => {
-    setEditName(group.name);
-    setEditDescription(group.description ?? '');
-    setInfoError(null);
-    setIsEditingInfo(true);
-  };
-
-  const handleSaveInfo = async () => {
-    if (editName.trim().length < 2) {
-      setInfoError('Le nom doit contenir au moins 2 caractères.');
-      return;
-    }
-    setSavingInfo(true);
-    setInfoError(null);
-    try {
-      const updated = await updateGroupInfo(group.id, {
-        name: editName.trim(),
-        description: editDescription.trim() || undefined,
-      });
-      onUpdate(updated);
-      setIsEditingInfo(false);
-    } catch {
-      setInfoError('Erreur lors de la mise à jour du groupe.');
-    } finally {
-      setSavingInfo(false);
-    }
-  };
-
-  const openEditCode = () => {
-    setEditInviteCode(group.inviteCode);
-    setCodeError(null);
-    setIsEditingCode(true);
-  };
-
-  const handleSaveCode = async () => {
-    setSavingCode(true);
-    setCodeError(null);
-    try {
-      const updated = await updateGroupInviteCode(group.id, editInviteCode.trim());
-      onUpdate(updated);
-      setIsEditingCode(false);
-    } catch {
-      setCodeError("Ce code n'est pas disponible ou invalide (4 à 20 lettres/chiffres).");
-    } finally {
-      setSavingCode(false);
-    }
-  };
-
-  const handleRegenerateCode = async () => {
-    setSavingCode(true);
-    setCodeError(null);
-    try {
-      const updated = await updateGroupInviteCode(group.id);
-      onUpdate(updated);
-      setEditInviteCode(updated.inviteCode);
-    } catch {
-      setCodeError('Erreur lors de la régénération du code.');
-    } finally {
-      setSavingCode(false);
-    }
-  };
 
   const handleLeave = () => {
     setConfirmDialog({
@@ -131,149 +47,11 @@ const GroupCard: React.FC<Props> = ({ group, onLeave, onUpdate }) => {
     });
   };
 
-  const handleApprove = async (userId: number) => {
-    try {
-      await approveApplication(group.id, userId);
-      const approved = group.pendingApplications?.find((a) => a.userId === userId);
-      if (!approved) return;
-      onUpdate({
-        ...group,
-        memberCount: group.memberCount + 1,
-        members: [...group.members, { ...approved, status: 'ACTIVE' as const }],
-        pendingApplications: group.pendingApplications?.filter((a) => a.userId !== userId),
-      });
-    } catch {
-      // Silent
-    }
-  };
-
-  const handleReject = async (userId: number) => {
-    try {
-      await rejectApplication(group.id, userId);
-      onUpdate({
-        ...group,
-        pendingApplications: group.pendingApplications?.filter((a) => a.userId !== userId),
-      });
-    } catch {
-      // Silent
-    }
-  };
-
-  const handlePromote = async (userId: number) => {
-    try {
-      const updated = await promoteMember(group.id, userId);
-      onUpdate({
-        ...group,
-        members: group.members.map((m) => m.userId === userId ? { ...m, role: updated.role } : m),
-      });
-    } catch {
-      // Silent
-    }
-  };
-
-  const handleDemote = async (userId: number) => {
-    try {
-      const updated = await demoteMember(group.id, userId);
-      onUpdate({
-        ...group,
-        members: group.members.map((m) => m.userId === userId ? { ...m, role: updated.role } : m),
-      });
-    } catch {
-      // Silent
-    }
-  };
-
-  const handleRemove = (userId: number, username: string) => {
-    setConfirmDialog({
-      title: 'Exclure un membre',
-      message: `Êtes-vous sûr de vouloir exclure ${username} du groupe ?`,
-      confirmLabel: 'Exclure',
-      variant: 'danger',
-      onConfirm: async () => {
-        setConfirmDialog(null);
-        try {
-          await removeMember(group.id, userId);
-          onUpdate({
-            ...group,
-            members: group.members.filter((m) => m.userId !== userId),
-            memberCount: group.memberCount - 1,
-          });
-        } catch {
-          // Silent
-        }
-      },
-    });
-  };
-
   return (
     <div className="card space-y-4">
       {/* Header */}
       <div className="flex items-start justify-between">
-        {isEditingInfo ? (
-          <div className="flex-1 mr-3 space-y-2">
-            <input
-              type="text"
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
-              minLength={2}
-              maxLength={100}
-              className="input-field w-full font-black text-lg"
-              placeholder="Nom du groupe"
-            />
-            <textarea
-              value={editDescription}
-              onChange={(e) => setEditDescription(e.target.value)}
-              maxLength={500}
-              rows={2}
-              className="input-field w-full text-sm"
-              placeholder="Description (optionnelle)"
-            />
-            {infoError && <p className="text-red-500 text-xs">{infoError}</p>}
-            <div className="flex gap-2">
-              <button
-                onClick={handleSaveInfo}
-                disabled={savingInfo}
-                className="btn-primary text-xs disabled:opacity-50"
-              >
-                {savingInfo ? 'Enregistrement...' : 'Enregistrer'}
-              </button>
-              <button
-                onClick={() => setIsEditingInfo(false)}
-                disabled={savingInfo}
-                className="btn-secondary text-xs"
-              >
-                Annuler
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl font-black text-gray-900 dark:text-white">{group.name}</h2>
-              {group.isPrivate && (
-                <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-1.5 py-0.5 rounded">
-                  🔒 Privé
-                </span>
-              )}
-              {isGroupAdmin && (
-                <button
-                  onClick={openEditInfo}
-                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs"
-                  title="Modifier le nom et la description"
-                  aria-label="Modifier le nom et la description"
-                >
-                  ✏️
-                </button>
-              )}
-            </div>
-            {group.description && (
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{group.description}</p>
-            )}
-            <p className="text-xs text-gray-400 mt-1">
-              {group.memberCount} membre{group.memberCount > 1 ? 's' : ''}
-            </p>
-          </div>
-        )}
+        <GroupNameEditor group={group} isGroupAdmin={isGroupAdmin} onUpdate={onUpdate} />
         <button
           onClick={handleLeave}
           className="text-xs text-red-400 hover:text-red-600 transition-colors shrink-0"
@@ -300,163 +78,14 @@ const GroupCard: React.FC<Props> = ({ group, onLeave, onUpdate }) => {
         </>
       )}
 
-      {/* Pending applications */}
-      {isGroupAdmin && pendingCount > 0 && (
-        <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800/40 rounded-lg p-3 space-y-2">
-          <p className="text-xs font-semibold text-blue-700 dark:text-blue-400 uppercase tracking-wide">
-            Candidatures en attente ({pendingCount})
-          </p>
-          {group.pendingApplications!.map((applicant) => (
-            <div key={applicant.id} className="flex items-center justify-between py-1">
-              <div className="flex items-center gap-2">
-                <Avatar
-                  src={applicant.avatarUrl}
-                  alt={applicant.displayName || applicant.username}
-                  fallbackText={(applicant.displayName || applicant.username)[0].toUpperCase()}
-                  sizeClassName="w-7 h-7"
-                  containerClassName="bg-blue-400 text-white text-xs font-bold"
-                />
-                <span className="text-sm text-gray-800 dark:text-gray-200">
-                  {applicant.displayName || applicant.username}
-                </span>
-              </div>
-              <div className="flex gap-1">
-                <button
-                  onClick={() => handleApprove(applicant.userId)}
-                  className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-0.5 rounded hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors"
-                >
-                  ✓ Accepter
-                </button>
-                <button
-                  onClick={() => handleReject(applicant.userId)}
-                  className="text-xs bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-2 py-0.5 rounded hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
-                >
-                  ✕ Refuser
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      <MembersList
+        group={group}
+        isGroupAdmin={isGroupAdmin}
+        currentUsername={user?.username}
+        onUpdate={onUpdate}
+      />
 
-      {/* Invite code */}
-      <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 space-y-2">
-        {isEditingCode ? (
-          <div className="space-y-2">
-            <p className="text-xs text-gray-500 dark:text-gray-400">Code d'invitation</p>
-            <input
-              type="text"
-              value={editInviteCode}
-              onChange={(e) => setEditInviteCode(e.target.value.toUpperCase())}
-              maxLength={20}
-              className="input-field w-full font-mono font-bold tracking-widest uppercase"
-            />
-            {codeError && <p className="text-red-500 text-xs">{codeError}</p>}
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={handleSaveCode}
-                disabled={savingCode}
-                className="btn-primary text-xs disabled:opacity-50"
-              >
-                {savingCode ? 'Enregistrement...' : 'Enregistrer'}
-              </button>
-              <button
-                onClick={handleRegenerateCode}
-                disabled={savingCode}
-                className="btn-secondary text-xs disabled:opacity-50"
-              >
-                🔄 Régénérer
-              </button>
-              <button
-                onClick={() => setIsEditingCode(false)}
-                disabled={savingCode}
-                className="btn-secondary text-xs"
-              >
-                Annuler
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Code d'invitation</p>
-              <span className="font-mono font-bold text-lg tracking-widest text-gray-900 dark:text-white">
-                {group.inviteCode}
-              </span>
-            </div>
-            <div className="flex gap-2 shrink-0">
-              {isGroupAdmin && (
-                <button onClick={openEditCode} className="btn-secondary text-xs whitespace-nowrap">
-                  Modifier
-                </button>
-              )}
-              <button onClick={copyCode} className="btn-secondary text-xs whitespace-nowrap">
-                {copiedCode ? '✓ Copié !' : 'Copier'}
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Members list */}
-      <div className="space-y-2">
-        <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">Membres</h3>
-        {group.members.map((member) => (
-          <div
-            key={member.id}
-            className="flex items-center justify-between py-1.5 border-b border-gray-100 dark:border-gray-700 last:border-0"
-          >
-            <div className="flex items-center gap-2">
-              <Avatar
-                src={member.avatarUrl}
-                alt={member.displayName || member.username}
-                fallbackText={(member.displayName || member.username)[0].toUpperCase()}
-                sizeClassName="w-7 h-7"
-                containerClassName="bg-wc-green text-white text-xs font-bold"
-              />
-              <span className="text-sm text-gray-800 dark:text-gray-200">
-                {member.displayName || member.username}
-              </span>
-              {member.role === 'GROUP_ADMIN' && (
-                <span className="text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 px-1.5 py-0.5 rounded font-medium">
-                  Admin
-                </span>
-              )}
-              {member.username === user?.username && (
-                <span className="text-xs text-wc-green dark:text-green-400">(vous)</span>
-              )}
-            </div>
-            {isGroupAdmin && member.username !== user?.username && (
-              <div className="flex gap-1">
-                {member.role === 'MEMBER' ? (
-                  <button
-                    onClick={() => handlePromote(member.userId)}
-                    className="text-xs text-blue-500 hover:text-blue-700 px-1.5 py-0.5"
-                    title="Promouvoir admin"
-                  >
-                    ↑ Admin
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => handleDemote(member.userId)}
-                    className="text-xs text-gray-400 hover:text-gray-600 px-1.5 py-0.5"
-                    title="Rétrograder"
-                  >
-                    ↓ Membre
-                  </button>
-                )}
-                <button
-                  onClick={() => handleRemove(member.userId, member.username)}
-                  className="text-xs text-red-400 hover:text-red-600 px-1.5 py-0.5"
-                  title="Exclure"
-                >
-                  ✕
-                </button>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
+      <InviteCodeEditor group={group} isGroupAdmin={isGroupAdmin} onUpdate={onUpdate} />
 
       <ConfirmModal
         isOpen={confirmDialog !== null}
