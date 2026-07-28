@@ -7,6 +7,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -22,6 +23,7 @@ import java.util.Map;
  * Limits POST /api/auth/login and /api/auth/register to 5 attempts per minute per IP.
  * Runs before the Spring Security filter chain to block brute-force attempts early.
  */
+@Slf4j
 @Component
 @Order(1)
 public class RateLimitFilter extends OncePerRequestFilter {
@@ -46,6 +48,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
         if (bucket.tryConsume(1)) {
             filterChain.doFilter(request, response);
         } else {
+            log.warn("[SECURITY] Rate limit hit — ip: {}, path: {}", ip, request.getRequestURI());
             response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
             response.getWriter().write(

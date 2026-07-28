@@ -35,13 +35,13 @@ public class AuthService {
     private final EmailService emailService;
 
     @Transactional
-    public RegisterResponse register(RegisterRequest request) {
+    public RegisterResponse register(RegisterRequest request, String ip) {
         if (userRepository.existsByUsername(request.getUsername())) {
-            log.warn("Registration failed — username already taken: {}", request.getUsername());
+            log.warn("[SECURITY] Registration failed — username taken: {}, ip: {}", request.getUsername(), ip);
             throw new IllegalArgumentException("Username already taken: " + request.getUsername());
         }
         if (userRepository.existsByEmail(request.getEmail())) {
-            log.warn("Registration failed — email already in use: {}", request.getEmail());
+            log.warn("[SECURITY] Registration failed — email in use: {}, ip: {}", request.getEmail(), ip);
             throw new IllegalArgumentException("Email already in use: " + request.getEmail());
         }
 
@@ -58,7 +58,7 @@ public class AuthService {
             .build();
 
         userRepository.save(user);
-        log.info("New user registered: {}", user.getUsername());
+        log.info("[SECURITY] New user registered: {}, ip: {}", user.getUsername(), ip);
         emailService.sendVerificationEmail(user.getEmail(), verificationToken);
 
         return RegisterResponse.builder()
@@ -113,9 +113,8 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthResponse login(LoginRequest request) {
-        int pwdLen = request.getPassword() != null ? request.getPassword().length() : 0;
-        log.info("Login attempt — username: {}, password length: {}", request.getUsername(), pwdLen);
+    public AuthResponse login(LoginRequest request, String ip) {
+        log.info("[SECURITY] Login attempt — username: {}, ip: {}", request.getUsername(), ip);
 
         Authentication authentication;
         try {
@@ -123,8 +122,8 @@ public class AuthService {
                 new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
             );
         } catch (AuthenticationException ex) {
-            log.warn("Login failed — invalid credentials for username: {}, password length: {}",
-                    request.getUsername(), pwdLen);
+            log.warn("[SECURITY] Login failed — invalid credentials for username: {}, ip: {}",
+                    request.getUsername(), ip);
             throw ex;
         }
         SecurityContextHolder.getContext().setAuthentication(authentication);
@@ -133,13 +132,13 @@ public class AuthService {
             .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
         if (!user.isEmailVerified()) {
-            log.warn("Login attempt for unverified account: {}", user.getUsername());
+            log.warn("[SECURITY] Login attempt for unverified account: {}, ip: {}", user.getUsername(), ip);
             throw new IllegalStateException("Vérifie ton adresse email avant de te connecter. Consulte ta boîte mail.");
         }
 
         user.setLastLoginAt(LocalDateTime.now());
         userRepository.save(user);
-        log.info("User logged in: {}", user.getUsername());
+        log.info("[SECURITY] Login success — username: {}, ip: {}", user.getUsername(), ip);
         String token = jwtTokenProvider.generateToken(user.getUsername());
         return AuthResponse.builder()
             .token(token)
