@@ -59,4 +59,13 @@ public class F1AdminController {
                                                      @Valid @RequestBody EnterRaceResultsRequest request) {
         return ResponseEntity.ok(f1RaceService.enterResults(raceId, request));
     }
+
+    @DeleteMapping("/races/{raceId}")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+    @Operation(summary = "Delete a race with no bets on it (Admin only) — e.g. a duplicate left over by a calendar resync")
+    @LoggedAt(Level.INFO)
+    public ResponseEntity<Void> deleteRace(@PathVariable Long raceId) {
+        f1RaceService.deleteRace(raceId);
+        return ResponseEntity.noContent().build();
+    }
 }

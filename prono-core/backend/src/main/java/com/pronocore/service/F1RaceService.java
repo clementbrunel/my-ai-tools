@@ -334,6 +334,17 @@ public class F1RaceService {
         return toPredictionResponse(lastSaved, race);
     }
 
+    /** Refuses to delete a race that already has bets on it — same safety net as football matches. */
+    @Transactional
+    public void deleteRace(Long raceId) {
+        Race race = requireRace(raceId);
+        if (betRepository.existsByRaceId(raceId)) {
+            throw new IllegalStateException(
+                    "Impossible de supprimer : des paris existent déjà sur cette course");
+        }
+        raceRepository.delete(race);
+    }
+
     // ---------------------------------------------------------------
     // Results & settlement (platform admin)
     // ---------------------------------------------------------------
