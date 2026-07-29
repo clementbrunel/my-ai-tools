@@ -15,11 +15,12 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { enterRaceResults, getDrivers, getRace, getRaces, resyncQualifying, resyncResults, syncSeason } from '@/api/f1';
+import { deleteRace, enterRaceResults, getDrivers, getRace, getRaces, resyncQualifying, resyncResults, syncSeason } from '@/api/f1';
 import type { Driver, Race } from '@/types';
 import { formatDate } from '@/utils/dates';
 import { useToast } from '@/components/Toast';
 import MiniF1Car from '@/components/f1/MiniF1Car';
+import ConfirmModal from '@/components/ConfirmModal';
 
 interface RowProps {
   driver: Driver;
@@ -106,6 +107,10 @@ const AdminF1Tab: React.FC = () => {
   const [isResyncingGrid, setIsResyncingGrid] = useState(false);
   const [isResyncingResults, setIsResyncingResults] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    title: string; message: string; confirmLabel?: string;
+    variant?: 'danger' | 'default'; onConfirm: () => void;
+  } | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -215,6 +220,31 @@ const AdminF1Tab: React.FC = () => {
     }
   };
 
+  // For a stale duplicate left over by a jolpica resync (round renumbered after a
+  // calendar change) — the backend refuses if a group already has bets on the race.
+  const handleDeleteRace = () => {
+    const race = selectedRace;
+    if (!race) return;
+    setConfirmDialog({
+      title: 'Supprimer la course',
+      message: `Êtes-vous sûr de vouloir supprimer R${race.round} · ${race.name} — ${race.circuit ?? ''} ? Cette action est irréversible.`,
+      confirmLabel: 'Supprimer',
+      variant: 'danger',
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        try {
+          await deleteRace(race.id);
+          setRaces((prev) => prev.filter((r) => r.id !== race.id));
+          setSelectedRaceId((prev) => (prev === race.id ? null : prev));
+          showToast('Course supprimée', 'success');
+        } catch (e: unknown) {
+          const message = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
+          showToast(message ?? 'Impossible de supprimer cette course', 'error');
+        }
+      },
+    });
+  };
+
   // Classified drivers first (in current order), unclassified pinned at the bottom
   const displayOrder = useMemo(() => {
     const classified = order.filter((d) => !unclassifiedIds.has(d.id));
@@ -297,6 +327,14 @@ const AdminF1Tab: React.FC = () => {
         <button onClick={handleSync} disabled={isSyncing} className="btn-gold" title="Importe calendrier, grille et résultats depuis l'API jolpica-f1, et règle les paris des courses terminées">
           {isSyncing ? 'Import en cours…' : '🔄 Importer les résultats (jolpica)'}
         </button>
+        <button
+          onClick={handleDeleteRace}
+          disabled={selectedRaceId == null}
+          className="btn-secondary text-red-600 dark:text-red-400"
+          title="Supprime la course sélectionnée — refusé si des paris existent déjà dessus"
+        >
+          🗑 Supprimer la course
+        </button>
       </div>
 
       <div className="card space-y-2">
@@ -344,6 +382,16 @@ const AdminF1Tab: React.FC = () => {
           {isSaving ? 'Enregistrement…' : 'Valider les résultats et régler les paris 🏁'}
         </button>
       </div>
+
+      <ConfirmModal
+        isOpen={confirmDialog !== null}
+        title={confirmDialog?.title ?? ''}
+        message={confirmDialog?.message ?? ''}
+        confirmLabel={confirmDialog?.confirmLabel}
+        variant={confirmDialog?.variant}
+        onConfirm={() => confirmDialog?.onConfirm()}
+        onCancel={() => setConfirmDialog(null)}
+      />
     </div>
   );
 };

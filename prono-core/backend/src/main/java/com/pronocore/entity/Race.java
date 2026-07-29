@@ -27,9 +27,15 @@ public class Race {
     @Column(length = 100)
     private String circuit;
 
-    /** Championship round, 1..24. */
+    /** Championship round — not stable across a season: a cancelled/reinstated GP
+     *  shifts every later round, so it can't be used alone to match jolpica's calendar. */
     @Column(nullable = false)
     private int round;
+
+    /** jolpica {@code Circuit.circuitId} (e.g. "losail", "yas_marina") — stable across
+     *  round renumbering, unlike {@link #round}. Null for rows never touched by a sync. */
+    @Column(name = "external_circuit_id", length = 50)
+    private String externalCircuitId;
 
     /** Locks the pole pick. */
     @Column(name = "qualifying_date", nullable = false)

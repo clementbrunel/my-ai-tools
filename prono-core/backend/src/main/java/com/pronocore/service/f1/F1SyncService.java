@@ -119,20 +119,30 @@ public class F1SyncService {
             throw new IllegalStateException("jolpica returned no calendar for season " + season);
         }
 
+        List<Race> existing = raceRepository.findByCompetition_IdOrderByRaceDateAsc(competition.getId());
         Map<Integer, Race> byRound = new HashMap<>();
-        raceRepository.findByCompetition_IdOrderByRaceDateAsc(competition.getId())
-                .forEach(r -> byRound.put(r.getRound(), r));
+        Map<String, Race> byCircuitId = new HashMap<>();
+        for (Race r : existing) {
+            byRound.put(r.getRound(), r);
+            if (r.getExternalCircuitId() != null) byCircuitId.put(r.getExternalCircuitId(), r);
+        }
 
         int count = 0;
-        int maxRound = 0;
+        Set<Race> matched = new HashSet<>();
         for (JsonNode raceNode : races) {
             int round = raceNode.path("round").asInt();
-            maxRound = Math.max(maxRound, round);
-            Race race = byRound.getOrDefault(round, Race.builder()
-                    .round(round)
-                    .competition(competition)
-                    .build());
+            String circuitId = raceNode.path("Circuit").path("circuitId").asText(null);
 
+            // A cancelled/reinstated GP shifts every later round, so `round` alone would match
+            // the wrong (or no) existing row — jolpica's circuitId is stable across that shift.
+            // circuitId is only trusted for rows a previous sync already tagged with one; a
+            // legacy or seeded row still falls back to round for its very first sync.
+            Race race = circuitId != null ? byCircuitId.get(circuitId) : null;
+            if (race == null) race = byRound.get(round);
+            if (race == null) race = Race.builder().round(round).competition(competition).build();
+
+            race.setRound(round);
+            race.setExternalCircuitId(circuitId);
             race.setName(frenchRaceName(raceNode.path("raceName").asText()));
             race.setCircuit(raceNode.path("Circuit").path("circuitName").asText(null));
             String country = raceNode.path("Circuit").path("Location").path("country").asText("");
@@ -148,12 +158,13 @@ public class F1SyncService {
             race.setSprintDate(toParisTime(sprint.path("date").asText(null), sprint.path("time").asText(null)));
 
             raceRepository.save(race);
+            matched.add(race);
             count++;
         }
 
-        // Seeded rounds beyond the real calendar: drop them unless a group already bet on them.
-        for (Race race : byRound.values()) {
-            if (race.getRound() > maxRound && !betRepository.existsByRaceId(race.getId())) {
+        // Seeded/removed races not present in jolpica's calendar: drop them unless a group already bet on them.
+        for (Race race : existing) {
+            if (!matched.contains(race) && !betRepository.existsByRaceId(race.getId())) {
                 log.info("  🗑 Removing seeded round {} ({}) — not in the official calendar", race.getRound(), race.getName());
                 raceRepository.delete(race);
             }

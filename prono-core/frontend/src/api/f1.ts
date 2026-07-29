@@ -114,3 +114,8 @@ export const resyncResults = async (raceId: number): Promise<string> => {
   const response = await apiClient.post<string>(`/admin/f1/races/${raceId}/results/resync`);
   return response.data;
 };
+
+/** Refused (400) if any group already has bets on the race. */
+export const deleteRace = async (raceId: number): Promise<void> => {
+  await apiClient.delete(`/admin/f1/races/${raceId}`);
+};
