@@ -61,6 +61,9 @@ public interface BetRepository extends JpaRepository<Bet, Long> {
 
     List<Bet> findByRaceIdAndGroupId(Long raceId, Long groupId);
 
+    /** Every bet a race was opened under, across all groups — used to tear a race down entirely. */
+    List<Bet> findByRaceId(Long raceId);
+
     List<Bet> findByRaceIdAndStatusOrderByCreatedAtDesc(Long raceId, Bet.Status status);
 
     /** Bets for a given race, restricted to the user's ACTIVE groups. */
