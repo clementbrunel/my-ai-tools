@@ -331,7 +331,7 @@ const AdminF1Tab: React.FC = () => {
           onClick={handleDeleteRace}
           disabled={selectedRaceId == null}
           className="btn-secondary text-red-600 dark:text-red-400"
-          title="Supprime la course sélectionnée — refusé si des paris existent déjà dessus"
+          title="Supprime la course sélectionnée — refusé si des pronostics existent déjà dessus (l'avoir juste ouverte aux paris n'empêche pas la suppression)"
         >
           🗑 Supprimer la course
         </button>

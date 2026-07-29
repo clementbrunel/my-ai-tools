@@ -175,6 +175,11 @@ public interface BetParticipationRepository extends JpaRepository<BetParticipati
             """)
     boolean existsByUserIdAndRaceId(@Param("userId") Long userId, @Param("raceId") Long raceId);
 
+    /** True if anyone has predicted on the race yet, in any group — as opposed to it merely
+     *  being opened for betting, which alone must not block deleting the race. */
+    @Query("SELECT COUNT(bp) > 0 FROM BetParticipation bp WHERE bp.bet.race.id = :raceId")
+    boolean existsByBetRaceId(@Param("raceId") Long raceId);
+
     /** All participations a user has for a given match, across all groups. */
     @Query("""
             SELECT bp FROM BetParticipation bp

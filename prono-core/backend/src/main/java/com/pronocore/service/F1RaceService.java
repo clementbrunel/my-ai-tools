@@ -334,14 +334,20 @@ public class F1RaceService {
         return toPredictionResponse(lastSaved, race);
     }
 
-    /** Refuses to delete a race that already has bets on it — same safety net as football matches. */
+    /**
+     * Refuses to delete a race once someone has actually predicted on it — merely being
+     * opened for betting (a group admin's {@link #openRaceForBetting}) must not block
+     * deletion, only real picks. Bets on the race carry no participation yet in that case,
+     * so they're torn down along with the race (bets.race_id isn't ON DELETE CASCADE).
+     */
     @Transactional
     public void deleteRace(Long raceId) {
         Race race = requireRace(raceId);
-        if (betRepository.existsByRaceId(raceId)) {
+        if (participationRepository.existsByBetRaceId(raceId)) {
             throw new IllegalStateException(
-                    "Impossible de supprimer : des paris existent déjà sur cette course");
+                    "Impossible de supprimer : des pronostics existent déjà sur cette course");
         }
+        betRepository.deleteAll(betRepository.findByRaceId(raceId));
         raceRepository.delete(race);
     }
 
