@@ -21,6 +21,12 @@ describe("getToolById", () => {
     expect(tool).toBeDefined();
     expect(tool!.conflictGroup).toBeUndefined();
   });
+
+  it("returns the graphify tool in the memory conflict group", () => {
+    const tool = getToolById("graphify");
+    expect(tool).toBeDefined();
+    expect(tool!.conflictGroup).toBe("memory");
+  });
 });
 
 // --- suggestMissing ---
@@ -45,6 +51,12 @@ describe("suggestMissing", () => {
     const result = suggestMissing(["MemPalace"]);
     expect(result).not.toContain("mempalace");
     expect(result).not.toContain("socraticode");
+    expect(result).toContain("caveman");
+  });
+
+  it("does not suggest the memory group default when Graphify is already detected", () => {
+    const result = suggestMissing(["Graphify"]);
+    expect(result).not.toContain("mempalace");
     expect(result).toContain("caveman");
   });
 
