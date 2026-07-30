@@ -7,6 +7,7 @@ import { detectHeadroom } from "./headroom.js";
 import { detectEcc } from "./ecc.js";
 import { detectSocratiCode } from "./socraticode.js";
 import { detectKarpathySkills } from "./karpathy-skills.js";
+import { detectPonytail } from "./ponytail.js";
 
 export function scanIntegrations(
   projectPath: string,
@@ -22,5 +23,6 @@ export function scanIntegrations(
     detectEcc(absPath, mcpServers),
     detectSocratiCode(absPath, mcpServers),
     detectKarpathySkills(absPath),
+    detectPonytail(absPath),
   ];
 }

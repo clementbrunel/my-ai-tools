@@ -10,7 +10,7 @@ Scans, diagnoses, and manages your Claude Code / AI environment: prints a status
 | **MCP Servers** | `.mcp.json`, `.claude/settings.json`, `~/.claude/settings.json`, `claude_desktop_config.json` |
 | **Context Files** | `CLAUDE.md` (project, parent dirs, user), `.claude/` directory |
 | **Hooks** | `PreToolUse`, `PostToolUse`, `Stop`, etc. from settings |
-| **Integrations** | [MemPalace](https://www.mempalace.tech/), Caveman skill, [RTK](https://www.rtk-ai.app/), [Headroom](https://github.com/chopratejas/headroom), [ECC](https://github.com/affaan-m/ECC), [SocratiCode](https://github.com/giancarloerra/SocratiCode), [Andrej Karpathy Skills](https://github.com/forrestchang/andrej-karpathy-skills) |
+| **Integrations** | [MemPalace](https://www.mempalace.tech/), Caveman skill, [RTK](https://www.rtk-ai.app/), [Headroom](https://github.com/chopratejas/headroom), [ECC](https://github.com/affaan-m/ECC), [SocratiCode](https://github.com/giancarloerra/SocratiCode), [Andrej Karpathy Skills](https://github.com/forrestchang/andrej-karpathy-skills), [Ponytail](https://github.com/DietrichGebert/ponytail) |
 | **Env Vars** | All env vars referenced by MCP server configs |
 
 ## What it reports
@@ -111,6 +111,7 @@ src/
       ecc.ts                  — ECC detection
       socraticode.ts          — SocratiCode detection
       karpathy-skills.ts      — Andrej Karpathy Skills detection
+      ponytail.ts              — Ponytail detection
   diagram/
     table.ts                  — Console table + Markdown report rendering
   updater/

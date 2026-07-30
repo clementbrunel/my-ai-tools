@@ -6,6 +6,7 @@ import { detectHeadroom } from "../scanner/integrations/headroom.js";
 import { detectEcc } from "../scanner/integrations/ecc.js";
 import { detectSocratiCode } from "../scanner/integrations/socraticode.js";
 import { detectKarpathySkills } from "../scanner/integrations/karpathy-skills.js";
+import { detectPonytail } from "../scanner/integrations/ponytail.js";
 import type { McpServer } from "../types.js";
 
 function makeTempDir(): { dir: string; cleanup: () => void } {
@@ -162,6 +163,64 @@ describe("detectKarpathySkills", () => {
     try {
       writeFileSync(join(dir, "CLAUDE.md"), "# Project\nFollowing the karpathy guidelines for surgical changes.\n");
       const result = detectKarpathySkills(dir);
+      expect(result.detected).toBe(true);
+    } finally {
+      cleanup();
+    }
+  });
+});
+
+// --- detectPonytail ---
+
+describe("detectPonytail", () => {
+  const originalMode = process.env.PONYTAIL_DEFAULT_MODE;
+
+  afterEach(() => {
+    if (originalMode === undefined) delete process.env.PONYTAIL_DEFAULT_MODE;
+    else process.env.PONYTAIL_DEFAULT_MODE = originalMode;
+  });
+
+  it("returns detected: false for an empty project with no plugin/rule/config/env", () => {
+    delete process.env.PONYTAIL_DEFAULT_MODE;
+    const { dir, cleanup } = makeTempDir();
+    try {
+      const result = detectPonytail(dir);
+      expect(result.detected).toBe(false);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("returns detected: true when a Cursor rule file exists", () => {
+    delete process.env.PONYTAIL_DEFAULT_MODE;
+    const { dir, cleanup } = makeTempDir();
+    try {
+      mkdirSync(join(dir, ".cursor", "rules"), { recursive: true });
+      writeFileSync(join(dir, ".cursor", "rules", "ponytail.mdc"), "# Ponytail\n");
+      const result = detectPonytail(dir);
+      expect(result.detected).toBe(true);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("returns detected: true when CLAUDE.md references ponytail", () => {
+    delete process.env.PONYTAIL_DEFAULT_MODE;
+    const { dir, cleanup } = makeTempDir();
+    try {
+      writeFileSync(join(dir, "CLAUDE.md"), "# Project\nUsing ponytail to avoid over-engineering.\n");
+      const result = detectPonytail(dir);
+      expect(result.detected).toBe(true);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("returns detected: true when PONYTAIL_DEFAULT_MODE is set", () => {
+    process.env.PONYTAIL_DEFAULT_MODE = "full";
+    const { dir, cleanup } = makeTempDir();
+    try {
+      const result = detectPonytail(dir);
       expect(result.detected).toBe(true);
     } finally {
       cleanup();

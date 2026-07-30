@@ -1,4 +1,4 @@
-export type ToolId = "rtk" | "headroom" | "caveman" | "mempalace" | "socraticode" | "ecc" | "karpathy-skills";
+export type ToolId = "rtk" | "headroom" | "caveman" | "mempalace" | "socraticode" | "ecc" | "karpathy-skills" | "ponytail";
 
 export interface InstallStep {
   label: string;
@@ -169,6 +169,30 @@ export const CATALOGUE: CatalogueTool[] = [
       },
     ],
   },
+  {
+    id: "ponytail",
+    name: "Ponytail",
+    tagline: "Skill Claude Code anti-sur-ingénierie — pousse l'agent vers l'implémentation minimale nécessaire",
+    why: "Fait évaluer à l'agent une échelle de décision avant d'écrire du code (YAGNI, déjà dans le codebase ?, stdlib ?, one-liner ?...) plutôt que d'installer des dépendances ou d'écrire du boilerplate. Mesuré à ~54 % de code en moins, ~20 % moins cher, ~27 % plus rapide sur des sessions Claude Code réelles. Chevauche Karpathy Skills sur le même problème (sur-ingénierie, discipline de modification) — éviter de cumuler les deux.",
+    steps: [
+      {
+        label: "Ajouter le marketplace",
+        manual: "/plugin marketplace add DietrichGebert/ponytail  (dans une session Claude Code)",
+      },
+      {
+        label: "Installer le plugin",
+        manual: "/plugin install ponytail@ponytail  (dans une session Claude Code)",
+      },
+      {
+        label: "Configurer le mode par défaut (optionnel)",
+        manual: "export PONYTAIL_DEFAULT_MODE=full  (lite/full/ultra/off, dans ton shell profile)",
+      },
+      {
+        label: "Alternative — fichiers de règles",
+        manual: "Copier les fichiers depuis .cursor/rules/, .windsurf/rules/, .clinerules/, .github/copilot-instructions.md ou AGENTS.md selon ton éditeur/agent",
+      },
+    ],
+  },
 ];
 
 // Maps Integration.name (from scanner) to a catalogue ToolId.
@@ -180,6 +204,7 @@ export const INTEGRATION_TO_TOOL: Record<string, ToolId> = {
   "ECC": "ecc",
   "SocratiCode": "socraticode",
   "Andrej Karpathy Skills": "karpathy-skills",
+  "Ponytail": "ponytail",
 };
 
 // Default pick per conflict group when nothing is detected (easiest / least infra first).
@@ -229,6 +254,13 @@ export function getConflicts(ids: ToolId[]): { group: ConflictGroup; picks: Tool
     result.push({
       group: { id: "ecc-caveman", label: "ECC + Caveman", note: "ECC inclut déjà un mécanisme de réduction de verbosité similaire à Caveman.", maxPick: 1 },
       picks: ["ecc", "caveman"],
+    });
+  }
+  // Ponytail + Karpathy Skills conflict (both target over-engineering/scope discipline)
+  if (ids.includes("ponytail") && ids.includes("karpathy-skills")) {
+    result.push({
+      group: { id: "ponytail-karpathy", label: "Ponytail + Karpathy Skills", note: "Les deux ciblent la sur-ingénierie et la discipline de modification — risque de règles redondantes ou contradictoires.", maxPick: 1 },
+      picks: ["ponytail", "karpathy-skills"],
     });
   }
   return result;
