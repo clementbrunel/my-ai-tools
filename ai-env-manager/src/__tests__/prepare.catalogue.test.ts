@@ -103,4 +103,15 @@ describe("getConflicts", () => {
     const conflicts = getConflicts([] as ToolId[]);
     expect(conflicts).toHaveLength(0);
   });
+
+  it("detects ponytail + karpathy-skills conflict", () => {
+    const conflicts = getConflicts(["ponytail", "karpathy-skills"] as ToolId[]);
+    const conflict = conflicts.find((c) => c.group.id === "ponytail-karpathy");
+    expect(conflict).toBeDefined();
+  });
+
+  it("reports no conflict for ponytail alone", () => {
+    const conflicts = getConflicts(["ponytail"] as ToolId[]);
+    expect(conflicts).toHaveLength(0);
+  });
 });

@@ -8,6 +8,7 @@ import { detectEcc } from "./ecc.js";
 import { detectSocratiCode } from "./socraticode.js";
 import { detectKarpathySkills } from "./karpathy-skills.js";
 import { detectGraphify } from "./graphify.js";
+import { detectPonytail } from "./ponytail.js";
 import { detectCodeBurn } from "./codeburn.js";
 
 export function scanIntegrations(
@@ -25,6 +26,7 @@ export function scanIntegrations(
     detectSocratiCode(absPath, mcpServers),
     detectKarpathySkills(absPath),
     detectGraphify(absPath, mcpServers),
+    detectPonytail(absPath),
     detectCodeBurn(mcpServers),
   ];
 }
