@@ -1,4 +1,4 @@
-export type ToolId = "rtk" | "headroom" | "caveman" | "mempalace" | "socraticode" | "ecc" | "karpathy-skills" | "graphify" | "ponytail" | "codeburn";
+export type ToolId = "rtk" | "headroom" | "caveman" | "mempalace" | "socraticode" | "ecc" | "karpathy-skills" | "graphify" | "ponytail" | "codeburn" | "openwiki";
 
 export interface InstallStep {
   label: string;
@@ -32,7 +32,7 @@ export const CONFLICT_GROUPS: ConflictGroup[] = [
   {
     id: "memory",
     label: "Mémoire projet",
-    note: "MemPalace = notes que tu rédiges. SocratiCode = indexation auto du code par embeddings (Docker requis). Graphify = indexation auto du code par graphe déterministe AST (pas de Docker, inclut docs/PDF). Compatibles sur un grand codebase inconnu, redondants sinon.",
+    note: "MemPalace = notes que tu rédiges. SocratiCode = indexation auto du code par embeddings (Docker requis). Graphify = indexation auto du code par graphe déterministe AST (pas de Docker, inclut docs/PDF). OpenWiki = documentation Markdown générée par agent, versionnée dans le repo. Compatibles sur un grand codebase inconnu, redondants sinon.",
     maxPick: 1,
   },
 ];
@@ -232,6 +232,31 @@ export const CATALOGUE: CatalogueTool[] = [
       },
     ],
   },
+  {
+    id: "openwiki",
+    name: "OpenWiki",
+    tagline: "CLI (LangChain) qui écrit et maintient un wiki Markdown du codebase, lu comme mémoire par les agents",
+    why: "Produit une documentation lisible par un humain ET par l'agent, versionnée dans le repo (répertoire openwiki/) plutôt que dans un index binaire. Se met à jour tout seul via un workflow CI qui ouvre une PR de doc à chaque changement. Consomme des appels LLM à chaque génération — nécessite une clé de provider. Chevauche SocratiCode et Graphify sur la compréhension du codebase, mais par la doc plutôt que par l'index.",
+    steps: [
+      {
+        label: "Installer le CLI",
+        command: "npm install -g openwiki",
+      },
+      {
+        label: "Configurer une clé de provider",
+        manual: "export ANTHROPIC_API_KEY=…  (ou OPENAI_API_KEY / GEMINI_API_KEY / OPENROUTER_API_KEY) — openwiki la persiste dans ~/.openwiki/.env",
+      },
+      {
+        label: "Générer le wiki du projet",
+        manual: "openwiki --init  (long, consomme des tokens ; puis 'openwiki --update' pour rafraîchir)",
+      },
+      {
+        label: "Mise à jour automatique en CI (optionnel)",
+        manual: "Copier openwiki-update.yml dans .github/workflows/ — ouvre une PR de doc quand le code change",
+      },
+    ],
+    conflictGroup: "memory",
+  },
 ];
 
 // Maps Integration.name (from scanner) to a catalogue ToolId.
@@ -246,6 +271,7 @@ export const INTEGRATION_TO_TOOL: Record<string, ToolId> = {
   "Graphify": "graphify",
   "Ponytail": "ponytail",
   "CodeBurn": "codeburn",
+  "OpenWiki": "openwiki",
 };
 
 // Default pick per conflict group when nothing is detected (easiest / least infra first).
