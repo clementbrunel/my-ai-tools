@@ -7,6 +7,7 @@ import { detectHeadroom } from "./headroom.js";
 import { detectEcc } from "./ecc.js";
 import { detectSocratiCode } from "./socraticode.js";
 import { detectKarpathySkills } from "./karpathy-skills.js";
+import { detectGraphify } from "./graphify.js";
 import { detectCodeBurn } from "./codeburn.js";
 
 export function scanIntegrations(
@@ -23,6 +24,7 @@ export function scanIntegrations(
     detectEcc(absPath, mcpServers),
     detectSocratiCode(absPath, mcpServers),
     detectKarpathySkills(absPath),
+    detectGraphify(absPath, mcpServers),
     detectCodeBurn(mcpServers),
   ];
 }

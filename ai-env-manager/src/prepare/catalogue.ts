@@ -1,4 +1,4 @@
-export type ToolId = "rtk" | "headroom" | "caveman" | "mempalace" | "socraticode" | "ecc" | "karpathy-skills" | "codeburn";
+export type ToolId = "rtk" | "headroom" | "caveman" | "mempalace" | "socraticode" | "ecc" | "karpathy-skills" | "graphify" | "codeburn";
 
 export interface InstallStep {
   label: string;
@@ -32,7 +32,7 @@ export const CONFLICT_GROUPS: ConflictGroup[] = [
   {
     id: "memory",
     label: "Mémoire projet",
-    note: "Les deux sont des serveurs MCP. MemPalace = notes que tu rédiges. SocratiCode = indexation auto du code (Docker requis). Compatibles sur un grand codebase inconnu, redondants sinon.",
+    note: "MemPalace = notes que tu rédiges. SocratiCode = indexation auto du code par embeddings (Docker requis). Graphify = indexation auto du code par graphe déterministe AST (pas de Docker, inclut docs/PDF). Compatibles sur un grand codebase inconnu, redondants sinon.",
     maxPick: 1,
   },
 ];
@@ -170,6 +170,28 @@ export const CATALOGUE: CatalogueTool[] = [
     ],
   },
   {
+    id: "graphify",
+    name: "Graphify",
+    tagline: "Transforme le codebase en graphe de connaissances interrogeable (AST tree-sitter + docs/PDF)",
+    why: "Utile pour comprendre un gros codebase inconnu sans grep : mapping déterministe (pas d'embeddings vectoriels), relations traçables entre fichiers, requêtable en langage naturel via un skill Claude Code. Chevauche SocratiCode sur l'indexation de codebase — choisir l'un ou l'autre.",
+    steps: [
+      {
+        label: "Installer le package",
+        command: "uv tool install graphifyy",
+        manual: "ou pipx install graphifyy",
+      },
+      {
+        label: "Enregistrer le skill et les hooks Claude Code",
+        command: "graphify install",
+      },
+      {
+        label: "Serveur MCP (optionnel, après un premier build)",
+        manual: "python -m graphify.serve graphify-out/graph.json",
+      },
+    ],
+    conflictGroup: "memory",
+  },
+  {
     id: "codeburn",
     name: "CodeBurn",
     tagline: "Suivi des coûts et de la consommation de tokens sur 36 outils de code IA (Claude Code, Cursor, Codex, Gemini...)",
@@ -197,6 +219,7 @@ export const INTEGRATION_TO_TOOL: Record<string, ToolId> = {
   "ECC": "ecc",
   "SocratiCode": "socraticode",
   "Andrej Karpathy Skills": "karpathy-skills",
+  "Graphify": "graphify",
   "CodeBurn": "codeburn",
 };
 
