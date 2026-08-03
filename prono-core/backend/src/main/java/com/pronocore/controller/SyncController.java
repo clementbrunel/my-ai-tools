@@ -1,15 +1,16 @@
 package com.pronocore.controller;
 
+import com.pronocore.dto.request.LinkMatchRequest;
 import com.pronocore.dto.response.FixtureCandidateResponse;
 import com.pronocore.service.MatchLinkingService;
 import com.pronocore.service.MatchSyncService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/admin/sync")
@@ -27,10 +28,8 @@ public class SyncController {
 
     @PostMapping("/link/{matchId}")
     public ResponseEntity<Void> linkMatch(@PathVariable Long matchId,
-                                          @RequestBody Map<String, Object> body) {
-        Long externalId = Long.valueOf(body.get("externalId").toString());
-        String apiCode = body.getOrDefault("apiCode", "API-FOOTBALL").toString();
-        matchLinkingService.linkMatch(matchId, externalId, apiCode);
+                                          @Valid @RequestBody LinkMatchRequest request) {
+        matchLinkingService.linkMatch(matchId, request.getExternalId(), request.getApiCode());
         return ResponseEntity.ok().build();
     }
 

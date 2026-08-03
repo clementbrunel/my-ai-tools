@@ -2,8 +2,11 @@ package com.pronocore.service;
 
 import com.pronocore.client.ApiFootballClient;
 import com.pronocore.dto.response.FixtureCandidateResponse;
+import com.pronocore.entity.ExternalApi;
 import com.pronocore.entity.Match;
 import com.pronocore.entity.MatchExternalLinks;
+import com.pronocore.entity.Sport;
+import com.pronocore.repository.ExternalApiRepository;
 import com.pronocore.repository.MatchExternalLinksRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -23,10 +26,14 @@ public class MatchLinkingService {
 
     private static final double AUTO_LINK_THRESHOLD = 0.85;
 
-    private final MatchService                matchService;
-    private final ApiFootballClient           apiFootballClient;
-    private final TeamMappingService          teamMappingService;
+    /** Registry code of the provider backing match_external_links.api_football_fixture_id. */
+    private static final String API_FOOTBALL_CODE = "API-FOOTBALL";
+
+    private final MatchService                 matchService;
+    private final ApiFootballClient            apiFootballClient;
+    private final TeamMappingService           teamMappingService;
     private final MatchExternalLinksRepository linksRepository;
+    private final ExternalApiRepository        externalApiRepository;
 
     @Transactional(readOnly = true)
     public List<FixtureCandidateResponse> findCandidates(Long matchId) {
@@ -46,29 +53,46 @@ public class MatchLinkingService {
 
     @Transactional
     public void linkMatch(Long matchId, Long externalId, String apiCode) {
+        ExternalApi api = resolveFootballApi(apiCode);
         Match match = matchService.findById(matchId);
         MatchExternalLinks links = linksRepository.findById(matchId)
                 .orElse(MatchExternalLinks.builder().match(match).build());
-        if ("API-FOOTBALL".equals(apiCode)) {
-            links.setApiFootballFixtureId(externalId);
-        }
+        links.setApiFootballFixtureId(externalId);
         linksRepository.save(links);
-        log.info("Linked match {} to {} fixture {}", matchId, apiCode, externalId);
+        log.info("Linked match {} to {} fixture {}", matchId, api.getCode(), externalId);
     }
 
     @Transactional
     public void unlinkMatch(Long matchId, String apiCode) {
+        ExternalApi api = resolveFootballApi(apiCode);
         linksRepository.findById(matchId).ifPresent(links -> {
-            if ("API-FOOTBALL".equals(apiCode)) {
-                links.setApiFootballFixtureId(null);
-            }
+            links.setApiFootballFixtureId(null);
             if (links.toMap().isEmpty()) {
                 linksRepository.delete(links);
             } else {
                 linksRepository.save(links);
             }
-            log.info("Unlinked match {} from {}", matchId, apiCode);
+            log.info("Unlinked match {} from {}", matchId, api.getCode());
         });
+    }
+
+    /**
+     * Resolves a provider code against the registry. Only football providers can be
+     * linked to a match — F1 providers are registered too, but races are synced
+     * through their own path.
+     */
+    private ExternalApi resolveFootballApi(String apiCode) {
+        ExternalApi api = externalApiRepository.findByCode(apiCode)
+                .orElseThrow(() -> new EntityNotFoundException("Unknown external API code: " + apiCode));
+        if (api.getSport() != Sport.FOOT) {
+            throw new IllegalArgumentException(
+                    "External API " + api.getCode() + " feeds " + api.getSport() + ", not football");
+        }
+        if (!API_FOOTBALL_CODE.equals(api.getCode())) {
+            throw new IllegalArgumentException(
+                    "No match-linking column is wired for external API " + api.getCode());
+        }
+        return api;
     }
 
     private FixtureCandidateResponse score(ApiFootballClient.ApiFixture fixture,

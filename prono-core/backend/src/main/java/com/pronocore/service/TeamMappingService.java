@@ -34,7 +34,7 @@ public class TeamMappingService {
             Map.entry("Paraguay", "PY"), Map.entry("Pérou", "PE"), Map.entry("Bolivie", "BO"),
             Map.entry("Venezuela", "VE"), Map.entry("Nouvelle-Zélande", "NZ"),
             Map.entry("Arabie saoudite", "SA"), Map.entry("Iran", "IR"), Map.entry("Qatar", "QA"),
-            Map.entry("Mexique", "MX"), Map.entry("Panama", "PA"), Map.entry("Costa Rica", "CR"),
+            Map.entry("Panama", "PA"), Map.entry("Costa Rica", "CR"),
             Map.entry("Honduras", "HN"), Map.entry("Guatemala", "GT"), Map.entry("El Salvador", "SV"),
             Map.entry("Haïti", "HT"), Map.entry("Jamaïque", "JM"), Map.entry("Trinité-et-Tobago", "TT")
     );
