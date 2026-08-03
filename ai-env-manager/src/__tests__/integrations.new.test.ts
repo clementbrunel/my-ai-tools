@@ -7,6 +7,7 @@ import { detectEcc } from "../scanner/integrations/ecc.js";
 import { detectSocratiCode } from "../scanner/integrations/socraticode.js";
 import { detectKarpathySkills } from "../scanner/integrations/karpathy-skills.js";
 import { detectGraphify } from "../scanner/integrations/graphify.js";
+import { detectOpenwiki } from "../scanner/integrations/openwiki.js";
 import type { McpServer } from "../types.js";
 
 function makeTempDir(): { dir: string; cleanup: () => void } {
@@ -213,6 +214,80 @@ describe("detectGraphify", () => {
       expect(result.detected).toBe(true);
       expect(result.status).toBe("warning");
       expect(result.diagnostics.some((d) => d.includes("No graph built yet"))).toBe(true);
+    } finally {
+      cleanup();
+    }
+  });
+});
+
+// --- detectOpenwiki ---
+
+describe("detectOpenwiki", () => {
+  it("returns detected: false for an empty project", () => {
+    const { dir, cleanup } = makeTempDir();
+    try {
+      const result = detectOpenwiki(dir);
+      expect(result.detected).toBe(false);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("returns detected: true when openwiki/INSTRUCTIONS.md exists", () => {
+    const { dir, cleanup } = makeTempDir();
+    try {
+      mkdirSync(join(dir, "openwiki"), { recursive: true });
+      writeFileSync(join(dir, "openwiki", "INSTRUCTIONS.md"), "# Scope\n");
+      const result = detectOpenwiki(dir);
+      expect(result.detected).toBe(true);
+      expect(result.source).toContain("openwiki/INSTRUCTIONS.md");
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("returns detected: true when .openwikiignore exists at project root", () => {
+    const { dir, cleanup } = makeTempDir();
+    try {
+      writeFileSync(join(dir, ".openwikiignore"), "node_modules/\n");
+      const result = detectOpenwiki(dir);
+      expect(result.detected).toBe(true);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("returns detected: true when the CI update workflow is present", () => {
+    const { dir, cleanup } = makeTempDir();
+    try {
+      mkdirSync(join(dir, ".github", "workflows"), { recursive: true });
+      writeFileSync(join(dir, ".github", "workflows", "openwiki-update.yml"), "name: openwiki\n");
+      const result = detectOpenwiki(dir);
+      expect(result.detected).toBe(true);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("returns detected: true when CLAUDE.md references openwiki", () => {
+    const { dir, cleanup } = makeTempDir();
+    try {
+      writeFileSync(join(dir, "CLAUDE.md"), "# Project\nSee the openwiki/ directory for the wiki.\n");
+      const result = detectOpenwiki(dir);
+      expect(result.detected).toBe(true);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("diagnoses a missing wiki when only .openwikiignore is present", () => {
+    const { dir, cleanup } = makeTempDir();
+    try {
+      writeFileSync(join(dir, ".openwikiignore"), "node_modules/\n");
+      const result = detectOpenwiki(dir);
+      expect(result.detected).toBe(true);
+      expect(result.status).not.toBe("ok");
+      expect(result.diagnostics.some((d) => d.includes("No wiki generated yet"))).toBe(true);
     } finally {
       cleanup();
     }

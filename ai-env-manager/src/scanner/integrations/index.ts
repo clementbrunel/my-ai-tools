@@ -8,6 +8,7 @@ import { detectEcc } from "./ecc.js";
 import { detectSocratiCode } from "./socraticode.js";
 import { detectKarpathySkills } from "./karpathy-skills.js";
 import { detectGraphify } from "./graphify.js";
+import { detectOpenwiki } from "./openwiki.js";
 
 export function scanIntegrations(
   projectPath: string,
@@ -24,5 +25,6 @@ export function scanIntegrations(
     detectSocratiCode(absPath, mcpServers),
     detectKarpathySkills(absPath),
     detectGraphify(absPath, mcpServers),
+    detectOpenwiki(absPath),
   ];
 }

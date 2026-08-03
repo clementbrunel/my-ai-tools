@@ -27,6 +27,12 @@ describe("getToolById", () => {
     expect(tool).toBeDefined();
     expect(tool!.conflictGroup).toBe("memory");
   });
+
+  it("returns the openwiki tool in the memory conflict group", () => {
+    const tool = getToolById("openwiki");
+    expect(tool).toBeDefined();
+    expect(tool!.conflictGroup).toBe("memory");
+  });
 });
 
 // --- suggestMissing ---
