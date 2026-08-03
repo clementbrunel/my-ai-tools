@@ -21,6 +21,18 @@ describe("getToolById", () => {
     expect(tool).toBeDefined();
     expect(tool!.conflictGroup).toBeUndefined();
   });
+
+  it("returns the graphify tool in the memory conflict group", () => {
+    const tool = getToolById("graphify");
+    expect(tool).toBeDefined();
+    expect(tool!.conflictGroup).toBe("memory");
+  });
+
+  it("returns the openwiki tool in the memory conflict group", () => {
+    const tool = getToolById("openwiki");
+    expect(tool).toBeDefined();
+    expect(tool!.conflictGroup).toBe("memory");
+  });
 });
 
 // --- suggestMissing ---
@@ -45,6 +57,12 @@ describe("suggestMissing", () => {
     const result = suggestMissing(["MemPalace"]);
     expect(result).not.toContain("mempalace");
     expect(result).not.toContain("socraticode");
+    expect(result).toContain("caveman");
+  });
+
+  it("does not suggest the memory group default when Graphify is already detected", () => {
+    const result = suggestMissing(["Graphify"]);
+    expect(result).not.toContain("mempalace");
     expect(result).toContain("caveman");
   });
 
@@ -89,6 +107,17 @@ describe("getConflicts", () => {
 
   it("reports no conflict for empty selection", () => {
     const conflicts = getConflicts([] as ToolId[]);
+    expect(conflicts).toHaveLength(0);
+  });
+
+  it("detects ponytail + karpathy-skills conflict", () => {
+    const conflicts = getConflicts(["ponytail", "karpathy-skills"] as ToolId[]);
+    const conflict = conflicts.find((c) => c.group.id === "ponytail-karpathy");
+    expect(conflict).toBeDefined();
+  });
+
+  it("reports no conflict for ponytail alone", () => {
+    const conflicts = getConflicts(["ponytail"] as ToolId[]);
     expect(conflicts).toHaveLength(0);
   });
 });

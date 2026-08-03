@@ -1,8 +1,8 @@
 # Context-window tools — quick comparison
 
-Three tools spotted as potential additions to a Claude Code AI workspace setup.
+Five tools spotted as potential additions to a Claude Code AI workspace setup.
 They each attack a different slice of the "context problem", but their scopes overlap
-enough that running all three simultaneously would likely produce redundancy and
+enough that running all of them simultaneously would likely produce redundancy and
 configuration friction. Notes below to inform the choice.
 
 ---
@@ -79,16 +79,76 @@ impact analysis.
 
 ---
 
+## 4. Graphify — `Graphify-Labs/graphify`
+
+**What it does**: Turns a codebase (plus docs/PDFs) into a queryable knowledge
+graph — "query instead of grepping through files". Parses code with tree-sitter
+AST for deterministic structure, and adds semantic extraction for prose/media,
+producing traceable inference edges rather than opaque vector similarity.
+
+**Key mechanics**
+- No vector embeddings for code — the graph is built from AST parsing, so
+  edges are deterministic and traceable rather than nearest-neighbour guesses.
+- `graphify install` wires it into 15+ platforms (Claude Code skill + PreToolUse
+  hook, Cursor `.mdc` rule, Codex/Gemini via AGENTS.md, etc.) in one step.
+- MCP server (`python -m graphify.serve`) can run stdio or HTTP, including a
+  team-shared HTTP deployment with an API key.
+- Output lives in `graphify-out/` (`graph.json`, `GRAPH_REPORT.md`, `graph.html`);
+  `.graphifyignore` merges with `.gitignore` for exclusions.
+
+**Detection signals in `ai-env-manager`**
+- `graphify` binary in PATH
+- MCP server entry matching `graphify`
+- `.claude/skills/graphify/SKILL.md` at project root
+- `.graphifyignore` file at project root
+- `graphify-out/graph.json` (built graph) at project root
+- `~/.graphify/global-graph.json` (global cross-project graph)
+
+---
+
+## 5. OpenWiki — `langchain-ai/openwiki`
+
+**What it does**: A CLI that writes and maintains an agent-readable Markdown wiki
+of the codebase. Same "don't make the agent grep" goal as SocratiCode/Graphify,
+but the artefact is prose documentation committed to the repo rather than an
+index — humans read it too, and `git diff` shows how the understanding changed.
+
+**Key mechanics**
+- `openwiki --init` generates the wiki, `openwiki --update` refreshes it after
+  code changes; generation is agent-driven, so it costs LLM calls each run.
+- Output lives in `openwiki/`, with `openwiki/INSTRUCTIONS.md` as the
+  user-authored scope/priorities file; `.openwikiignore` excludes paths.
+- Rewrites a pointer section into `CLAUDE.md` / `AGENTS.md` so agents pick the
+  wiki up as memory without extra wiring — no MCP server, no hooks, no skill.
+- Ships CI templates (`openwiki-update.yml` for GitHub Actions, plus GitLab and
+  Bitbucket variants) that open a documentation PR when the code changes.
+- Needs a provider key (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`
+  or `OPENROUTER_API_KEY`); credentials persist in `~/.openwiki/.env`.
+- A `personal` mode keeps a separate wiki under `~/.openwiki/wiki/`, and
+  `openwiki visualize` opens the wiki as an explorable node graph.
+
+**Detection signals in `ai-env-manager`**
+- `openwiki` binary in PATH
+- `openwiki/INSTRUCTIONS.md` or `openwiki/.langsmith.json` at project root
+- `.openwikiignore` file at project root
+- `.github/workflows/openwiki-update.yml` (CI auto-update)
+- `openwiki` mentioned in `CLAUDE.md` or `AGENTS.md`
+- `~/.openwiki/.env` (credentials) and `~/.openwiki/wiki/` (personal mode)
+
+---
+
 ## Comparison at a glance
 
-| Dimension            | Headroom              | ECC                       | SocratiCode             |
-|----------------------|-----------------------|---------------------------|-------------------------|
-| Primary lever        | Compress inputs       | Orchestrate agent behaviour | Index codebase          |
-| Deployment           | Binary / proxy / MCP  | Plugin (all-in-one)       | MCP via Docker          |
-| Scope                | Any content type      | AI harness configuration  | Code understanding only |
-| Requires setup       | Minimal               | Opinionated / large       | Docker required         |
-| Cross-tool           | Yes (any LLM)         | Yes (multi-harness)       | Yes (via MCP)           |
-| Overlaps with others | RTK (token reduction) | Caveman (token reduction) | Nothing in current set  |
+| Dimension            | Headroom              | ECC                       | SocratiCode             | Graphify                | OpenWiki                |
+|----------------------|-----------------------|---------------------------|-------------------------|--------------------------|-------------------------|
+| Primary lever        | Compress inputs       | Orchestrate agent behaviour | Index codebase          | Index codebase + docs   | Write codebase docs     |
+| Deployment           | Binary / proxy / MCP  | Plugin (all-in-one)       | MCP via Docker          | CLI + skill + MCP       | CLI + CI workflow       |
+| Scope                | Any content type      | AI harness configuration  | Code understanding only | Code + docs/PDF         | Code understanding only |
+| Requires setup       | Minimal               | Opinionated / large       | Docker required         | Minimal (no Docker)     | Minimal + provider key  |
+| Cross-tool           | Yes (any LLM)         | Yes (multi-harness)       | Yes (via MCP)           | Yes (15+ platforms)     | Yes (CLAUDE.md/AGENTS.md) |
+| Artefact             | None (in-flight)      | Config files              | Vector index            | `graphify-out/graph.json` | `openwiki/` Markdown (committed) |
+| Recurring LLM cost   | No                    | No                        | No (local embeddings)   | No (AST parsing)        | Yes (each generation)   |
+| Overlaps with others | RTK (token reduction) | Caveman (token reduction) | Graphify, OpenWiki (codebase understanding) | SocratiCode, OpenWiki (codebase understanding) | SocratiCode, Graphify (codebase understanding) |
 
 ## When to pick one
 
@@ -98,9 +158,23 @@ impact analysis.
 - **ECC**: best fit when you want a *pre-baked, opinionated workflow* covering
   agents + skills + hooks across multiple AI tools at once; heavier install.
 - **SocratiCode**: best fit when working on *large or unfamiliar codebases*
-  where grep/file-read exploration is too slow or too costly; needs Docker.
+  where grep/file-read exploration is too slow or too costly, and vector-based
+  semantic search (plus Docker) is acceptable overhead.
+- **Graphify**: same "stop grepping" niche as SocratiCode, but favours a
+  deterministic AST-derived graph over vector embeddings, needs no Docker, and
+  also ingests docs/PDFs alongside code — pick it when traceability of *why*
+  two things are linked matters more than fuzzy semantic recall, or when the
+  codebase's docs are as important as its code.
+- **OpenWiki**: same "stop grepping" niche again, but the output is prose the
+  team reads too, reviewable in PRs and versioned with the code. Pick it when
+  the codebase is under-documented for *humans* as much as for agents, and when
+  paying LLM calls on every regeneration is acceptable; skip it if you only want
+  a machine-side index, since SocratiCode and Graphify do that without recurring
+  token cost.
 
-If forced to pick one for a "quick AI workspace setup": **SocratiCode** adds
-a capability not covered by anything else already in this repo (RTK and Caveman
-already cover token reduction; ECC would replace/conflict with existing skill
-and hook setup).
+If forced to pick one for a "quick AI workspace setup": **SocratiCode,
+Graphify or OpenWiki** add a capability not covered by anything else already in
+this repo (RTK and Caveman already cover token reduction; ECC would
+replace/conflict with existing skill and hook setup) — pick whichever of the
+three matches your Docker tolerance, whether docs/PDFs matter, and whether you
+want the output readable by the team, not several.

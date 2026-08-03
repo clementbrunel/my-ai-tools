@@ -1,4 +1,4 @@
-export type ToolId = "rtk" | "headroom" | "caveman" | "mempalace" | "socraticode" | "ecc" | "karpathy-skills";
+export type ToolId = "rtk" | "headroom" | "caveman" | "mempalace" | "socraticode" | "ecc" | "karpathy-skills" | "graphify" | "ponytail" | "codeburn" | "openwiki";
 
 export interface InstallStep {
   label: string;
@@ -32,7 +32,7 @@ export const CONFLICT_GROUPS: ConflictGroup[] = [
   {
     id: "memory",
     label: "Mémoire projet",
-    note: "Les deux sont des serveurs MCP. MemPalace = notes que tu rédiges. SocratiCode = indexation auto du code (Docker requis). Compatibles sur un grand codebase inconnu, redondants sinon.",
+    note: "MemPalace = notes que tu rédiges. SocratiCode = indexation auto du code par embeddings (Docker requis). Graphify = indexation auto du code par graphe déterministe AST (pas de Docker, inclut docs/PDF). OpenWiki = documentation Markdown générée par agent, versionnée dans le repo. Compatibles sur un grand codebase inconnu, redondants sinon.",
     maxPick: 1,
   },
 ];
@@ -169,6 +169,94 @@ export const CATALOGUE: CatalogueTool[] = [
       },
     ],
   },
+  {
+    id: "graphify",
+    name: "Graphify",
+    tagline: "Transforme le codebase en graphe de connaissances interrogeable (AST tree-sitter + docs/PDF)",
+    why: "Utile pour comprendre un gros codebase inconnu sans grep : mapping déterministe (pas d'embeddings vectoriels), relations traçables entre fichiers, requêtable en langage naturel via un skill Claude Code. Chevauche SocratiCode sur l'indexation de codebase — choisir l'un ou l'autre.",
+    steps: [
+      {
+        label: "Installer le package",
+        command: "uv tool install graphifyy",
+        manual: "ou pipx install graphifyy",
+      },
+      {
+        label: "Enregistrer le skill et les hooks Claude Code",
+        command: "graphify install",
+      },
+      {
+        label: "Serveur MCP (optionnel, après un premier build)",
+        manual: "python -m graphify.serve graphify-out/graph.json",
+      },
+    ],
+    conflictGroup: "memory",
+  },
+  {
+    id: "ponytail",
+    name: "Ponytail",
+    tagline: "Skill Claude Code anti-sur-ingénierie — pousse l'agent vers l'implémentation minimale nécessaire",
+    why: "Fait évaluer à l'agent une échelle de décision avant d'écrire du code (YAGNI, déjà dans le codebase ?, stdlib ?, one-liner ?...) plutôt que d'installer des dépendances ou d'écrire du boilerplate. Mesuré à ~54 % de code en moins, ~20 % moins cher, ~27 % plus rapide sur des sessions Claude Code réelles. Chevauche Karpathy Skills sur le même problème (sur-ingénierie, discipline de modification) — éviter de cumuler les deux.",
+    steps: [
+      {
+        label: "Ajouter le marketplace",
+        manual: "/plugin marketplace add DietrichGebert/ponytail  (dans une session Claude Code)",
+      },
+      {
+        label: "Installer le plugin",
+        manual: "/plugin install ponytail@ponytail  (dans une session Claude Code)",
+      },
+      {
+        label: "Configurer le mode par défaut (optionnel)",
+        manual: "export PONYTAIL_DEFAULT_MODE=full  (lite/full/ultra/off, dans ton shell profile)",
+      },
+      {
+        label: "Alternative — fichiers de règles",
+        manual: "Copier les fichiers depuis .cursor/rules/, .windsurf/rules/, .clinerules/, .github/copilot-instructions.md ou AGENTS.md selon ton éditeur/agent",
+      },
+    ],
+  },
+  {
+    id: "codeburn",
+    name: "CodeBurn",
+    tagline: "Suivi des coûts et de la consommation de tokens sur 36 outils de code IA (Claude Code, Cursor, Codex, Gemini...)",
+    why: "Utile pour voir où part réellement l'argent : répartition par modèle, projet et type de tâche, distinction entre overhead de conversation et travail de code productif, détection des patterns gaspilleurs. Complémentaire aux outils de réduction de tokens — CodeBurn mesure, il ne compresse pas.",
+    steps: [
+      {
+        label: "Installer le package npm",
+        command: "npm install -g codeburn",
+        manual: "ou via Homebrew : brew install codeburn",
+      },
+      {
+        label: "Ajouter comme serveur MCP (optionnel)",
+        manual: "claude mcp add codeburn -- npx -y codeburn mcp  (dans le terminal Claude Code)",
+      },
+    ],
+  },
+  {
+    id: "openwiki",
+    name: "OpenWiki",
+    tagline: "CLI (LangChain) qui écrit et maintient un wiki Markdown du codebase, lu comme mémoire par les agents",
+    why: "Produit une documentation lisible par un humain ET par l'agent, versionnée dans le repo (répertoire openwiki/) plutôt que dans un index binaire. Se met à jour tout seul via un workflow CI qui ouvre une PR de doc à chaque changement. Consomme des appels LLM à chaque génération — nécessite une clé de provider. Chevauche SocratiCode et Graphify sur la compréhension du codebase, mais par la doc plutôt que par l'index.",
+    steps: [
+      {
+        label: "Installer le CLI",
+        command: "npm install -g openwiki",
+      },
+      {
+        label: "Configurer une clé de provider",
+        manual: "export ANTHROPIC_API_KEY=…  (ou OPENAI_API_KEY / GEMINI_API_KEY / OPENROUTER_API_KEY) — openwiki la persiste dans ~/.openwiki/.env",
+      },
+      {
+        label: "Générer le wiki du projet",
+        manual: "openwiki --init  (long, consomme des tokens ; puis 'openwiki --update' pour rafraîchir)",
+      },
+      {
+        label: "Mise à jour automatique en CI (optionnel)",
+        manual: "Copier openwiki-update.yml dans .github/workflows/ — ouvre une PR de doc quand le code change",
+      },
+    ],
+    conflictGroup: "memory",
+  },
 ];
 
 // Maps Integration.name (from scanner) to a catalogue ToolId.
@@ -180,6 +268,10 @@ export const INTEGRATION_TO_TOOL: Record<string, ToolId> = {
   "ECC": "ecc",
   "SocratiCode": "socraticode",
   "Andrej Karpathy Skills": "karpathy-skills",
+  "Graphify": "graphify",
+  "Ponytail": "ponytail",
+  "CodeBurn": "codeburn",
+  "OpenWiki": "openwiki",
 };
 
 // Default pick per conflict group when nothing is detected (easiest / least infra first).
@@ -229,6 +321,13 @@ export function getConflicts(ids: ToolId[]): { group: ConflictGroup; picks: Tool
     result.push({
       group: { id: "ecc-caveman", label: "ECC + Caveman", note: "ECC inclut déjà un mécanisme de réduction de verbosité similaire à Caveman.", maxPick: 1 },
       picks: ["ecc", "caveman"],
+    });
+  }
+  // Ponytail + Karpathy Skills conflict (both target over-engineering/scope discipline)
+  if (ids.includes("ponytail") && ids.includes("karpathy-skills")) {
+    result.push({
+      group: { id: "ponytail-karpathy", label: "Ponytail + Karpathy Skills", note: "Les deux ciblent la sur-ingénierie et la discipline de modification — risque de règles redondantes ou contradictoires.", maxPick: 1 },
+      picks: ["ponytail", "karpathy-skills"],
     });
   }
   return result;
