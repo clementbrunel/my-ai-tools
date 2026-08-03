@@ -9,6 +9,7 @@ import { detectSocratiCode } from "./socraticode.js";
 import { detectKarpathySkills } from "./karpathy-skills.js";
 import { detectGraphify } from "./graphify.js";
 import { detectPonytail } from "./ponytail.js";
+import { detectCodeBurn } from "./codeburn.js";
 
 export function scanIntegrations(
   projectPath: string,
@@ -26,5 +27,6 @@ export function scanIntegrations(
     detectKarpathySkills(absPath),
     detectGraphify(absPath, mcpServers),
     detectPonytail(absPath),
+    detectCodeBurn(mcpServers),
   ];
 }

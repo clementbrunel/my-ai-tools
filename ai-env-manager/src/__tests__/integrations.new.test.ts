@@ -8,6 +8,7 @@ import { detectSocratiCode } from "../scanner/integrations/socraticode.js";
 import { detectKarpathySkills } from "../scanner/integrations/karpathy-skills.js";
 import { detectGraphify } from "../scanner/integrations/graphify.js";
 import { detectPonytail } from "../scanner/integrations/ponytail.js";
+import { detectCodeBurn } from "../scanner/integrations/codeburn.js";
 import type { McpServer } from "../types.js";
 
 function makeTempDir(): { dir: string; cleanup: () => void } {
@@ -275,5 +276,19 @@ describe("detectPonytail", () => {
     } finally {
       cleanup();
     }
+  });
+});
+
+// --- detectCodeBurn ---
+
+describe("detectCodeBurn", () => {
+  it("returns detected: false when no MCP server, binary, or config file is present", () => {
+    const result = detectCodeBurn([]);
+    expect(result.detected).toBe(false);
+  });
+
+  it("returns detected: true when an MCP server named 'codeburn' is present", () => {
+    const result = detectCodeBurn([mockMcp("codeburn")]);
+    expect(result.detected).toBe(true);
   });
 });
