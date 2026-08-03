@@ -102,6 +102,20 @@ export const HOOK_PROVIDER_CATALOGUE: Record<string, HookProviderInfo> = {
     name: "RTK (Rust Token Killer)",
     description: "CLI proxy compressing command output — no hooks registered, operates as transparent wrapper",
   },
+
+  // ---------------------------------------------------------------------------
+  // Graphify  (graphify)
+  // Codebase-to-knowledge-graph tool. `graphify install` writes a Claude Code
+  // skill (.claude/skills/graphify/SKILL.md) plus a PreToolUse hook so the
+  // graph gets consulted before file-search-style tool calls.
+  // ---------------------------------------------------------------------------
+  graphify: {
+    name: "Graphify",
+    description: "Surfaces knowledge-graph context before file-search tool calls",
+    events: {
+      PreToolUse: "Checks the built graph for relevant nodes/edges before a search-style tool call runs",
+    },
+  },
 };
 
 /**
