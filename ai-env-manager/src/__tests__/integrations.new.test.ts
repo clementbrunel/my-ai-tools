@@ -6,6 +6,7 @@ import { detectHeadroom } from "../scanner/integrations/headroom.js";
 import { detectEcc } from "../scanner/integrations/ecc.js";
 import { detectSocratiCode } from "../scanner/integrations/socraticode.js";
 import { detectKarpathySkills } from "../scanner/integrations/karpathy-skills.js";
+import { detectGraphify } from "../scanner/integrations/graphify.js";
 import type { McpServer } from "../types.js";
 
 function makeTempDir(): { dir: string; cleanup: () => void } {
@@ -163,6 +164,55 @@ describe("detectKarpathySkills", () => {
       writeFileSync(join(dir, "CLAUDE.md"), "# Project\nFollowing the karpathy guidelines for surgical changes.\n");
       const result = detectKarpathySkills(dir);
       expect(result.detected).toBe(true);
+    } finally {
+      cleanup();
+    }
+  });
+});
+
+// --- detectGraphify ---
+
+describe("detectGraphify", () => {
+  it("returns detected: false for an empty project with no MCP servers", () => {
+    const { dir, cleanup } = makeTempDir();
+    try {
+      const result = detectGraphify(dir, []);
+      expect(result.detected).toBe(false);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("returns detected: true when an MCP server named 'graphify' is present", () => {
+    const { dir, cleanup } = makeTempDir();
+    try {
+      const result = detectGraphify(dir, [mockMcp("graphify")]);
+      expect(result.detected).toBe(true);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("returns detected: true when .claude/skills/graphify/SKILL.md exists", () => {
+    const { dir, cleanup } = makeTempDir();
+    try {
+      mkdirSync(join(dir, ".claude", "skills", "graphify"), { recursive: true });
+      writeFileSync(join(dir, ".claude", "skills", "graphify", "SKILL.md"), "# Graphify\n");
+      const result = detectGraphify(dir, []);
+      expect(result.detected).toBe(true);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("warns when detected but no graph has been built yet", () => {
+    const { dir, cleanup } = makeTempDir();
+    try {
+      writeFileSync(join(dir, ".graphifyignore"), "node_modules/\n");
+      const result = detectGraphify(dir, []);
+      expect(result.detected).toBe(true);
+      expect(result.status).toBe("warning");
+      expect(result.diagnostics.some((d) => d.includes("No graph built yet"))).toBe(true);
     } finally {
       cleanup();
     }
