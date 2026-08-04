@@ -33,6 +33,12 @@ describe("getToolById", () => {
     expect(tool).toBeDefined();
     expect(tool!.conflictGroup).toBe("memory");
   });
+
+  it("returns the codealmanac tool in the memory conflict group", () => {
+    const tool = getToolById("codealmanac");
+    expect(tool).toBeDefined();
+    expect(tool!.conflictGroup).toBe("memory");
+  });
 });
 
 // --- suggestMissing ---
@@ -62,6 +68,12 @@ describe("suggestMissing", () => {
 
   it("does not suggest the memory group default when Graphify is already detected", () => {
     const result = suggestMissing(["Graphify"]);
+    expect(result).not.toContain("mempalace");
+    expect(result).toContain("caveman");
+  });
+
+  it("does not suggest the memory group default when CodeAlmanac is already detected", () => {
+    const result = suggestMissing(["CodeAlmanac"]);
     expect(result).not.toContain("mempalace");
     expect(result).toContain("caveman");
   });
@@ -114,6 +126,19 @@ describe("getConflicts", () => {
     const conflicts = getConflicts(["ponytail", "karpathy-skills"] as ToolId[]);
     const conflict = conflicts.find((c) => c.group.id === "ponytail-karpathy");
     expect(conflict).toBeDefined();
+  });
+
+  it("detects conflict when codealmanac and openwiki are both selected", () => {
+    const conflicts = getConflicts(["codealmanac", "openwiki"] as ToolId[]);
+    const memoryConflict = conflicts.find((c) => c.group.id === "memory");
+    expect(memoryConflict).toBeDefined();
+    expect(memoryConflict!.picks).toContain("codealmanac");
+    expect(memoryConflict!.picks).toContain("openwiki");
+  });
+
+  it("reports no conflict for codealmanac alone", () => {
+    const conflicts = getConflicts(["codealmanac"] as ToolId[]);
+    expect(conflicts).toHaveLength(0);
   });
 
   it("reports no conflict for ponytail alone", () => {

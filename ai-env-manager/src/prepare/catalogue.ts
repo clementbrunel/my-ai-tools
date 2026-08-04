@@ -1,4 +1,4 @@
-export type ToolId = "rtk" | "headroom" | "caveman" | "mempalace" | "socraticode" | "ecc" | "karpathy-skills" | "graphify" | "ponytail" | "codeburn" | "openwiki";
+export type ToolId = "rtk" | "headroom" | "caveman" | "mempalace" | "socraticode" | "ecc" | "karpathy-skills" | "graphify" | "ponytail" | "codeburn" | "openwiki" | "codealmanac";
 
 export interface InstallStep {
   label: string;
@@ -32,7 +32,7 @@ export const CONFLICT_GROUPS: ConflictGroup[] = [
   {
     id: "memory",
     label: "Mémoire projet",
-    note: "MemPalace = notes que tu rédiges. SocratiCode = indexation auto du code par embeddings (Docker requis). Graphify = indexation auto du code par graphe déterministe AST (pas de Docker, inclut docs/PDF). OpenWiki = documentation Markdown générée par agent, versionnée dans le repo. Compatibles sur un grand codebase inconnu, redondants sinon.",
+    note: "MemPalace = notes que tu rédiges. SocratiCode = indexation auto du code par embeddings (Docker requis). Graphify = indexation auto du code par graphe déterministe AST (pas de Docker, inclut docs/PDF). OpenWiki = documentation Markdown générée par agent, versionnée dans le repo. CodeAlmanac = wiki Markdown versionné aussi, mais alimenté en continu par ce que tes sessions d'agent apprennent (macOS uniquement). Compatibles sur un grand codebase inconnu, redondants sinon.",
     maxPick: 1,
   },
 ];
@@ -257,6 +257,33 @@ export const CATALOGUE: CatalogueTool[] = [
     ],
     conflictGroup: "memory",
   },
+  {
+    id: "codealmanac",
+    name: "CodeAlmanac",
+    tagline: "Wiki de codebase maintenu par les agents — décisions, flux, invariants, pièges, en Markdown dans le repo",
+    why: "Capture ce que le code ne dit pas (pourquoi telle décision, ce qui a déjà cassé, quels invariants comptent) plutôt que de ré-indexer le code lui-même. Se nourrit automatiquement de tes sessions Claude Code / Codex : un job local relit les conversations toutes les 5 h et en extrait ce qui mérite d'être écrit. Tout reste local et versionné dans le repo (répertoire almanac/), relu en PR comme du code. Réutilise l'authentification de ton agent existant — pas de clé API séparée. Limites : macOS uniquement pour l'instant, et Python 3.12+ requis. Chevauche OpenWiki (même approche wiki Markdown) et SocratiCode/Graphify (compréhension du codebase) — en choisir un seul.",
+    steps: [
+      {
+        label: "Installer le CLI",
+        command: "uv tool install codealmanac@latest",
+        manual: "Nécessite Python 3.12+ et uv (https://docs.astral.sh/uv/) ; macOS uniquement pour l'instant",
+      },
+      {
+        label: "Configurer le runner et les jobs d'automatisation",
+        manual: "codealmanac setup --yes --runner claude  (sans --runner, Codex est choisi par défaut ; installe 3 jobs launchd : sync 5 h, garden 24 h, update 24 h)",
+      },
+      {
+        label: "Créer le wiki dans le projet",
+        command: "codealmanac init",
+        manual: "Scaffolde almanac/ (topics.yaml, architecture/, decisions/, guides/) — à committer",
+      },
+      {
+        label: "Désactiver la télémétrie (optionnel)",
+        manual: "export DO_NOT_TRACK=1  (dans ton shell profile) — ou 'codealmanac config set telemetry.enabled false'",
+      },
+    ],
+    conflictGroup: "memory",
+  },
 ];
 
 // Maps Integration.name (from scanner) to a catalogue ToolId.
@@ -272,6 +299,7 @@ export const INTEGRATION_TO_TOOL: Record<string, ToolId> = {
   "Ponytail": "ponytail",
   "CodeBurn": "codeburn",
   "OpenWiki": "openwiki",
+  "CodeAlmanac": "codealmanac",
 };
 
 // Default pick per conflict group when nothing is detected (easiest / least infra first).

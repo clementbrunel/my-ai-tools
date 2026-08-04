@@ -1,6 +1,6 @@
 # Context-window tools — quick comparison
 
-Five tools spotted as potential additions to a Claude Code AI workspace setup.
+Six tools spotted as potential additions to a Claude Code AI workspace setup.
 They each attack a different slice of the "context problem", but their scopes overlap
 enough that running all of them simultaneously would likely produce redundancy and
 configuration friction. Notes below to inform the choice.
@@ -137,18 +137,54 @@ index — humans read it too, and `git diff` shows how the understanding changed
 
 ---
 
+## 6. CodeAlmanac — `AlmanacCode/codealmanac`
+
+**What it does**: A codebase wiki for AI agents, aimed at what the code itself
+cannot state — why a design was chosen, what broke before, which invariants
+matter, how a workflow crosses files and services. Same committed-Markdown
+artefact as OpenWiki, but the writing is sourced from your *agent sessions*
+rather than from a pass over the source tree.
+
+**Key mechanics**
+- `codealmanac setup` picks a runner (Codex by default, `--runner claude` for
+  Claude Code), installs agent instructions, and registers three local
+  `launchd` jobs: sync (5 h), garden (24 h), update (24 h).
+- The sync job reads existing Codex/Claude conversations and ingests what is
+  worth keeping — the wiki grows as a by-product of normal work rather than
+  from an explicit regeneration command.
+- `codealmanac init` scaffolds `almanac/` (`topics.yaml`, `architecture/`,
+  `decisions/`, `guides/`); `.almanac.yaml` holds repo-level settings.
+- Reuses the existing agent's authentication, so there is no separate provider
+  key; indexing and agent execution stay on the machine (`~/.codealmanac/`).
+- `codealmanac serve` opens a local wiki viewer; `search`/`show` query it. No
+  MCP server and no Claude Code plugin — the integration is the agent
+  instructions plus the committed Markdown.
+- Constraints: macOS only for now, Python 3.12+, installed from PyPI via
+  `uv tool install` (the old npm CLI is retired). `DO_NOT_TRACK=1` opts out of
+  telemetry.
+
+**Detection signals in `ai-env-manager`**
+- `codealmanac` binary in PATH
+- `almanac/topics.yaml` (or `almanac/README.md`) at project root
+- `.almanac.yaml` file at project root
+- `codealmanac` mentioned in `CLAUDE.md` or `AGENTS.md`
+- `~/.codealmanac/config.toml` and `~/.codealmanac/codealmanac.db`
+
+---
+
 ## Comparison at a glance
 
-| Dimension            | Headroom              | ECC                       | SocratiCode             | Graphify                | OpenWiki                |
-|----------------------|-----------------------|---------------------------|-------------------------|--------------------------|-------------------------|
-| Primary lever        | Compress inputs       | Orchestrate agent behaviour | Index codebase          | Index codebase + docs   | Write codebase docs     |
-| Deployment           | Binary / proxy / MCP  | Plugin (all-in-one)       | MCP via Docker          | CLI + skill + MCP       | CLI + CI workflow       |
-| Scope                | Any content type      | AI harness configuration  | Code understanding only | Code + docs/PDF         | Code understanding only |
-| Requires setup       | Minimal               | Opinionated / large       | Docker required         | Minimal (no Docker)     | Minimal + provider key  |
-| Cross-tool           | Yes (any LLM)         | Yes (multi-harness)       | Yes (via MCP)           | Yes (15+ platforms)     | Yes (CLAUDE.md/AGENTS.md) |
-| Artefact             | None (in-flight)      | Config files              | Vector index            | `graphify-out/graph.json` | `openwiki/` Markdown (committed) |
-| Recurring LLM cost   | No                    | No                        | No (local embeddings)   | No (AST parsing)        | Yes (each generation)   |
-| Overlaps with others | RTK (token reduction) | Caveman (token reduction) | Graphify, OpenWiki (codebase understanding) | SocratiCode, OpenWiki (codebase understanding) | SocratiCode, Graphify (codebase understanding) |
+| Dimension            | Headroom              | ECC                       | SocratiCode             | Graphify                | OpenWiki                | CodeAlmanac             |
+|----------------------|-----------------------|---------------------------|-------------------------|--------------------------|-------------------------|-------------------------|
+| Primary lever        | Compress inputs       | Orchestrate agent behaviour | Index codebase          | Index codebase + docs   | Write codebase docs     | Write codebase docs     |
+| Deployment           | Binary / proxy / MCP  | Plugin (all-in-one)       | MCP via Docker          | CLI + skill + MCP       | CLI + CI workflow       | CLI + launchd jobs      |
+| Scope                | Any content type      | AI harness configuration  | Code understanding only | Code + docs/PDF         | Code understanding only | Decisions, flows, invariants, gotchas |
+| Requires setup       | Minimal               | Opinionated / large       | Docker required         | Minimal (no Docker)     | Minimal + provider key  | macOS + Python 3.12+    |
+| Cross-tool           | Yes (any LLM)         | Yes (multi-harness)       | Yes (via MCP)           | Yes (15+ platforms)     | Yes (CLAUDE.md/AGENTS.md) | Claude Code or Codex   |
+| Artefact             | None (in-flight)      | Config files              | Vector index            | `graphify-out/graph.json` | `openwiki/` Markdown (committed) | `almanac/` Markdown (committed) |
+| Recurring LLM cost   | No                    | No                        | No (local embeddings)   | No (AST parsing)        | Yes (each generation)   | Yes (reuses agent auth) |
+| Fed by               | —                     | —                         | Source tree             | Source tree + docs      | Source tree             | Your agent sessions     |
+| Overlaps with others | RTK (token reduction) | Caveman (token reduction) | Graphify, OpenWiki, CodeAlmanac (codebase understanding) | SocratiCode, OpenWiki, CodeAlmanac (codebase understanding) | SocratiCode, Graphify, CodeAlmanac (codebase understanding) | OpenWiki most directly (same wiki artefact) |
 
 ## When to pick one
 
@@ -171,10 +207,18 @@ index — humans read it too, and `git diff` shows how the understanding changed
   paying LLM calls on every regeneration is acceptable; skip it if you only want
   a machine-side index, since SocratiCode and Graphify do that without recurring
   token cost.
+- **CodeAlmanac**: closest to OpenWiki — both commit a Markdown wiki — but the
+  two differ in where the content comes from. OpenWiki reads the source tree on
+  demand; CodeAlmanac harvests the sessions you already run, so it captures the
+  reasoning and the dead ends that never made it into the code. Pick it when the
+  knowledge you keep losing is *why* rather than *what*, and when macOS-only plus
+  a background daemon are acceptable; pick OpenWiki instead if you need CI-driven
+  regeneration or run on Linux.
 
 If forced to pick one for a "quick AI workspace setup": **SocratiCode,
-Graphify or OpenWiki** add a capability not covered by anything else already in
-this repo (RTK and Caveman already cover token reduction; ECC would
-replace/conflict with existing skill and hook setup) — pick whichever of the
-three matches your Docker tolerance, whether docs/PDFs matter, and whether you
-want the output readable by the team, not several.
+Graphify, OpenWiki or CodeAlmanac** add a capability not covered by anything
+else already in this repo (RTK and Caveman already cover token reduction; ECC
+would replace/conflict with existing skill and hook setup) — pick whichever of
+the four matches your Docker tolerance, whether docs/PDFs matter, whether the
+output should be readable by the team, and whether you want it fed by the source
+tree or by your own sessions, not several.
