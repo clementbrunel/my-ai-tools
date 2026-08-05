@@ -150,7 +150,7 @@ install plan that picks more than one.
 | `openwiki` | [OpenWiki](https://github.com/langchain-ai/openwiki) | Generates and maintains a Markdown wiki of the codebase, committed to the repo | `npm i -g openwiki` + provider key + optional CI workflow |
 | `codealmanac` | [CodeAlmanac](https://github.com/AlmanacCode/codealmanac) | Wiki fed by your agent sessions — decisions, invariants, gotchas | `uv tool install codealmanac` + `codealmanac setup` (macOS, Python 3.12+) |
 
-#### Ungrouped tools
+#### Ungrouped tools — `AUTRES OUTILS` *(cumulables)*
 
 No exclusivity rule applies to these — they are additive, except for the two pairwise conflicts
 listed below.
@@ -161,10 +161,6 @@ listed below.
 | `karpathy-skills` | [Andrej Karpathy Skills](https://github.com/forrestchang/andrej-karpathy-skills) | Coding-discipline guidelines: no unverified assumptions, no over-engineering, no out-of-scope edits | plugin, or drop-in `CLAUDE.md` |
 | `ponytail` | [Ponytail](https://github.com/DietrichGebert/ponytail) | Anti-over-engineering skill — forces a YAGNI decision ladder before writing code | plugin, or rule files per editor |
 | `codeburn` | [CodeBurn](https://github.com/getagentseal/codeburn) | Cost & token accounting across 36 AI coding tools — measures, does not compress | `npm i -g codeburn` + optional MCP server |
-
-> **Note** — in the current CLI rendering, the ungrouped bucket is printed under the heading
-> `FRAMEWORK TOUT-EN-UN`, which dates from when `ecc` was the only ungrouped entry. The data model
-> (`conflictGroup: undefined`) is what actually drives behaviour; the heading is cosmetic.
 
 ### Conflict rules
 
