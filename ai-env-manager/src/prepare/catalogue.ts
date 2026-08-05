@@ -249,7 +249,7 @@ export const CATALOGUE: CatalogueTool[] = [
       },
       {
         label: "Configurer une clé de provider",
-        manual: "export ANTHROPIC_API_KEY=…  (ou OPENAI_API_KEY / GEMINI_API_KEY / OPENROUTER_API_KEY) — openwiki la persiste dans ~/.openwiki/.env. Il faut une vraie clé API (console.anthropic.com) : l'auth OAuth d'un abonnement Claude Code ne convient pas",
+        manual: "export ANTHROPIC_API_KEY=…  (ou OPENAI_API_KEY / GEMINI_API_KEY / OPENROUTER_API_KEY) — openwiki la persiste dans ~/.openwiki/.env. Il faut une clé API console.anthropic.com ET du crédit API sur l'organisation qui la possède : un abonnement Claude Pro/Max est facturé séparément et ne finance pas les appels par clé ('credit balance is too low')",
       },
       {
         label: "Générer le wiki du projet",
