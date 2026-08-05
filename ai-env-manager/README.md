@@ -1,6 +1,6 @@
 # ai-env-manager
 
-Scans, diagnoses, and manages your Claude Code / AI environment: prints a status report in the terminal (optionally writes a Markdown report to a file), checks for tool updates, and offers a catalogue of recommended tools with guided or automated installation.
+Scans, diagnoses, and manages your Claude Code / AI environment: prints a status report in the terminal (optionally writes a Markdown report to a file), checks for tool updates, offers a catalogue of recommended tools with guided or automated installation, and migrates the whole environment to a Mistral configuration.
 
 ## What it detects
 
@@ -42,7 +42,41 @@ npx ai-env-manager prepare --path /path/to/project
 
 # Install specific tools from the catalogue
 npx ai-env-manager prepare --with rtk,mempalace --install
+
+# Preview the Claude → Mistral migration (no file is written)
+npx ai-env-manager migrate --path /path/to/project
+
+# Write the migration to ~/.mistral (or elsewhere with --out)
+npx ai-env-manager migrate --write --out ~/.mistral
 ```
+
+## Claude → Mistral migration
+
+`migrate` converts a scanned Claude Code environment into a Mistral-shaped YAML
+configuration. It reuses the scanner, so it sees every source the scan does
+(`.mcp.json`, project and user `settings.json`, `claude_desktop_config.json`),
+not just a single config file.
+
+| File | Contents |
+|---|---|
+| `config.yaml` | Migration provenance, model slot, context files |
+| `mcps.yaml` | One entry per MCP server: transport, command/args or url, env placeholders, origin |
+| `skills.yaml` | One entry per detected integration |
+| `migration_report.yaml` | Statistics, what needs review, what was not migrated |
+
+Behaviour worth knowing:
+
+- **Preview by default.** Nothing is written until you pass `--write`, same as
+  `prepare --install`.
+- **No secrets on disk.** The scanner only ever reads env var *names*, so MCP
+  env blocks are emitted as `${NAME}` placeholders.
+- **Backups.** `--write` copies any file it is about to replace into
+  `<out>/backups/<timestamp>/` before overwriting.
+- **Nothing is dropped silently.** Hooks have no Mistral equivalent, so they are
+  listed under `not_migrated` with a reason. Broken MCP servers are migrated
+  as-is and flagged under `needs_review`.
+- **The model is not guessed.** `mistral_model` is left `null` for you to fill in;
+  the Claude model is recorded next to it for reference.
 
 ## Example output
 
@@ -124,6 +158,11 @@ src/
     catalogue.ts               — Recommended tools catalogue & conflict rules
     installer.ts               — Automated install execution
     render.ts                  — Catalogue, install plan & suggestion rendering
+  migrate/
+    bundle.ts                  — ScanResult → Mistral config/mcps/skills/report
+    yaml.ts                    — Dependency-free block-YAML serializer
+    writer.ts                  — File writing with backup of replaced files
+    render.ts                  — Migration plan & write result rendering
 ```
 
 ## License
