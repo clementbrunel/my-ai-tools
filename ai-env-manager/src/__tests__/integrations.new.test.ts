@@ -10,6 +10,7 @@ import { detectGraphify } from "../scanner/integrations/graphify.js";
 import { detectPonytail } from "../scanner/integrations/ponytail.js";
 import { detectCodeBurn } from "../scanner/integrations/codeburn.js";
 import { detectOpenwiki } from "../scanner/integrations/openwiki.js";
+import { detectCodealmanac } from "../scanner/integrations/codealmanac.js";
 import type { McpServer } from "../types.js";
 
 function makeTempDir(): { dir: string; cleanup: () => void } {
@@ -362,6 +363,70 @@ describe("detectOpenwiki", () => {
       expect(result.detected).toBe(true);
       expect(result.status).not.toBe("ok");
       expect(result.diagnostics.some((d) => d.includes("No wiki generated yet"))).toBe(true);
+    } finally {
+      cleanup();
+    }
+  });
+});
+
+// --- detectCodealmanac ---
+
+describe("detectCodealmanac", () => {
+  it("returns detected: false for an empty project", () => {
+    const { dir, cleanup } = makeTempDir();
+    try {
+      const result = detectCodealmanac(dir);
+      expect(result.detected).toBe(false);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("returns detected: true when almanac/topics.yaml exists", () => {
+    const { dir, cleanup } = makeTempDir();
+    try {
+      mkdirSync(join(dir, "almanac"), { recursive: true });
+      writeFileSync(join(dir, "almanac", "topics.yaml"), "topics: []\n");
+      const result = detectCodealmanac(dir);
+      expect(result.detected).toBe(true);
+      expect(result.source).toContain("almanac/topics.yaml");
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("returns detected: true when .almanac.yaml exists at project root", () => {
+    const { dir, cleanup } = makeTempDir();
+    try {
+      writeFileSync(join(dir, ".almanac.yaml"), "wikis: []\n");
+      const result = detectCodealmanac(dir);
+      expect(result.detected).toBe(true);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("returns detected: true when CLAUDE.md references codealmanac", () => {
+    const { dir, cleanup } = makeTempDir();
+    try {
+      writeFileSync(join(dir, "CLAUDE.md"), "# Project\nRun codealmanac search before editing.\n");
+      const result = detectCodealmanac(dir);
+      expect(result.detected).toBe(true);
+      expect(result.source).toContain("referenced in CLAUDE.md");
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("does not confuse a plain almanac/ directory for a generated wiki", () => {
+    const { dir, cleanup } = makeTempDir();
+    try {
+      writeFileSync(join(dir, ".almanac.yaml"), "wikis: []\n");
+      mkdirSync(join(dir, "almanac"), { recursive: true });
+      const result = detectCodealmanac(dir);
+      expect(result.detected).toBe(true);
+      expect(result.status).not.toBe("ok");
+      expect(result.diagnostics.some((d) => d.includes("No wiki in this project yet"))).toBe(true);
     } finally {
       cleanup();
     }

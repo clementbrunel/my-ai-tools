@@ -11,6 +11,7 @@ import { detectGraphify } from "./graphify.js";
 import { detectPonytail } from "./ponytail.js";
 import { detectCodeBurn } from "./codeburn.js";
 import { detectOpenwiki } from "./openwiki.js";
+import { detectCodealmanac } from "./codealmanac.js";
 
 export function scanIntegrations(
   projectPath: string,
@@ -30,5 +31,6 @@ export function scanIntegrations(
     detectPonytail(absPath),
     detectCodeBurn(mcpServers),
     detectOpenwiki(absPath),
+    detectCodealmanac(absPath),
   ];
 }
