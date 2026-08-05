@@ -67,6 +67,7 @@ Copier `.env.example` → `.env`.
 - **Migrations** : Flyway avec auto-repair activé
 - **Email** : Resend API — vérification compte, reset password, rappels de match
 - **Scheduling** : rappels email et settlement automatique des gages quotidiens
+- **APIs externes** : table `external_apis` (code, sport, base_url) — registre des fournisseurs de données, un par sport. `jolpica-f1` alimente la F1, `API-Football` le foot. Les deux clients résolvent leur base URL depuis ce registre au premier appel, avec repli sur `application.yml`. Les dates fournisseur sont converties via `AppTime.APP_ZONE` (Europe/Paris), jamais tronquées.
 
 ## Frontend
 

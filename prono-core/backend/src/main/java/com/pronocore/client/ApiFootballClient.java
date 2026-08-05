@@ -3,6 +3,7 @@ package com.pronocore.client;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pronocore.config.ApiFootballProperties;
+import com.pronocore.util.AppTime;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -39,14 +40,6 @@ public class ApiFootballClient {
 
     public static final Set<String> FINISHED_STATUSES = Set.of("FT", "AET", "PEN");
     public static final Set<String> LIVE_STATUSES     = Set.of("1H", "HT", "2H", "ET", "BT", "P", "SUSP", "INT", "LIVE");
-
-    /**
-     * App times are stored as Paris local time — same convention as
-     * {@code F1SyncService} and the {@code TZ} set on the backend container.
-     * api-football returns offset-qualified instants, so they are converted
-     * here rather than truncated.
-     */
-    private static final ZoneId APP_ZONE = ZoneId.of("Europe/Paris");
 
     private static final DateTimeFormatter API_DT = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 
@@ -171,7 +164,7 @@ public class ApiFootballClient {
     /** Converts an offset-qualified api-football instant to the app's local wall time. */
     private static LocalDateTime toAppZone(String isoOffsetDateTime) {
         return OffsetDateTime.parse(isoOffsetDateTime, API_DT)
-                .atZoneSameInstant(APP_ZONE)
+                .atZoneSameInstant(AppTime.APP_ZONE)
                 .toLocalDateTime();
     }
 

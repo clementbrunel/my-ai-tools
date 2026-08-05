@@ -1,5 +1,7 @@
 package com.pronocore.service.f1;
 
+import com.pronocore.client.ExternalApiRegistry;
+import com.pronocore.entity.ExternalApi;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
@@ -13,19 +15,38 @@ import java.time.Duration;
 @Component
 public class HttpJolpicaClient implements JolpicaClient {
 
-    private final RestClient restClient;
+    private final ExternalApiRegistry registry;
+    private final String configuredBaseUrl;
 
-    public HttpJolpicaClient(@Value("${f1.jolpica.base-url}") String baseUrl) {
-        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
-        requestFactory.setConnectTimeout(Duration.ofSeconds(10));
-        requestFactory.setReadTimeout(Duration.ofSeconds(20));
-        this.restClient = RestClient.builder()
-                .baseUrl(baseUrl)
-                .requestFactory(requestFactory)
-                // Some CDNs reject the default Java agent; jolpica also expects JSON.
-                .defaultHeader("User-Agent", "prono-core/1.0 (F1 pronostics; +https://github.com/clementbrunel/my-ai-tools)")
-                .defaultHeader("Accept", "application/json")
-                .build();
+    /** Built on first use: the registry is seeded by Flyway and cannot be read at construction. */
+    private volatile RestClient restClient;
+
+    public HttpJolpicaClient(ExternalApiRegistry registry,
+                             @Value("${f1.jolpica.base-url}") String configuredBaseUrl) {
+        this.registry          = registry;
+        this.configuredBaseUrl = configuredBaseUrl;
+    }
+
+    private RestClient restClient() {
+        RestClient local = restClient;
+        if (local != null) return local;
+        synchronized (this) {
+            if (restClient == null) {
+                String baseUrl = registry.baseUrlOr(ExternalApi.JOLPICA_CODE, configuredBaseUrl);
+                log.info("jolpica base URL resolved to {}", baseUrl);
+                SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+                requestFactory.setConnectTimeout(Duration.ofSeconds(10));
+                requestFactory.setReadTimeout(Duration.ofSeconds(20));
+                restClient = RestClient.builder()
+                        .baseUrl(baseUrl)
+                        .requestFactory(requestFactory)
+                        // Some CDNs reject the default Java agent; jolpica also expects JSON.
+                        .defaultHeader("User-Agent", "prono-core/1.0 (F1 pronostics; +https://github.com/clementbrunel/my-ai-tools)")
+                        .defaultHeader("Accept", "application/json")
+                        .build();
+            }
+            return restClient;
+        }
     }
 
     /** GETs the path, retrying twice on 429/5xx (jolpica rate-limits unauthenticated bursts). */
@@ -38,7 +59,7 @@ public class HttpJolpicaClient implements JolpicaClient {
         while (true) {
             attempts++;
             try {
-                return restClient.get().uri(uri).retrieve().body(String.class);
+                return restClient().get().uri(uri).retrieve().body(String.class);
             } catch (RestClientResponseException e) {
                 boolean retryable = e.getStatusCode().value() == 429 || e.getStatusCode().is5xxServerError();
                 if (!retryable || attempts >= 3) {

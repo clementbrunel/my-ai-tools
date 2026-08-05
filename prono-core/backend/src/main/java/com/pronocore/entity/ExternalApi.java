@@ -16,6 +16,9 @@ public class ExternalApi {
     /** Registry code of the provider backing {@code match_external_links.api_football_fixture_id}. */
     public static final String API_FOOTBALL_CODE = "API-FOOTBALL";
 
+    /** Registry code of the jolpica-f1 provider feeding races, grids and results. */
+    public static final String JOLPICA_CODE = "JOLPICA";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

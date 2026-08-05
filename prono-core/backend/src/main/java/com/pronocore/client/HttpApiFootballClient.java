@@ -1,6 +1,7 @@
 package com.pronocore.client;
 
 import com.pronocore.config.ApiFootballProperties;
+import com.pronocore.entity.ExternalApi;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
@@ -13,18 +14,36 @@ import java.time.Duration;
 @Component
 public class HttpApiFootballClient implements ApiFootballHttpClient {
 
-    private final RestClient restClient;
+    private final ExternalApiRegistry   registry;
+    private final ApiFootballProperties props;
 
-    public HttpApiFootballClient(ApiFootballProperties props) {
-        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(Duration.ofSeconds(10));
-        factory.setReadTimeout(Duration.ofSeconds(20));
-        this.restClient = RestClient.builder()
-                .baseUrl(props.getBaseUrl())
-                .requestFactory(factory)
-                .defaultHeader("x-apisports-key", props.getApiKey())
-                .defaultHeader("Accept", "application/json")
-                .build();
+    /** Built on first use: the registry is seeded by Flyway and cannot be read at construction. */
+    private volatile RestClient restClient;
+
+    public HttpApiFootballClient(ExternalApiRegistry registry, ApiFootballProperties props) {
+        this.registry = registry;
+        this.props    = props;
+    }
+
+    private RestClient restClient() {
+        RestClient local = restClient;
+        if (local != null) return local;
+        synchronized (this) {
+            if (restClient == null) {
+                String baseUrl = registry.baseUrlOr(ExternalApi.API_FOOTBALL_CODE, props.getBaseUrl());
+                log.info("api-football base URL resolved to {}", baseUrl);
+                SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+                factory.setConnectTimeout(Duration.ofSeconds(10));
+                factory.setReadTimeout(Duration.ofSeconds(20));
+                restClient = RestClient.builder()
+                        .baseUrl(baseUrl)
+                        .requestFactory(factory)
+                        .defaultHeader("x-apisports-key", props.getApiKey())
+                        .defaultHeader("Accept", "application/json")
+                        .build();
+            }
+            return restClient;
+        }
     }
 
     /** GETs the path, retrying twice on 429/5xx (api-football throttles bursts and daily quota). */
@@ -35,7 +54,7 @@ public class HttpApiFootballClient implements ApiFootballHttpClient {
         while (true) {
             attempts++;
             try {
-                return restClient.get().uri(uri).retrieve().body(String.class);
+                return restClient().get().uri(uri).retrieve().body(String.class);
             } catch (RestClientResponseException e) {
                 boolean retryable = e.getStatusCode().value() == 429 || e.getStatusCode().is5xxServerError();
                 if (!retryable || attempts >= 3) {
