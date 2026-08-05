@@ -6,7 +6,7 @@ A personal collection of AI development tools for inspecting, diagnosing, and op
 
 | Tool                                  | Description                                                                                                                |
 |---------------------------------------|----------------------------------------------------------------------------------------------------------------------------|
-| [`ai-env-manager`](./ai-env-manager/) | Scans and diagnoses your Claude Code / AI environment, checks for tool updates, and manages a catalogue of recommended tools with guided or automated installation |
+| [`ai-env-manager`](./ai-env-manager/) | Scans and diagnoses your Claude Code / AI environment, checks for tool updates, manages a catalogue of recommended tools with guided or automated installation, and verifies afterwards that the requested tools really work in the target folder |
 | [`mistral-chat`](./mistral-chat/)     | Interactive CLI REPL to chat with an enterprise Mistral instance, authenticating via Chrome/Edge browser session cookies   |
 | [`mottaret-watch`](./mottaret-watch/) | Python script (Docker + Synology Task Scheduler) that scrapes rental availability for Méribel Mottaret Les Bleuets and sends email alerts via Resend |
 | [`prono-core`](./prono-core/)         | Full-stack World Cup 2026 betting app for friends — Java/Spring Boot + React, deployed via private Docker registry on NAS  |

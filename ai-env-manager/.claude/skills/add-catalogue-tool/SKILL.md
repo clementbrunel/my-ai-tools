@@ -93,7 +93,8 @@ plugin installed but its binary isn't on PATH).
 - Import and call the new `detect<Tool>` in `src/scanner/integrations/index.ts` (`scanIntegrations`).
 - Add `"<Integration.name>": "<ToolId>"` to `INTEGRATION_TO_TOOL` in `catalogue.ts` — this is what
   lets `suggestMissing()` recognize "this tool is already handled, don't suggest an alternative
-  from its conflict group."
+  from its conflict group." `TOOL_TO_INTEGRATION` is derived from it, so `verify` picks the new
+  tool up automatically — but only if the `Integration.name` matches exactly on both sides.
 
 ## Step 6 — Hook provider entry (only if relevant)
 
