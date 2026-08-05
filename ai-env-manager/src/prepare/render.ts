@@ -4,6 +4,9 @@ import { CATALOGUE, CONFLICT_GROUPS } from "./catalogue.js";
 
 const RULE = chalk.dim("─".repeat(72));
 
+/** Width of the id column — derived so a longer id can't push the name column out of line. */
+const ID_WIDTH = Math.max(...CATALOGUE.map((t) => t.id.length));
+
 function groupedCatalogue(): Map<string | undefined, CatalogueTool[]> {
   const groups = new Map<string | undefined, CatalogueTool[]>();
   for (const tool of CATALOGUE) {
@@ -17,10 +20,10 @@ function groupedCatalogue(): Map<string | undefined, CatalogueTool[]> {
 function renderToolEntry(tool: CatalogueTool, verbose: boolean, detected: boolean): string {
   const lines: string[] = [];
   const badge = detected ? chalk.green(" ✓ déjà installé") : "";
-  lines.push(`  ${chalk.bold.cyan(tool.id.padEnd(14))} ${chalk.white(tool.name)}${badge}`);
-  lines.push(`  ${" ".repeat(14)} ${chalk.dim(tool.tagline)}`);
+  lines.push(`  ${chalk.bold.cyan(tool.id.padEnd(ID_WIDTH))} ${chalk.white(tool.name)}${badge}`);
+  lines.push(`  ${" ".repeat(ID_WIDTH)} ${chalk.dim(tool.tagline)}`);
   if (verbose) {
-    lines.push(`  ${" ".repeat(14)} ${tool.why}`);
+    lines.push(`  ${" ".repeat(ID_WIDTH)} ${tool.why}`);
   }
   return lines.join("\n");
 }
