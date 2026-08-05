@@ -1,50 +1,51 @@
 # ai-env-manager
 
-Scans, diagnoses, and manages your Claude Code / AI environment: prints a status report in the terminal (optionally writes a Markdown report to a file), checks for tool updates, and offers a catalogue of recommended tools with guided or automated installation.
+Scans, diagnoses, and manages the AI environment of a Claude Code project — MCP servers, context
+files, hooks, and third-party AI tooling.
 
-## What it detects
+Everything the tool does falls into **three feature groups**, one per CLI command:
 
-| Component | Sources scanned |
-|---|---|
-| **Model** | `.claude/settings.json`, `~/.claude/settings.json`, `ANTHROPIC_MODEL` env var |
-| **MCP Servers** | `.mcp.json`, `.claude/settings.json`, `~/.claude/settings.json`, `claude_desktop_config.json` |
-| **Context Files** | `CLAUDE.md` (project, parent dirs, user), `.claude/` directory |
-| **Hooks** | `PreToolUse`, `PostToolUse`, `Stop`, etc. from settings |
-| **Integrations** | [MemPalace](https://www.mempalace.tech/), Caveman skill, [RTK](https://www.rtk-ai.app/), [Headroom](https://github.com/chopratejas/headroom), [ECC](https://github.com/affaan-m/ECC), [SocratiCode](https://github.com/giancarloerra/SocratiCode), [Andrej Karpathy Skills](https://github.com/forrestchang/andrej-karpathy-skills), [Graphify](https://github.com/Graphify-Labs/graphify), [Ponytail](https://github.com/DietrichGebert/ponytail), [CodeBurn](https://github.com/getagentseal/codeburn), [OpenWiki](https://github.com/langchain-ai/openwiki), [CodeAlmanac](https://github.com/AlmanacCode/codealmanac) |
-| **Env Vars** | All env vars referenced by MCP server configs |
+| # | Group | Command | What it answers |
+|---|---|---|---|
+| 1 | **Scan / diagnose** | `ai-env-manager` (default) | *What is currently wired into this project, and is any of it broken?* |
+| 2 | **Update** | `ai-env-manager update` | *Are the detected tools running an outdated version — and can they be upgraded now?* |
+| 3 | **Prepare / catalogue** | `ai-env-manager prepare` | *What should I install, what conflicts with what, and what are the exact steps?* |
 
-## What it reports
+Groups 1 and 3 share the same scan engine: `prepare` runs a scan first so it can mark catalogue
+tools as “already installed” and only suggest what is genuinely missing.
 
-- **Model**: warns if unset, errors if not Sonnet
-- **Context files**: token estimate per file (~4 chars/token), warns above 500t, errors above 1000t
-- **MCP servers**: command availability in PATH, missing API keys
-- **Hooks**: script existence and executability
-- **Integrations**: detection status, active config detail
-- **Status levels**: `ok` (green) · `warning` (yellow) · `error` (red) · `outdated` (blue)
+---
 
-## Usage
+## 1. Scan — diagnose the environment
 
-```bash
-# Scan current directory
-npx ai-env-manager
+`ai-env-manager [--path <dir>] [--output <file>]`
 
-# Scan a specific project
-npx ai-env-manager --path /path/to/project
+Reads config from disk (nothing is executed against the network except version lookups in
+`update`), builds a `ScanResult`, and renders it as an ANSI console report and/or a Markdown file.
 
-# Write a Markdown report to a file
-npx ai-env-manager --output report.md
+### What it inspects
 
-# Check for updates on detected AI tools and apply them
-npx ai-env-manager update --path /path/to/project
+| Component | Sources scanned | Checks performed |
+|---|---|---|
+| **Model** | `.claude/settings.json` → `~/.claude/settings.json` → `ANTHROPIC_MODEL` (first hit wins) | `error` if a model is configured and it is not a Sonnet variant; unset is `ok` with an informational note |
+| **MCP servers** | `.mcp.json`, `.claude/settings.json`, `~/.claude/settings.json`, `claude_desktop_config.json` (macOS / Windows / XDG paths) | stdio command resolvable in `PATH`, referenced env vars set, API-key-shaped vars flagged separately; Docker MCP gateways are expanded into their sub-server list via `docker mcp server list` |
+| **Context files** | `CLAUDE.md` (project, every parent up to `$HOME`, `~/CLAUDE.md`, `~/.claude/CLAUDE.md`), every file in `.claude/`, `.clauderc` | size + token estimate (~4 chars/token): `warning` ≥ 500t, `error` ≥ 1000t, plus a TOTAL row |
+| **Hooks** | `.claude/settings.json`, `~/.claude/settings.json` | script exists and is executable (or first token resolves in `PATH`); `mcp__<server>__<tool>` matchers are parsed into server/tool; hooks are grouped by provider executable |
+| **Integrations** | 12 detectors, see [Integration detection](#integration-detection) | detected or not, plus whether the install looks complete (binary missing, plugin without `SKILL.md`, missing provider key…) |
+| **Env vars** | every var referenced by an MCP server config | deduplicated set/missing summary |
 
-# Show the recommended tools catalogue and an install plan for missing ones
-npx ai-env-manager prepare --path /path/to/project
+### Status levels
 
-# Install specific tools from the catalogue
-npx ai-env-manager prepare --with rtk,mempalace --install
-```
+`ok` (green) · `outdated` (blue) · `warning` (yellow) · `error` (red).
 
-## Example output
+Statuses roll up worst-wins per section, and the console report ends with a grouped list of every
+error, warning and outdated component — or `All N components OK`.
+
+### Output
+
+- **Console** — ASCII tables with colour, wrapped at 48 chars per cell.
+- **Markdown** — `--output report.md` writes the same report with shields.io status badges,
+  suitable for committing or pasting into an issue.
 
 ```
   ── MODEL
@@ -62,22 +63,210 @@ npx ai-env-manager prepare --with rtk,mempalace --install
 | Path                    | Scope   | Size   | Tokens | Status  |
 +-------------------------+---------+--------+--------+---------+
 | ./CLAUDE.md             | project | 2.0 KB | 507t   | warning |
-+-------------------------+---------+--------+--------+---------+
 | ~/.claude/CLAUDE.md     | user    | 8.1 KB | 2.0kt  | error   |
+| TOTAL                   |         | 10.1KB | 2.5kt  | error   |
 +-------------------------+---------+--------+--------+---------+
 
+  ── HOOKS
++---------------+-------+--------------------------+--------+
+| Provider      | Count | Events                   | Status |
++---------------+-------+--------------------------+--------+
+| GitKraken CLI | 22    | SessionStart, PreToolUse | ok     |
+| MemPalace     | 2     | PreCompact, Stop         | ok     |
++---------------+-------+--------------------------+--------+
+
   ── INTEGRATIONS
-+-------------------------+----------+--------+--------+
-| Name                    | Detected | Detail | Status |
-+-------------------------+----------+--------+--------+
-| MemPalace               | yes      | ...    | ok     |
-| Caveman                 | yes      | full   | ok     |
-| RTK (Rust Token Killer) | yes      | —      | ok     |
-+-------------------------+----------+--------+--------+
++-------------------------+----------+---------------------+--------+
+| Name                    | Detected | Detail              | Status |
++-------------------------+----------+---------------------+--------+
+| MemPalace               | yes      | 12 drawers (arch:5) | ok     |
+| Caveman                 | yes      | full                | ok     |
+| RTK (Rust Token Killer) | yes      | —                   | ok     |
++-------------------------+----------+---------------------+--------+
 
   1 warning(s):
      • CLAUDE.md: estimated token count is high (507t ≥ 500t)
 ```
+
+---
+
+## 2. Update — keep detected tools current
+
+`ai-env-manager update [--path <dir>]`
+
+Runs a scan, then for every component that maps to a package manager:
+
+| Kind | Source of the package name | Version check | Upgrade command |
+|---|---|---|---|
+| MCP servers launched via `npx` | first non-flag arg of `args`, version pin stripped (`@scope/name@1.2.3` → `@scope/name`) | `npm list -g` vs `npm view <pkg> version` | `npm install -g <pkg>@latest` |
+| Detected integrations with a pip package | `pipPackage` on the detector — currently **MemPalace** (`mempalace`) and **Graphify** (`graphifyy`) | `pip show` vs `pip index versions` | `pip install --upgrade <pkg>` |
+
+Outdated components are re-marked `outdated` in the report (with `Update available: X → Y` as the
+first diagnostic) before the upgrades are applied, so the table shows what changed and why.
+
+---
+
+## 3. Prepare — the recommended-tools catalogue
+
+`ai-env-manager prepare [--path <dir>] [--with <ids>] [--install] [--verbose]`
+
+Two modes:
+
+- **Without `--with`** — scans the project, prints the whole catalogue with `✓ déjà installé`
+  badges, then prints a generated `--with …` command covering the groups that are not yet
+  covered.
+- **With `--with rtk,mempalace`** — validates the ids, checks conflict rules, and prints an
+  install plan. `--install` executes the runnable steps (`▶`); steps that require an interactive
+  Claude Code session (`ℹ`) are always printed rather than run.
+
+### Catalogue groupings
+
+The catalogue is organised by **conflict group** — tools inside a group solve the same problem and
+are mutually exclusive, so the CLI prints `(choisir 1)` next to the group heading and refuses an
+install plan that picks more than one.
+
+#### Group `token` — token reduction *(pick 1)*
+
+> These tools reduce what enters the context window. They overlap — one is enough.
+
+| id | Tool | What it does | Install surface |
+|---|---|---|---|
+| `rtk` | [RTK (Rust Token Killer)](https://www.rtk-ai.app/) | CLI proxy that compresses shell output before it reaches the model | `cargo install rtk` + a `PostToolUse` hook |
+| `headroom` | [Headroom](https://github.com/chopratejas/headroom) | Compresses tool outputs, RAG chunks and JSON (60–95 % claimed) | `pip install headroom`; library, HTTP proxy, or MCP server |
+| `caveman` | [Caveman](https://github.com/JuliusBrussee/caveman) | Skill that steers the model toward terse answers — zero infra | `/plugin install caveman@caveman` |
+
+#### Group `memory` — project memory & codebase knowledge *(pick 1)*
+
+> MemPalace = notes you write. SocratiCode = automatic embedding-based code indexing (Docker).
+> Graphify = deterministic AST graph, no Docker, ingests docs/PDF. OpenWiki = agent-generated
+> Markdown docs committed to the repo. CodeAlmanac = committed Markdown too, but fed continuously
+> by what your agent sessions learn (macOS only).
+
+| id | Tool | What it does | Install surface |
+|---|---|---|---|
+| `mempalace` | [MemPalace](https://www.mempalace.tech/) | Long-term memory MCP server — you decide what is remembered | `pip install mempalace` + `claude mcp add` |
+| `socraticode` | [SocratiCode](https://github.com/giancarloerra/SocratiCode) | Codebase index: hybrid vector + BM25 search, call tracing, blast-radius | Docker + `/plugin install socraticode@socraticode` |
+| `graphify` | [Graphify](https://github.com/Graphify-Labs/graphify) | Codebase → queryable knowledge graph (tree-sitter AST, no embeddings) | `uv tool install graphifyy` + `graphify install` |
+| `openwiki` | [OpenWiki](https://github.com/langchain-ai/openwiki) | Generates and maintains a Markdown wiki of the codebase, committed to the repo | `npm i -g openwiki` + provider key + optional CI workflow |
+| `codealmanac` | [CodeAlmanac](https://github.com/AlmanacCode/codealmanac) | Wiki fed by your agent sessions — decisions, invariants, gotchas | `uv tool install codealmanac` + `codealmanac setup` (macOS, Python 3.12+) |
+
+#### Ungrouped tools — `AUTRES OUTILS` *(cumulables)*
+
+No exclusivity rule applies to these — they are additive, except for the two pairwise conflicts
+listed below.
+
+| id | Tool | What it does | Install surface |
+|---|---|---|---|
+| `ecc` | [ECC (Agent Harness OS)](https://github.com/affaan-m/ECC) | All-in-one harness: 67 agents, 271 skills, hooks and rules across Claude Code / Cursor / Codex | `/plugin install ecc@ecc` |
+| `karpathy-skills` | [Andrej Karpathy Skills](https://github.com/forrestchang/andrej-karpathy-skills) | Coding-discipline guidelines: no unverified assumptions, no over-engineering, no out-of-scope edits | plugin, or drop-in `CLAUDE.md` |
+| `ponytail` | [Ponytail](https://github.com/DietrichGebert/ponytail) | Anti-over-engineering skill — forces a YAGNI decision ladder before writing code | plugin, or rule files per editor |
+| `codeburn` | [CodeBurn](https://github.com/getagentseal/codeburn) | Cost & token accounting across 36 AI coding tools — measures, does not compress | `npm i -g codeburn` + optional MCP server |
+
+### Conflict rules
+
+Two kinds, both enforced by `getConflicts()` before an install plan is printed:
+
+| Kind | Rule | Reason |
+|---|---|---|
+| Group cardinality | at most **1** tool from `token`, at most **1** from `memory` | same problem, overlapping mechanisms |
+| Pairwise special case | `ecc` + `caveman` | ECC already bundles an equivalent verbosity-reduction mechanism |
+| Pairwise special case | `ponytail` + `karpathy-skills` | both target over-engineering / edit discipline — redundant or contradictory rules |
+
+When a conflict is hit, the plan is replaced by a `CONFLITS DÉTECTÉS` block and nothing is
+installed, even with `--install`.
+
+### Suggestion engine
+
+With no `--with`, `suggestMissing()` maps detected integration names → catalogue ids
+(`INTEGRATION_TO_TOOL`), then for every conflict group with no detected member proposes the
+lowest-friction default:
+
+| Group | Default suggestion | Why |
+|---|---|---|
+| `token` | `caveman` | no infrastructure, plugin only |
+| `memory` | `mempalace` | no Docker, no automatic indexing |
+
+If every group is already covered, it prints `✓ Tous les groupes d'outils sont déjà couverts`.
+
+---
+
+## Integration detection
+
+The scanner ships 12 detectors (`src/scanner/integrations/`). Each returns *detected / not
+detected* plus the evidence that led to the verdict, so `prepare` never suggests something that is
+already there. Detection is signal-based: any single signal is enough to report the tool as
+present, and a partial install (e.g. plugin enabled but binary missing) is reported as
+`warning`/`error` with a diagnostic.
+
+| Integration | Signals checked |
+|---|---|
+| **MemPalace** | MCP server matching `mem?palace`, enabled plugin, `mempalace` binary or `python -m mempalace`; detail column shows the project's wing/drawer counts |
+| **Caveman** | enabled plugin, `.claude/skills/caveman/` (project or `~`) with a `SKILL.md`; detail shows the active level from `~/.claude/.caveman-active` |
+| **RTK** | `rtk` in `PATH`, `RTK.md`, a hook whose command mentions `rtk`, a reference in `CLAUDE.md` or `.claude/settings.json` |
+| **Headroom** | binary or `python -m headroom`, MCP server match, `.headroom.toml` (project or `~`), `HEADROOM_*` env vars, enabled plugin |
+| **ECC** | enabled plugin, MCP server match, `ECC_HOOK_PROFILE` / `ECC_SESSION_START_MAX_CHARS` / `ECC_DISABLED_HOOKS`, reference in `CLAUDE.md` or `.claude/settings.json`; detail shows the hook profile |
+| **SocratiCode** | enabled plugin, MCP server matching `socrati`, `socraticode` binary, `.socraticodeignore`, running Docker container |
+| **Andrej Karpathy Skills** | enabled plugin, `.cursor/rules/karpathy-guidelines.mdc`, reference in `CLAUDE.md` |
+| **Graphify** | `graphify` binary, MCP server match, `.claude/skills/graphify/SKILL.md`, `.graphifyignore`, `graphify-out/graph.json`, `~/.graphify/global-graph.json` |
+| **Ponytail** | enabled plugin, `~/.config/ponytail/config.json`, `PONYTAIL_DEFAULT_MODE`, rule files (`.cursor` / `.windsurf` / `.clinerules`), reference in `CLAUDE.md` / `AGENTS.md` / copilot instructions |
+| **CodeBurn** | `codeburn` binary, MCP server match, `~/.config/codeburn/{config,guard}.json` |
+| **OpenWiki** | `openwiki` binary, `openwiki/INSTRUCTIONS.md` or `openwiki/.langsmith.json`, `.openwikiignore`, `.github/workflows/openwiki-update.yml`, reference in `CLAUDE.md` / `AGENTS.md`, `~/.openwiki/` credentials & personal wiki |
+| **CodeAlmanac** | `codealmanac` binary, `almanac/topics.yaml` or `almanac/README.md`, `.almanac.yaml`, reference in `CLAUDE.md` / `AGENTS.md`, `~/.codealmanac/{config.toml,codealmanac.db}` |
+
+See [`docs/context-tools-comparison.md`](./docs/context-tools-comparison.md) for a side-by-side
+analysis of the context-window tools (Headroom, ECC, SocratiCode, Graphify, OpenWiki, CodeAlmanac)
+and guidance on picking one.
+
+### Hook provider catalogue
+
+Hooks are reported per *provider* rather than per entry: the executable name is extracted from each
+hook command and looked up in `HOOK_PROVIDER_CATALOGUE` (`src/scanner/hook-providers.ts`), which
+carries a display name, a description and per-event explanations. Known providers: **GitKraken
+CLI** (22 lifecycle events), **MemPalace** (`PreCompact`, `Stop`), **Caveman** (`SessionStart`,
+`UserPromptSubmit`), **Graphify** (`PreToolUse`), **RTK** (no hooks — CLI wrapper). Unknown
+providers still show up, keyed by their executable name.
+
+---
+
+## CLI reference
+
+```bash
+# Scan the current directory
+npx ai-env-manager
+
+# Scan another project
+npx ai-env-manager --path /path/to/project
+
+# Write a Markdown report
+npx ai-env-manager --output report.md
+
+# Check and apply updates on detected tools
+npx ai-env-manager update --path /path/to/project
+
+# Show the catalogue + a suggestion based on what is missing
+npx ai-env-manager prepare --path /path/to/project
+
+# Full descriptions instead of just taglines
+npx ai-env-manager prepare --verbose
+
+# Show the install plan for specific tools (dry-run)
+npx ai-env-manager prepare --with rtk,mempalace
+
+# Actually run the shell steps
+npx ai-env-manager prepare --with rtk,mempalace --install
+```
+
+| Command | Option | Description |
+|---|---|---|
+| *(default)* | `-p, --path <dir>` | project directory to scan (default `.`) |
+| *(default)* | `-o, --output <file>` | write the Markdown report to a file |
+| `update` | `-p, --path <dir>` | project directory to scan |
+| `prepare` | `-p, --path <dir>` | project directory to scan |
+| `prepare` | `--with <ids>` | comma-separated catalogue ids |
+| `prepare` | `--install` | execute the runnable steps |
+| `prepare` | `--verbose` | print full `why` descriptions in the catalogue |
+
+---
 
 ## Getting started
 
@@ -89,42 +278,65 @@ npm run build
 node dist/index.js --path /your/project
 ```
 
+Development commands:
+
+```bash
+npm run build     # TS → dist/
+npm run dev       # build + run
+npm start         # run dist/index.js
+npm test          # vitest run
+npm run test:watch
+```
+
 ## Project structure
 
 ```
 src/
-  index.ts                    — CLI entry point
-  types.ts                    — Shared type definitions
+  index.ts                    — CLI entry point (3 commands: scan / update / prepare)
+  types.ts                    — Shared type definitions (ScanResult and its parts)
+  utils.ts                    — JSON parsing, PATH lookup, API-key heuristic, plugin detection
   scanner/
-    model.ts                  — Model check
-    mcp.ts                    — MCP server detection & validation
-    context.ts                — Context file detection + token estimation
-    hooks.ts                  — Hooks configuration scanning
-    hook-providers.ts         — Known hook provider metadata
+    run.ts                    — Orchestrates a full scan into a ScanResult
+    model.ts                  — Model resolution & check
+    mcp.ts                    — MCP server detection, env-var checks, Docker gateway expansion
+    context.ts                — Context file discovery + token estimation
+    hooks.ts                  — Hook parsing, script validation, mcp__ matcher parsing
+    hook-providers.ts         — Known hook provider metadata (per-event descriptions)
     env.ts                    — Environment variable aggregation
     integrations/
-      index.ts                — Integration orchestrator
-      mempalace.ts            — MemPalace detection
-      caveman.ts              — Caveman skill detection
-      rtk.ts                  — RTK detection
-      headroom.ts             — Headroom detection
-      ecc.ts                  — ECC detection
-      socraticode.ts          — SocratiCode detection
-      karpathy-skills.ts      — Andrej Karpathy Skills detection
-      graphify.ts             — Graphify detection
-      ponytail.ts             — Ponytail detection
-      codeburn.ts             — CodeBurn detection
-      openwiki.ts             — OpenWiki detection
-      codealmanac.ts          — CodeAlmanac detection
+      index.ts                — Runs all 12 detectors
+      mempalace.ts  caveman.ts  rtk.ts  headroom.ts  ecc.ts  socraticode.ts
+      karpathy-skills.ts  graphify.ts  ponytail.ts  codeburn.ts
+      openwiki.ts  codealmanac.ts
   diagram/
-    table.ts                  — Console table + Markdown report rendering
+    shared.ts                 — Status ranking, token formatting, path shortening
+    console.ts                — ANSI console report (ASCII tables, wrapping, summary)
+    markdown.ts               — Markdown report with shields.io badges
   updater/
-    index.ts                  — Update checking & applying
+    index.ts                  — Update detection & orchestration
+    npm.ts                    — npm version lookup / upgrade
+    pip.ts                    — pip version lookup / upgrade
   prepare/
-    catalogue.ts               — Recommended tools catalogue & conflict rules
-    installer.ts               — Automated install execution
-    render.ts                  — Catalogue, install plan & suggestion rendering
+    catalogue.ts              — Catalogue, conflict groups & rules, suggestion engine
+    render.ts                 — Catalogue, install plan & suggestion rendering
+    installer.ts              — Executes the runnable install steps
+  __tests__/                  — vitest suites (detectors, catalogue rules, rendering, hooks)
+docs/
+  context-tools-comparison.md — Comparison of the context-window tools
+.claude/skills/
+  add-catalogue-tool/         — Skill describing how to add a new tool to the catalogue + scanner
 ```
+
+## Adding a tool to the catalogue
+
+Adding a tool means touching both the catalogue (`prepare/catalogue.ts`) and the scanner
+(`scanner/integrations/`), plus tests and docs. The
+[`add-catalogue-tool`](./.claude/skills/add-catalogue-tool/SKILL.md) skill walks through the nine
+steps in order — research, catalogue entry, conflict decision, detector, wiring,
+`HOOK_PROVIDER_CATALOGUE` entry if relevant, tests, docs, and verification.
+
+Convention: ids, code, comments and tests are in English; catalogue `tagline`, `why` and conflict
+notes are in French, matching the CLI output.
 
 ## License
 
