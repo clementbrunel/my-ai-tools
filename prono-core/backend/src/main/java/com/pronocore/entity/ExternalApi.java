@@ -13,6 +13,9 @@ import lombok.*;
 @Builder
 public class ExternalApi {
 
+    /** Registry code of the provider backing {@code match_external_links.api_football_fixture_id}. */
+    public static final String API_FOOTBALL_CODE = "API-FOOTBALL";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

@@ -28,7 +28,7 @@ public class MatchExternalLinks {
 
     public Map<String, Long> toMap() {
         Map<String, Long> map = new LinkedHashMap<>();
-        if (apiFootballFixtureId != null) map.put("API-FOOTBALL", apiFootballFixtureId);
+        if (apiFootballFixtureId != null) map.put(ExternalApi.API_FOOTBALL_CODE, apiFootballFixtureId);
         return map;
     }
 }

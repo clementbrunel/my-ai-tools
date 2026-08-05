@@ -53,6 +53,7 @@ Copier `.env.example` → `.env`.
 | `DB_USER` / `DB_PASS` | Credentials PostgreSQL |
 | `JWT_SECRET` | Clé de signature JWT (changer en prod) |
 | `RESEND_API_KEY` | API key Resend.com pour les emails |
+| `API_FOOTBALL_KEY` | API key api-football.com pour la sync des scores foot — vide = sync désactivée |
 | `FRONTEND_URL` | Utilisé pour CORS et les liens dans les emails |
 | `CORS_EXTRA_ORIGIN` | Origine CORS supplémentaire optionnelle (ex: accès réseau local) |
 | `REGISTRY` | Adresse du registry Docker privé (pour build-and-push.sh) |
@@ -81,7 +82,9 @@ JUnit 5 + Mockito — `backend/src/test/java/com/pronocore/service/`
 cd backend && mvn test
 ```
 
-11 fichiers de test couvrant tous les services (BetService, DailyGageService, GroupService, MatchService, ForfeitService, LeaderboardService, DashboardService, UserService, AuthService, GroupAdminService, F1RaceService). Tests frontend : Vitest (`cd frontend && npm test`). Pas de tests d'intégration.
+22 fichiers de test couvrant tous les services (BetService, DailyGageService, GroupService, MatchService, ForfeitService, LeaderboardService, DashboardService, UserService, AuthService, GroupAdminService, F1RaceService, F1SyncService, MatchLinkingService, MatchSyncService, ApiFootballClient…). Tests frontend : Vitest (`cd frontend && npm test`). Pas de tests d'intégration.
+
+Les clients HTTP externes sont abstraits derrière une interface (`JolpicaClient` pour la F1, `ApiFootballHttpClient` pour le foot) afin que le parsing puisse être testé avec des payloads JSON figés, sans appel réseau.
 
 ## Domain Concepts
 

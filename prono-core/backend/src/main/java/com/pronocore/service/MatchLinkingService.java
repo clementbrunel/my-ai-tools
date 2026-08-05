@@ -26,9 +26,6 @@ public class MatchLinkingService {
 
     private static final double AUTO_LINK_THRESHOLD = 0.85;
 
-    /** Registry code of the provider backing match_external_links.api_football_fixture_id. */
-    private static final String API_FOOTBALL_CODE = "API-FOOTBALL";
-
     private final MatchService                 matchService;
     private final ApiFootballClient            apiFootballClient;
     private final TeamMappingService           teamMappingService;
@@ -88,7 +85,7 @@ public class MatchLinkingService {
             throw new IllegalArgumentException(
                     "External API " + api.getCode() + " feeds " + api.getSport() + ", not football");
         }
-        if (!API_FOOTBALL_CODE.equals(api.getCode())) {
+        if (!ExternalApi.API_FOOTBALL_CODE.equals(api.getCode())) {
             throw new IllegalArgumentException(
                     "No match-linking column is wired for external API " + api.getCode());
         }

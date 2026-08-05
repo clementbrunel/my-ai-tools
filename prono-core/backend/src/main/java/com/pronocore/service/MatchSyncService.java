@@ -10,7 +10,9 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -31,16 +33,31 @@ public class MatchSyncService {
                 now.minusHours(3), now.plusMinutes(15));
 
         if (candidates.isEmpty()) return;
-        log.info("MatchSyncService: {} match(es) to sync", candidates.size());
 
+        // Resolve every linked fixture in one batched call rather than one call per
+        // match: at a 5-minute cadence, per-match calls exhaust the daily quota.
+        Map<Long, Match> matchesByFixtureId = new LinkedHashMap<>();
         for (Match match : candidates) {
             MatchExternalLinks links = match.getExternalLinks();
-            if (links == null || links.getApiFootballFixtureId() == null) continue;
-            try {
-                ApiFootballClient.ApiFixture fixture =
-                        apiFootballClient.getFixture(links.getApiFootballFixtureId());
-                if (fixture == null) continue;
+            if (links != null && links.getApiFootballFixtureId() != null) {
+                matchesByFixtureId.put(links.getApiFootballFixtureId(), match);
+            }
+        }
+        if (matchesByFixtureId.isEmpty()) return;
+        log.info("MatchSyncService: {} match(es) to sync", matchesByFixtureId.size());
 
+        List<ApiFootballClient.ApiFixture> fixtures;
+        try {
+            fixtures = apiFootballClient.getFixtures(matchesByFixtureId.keySet());
+        } catch (Exception e) {
+            log.warn("MatchSyncService: fixture fetch failed — {}", e.getMessage());
+            return;
+        }
+
+        for (ApiFootballClient.ApiFixture fixture : fixtures) {
+            Match match = matchesByFixtureId.get(fixture.fixtureId());
+            if (match == null) continue;
+            try {
                 Match.Status newStatus = toStatus(fixture.statusShort());
                 if (newStatus == null) continue;
 
