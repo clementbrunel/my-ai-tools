@@ -4,6 +4,9 @@ import { CATALOGUE, CONFLICT_GROUPS } from "./catalogue.js";
 
 const RULE = chalk.dim("─".repeat(72));
 
+/** Width of the id column — derived so a longer id can't push the name column out of line. */
+const ID_WIDTH = Math.max(...CATALOGUE.map((t) => t.id.length));
+
 function groupedCatalogue(): Map<string | undefined, CatalogueTool[]> {
   const groups = new Map<string | undefined, CatalogueTool[]>();
   for (const tool of CATALOGUE) {
@@ -17,10 +20,10 @@ function groupedCatalogue(): Map<string | undefined, CatalogueTool[]> {
 function renderToolEntry(tool: CatalogueTool, verbose: boolean, detected: boolean): string {
   const lines: string[] = [];
   const badge = detected ? chalk.green(" ✓ déjà installé") : "";
-  lines.push(`  ${chalk.bold.cyan(tool.id.padEnd(14))} ${chalk.white(tool.name)}${badge}`);
-  lines.push(`  ${" ".repeat(14)} ${chalk.dim(tool.tagline)}`);
+  lines.push(`  ${chalk.bold.cyan(tool.id.padEnd(ID_WIDTH))} ${chalk.white(tool.name)}${badge}`);
+  lines.push(`  ${" ".repeat(ID_WIDTH)} ${chalk.dim(tool.tagline)}`);
   if (verbose) {
-    lines.push(`  ${" ".repeat(14)} ${tool.why}`);
+    lines.push(`  ${" ".repeat(ID_WIDTH)} ${tool.why}`);
   }
   return lines.join("\n");
 }
@@ -28,6 +31,14 @@ function renderToolEntry(tool: CatalogueTool, verbose: boolean, detected: boolea
 function renderGroupHeader(group: ConflictGroup): string {
   const maxLabel = group.maxPick === 1 ? chalk.yellow("choisir 1") : chalk.yellow(`choisir ${group.maxPick} max`);
   return `\n  ${chalk.bold(group.label.toUpperCase())}  ${chalk.dim(`(${maxLabel})`)}\n  ${chalk.dim(group.note)}\n`;
+}
+
+/** Header for tools with no conflictGroup — additive, apart from the pairwise rules in getConflicts(). */
+function renderStandaloneHeader(): string {
+  const pick = chalk.yellow("cumulables");
+  const note =
+    "Sans groupe d'exclusivité — ces outils s'ajoutent aux précédents. Deux exceptions signalées à l'installation : ECC inclut déjà Caveman, et Ponytail recouvre Karpathy Skills.";
+  return `\n  ${chalk.bold("AUTRES OUTILS")}  ${chalk.dim(`(${pick})`)}\n  ${chalk.dim(note)}\n`;
 }
 
 export function renderCatalogue(verbose = false, detectedIds: Set<string> = new Set()): string {
@@ -51,7 +62,7 @@ export function renderCatalogue(verbose = false, detectedIds: Set<string> = new 
   // standalone tools (no conflict group)
   const standalone = groups.get(undefined) ?? [];
   if (standalone.length > 0) {
-    lines.push(`\n  ${chalk.bold("FRAMEWORK TOUT-EN-UN")}\n  ${chalk.dim("Remplace les outils individuels — ne pas combiner avec caveman.")}\n`);
+    lines.push(renderStandaloneHeader());
     for (const tool of standalone) {
       lines.push(renderToolEntry(tool, verbose, detectedIds.has(tool.id)));
       lines.push("");
