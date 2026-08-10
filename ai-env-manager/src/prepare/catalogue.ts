@@ -307,6 +307,24 @@ export const INTEGRATION_TO_TOOL: Record<string, ToolId> = {
   "CodeAlmanac": "codealmanac",
 };
 
+// Reverse of INTEGRATION_TO_TOOL: the scanner integration that proves a tool works.
+export const TOOL_TO_INTEGRATION = Object.fromEntries(
+  Object.entries(INTEGRATION_TO_TOOL).map(([name, id]) => [id, name])
+) as Record<ToolId, string>;
+
+/** Splits a comma-separated `--with` value into known ids and unknown leftovers. */
+export function parseToolIds(input: string): { ids: ToolId[]; unknown: string[] } {
+  const raw = input
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  const valid = new Set<string>(CATALOGUE.map((t) => t.id));
+  return {
+    ids: [...new Set(raw.filter((id): id is ToolId => valid.has(id)))],
+    unknown: raw.filter((id) => !valid.has(id)),
+  };
+}
+
 // Default pick per conflict group when nothing is detected (easiest / least infra first).
 const GROUP_DEFAULTS: Record<string, ToolId> = {
   token: "caveman",

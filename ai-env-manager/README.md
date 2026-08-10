@@ -4,18 +4,20 @@ Scans, diagnoses, and manages the AI environment of a Claude Code project — MC
 files, hooks, and third-party AI tooling — and can export the whole thing to a Mistral
 configuration.
 
-Everything the tool does falls into **four feature groups**, one per CLI command:
+Everything the tool does falls into **five feature groups**, one per CLI command:
 
 | # | Group | Command | What it answers |
 |---|---|---|---|
 | 1 | **Scan / diagnose** | `ai-env-manager` (default) | *What is currently wired into this project, and is any of it broken?* |
 | 2 | **Update** | `ai-env-manager update` | *Are the detected tools running an outdated version — and can they be upgraded now?* |
 | 3 | **Prepare / catalogue** | `ai-env-manager prepare` | *What should I install, what conflicts with what, and what are the exact steps?* |
-| 4 | **Migrate** | `ai-env-manager migrate` | *What would this environment look like on Mistral, and what would not survive the move?* |
+| 4 | **Verify** | `ai-env-manager verify` | *Are the tools I asked for actually installed and working in this folder?* |
+| 5 | **Migrate** | `ai-env-manager migrate` | *What would this environment look like on Mistral, and what would not survive the move?* |
 
-Groups 1, 3 and 4 share the same scan engine: `prepare` runs a scan first so it can mark catalogue
-tools as “already installed” and only suggest what is genuinely missing, and `migrate` converts
-that same `ScanResult` rather than re-reading config files of its own.
+Every group but `update` builds on the same scan engine: `prepare` runs a scan first so it can mark
+catalogue tools as “already installed” and only suggest what is genuinely missing, `verify` re-uses
+the same detectors to confirm after the fact that each requested tool is really operational, and
+`migrate` converts that same `ScanResult` rather than re-reading config files of its own.
 
 ---
 
@@ -42,7 +44,10 @@ Reads config from disk (nothing is executed against the network except version l
 `ok` (green) · `outdated` (blue) · `warning` (yellow) · `error` (red).
 
 Statuses roll up worst-wins per section, and the console report ends with a grouped list of every
-error, warning and outdated component — or `All N components OK`.
+error, warning and outdated component — or `All N components OK`. Integrations enter that list only
+when they are *detected and degraded* (plugin enabled but binary missing, wiki never generated…):
+a tool you simply do not use is an absence, not a problem, and would otherwise bury the real
+issues under a dozen `not detected` lines.
 
 ### Output
 
@@ -111,7 +116,7 @@ first diagnostic) before the upgrades are applied, so the table shows what chang
 
 ## 3. Prepare — the recommended-tools catalogue
 
-`ai-env-manager prepare [--path <dir>] [--with <ids>] [--install] [--verbose]`
+`ai-env-manager prepare [--path <dir>] [--with <ids>] [--install] [--verbose] [--no-record]`
 
 Two modes:
 
@@ -121,6 +126,13 @@ Two modes:
 - **With `--with rtk,mempalace`** — validates the ids, checks conflict rules, and prints an
   install plan. `--install` executes the runnable steps (`▶`); steps that require an interactive
   Claude Code session (`ℹ`) are always printed rather than run.
+
+When the selection has no conflict, the requested ids are recorded in `.ai-env-manager.json` at the
+project root so `verify` can check them later without repeating the list. `--no-record` skips the
+write. Re-running `prepare` merges the new ids in and drops the previous pick of any conflict group
+it touches, so switching from `rtk` to `caveman` does not leave `rtk` behind as a failing check.
+The file is plain JSON (`{ "requested": [...], "updatedAt": "..." }`) and worth committing — it is
+the declared expectation `verify` checks against.
 
 ### Catalogue groupings
 
@@ -193,7 +205,63 @@ If every group is already covered, it prints `✓ Tous les groupes d'outils sont
 
 ---
 
-## 4. Migrate — export the environment to Mistral
+## 4. Verify — are the requested tools actually working here?
+
+`ai-env-manager verify [--path <dir>] [--with <ids>] [--json]`
+
+`prepare` says what to install; `verify` answers the follow-up question — *is it really installed
+and functional in that folder?* Half of the catalogue is installed by hand (`/plugin install …`,
+`claude mcp add …`), so an install plan being printed is no proof the tool ended up wired in.
+
+It scans the target folder and, for each requested tool, resolves the matching integration detector
+(`TOOL_TO_INTEGRATION`) into one of three verdicts:
+
+| Verdict | Meaning | Reported |
+|---|---|---|
+| `ok` — *fonctionnel* | detected and the detector reports no problem | the signals that proved it (`source :`) |
+| `incomplete` — *incomplet* | detected but `warning`/`error`: partially wired, e.g. plugin enabled but binary missing, or no graph built yet | the detector's diagnostics |
+| `missing` — *absent* | no signal at all in this folder | the install steps left to run |
+
+The list of tools to check comes from `--with rtk,mempalace`, or — with no `--with` — from the
+`.ai-env-manager.json` written by `prepare`. With neither, the command exits `1` and points at
+`prepare`.
+
+**Exit code is `0` only when every requested tool is `ok`**, so the command doubles as a CI gate:
+
+```bash
+ai-env-manager verify --path . --json    # machine-readable report, non-zero exit on any gap
+```
+
+The report is rendered with the same ASCII tables and status palette as the scan report
+(`diagram/table.ts`) — `fonctionnel` is the same green as any `ok`, `incomplet` the same yellow as
+any `warning`. The only section the scan has no equivalent for is what is left to install:
+
+```
+  ── OUTILS DEMANDÉS  (/home/user/demo)
+
++-----------+-------------------------+-------------+-------------------------------------------+
+| Id        | Name                    | Verdict     | Evidence                                  |
++-----------+-------------------------+-------------+-------------------------------------------+
+| rtk       | RTK (Rust Token Killer) | fonctionnel | hook: PostToolUse, binary in PATH         |
++-----------+-------------------------+-------------+-------------------------------------------+
+| graphify  | Graphify                | incomplet   | No graph built yet — run 'graphify build' |
++-----------+-------------------------+-------------+-------------------------------------------+
+| mempalace | MemPalace               | absent      | Not detected: no mempalace binary, no MCP |
++-----------+-------------------------+-------------+-------------------------------------------+
+
+  ── ÉTAPES RESTANTES
+
+  MemPalace
+    $ pip install mempalace  (Installer le package Python)
+    ℹ claude mcp add mempalace -- python -m mempalace  (Ajouter comme serveur MCP)
+
+  1/3 outil(s) opérationnel(s) — 1 incomplet(s), 1 absent(s).
+  Revoir les étapes : ai-env-manager prepare --with graphify,mempalace
+```
+
+---
+
+## 5. Migrate — export the environment to Mistral
 
 `ai-env-manager migrate [--path <dir>] [--out <dir>] [--write]`
 
@@ -319,6 +387,12 @@ npx ai-env-manager prepare --with rtk,mempalace
 # Actually run the shell steps
 npx ai-env-manager prepare --with rtk,mempalace --install
 
+# Check the requested tools are functional in that folder (ids from .ai-env-manager.json)
+npx ai-env-manager verify --path /path/to/project
+
+# Check an explicit list, machine-readable, non-zero exit if anything is missing
+npx ai-env-manager verify --with rtk,mempalace --json
+
 # Preview the Claude → Mistral migration (nothing is written)
 npx ai-env-manager migrate --path /path/to/project
 
@@ -335,6 +409,10 @@ npx ai-env-manager migrate --write --out ~/.mistral
 | `prepare` | `--with <ids>` | comma-separated catalogue ids |
 | `prepare` | `--install` | execute the runnable steps |
 | `prepare` | `--verbose` | print full `why` descriptions in the catalogue |
+| `prepare` | `--no-record` | do not write the requested ids to `.ai-env-manager.json` |
+| `verify` | `-p, --path <dir>` | project directory to check |
+| `verify` | `--with <ids>` | ids to check (default: those recorded by `prepare`) |
+| `verify` | `--json` | JSON report instead of the console rendering |
 | `migrate` | `-p, --path <dir>` | project directory to scan |
 | `migrate` | `-o, --out <dir>` | target directory (default `~/.mistral`) |
 | `migrate` | `--write` | write the files instead of only previewing them |
@@ -365,7 +443,7 @@ npm run test:watch
 
 ```
 src/
-  index.ts                    — CLI entry point (4 commands: scan / update / prepare / migrate)
+  index.ts                    — CLI entry point (5 commands: scan / update / prepare / verify / migrate)
   types.ts                    — Shared type definitions (ScanResult and its parts)
   utils.ts                    — JSON parsing, PATH lookup, API-key heuristic, plugin detection
   scanner/
@@ -383,7 +461,8 @@ src/
       openwiki.ts  codealmanac.ts
   diagram/
     shared.ts                 — Status ranking, token formatting, path shortening
-    console.ts                — ANSI console report (ASCII tables, wrapping, summary)
+    table.ts                  — ASCII tables, ANSI-aware wrapping, status palette (shared with verify/)
+    console.ts                — ANSI console report (sections + summary)
     markdown.ts               — Markdown report with shields.io badges
   updater/
     index.ts                  — Update detection & orchestration
@@ -393,12 +472,16 @@ src/
     catalogue.ts              — Catalogue, conflict groups & rules, suggestion engine
     render.ts                 — Catalogue, install plan & suggestion rendering
     installer.ts              — Executes the runnable install steps
+    state.ts                  — Reads/writes the requested tools in .ai-env-manager.json
+  verify/
+    index.ts                  — Verdict per requested tool (ok / incomplete / missing)
+    render.ts                 — Verification report rendering
   migrate/
     bundle.ts                 — ScanResult → Mistral config / mcps / skills / report
     yaml.ts                   — Dependency-free block-style YAML serializer
     writer.ts                 — File writing, backing up only the files being replaced
     render.ts                 — Migration plan & write-result rendering
-  __tests__/                  — vitest suites (detectors, catalogue rules, rendering, hooks, migration)
+  __tests__/                  — vitest suites (detectors, catalogue rules, rendering, hooks, verify, migration)
 docs/
   context-tools-comparison.md — Comparison of the context-window tools
 .claude/skills/

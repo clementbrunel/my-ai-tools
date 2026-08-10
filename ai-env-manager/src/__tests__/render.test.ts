@@ -13,6 +13,20 @@ const base: ScanResult = {
   envVarSummary: { total: 0, set: 0, missing: 0, missingList: [], setList: [] },
 };
 
+function withIntegration(overrides: Partial<ScanResult["integrations"][number]>): ScanResult {
+  return {
+    ...base,
+    integrations: [{
+      name: "Caveman",
+      description: "Token-reduction skill",
+      detected: true,
+      status: "ok",
+      diagnostics: [],
+      ...overrides,
+    }],
+  };
+}
+
 function withMcp(overrides: Partial<ScanResult["mcpServers"][number]>): ScanResult {
   return {
     ...base,
@@ -61,6 +75,25 @@ describe("renderConsole", () => {
   it("shows warning summary when MCP server has warning status", () => {
     const out = renderConsole(withMcp({ status: "warning", diagnostics: ["optional var missing"] }));
     expect(out).toContain("warning(s)");
+  });
+
+  it("surfaces the diagnostic of a detected but degraded integration", () => {
+    const out = renderConsole(withIntegration({
+      status: "warning",
+      diagnostics: ["Plugin installed but SKILL.md not found"],
+    }));
+    expect(out).toContain("warning(s)");
+    expect(out).toContain("Plugin installed but SKILL.md not found");
+  });
+
+  it("does not report an undetected integration as a warning", () => {
+    const out = renderConsole(withIntegration({
+      detected: false,
+      status: "warning",
+      diagnostics: ["Caveman skill not found"],
+    }));
+    expect(out).toContain("components OK");
+    expect(out).not.toContain("warning(s)");
   });
 
   it("omits Diagnostic column when no server has diagnostics", () => {
@@ -156,6 +189,24 @@ describe("renderMarkdown", () => {
   it("omits Errors and Warnings sections when all ok", () => {
     const out = renderMarkdown(base);
     expect(out).not.toContain("## Errors");
+    expect(out).not.toContain("## Warnings");
+  });
+
+  it("lists a detected but degraded integration under Warnings", () => {
+    const out = renderMarkdown(withIntegration({
+      status: "warning",
+      diagnostics: ["Plugin installed but SKILL.md not found"],
+    }));
+    expect(out).toContain("## Warnings");
+    expect(out).toContain("Plugin installed but SKILL.md not found");
+  });
+
+  it("does not list an undetected integration under Warnings", () => {
+    const out = renderMarkdown(withIntegration({
+      detected: false,
+      status: "warning",
+      diagnostics: ["Caveman skill not found"],
+    }));
     expect(out).not.toContain("## Warnings");
   });
 });
