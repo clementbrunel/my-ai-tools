@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Slf4j
 @Service
@@ -23,9 +24,28 @@ public class MatchSyncService {
     private final MatchService       matchService;
     private final ApiFootballClient  apiFootballClient;
 
+    /**
+     * Guards against the scheduled poll and an admin-triggered sync running at once:
+     * two passes over the same match could each see it as unfinished and settle its
+     * bets twice.
+     */
+    private final AtomicBoolean running = new AtomicBoolean(false);
+
     /** Poll every 5 minutes. Syncs matches that kicked off in the last 3h or start in the next 15min. */
     @Scheduled(fixedDelay = 300_000)
     public void syncMatches() {
+        if (!running.compareAndSet(false, true)) {
+            log.debug("MatchSyncService: a sync is already in progress — skipping this pass");
+            return;
+        }
+        try {
+            doSync();
+        } finally {
+            running.set(false);
+        }
+    }
+
+    private void doSync() {
         if (apiFootballClient.isDisabled()) return;
 
         LocalDateTime now = LocalDateTime.now();
@@ -79,9 +99,9 @@ public class MatchSyncService {
         }
     }
 
-    private Match.Status toStatus(String short_) {
-        if (ApiFootballClient.FINISHED_STATUSES.contains(short_)) return Match.Status.FINISHED;
-        if (ApiFootballClient.LIVE_STATUSES.contains(short_))     return Match.Status.ONGOING;
+    private Match.Status toStatus(String statusShort) {
+        if (ApiFootballClient.FINISHED_STATUSES.contains(statusShort)) return Match.Status.FINISHED;
+        if (ApiFootballClient.LIVE_STATUSES.contains(statusShort))     return Match.Status.ONGOING;
         return null;
     }
 }
