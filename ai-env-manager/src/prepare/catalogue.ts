@@ -241,10 +241,15 @@ export const CATALOGUE: CatalogueTool[] = [
       {
         label: "Installer le CLI",
         command: "npm install -g openwiki",
+        manual: "Embarque better-sqlite3, un module natif : si npm bloque son script d'install (allowScripts), le binaire n'est jamais produit et openwiki échoue au lancement sur 'Could not locate the bindings file' — réinstaller avec 'npm install -g openwiki --allow-scripts=better-sqlite3 --foreground-scripts'",
+      },
+      {
+        label: "Derrière un proxy d'entreprise qui inspecte le TLS",
+        manual: "setx NODE_USE_SYSTEM_CA 1  (Node 24.6+ ; sinon NODE_EXTRA_CA_CERTS vers un PEM du CA interne) — sans ça Node rejette le certificat ('self-signed certificate in certificate chain') : le binaire prébuilt de better-sqlite3 ne se télécharge pas à l'install, et les appels au provider échouent sur 'Connection error' au lancement",
       },
       {
         label: "Configurer une clé de provider",
-        manual: "export ANTHROPIC_API_KEY=…  (ou OPENAI_API_KEY / GEMINI_API_KEY / OPENROUTER_API_KEY) — openwiki la persiste dans ~/.openwiki/.env",
+        manual: "export ANTHROPIC_API_KEY=…  (ou OPENAI_API_KEY / GEMINI_API_KEY / OPENROUTER_API_KEY) — openwiki la persiste dans ~/.openwiki/.env. Il faut une clé API console.anthropic.com ET du crédit API sur l'organisation qui la possède : un abonnement Claude Pro/Max est facturé séparément et ne finance pas les appels par clé ('credit balance is too low')",
       },
       {
         label: "Générer le wiki du projet",
