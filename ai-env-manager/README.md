@@ -1,9 +1,10 @@
 # ai-env-manager
 
 Scans, diagnoses, and manages the AI environment of a Claude Code project — MCP servers, context
-files, hooks, and third-party AI tooling.
+files, hooks, and third-party AI tooling — and can export the whole thing to a Mistral
+configuration.
 
-Everything the tool does falls into **four feature groups**, one per CLI command:
+Everything the tool does falls into **five feature groups**, one per CLI command:
 
 | # | Group | Command | What it answers |
 |---|---|---|---|
@@ -11,10 +12,12 @@ Everything the tool does falls into **four feature groups**, one per CLI command
 | 2 | **Update** | `ai-env-manager update` | *Are the detected tools running an outdated version — and can they be upgraded now?* |
 | 3 | **Prepare / catalogue** | `ai-env-manager prepare` | *What should I install, what conflicts with what, and what are the exact steps?* |
 | 4 | **Verify** | `ai-env-manager verify` | *Are the tools I asked for actually installed and working in this folder?* |
+| 5 | **Migrate** | `ai-env-manager migrate` | *What would this environment look like on Mistral, and what would not survive the move?* |
 
-Groups 1, 3 and 4 share the same scan engine: `prepare` runs a scan first so it can mark catalogue
-tools as “already installed” and only suggest what is genuinely missing, and `verify` re-uses the
-same detectors to confirm, after the fact, that each requested tool is really operational.
+Every group but `update` builds on the same scan engine: `prepare` runs a scan first so it can mark
+catalogue tools as “already installed” and only suggest what is genuinely missing, `verify` re-uses
+the same detectors to confirm after the fact that each requested tool is really operational, and
+`migrate` converts that same `ScanResult` rather than re-reading config files of its own.
 
 ---
 
@@ -41,7 +44,10 @@ Reads config from disk (nothing is executed against the network except version l
 `ok` (green) · `outdated` (blue) · `warning` (yellow) · `error` (red).
 
 Statuses roll up worst-wins per section, and the console report ends with a grouped list of every
-error, warning and outdated component — or `All N components OK`.
+error, warning and outdated component — or `All N components OK`. Integrations enter that list only
+when they are *detected and degraded* (plugin enabled but binary missing, wiki never generated…):
+a tool you simply do not use is an absence, not a problem, and would otherwise bury the real
+issues under a dozen `not detected` lines.
 
 ### Output
 
@@ -226,27 +232,92 @@ The list of tools to check comes from `--with rtk,mempalace`, or — with no `--
 ai-env-manager verify --path . --json    # machine-readable report, non-zero exit on any gap
 ```
 
+The report is rendered with the same ASCII tables and status palette as the scan report
+(`diagram/table.ts`) — `fonctionnel` is the same green as any `ok`, `incomplet` the same yellow as
+any `warning`. The only section the scan has no equivalent for is what is left to install:
+
 ```
-VÉRIFICATION — outils demandés
-Dossier : /home/user/demo
-────────────────────────────────────────────────────────────────────────
+  ── OUTILS DEMANDÉS  (/home/user/demo)
 
-  ✓ rtk         RTK (Rust Token Killer)  fonctionnel
-                source : binary in PATH, hook: PostToolUse
++-----------+-------------------------+-------------+-------------------------------------------+
+| Id        | Name                    | Verdict     | Evidence                                  |
++-----------+-------------------------+-------------+-------------------------------------------+
+| rtk       | RTK (Rust Token Killer) | fonctionnel | hook: PostToolUse, binary in PATH         |
++-----------+-------------------------+-------------+-------------------------------------------+
+| graphify  | Graphify                | incomplet   | No graph built yet — run 'graphify build' |
++-----------+-------------------------+-------------+-------------------------------------------+
+| mempalace | MemPalace               | absent      | Not detected: no mempalace binary, no MCP |
++-----------+-------------------------+-------------+-------------------------------------------+
 
-  ⚠ graphify    Graphify                 incomplet
-                source : binary in PATH
-                • No graph built yet — run 'graphify build' to generate graphify-out/graph.json
+  ── ÉTAPES RESTANTES
 
-  ✗ mempalace   MemPalace                absent
-                Étapes restantes :
-                  $ pip install mempalace  (Installer le package Python)
-                  ℹ claude mcp add mempalace -- python -m mempalace  (Ajouter comme serveur MCP)
-
-────────────────────────────────────────────────────────────────────────
+  MemPalace
+    $ pip install mempalace  (Installer le package Python)
+    ℹ claude mcp add mempalace -- python -m mempalace  (Ajouter comme serveur MCP)
 
   1/3 outil(s) opérationnel(s) — 1 incomplet(s), 1 absent(s).
-  Relancer les étapes avec ai-env-manager prepare --with graphify,mempalace
+  Revoir les étapes : ai-env-manager prepare --with graphify,mempalace
+```
+
+---
+
+## 5. Migrate — export the environment to Mistral
+
+`ai-env-manager migrate [--path <dir>] [--out <dir>] [--write]`
+
+Runs a scan, then converts the resulting `ScanResult` into a Mistral-shaped YAML configuration.
+Because the input is the scan and not a single config file, the migration sees every source the
+scan resolves — `.mcp.json`, project and user `settings.json`, `claude_desktop_config.json` — plus
+context files, hooks and detected integrations.
+
+### Files produced
+
+Written to `~/.mistral` by default, or wherever `--out` points:
+
+| File | Contents |
+|---|---|
+| `config.yaml` | Migration provenance, model slot, context files with their token estimates |
+| `mcps.yaml` | One entry per MCP server: transport, `command`/`args` or `url`, env placeholders, originating source, Claude-side status |
+| `skills.yaml` | One entry per *detected* integration |
+| `migration_report.yaml` | Statistics, `needs_review`, `not_migrated` |
+
+### Migration rules
+
+| Rule | Behaviour |
+|---|---|
+| **Preview by default** | Nothing is written until `--write`, mirroring `prepare --install` |
+| **No secrets on disk** | The scanner only ever reads env var *names*, so MCP `env` blocks are emitted as `${NAME}` placeholders |
+| **Backups** | `--write` copies each file it is about to replace into `<out>/backups/<timestamp>/` — only those files, since `backups/` lives inside the target directory |
+| **Nothing dropped silently** | Hooks have no Mistral equivalent, so they are listed under `not_migrated` with a reason instead of vanishing |
+| **Broken servers migrate anyway** | An MCP server in `error` is still exported, and flagged under `needs_review` with its diagnostic |
+| **The model is not guessed** | `mistral_model` is left `null` for you to fill in; the Claude model is recorded next to it for reference |
+| **Name collisions** | Two sources declaring the same MCP name produce `name` and `name-2` rather than one silently overwriting the other |
+
+YAML is emitted by a small block-style serializer (`migrate/yaml.ts`) so the tool keeps its two
+runtime dependencies.
+
+```
+  MIGRATION CLAUDE → MISTRAL  [dry-run]
+────────────────────────────────────────────────────────────────────────
+  Cible : /home/you/.mistral
+
+  3 serveur(s) MCP · 1 skill(s) · 1 fichier(s) de contexte
+
+  ⬡ config.yaml               412 B
+  ⬡ mcps.yaml                 623 B
+  ⬡ skills.yaml               241 B
+  ⬡ migration_report.yaml     887 B
+
+  NON MIGRÉ
+  · hook PreToolUse (Bash) — Claude Code hooks have no Mistral equivalent
+
+  À RELIRE AVANT UTILISATION
+  ! MCP "github": set GITHUB_TOKEN in the Mistral environment
+  ! Model "sonnet" is an Anthropic model — pick a Mistral model in config.yaml
+
+────────────────────────────────────────────────────────────────────────
+
+  Relancer avec --write pour écrire les fichiers dans /home/you/.mistral.
 ```
 
 ---
@@ -321,6 +392,12 @@ npx ai-env-manager verify --path /path/to/project
 
 # Check an explicit list, machine-readable, non-zero exit if anything is missing
 npx ai-env-manager verify --with rtk,mempalace --json
+
+# Preview the Claude → Mistral migration (nothing is written)
+npx ai-env-manager migrate --path /path/to/project
+
+# Write the migration to ~/.mistral, or elsewhere with --out
+npx ai-env-manager migrate --write --out ~/.mistral
 ```
 
 | Command | Option | Description |
@@ -336,6 +413,9 @@ npx ai-env-manager verify --with rtk,mempalace --json
 | `verify` | `-p, --path <dir>` | project directory to check |
 | `verify` | `--with <ids>` | ids to check (default: those recorded by `prepare`) |
 | `verify` | `--json` | JSON report instead of the console rendering |
+| `migrate` | `-p, --path <dir>` | project directory to scan |
+| `migrate` | `-o, --out <dir>` | target directory (default `~/.mistral`) |
+| `migrate` | `--write` | write the files instead of only previewing them |
 
 ---
 
@@ -363,7 +443,7 @@ npm run test:watch
 
 ```
 src/
-  index.ts                    — CLI entry point (4 commands: scan / update / prepare / verify)
+  index.ts                    — CLI entry point (5 commands: scan / update / prepare / verify / migrate)
   types.ts                    — Shared type definitions (ScanResult and its parts)
   utils.ts                    — JSON parsing, PATH lookup, API-key heuristic, plugin detection
   scanner/
@@ -381,7 +461,8 @@ src/
       openwiki.ts  codealmanac.ts
   diagram/
     shared.ts                 — Status ranking, token formatting, path shortening
-    console.ts                — ANSI console report (ASCII tables, wrapping, summary)
+    table.ts                  — ASCII tables, ANSI-aware wrapping, status palette (shared with verify/)
+    console.ts                — ANSI console report (sections + summary)
     markdown.ts               — Markdown report with shields.io badges
   updater/
     index.ts                  — Update detection & orchestration
@@ -395,7 +476,12 @@ src/
   verify/
     index.ts                  — Verdict per requested tool (ok / incomplete / missing)
     render.ts                 — Verification report rendering
-  __tests__/                  — vitest suites (detectors, catalogue rules, rendering, hooks, verify)
+  migrate/
+    bundle.ts                 — ScanResult → Mistral config / mcps / skills / report
+    yaml.ts                   — Dependency-free block-style YAML serializer
+    writer.ts                 — File writing, backing up only the files being replaced
+    render.ts                 — Migration plan & write-result rendering
+  __tests__/                  — vitest suites (detectors, catalogue rules, rendering, hooks, verify, migration)
 docs/
   context-tools-comparison.md — Comparison of the context-window tools
 .claude/skills/

@@ -160,14 +160,22 @@ export function renderMarkdown(result: ScanResult): string {
     renderEnvMarkdown(envVarSummary),
   ];
 
+  // Same rule as the console report: an undetected integration is an absence, not a problem.
+  const brokenIntegrations = (status: Status) =>
+    integrations
+      .filter((i) => i.detected && i.status === status)
+      .flatMap((i) => i.diagnostics.map((d) => `${i.name}: ${d}`));
+
   const errors = [
     ...(model.status === "error" ? model.diagnostics.map((d) => `Model: ${d}`) : []),
     ...mcpServers.filter((s) => s.status === "error").flatMap((s) => s.diagnostics.map((d) => `${s.name}: ${d}`)),
     ...hooks.filter((h) => h.status === "error").flatMap((h) => h.diagnostics.map((d) => `${h.event}: ${d}`)),
+    ...brokenIntegrations("error"),
   ];
   const warnings = [
     ...mcpServers.filter((s) => s.status === "warning").flatMap((s) => s.diagnostics.map((d) => `${s.name}: ${d}`)),
     ...hooks.filter((h) => h.status === "warning").flatMap((h) => h.diagnostics.map((d) => `${h.event}: ${d}`)),
+    ...brokenIntegrations("warning"),
   ];
 
   if (errors.length > 0) {

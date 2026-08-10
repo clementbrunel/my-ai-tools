@@ -3,7 +3,8 @@
 import { Command } from "commander";
 import chalk from "chalk";
 import { writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
+import { homedir } from "node:os";
 import { runScan } from "./scanner/run.js";
 import { renderConsole } from "./diagram/console.js";
 import { renderMarkdown } from "./diagram/markdown.js";
@@ -15,6 +16,9 @@ import { runInstall } from "./prepare/installer.js";
 import { readRequestedTools, recordRequestedTools, STATE_FILE } from "./prepare/state.js";
 import { verifyTools } from "./verify/index.js";
 import { renderVerify } from "./verify/render.js";
+import { buildMigration } from "./migrate/bundle.js";
+import { renderMigrationPlan, renderWriteResult } from "./migrate/render.js";
+import { writeMigration } from "./migrate/writer.js";
 
 /** Parses a --with value, exiting with the list of valid ids when something is unknown. */
 function toolIdsOrExit(input: string): ToolId[] {
@@ -125,6 +129,26 @@ program
     }
 
     if (!report.ok) process.exit(1);
+  });
+
+program
+  .command("migrate")
+  .description("Convertit l'environnement Claude Code scanné en configuration Mistral (YAML)")
+  .option("-p, --path <dir>", "project directory to scan", ".")
+  .option("-o, --out <dir>", "répertoire de destination", join(homedir(), ".mistral"))
+  .option("--write", "écrire les fichiers (par défaut : aperçu seulement)")
+  .action((options: { path: string; out: string; write?: boolean }) => {
+    const targetDir = resolve(options.out);
+    const result = runScan(options.path);
+
+    console.log(chalk.blue(`\n🔍 Scanning AI environment in: ${result.projectPath}\n`));
+
+    const migration = buildMigration(result, { targetDir });
+    process.stdout.write(renderMigrationPlan(migration, targetDir, !options.write));
+
+    if (options.write) {
+      process.stdout.write(renderWriteResult(writeMigration(targetDir, migration.files)));
+    }
   });
 
 program.parse();

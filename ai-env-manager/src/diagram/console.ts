@@ -1,105 +1,8 @@
 import chalk from "chalk";
 import type { ScanResult, Status, McpServer, Hook, Integration, ContextFile } from "../types.js";
 import { getProviderInfo } from "../scanner/hook-providers.js";
-import { STATUS_LABEL, STATUS_RANK, formatTokens, extractProvider, shortSource } from "./shared.js";
-
-// --- ASCII table helpers ---
-
-function colWidths(rows: string[][]): number[] {
-  const cols = rows[0]?.length ?? 0;
-  return Array.from({ length: cols }, (_, i) =>
-    Math.max(...rows.map((r) => visibleWidth(r[i] ?? "")))
-  );
-}
-
-function stripAnsi(str: string): string {
-  // biome-ignore lint/suspicious/noControlCharactersInRegex: needed to strip ANSI codes
-  return str.replace(/\x1B\[[0-9;]*m/g, "");
-}
-
-function visibleWidth(str: string): number {
-  return stripAnsi(str).length;
-}
-
-const WRAP_THRESHOLD = 48;
-
-function pad(str: string, width: number): string {
-  const visible = visibleWidth(str);
-  return str + " ".repeat(Math.max(0, width - visible));
-}
-
-function wrapText(text: string, width: number): string[] {
-  if (visibleWidth(text) <= width) return [text];
-  const words = text.split(", ");
-  const lines: string[] = [];
-  let current = "";
-  for (const word of words) {
-    const sep = current ? ", " : "";
-    if (visibleWidth(current + sep + word) > width && current) {
-      lines.push(current);
-      current = word;
-    } else {
-      current = current + sep + word;
-    }
-  }
-  if (current) lines.push(current);
-  return lines;
-}
-
-function renderAsciiTable(headers: string[], rows: string[][]): string {
-  const allRows = [headers, ...rows];
-  const naturalWidths = colWidths(allRows);
-  const widths = naturalWidths.map((w) => Math.min(w, WRAP_THRESHOLD));
-
-  const expandedRows: { cells: string[][]; isHeader: boolean }[] = [
-    { cells: headers.map((h) => [h]), isHeader: true },
-  ];
-  for (const row of rows) {
-    const wrapped = row.map((cell, i) => wrapText(cell, widths[i]));
-    const height = Math.max(...wrapped.map((w) => w.length));
-    const cells = wrapped.map((w) => {
-      while (w.length < height) w.push("");
-      return w;
-    });
-    expandedRows.push({ cells, isHeader: false });
-  }
-
-  const sep = "+" + widths.map((w) => "-".repeat(w + 2)).join("+") + "+";
-
-  const renderSubRow = (subCells: string[], bold = false) => {
-    const cells = subCells.map((cell, i) =>
-      " " + pad(bold ? chalk.bold(cell) : cell, widths[i]) + " "
-    );
-    return "|" + cells.join("|") + "|";
-  };
-
-  const lines: string[] = [sep];
-  for (const { cells, isHeader } of expandedRows) {
-    const height = cells[0].length;
-    for (let r = 0; r < height; r++) {
-      lines.push(renderSubRow(cells.map((col) => col[r] ?? ""), isHeader));
-    }
-    lines.push(sep);
-  }
-  return lines.join("\n");
-}
-
-// --- Status helpers ---
-
-function consoleStatusColor(status: Status) {
-  if (status === "ok") return chalk.green;
-  if (status === "warning") return chalk.yellow;
-  if (status === "outdated") return chalk.blue;
-  return chalk.red;
-}
-
-function consoleStatus(status: Status): string {
-  return consoleStatusColor(status)(STATUS_LABEL[status]);
-}
-
-function sectionHeader(title: string): string {
-  return chalk.bold.cyan(`\n  ── ${title} `);
-}
+import { STATUS_RANK, formatTokens, extractProvider, shortSource } from "./shared.js";
+import { renderAsciiTable, consoleStatus, consoleStatusColor, sectionHeader } from "./table.js";
 
 // --- Section renderers ---
 
@@ -220,14 +123,21 @@ export function renderConsole(result: ScanResult): string {
   parts.push(renderIntegrationsConsole(integrations));
   parts.push(renderEnvConsole(envVarSummary));
 
+  // Only *detected* integrations can be broken: an undetected one is an absence, not a problem,
+  // and listing all of them would bury the real issues under "not detected" noise.
+  const brokenIntegrations = (status: Status) =>
+    integrations.filter((i) => i.detected && i.status === status);
+
   const errors = [
     ...(model.status === "error" ? [{ name: "Model", diag: model.diagnostics[0] }] : []),
     ...mcpServers.filter((s) => s.status === "error").map((s) => ({ name: s.name, diag: s.diagnostics[0] })),
     ...hooks.filter((h) => h.status === "error").map((h) => ({ name: h.event, diag: h.diagnostics[0] })),
+    ...brokenIntegrations("error").map((i) => ({ name: i.name, diag: i.diagnostics[0] })),
   ];
   const warnings = [
     ...mcpServers.filter((s) => s.status === "warning").map((s) => ({ name: s.name, diag: s.diagnostics[0] })),
     ...hooks.filter((h) => h.status === "warning").map((h) => ({ name: h.event, diag: h.diagnostics[0] })),
+    ...brokenIntegrations("warning").map((i) => ({ name: i.name, diag: i.diagnostics[0] })),
   ];
   const outdated = [
     ...mcpServers.filter((s) => s.status === "outdated").map((s) => ({ name: s.name, diag: s.diagnostics[0] })),

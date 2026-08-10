@@ -8,7 +8,7 @@ Each tool lives in its own subdirectory with its own `package.json`, `src/`, and
 
 | Directory         | Tool             | Description                                                     |
 |-------------------|------------------|-----------------------------------------------------------------|
-| `ai-env-manager/` | `ai-env-manager` | Scans, diagnoses, and manages a Claude Code project's AI setup (MCP servers, context, hooks, tool updates, install catalogue, post-install verification) |
+| `ai-env-manager/` | `ai-env-manager` | Scans, diagnoses, and manages a Claude Code project's AI setup (MCP servers, context, hooks, tool updates, install catalogue, post-install verification, Claude → Mistral migration) |
 | `mistral-chat/`   | `mistral-chat`   | Interactive CLI REPL for enterprise Mistral via browser cookies |
 | `mottaret-watch/`  | `mottaret-watch`  | Python cron (GitHub Actions) — scrapes rental availability, emails alerts |
 | `prono-core/`      | `prono-core`      | Full-stack World Cup 2026 betting app (Java/Spring + React)              |
