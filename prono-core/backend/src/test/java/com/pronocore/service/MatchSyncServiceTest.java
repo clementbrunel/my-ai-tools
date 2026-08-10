@@ -126,6 +126,33 @@ class MatchSyncServiceTest {
         verify(matchService, never()).syncMatchScore(anyLong(), anyInt(), anyInt(), any());
     }
 
+    /** A manual admin trigger must not overlap the scheduled poll and settle bets twice. */
+    @Test
+    void skipsAPassWhileAnotherSyncIsAlreadyRunning() {
+        when(apiFootballClient.isDisabled()).thenReturn(false);
+        when(matchRepository.findSyncableMatchesInWindow(any(), any())).thenAnswer(invocation -> {
+            matchSyncService.syncMatches(); // re-entered while the first pass holds the guard
+            return List.of();
+        });
+
+        matchSyncService.syncMatches();
+
+        verify(matchRepository, times(1)).findSyncableMatchesInWindow(any(), any());
+    }
+
+    @Test
+    void releasesTheGuardAfterAFailedPass() {
+        when(apiFootballClient.isDisabled()).thenReturn(false);
+        when(matchRepository.findSyncableMatchesInWindow(any(), any()))
+                .thenThrow(new IllegalStateException("boom"))
+                .thenReturn(List.of());
+
+        assertThatThrownBy(() -> matchSyncService.syncMatches()).isInstanceOf(IllegalStateException.class);
+        assertThatCode(() -> matchSyncService.syncMatches()).doesNotThrowAnyException();
+
+        verify(matchRepository, times(2)).findSyncableMatchesInWindow(any(), any());
+    }
+
     @Test
     void keepsSyncingOtherMatchesWhenTheFetchFails() {
         when(apiFootballClient.isDisabled()).thenReturn(false);
