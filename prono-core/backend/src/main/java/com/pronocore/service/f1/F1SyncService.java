@@ -6,6 +6,7 @@ import com.pronocore.dto.request.EnterRaceResultsRequest;
 import com.pronocore.entity.*;
 import com.pronocore.repository.*;
 import com.pronocore.service.F1RaceService;
+import com.pronocore.util.AppTime;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,9 +35,6 @@ import java.util.*;
 @Service
 @RequiredArgsConstructor
 public class F1SyncService {
-
-    /** App times are stored as Paris local time (same convention as football matches). */
-    private static final ZoneId APP_ZONE = ZoneId.of("Europe/Paris");
 
     private final JolpicaClient jolpicaClient;
     private final CompetitionRepository competitionRepository;
@@ -419,7 +417,7 @@ public class F1SyncService {
         LocalDate d = LocalDate.parse(date);
         if (time == null || time.isEmpty()) return d.atTime(LocalTime.of(15, 0));
         LocalTime t = LocalTime.parse(time.replace("Z", ""));
-        return ZonedDateTime.of(d, t, ZoneId.of("UTC")).withZoneSameInstant(APP_ZONE).toLocalDateTime();
+        return ZonedDateTime.of(d, t, ZoneId.of("UTC")).withZoneSameInstant(AppTime.APP_ZONE).toLocalDateTime();
     }
 
     /** "Australian Grand Prix" → "GP d'Australie" for the common ones, passthrough otherwise. */

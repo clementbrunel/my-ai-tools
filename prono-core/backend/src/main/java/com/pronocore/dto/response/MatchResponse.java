@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 
 @Data
 @Builder
@@ -28,4 +29,7 @@ public class MatchResponse {
     private Integer penaltyScoreA;
     private Integer penaltyScoreB;
     private Boolean userParticipated;
+    private boolean syncLocked;
+    private boolean autoSynced;
+    private Map<String, Long> externalLinks;
 }
