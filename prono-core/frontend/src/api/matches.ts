@@ -34,3 +34,9 @@ export const getMatchesForMyGroups = async (): Promise<Match[]> => {
 export const forceSettleMatch = async (id: number): Promise<void> => {
   await apiClient.post(`/matches/${id}/force-settle-all`);
 };
+
+/** Imports new fixtures for a competition from api-football (skips already-linked ones). */
+export const importMatchesFromApiFootball = async (competitionId: number): Promise<Match[]> => {
+  const response = await apiClient.post<Match[]>(`/matches/import-from-api-football/${competitionId}`);
+  return response.data;
+};

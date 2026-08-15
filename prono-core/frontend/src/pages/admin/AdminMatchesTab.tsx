@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useToast } from '@/components/Toast';
-import { getMatches, createMatch, updateMatchScore, deleteMatch, forceSettleMatch } from '@/api/matches';
+import { getMatches, createMatch, updateMatchScore, deleteMatch, forceSettleMatch, importMatchesFromApiFootball } from '@/api/matches';
 import { getCompetitions as fetchAllCompetitions, getCompetitionTeams } from '@/api/competitions';
 import { getFixtureCandidates, linkMatch, unlinkMatch, triggerSync } from '@/api/sync';
 import { useFormMessages } from '@/hooks/useFormMessages';
@@ -47,6 +47,7 @@ const AdminMatchesTab: React.FC = () => {
   const [candidates, setCandidates] = useState<FixtureCandidate[]>([]);
   const [candidatesLoading, setCandidatesLoading] = useState(false);
   const [syncingAll, setSyncingAll] = useState(false);
+  const [importingFixtures, setImportingFixtures] = useState(false);
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('TO_RESOLVE');
   const [competitionFilter, setCompetitionFilter] = useState<number | 'ALL'>('ALL');
@@ -208,6 +209,23 @@ const AdminMatchesTab: React.FC = () => {
     }
   };
 
+  const handleImportFixtures = async () => {
+    if (!newCompetitionId) return;
+    setImportingFixtures(true);
+    try {
+      const imported = await importMatchesFromApiFootball(newCompetitionId);
+      if (imported.length > 0) {
+        const updated = await getMatches();
+        setMatches(updated);
+      }
+      showToast(`${imported.length} nouveau${imported.length !== 1 ? 'x' : ''} match${imported.length !== 1 ? 's' : ''} importé${imported.length !== 1 ? 's' : ''} depuis api-football`);
+    } catch {
+      showToast("Erreur lors de l'import du calendrier — vérifiez le league id et la clé API");
+    } finally {
+      setImportingFixtures(false);
+    }
+  };
+
   const handleTriggerSync = async () => {
     setSyncingAll(true);
     try {
@@ -246,7 +264,20 @@ const AdminMatchesTab: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="card">
-        <h3 className="font-bold text-gray-900 dark:text-white mb-4">+ Créer un match</h3>
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+          <h3 className="font-bold text-gray-900 dark:text-white">+ Créer un match</h3>
+          {competitions.find((c) => c.id === newCompetitionId)?.apiFootballLeagueId != null && (
+            <button
+              type="button"
+              onClick={handleImportFixtures}
+              disabled={importingFixtures}
+              className="btn-secondary text-xs disabled:opacity-50"
+              title="Importe les nouveaux matchs du calendrier depuis api-football pour la compétition sélectionnée ci-dessous"
+            >
+              {importingFixtures ? '⏳ Import...' : '🔄 Importer le calendrier depuis api-football'}
+            </button>
+          )}
+        </div>
         <form onSubmit={handleCreateMatch} className="grid grid-cols-2 gap-3">
           <div className="col-span-2">
             <label className="label">Compétition</label>

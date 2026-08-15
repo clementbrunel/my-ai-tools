@@ -1,5 +1,6 @@
 package com.pronocore.service;
 
+import com.pronocore.client.ApiFootballClient;
 import com.pronocore.dto.request.CreateMatchRequest;
 import com.pronocore.dto.request.UpdateMatchScoreRequest;
 import com.pronocore.dto.response.MatchResponse;
@@ -37,8 +38,10 @@ class MatchServiceTest {
     @Mock private GroupMemberRepository      groupMemberRepository;
     @Mock private UserRepository             userRepository;
     @Mock private TeamRepository             teamRepository;
-    @Mock private CompetitionRepository      competitionRepository;
-    @Mock private DailyGageService           dailyGageService;
+    @Mock private CompetitionRepository        competitionRepository;
+    @Mock private MatchExternalLinksRepository matchExternalLinksRepository;
+    @Mock private ApiFootballClient            apiFootballClient;
+    @Mock private DailyGageService              dailyGageService;
 
     @InjectMocks
     private MatchService matchService;
@@ -285,6 +288,65 @@ class MatchServiceTest {
         matchService.createMatch(req);
 
         verifyNoInteractions(betRepository);
+    }
+
+    // ── importFixturesFromApiFootball ────────────────────────────────────────
+
+    @Test
+    void importFixturesFromApiFootball_throwsWhenLeagueIdNotConfigured() {
+        Competition ligue1 = Competition.builder().id(2L).name("Ligue 1 2026-2027").season(2026).build();
+        when(competitionRepository.findById(2L)).thenReturn(Optional.of(ligue1));
+
+        assertThatThrownBy(() -> matchService.importFixturesFromApiFootball(2L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Ligue 1 2026-2027");
+
+        verifyNoInteractions(apiFootballClient);
+    }
+
+    @Test
+    void importFixturesFromApiFootball_throwsWhenApiDisabled() {
+        Competition ligue1 = Competition.builder().id(2L).name("Ligue 1 2026-2027")
+                .season(2026).apiFootballLeagueId(61).build();
+        when(competitionRepository.findById(2L)).thenReturn(Optional.of(ligue1));
+        when(apiFootballClient.isDisabled()).thenReturn(true);
+
+        assertThatThrownBy(() -> matchService.importFixturesFromApiFootball(2L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("API_FOOTBALL_KEY");
+    }
+
+    @Test
+    void importFixturesFromApiFootball_createsNewMatchesAndSkipsAlreadyLinkedFixtures() {
+        Competition ligue1 = Competition.builder().id(2L).name("Ligue 1 2026-2027")
+                .season(2026).apiFootballLeagueId(61).build();
+        when(competitionRepository.findById(2L)).thenReturn(Optional.of(ligue1));
+        when(apiFootballClient.isDisabled()).thenReturn(false);
+
+        LocalDateTime kickoff1 = LocalDateTime.of(2026, 8, 20, 21, 0);
+        LocalDateTime kickoff2 = LocalDateTime.of(2026, 8, 21, 21, 0);
+        ApiFootballClient.ApiFixture alreadyLinked = new ApiFootballClient.ApiFixture(
+                100L, kickoff1, "PSG", "OM", 1L, 2L, "NS", null, null, "Regular Season - 1");
+        ApiFootballClient.ApiFixture newFixture = new ApiFootballClient.ApiFixture(
+                200L, kickoff2, "Lyon", "Monaco", 3L, 4L, "NS", null, null, "Regular Season - 1");
+        when(apiFootballClient.getAllFixtures(61, 2026)).thenReturn(List.of(alreadyLinked, newFixture));
+        when(matchExternalLinksRepository.findApiFootballFixtureIdsIn(List.of(100L, 200L)))
+                .thenReturn(List.of(100L));
+
+        when(teamRepository.findByName("Lyon")).thenReturn(Optional.of(team(3L, "Lyon")));
+        when(teamRepository.findByName("Monaco")).thenReturn(Optional.of(team(4L, "Monaco")));
+        when(matchRepository.save(any(Match.class))).thenAnswer(inv -> {
+            Match m = inv.getArgument(0);
+            m.setId(50L);
+            return m;
+        });
+        when(matchMapper.toResponse(any(Match.class))).thenReturn(MatchResponse.builder().build());
+
+        List<MatchResponse> created = matchService.importFixturesFromApiFootball(2L);
+
+        assertThat(created).hasSize(1);
+        verify(matchRepository, times(1)).save(any(Match.class));
+        verify(matchExternalLinksRepository, times(1)).save(any(MatchExternalLinks.class));
     }
 
     // ── deleteMatch ───────────────────────────────────────────────────────────

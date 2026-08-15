@@ -37,7 +37,8 @@ public class ApiFootballClient {
             long awayTeamId,
             String statusShort,
             Integer goalsHome,
-            Integer goalsAway
+            Integer goalsAway,
+            String round
     ) {}
 
     public static final Set<String> FINISHED_STATUSES = Set.of("FT", "AET", "PEN");
@@ -164,10 +165,11 @@ public class ApiFootballClient {
                 String away = item.path("teams").path("away").path("name").asText("");
                 long homeId = item.path("teams").path("home").path("id").asLong();
                 long awayId = item.path("teams").path("away").path("id").asLong();
+                String round = item.path("league").path("round").asText("");
                 JsonNode goals = item.path("goals");
                 Integer gh = goals.path("home").isNull() ? null : goals.path("home").intValue();
                 Integer ga = goals.path("away").isNull() ? null : goals.path("away").intValue();
-                result.add(new ApiFixture(id, date, home, away, homeId, awayId, statusShort, gh, ga));
+                result.add(new ApiFixture(id, date, home, away, homeId, awayId, statusShort, gh, ga, round));
             }
             return result;
         } catch (Exception e) {

@@ -54,6 +54,13 @@ public class MatchController {
         return ResponseEntity.status(HttpStatus.CREATED).body(matchService.createMatch(request));
     }
 
+    @PostMapping("/import-from-api-football/{competitionId}")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+    @Operation(summary = "Import new fixtures for a competition from api-football, skipping already-linked ones (Admin only)")
+    public ResponseEntity<List<MatchResponse>> importFromApiFootball(@PathVariable Long competitionId) {
+        return ResponseEntity.ok(matchService.importFixturesFromApiFootball(competitionId));
+    }
+
     @PatchMapping("/{id}/score")
     @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     @Operation(summary = "Update match score (Admin only)")

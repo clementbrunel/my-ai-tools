@@ -1,5 +1,6 @@
 package com.pronocore.service;
 
+import com.pronocore.client.ApiFootballClient;
 import com.pronocore.dto.request.CreateMatchRequest;
 import com.pronocore.dto.request.UpdateMatchScoreRequest;
 import com.pronocore.dto.response.MatchResponse;
@@ -21,15 +22,17 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class MatchService {
 
-    private final MatchRepository            matchRepository;
-    private final MatchMapper                matchMapper;
-    private final BetRepository              betRepository;
-    private final BetParticipationRepository betParticipationRepository;
-    private final GroupMemberRepository      groupMemberRepository;
-    private final UserRepository             userRepository;
-    private final TeamRepository             teamRepository;
-    private final CompetitionRepository      competitionRepository;
-    private final DailyGageService           dailyGageService;
+    private final MatchRepository              matchRepository;
+    private final MatchMapper                  matchMapper;
+    private final BetRepository                betRepository;
+    private final BetParticipationRepository   betParticipationRepository;
+    private final GroupMemberRepository        groupMemberRepository;
+    private final UserRepository               userRepository;
+    private final TeamRepository               teamRepository;
+    private final CompetitionRepository        competitionRepository;
+    private final MatchExternalLinksRepository matchExternalLinksRepository;
+    private final ApiFootballClient            apiFootballClient;
+    private final DailyGageService             dailyGageService;
 
     // ---------------------------------------------------------------
     // Scoring constants
@@ -98,6 +101,79 @@ public class MatchService {
                 .build();
         match = matchRepository.save(match);
         return toEnrichedResponse(match);
+    }
+
+    /**
+     * Imports every not-yet-linked fixture of a competition from api-football (new
+     * season, new matchday...). Idempotent — fixtures already linked to a match are
+     * skipped, so it's safe to re-run as the season's calendar grows. Teams are
+     * matched/created by exact name and added to the competition roster if missing.
+     */
+    @Transactional
+    public List<MatchResponse> importFixturesFromApiFootball(Long competitionId) {
+        Competition competition = competitionRepository.findById(competitionId)
+                .orElseThrow(() -> new EntityNotFoundException("Competition not found: " + competitionId));
+        Integer leagueId = competition.getApiFootballLeagueId();
+        Integer season = competition.getSeason();
+        if (leagueId == null || season == null) {
+            throw new IllegalStateException("Competition \"" + competition.getName()
+                    + "\" has no api-football league id / season configured");
+        }
+        if (apiFootballClient.isDisabled()) {
+            throw new IllegalStateException("api-football sync is disabled — no API_FOOTBALL_KEY configured");
+        }
+
+        List<ApiFootballClient.ApiFixture> fixtures = apiFootballClient.getAllFixtures(leagueId, season);
+        List<Long> fixtureIds = fixtures.stream().map(ApiFootballClient.ApiFixture::fixtureId).toList();
+        Set<Long> alreadyImported = new HashSet<>(matchExternalLinksRepository.findApiFootballFixtureIdsIn(fixtureIds));
+
+        List<Match> created = new ArrayList<>();
+        for (ApiFootballClient.ApiFixture fixture : fixtures) {
+            if (alreadyImported.contains(fixture.fixtureId()) || fixture.date() == null) continue;
+
+            Team teamA = findOrCreateTeamInRoster(competition, fixture.homeTeamName());
+            Team teamB = findOrCreateTeamInRoster(competition, fixture.awayTeamName());
+
+            Match match = Match.builder()
+                    .teamA(teamA)
+                    .teamB(teamB)
+                    .matchDate(fixture.date())
+                    .competition(competition)
+                    .round(fixture.round() != null ? fixture.round() : "")
+                    .phase(Match.MatchPhase.POOL)
+                    .status(toImportStatus(fixture.statusShort()))
+                    .scoreA(fixture.goalsHome())
+                    .scoreB(fixture.goalsAway())
+                    .build();
+            match = matchRepository.save(match);
+
+            matchExternalLinksRepository.save(MatchExternalLinks.builder()
+                    .match(match)
+                    .apiFootballFixtureId(fixture.fixtureId())
+                    .build());
+
+            created.add(match);
+        }
+
+        log.info("⚽ Imported {} new fixture(s) for competition \"{}\" from api-football (league {}, season {})",
+                created.size(), competition.getName(), leagueId, season);
+
+        return created.stream().map(this::toEnrichedResponse).toList();
+    }
+
+    private Team findOrCreateTeamInRoster(Competition competition, String name) {
+        Team team = teamRepository.findByName(name)
+                .orElseGet(() -> teamRepository.save(Team.builder().name(name).build()));
+        if (!competition.getTeams().contains(team)) {
+            competition.getTeams().add(team);
+        }
+        return team;
+    }
+
+    private Match.Status toImportStatus(String statusShort) {
+        if (ApiFootballClient.FINISHED_STATUSES.contains(statusShort)) return Match.Status.FINISHED;
+        if (ApiFootballClient.LIVE_STATUSES.contains(statusShort))     return Match.Status.ONGOING;
+        return Match.Status.UPCOMING;
     }
 
     @Transactional
