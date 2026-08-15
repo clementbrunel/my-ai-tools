@@ -34,7 +34,9 @@ public class CompetitionService {
                 ? competitionRepository.findAllByOrderByNameAsc()
                 : competitionRepository.findAllBySportInOrderByNameAsc(sports);
         return competitions.stream()
-                .map(c -> new CompetitionResponse(c.getId(), c.getName(), c.getSport(), c.isActive(), c.getSeason())).toList();
+                .map(c -> new CompetitionResponse(c.getId(), c.getName(), c.getSport(), c.isActive(), c.getSeason(),
+                        c.getApiFootballLeagueId()))
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -69,6 +71,11 @@ public class CompetitionService {
     @Transactional
     public void setSeason(Long competitionId, Integer season) {
         requireCompetition(competitionId).setSeason(season);
+    }
+
+    @Transactional
+    public void setApiFootballLeagueId(Long competitionId, Integer leagueId) {
+        requireCompetition(competitionId).setApiFootballLeagueId(leagueId);
     }
 
     @Transactional

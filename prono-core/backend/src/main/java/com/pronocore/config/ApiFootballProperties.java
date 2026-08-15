@@ -12,6 +12,4 @@ import org.springframework.stereotype.Component;
 public class ApiFootballProperties {
     private String baseUrl = "https://v3.football.api-sports.io";
     private String apiKey = "";
-    private int leagueId = 1;
-    private int season = 2026;
 }

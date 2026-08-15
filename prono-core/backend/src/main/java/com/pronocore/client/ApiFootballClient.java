@@ -16,8 +16,10 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @Slf4j
@@ -55,10 +57,14 @@ public class ApiFootballClient {
     private final ApiFootballProperties props;
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
-    /** Guarded by {@code this} — read by request threads and the sync scheduler alike. */
-    private Cached<List<ApiFixture>> fixturesCache;
-    private Cached<List<ApiTeam>>    teamsCache;
-    private Cached<List<JsonNode>>   countriesCache;
+    /**
+     * Guarded by {@code this} — read by request threads and the sync scheduler alike.
+     * Keyed per (leagueId, season) so several competitions (World Cup, Ligue 1...) can
+     * be queried and cached independently.
+     */
+    private final Map<String, Cached<List<ApiFixture>>> fixturesCache = new HashMap<>();
+    private final Map<String, Cached<List<ApiTeam>>>    teamsCache    = new HashMap<>();
+    private Cached<List<JsonNode>> countriesCache;
 
     private record Cached<T>(T value, Instant expiresAt) {
         boolean isFresh() { return Instant.now().isBefore(expiresAt); }
@@ -80,11 +86,13 @@ public class ApiFootballClient {
         return props.getApiKey() == null || props.getApiKey().isBlank();
     }
 
-    public synchronized List<ApiFixture> getAllFixtures() {
-        if (fixturesCache != null && fixturesCache.isFresh()) return fixturesCache.value();
-        String json = get("/fixtures?league=" + props.getLeagueId() + "&season=" + props.getSeason());
+    public synchronized List<ApiFixture> getAllFixtures(int leagueId, int season) {
+        String key = cacheKey(leagueId, season);
+        Cached<List<ApiFixture>> cached = fixturesCache.get(key);
+        if (cached != null && cached.isFresh()) return cached.value();
+        String json = get("/fixtures?league=" + leagueId + "&season=" + season);
         List<ApiFixture> fixtures = parseFixtures(json);
-        fixturesCache = new Cached<>(fixtures, Instant.now().plus(FIXTURES_TTL));
+        fixturesCache.put(key, new Cached<>(fixtures, Instant.now().plus(FIXTURES_TTL)));
         return fixtures;
     }
 
@@ -105,11 +113,13 @@ public class ApiFootballClient {
         return result;
     }
 
-    public synchronized List<ApiTeam> getTeams() {
-        if (teamsCache != null && teamsCache.isFresh()) return teamsCache.value();
-        String json = get("/teams?league=" + props.getLeagueId() + "&season=" + props.getSeason());
+    public synchronized List<ApiTeam> getTeams(int leagueId, int season) {
+        String key = cacheKey(leagueId, season);
+        Cached<List<ApiTeam>> cached = teamsCache.get(key);
+        if (cached != null && cached.isFresh()) return cached.value();
+        String json = get("/teams?league=" + leagueId + "&season=" + season);
         List<ApiTeam> teams = parseTeams(json);
-        teamsCache = new Cached<>(teams, Instant.now().plus(REFERENCE_TTL));
+        teamsCache.put(key, new Cached<>(teams, Instant.now().plus(REFERENCE_TTL)));
         return teams;
     }
 
@@ -128,9 +138,13 @@ public class ApiFootballClient {
     }
 
     public synchronized void invalidateCache() {
-        fixturesCache  = null;
-        teamsCache     = null;
+        fixturesCache.clear();
+        teamsCache.clear();
         countriesCache = null;
+    }
+
+    private static String cacheKey(int leagueId, int season) {
+        return leagueId + ":" + season;
     }
 
     private String get(String path) {

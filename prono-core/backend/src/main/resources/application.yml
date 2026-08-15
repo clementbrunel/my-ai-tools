@@ -53,8 +53,8 @@ f1:
     base-url: https://api.jolpi.ca/ergast/f1
 
 # api-football.com (v3) — source des scores de football en temps réel
+# league-id / season sont portés par chaque Competition (api_football_league_id / season), pas ici :
+# ça permet de synchroniser plusieurs compétitions foot (Coupe du Monde, Ligue 1...) en parallèle.
 api-football:
   base-url: https://v3.football.api-sports.io
   api-key: ${API_FOOTBALL_KEY:}
-  league-id: 1
-  season: 2026

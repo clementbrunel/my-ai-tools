@@ -48,6 +48,13 @@ export const setCompetitionSeason = async (competitionId: number, season: number
   });
 };
 
+/** Pass `null` to clear the league id (disables automatic fixture/score sync for this competition). */
+export const setCompetitionApiFootballLeagueId = async (competitionId: number, leagueId: number | null): Promise<void> => {
+  await apiClient.put(`/competitions/${competitionId}/api-football-league-id`, leagueId, {
+    headers: { 'Content-Type': 'application/json' },
+  });
+};
+
 export const deleteCompetition = async (competitionId: number): Promise<void> => {
   await apiClient.delete(`/competitions/${competitionId}`);
 };

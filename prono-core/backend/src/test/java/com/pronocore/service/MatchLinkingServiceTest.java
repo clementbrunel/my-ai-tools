@@ -1,10 +1,13 @@
 package com.pronocore.service;
 
 import com.pronocore.client.ApiFootballClient;
+import com.pronocore.dto.response.FixtureCandidateResponse;
+import com.pronocore.entity.Competition;
 import com.pronocore.entity.ExternalApi;
 import com.pronocore.entity.Match;
 import com.pronocore.entity.MatchExternalLinks;
 import com.pronocore.entity.Sport;
+import com.pronocore.entity.Team;
 import com.pronocore.repository.ExternalApiRepository;
 import com.pronocore.repository.MatchExternalLinksRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -15,6 +18,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
@@ -44,6 +49,49 @@ class MatchLinkingServiceTest {
         return ExternalApi.builder()
                 .id(2L).name("jolpica-f1").code("JOLPICA").sport(Sport.F1)
                 .build();
+    }
+
+    // ── findCandidates ────────────────────────────────────────────────────────
+
+    @Test
+    void findCandidates_throwsWhenCompetitionHasNoLeagueIdConfigured() {
+        Competition competition = Competition.builder().id(1L).name("Ligue 1").season(2026).build();
+        Match match = Match.builder().id(10L).competition(competition)
+                .teamA(Team.builder().id(1L).name("PSG").build())
+                .teamB(Team.builder().id(2L).name("OM").build())
+                .matchDate(LocalDateTime.of(2026, 8, 20, 21, 0))
+                .build();
+        when(matchService.findById(10L)).thenReturn(match);
+
+        assertThatThrownBy(() -> matchLinkingService.findCandidates(10L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Ligue 1");
+
+        verifyNoInteractions(apiFootballClient);
+    }
+
+    @Test
+    void findCandidates_scoresFixturesFromTheCompetitionsOwnLeague() {
+        Competition competition = Competition.builder().id(1L).name("Ligue 1")
+                .season(2026).apiFootballLeagueId(61).build();
+        Team psg = Team.builder().id(1L).name("PSG").build();
+        Team om = Team.builder().id(2L).name("OM").build();
+        LocalDateTime kickoff = LocalDateTime.of(2026, 8, 20, 21, 0);
+        Match match = Match.builder().id(10L).competition(competition)
+                .teamA(psg).teamB(om).matchDate(kickoff).build();
+        when(matchService.findById(10L)).thenReturn(match);
+        when(teamMappingService.getTeamId("PSG", 61, 2026)).thenReturn(100L);
+        when(teamMappingService.getTeamId("OM", 61, 2026)).thenReturn(200L);
+
+        ApiFootballClient.ApiFixture fixture = new ApiFootballClient.ApiFixture(
+                999L, kickoff, "PSG", "OM", 100L, 200L, "NS", null, null);
+        when(apiFootballClient.getAllFixtures(61, 2026)).thenReturn(List.of(fixture));
+
+        List<FixtureCandidateResponse> candidates = matchLinkingService.findCandidates(10L);
+
+        assertThat(candidates).hasSize(1);
+        assertThat(candidates.get(0).getFixtureId()).isEqualTo(999L);
+        assertThat(candidates.get(0).isAutoLinkable()).isTrue();
     }
 
     // ── linkMatch ─────────────────────────────────────────────────────────────

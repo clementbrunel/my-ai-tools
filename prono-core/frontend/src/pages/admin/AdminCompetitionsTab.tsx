@@ -8,6 +8,7 @@ import {
   setCompetitionTeams,
   setCompetitionActive,
   setCompetitionSeason,
+  setCompetitionApiFootballLeagueId,
   deleteCompetition,
   findOrCreateTeam,
 } from '@/api/competitions';
@@ -37,6 +38,8 @@ const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) =>
   const [isLoadingTeams, setIsLoadingTeams] = useState(false);
   const [seasonInput, setSeasonInput] = useState('');
   const [isSavingSeason, setIsSavingSeason] = useState(false);
+  const [leagueIdInput, setLeagueIdInput] = useState('');
+  const [isSavingLeagueId, setIsSavingLeagueId] = useState(false);
   const [f1Drivers, setF1Drivers] = useState<Driver[] | null>(null);
   const loadingForRef = useRef<number | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -64,6 +67,7 @@ const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) =>
     loadingForRef.current = competition.id;
     setSelectedCompetition(competition);
     setSeasonInput(competition.season?.toString() ?? '');
+    setLeagueIdInput(competition.apiFootballLeagueId?.toString() ?? '');
     setIsDirty(false);
     setIsLoadingTeams(true);
     try {
@@ -164,6 +168,27 @@ const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) =>
       showToast('Erreur lors de la mise à jour de la saison');
     } finally {
       setIsSavingSeason(false);
+    }
+  };
+
+  const isLeagueIdDirty = selectedCompetition !== null
+    && leagueIdInput !== (selectedCompetition.apiFootballLeagueId?.toString() ?? '');
+
+  const handleSaveLeagueId = async () => {
+    if (!selectedCompetition) return;
+    const trimmed = leagueIdInput.trim();
+    const leagueId = trimmed === '' ? null : Number(trimmed);
+    if (leagueId !== null && !Number.isInteger(leagueId)) return;
+    setIsSavingLeagueId(true);
+    try {
+      await setCompetitionApiFootballLeagueId(selectedCompetition.id, leagueId);
+      setCompetitions((prev) => prev.map((c) => (c.id === selectedCompetition.id ? { ...c, apiFootballLeagueId: leagueId } : c)));
+      setSelectedCompetition((prev) => (prev?.id === selectedCompetition.id ? { ...prev, apiFootballLeagueId: leagueId } : prev));
+      showToast('League id api-football mis à jour ✅');
+    } catch {
+      showToast('Erreur lors de la mise à jour du league id');
+    } finally {
+      setIsSavingLeagueId(false);
     }
   };
 
@@ -291,6 +316,35 @@ const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) =>
               className="btn-primary disabled:opacity-50"
             >
               {isSavingSeason ? '⏳ Sauvegarde...' : '💾 Sauvegarder'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* api-football league id — football competitions only, drives the automatic fixture/score sync */}
+      {selectedCompetition && selectedCompetition.sport !== 'F1' && (
+        <div className="card">
+          <h3 className="font-bold text-gray-900 dark:text-white mb-1">
+            League id api-football — <span className="text-wc-green">{selectedCompetition.name}</span>
+          </h3>
+          <p className="text-xs text-gray-400 mb-4">
+            Identifiant de la ligue sur api-football.com (ex : 1 = Coupe du Monde, 61 = Ligue 1). Vide = synchronisation automatique désactivée pour cette compétition.
+          </p>
+          <div className="flex gap-2 items-center">
+            <input
+              type="number"
+              value={leagueIdInput}
+              onChange={(e) => setLeagueIdInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleSaveLeagueId())}
+              className="input-field w-32"
+              placeholder="Ex: 61"
+            />
+            <button
+              onClick={handleSaveLeagueId}
+              disabled={!isLeagueIdDirty || isSavingLeagueId}
+              className="btn-primary disabled:opacity-50"
+            >
+              {isSavingLeagueId ? '⏳ Sauvegarde...' : '💾 Sauvegarder'}
             </button>
           </div>
         </div>

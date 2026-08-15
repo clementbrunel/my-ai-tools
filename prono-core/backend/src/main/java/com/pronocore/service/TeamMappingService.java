@@ -46,39 +46,56 @@ public class TeamMappingService {
 
     private final ApiFootballClient apiFootballClient;
 
-    private Map<String, Long> nameToIdCache;
+    /** Keyed per (leagueId, season): each football competition has its own team roster. */
+    private final Map<String, Map<String, Long>> nameToIdCacheByLeagueSeason = new HashMap<>();
 
-    public Long getTeamId(String frenchName) {
-        ensureCache();
-        return nameToIdCache.get(frenchName);
+    /**
+     * Resolves a team name to its api-football id within a given league/season.
+     * Handles both national teams (French country name, e.g. World Cup) via
+     * {@link #FR_NAME_TO_ISO2} and club teams (Ligue 1 and the like) by direct
+     * case-insensitive name match against the league's roster.
+     */
+    public Long getTeamId(String name, int leagueId, int season) {
+        return ensureCache(leagueId, season).get(name.toLowerCase());
     }
 
     public String getIso2(String frenchName) {
         return FR_NAME_TO_ISO2.get(frenchName);
     }
 
-    private synchronized void ensureCache() {
-        if (nameToIdCache != null) return;
-        if (apiFootballClient.isDisabled()) {
-            nameToIdCache = Map.of();
-            return;
-        }
+    private synchronized Map<String, Long> ensureCache(int leagueId, int season) {
+        String key = leagueId + ":" + season;
+        Map<String, Long> cached = nameToIdCacheByLeagueSeason.get(key);
+        if (cached != null) return cached;
+
+        Map<String, Long> map = buildCache(leagueId, season);
+        nameToIdCacheByLeagueSeason.put(key, map);
+        return map;
+    }
+
+    private Map<String, Long> buildCache(int leagueId, int season) {
+        if (apiFootballClient.isDisabled()) return Map.of();
+
         Map<String, Long> map = new HashMap<>();
         Map<String, String> iso2ToCountryName = buildIso2ToCountryName();
-        for (ApiFootballClient.ApiTeam team : apiFootballClient.getTeams()) {
+        for (ApiFootballClient.ApiTeam team : apiFootballClient.getTeams(leagueId, season)) {
+            // Club teams (Ligue 1...): the stored name is already the api-football name.
+            map.put(team.name().toLowerCase(), team.id());
+
+            // National teams (World Cup...): translate the French country name via ISO2.
             for (Map.Entry<String, String> entry : FR_NAME_TO_ISO2.entrySet()) {
                 String iso2 = entry.getValue();
                 String countryName = iso2ToCountryName.getOrDefault(iso2,
                         ISO2_TO_API_COUNTRY.getOrDefault(iso2, iso2));
                 if (team.countryIso2().equalsIgnoreCase(iso2)
                         || team.name().equalsIgnoreCase(countryName)) {
-                    map.put(entry.getKey(), team.id());
+                    map.put(entry.getKey().toLowerCase(), team.id());
                 }
             }
         }
-        nameToIdCache = map;
-        log.info("TeamMappingService: resolved {} / {} French team names to api-football IDs",
-                map.size(), FR_NAME_TO_ISO2.size());
+        log.info("TeamMappingService: resolved {} team name(s) to api-football IDs for league {} season {}",
+                map.size(), leagueId, season);
+        return map;
     }
 
     private Map<String, String> buildIso2ToCountryName() {

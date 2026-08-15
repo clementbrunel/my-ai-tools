@@ -243,6 +243,36 @@ class CompetitionServiceTest {
         assertThrows(EntityNotFoundException.class, () -> competitionService.setSeason(99L, 2027));
     }
 
+    // ── setApiFootballLeagueId ────────────────────────────────────────────────
+
+    @Test
+    void setApiFootballLeagueId_updatesCompetitionLeagueId() {
+        Competition comp = competition(COMPETITION_WORLD_CUP.getId(), "FIFA World Cup 2026");
+        when(competitionRepository.findById(COMPETITION_WORLD_CUP.getId())).thenReturn(Optional.of(comp));
+
+        competitionService.setApiFootballLeagueId(COMPETITION_WORLD_CUP.getId(), 61);
+
+        assertThat(comp.getApiFootballLeagueId()).isEqualTo(61);
+    }
+
+    @Test
+    void setApiFootballLeagueId_canClearLeagueId() {
+        Competition comp = competition(COMPETITION_WORLD_CUP.getId(), "FIFA World Cup 2026");
+        comp.setApiFootballLeagueId(1);
+        when(competitionRepository.findById(COMPETITION_WORLD_CUP.getId())).thenReturn(Optional.of(comp));
+
+        competitionService.setApiFootballLeagueId(COMPETITION_WORLD_CUP.getId(), null);
+
+        assertThat(comp.getApiFootballLeagueId()).isNull();
+    }
+
+    @Test
+    void setApiFootballLeagueId_throwsWhenCompetitionUnknown() {
+        when(competitionRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThrows(EntityNotFoundException.class, () -> competitionService.setApiFootballLeagueId(99L, 61));
+    }
+
     // ── helpers ───────────────────────────────────────────────────────────────
 
     private static Competition competition(Long id, String name, Team... teams) {
