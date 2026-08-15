@@ -2,6 +2,7 @@ package com.pronocore.controller;
 
 import com.pronocore.dto.request.CreateMatchRequest;
 import com.pronocore.dto.request.UpdateMatchScoreRequest;
+import com.pronocore.dto.response.FixtureImportResponse;
 import com.pronocore.dto.response.MatchResponse;
 import com.pronocore.entity.Match;
 import com.pronocore.service.MatchService;
@@ -56,8 +57,8 @@ public class MatchController {
 
     @PostMapping("/import-from-api-football/{competitionId}")
     @PreAuthorize("hasRole('PLATFORM_ADMIN')")
-    @Operation(summary = "Import new fixtures for a competition from api-football, skipping already-linked ones (Admin only)")
-    public ResponseEntity<List<MatchResponse>> importFromApiFootball(@PathVariable Long competitionId) {
+    @Operation(summary = "Import a competition's fixtures from api-football: creates new matches and reconciles the date/round of already-linked ones (reschedules) (Admin only)")
+    public ResponseEntity<FixtureImportResponse> importFromApiFootball(@PathVariable Long competitionId) {
         return ResponseEntity.ok(matchService.importFixturesFromApiFootball(competitionId));
     }
 

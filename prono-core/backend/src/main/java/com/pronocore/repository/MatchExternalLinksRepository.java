@@ -12,7 +12,11 @@ import java.util.List;
 @Repository
 public interface MatchExternalLinksRepository extends JpaRepository<MatchExternalLinks, Long> {
 
-    /** Used by fixture import to skip api-football fixtures already linked to a match, in one batched call. */
-    @Query("SELECT l.apiFootballFixtureId FROM MatchExternalLinks l WHERE l.apiFootballFixtureId IN :fixtureIds")
-    List<Long> findApiFootballFixtureIdsIn(@Param("fixtureIds") Collection<Long> fixtureIds);
+    /**
+     * Used by fixture import to tell new fixtures from already-linked ones, and to
+     * reconcile the linked match's date/round when api-football reports a reschedule
+     * (broadcast time changes are common mid-season) — one batched call.
+     */
+    @Query("SELECT l FROM MatchExternalLinks l JOIN FETCH l.match WHERE l.apiFootballFixtureId IN :fixtureIds")
+    List<MatchExternalLinks> findByApiFootballFixtureIdIn(@Param("fixtureIds") Collection<Long> fixtureIds);
 }

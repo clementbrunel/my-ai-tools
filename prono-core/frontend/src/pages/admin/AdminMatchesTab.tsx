@@ -213,12 +213,15 @@ const AdminMatchesTab: React.FC = () => {
     if (!newCompetitionId) return;
     setImportingFixtures(true);
     try {
-      const imported = await importMatchesFromApiFootball(newCompetitionId);
-      if (imported.length > 0) {
+      const { created, rescheduled } = await importMatchesFromApiFootball(newCompetitionId);
+      if (created.length > 0 || rescheduled.length > 0) {
         const updated = await getMatches();
         setMatches(updated);
       }
-      showToast(`${imported.length} nouveau${imported.length !== 1 ? 'x' : ''} match${imported.length !== 1 ? 's' : ''} importé${imported.length !== 1 ? 's' : ''} depuis api-football`);
+      const parts = [];
+      if (created.length > 0) parts.push(`${created.length} nouveau${created.length !== 1 ? 'x' : ''} match${created.length !== 1 ? 's' : ''}`);
+      if (rescheduled.length > 0) parts.push(`${rescheduled.length} reprogrammé${rescheduled.length !== 1 ? 's' : ''}`);
+      showToast(parts.length > 0 ? `${parts.join(', ')} depuis api-football` : 'Calendrier déjà à jour — rien à importer');
     } catch {
       showToast("Erreur lors de l'import du calendrier — vérifiez le league id et la clé API");
     } finally {
