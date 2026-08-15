@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -12,15 +12,9 @@ const Login: React.FC = () => {
   const navigate = useNavigate();
   const { theme } = useTheme();
   const isF1 = theme.id === 'f1';
-  // setIsLoading(true) only disables the button on the next render, so a fast
-  // double-click/double-Enter can fire handleSubmit twice before that happens.
-  // This ref blocks the second call synchronously.
-  const isSubmittingRef = useRef(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSubmittingRef.current) return;
-    isSubmittingRef.current = true;
     setError('');
     setIsLoading(true);
     try {
@@ -34,7 +28,6 @@ const Login: React.FC = () => {
         setError('Erreur de connexion. Réessayez.');
       }
     } finally {
-      isSubmittingRef.current = false;
       setIsLoading(false);
     }
   };
