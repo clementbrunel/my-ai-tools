@@ -72,6 +72,13 @@ public class CompetitionController {
         return ResponseEntity.noContent().build();
     }
 
+    @PostMapping("/{competitionId}/sync-teams-from-api-football")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+    @Operation(summary = "Import/refresh a competition's roster from api-football using its configured league id and season (Admin only)")
+    public ResponseEntity<List<TeamResponse>> syncTeamsFromApiFootball(@PathVariable Long competitionId) {
+        return ResponseEntity.ok(competitionService.syncTeamsFromApiFootball(competitionId));
+    }
+
     @DeleteMapping("/{competitionId}")
     @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     @Operation(summary = "Delete a competition — rejected if it still has matches or races (Admin only)")

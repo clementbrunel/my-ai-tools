@@ -55,6 +55,12 @@ export const setCompetitionApiFootballLeagueId = async (competitionId: number, l
   });
 };
 
+/** Imports/refreshes a competition's roster from api-football (requires a configured league id and season). */
+export const syncCompetitionTeamsFromApiFootball = async (competitionId: number): Promise<TeamDto[]> => {
+  const response = await apiClient.post<TeamDto[]>(`/competitions/${competitionId}/sync-teams-from-api-football`);
+  return response.data;
+};
+
 export const deleteCompetition = async (competitionId: number): Promise<void> => {
   await apiClient.delete(`/competitions/${competitionId}`);
 };
