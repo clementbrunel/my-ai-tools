@@ -1,6 +1,6 @@
 package com.pronocore.service;
 
-import com.pronocore.client.ApiFootballClient;
+import com.pronocore.client.FootballDataClient;
 import com.pronocore.dto.response.TeamResponse;
 import com.pronocore.entity.Competition;
 import com.pronocore.entity.Team;
@@ -38,7 +38,7 @@ class CompetitionServiceTest {
 
     @Mock private CompetitionRepository competitionRepository;
     @Mock private TeamRepository        teamRepository;
-    @Mock private ApiFootballClient     apiFootballClient;
+    @Mock private FootballDataClient    footballDataClient;
 
     @InjectMocks
     private CompetitionService competitionService;
@@ -247,80 +247,80 @@ class CompetitionServiceTest {
         assertThrows(EntityNotFoundException.class, () -> competitionService.setSeason(99L, 2027));
     }
 
-    // ── setApiFootballLeagueId ────────────────────────────────────────────────
+    // ── setFootballDataCompetitionCode ───────────────────────────────────────
 
     @Test
-    void setApiFootballLeagueId_updatesCompetitionLeagueId() {
+    void setFootballDataCompetitionCode_updatesCompetitionCode() {
         Competition comp = competition(COMPETITION_WORLD_CUP.getId(), "FIFA World Cup 2026");
         when(competitionRepository.findById(COMPETITION_WORLD_CUP.getId())).thenReturn(Optional.of(comp));
 
-        competitionService.setApiFootballLeagueId(COMPETITION_WORLD_CUP.getId(), 61);
+        competitionService.setFootballDataCompetitionCode(COMPETITION_WORLD_CUP.getId(), "fl1");
 
-        assertThat(comp.getApiFootballLeagueId()).isEqualTo(61);
+        assertThat(comp.getFootballDataCompetitionCode()).isEqualTo("FL1");
     }
 
     @Test
-    void setApiFootballLeagueId_canClearLeagueId() {
+    void setFootballDataCompetitionCode_canClearCode() {
         Competition comp = competition(COMPETITION_WORLD_CUP.getId(), "FIFA World Cup 2026");
-        comp.setApiFootballLeagueId(1);
+        comp.setFootballDataCompetitionCode("WC");
         when(competitionRepository.findById(COMPETITION_WORLD_CUP.getId())).thenReturn(Optional.of(comp));
 
-        competitionService.setApiFootballLeagueId(COMPETITION_WORLD_CUP.getId(), null);
+        competitionService.setFootballDataCompetitionCode(COMPETITION_WORLD_CUP.getId(), null);
 
-        assertThat(comp.getApiFootballLeagueId()).isNull();
+        assertThat(comp.getFootballDataCompetitionCode()).isNull();
     }
 
     @Test
-    void setApiFootballLeagueId_throwsWhenCompetitionUnknown() {
+    void setFootballDataCompetitionCode_throwsWhenCompetitionUnknown() {
         when(competitionRepository.findById(99L)).thenReturn(Optional.empty());
 
-        assertThrows(EntityNotFoundException.class, () -> competitionService.setApiFootballLeagueId(99L, 61));
+        assertThrows(EntityNotFoundException.class, () -> competitionService.setFootballDataCompetitionCode(99L, "FL1"));
     }
 
-    // ── syncTeamsFromApiFootball ──────────────────────────────────────────────
+    // ── syncTeamsFromFootballData ─────────────────────────────────────────────
 
     @Test
-    void syncTeamsFromApiFootball_throwsWhenLeagueIdNotConfigured() {
+    void syncTeamsFromFootballData_throwsWhenCodeNotConfigured() {
         Competition comp = competition(1L, "Ligue 1 2026-2027");
         comp.setSeason(2026);
         when(competitionRepository.findById(1L)).thenReturn(Optional.of(comp));
 
-        assertThatThrownBy(() -> competitionService.syncTeamsFromApiFootball(1L))
+        assertThatThrownBy(() -> competitionService.syncTeamsFromFootballData(1L))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Ligue 1 2026-2027");
 
-        verifyNoInteractions(apiFootballClient);
+        verifyNoInteractions(footballDataClient);
     }
 
     @Test
-    void syncTeamsFromApiFootball_throwsWhenApiDisabled() {
+    void syncTeamsFromFootballData_throwsWhenApiDisabled() {
         Competition comp = competition(1L, "Ligue 1 2026-2027");
         comp.setSeason(2026);
-        comp.setApiFootballLeagueId(61);
+        comp.setFootballDataCompetitionCode("FL1");
         when(competitionRepository.findById(1L)).thenReturn(Optional.of(comp));
-        when(apiFootballClient.isDisabled()).thenReturn(true);
+        when(footballDataClient.isDisabled()).thenReturn(true);
 
-        assertThatThrownBy(() -> competitionService.syncTeamsFromApiFootball(1L))
+        assertThatThrownBy(() -> competitionService.syncTeamsFromFootballData(1L))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("API_FOOTBALL_KEY");
+                .hasMessageContaining("FOOTBALL_DATA_API_KEY");
     }
 
     @Test
-    void syncTeamsFromApiFootball_addsNewTeamsAndSkipsAlreadyRosteredOnes() {
+    void syncTeamsFromFootballData_addsNewTeamsAndSkipsAlreadyRosteredOnes() {
         Competition comp = competition(1L, "Ligue 1 2026-2027", TEAM_FRANCE);
         comp.setSeason(2026);
-        comp.setApiFootballLeagueId(61);
+        comp.setFootballDataCompetitionCode("FL1");
         when(competitionRepository.findById(1L)).thenReturn(Optional.of(comp));
-        when(apiFootballClient.isDisabled()).thenReturn(false);
-        when(apiFootballClient.getTeams(61, 2026)).thenReturn(List.of(
-                new ApiFootballClient.ApiTeam(1, "France", "FRA", "FR"),
-                new ApiFootballClient.ApiTeam(2, "Marseille", "OM", "FR")));
+        when(footballDataClient.isDisabled()).thenReturn(false);
+        when(footballDataClient.getTeams("FL1", 2026)).thenReturn(List.of(
+                new FootballDataClient.FdTeam(1, "France", "FRA"),
+                new FootballDataClient.FdTeam(2, "Marseille", "OM")));
         when(teamRepository.findByName("France")).thenReturn(Optional.of(TEAM_FRANCE));
         when(teamRepository.findByName("Marseille")).thenReturn(Optional.empty());
         Team marseille = team(6L, "Marseille");
         when(teamRepository.save(any(Team.class))).thenReturn(marseille);
 
-        List<TeamResponse> roster = competitionService.syncTeamsFromApiFootball(1L);
+        List<TeamResponse> roster = competitionService.syncTeamsFromFootballData(1L);
 
         assertThat(roster).extracting("name").containsExactlyInAnyOrder("France", "Marseille");
         verify(teamRepository, times(1)).save(any(Team.class));

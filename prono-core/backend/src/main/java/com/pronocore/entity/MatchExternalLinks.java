@@ -23,12 +23,12 @@ public class MatchExternalLinks {
     @JoinColumn(name = "match_id")
     private Match match;
 
-    @Column(name = "api_football_fixture_id")
-    private Long apiFootballFixtureId;
+    @Column(name = "football_data_match_id")
+    private Long footballDataMatchId;
 
     public Map<String, Long> toMap() {
         Map<String, Long> map = new LinkedHashMap<>();
-        if (apiFootballFixtureId != null) map.put(ExternalApi.API_FOOTBALL_CODE, apiFootballFixtureId);
+        if (footballDataMatchId != null) map.put(ExternalApi.FOOTBALL_DATA_CODE, footballDataMatchId);
         return map;
     }
 }

@@ -52,9 +52,10 @@ f1:
   jolpica:
     base-url: https://api.jolpi.ca/ergast/f1
 
-# api-football.com (v3) — source des scores de football en temps réel
-# league-id / season sont portés par chaque Competition (api_football_league_id / season), pas ici :
-# ça permet de synchroniser plusieurs compétitions foot (Coupe du Monde, Ligue 1...) en parallèle.
-api-football:
-  base-url: https://v3.football.api-sports.io
-  api-key: ${API_FOOTBALL_KEY:}
+# football-data.org (v4) — plan gratuit couvrant la saison en cours (Ligue 1 et 11 autres
+# compétitions majeures) ; competition-code / season sont portés par chaque Competition
+# (football_data_competition_code / season), pas ici : ça permet de synchroniser plusieurs
+# compétitions foot en parallèle.
+football-data:
+  base-url: https://api.football-data.org/v4
+  api-key: ${FOOTBALL_DATA_API_KEY:}

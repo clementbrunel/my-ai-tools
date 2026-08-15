@@ -21,7 +21,7 @@ export const makeCompetition = (overrides?: Partial<CompetitionDto>): Competitio
   sport: 'FOOT',
   active: true,
   season: null,
-  apiFootballLeagueId: null,
+  footballDataCompetitionCode: null,
   ...overrides,
 });
 

@@ -63,20 +63,20 @@ public class CompetitionController {
         return ResponseEntity.noContent().build();
     }
 
-    @PutMapping("/{competitionId}/api-football-league-id")
+    @PutMapping("/{competitionId}/football-data-competition-code")
     @PreAuthorize("hasRole('PLATFORM_ADMIN')")
-    @Operation(summary = "Set (or clear) a competition's api-football league id — required for automatic fixture/score sync (Admin only)")
-    public ResponseEntity<Void> setApiFootballLeagueId(@PathVariable Long competitionId,
-                                                        @RequestBody(required = false) Integer leagueId) {
-        competitionService.setApiFootballLeagueId(competitionId, leagueId);
+    @Operation(summary = "Set (or clear) a competition's football-data.org competition code (e.g. \"FL1\" for Ligue 1) — required for automatic fixture/score sync via this provider (Admin only)")
+    public ResponseEntity<Void> setFootballDataCompetitionCode(@PathVariable Long competitionId,
+                                                                @RequestBody(required = false) String code) {
+        competitionService.setFootballDataCompetitionCode(competitionId, code);
         return ResponseEntity.noContent().build();
     }
 
-    @PostMapping("/{competitionId}/sync-teams-from-api-football")
+    @PostMapping("/{competitionId}/sync-teams-from-football-data")
     @PreAuthorize("hasRole('PLATFORM_ADMIN')")
-    @Operation(summary = "Import/refresh a competition's roster from api-football using its configured league id and season (Admin only)")
-    public ResponseEntity<List<TeamResponse>> syncTeamsFromApiFootball(@PathVariable Long competitionId) {
-        return ResponseEntity.ok(competitionService.syncTeamsFromApiFootball(competitionId));
+    @Operation(summary = "Import/refresh a competition's roster from football-data.org using its configured competition code and season (Admin only)")
+    public ResponseEntity<List<TeamResponse>> syncTeamsFromFootballData(@PathVariable Long competitionId) {
+        return ResponseEntity.ok(competitionService.syncTeamsFromFootballData(competitionId));
     }
 
     @DeleteMapping("/{competitionId}")

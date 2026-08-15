@@ -1,6 +1,6 @@
 package com.pronocore.service;
 
-import com.pronocore.client.ApiFootballClient;
+import com.pronocore.client.FootballDataClient;
 import com.pronocore.dto.request.CreateMatchRequest;
 import com.pronocore.dto.request.UpdateMatchScoreRequest;
 import com.pronocore.dto.response.FixtureImportResponse;
@@ -32,7 +32,7 @@ public class MatchService {
     private final TeamRepository               teamRepository;
     private final CompetitionRepository        competitionRepository;
     private final MatchExternalLinksRepository matchExternalLinksRepository;
-    private final ApiFootballClient            apiFootballClient;
+    private final FootballDataClient           footballDataClient;
     private final DailyGageService             dailyGageService;
 
     // ---------------------------------------------------------------
@@ -105,47 +105,47 @@ public class MatchService {
     }
 
     /**
-     * Imports a competition's fixtures from api-football: creates matches for new
-     * fixtures, and reconciles the date/round of already-linked ones when api-football
-     * reports a reschedule (broadcast time changes are common mid-season) — same
-     * always-trust-the-source approach as {@link com.pronocore.service.f1.F1SyncService
-     * F1SyncService}'s calendar sync. Idempotent — safe to re-run as the season's
-     * calendar grows or gets rescheduled. Score/status stay untouched here (that's
-     * {@link MatchSyncService}'s job, which does respect syncLocked). Teams are
-     * matched/created by exact name and added to the competition roster if missing.
+     * Imports a competition's fixtures from football-data.org: creates matches for new
+     * fixtures, and reconciles the date/matchday of already-linked ones when a reschedule
+     * is reported (broadcast time changes are common mid-season) — same always-trust-the-
+     * source approach as {@link com.pronocore.service.f1.F1SyncService F1SyncService}'s
+     * calendar sync. Idempotent — safe to re-run as the season's calendar grows or gets
+     * rescheduled. Score/status stay untouched here (that's {@link MatchSyncService}'s
+     * job, which does respect syncLocked). Teams are matched/created by exact name and
+     * added to the competition roster if missing.
      */
     @Transactional
-    public FixtureImportResponse importFixturesFromApiFootball(Long competitionId) {
+    public FixtureImportResponse importFixturesFromFootballData(Long competitionId) {
         Competition competition = competitionRepository.findById(competitionId)
                 .orElseThrow(() -> new EntityNotFoundException("Competition not found: " + competitionId));
-        Integer leagueId = competition.getApiFootballLeagueId();
+        String code = competition.getFootballDataCompetitionCode();
         Integer season = competition.getSeason();
-        if (leagueId == null || season == null) {
+        if (code == null || season == null) {
             throw new IllegalStateException("Competition \"" + competition.getName()
-                    + "\" has no api-football league id / season configured");
+                    + "\" has no football-data.org competition code / season configured");
         }
-        if (apiFootballClient.isDisabled()) {
-            throw new IllegalStateException("api-football sync is disabled — no API_FOOTBALL_KEY configured");
+        if (footballDataClient.isDisabled()) {
+            throw new IllegalStateException("football-data.org sync is disabled — no FOOTBALL_DATA_API_KEY configured");
         }
 
-        List<ApiFootballClient.ApiFixture> fixtures = apiFootballClient.getAllFixtures(leagueId, season);
-        List<Long> fixtureIds = fixtures.stream().map(ApiFootballClient.ApiFixture::fixtureId).toList();
-        Map<Long, Match> matchByFixtureId = matchExternalLinksRepository.findByApiFootballFixtureIdIn(fixtureIds)
+        List<FootballDataClient.FdMatch> fixtures = footballDataClient.getSeasonMatches(code, season);
+        List<Long> matchIds = fixtures.stream().map(FootballDataClient.FdMatch::id).toList();
+        Map<Long, Match> matchByFdId = matchExternalLinksRepository.findByFootballDataMatchIdIn(matchIds)
                 .stream()
-                .collect(Collectors.toMap(MatchExternalLinks::getApiFootballFixtureId, MatchExternalLinks::getMatch));
+                .collect(Collectors.toMap(MatchExternalLinks::getFootballDataMatchId, MatchExternalLinks::getMatch));
 
         List<Match> created = new ArrayList<>();
         List<Match> rescheduled = new ArrayList<>();
-        for (ApiFootballClient.ApiFixture fixture : fixtures) {
+        for (FootballDataClient.FdMatch fixture : fixtures) {
             if (fixture.date() == null) continue;
-            Match existing = matchByFixtureId.get(fixture.fixtureId());
+            Match existing = matchByFdId.get(fixture.id());
 
             if (existing == null) {
-                created.add(createMatchFromFixture(competition, fixture));
+                created.add(createMatchFromFdFixture(competition, fixture));
                 continue;
             }
 
-            String round = fixture.round() != null ? fixture.round() : "";
+            String round = fixture.matchday() != null ? "Journée " + fixture.matchday() : "";
             boolean dateChanged = !fixture.date().equals(existing.getMatchDate());
             boolean roundChanged = !round.isBlank() && !round.equals(existing.getRound());
             if (dateChanged || roundChanged) {
@@ -155,9 +155,9 @@ public class MatchService {
             }
         }
 
-        log.info("⚽ Fixture import for competition \"{}\" from api-football (league {}, season {}) — "
+        log.info("⚽ Fixture import for competition \"{}\" from football-data.org (code {}, season {}) — "
                         + "{} new match(es), {} rescheduled",
-                competition.getName(), leagueId, season, created.size(), rescheduled.size());
+                competition.getName(), code, season, created.size(), rescheduled.size());
 
         return FixtureImportResponse.builder()
                 .created(created.stream().map(this::toEnrichedResponse).toList())
@@ -165,7 +165,7 @@ public class MatchService {
                 .build();
     }
 
-    private Match createMatchFromFixture(Competition competition, ApiFootballClient.ApiFixture fixture) {
+    private Match createMatchFromFdFixture(Competition competition, FootballDataClient.FdMatch fixture) {
         Team teamA = findOrCreateTeamInRoster(competition, fixture.homeTeamName());
         Team teamB = findOrCreateTeamInRoster(competition, fixture.awayTeamName());
 
@@ -174,9 +174,9 @@ public class MatchService {
                 .teamB(teamB)
                 .matchDate(fixture.date())
                 .competition(competition)
-                .round(fixture.round() != null ? fixture.round() : "")
+                .round(fixture.matchday() != null ? "Journée " + fixture.matchday() : "")
                 .phase(Match.MatchPhase.POOL)
-                .status(toImportStatus(fixture.statusShort()))
+                .status(toFootballDataImportStatus(fixture.status()))
                 .scoreA(fixture.goalsHome())
                 .scoreB(fixture.goalsAway())
                 .build();
@@ -184,10 +184,16 @@ public class MatchService {
 
         matchExternalLinksRepository.save(MatchExternalLinks.builder()
                 .match(match)
-                .apiFootballFixtureId(fixture.fixtureId())
+                .footballDataMatchId(fixture.id())
                 .build());
 
         return match;
+    }
+
+    private Match.Status toFootballDataImportStatus(String status) {
+        if (FootballDataClient.FINISHED_STATUSES.contains(status)) return Match.Status.FINISHED;
+        if (FootballDataClient.LIVE_STATUSES.contains(status))     return Match.Status.ONGOING;
+        return Match.Status.UPCOMING;
     }
 
     private Team findOrCreateTeamInRoster(Competition competition, String name) {
@@ -197,12 +203,6 @@ public class MatchService {
             competition.getTeams().add(team);
         }
         return team;
-    }
-
-    private Match.Status toImportStatus(String statusShort) {
-        if (ApiFootballClient.FINISHED_STATUSES.contains(statusShort)) return Match.Status.FINISHED;
-        if (ApiFootballClient.LIVE_STATUSES.contains(statusShort))     return Match.Status.ONGOING;
-        return Match.Status.UPCOMING;
     }
 
     @Transactional
