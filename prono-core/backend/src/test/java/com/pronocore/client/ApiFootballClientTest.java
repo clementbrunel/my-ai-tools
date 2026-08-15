@@ -34,6 +34,7 @@ class ApiFootballClientTest {
     private static final String ONE_FIXTURE = """
             {"response":[{
               "fixture":{"id":42,"date":"2026-06-11T19:00:00+00:00","status":{"short":"FT"}},
+              "league":{"round":"Regular Season - 1"},
               "teams":{"home":{"id":1,"name":"France"},"away":{"id":2,"name":"Brésil"}},
               "goals":{"home":2,"away":1}
             }]}
@@ -45,7 +46,7 @@ class ApiFootballClientTest {
     void parsesFixtureFields() {
         when(http.get(anyString())).thenReturn(ONE_FIXTURE);
 
-        ApiFootballClient.ApiFixture fixture = client.getAllFixtures().get(0);
+        ApiFootballClient.ApiFixture fixture = client.getAllFixtures(1, 2026).get(0);
 
         assertThat(fixture.fixtureId()).isEqualTo(42L);
         assertThat(fixture.homeTeamName()).isEqualTo("France");
@@ -53,13 +54,14 @@ class ApiFootballClientTest {
         assertThat(fixture.statusShort()).isEqualTo("FT");
         assertThat(fixture.goalsHome()).isEqualTo(2);
         assertThat(fixture.goalsAway()).isEqualTo(1);
+        assertThat(fixture.round()).isEqualTo("Regular Season - 1");
     }
 
     @Test
     void convertsApiOffsetToParisLocalTime() {
         when(http.get(anyString())).thenReturn(ONE_FIXTURE);
 
-        LocalDateTime date = client.getAllFixtures().get(0).date();
+        LocalDateTime date = client.getAllFixtures(1, 2026).get(0).date();
 
         // 19:00Z in June is 21:00 in Europe/Paris — matches how match dates are stored.
         assertThat(date).isEqualTo(LocalDateTime.of(2026, 6, 11, 21, 0));
@@ -75,7 +77,7 @@ class ApiFootballClientTest {
                 }]}
                 """);
 
-        ApiFootballClient.ApiFixture fixture = client.getAllFixtures().get(0);
+        ApiFootballClient.ApiFixture fixture = client.getAllFixtures(1, 2026).get(0);
 
         assertThat(fixture.goalsHome()).isNull();
         assertThat(fixture.goalsAway()).isNull();
@@ -107,12 +109,23 @@ class ApiFootballClientTest {
     void servesSeasonFixturesFromCacheUntilInvalidated() {
         when(http.get(anyString())).thenReturn(ONE_FIXTURE);
 
-        client.getAllFixtures();
-        client.getAllFixtures();
+        client.getAllFixtures(1, 2026);
+        client.getAllFixtures(1, 2026);
         verify(http, times(1)).get(anyString());
 
         client.invalidateCache();
-        client.getAllFixtures();
+        client.getAllFixtures(1, 2026);
+        verify(http, times(2)).get(anyString());
+    }
+
+    @Test
+    void cachesFixturesSeparatelyPerLeagueAndSeason() {
+        when(http.get(anyString())).thenReturn(ONE_FIXTURE);
+
+        client.getAllFixtures(1, 2026);   // World Cup
+        client.getAllFixtures(61, 2026);  // Ligue 1
+        client.getAllFixtures(1, 2026);   // World Cup again — served from cache
+
         verify(http, times(2)).get(anyString());
     }
 

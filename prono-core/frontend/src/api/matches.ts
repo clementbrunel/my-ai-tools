@@ -1,5 +1,5 @@
 import apiClient from './axios';
-import type { Match, CreateMatchRequest, UpdateMatchScoreRequest } from '@/types';
+import type { Match, CreateMatchRequest, UpdateMatchScoreRequest, FixtureImportResult } from '@/types';
 
 export const getMatches = async (status?: string): Promise<Match[]> => {
   const params = status ? { status } : {};
@@ -33,4 +33,10 @@ export const getMatchesForMyGroups = async (): Promise<Match[]> => {
 
 export const forceSettleMatch = async (id: number): Promise<void> => {
   await apiClient.post(`/matches/${id}/force-settle-all`);
+};
+
+/** Imports a competition's fixtures from api-football: new matches, plus reschedules of already-linked ones. */
+export const importMatchesFromApiFootball = async (competitionId: number): Promise<FixtureImportResult> => {
+  const response = await apiClient.post<FixtureImportResult>(`/matches/import-from-api-football/${competitionId}`);
+  return response.data;
 };

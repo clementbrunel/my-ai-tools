@@ -99,6 +99,8 @@ export interface CompetitionDto {
   active: boolean;
   /** Season year (e.g. 2026), admin-editable — optional for any sport. */
   season: number | null;
+  /** api-football league id (e.g. 1 = World Cup, 61 = Ligue 1) — null disables fixture/team sync. */
+  apiFootballLeagueId: number | null;
 }
 
 export type MatchPhase = 'POOL' | 'KNOCKOUT';
@@ -121,6 +123,11 @@ export interface Match {
   syncLocked?: boolean;
   autoSynced?: boolean;
   externalLinks?: Record<string, number>;
+}
+
+export interface FixtureImportResult {
+  created: Match[];
+  rescheduled: Match[];
 }
 
 export interface FixtureCandidate {

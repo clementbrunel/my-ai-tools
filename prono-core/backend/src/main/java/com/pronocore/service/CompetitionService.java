@@ -1,5 +1,6 @@
 package com.pronocore.service;
 
+import com.pronocore.client.ApiFootballClient;
 import com.pronocore.dto.response.CompetitionResponse;
 import com.pronocore.dto.response.TeamResponse;
 import com.pronocore.entity.Competition;
@@ -24,6 +25,7 @@ public class CompetitionService {
     private final TeamRepository        teamRepository;
     private final MatchRepository       matchRepository;
     private final RaceRepository        raceRepository;
+    private final ApiFootballClient     apiFootballClient;
 
     /**
      * @param sports restricts the result to these sports; null or empty returns every competition.
@@ -34,7 +36,9 @@ public class CompetitionService {
                 ? competitionRepository.findAllByOrderByNameAsc()
                 : competitionRepository.findAllBySportInOrderByNameAsc(sports);
         return competitions.stream()
-                .map(c -> new CompetitionResponse(c.getId(), c.getName(), c.getSport(), c.isActive(), c.getSeason())).toList();
+                .map(c -> new CompetitionResponse(c.getId(), c.getName(), c.getSport(), c.isActive(), c.getSeason(),
+                        c.getApiFootballLeagueId()))
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -69,6 +73,42 @@ public class CompetitionService {
     @Transactional
     public void setSeason(Long competitionId, Integer season) {
         requireCompetition(competitionId).setSeason(season);
+    }
+
+    @Transactional
+    public void setApiFootballLeagueId(Long competitionId, Integer leagueId) {
+        requireCompetition(competitionId).setApiFootballLeagueId(leagueId);
+    }
+
+    /**
+     * Imports (or refreshes) a competition's roster from api-football, using its
+     * configured league id and season. Teams are matched/created by exact name —
+     * new club teams are added to the roster, existing ones are left untouched.
+     */
+    @Transactional
+    public List<TeamResponse> syncTeamsFromApiFootball(Long competitionId) {
+        Competition competition = requireCompetition(competitionId);
+        Integer leagueId = competition.getApiFootballLeagueId();
+        Integer season = competition.getSeason();
+        if (leagueId == null || season == null) {
+            throw new IllegalStateException("Competition \"" + competition.getName()
+                    + "\" has no api-football league id / season configured");
+        }
+        if (apiFootballClient.isDisabled()) {
+            throw new IllegalStateException("api-football sync is disabled — no API_FOOTBALL_KEY configured");
+        }
+
+        for (ApiFootballClient.ApiTeam apiTeam : apiFootballClient.getTeams(leagueId, season)) {
+            Team team = teamRepository.findByName(apiTeam.name())
+                    .orElseGet(() -> teamRepository.save(Team.builder().name(apiTeam.name()).build()));
+            if (!competition.getTeams().contains(team)) {
+                competition.getTeams().add(team);
+            }
+        }
+
+        return competition.getTeams().stream()
+                .map(t -> new TeamResponse(t.getId(), t.getName(), t.getIso2()))
+                .toList();
     }
 
     @Transactional

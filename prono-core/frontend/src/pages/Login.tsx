@@ -42,7 +42,7 @@ const Login: React.FC = () => {
             <span className="text-wc-gold">Prono</span>Core
           </h1>
           <p className="text-green-200 mt-2">
-            {isF1 ? '🏁 Formule 1 2026 - Paris entre amis !' : '🏆 World Cup 2026 - Paris entre amis !'}
+            {isF1 ? '🏁 Formule 1 2026 - Paris entre amis !' : '🏆 Foot - Paris entre amis !'}
           </p>
         </div>
 
