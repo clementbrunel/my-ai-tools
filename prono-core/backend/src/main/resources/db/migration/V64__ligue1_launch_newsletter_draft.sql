@@ -10,7 +10,7 @@ VALUES (
     'Score exact, classement, embrouilles de groupe... comme au Mondial, version championnat.',
     '## Le championnat de France débarque sur PronoCore ⚽🇫🇷
 
-Après la Coupe du Monde et la F1, on prépare un nouveau mode de paris : le **prono Ligue 1**, journée après journée.
+Après la Coupe du Monde et la F1, on prépare une nouvelle compétition : le **prono Ligue 1**, journée après journée.
 
 Bientôt, pronostiquez le **score exact** de vos matchs de Ligue 1 préférés, suivez un classement dédié, et enchaînez les pronos entre deux Grands Prix 🏁
 
