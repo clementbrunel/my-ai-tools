@@ -12,7 +12,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
-import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -76,8 +75,12 @@ public class ApiFootballClient {
         }
     }
 
+    /** Placeholder left in .env.example — never a real key. */
+    private static final String PLACEHOLDER_KEY = "re_your_api_key_here";
+
     public boolean isDisabled() {
-        return props.getApiKey() == null || props.getApiKey().isBlank();
+        String key = props.getApiKey();
+        return key == null || key.isBlank() || key.equals(PLACEHOLDER_KEY);
     }
 
     public synchronized List<ApiFixture> getAllFixtures() {

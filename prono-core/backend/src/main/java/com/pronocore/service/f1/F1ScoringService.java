@@ -1,7 +1,6 @@
 package com.pronocore.service.f1;
 
 import com.pronocore.entity.Bet;
-import com.pronocore.entity.BetParticipation;
 import com.pronocore.entity.F1Prediction;
 import com.pronocore.entity.Race;
 import com.pronocore.entity.RaceResult;

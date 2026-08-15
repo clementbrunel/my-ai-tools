@@ -6,7 +6,6 @@ import com.pronocore.dto.response.GroupMemberResponse;
 import com.pronocore.dto.response.GroupResponse;
 import com.pronocore.dto.response.PublicGroupResponse;
 import com.pronocore.entity.Group;
-import com.pronocore.entity.Sport;
 import com.pronocore.entity.GroupMember;
 import com.pronocore.entity.User;
 import com.pronocore.repository.GroupMemberRepository;
@@ -21,7 +20,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
