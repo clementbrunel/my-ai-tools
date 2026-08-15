@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { getMatches } from '@/api/matches';
 import { getDashboardStats } from '@/api/dashboard';
+import { getCompetitions } from '@/api/competitions';
 import type { GroupRankEntry } from '@/api/dashboard';
 import type { Match } from '@/types';
 import MatchCard from '@/components/MatchCard';
@@ -19,17 +20,20 @@ const Dashboard: React.FC = () => {
   const [groupRanks, setGroupRanks] = useState<GroupRankEntry[]>([]);
   const [selectedGroupIdx, setSelectedGroupIdx] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeCompetitionNames, setActiveCompetitionNames] = useState<string[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [matchesData, statsData] = await Promise.all([
+        const [matchesData, statsData, competitionsData] = await Promise.all([
           getMatches(),
           getDashboardStats('FOOT'),
+          getCompetitions(['FOOT']),
         ]);
         setMatches(matchesData);
         setUpcomingMatchCount(statsData.upcomingMatchesInMyGroups);
         setGroupRanks(statsData.groupRanks);
+        setActiveCompetitionNames(competitionsData.filter((c) => c.active).map((c) => c.name));
       } catch (err) {
         logger.error('Error loading dashboard:', err);
       } finally {
@@ -70,7 +74,9 @@ const Dashboard: React.FC = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-black mb-1">Salut {user?.displayName || user?.username} ! ⚽</h1>
-            <p className="text-green-200">🏆 Coupe du Monde 2026 — Les paris sont ouverts !</p>
+            <p className="text-green-200">
+              🏆 {activeCompetitionNames.length > 0 ? activeCompetitionNames.join(' & ') : 'Foot'} — Les paris sont ouverts !
+            </p>
           </div>
           <div className="text-6xl hidden md:block animate-bounce-slow">🏆</div>
         </div>

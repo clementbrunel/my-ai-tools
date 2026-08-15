@@ -48,7 +48,7 @@ class MatchSyncServiceTest {
     private ApiFootballClient.ApiFixture fixture(long id, String status, Integer home, Integer away) {
         return new ApiFootballClient.ApiFixture(
                 id, LocalDateTime.of(2026, 6, 11, 21, 0),
-                "France", "Brésil", 1L, 2L, status, home, away);
+                "France", "Brésil", 1L, 2L, status, home, away, "Regular Season - 1");
     }
 
     // ── Quota ─────────────────────────────────────────────────────────────────

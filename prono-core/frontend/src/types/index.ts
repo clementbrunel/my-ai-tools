@@ -125,6 +125,11 @@ export interface Match {
   externalLinks?: Record<string, number>;
 }
 
+export interface FixtureImportResult {
+  created: Match[];
+  rescheduled: Match[];
+}
+
 export interface FixtureCandidate {
   fixtureId: number;
   homeTeam: string;

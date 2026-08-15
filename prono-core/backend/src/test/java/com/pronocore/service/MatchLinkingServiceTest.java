@@ -84,7 +84,7 @@ class MatchLinkingServiceTest {
         when(teamMappingService.getTeamId("OM", 61, 2026)).thenReturn(200L);
 
         ApiFootballClient.ApiFixture fixture = new ApiFootballClient.ApiFixture(
-                999L, kickoff, "PSG", "OM", 100L, 200L, "NS", null, null);
+                999L, kickoff, "PSG", "OM", 100L, 200L, "NS", null, null, "Regular Season - 1");
         when(apiFootballClient.getAllFixtures(61, 2026)).thenReturn(List.of(fixture));
 
         List<FixtureCandidateResponse> candidates = matchLinkingService.findCandidates(10L);

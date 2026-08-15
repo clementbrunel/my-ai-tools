@@ -34,6 +34,7 @@ class ApiFootballClientTest {
     private static final String ONE_FIXTURE = """
             {"response":[{
               "fixture":{"id":42,"date":"2026-06-11T19:00:00+00:00","status":{"short":"FT"}},
+              "league":{"round":"Regular Season - 1"},
               "teams":{"home":{"id":1,"name":"France"},"away":{"id":2,"name":"Brésil"}},
               "goals":{"home":2,"away":1}
             }]}
@@ -53,6 +54,7 @@ class ApiFootballClientTest {
         assertThat(fixture.statusShort()).isEqualTo("FT");
         assertThat(fixture.goalsHome()).isEqualTo(2);
         assertThat(fixture.goalsAway()).isEqualTo(1);
+        assertThat(fixture.round()).isEqualTo("Regular Season - 1");
     }
 
     @Test
