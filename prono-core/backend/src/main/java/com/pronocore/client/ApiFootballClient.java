@@ -132,10 +132,13 @@ public class ApiFootballClient {
         String json = get("/countries");
         try {
             JsonNode root = objectMapper.readTree(json);
+            throwIfApiError(root, "countries");
             List<JsonNode> countries = new ArrayList<>();
             root.path("response").forEach(countries::add);
             countriesCache = new Cached<>(countries, Instant.now().plus(REFERENCE_TTL));
             return countries;
+        } catch (IllegalStateException e) {
+            throw e; // an api-football-reported error, not a parsing failure — don't obscure it
         } catch (Exception e) {
             throw new IllegalStateException("Failed to parse api-football countries", e);
         }
@@ -155,9 +158,30 @@ public class ApiFootballClient {
         return http.get(path);
     }
 
+    /**
+     * api-football returns HTTP 200 even for logical failures — daily quota exceeded,
+     * endpoint/league not covered by the subscription plan, invalid parameters — with
+     * an empty "response" and the actual reason tucked in "errors". Left unchecked, that
+     * reads as "zero results" instead of a failure, so surface it explicitly.
+     */
+    private void throwIfApiError(JsonNode root, String context) {
+        JsonNode errors = root.path("errors");
+        List<String> messages = new ArrayList<>();
+        if (errors.isObject()) {
+            errors.fields().forEachRemaining(e -> messages.add(e.getKey() + ": " + e.getValue().asText()));
+        } else if (errors.isArray()) {
+            errors.forEach(e -> messages.add(e.asText()));
+        }
+        if (!messages.isEmpty()) {
+            throw new IllegalStateException(
+                    "api-football rejected the " + context + " request: " + String.join("; ", messages));
+        }
+    }
+
     private List<ApiFixture> parseFixtures(String json) {
         try {
             JsonNode root = objectMapper.readTree(json);
+            throwIfApiError(root, "fixtures");
             List<ApiFixture> result = new ArrayList<>();
             for (JsonNode item : root.path("response")) {
                 long id = item.path("fixture").path("id").asLong();
@@ -175,6 +199,8 @@ public class ApiFootballClient {
                 result.add(new ApiFixture(id, date, home, away, homeId, awayId, statusShort, gh, ga, round));
             }
             return result;
+        } catch (IllegalStateException e) {
+            throw e; // an api-football-reported error, not a parsing failure — don't obscure it
         } catch (Exception e) {
             throw new IllegalStateException("Failed to parse api-football fixtures", e);
         }
@@ -190,6 +216,7 @@ public class ApiFootballClient {
     private List<ApiTeam> parseTeams(String json) {
         try {
             JsonNode root = objectMapper.readTree(json);
+            throwIfApiError(root, "teams");
             List<ApiTeam> result = new ArrayList<>();
             for (JsonNode item : root.path("response")) {
                 JsonNode t = item.path("team");
@@ -200,6 +227,8 @@ public class ApiFootballClient {
                         t.path("country").asText("")));
             }
             return result;
+        } catch (IllegalStateException e) {
+            throw e; // an api-football-reported error, not a parsing failure — don't obscure it
         } catch (Exception e) {
             throw new IllegalStateException("Failed to parse api-football teams", e);
         }

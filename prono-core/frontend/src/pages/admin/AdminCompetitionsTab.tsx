@@ -17,6 +17,7 @@ import { getDrivers } from '@/api/f1';
 import type { CompetitionDto, Driver, Sport, TeamDto } from '@/types';
 import MiniF1Car from '@/components/f1/MiniF1Car';
 import ConfirmModal from '@/components/ConfirmModal';
+import { extractErrorMessage } from '@/utils/errors';
 
 interface AdminCompetitionsTabProps {
   /** Sport scope selected at the top of the admin page. */
@@ -132,8 +133,8 @@ const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) =>
       });
       setIsDirty(false);
       showToast(`Roster importé depuis api-football (${teams.length} équipe${teams.length > 1 ? 's' : ''}) ✅`);
-    } catch {
-      showToast("Erreur lors de l'import du roster depuis api-football — vérifiez le league id et la clé API");
+    } catch (err) {
+      showToast(extractErrorMessage(err, "Erreur lors de l'import du roster depuis api-football"));
     } finally {
       setIsSyncingTeams(false);
     }
