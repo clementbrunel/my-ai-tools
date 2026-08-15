@@ -1,9 +1,10 @@
--- Draft newsletter announcing the upcoming Ligue 1 betting mode, ready to
--- review and send from the admin ⚙️ → Newsletters tab. The Ligue 1 competition
--- itself is being built on a separate branch — this newsletter only teases the
--- arrival and points to the existing /foot section in the meantime. The CTA
--- URL below is relative ('/foot'); confirm it resolves correctly (or swap it
--- for an absolute FRONTEND_URL-based link) before broadcasting.
+-- Draft newsletter announcing the new Ligue 1 competition (see V65), ready
+-- to review and send from the admin ⚙️ → Newsletters tab. Rosters are synced
+-- from api-football and matches added per group at each group admin's
+-- discretion, so this only teases the arrival and points to the existing
+-- /foot section in the meantime. The CTA URL below is relative ('/foot');
+-- confirm it resolves correctly (or swap it for an absolute
+-- FRONTEND_URL-based link) before broadcasting.
 INSERT INTO newsletter (title, subtitle, body_md, theme, cta_label, cta_url, status, created_by)
 VALUES (
     '⚽ La Ligue 1 arrive sur PronoCore !',
