@@ -45,7 +45,7 @@ class ApiFootballClientTest {
     void parsesFixtureFields() {
         when(http.get(anyString())).thenReturn(ONE_FIXTURE);
 
-        ApiFootballClient.ApiFixture fixture = client.getAllFixtures().get(0);
+        ApiFootballClient.ApiFixture fixture = client.getAllFixtures(1, 2026).get(0);
 
         assertThat(fixture.fixtureId()).isEqualTo(42L);
         assertThat(fixture.homeTeamName()).isEqualTo("France");
@@ -59,7 +59,7 @@ class ApiFootballClientTest {
     void convertsApiOffsetToParisLocalTime() {
         when(http.get(anyString())).thenReturn(ONE_FIXTURE);
 
-        LocalDateTime date = client.getAllFixtures().get(0).date();
+        LocalDateTime date = client.getAllFixtures(1, 2026).get(0).date();
 
         // 19:00Z in June is 21:00 in Europe/Paris — matches how match dates are stored.
         assertThat(date).isEqualTo(LocalDateTime.of(2026, 6, 11, 21, 0));
@@ -75,7 +75,7 @@ class ApiFootballClientTest {
                 }]}
                 """);
 
-        ApiFootballClient.ApiFixture fixture = client.getAllFixtures().get(0);
+        ApiFootballClient.ApiFixture fixture = client.getAllFixtures(1, 2026).get(0);
 
         assertThat(fixture.goalsHome()).isNull();
         assertThat(fixture.goalsAway()).isNull();
@@ -107,12 +107,23 @@ class ApiFootballClientTest {
     void servesSeasonFixturesFromCacheUntilInvalidated() {
         when(http.get(anyString())).thenReturn(ONE_FIXTURE);
 
-        client.getAllFixtures();
-        client.getAllFixtures();
+        client.getAllFixtures(1, 2026);
+        client.getAllFixtures(1, 2026);
         verify(http, times(1)).get(anyString());
 
         client.invalidateCache();
-        client.getAllFixtures();
+        client.getAllFixtures(1, 2026);
+        verify(http, times(2)).get(anyString());
+    }
+
+    @Test
+    void cachesFixturesSeparatelyPerLeagueAndSeason() {
+        when(http.get(anyString())).thenReturn(ONE_FIXTURE);
+
+        client.getAllFixtures(1, 2026);   // World Cup
+        client.getAllFixtures(61, 2026);  // Ligue 1
+        client.getAllFixtures(1, 2026);   // World Cup again — served from cache
+
         verify(http, times(2)).get(anyString());
     }
 

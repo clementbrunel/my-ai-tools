@@ -48,6 +48,19 @@ export const setCompetitionSeason = async (competitionId: number, season: number
   });
 };
 
+/** Pass `null` to clear the league id (disables automatic fixture/score sync for this competition). */
+export const setCompetitionApiFootballLeagueId = async (competitionId: number, leagueId: number | null): Promise<void> => {
+  await apiClient.put(`/competitions/${competitionId}/api-football-league-id`, leagueId, {
+    headers: { 'Content-Type': 'application/json' },
+  });
+};
+
+/** Imports/refreshes a competition's roster from api-football (requires a configured league id and season). */
+export const syncCompetitionTeamsFromApiFootball = async (competitionId: number): Promise<TeamDto[]> => {
+  const response = await apiClient.post<TeamDto[]>(`/competitions/${competitionId}/sync-teams-from-api-football`);
+  return response.data;
+};
+
 export const deleteCompetition = async (competitionId: number): Promise<void> => {
   await apiClient.delete(`/competitions/${competitionId}`);
 };

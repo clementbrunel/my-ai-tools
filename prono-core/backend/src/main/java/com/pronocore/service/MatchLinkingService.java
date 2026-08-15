@@ -2,6 +2,7 @@ package com.pronocore.service;
 
 import com.pronocore.client.ApiFootballClient;
 import com.pronocore.dto.response.FixtureCandidateResponse;
+import com.pronocore.entity.Competition;
 import com.pronocore.entity.ExternalApi;
 import com.pronocore.entity.Match;
 import com.pronocore.entity.MatchExternalLinks;
@@ -35,10 +36,18 @@ public class MatchLinkingService {
     @Transactional(readOnly = true)
     public List<FixtureCandidateResponse> findCandidates(Long matchId) {
         Match match = matchService.findById(matchId);
-        List<ApiFootballClient.ApiFixture> fixtures = apiFootballClient.getAllFixtures();
+        Competition competition = match.getCompetition();
+        Integer leagueId = competition.getApiFootballLeagueId();
+        Integer season = competition.getSeason();
+        if (leagueId == null || season == null) {
+            throw new IllegalStateException("Competition \"" + competition.getName()
+                    + "\" has no api-football league id / season configured — cannot look up fixture candidates");
+        }
 
-        Long teamAId = teamMappingService.getTeamId(match.getTeamA().getName());
-        Long teamBId = teamMappingService.getTeamId(match.getTeamB().getName());
+        List<ApiFootballClient.ApiFixture> fixtures = apiFootballClient.getAllFixtures(leagueId, season);
+
+        Long teamAId = teamMappingService.getTeamId(match.getTeamA().getName(), leagueId, season);
+        Long teamBId = teamMappingService.getTeamId(match.getTeamB().getName(), leagueId, season);
 
         return fixtures.stream()
                 .map(f -> score(f, match, teamAId, teamBId))

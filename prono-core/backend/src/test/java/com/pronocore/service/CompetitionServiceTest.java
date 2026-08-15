@@ -1,5 +1,7 @@
 package com.pronocore.service;
 
+import com.pronocore.client.ApiFootballClient;
+import com.pronocore.dto.response.TeamResponse;
 import com.pronocore.entity.Competition;
 import com.pronocore.entity.Team;
 import com.pronocore.repository.CompetitionRepository;
@@ -16,6 +18,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -35,6 +38,7 @@ class CompetitionServiceTest {
 
     @Mock private CompetitionRepository competitionRepository;
     @Mock private TeamRepository        teamRepository;
+    @Mock private ApiFootballClient     apiFootballClient;
 
     @InjectMocks
     private CompetitionService competitionService;
@@ -241,6 +245,85 @@ class CompetitionServiceTest {
         when(competitionRepository.findById(99L)).thenReturn(Optional.empty());
 
         assertThrows(EntityNotFoundException.class, () -> competitionService.setSeason(99L, 2027));
+    }
+
+    // ── setApiFootballLeagueId ────────────────────────────────────────────────
+
+    @Test
+    void setApiFootballLeagueId_updatesCompetitionLeagueId() {
+        Competition comp = competition(COMPETITION_WORLD_CUP.getId(), "FIFA World Cup 2026");
+        when(competitionRepository.findById(COMPETITION_WORLD_CUP.getId())).thenReturn(Optional.of(comp));
+
+        competitionService.setApiFootballLeagueId(COMPETITION_WORLD_CUP.getId(), 61);
+
+        assertThat(comp.getApiFootballLeagueId()).isEqualTo(61);
+    }
+
+    @Test
+    void setApiFootballLeagueId_canClearLeagueId() {
+        Competition comp = competition(COMPETITION_WORLD_CUP.getId(), "FIFA World Cup 2026");
+        comp.setApiFootballLeagueId(1);
+        when(competitionRepository.findById(COMPETITION_WORLD_CUP.getId())).thenReturn(Optional.of(comp));
+
+        competitionService.setApiFootballLeagueId(COMPETITION_WORLD_CUP.getId(), null);
+
+        assertThat(comp.getApiFootballLeagueId()).isNull();
+    }
+
+    @Test
+    void setApiFootballLeagueId_throwsWhenCompetitionUnknown() {
+        when(competitionRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThrows(EntityNotFoundException.class, () -> competitionService.setApiFootballLeagueId(99L, 61));
+    }
+
+    // ── syncTeamsFromApiFootball ──────────────────────────────────────────────
+
+    @Test
+    void syncTeamsFromApiFootball_throwsWhenLeagueIdNotConfigured() {
+        Competition comp = competition(1L, "Ligue 1 2026-2027");
+        comp.setSeason(2026);
+        when(competitionRepository.findById(1L)).thenReturn(Optional.of(comp));
+
+        assertThatThrownBy(() -> competitionService.syncTeamsFromApiFootball(1L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Ligue 1 2026-2027");
+
+        verifyNoInteractions(apiFootballClient);
+    }
+
+    @Test
+    void syncTeamsFromApiFootball_throwsWhenApiDisabled() {
+        Competition comp = competition(1L, "Ligue 1 2026-2027");
+        comp.setSeason(2026);
+        comp.setApiFootballLeagueId(61);
+        when(competitionRepository.findById(1L)).thenReturn(Optional.of(comp));
+        when(apiFootballClient.isDisabled()).thenReturn(true);
+
+        assertThatThrownBy(() -> competitionService.syncTeamsFromApiFootball(1L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("API_FOOTBALL_KEY");
+    }
+
+    @Test
+    void syncTeamsFromApiFootball_addsNewTeamsAndSkipsAlreadyRosteredOnes() {
+        Competition comp = competition(1L, "Ligue 1 2026-2027", TEAM_FRANCE);
+        comp.setSeason(2026);
+        comp.setApiFootballLeagueId(61);
+        when(competitionRepository.findById(1L)).thenReturn(Optional.of(comp));
+        when(apiFootballClient.isDisabled()).thenReturn(false);
+        when(apiFootballClient.getTeams(61, 2026)).thenReturn(List.of(
+                new ApiFootballClient.ApiTeam(1, "France", "FRA", "FR"),
+                new ApiFootballClient.ApiTeam(2, "Marseille", "OM", "FR")));
+        when(teamRepository.findByName("France")).thenReturn(Optional.of(TEAM_FRANCE));
+        when(teamRepository.findByName("Marseille")).thenReturn(Optional.empty());
+        Team marseille = team(6L, "Marseille");
+        when(teamRepository.save(any(Team.class))).thenReturn(marseille);
+
+        List<TeamResponse> roster = competitionService.syncTeamsFromApiFootball(1L);
+
+        assertThat(roster).extracting("name").containsExactlyInAnyOrder("France", "Marseille");
+        verify(teamRepository, times(1)).save(any(Team.class));
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────
