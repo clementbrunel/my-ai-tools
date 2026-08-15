@@ -83,6 +83,38 @@ class ApiFootballClientTest {
         assertThat(fixture.goalsAway()).isNull();
     }
 
+    // ── api-football logical errors (HTTP 200, non-empty "errors") ──────────────
+
+    @Test
+    void throwsWhenApiFootballReturnsAnObjectErrorsField() {
+        when(http.get(anyString())).thenReturn("""
+                {"errors":{"requests":"You have reached the request limit for the day (100)."},"response":[]}
+                """);
+
+        assertThatThrownBy(() -> client.getTeams(61, 2026))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("requests")
+                .hasMessageContaining("request limit for the day");
+    }
+
+    @Test
+    void throwsWhenApiFootballReturnsAnArrayErrorsField() {
+        when(http.get(anyString())).thenReturn("""
+                {"errors":["Missing application key in the request."],"response":[]}
+                """);
+
+        assertThatThrownBy(() -> client.getAllFixtures(61, 2026))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Missing application key");
+    }
+
+    @Test
+    void doesNotThrowWhenErrorsFieldIsEmpty() {
+        when(http.get(anyString())).thenReturn("{\"errors\":[],\"response\":[]}");
+
+        assertThat(client.getTeams(61, 2026)).isEmpty();
+    }
+
     // ── Batching ──────────────────────────────────────────────────────────────
 
     @Test

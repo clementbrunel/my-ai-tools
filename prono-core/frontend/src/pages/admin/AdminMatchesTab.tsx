@@ -10,6 +10,7 @@ import ScrollableTableWrapper from '@/components/ScrollableTableWrapper';
 import ScoreInput from '@/components/ScoreInput';
 import ConfirmModal from '@/components/ConfirmModal';
 import { KNOCKOUT_ROUNDS } from '@/utils/bracket';
+import { extractErrorMessage } from '@/utils/errors';
 
 type StatusFilter = 'TO_RESOLVE' | 'ALL' | 'UPCOMING' | 'ONGOING' | 'FINISHED';
 
@@ -222,8 +223,8 @@ const AdminMatchesTab: React.FC = () => {
       if (created.length > 0) parts.push(`${created.length} nouveau${created.length !== 1 ? 'x' : ''} match${created.length !== 1 ? 's' : ''}`);
       if (rescheduled.length > 0) parts.push(`${rescheduled.length} reprogrammé${rescheduled.length !== 1 ? 's' : ''}`);
       showToast(parts.length > 0 ? `${parts.join(', ')} depuis api-football` : 'Calendrier déjà à jour — rien à importer');
-    } catch {
-      showToast("Erreur lors de l'import du calendrier — vérifiez le league id et la clé API");
+    } catch (err) {
+      showToast(extractErrorMessage(err, "Erreur lors de l'import du calendrier depuis api-football"));
     } finally {
       setImportingFixtures(false);
     }
