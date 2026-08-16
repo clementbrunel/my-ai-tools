@@ -125,7 +125,9 @@ const Leaderboard: React.FC = () => {
   const [groups, setGroups] = useState<Group[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
   const [competitions, setCompetitions] = useState<CompetitionDto[]>([]);
-  const [selectedCompetitionId, setSelectedCompetitionId] = useState<number | null>(null);
+  // 'all' = cumulated points across every competition for the current sport;
+  // null = not yet initialized (competitions still loading).
+  const [selectedCompetitionId, setSelectedCompetitionId] = useState<number | 'all' | null>(null);
   const [allGages, setAllGages] = useState<GroupUserForfeit[]>([]);
   const [gagesFilter, setGagesFilter] = useState<'pending' | 'completed'>('pending');
   const [isLoading, setIsLoading] = useState(true);
@@ -171,14 +173,14 @@ const Leaderboard: React.FC = () => {
 
   // Default to the first active competition when the sport (or competition list)
   // changes, falling back to the first competition if none are active. A
-  // still-valid selection is kept as-is, so picking an inactive competition to
-  // review an old ranking survives this effect re-running.
+  // still-valid selection — including the explicit 'all' choice, or an inactive
+  // competition picked to review an old ranking — is kept as-is.
   useEffect(() => {
     if (competitions.length === 0) {
       setSelectedCompetitionId(null);
       return;
     }
-    if (!competitions.some((c) => c.id === selectedCompetitionId)) {
+    if (selectedCompetitionId !== 'all' && !competitions.some((c) => c.id === selectedCompetitionId)) {
       const defaultCompetition = competitions.find((c) => c.active) ?? competitions[0];
       setSelectedCompetitionId(defaultCompetition.id);
     }
@@ -192,7 +194,8 @@ const Leaderboard: React.FC = () => {
       return;
     }
     setIsLoading(true);
-    getGroupLeaderboard(selectedGroupId, sportKey, selectedCompetitionId ?? undefined)
+    const competitionId = typeof selectedCompetitionId === 'number' ? selectedCompetitionId : undefined;
+    getGroupLeaderboard(selectedGroupId, sportKey, competitionId)
       .then(setEntries).catch(logger.error).finally(() => setIsLoading(false));
 
     if (selectedGroupId != null) {
@@ -236,9 +239,13 @@ const Leaderboard: React.FC = () => {
                 <label className="label mb-0">Compétition</label>
                 <select
                   value={selectedCompetitionId ?? ''}
-                  onChange={(e) => setSelectedCompetitionId(Number(e.target.value))}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setSelectedCompetitionId(value === 'all' ? 'all' : Number(value));
+                  }}
                   className="input-field"
                 >
+                  <option value="all">Toutes</option>
                   {competitions.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}{!c.active ? ' (inactive)' : ''}
