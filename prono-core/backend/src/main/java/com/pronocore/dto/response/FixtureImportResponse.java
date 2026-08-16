@@ -4,6 +4,6 @@ import lombok.Builder;
 
 import java.util.List;
 
-/** Result of importing a competition's fixtures from api-football. */
+/** Result of importing a competition's fixtures from football-data.org. */
 @Builder
 public record FixtureImportResponse(List<MatchResponse> created, List<MatchResponse> rescheduled) {}

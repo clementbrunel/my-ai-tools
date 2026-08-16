@@ -53,7 +53,7 @@ Copier `.env.example` → `.env`.
 | `DB_USER` / `DB_PASS` | Credentials PostgreSQL |
 | `JWT_SECRET` | Clé de signature JWT (changer en prod) |
 | `RESEND_API_KEY` | API key Resend.com pour les emails |
-| `API_FOOTBALL_KEY` | API key api-football.com pour la sync des scores foot — vide = sync désactivée |
+| `FOOTBALL_DATA_API_KEY` | API key football-data.org pour la sync des scores foot — vide = sync désactivée |
 | `FRONTEND_URL` | Utilisé pour CORS et les liens dans les emails |
 | `CORS_EXTRA_ORIGIN` | Origine CORS supplémentaire optionnelle (ex: accès réseau local) |
 | `REGISTRY` | Adresse du registry Docker privé (pour build-and-push.sh) |
@@ -67,7 +67,7 @@ Copier `.env.example` → `.env`.
 - **Migrations** : Flyway avec auto-repair activé
 - **Email** : Resend API — vérification compte, reset password, rappels de match
 - **Scheduling** : rappels email et settlement automatique des gages quotidiens
-- **APIs externes** : table `external_apis` (code, sport, base_url) — registre des fournisseurs de données, un par sport. `jolpica-f1` alimente la F1, `API-Football` le foot. Les deux clients résolvent leur base URL depuis ce registre au premier appel, avec repli sur `application.yml`. Les dates fournisseur sont converties via `AppTime.APP_ZONE` (Europe/Paris), jamais tronquées.
+- **APIs externes** : table `external_apis` (code, sport, base_url) — registre des fournisseurs de données, un par sport. `jolpica-f1` alimente la F1, `football-data.org` le foot (choisi plutôt qu'api-football car son plan gratuit ne couvre pas la saison en cours). Les deux clients résolvent leur base URL depuis ce registre au premier appel, avec repli sur `application.yml`. Les dates fournisseur sont converties via `AppTime.APP_ZONE` (Europe/Paris), jamais tronquées.
 
 ## Frontend
 
@@ -83,9 +83,9 @@ JUnit 5 + Mockito — `backend/src/test/java/com/pronocore/service/`
 cd backend && mvn test
 ```
 
-22 fichiers de test couvrant tous les services (BetService, DailyGageService, GroupService, MatchService, ForfeitService, LeaderboardService, DashboardService, UserService, AuthService, GroupAdminService, F1RaceService, F1SyncService, MatchLinkingService, MatchSyncService, ApiFootballClient…). Tests frontend : Vitest (`cd frontend && npm test`). Pas de tests d'intégration.
+Fichiers de test couvrant tous les services (BetService, DailyGageService, GroupService, MatchService, ForfeitService, LeaderboardService, DashboardService, UserService, AuthService, GroupAdminService, F1RaceService, F1SyncService, MatchSyncService, FootballDataClient…). Tests frontend : Vitest (`cd frontend && npm test`). Pas de tests d'intégration.
 
-Les clients HTTP externes sont abstraits derrière une interface (`JolpicaClient` pour la F1, `ApiFootballHttpClient` pour le foot) afin que le parsing puisse être testé avec des payloads JSON figés, sans appel réseau.
+Les clients HTTP externes sont abstraits derrière une interface (`JolpicaClient` pour la F1, `FootballDataHttpClient` pour le foot) afin que le parsing puisse être testé avec des payloads JSON figés, sans appel réseau.
 
 ## Domain Concepts
 

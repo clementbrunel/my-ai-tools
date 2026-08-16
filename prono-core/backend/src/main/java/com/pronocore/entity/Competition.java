@@ -35,9 +35,9 @@ public class Competition {
     /** Season year (e.g. 2026), admin-editable — optional for any sport, used by F1 to derive the jolpica season. */
     private Integer season;
 
-    /** api-football league id (e.g. 1 = World Cup, 61 = Ligue 1) — null disables fixture/team sync for this competition. */
-    @Column(name = "api_football_league_id")
-    private Integer apiFootballLeagueId;
+    /** football-data.org competition code (e.g. "FL1" = Ligue 1) — null disables fixture/team sync via this provider. */
+    @Column(name = "football_data_competition_code", length = 10)
+    private String footballDataCompetitionCode;
 
     @ManyToMany
     @JoinTable(

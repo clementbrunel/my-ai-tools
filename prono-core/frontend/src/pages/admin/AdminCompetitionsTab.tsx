@@ -8,8 +8,8 @@ import {
   setCompetitionTeams,
   setCompetitionActive,
   setCompetitionSeason,
-  setCompetitionApiFootballLeagueId,
-  syncCompetitionTeamsFromApiFootball,
+  setCompetitionFootballDataCode,
+  syncCompetitionTeamsFromFootballData,
   deleteCompetition,
   findOrCreateTeam,
 } from '@/api/competitions';
@@ -40,8 +40,8 @@ const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) =>
   const [isLoadingTeams, setIsLoadingTeams] = useState(false);
   const [seasonInput, setSeasonInput] = useState('');
   const [isSavingSeason, setIsSavingSeason] = useState(false);
-  const [leagueIdInput, setLeagueIdInput] = useState('');
-  const [isSavingLeagueId, setIsSavingLeagueId] = useState(false);
+  const [footballDataCodeInput, setFootballDataCodeInput] = useState('');
+  const [isSavingFootballDataCode, setIsSavingFootballDataCode] = useState(false);
   const [isSyncingTeams, setIsSyncingTeams] = useState(false);
   const [f1Drivers, setF1Drivers] = useState<Driver[] | null>(null);
   const loadingForRef = useRef<number | null>(null);
@@ -70,7 +70,7 @@ const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) =>
     loadingForRef.current = competition.id;
     setSelectedCompetition(competition);
     setSeasonInput(competition.season?.toString() ?? '');
-    setLeagueIdInput(competition.apiFootballLeagueId?.toString() ?? '');
+    setFootballDataCodeInput(competition.footballDataCompetitionCode ?? '');
     setIsDirty(false);
     setIsLoadingTeams(true);
     try {
@@ -120,11 +120,11 @@ const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) =>
     }
   };
 
-  const handleSyncTeamsFromApiFootball = async () => {
+  const handleSyncTeamsFromFootballData = async () => {
     if (!selectedCompetition) return;
     setIsSyncingTeams(true);
     try {
-      const teams = await syncCompetitionTeamsFromApiFootball(selectedCompetition.id);
+      const teams = await syncCompetitionTeamsFromFootballData(selectedCompetition.id);
       setRosterTeamIds(new Set(teams.map((t) => t.id)));
       setKnownTeams((prev) => {
         const merged = [...prev];
@@ -132,9 +132,9 @@ const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) =>
         return merged.sort((a, b) => a.name.localeCompare(b.name));
       });
       setIsDirty(false);
-      showToast(`Roster importé depuis api-football (${teams.length} équipe${teams.length > 1 ? 's' : ''}) ✅`);
+      showToast(`Roster importé depuis football-data.org (${teams.length} équipe${teams.length > 1 ? 's' : ''}) ✅`);
     } catch (err) {
-      showToast(extractErrorMessage(err, "Erreur lors de l'import du roster depuis api-football"));
+      showToast(extractErrorMessage(err, "Erreur lors de l'import du roster depuis football-data.org"));
     } finally {
       setIsSyncingTeams(false);
     }
@@ -194,24 +194,23 @@ const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) =>
     }
   };
 
-  const isLeagueIdDirty = selectedCompetition !== null
-    && leagueIdInput !== (selectedCompetition.apiFootballLeagueId?.toString() ?? '');
+  const isFootballDataCodeDirty = selectedCompetition !== null
+    && footballDataCodeInput !== (selectedCompetition.footballDataCompetitionCode ?? '');
 
-  const handleSaveLeagueId = async () => {
+  const handleSaveFootballDataCode = async () => {
     if (!selectedCompetition) return;
-    const trimmed = leagueIdInput.trim();
-    const leagueId = trimmed === '' ? null : Number(trimmed);
-    if (leagueId !== null && !Number.isInteger(leagueId)) return;
-    setIsSavingLeagueId(true);
+    const code = footballDataCodeInput.trim() || null;
+    setIsSavingFootballDataCode(true);
     try {
-      await setCompetitionApiFootballLeagueId(selectedCompetition.id, leagueId);
-      setCompetitions((prev) => prev.map((c) => (c.id === selectedCompetition.id ? { ...c, apiFootballLeagueId: leagueId } : c)));
-      setSelectedCompetition((prev) => (prev?.id === selectedCompetition.id ? { ...prev, apiFootballLeagueId: leagueId } : prev));
-      showToast('League id api-football mis à jour ✅');
+      await setCompetitionFootballDataCode(selectedCompetition.id, code);
+      const normalized = code ? code.toUpperCase() : null;
+      setCompetitions((prev) => prev.map((c) => (c.id === selectedCompetition.id ? { ...c, footballDataCompetitionCode: normalized } : c)));
+      setSelectedCompetition((prev) => (prev?.id === selectedCompetition.id ? { ...prev, footballDataCompetitionCode: normalized } : prev));
+      showToast('Code compétition football-data.org mis à jour ✅');
     } catch {
-      showToast('Erreur lors de la mise à jour du league id');
+      showToast('Erreur lors de la mise à jour du code compétition');
     } finally {
-      setIsSavingLeagueId(false);
+      setIsSavingFootballDataCode(false);
     }
   };
 
@@ -344,30 +343,30 @@ const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) =>
         </div>
       )}
 
-      {/* api-football league id — football competitions only, drives the automatic fixture/score sync */}
+      {/* football-data.org competition code — football competitions only, drives the automatic fixture/score sync */}
       {selectedCompetition && selectedCompetition.sport !== 'F1' && (
         <div className="card">
           <h3 className="font-bold text-gray-900 dark:text-white mb-1">
-            League id api-football — <span className="text-wc-green">{selectedCompetition.name}</span>
+            Code compétition football-data.org — <span className="text-wc-green">{selectedCompetition.name}</span>
           </h3>
           <p className="text-xs text-gray-400 mb-4">
-            Identifiant de la ligue sur api-football.com (ex : 1 = Coupe du Monde, 61 = Ligue 1). Vide = synchronisation automatique désactivée pour cette compétition.
+            Code de la compétition sur football-data.org (ex : FL1 = Ligue 1, PL = Premier League, WC = Coupe du Monde). Vide = synchronisation automatique désactivée pour cette compétition.
           </p>
           <div className="flex gap-2 items-center">
             <input
-              type="number"
-              value={leagueIdInput}
-              onChange={(e) => setLeagueIdInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleSaveLeagueId())}
+              type="text"
+              value={footballDataCodeInput}
+              onChange={(e) => setFootballDataCodeInput(e.target.value.toUpperCase())}
+              onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleSaveFootballDataCode())}
               className="input-field w-32"
-              placeholder="Ex: 61"
+              placeholder="Ex: FL1"
             />
             <button
-              onClick={handleSaveLeagueId}
-              disabled={!isLeagueIdDirty || isSavingLeagueId}
+              onClick={handleSaveFootballDataCode}
+              disabled={!isFootballDataCodeDirty || isSavingFootballDataCode}
               className="btn-primary disabled:opacity-50"
             >
-              {isSavingLeagueId ? '⏳ Sauvegarde...' : '💾 Sauvegarder'}
+              {isSavingFootballDataCode ? '⏳ Sauvegarde...' : '💾 Sauvegarder'}
             </button>
           </div>
         </div>
@@ -432,14 +431,14 @@ const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) =>
               Équipes — <span className="text-wc-green">{selectedCompetition.name}</span>
             </h3>
             <div className="flex items-center gap-2">
-              {selectedCompetition.apiFootballLeagueId != null && (
+              {selectedCompetition.footballDataCompetitionCode != null && (
                 <button
-                  onClick={handleSyncTeamsFromApiFootball}
+                  onClick={handleSyncTeamsFromFootballData}
                   disabled={isSyncingTeams}
                   className="btn-secondary text-xs disabled:opacity-50"
-                  title="Importe les clubs de la ligue configurée depuis api-football"
+                  title="Importe les clubs de la compétition configurée depuis football-data.org"
                 >
-                  {isSyncingTeams ? '⏳ Import...' : '🔄 Importer depuis api-football'}
+                  {isSyncingTeams ? '⏳ Import...' : '🔄 Importer depuis football-data.org'}
                 </button>
               )}
               <span className="text-sm text-gray-500">{rosterTeamIds.size} équipe{rosterTeamIds.size !== 1 ? 's' : ''}</span>

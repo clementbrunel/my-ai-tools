@@ -55,11 +55,11 @@ public class MatchController {
         return ResponseEntity.status(HttpStatus.CREATED).body(matchService.createMatch(request));
     }
 
-    @PostMapping("/import-from-api-football/{competitionId}")
+    @PostMapping("/import-from-football-data/{competitionId}")
     @PreAuthorize("hasRole('PLATFORM_ADMIN')")
-    @Operation(summary = "Import a competition's fixtures from api-football: creates new matches and reconciles the date/round of already-linked ones (reschedules) (Admin only)")
-    public ResponseEntity<FixtureImportResponse> importFromApiFootball(@PathVariable Long competitionId) {
-        return ResponseEntity.ok(matchService.importFixturesFromApiFootball(competitionId));
+    @Operation(summary = "Import a competition's fixtures from football-data.org: creates new matches and reconciles the date/matchday of already-linked ones (reschedules) (Admin only)")
+    public ResponseEntity<FixtureImportResponse> importFromFootballData(@PathVariable Long competitionId) {
+        return ResponseEntity.ok(matchService.importFixturesFromFootballData(competitionId));
     }
 
     @PatchMapping("/{id}/score")

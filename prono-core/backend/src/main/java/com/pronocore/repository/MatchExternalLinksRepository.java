@@ -14,9 +14,9 @@ public interface MatchExternalLinksRepository extends JpaRepository<MatchExterna
 
     /**
      * Used by fixture import to tell new fixtures from already-linked ones, and to
-     * reconcile the linked match's date/round when api-football reports a reschedule
-     * (broadcast time changes are common mid-season) — one batched call.
+     * reconcile the linked match's date/matchday when football-data.org reports a
+     * reschedule (broadcast time changes are common mid-season) — one batched call.
      */
-    @Query("SELECT l FROM MatchExternalLinks l JOIN FETCH l.match WHERE l.apiFootballFixtureId IN :fixtureIds")
-    List<MatchExternalLinks> findByApiFootballFixtureIdIn(@Param("fixtureIds") Collection<Long> fixtureIds);
+    @Query("SELECT l FROM MatchExternalLinks l JOIN FETCH l.match WHERE l.footballDataMatchId IN :matchIds")
+    List<MatchExternalLinks> findByFootballDataMatchIdIn(@Param("matchIds") Collection<Long> matchIds);
 }

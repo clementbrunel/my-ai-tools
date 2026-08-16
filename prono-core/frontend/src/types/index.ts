@@ -99,8 +99,8 @@ export interface CompetitionDto {
   active: boolean;
   /** Season year (e.g. 2026), admin-editable — optional for any sport. */
   season: number | null;
-  /** api-football league id (e.g. 1 = World Cup, 61 = Ligue 1) — null disables fixture/team sync. */
-  apiFootballLeagueId: number | null;
+  /** football-data.org competition code (e.g. "FL1" = Ligue 1) — null disables fixture/team sync. */
+  footballDataCompetitionCode: string | null;
 }
 
 export type MatchPhase = 'POOL' | 'KNOCKOUT';
@@ -128,15 +128,6 @@ export interface Match {
 export interface FixtureImportResult {
   created: Match[];
   rescheduled: Match[];
-}
-
-export interface FixtureCandidate {
-  fixtureId: number;
-  homeTeam: string;
-  awayTeam: string;
-  date: string;
-  confidence: number;
-  autoLinkable: boolean;
 }
 
 export interface Team {

@@ -19,4 +19,7 @@ public interface CompetitionRepository extends JpaRepository<Competition, Long> 
     List<Competition> findAllBySportInOrderByNameAsc(Collection<Sport> sports);
 
     Optional<Competition> findFirstBySportOrderByIdDesc(Sport sport);
+
+    /** Active FOOT competitions wired to a football-data.org competition code — the score-sync poll's scope. */
+    List<Competition> findBySportAndActiveTrueAndFootballDataCompetitionCodeIsNotNull(Sport sport);
 }

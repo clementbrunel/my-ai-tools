@@ -13,8 +13,8 @@ import lombok.*;
 @Builder
 public class ExternalApi {
 
-    /** Registry code of the provider backing {@code match_external_links.api_football_fixture_id}. */
-    public static final String API_FOOTBALL_CODE = "API-FOOTBALL";
+    /** Registry code of the provider backing {@code match_external_links.football_data_match_id}. */
+    public static final String FOOTBALL_DATA_CODE = "FOOTBALL-DATA";
 
     /** Registry code of the jolpica-f1 provider feeding races, grids and results. */
     public static final String JOLPICA_CODE = "JOLPICA";
@@ -26,7 +26,7 @@ public class ExternalApi {
     @Column(nullable = false, length = 100)
     private String name;
 
-    /** UPPERCASE provider code, e.g. "API-FOOTBALL". */
+    /** UPPERCASE provider code, e.g. "FOOTBALL-DATA". */
     @Column(nullable = false, length = 50, unique = true)
     private String code;
 

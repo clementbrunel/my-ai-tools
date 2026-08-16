@@ -77,7 +77,7 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, pronoStatus }) => {
         <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between">
           <span className="text-xs text-gray-500 dark:text-gray-400">{match.competition.name}</span>
           <div className="flex items-center gap-1">
-            {match.autoSynced && !match.syncLocked && match.externalLinks?.['API-FOOTBALL'] && (
+            {match.autoSynced && !match.syncLocked && match.externalLinks?.['FOOTBALL-DATA'] && (
               <span className="text-xs text-blue-500 dark:text-blue-400" title="Résultat synchronisé automatiquement">🔄 sync</span>
             )}
             {match.syncLocked && (
