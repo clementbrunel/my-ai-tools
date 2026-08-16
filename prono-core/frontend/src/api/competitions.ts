@@ -48,10 +48,16 @@ export const setCompetitionSeason = async (competitionId: number, season: number
   });
 };
 
-/** Pass `null` to clear the competition code (disables automatic fixture/score sync for this competition). */
+/**
+ * Pass `null` to clear the competition code (disables automatic fixture/score sync for this competition).
+ * Sent as text/plain, not JSON — the backend takes a raw `String` body, and Spring's
+ * StringHttpMessageConverter (which handles it) would otherwise read a JSON-encoded
+ * body (`Content-Type: application/json` → axios JSON.stringifies the string) literally,
+ * keeping the surrounding quotes in the stored value. Same fix already used by findOrCreateTeam.
+ */
 export const setCompetitionFootballDataCode = async (competitionId: number, code: string | null): Promise<void> => {
   await apiClient.put(`/competitions/${competitionId}/football-data-competition-code`, code, {
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'text/plain' },
   });
 };
 
