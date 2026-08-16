@@ -32,17 +32,21 @@ class MatchSyncServiceTest {
     private MatchSyncService matchSyncService;
 
     private static final Competition LIGUE_1 = Competition.builder()
-            .id(2L).name("Ligue 1 2026-2027").footballDataCompetitionCode("FL1").build();
+            .id(2L).name("Ligue 1 2026-2027").footballDataCompetitionCode("FL1").season(2026).build();
 
     // ── Fixtures ──────────────────────────────────────────────────────────────
 
     private Match linkedMatch(long matchId, long fdMatchId) {
+        return linkedMatch(matchId, fdMatchId, LIGUE_1);
+    }
+
+    private Match linkedMatch(long matchId, long fdMatchId, Competition competition) {
         Match match = Match.builder()
                 .id(matchId)
                 .teamA(Team.builder().name("PSG").build())
                 .teamB(Team.builder().name("OM").build())
                 .matchDate(LocalDateTime.of(2026, 8, 20, 21, 0))
-                .competition(LIGUE_1)
+                .competition(competition)
                 .build();
         match.setExternalLinks(MatchExternalLinks.builder()
                 .matchId(matchId).match(match).footballDataMatchId(fdMatchId).build());
@@ -168,5 +172,67 @@ class MatchSyncServiceTest {
 
         assertThatCode(() -> matchSyncService.syncMatches()).doesNotThrowAnyException();
         verify(matchService, never()).syncMatchScore(anyLong(), anyInt(), anyInt(), any());
+    }
+
+    // ── Manual (admin-triggered) sync ────────────────────────────────────────
+
+    @Test
+    void manualSyncFetchesTheFullSeasonPerCompetitionCode() {
+        when(footballDataClient.isDisabled()).thenReturn(false);
+        when(matchRepository.findSyncableMatches()).thenReturn(List.of(linkedMatch(1L, 201L)));
+        when(footballDataClient.getSeasonMatches("FL1", 2026)).thenReturn(List.of());
+
+        matchSyncService.triggerManualSync();
+
+        verify(footballDataClient, times(1)).getSeasonMatches("FL1", 2026);
+        verify(footballDataClient, never()).getMatchesInWindow(any(), any(), any());
+    }
+
+    @Test
+    void manualSyncDoesNothingWhenApiKeyIsMissing() {
+        when(footballDataClient.isDisabled()).thenReturn(true);
+
+        matchSyncService.triggerManualSync();
+
+        verifyNoInteractions(matchRepository);
+        verify(footballDataClient, never()).getSeasonMatches(any(), anyInt());
+    }
+
+    @Test
+    void manualSyncSkipsCompetitionsWithoutASeasonConfigured() {
+        Competition noSeason = Competition.builder()
+                .id(3L).name("Coupe sans saison").footballDataCompetitionCode("CUP").season(null).build();
+        when(footballDataClient.isDisabled()).thenReturn(false);
+        when(matchRepository.findSyncableMatches()).thenReturn(List.of(linkedMatch(9L, 301L, noSeason)));
+
+        matchSyncService.triggerManualSync();
+
+        verify(footballDataClient, never()).getSeasonMatches(any(), anyInt());
+    }
+
+    @Test
+    void manualSyncPushesFinishedScoreToMatchService() {
+        when(footballDataClient.isDisabled()).thenReturn(false);
+        when(matchRepository.findSyncableMatches()).thenReturn(List.of(linkedMatch(1L, 201L)));
+        when(footballDataClient.getSeasonMatches("FL1", 2026))
+                .thenReturn(List.of(fixture(201L, "FINISHED", 2, 1)));
+
+        matchSyncService.triggerManualSync();
+
+        verify(matchService).syncMatchScore(1L, 2, 1, Match.Status.FINISHED);
+    }
+
+    /** The scheduled poll and a manual trigger must never run concurrently — they share the same guard. */
+    @Test
+    void manualSyncSkipsWhileScheduledPollIsAlreadyRunning() {
+        when(footballDataClient.isDisabled()).thenReturn(false);
+        when(matchRepository.findSyncableMatchesInWindow(any(), any())).thenAnswer(invocation -> {
+            matchSyncService.triggerManualSync(); // re-entered while the scheduled pass holds the guard
+            return List.of();
+        });
+
+        matchSyncService.syncMatches();
+
+        verify(matchRepository, never()).findSyncableMatches();
     }
 }
