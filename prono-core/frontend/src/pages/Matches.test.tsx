@@ -190,6 +190,47 @@ describe('Matches — group-by-date', () => {
   });
 });
 
+describe('Matches — pagination', () => {
+  it('pagine au-delà de 30 matchs et change de page', async () => {
+    vi.clearAllMocks();
+    const user = userEvent.setup();
+    const manyMatches = Array.from({ length: 35 }, (_, i) => {
+      const day = i < 28 ? `2026-07-${String(i + 1).padStart(2, '0')}` : `2026-08-${String(i - 27).padStart(2, '0')}`;
+      return makeMatch({
+        id: i + 1,
+        teamA: TEAM_FRANCE,
+        teamB: TEAM_BRESIL,
+        status: 'UPCOMING',
+        matchDate: `${day}T20:00:00Z`,
+      });
+    });
+    vi.mocked(matchesCtx.useMatches).mockReturnValue(makeCtx({ matches: manyMatches }));
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getAllByText('France').length).toBe(30);
+    });
+
+    await user.click(screen.getByText('2'));
+
+    await waitFor(() => {
+      expect(screen.getAllByText('France').length).toBe(5);
+    });
+  });
+
+  it("n'affiche pas la pagination sous 30 matchs", () => {
+    vi.clearAllMocks();
+    vi.mocked(matchesCtx.useMatches).mockReturnValue(makeCtx({
+      matches: [makeMatch({ id: 1, teamA: TEAM_FRANCE, teamB: TEAM_BRESIL, status: 'UPCOMING' })],
+    }));
+
+    renderPage();
+
+    expect(screen.queryByText('›')).toBeNull();
+  });
+});
+
 describe('Matches — sans groupe', () => {
   it('affiche un avertissement si pas de groupe', () => {
     vi.clearAllMocks();
