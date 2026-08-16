@@ -41,24 +41,13 @@ export const setCompetitionActive = async (competitionId: number, active: boolea
   });
 };
 
-/** Pass `null` to clear the season. */
-export const setCompetitionSeason = async (competitionId: number, season: number | null): Promise<void> => {
-  await apiClient.put(`/competitions/${competitionId}/season`, season, {
-    headers: { 'Content-Type': 'application/json' },
-  });
-};
-
-/**
- * Pass `null` to clear the competition code (disables automatic fixture/score sync for this competition).
- * Sent as text/plain, not JSON — the backend takes a raw `String` body, and Spring's
- * StringHttpMessageConverter (which handles it) would otherwise read a JSON-encoded
- * body (`Content-Type: application/json` → axios JSON.stringifies the string) literally,
- * keeping the surrounding quotes in the stored value. Same fix already used by findOrCreateTeam.
- */
-export const setCompetitionFootballDataCode = async (competitionId: number, code: string | null): Promise<void> => {
-  await apiClient.put(`/competitions/${competitionId}/football-data-competition-code`, code, {
-    headers: { 'Content-Type': 'text/plain' },
-  });
+/** Season and football-data.org code are edited together — pass `null` for either to clear it. */
+export const setCompetitionSettings = async (
+  competitionId: number,
+  season: number | null,
+  footballDataCompetitionCode: string | null,
+): Promise<void> => {
+  await apiClient.put(`/competitions/${competitionId}/settings`, { season, footballDataCompetitionCode });
 };
 
 /** Imports/refreshes a competition's roster from football-data.org (requires a configured competition code and season). */
