@@ -199,7 +199,7 @@ const Leaderboard: React.FC = () => {
       .then(setEntries).catch(logger.error).finally(() => setIsLoading(false));
 
     if (selectedGroupId != null) {
-      getGroupAssignments(selectedGroupId).then(setAllGages).catch(logger.error);
+      getGroupAssignments(selectedGroupId, competitionId).then(setAllGages).catch(logger.error);
     } else {
       setAllGages([]);
     }
