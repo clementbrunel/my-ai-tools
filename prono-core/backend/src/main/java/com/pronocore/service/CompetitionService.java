@@ -71,14 +71,12 @@ public class CompetitionService {
     }
 
     @Transactional
-    public void setSeason(Long competitionId, Integer season) {
-        requireCompetition(competitionId).setSeason(season);
-    }
-
-    @Transactional
-    public void setFootballDataCompetitionCode(Long competitionId, String code) {
-        requireCompetition(competitionId).setFootballDataCompetitionCode(
-                code != null && !code.isBlank() ? code.trim().toUpperCase() : null);
+    public void updateSettings(Long competitionId, Integer season, String footballDataCompetitionCode) {
+        Competition competition = requireCompetition(competitionId);
+        competition.setSeason(season);
+        competition.setFootballDataCompetitionCode(
+                footballDataCompetitionCode != null && !footballDataCompetitionCode.isBlank()
+                        ? footballDataCompetitionCode.trim().toUpperCase() : null);
     }
 
     /**

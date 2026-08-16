@@ -7,8 +7,7 @@ import {
   getAllKnownTeams,
   setCompetitionTeams,
   setCompetitionActive,
-  setCompetitionSeason,
-  setCompetitionFootballDataCode,
+  setCompetitionSettings,
   syncCompetitionTeamsFromFootballData,
   deleteCompetition,
   findOrCreateTeam,
@@ -198,14 +197,13 @@ const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) =>
     const code = footballDataCodeInput.trim() || null;
     setIsSavingSettings(true);
     try {
-      if (isSeasonDirty) await setCompetitionSeason(selectedCompetition.id, season);
-      if (isFootballDataCodeDirty) await setCompetitionFootballDataCode(selectedCompetition.id, code);
+      await setCompetitionSettings(selectedCompetition.id, season, code);
       const normalizedCode = code ? code.toUpperCase() : null;
       setCompetitions((prev) => prev.map((c) => (c.id === selectedCompetition.id
-        ? { ...c, ...(isSeasonDirty ? { season } : {}), ...(isFootballDataCodeDirty ? { footballDataCompetitionCode: normalizedCode } : {}) }
+        ? { ...c, season, footballDataCompetitionCode: normalizedCode }
         : c)));
       setSelectedCompetition((prev) => (prev?.id === selectedCompetition.id
-        ? { ...prev, ...(isSeasonDirty ? { season } : {}), ...(isFootballDataCodeDirty ? { footballDataCompetitionCode: normalizedCode } : {}) }
+        ? { ...prev, season, footballDataCompetitionCode: normalizedCode }
         : prev));
       showToast('Réglages de la compétition mis à jour ✅');
     } catch {

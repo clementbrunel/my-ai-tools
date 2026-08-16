@@ -1,6 +1,7 @@
 package com.pronocore.controller;
 
 import com.pronocore.dto.request.CreateCompetitionRequest;
+import com.pronocore.dto.request.UpdateCompetitionSettingsRequest;
 import com.pronocore.dto.response.CompetitionResponse;
 import com.pronocore.dto.response.TeamResponse;
 import com.pronocore.entity.Sport;
@@ -54,21 +55,14 @@ public class CompetitionController {
         return ResponseEntity.noContent().build();
     }
 
-    @PutMapping("/{competitionId}/season")
+    @PutMapping("/{competitionId}/settings")
     @PreAuthorize("hasRole('PLATFORM_ADMIN')")
-    @Operation(summary = "Set (or clear) a competition's season year — used by F1 to derive the jolpica season, "
-            + "free-form for other sports (Admin only)")
-    public ResponseEntity<Void> setSeason(@PathVariable Long competitionId, @RequestBody(required = false) Integer season) {
-        competitionService.setSeason(competitionId, season);
-        return ResponseEntity.noContent().build();
-    }
-
-    @PutMapping("/{competitionId}/football-data-competition-code")
-    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
-    @Operation(summary = "Set (or clear) a competition's football-data.org competition code (e.g. \"FL1\" for Ligue 1) — required for automatic fixture/score sync via this provider (Admin only)")
-    public ResponseEntity<Void> setFootballDataCompetitionCode(@PathVariable Long competitionId,
-                                                                @RequestBody(required = false) String code) {
-        competitionService.setFootballDataCompetitionCode(competitionId, code);
+    @Operation(summary = "Set (or clear) a competition's season year and football-data.org competition code "
+            + "(e.g. \"FL1\" for Ligue 1) — season drives the F1 jolpica import, the code the automatic "
+            + "fixture/score sync via football-data.org (Admin only)")
+    public ResponseEntity<Void> updateSettings(@PathVariable Long competitionId,
+                                                @Valid @RequestBody UpdateCompetitionSettingsRequest request) {
+        competitionService.updateSettings(competitionId, request.getSeason(), request.getFootballDataCompetitionCode());
         return ResponseEntity.noContent().build();
     }
 

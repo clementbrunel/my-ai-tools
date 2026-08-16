@@ -217,64 +217,37 @@ class CompetitionServiceTest {
                 () -> competitionService.setTeams(99L, List.of(TEAM_FRANCE.getId())));
     }
 
-    // ── setSeason ─────────────────────────────────────────────────────────────
+    // ── updateSettings ────────────────────────────────────────────────────────
 
     @Test
-    void setSeason_updatesCompetitionSeason() {
+    void updateSettings_updatesSeasonAndFootballDataCode() {
         Competition comp = competition(COMPETITION_WORLD_CUP.getId(), "FIFA World Cup 2026");
         when(competitionRepository.findById(COMPETITION_WORLD_CUP.getId())).thenReturn(Optional.of(comp));
 
-        competitionService.setSeason(COMPETITION_WORLD_CUP.getId(), 2027);
+        competitionService.updateSettings(COMPETITION_WORLD_CUP.getId(), 2027, "fl1");
 
         assertThat(comp.getSeason()).isEqualTo(2027);
-    }
-
-    @Test
-    void setSeason_canClearSeason() {
-        Competition comp = competition(COMPETITION_WORLD_CUP.getId(), "FIFA World Cup 2026");
-        comp.setSeason(2026);
-        when(competitionRepository.findById(COMPETITION_WORLD_CUP.getId())).thenReturn(Optional.of(comp));
-
-        competitionService.setSeason(COMPETITION_WORLD_CUP.getId(), null);
-
-        assertThat(comp.getSeason()).isNull();
-    }
-
-    @Test
-    void setSeason_throwsWhenCompetitionUnknown() {
-        when(competitionRepository.findById(99L)).thenReturn(Optional.empty());
-
-        assertThrows(EntityNotFoundException.class, () -> competitionService.setSeason(99L, 2027));
-    }
-
-    // ── setFootballDataCompetitionCode ───────────────────────────────────────
-
-    @Test
-    void setFootballDataCompetitionCode_updatesCompetitionCode() {
-        Competition comp = competition(COMPETITION_WORLD_CUP.getId(), "FIFA World Cup 2026");
-        when(competitionRepository.findById(COMPETITION_WORLD_CUP.getId())).thenReturn(Optional.of(comp));
-
-        competitionService.setFootballDataCompetitionCode(COMPETITION_WORLD_CUP.getId(), "fl1");
-
         assertThat(comp.getFootballDataCompetitionCode()).isEqualTo("FL1");
     }
 
     @Test
-    void setFootballDataCompetitionCode_canClearCode() {
+    void updateSettings_canClearBothFields() {
         Competition comp = competition(COMPETITION_WORLD_CUP.getId(), "FIFA World Cup 2026");
+        comp.setSeason(2026);
         comp.setFootballDataCompetitionCode("WC");
         when(competitionRepository.findById(COMPETITION_WORLD_CUP.getId())).thenReturn(Optional.of(comp));
 
-        competitionService.setFootballDataCompetitionCode(COMPETITION_WORLD_CUP.getId(), null);
+        competitionService.updateSettings(COMPETITION_WORLD_CUP.getId(), null, null);
 
+        assertThat(comp.getSeason()).isNull();
         assertThat(comp.getFootballDataCompetitionCode()).isNull();
     }
 
     @Test
-    void setFootballDataCompetitionCode_throwsWhenCompetitionUnknown() {
+    void updateSettings_throwsWhenCompetitionUnknown() {
         when(competitionRepository.findById(99L)).thenReturn(Optional.empty());
 
-        assertThrows(EntityNotFoundException.class, () -> competitionService.setFootballDataCompetitionCode(99L, "FL1"));
+        assertThrows(EntityNotFoundException.class, () -> competitionService.updateSettings(99L, 2027, "FL1"));
     }
 
     // ── syncTeamsFromFootballData ─────────────────────────────────────────────
