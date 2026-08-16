@@ -52,6 +52,8 @@ const AdminMatchesTab: React.FC = () => {
   const [searchText, setSearchText] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
 
+  const activeCompetitions = useMemo(() => competitions.filter((c) => c.active), [competitions]);
+
   const filteredMatches = useMemo(() => {
     return matches.filter((m) => {
       if (statusFilter === 'TO_RESOLVE' && m.status === 'FINISHED') return false;
@@ -87,8 +89,9 @@ const AdminMatchesTab: React.FC = () => {
       try {
         const competitionsData = await fetchAllCompetitions(['FOOT']);
         setCompetitions(competitionsData);
-        if (competitionsData.length > 0) {
-          const first = competitionsData[0];
+        const activeOnes = competitionsData.filter((c) => c.active);
+        if (activeOnes.length > 0) {
+          const first = activeOnes[0];
           setNewCompetitionId(first.id);
           try {
             const initialTeams = await getCompetitionTeams(first.id);
@@ -244,19 +247,19 @@ const AdminMatchesTab: React.FC = () => {
         <form onSubmit={handleCreateMatch} className="grid grid-cols-2 gap-3">
           <div className="col-span-2">
             <label className="label">Compétition</label>
-            {competitions.length > 0 ? (
+            {activeCompetitions.length > 0 ? (
               <select
                 value={newCompetitionId ?? ''}
                 onChange={(e) => handleCompetitionChange(e.target.value)}
                 className="input-field"
                 required
               >
-                {competitions.map((c) => (
+                {activeCompetitions.map((c) => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
             ) : (
-              <p className="text-xs text-amber-500 mt-1">Aucune compétition — créez-en une dans l'onglet Compétitions.</p>
+              <p className="text-xs text-amber-500 mt-1">Aucune compétition active — activez-en une dans l'onglet Compétitions.</p>
             )}
           </div>
           <div>
