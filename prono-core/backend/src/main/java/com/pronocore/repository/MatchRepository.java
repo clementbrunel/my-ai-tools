@@ -63,6 +63,17 @@ public interface MatchRepository extends JpaRepository<Match, Long> {
     List<Match> findSyncableMatchesInWindow(@Param("from") LocalDateTime from,
                                              @Param("to")   LocalDateTime to);
 
+    /** Matches eligible for auto-sync regardless of kick-off time: not FINISHED, not sync-locked.
+     *  Used by the admin-triggered manual sync, which — unlike the scheduled live-window poll —
+     *  is meant to refresh everything outstanding, not just matches currently live or imminent. */
+    @Query("""
+            SELECT m FROM Match m JOIN FETCH m.teamA JOIN FETCH m.teamB JOIN FETCH m.competition
+            LEFT JOIN FETCH m.externalLinks
+            WHERE m.status <> com.pronocore.entity.Match.Status.FINISHED
+              AND m.syncLocked = false
+            """)
+    List<Match> findSyncableMatches();
+
     /** Upcoming matches whose kick-off falls in [from, to] and for which no reminder has been sent yet. */
     @Query("""
             SELECT m FROM Match m

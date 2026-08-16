@@ -18,7 +18,7 @@ public class SyncController {
 
     @PostMapping("/trigger")
     public ResponseEntity<Void> triggerSync() {
-        matchSyncService.syncMatches();
+        matchSyncService.triggerManualSync();
         return ResponseEntity.ok().build();
     }
 }

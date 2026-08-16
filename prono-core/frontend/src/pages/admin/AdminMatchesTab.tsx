@@ -110,6 +110,7 @@ const AdminMatchesTab: React.FC = () => {
   const handleCompetitionChange = async (value: string) => {
     const competitionId = value ? parseInt(value) : null;
     setNewCompetitionId(competitionId);
+    setCompetitionFilter(competitionId ?? 'ALL');
     setNewTeamA(undefined);
     setNewTeamB(undefined);
     if (competitionId) {
