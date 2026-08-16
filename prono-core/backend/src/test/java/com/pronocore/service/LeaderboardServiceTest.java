@@ -131,6 +131,27 @@ class LeaderboardServiceTest {
         assertThat(result.get(0).getBetsWon()).isEqualTo(0);
     }
 
+    @Test
+    void getGroupLeaderboard_shouldUseCompetitionFilteredForfeitsWhenCompetitionIdGiven() {
+        User alice = user(1L, "alice");
+
+        when(userRepository.findAllByGroupId(42L))
+                .thenReturn(new ArrayList<>(List.of(alice)));
+        when(betParticipationRepository.sumPointsEarnedByGroupIdAndCompetition(42L, 7L))
+                .thenReturn(List.of());
+        when(betParticipationRepository.countBetsWonByGroupIdAndCompetition(42L, 7L))
+                .thenReturn(List.of());
+        // alice received 3 gages tied to this competition's bets, but 5 total in the group
+        when(userForfeitRepository.countByGroupIdAndCompetitionGroupedByUser(42L, 7L))
+                .thenReturn(List.<Object[]>of(new Object[]{ 1L, 3L }));
+        when(userMapper.toResponse(alice)).thenReturn(userResponse(1L, "alice"));
+
+        List<LeaderboardEntryResponse> result = leaderboardService.getGroupLeaderboard(42L, null, 7L);
+
+        assertThat(result.get(0).getForfeitsReceived()).isEqualTo(3);
+        verify(userForfeitRepository, never()).countByGroupIdGroupedByUser(anyLong());
+    }
+
     // ── helpers ───────────────────────────────────────────────────────────────
 
     private User user(Long id, String username) {
