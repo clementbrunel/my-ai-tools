@@ -21,4 +21,8 @@ public class Team {
 
     @Column(length = 10)
     private String iso2;
+
+    /** Club crest image URL from football-data.org — logo fallback for teams with no iso2. */
+    @Column(length = 500)
+    private String crestUrl;
 }

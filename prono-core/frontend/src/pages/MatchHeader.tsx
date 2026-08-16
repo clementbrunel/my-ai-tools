@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom';
 import type { Match } from '@/types';
 import { formatDate, formatTime } from '@/utils/dates';
-import { getFlagUrl } from '@/utils/countryFlags';
 import { getStatusBadgeText } from '@/utils/matchStatus';
+import TeamLogo from '@/components/TeamLogo';
 
 interface Props {
   match: Match;
@@ -25,9 +25,13 @@ const MatchHeader: React.FC<Props> = ({ match }) => {
       <div className="flex items-center justify-between gap-4 py-6">
         <Link to={`/foot/teams/${match.teamA.id}`} className="flex-1 text-center hover:opacity-80">
           <div className="flex justify-center mb-3">
-            {getFlagUrl(match.teamA.iso2)
-              ? <img src={getFlagUrl(match.teamA.iso2)!} alt={match.teamA.name} className="w-16 h-12 object-contain rounded shadow" />
-              : <span className="text-5xl">🏳️</span>}
+            <TeamLogo
+              name={match.teamA.name}
+              iso2={match.teamA.iso2}
+              crestUrl={match.teamA.crestUrl}
+              className="w-16 h-12 object-contain rounded shadow"
+              fallbackClassName="text-5xl"
+            />
           </div>
           <div className="text-2xl font-black text-gray-900 dark:text-white hover:underline">{match.teamA.name}</div>
         </Link>
@@ -59,9 +63,13 @@ const MatchHeader: React.FC<Props> = ({ match }) => {
 
         <Link to={`/foot/teams/${match.teamB.id}`} className="flex-1 text-center hover:opacity-80">
           <div className="flex justify-center mb-3">
-            {getFlagUrl(match.teamB.iso2)
-              ? <img src={getFlagUrl(match.teamB.iso2)!} alt={match.teamB.name} className="w-16 h-12 object-contain rounded shadow" />
-              : <span className="text-5xl">🏳️</span>}
+            <TeamLogo
+              name={match.teamB.name}
+              iso2={match.teamB.iso2}
+              crestUrl={match.teamB.crestUrl}
+              className="w-16 h-12 object-contain rounded shadow"
+              fallbackClassName="text-5xl"
+            />
           </div>
           <div className="text-2xl font-black text-gray-900 dark:text-white hover:underline">{match.teamB.name}</div>
         </Link>

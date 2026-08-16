@@ -4,6 +4,7 @@ export const makeTeam = (overrides?: Partial<TeamDto>): TeamDto => ({
   id: 1,
   name: 'France',
   iso2: 'fr',
+  crestUrl: null,
   ...overrides,
 });
 

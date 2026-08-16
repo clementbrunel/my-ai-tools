@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom';
 import type { Match } from '@/types';
 import { formatDate, formatTime } from '@/utils/dates';
-import { getFlagUrl } from '@/utils/countryFlags';
 import { buildBracketData } from '@/utils/bracket';
+import TeamLogo from './TeamLogo';
 
 interface BracketViewProps {
   matches: Match[];
@@ -12,13 +12,6 @@ interface BracketViewProps {
 const CARD_HEIGHT = 84;
 const GAP = 16;
 
-const TeamFlag: React.FC<{ name: string; iso2?: string | null }> = ({ name, iso2 }) => {
-  const url = getFlagUrl(iso2);
-  return url
-    ? <img src={url} alt={name} className="w-5 h-4 object-contain rounded-sm shadow-sm shrink-0" />
-    : <span className="shrink-0">🏳️</span>;
-};
-
 const BracketMatchCard: React.FC<{ match: Match; highlight?: string }> = ({ match, highlight }) => {
   const q = highlight?.trim().toLowerCase();
   const isHighlighted =
@@ -26,7 +19,13 @@ const BracketMatchCard: React.FC<{ match: Match; highlight?: string }> = ({ matc
 
   const teamRow = (team: Match['teamA'], score?: number, won?: boolean) => (
     <div className={`flex items-center gap-1.5 min-w-0 ${won ? 'font-bold' : 'font-medium'}`}>
-      <TeamFlag name={team.name} iso2={team.iso2} />
+      <TeamLogo
+        name={team.name}
+        iso2={team.iso2}
+        crestUrl={team.crestUrl}
+        className="w-5 h-4 object-contain rounded-sm shadow-sm shrink-0"
+        fallbackClassName="shrink-0"
+      />
       <span className="truncate text-xs text-gray-900 dark:text-white">{team.name}</span>
       {match.status !== 'UPCOMING' && (
         <span className="ml-auto text-xs text-gray-700 dark:text-gray-300 shrink-0">{score ?? '-'}</span>

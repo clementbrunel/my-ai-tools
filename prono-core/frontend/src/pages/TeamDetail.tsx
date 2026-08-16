@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { getTeam, getTeamMatches } from '@/api/teams';
 import type { Team, Match } from '@/types';
-import { getFlagUrl } from '@/utils/countryFlags';
 import MatchRow from '@/components/MatchRow';
+import TeamLogo from '@/components/TeamLogo';
 
 type TeamTab = 'results' | 'upcoming';
 
@@ -79,9 +79,13 @@ const TeamDetail: React.FC = () => {
       {/* ── Team header ── */}
       <div className="card text-center py-8">
         <div className="flex justify-center mb-3">
-          {getFlagUrl(team.iso2)
-            ? <img src={getFlagUrl(team.iso2)!} alt={team.name} className="w-20 h-14 object-contain rounded shadow" />
-            : <span className="text-6xl">🏳️</span>}
+          <TeamLogo
+            name={team.name}
+            iso2={team.iso2}
+            crestUrl={team.crestUrl}
+            className="w-20 h-14 object-contain rounded shadow"
+            fallbackClassName="text-6xl"
+          />
         </div>
         <div className="text-2xl font-black text-gray-900 dark:text-white">{team.name}</div>
       </div>

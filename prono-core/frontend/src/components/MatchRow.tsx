@@ -1,19 +1,12 @@
 import { Link } from 'react-router-dom';
 import type { Match } from '@/types';
 import { formatDate, formatTime } from '@/utils/dates';
-import { getFlagUrl } from '@/utils/countryFlags';
+import TeamLogo from './TeamLogo';
 
 interface MatchRowProps {
   match: Match;
   pronoStatus?: 'done' | 'missing';
 }
-
-const TeamFlag: React.FC<{ name: string; iso2?: string | null }> = ({ name, iso2 }) => {
-  const url = getFlagUrl(iso2);
-  return url
-    ? <img src={url} alt={name} className="w-5 h-4 object-contain rounded-sm shadow-sm" />
-    : <span>🏳️</span>;
-};
 
 const MatchRow: React.FC<MatchRowProps> = ({ match, pronoStatus }) => {
 
@@ -31,7 +24,7 @@ const MatchRow: React.FC<MatchRowProps> = ({ match, pronoStatus }) => {
       >
         {/* Team A */}
         <div className="flex items-center gap-2 flex-1 min-w-0">
-          <TeamFlag name={match.teamA.name} iso2={match.teamA.iso2} />
+          <TeamLogo name={match.teamA.name} iso2={match.teamA.iso2} crestUrl={match.teamA.crestUrl} />
           <span className="font-medium text-sm text-gray-900 dark:text-white truncate">
             {match.teamA.name}
           </span>
@@ -58,7 +51,7 @@ const MatchRow: React.FC<MatchRowProps> = ({ match, pronoStatus }) => {
           <span className="font-medium text-sm text-gray-900 dark:text-white truncate text-right">
             {match.teamB.name}
           </span>
-          <TeamFlag name={match.teamB.name} iso2={match.teamB.iso2} />
+          <TeamLogo name={match.teamB.name} iso2={match.teamB.iso2} crestUrl={match.teamB.crestUrl} />
         </div>
 
         {/* Date */}

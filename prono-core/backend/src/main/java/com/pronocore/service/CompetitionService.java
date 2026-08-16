@@ -45,14 +45,14 @@ public class CompetitionService {
     public List<TeamResponse> getTeamsForCompetition(Long competitionId) {
         return competitionRepository.findById(competitionId)
                 .map(c -> c.getTeams().stream()
-                        .map(t -> new TeamResponse(t.getId(), t.getName(), t.getIso2())).toList())
+                        .map(t -> new TeamResponse(t.getId(), t.getName(), t.getIso2(), t.getCrestUrl())).toList())
                 .orElse(List.of());
     }
 
     @Transactional(readOnly = true)
     public List<TeamResponse> getAllKnownTeams() {
         return teamRepository.findAllByOrderByNameAsc()
-                .stream().map(t -> new TeamResponse(t.getId(), t.getName(), t.getIso2())).toList();
+                .stream().map(t -> new TeamResponse(t.getId(), t.getName(), t.getIso2(), t.getCrestUrl())).toList();
     }
 
     @Transactional
@@ -101,14 +101,17 @@ public class CompetitionService {
 
         for (FootballDataClient.FdTeam fdTeam : footballDataClient.getTeams(code, season)) {
             Team team = teamRepository.findByName(fdTeam.name())
-                    .orElseGet(() -> teamRepository.save(Team.builder().name(fdTeam.name()).build()));
+                    .orElseGet(() -> teamRepository.save(Team.builder().name(fdTeam.name()).crestUrl(fdTeam.crestUrl()).build()));
+            if (team.getCrestUrl() == null && fdTeam.crestUrl() != null) {
+                team.setCrestUrl(fdTeam.crestUrl());
+            }
             if (!competition.getTeams().contains(team)) {
                 competition.getTeams().add(team);
             }
         }
 
         return competition.getTeams().stream()
-                .map(t -> new TeamResponse(t.getId(), t.getName(), t.getIso2()))
+                .map(t -> new TeamResponse(t.getId(), t.getName(), t.getIso2(), t.getCrestUrl()))
                 .toList();
     }
 
@@ -154,7 +157,7 @@ public class CompetitionService {
     public TeamResponse findOrCreateTeam(String name) {
         Team team = teamRepository.findByName(name)
                 .orElseGet(() -> teamRepository.save(Team.builder().name(name).build()));
-        return new TeamResponse(team.getId(), team.getName(), team.getIso2());
+        return new TeamResponse(team.getId(), team.getName(), team.getIso2(), team.getCrestUrl());
     }
 
     /**
