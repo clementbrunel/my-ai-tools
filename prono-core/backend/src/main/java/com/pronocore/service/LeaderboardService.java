@@ -67,8 +67,11 @@ public class LeaderboardService {
             betsWonByUser.put(((Number) row[0]).longValue(), ((Number) row[1]).intValue());
         }
 
+        List<Object[]> forfeitRows = competitionId != null
+            ? userForfeitRepository.countByGroupIdAndCompetitionGroupedByUser(groupId, competitionId)
+            : userForfeitRepository.countByGroupIdGroupedByUser(groupId);
         Map<Long, Integer> forfeitsByUser = new HashMap<>();
-        for (Object[] row : userForfeitRepository.countByGroupIdGroupedByUser(groupId)) {
+        for (Object[] row : forfeitRows) {
             forfeitsByUser.put(((Number) row[0]).longValue(), ((Number) row[1]).intValue());
         }
 

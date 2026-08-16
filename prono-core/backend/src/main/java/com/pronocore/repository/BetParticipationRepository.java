@@ -93,13 +93,18 @@ public interface BetParticipationRepository extends JpaRepository<BetParticipati
      * Competition-filtered variant: only bets on that competition's matches (FOOT) or
      * races (F1) — lets the leaderboard be narrowed to a single competition, including an
      * inactive one kept around to review an old ranking.
+     *
+     * <p>The match/race joins must be explicit LEFT JOINs: a bet has either a match or a
+     * race, never both, so implicit (inner) joins on both paths would drop every row.
      */
     @Query("""
             SELECT bp.user.id, COALESCE(SUM(bp.pointsEarned), 0)
             FROM BetParticipation bp
+            LEFT JOIN bp.bet.match m
+            LEFT JOIN bp.bet.race r
             WHERE bp.bet.group.id = :groupId AND bp.bet.status = 'VALIDATED'
-              AND ((bp.bet.match IS NOT NULL AND bp.bet.match.competition.id = :competitionId)
-                OR (bp.bet.race IS NOT NULL AND bp.bet.race.competition.id = :competitionId))
+              AND ((m IS NOT NULL AND m.competition.id = :competitionId)
+                OR (r IS NOT NULL AND r.competition.id = :competitionId))
             GROUP BY bp.user.id
             """)
     List<Object[]> sumPointsEarnedByGroupIdAndCompetition(@Param("groupId") Long groupId, @Param("competitionId") Long competitionId);
@@ -107,9 +112,11 @@ public interface BetParticipationRepository extends JpaRepository<BetParticipati
     @Query("""
             SELECT bp.user.id, COUNT(bp)
             FROM BetParticipation bp
+            LEFT JOIN bp.bet.match m
+            LEFT JOIN bp.bet.race r
             WHERE bp.bet.group.id = :groupId AND bp.bet.status = 'VALIDATED' AND bp.pointsEarned > 0
-              AND ((bp.bet.match IS NOT NULL AND bp.bet.match.competition.id = :competitionId)
-                OR (bp.bet.race IS NOT NULL AND bp.bet.race.competition.id = :competitionId))
+              AND ((m IS NOT NULL AND m.competition.id = :competitionId)
+                OR (r IS NOT NULL AND r.competition.id = :competitionId))
             GROUP BY bp.user.id
             """)
     List<Object[]> countBetsWonByGroupIdAndCompetition(@Param("groupId") Long groupId, @Param("competitionId") Long competitionId);
