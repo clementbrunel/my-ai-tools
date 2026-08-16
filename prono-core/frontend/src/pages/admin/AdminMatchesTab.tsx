@@ -91,14 +91,7 @@ const AdminMatchesTab: React.FC = () => {
         setCompetitions(competitionsData);
         const activeOnes = competitionsData.filter((c) => c.active);
         if (activeOnes.length > 0) {
-          const first = activeOnes[0];
-          setNewCompetitionId(first.id);
-          try {
-            const initialTeams = await getCompetitionTeams(first.id);
-            setCompetitionTeams(initialTeams);
-          } catch {
-            setCompetitionTeams([]);
-          }
+          await handleCompetitionChange(activeOnes[0].id);
         }
       } catch {
         // competitions unavailable, form will show empty state
@@ -107,8 +100,7 @@ const AdminMatchesTab: React.FC = () => {
     loadData();
   }, []);
 
-  const handleCompetitionChange = async (value: string) => {
-    const competitionId = value ? parseInt(value) : null;
+  const handleCompetitionChange = async (competitionId: number | null) => {
     setNewCompetitionId(competitionId);
     setCompetitionFilter(competitionId ?? 'ALL');
     setNewTeamA(undefined);
@@ -251,7 +243,7 @@ const AdminMatchesTab: React.FC = () => {
             {activeCompetitions.length > 0 ? (
               <select
                 value={newCompetitionId ?? ''}
-                onChange={(e) => handleCompetitionChange(e.target.value)}
+                onChange={(e) => handleCompetitionChange(e.target.value ? parseInt(e.target.value) : null)}
                 className="input-field"
                 required
               >
