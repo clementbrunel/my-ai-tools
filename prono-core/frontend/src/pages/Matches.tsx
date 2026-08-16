@@ -6,11 +6,14 @@ import MatchRow from '@/components/MatchRow';
 import BracketView from '@/components/BracketView';
 import NoGroupBanner from '@/components/NoGroupBanner';
 import CompetitionFilterPills from '@/components/CompetitionFilterPills';
+import Pagination from '@/components/Pagination';
 import { useMatches } from '@/context/MatchesContext';
 import { formatDate } from '@/utils/dates';
 
 type FilterStatus = 'ALL' | 'UPCOMING' | 'FINISHED';
 type ViewMode = 'grid' | 'list' | 'bracket';
+
+const PAGE_SIZE = 30;
 
 const Matches: React.FC = () => {
   const { matches, hasGroups, isLoading, fetchIfNeeded } = useMatches();
@@ -18,6 +21,7 @@ const Matches: React.FC = () => {
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [search, setSearch] = useState('');
   const [selectedCompetitions, setSelectedCompetitions] = useState<Set<number> | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
   useScrollRestoration('matches-scroll-y', !isLoading);
 
@@ -38,13 +42,24 @@ const Matches: React.FC = () => {
     });
   }, [matches, filter, hasGroups, search, selectedCompetitions]);
 
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filter, search, selectedCompetitions]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
+
   const filters: { label: string; value: FilterStatus }[] = [
     { label: '📅 À venir', value: 'UPCOMING' },
     { label: '✅ Terminés', value: 'FINISHED' },
     { label: '🌍 Tous', value: 'ALL' },
   ];
 
-  const matchesByDay = filtered.reduce<Record<string, Match[]>>((acc, match) => {
+  const matchesByDay = paginated.reduce<Record<string, Match[]>>((acc, match) => {
     const day = match.matchDate.slice(0, 10);
     if (!acc[day]) acc[day] = [];
     acc[day].push(match);
@@ -220,6 +235,7 @@ const Matches: React.FC = () => {
               </section>
             );
           })}
+          <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
         </div>
       ) : hasGroups ? (
         <div className="card text-center py-12 text-gray-500 dark:text-gray-400">
