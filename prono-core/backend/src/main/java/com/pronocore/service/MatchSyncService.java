@@ -55,8 +55,10 @@ public class MatchSyncService {
         List<Match> candidates = matchRepository.findSyncableMatchesInWindow(from, to);
         if (candidates.isEmpty()) return;
 
-        // football-data.org has no "fetch by ids" endpoint, so matches are refetched per
-        // competition within the sync window and matched back locally by footballDataMatchId.
+        // football-data.org has /v4/matches/{id} but no batch "fetch several by ids" endpoint
+        // (only single-match lookups), so matches are refetched per competition within the
+        // sync window in one call and matched back locally by footballDataMatchId — cheaper
+        // than one HTTP call per linked match under the free tier's 10 requests/minute cap.
         Map<Long, Match> matchesByFdId = new LinkedHashMap<>();
         for (Match match : candidates) {
             MatchExternalLinks links = match.getExternalLinks();
