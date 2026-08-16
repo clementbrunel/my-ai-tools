@@ -317,16 +317,17 @@ const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) =>
           <h3 className="font-bold text-gray-900 dark:text-white mb-1">
             Réglages — <span className="text-wc-green">{selectedCompetition.name}</span>
           </h3>
+          <p className="text-xs text-gray-400 mb-4">
+            {selectedCompetition.sport === 'F1'
+              ? "Saison utilisée pour l'import jolpica (calendrier, grille, résultats)."
+              : 'Saison de la compétition (facultatif) et code football-data.org (ex : FL1 = Ligue 1, PL = Premier League, WC = Coupe du Monde) — vide désactive la synchronisation automatique.'}
+          </p>
           <form
             onSubmit={(e) => { e.preventDefault(); handleSaveCompetitionSettings(); }}
-            className="flex flex-wrap gap-4 items-end mt-4"
+            className="flex flex-wrap gap-3 items-end"
           >
-            <div>
-              <label className="block text-xs text-gray-400 mb-1">
-                Saison — {selectedCompetition.sport === 'F1'
-                  ? "année utilisée pour l'import jolpica (calendrier, grille, résultats)."
-                  : 'année ou saison de la compétition (facultatif).'}
-              </label>
+            <div className="w-32">
+              <label className="block text-xs text-gray-400 mb-1">Saison</label>
               <input
                 type="number"
                 value={seasonInput}
@@ -337,10 +338,8 @@ const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) =>
             </div>
 
             {selectedCompetition.sport !== 'F1' && (
-              <div>
-                <label className="block text-xs text-gray-400 mb-1">
-                  Code compétition football-data.org — ex : FL1 = Ligue 1, PL = Premier League, WC = Coupe du Monde. Vide = synchronisation automatique désactivée.
-                </label>
+              <div className="w-32">
+                <label className="block text-xs text-gray-400 mb-1">Code football-data.org</label>
                 <input
                   type="text"
                   value={footballDataCodeInput}
