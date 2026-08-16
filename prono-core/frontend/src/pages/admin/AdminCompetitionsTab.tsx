@@ -41,9 +41,8 @@ const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) =>
   const [isDirty, setIsDirty] = useState(false);
   const [isLoadingTeams, setIsLoadingTeams] = useState(false);
   const [seasonInput, setSeasonInput] = useState('');
-  const [isSavingSeason, setIsSavingSeason] = useState(false);
   const [footballDataCodeInput, setFootballDataCodeInput] = useState('');
-  const [isSavingFootballDataCode, setIsSavingFootballDataCode] = useState(false);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [isSyncingTeams, setIsSyncingTeams] = useState(false);
   const [f1Drivers, setF1Drivers] = useState<Driver[] | null>(null);
   const loadingForRef = useRef<number | null>(null);
@@ -186,42 +185,33 @@ const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) =>
 
   const isSeasonDirty = selectedCompetition !== null
     && seasonInput !== (selectedCompetition.season?.toString() ?? '');
-
-  const handleSaveSeason = async () => {
-    if (!selectedCompetition) return;
-    const trimmed = seasonInput.trim();
-    const season = trimmed === '' ? null : Number(trimmed);
-    if (season !== null && !Number.isInteger(season)) return;
-    setIsSavingSeason(true);
-    try {
-      await setCompetitionSeason(selectedCompetition.id, season);
-      setCompetitions((prev) => prev.map((c) => (c.id === selectedCompetition.id ? { ...c, season } : c)));
-      setSelectedCompetition((prev) => (prev?.id === selectedCompetition.id ? { ...prev, season } : prev));
-      showToast('Saison mise à jour ✅');
-    } catch {
-      showToast('Erreur lors de la mise à jour de la saison');
-    } finally {
-      setIsSavingSeason(false);
-    }
-  };
-
   const isFootballDataCodeDirty = selectedCompetition !== null
+    && selectedCompetition.sport !== 'F1'
     && footballDataCodeInput !== (selectedCompetition.footballDataCompetitionCode ?? '');
+  const isCompetitionSettingsDirty = isSeasonDirty || isFootballDataCodeDirty;
 
-  const handleSaveFootballDataCode = async () => {
+  const handleSaveCompetitionSettings = async () => {
     if (!selectedCompetition) return;
+    const trimmedSeason = seasonInput.trim();
+    const season = trimmedSeason === '' ? null : Number(trimmedSeason);
+    if (season !== null && !Number.isInteger(season)) return;
     const code = footballDataCodeInput.trim() || null;
-    setIsSavingFootballDataCode(true);
+    setIsSavingSettings(true);
     try {
-      await setCompetitionFootballDataCode(selectedCompetition.id, code);
-      const normalized = code ? code.toUpperCase() : null;
-      setCompetitions((prev) => prev.map((c) => (c.id === selectedCompetition.id ? { ...c, footballDataCompetitionCode: normalized } : c)));
-      setSelectedCompetition((prev) => (prev?.id === selectedCompetition.id ? { ...prev, footballDataCompetitionCode: normalized } : prev));
-      showToast('Code compétition football-data.org mis à jour ✅');
+      if (isSeasonDirty) await setCompetitionSeason(selectedCompetition.id, season);
+      if (isFootballDataCodeDirty) await setCompetitionFootballDataCode(selectedCompetition.id, code);
+      const normalizedCode = code ? code.toUpperCase() : null;
+      setCompetitions((prev) => prev.map((c) => (c.id === selectedCompetition.id
+        ? { ...c, ...(isSeasonDirty ? { season } : {}), ...(isFootballDataCodeDirty ? { footballDataCompetitionCode: normalizedCode } : {}) }
+        : c)));
+      setSelectedCompetition((prev) => (prev?.id === selectedCompetition.id
+        ? { ...prev, ...(isSeasonDirty ? { season } : {}), ...(isFootballDataCodeDirty ? { footballDataCompetitionCode: normalizedCode } : {}) }
+        : prev));
+      showToast('Réglages de la compétition mis à jour ✅');
     } catch {
-      showToast('Erreur lors de la mise à jour du code compétition');
+      showToast('Erreur lors de la mise à jour des réglages');
     } finally {
-      setIsSavingFootballDataCode(false);
+      setIsSavingSettings(false);
     }
   };
 
@@ -323,63 +313,54 @@ const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) =>
         </div>
       </div>
 
-      {/* Season — generic field, any sport (drives the jolpica sync for F1, free-form for foot) */}
+      {/* Season + football-data.org competition code — one form, saved together */}
       {selectedCompetition && (
         <div className="card">
           <h3 className="font-bold text-gray-900 dark:text-white mb-1">
-            Saison — <span className="text-wc-green">{selectedCompetition.name}</span>
+            Réglages — <span className="text-wc-green">{selectedCompetition.name}</span>
           </h3>
-          <p className="text-xs text-gray-400 mb-4">
-            {selectedCompetition.sport === 'F1'
-              ? "Année utilisée pour l'import jolpica (calendrier, grille, résultats)."
-              : 'Année ou saison de la compétition (facultatif).'}
-          </p>
-          <div className="flex gap-2 items-center">
-            <input
-              type="number"
-              value={seasonInput}
-              onChange={(e) => setSeasonInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleSaveSeason())}
-              className="input-field w-32"
-              placeholder="Ex: 2026"
-            />
-            <button
-              onClick={handleSaveSeason}
-              disabled={!isSeasonDirty || isSavingSeason}
-              className="btn-primary disabled:opacity-50"
-            >
-              {isSavingSeason ? '⏳ Sauvegarde...' : '💾 Sauvegarder'}
-            </button>
-          </div>
-        </div>
-      )}
+          <form
+            onSubmit={(e) => { e.preventDefault(); handleSaveCompetitionSettings(); }}
+            className="flex flex-wrap gap-4 items-end mt-4"
+          >
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">
+                Saison — {selectedCompetition.sport === 'F1'
+                  ? "année utilisée pour l'import jolpica (calendrier, grille, résultats)."
+                  : 'année ou saison de la compétition (facultatif).'}
+              </label>
+              <input
+                type="number"
+                value={seasonInput}
+                onChange={(e) => setSeasonInput(e.target.value)}
+                className="input-field w-32"
+                placeholder="Ex: 2026"
+              />
+            </div>
 
-      {/* football-data.org competition code — football competitions only, drives the automatic fixture/score sync */}
-      {selectedCompetition && selectedCompetition.sport !== 'F1' && (
-        <div className="card">
-          <h3 className="font-bold text-gray-900 dark:text-white mb-1">
-            Code compétition football-data.org — <span className="text-wc-green">{selectedCompetition.name}</span>
-          </h3>
-          <p className="text-xs text-gray-400 mb-4">
-            Code de la compétition sur football-data.org (ex : FL1 = Ligue 1, PL = Premier League, WC = Coupe du Monde). Vide = synchronisation automatique désactivée pour cette compétition.
-          </p>
-          <div className="flex gap-2 items-center">
-            <input
-              type="text"
-              value={footballDataCodeInput}
-              onChange={(e) => setFootballDataCodeInput(e.target.value.toUpperCase())}
-              onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleSaveFootballDataCode())}
-              className="input-field w-32"
-              placeholder="Ex: FL1"
-            />
+            {selectedCompetition.sport !== 'F1' && (
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">
+                  Code compétition football-data.org — ex : FL1 = Ligue 1, PL = Premier League, WC = Coupe du Monde. Vide = synchronisation automatique désactivée.
+                </label>
+                <input
+                  type="text"
+                  value={footballDataCodeInput}
+                  onChange={(e) => setFootballDataCodeInput(e.target.value.toUpperCase())}
+                  className="input-field w-32"
+                  placeholder="Ex: FL1"
+                />
+              </div>
+            )}
+
             <button
-              onClick={handleSaveFootballDataCode}
-              disabled={!isFootballDataCodeDirty || isSavingFootballDataCode}
+              type="submit"
+              disabled={!isCompetitionSettingsDirty || isSavingSettings}
               className="btn-primary disabled:opacity-50"
             >
-              {isSavingFootballDataCode ? '⏳ Sauvegarde...' : '💾 Sauvegarder'}
+              {isSavingSettings ? '⏳ Sauvegarde...' : '💾 Sauvegarder'}
             </button>
-          </div>
+          </form>
         </div>
       )}
 
