@@ -30,7 +30,7 @@ import java.util.Set;
 @Component
 public class FootballDataClient {
 
-    public record FdTeam(long id, String name, String shortName) {}
+    public record FdTeam(long id, String name, String shortName, String crestUrl) {}
 
     public record FdMatch(
             long id,
@@ -166,10 +166,12 @@ public class FootballDataClient {
             JsonNode root = objectMapper.readTree(json);
             List<FdTeam> result = new ArrayList<>();
             for (JsonNode team : root.path("teams")) {
+                JsonNode crest = team.path("crest");
                 result.add(new FdTeam(
                         team.path("id").asLong(),
                         team.path("name").asText(""),
-                        team.path("shortName").asText("")));
+                        team.path("shortName").asText(""),
+                        crest.isMissingNode() || crest.isNull() || crest.asText().isBlank() ? null : crest.asText()));
             }
             return result;
         } catch (Exception e) {

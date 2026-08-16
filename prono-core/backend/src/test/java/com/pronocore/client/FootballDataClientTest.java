@@ -85,7 +85,7 @@ class FootballDataClientTest {
     @Test
     void parsesTeamFields() {
         when(http.get(anyString())).thenReturn("""
-                {"teams":[{"id":524,"name":"Paris Saint-Germain FC","shortName":"PSG"}]}
+                {"teams":[{"id":524,"name":"Paris Saint-Germain FC","shortName":"PSG","crest":"https://crests.football-data.org/524.png"}]}
                 """);
 
         FootballDataClient.FdTeam team = client.getTeams("FL1", 2026).get(0);
@@ -93,6 +93,18 @@ class FootballDataClientTest {
         assertThat(team.id()).isEqualTo(524L);
         assertThat(team.name()).isEqualTo("Paris Saint-Germain FC");
         assertThat(team.shortName()).isEqualTo("PSG");
+        assertThat(team.crestUrl()).isEqualTo("https://crests.football-data.org/524.png");
+    }
+
+    @Test
+    void readsMissingCrestAsNull() {
+        when(http.get(anyString())).thenReturn("""
+                {"teams":[{"id":524,"name":"Paris Saint-Germain FC","shortName":"PSG"}]}
+                """);
+
+        FootballDataClient.FdTeam team = client.getTeams("FL1", 2026).get(0);
+
+        assertThat(team.crestUrl()).isNull();
     }
 
     // ── Caching ───────────────────────────────────────────────────────────────

@@ -1,3 +1,3 @@
 package com.pronocore.dto.response;
 
-public record TeamResponse(Long id, String name, String iso2) {}
+public record TeamResponse(Long id, String name, String iso2, String crestUrl) {}

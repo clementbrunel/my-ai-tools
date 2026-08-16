@@ -25,7 +25,7 @@ public class TeamService {
     public TeamResponse getTeamById(Long id) {
         Team team = teamRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Team not found: " + id));
-        return new TeamResponse(team.getId(), team.getName(), team.getIso2());
+        return new TeamResponse(team.getId(), team.getName(), team.getIso2(), team.getCrestUrl());
     }
 
     @Transactional(readOnly = true)

@@ -90,6 +90,8 @@ export interface TeamDto {
   id: number;
   name: string;
   iso2: string | null;
+  /** Club crest URL (football-data.org import) — logo fallback for teams with no iso2. */
+  crestUrl: string | null;
 }
 
 export interface CompetitionDto {
@@ -134,6 +136,7 @@ export interface Team {
   id: number;
   name: string;
   iso2: string | null;
+  crestUrl: string | null;
 }
 
 export interface CreateMatchRequest {

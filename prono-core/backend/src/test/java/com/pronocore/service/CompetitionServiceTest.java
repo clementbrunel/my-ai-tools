@@ -9,6 +9,7 @@ import com.pronocore.repository.TeamRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -313,8 +314,8 @@ class CompetitionServiceTest {
         when(competitionRepository.findById(1L)).thenReturn(Optional.of(comp));
         when(footballDataClient.isDisabled()).thenReturn(false);
         when(footballDataClient.getTeams("FL1", 2026)).thenReturn(List.of(
-                new FootballDataClient.FdTeam(1, "France", "FRA"),
-                new FootballDataClient.FdTeam(2, "Marseille", "OM")));
+                new FootballDataClient.FdTeam(1, "France", "FRA", null),
+                new FootballDataClient.FdTeam(2, "Marseille", "OM", "https://crests.football-data.org/516.png")));
         when(teamRepository.findByName("France")).thenReturn(Optional.of(TEAM_FRANCE));
         when(teamRepository.findByName("Marseille")).thenReturn(Optional.empty());
         Team marseille = team(6L, "Marseille");
@@ -323,7 +324,27 @@ class CompetitionServiceTest {
         List<TeamResponse> roster = competitionService.syncTeamsFromFootballData(1L);
 
         assertThat(roster).extracting("name").containsExactlyInAnyOrder("France", "Marseille");
-        verify(teamRepository, times(1)).save(any(Team.class));
+        ArgumentCaptor<Team> savedTeam = ArgumentCaptor.forClass(Team.class);
+        verify(teamRepository, times(1)).save(savedTeam.capture());
+        assertThat(savedTeam.getValue().getCrestUrl()).isEqualTo("https://crests.football-data.org/516.png");
+    }
+
+    @Test
+    void syncTeamsFromFootballData_backfillsCrestUrlOnExistingTeamMissingOne() {
+        Team clubWithoutCrest = team(9L, "Marseille");
+        Competition comp = competition(1L, "Ligue 1 2026-2027", clubWithoutCrest);
+        comp.setSeason(2026);
+        comp.setFootballDataCompetitionCode("FL1");
+        when(competitionRepository.findById(1L)).thenReturn(Optional.of(comp));
+        when(footballDataClient.isDisabled()).thenReturn(false);
+        when(footballDataClient.getTeams("FL1", 2026)).thenReturn(List.of(
+                new FootballDataClient.FdTeam(2, "Marseille", "OM", "https://crests.football-data.org/516.png")));
+        when(teamRepository.findByName("Marseille")).thenReturn(Optional.of(clubWithoutCrest));
+
+        competitionService.syncTeamsFromFootballData(1L);
+
+        assertThat(clubWithoutCrest.getCrestUrl()).isEqualTo("https://crests.football-data.org/516.png");
+        verify(teamRepository, never()).save(any(Team.class));
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────

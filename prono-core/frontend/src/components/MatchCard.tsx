@@ -1,20 +1,13 @@
 import { Link } from 'react-router-dom';
 import type { Match } from '@/types';
 import { formatDate, formatTime } from '@/utils/dates';
-import { getFlagUrl } from '@/utils/countryFlags';
 import { getStatusBadgeText } from '@/utils/matchStatus';
+import TeamLogo from './TeamLogo';
 
 interface MatchCardProps {
   match: Match;
   pronoStatus?: 'done' | 'missing';
 }
-
-const TeamFlag: React.FC<{ name: string; iso2?: string | null; size?: string }> = ({ name, iso2, size = 'w-8 h-6' }) => {
-  const url = getFlagUrl(iso2);
-  return url
-    ? <img src={url} alt={name} className={`${size} object-contain rounded-sm shadow-sm`} />
-    : <span className="text-2xl">🏳️</span>;
-};
 
 const MatchCard: React.FC<MatchCardProps> = ({ match, pronoStatus }) => {
 
@@ -40,7 +33,13 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, pronoStatus }) => {
         <div className="flex items-center justify-between gap-2 my-4">
           <div className="flex-1 text-center">
             <div className="flex justify-center mb-1">
-              <TeamFlag name={match.teamA.name} iso2={match.teamA.iso2} />
+              <TeamLogo
+                name={match.teamA.name}
+                iso2={match.teamA.iso2}
+                crestUrl={match.teamA.crestUrl}
+                className="w-8 h-6 object-contain rounded-sm shadow-sm"
+                fallbackClassName="text-2xl"
+              />
             </div>
             <div className="font-bold text-gray-900 dark:text-white text-sm">{match.teamA.name}</div>
           </div>
@@ -67,7 +66,13 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, pronoStatus }) => {
 
           <div className="flex-1 text-center">
             <div className="flex justify-center mb-1">
-              <TeamFlag name={match.teamB.name} iso2={match.teamB.iso2} />
+              <TeamLogo
+                name={match.teamB.name}
+                iso2={match.teamB.iso2}
+                crestUrl={match.teamB.crestUrl}
+                className="w-8 h-6 object-contain rounded-sm shadow-sm"
+                fallbackClassName="text-2xl"
+              />
             </div>
             <div className="font-bold text-gray-900 dark:text-white text-sm">{match.teamB.name}</div>
           </div>
