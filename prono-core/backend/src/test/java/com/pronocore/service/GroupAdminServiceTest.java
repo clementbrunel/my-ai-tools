@@ -202,6 +202,33 @@ class GroupAdminServiceTest {
         assertThat(group.getDescription()).isNull();
     }
 
+    // ── updateGagesEnabled ────────────────────────────────────────────────────
+
+    @Test
+    void updateGagesEnabled_shouldThrowWhenRequesterIsNotGroupAdmin() {
+        when(groupService.findUser("member")).thenReturn(member);
+        when(groupMemberGuard.requireGroupAdmin(10L, 2L))
+                .thenThrow(new AccessDeniedException("Group admin role required"));
+
+        assertThatThrownBy(() -> groupAdminService.updateGagesEnabled(10L, false, "member"))
+                .isInstanceOf(AccessDeniedException.class);
+        verify(groupRepository, never()).save(any());
+    }
+
+    @Test
+    void updateGagesEnabled_shouldToggleFlag() {
+        when(groupService.findUser("creator")).thenReturn(creator);
+        when(groupService.findGroup(10L)).thenReturn(group);
+        when(groupRepository.save(group)).thenReturn(group);
+        when(groupService.toResponse(group, GroupMember.GroupRole.GROUP_ADMIN, true))
+                .thenReturn(com.pronocore.dto.response.GroupResponse.builder().id(10L).gagesEnabled(false).build());
+
+        groupAdminService.updateGagesEnabled(10L, false, "creator");
+
+        assertThat(group.isGagesEnabled()).isFalse();
+        verify(groupRepository).save(group);
+    }
+
     // ── updateInviteCode ──────────────────────────────────────────────────────
 
     @Test
@@ -620,6 +647,24 @@ class GroupAdminServiceTest {
         assertThat(result.getMissingGagesPerGroup()).containsEntry(12L, 0);
         // But 16 matches need to be opened
         assertThat(result.getMatchesWithoutBetsPerGroup()).containsEntry(12L, 16);
+    }
+
+    @Test
+    void getCounts_gagesDisabledGroup_neverCountsMissingGages() {
+        groupA.setGagesEnabled(false);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(countsUser));
+        when(groupMemberRepository.findByUserIdAndStatus(1L, MemberStatus.ACTIVE))
+                .thenReturn(List.of(adminMemberA));
+        when(groupMemberRepository.countPendingByGroupIds(List.of(12L))).thenReturn(List.of());
+        when(forfeitRepository.countPendingByGroupIds(List.of(12L))).thenReturn(List.of());
+        when(betRepository.findGroupIdsWithOpenBets(List.of(12L))).thenReturn(Set.of(12L));
+        when(betRepository.countUpcomingMatchesWithoutBetsForGroup(12L)).thenReturn(0L);
+
+        GroupAdminCountsResponse result = groupAdminService.getCounts("alice");
+
+        // Would be 1 missing date if gages were enabled — the disabled flag short-circuits it to 0.
+        assertThat(result.getMissingGagesPerGroup()).containsEntry(12L, 0);
+        verify(betRepository, never()).findDistinctMatchesWithOpenBetsForGroup(12L);
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────

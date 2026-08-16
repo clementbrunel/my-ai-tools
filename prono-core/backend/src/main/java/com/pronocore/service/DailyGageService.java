@@ -89,6 +89,9 @@ public class DailyGageService {
 
         Group group = groupRepository.findById(req.getGroupId())
                 .orElseThrow(() -> new EntityNotFoundException("Group not found: " + req.getGroupId()));
+        if (!group.isGagesEnabled()) {
+            throw new IllegalStateException("Les gages sont désactivés pour ce groupe");
+        }
 
         if (dailyGageRepository.findByGroupIdAndMatchDate(req.getGroupId(), req.getMatchDate()).isPresent()) {
             throw new IllegalStateException("A daily gage already exists for " + req.getMatchDate() + " in this group");
@@ -119,6 +122,9 @@ public class DailyGageService {
         User user = CurrentUserLookup.requireCurrent(userRepository);
         DailyGage dg = requireDailyGage(dailyGageId);
         groupMemberGuard.requireGroupAdmin(dg.getGroup().getId(), user.getId());
+        if (!dg.getGroup().isGagesEnabled()) {
+            throw new IllegalStateException("Les gages sont désactivés pour ce groupe");
+        }
         if (dg.getStatus() == DailyGage.Status.SETTLED) {
             throw new IllegalStateException("Daily gage is already settled");
         }
@@ -136,6 +142,9 @@ public class DailyGageService {
         User user = CurrentUserLookup.requireCurrent(userRepository);
         DailyGage dg = requireDailyGage(dailyGageId);
         groupMemberGuard.requireGroupAdmin(dg.getGroup().getId(), user.getId());
+        if (!dg.getGroup().isGagesEnabled()) {
+            throw new IllegalStateException("Les gages sont désactivés pour ce groupe");
+        }
         if (dg.getStatus() == DailyGage.Status.SETTLED) {
             throw new IllegalStateException("Daily gage is already settled");
         }
@@ -202,6 +211,9 @@ public class DailyGageService {
         User user = CurrentUserLookup.requireCurrent(userRepository);
         DailyGage dg = requireDailyGage(dailyGageId);
         groupMemberGuard.requireActiveMembership(dg.getGroup().getId(), user.getId());
+        if (!dg.getGroup().isGagesEnabled()) {
+            throw new IllegalStateException("Les gages sont désactivés pour ce groupe");
+        }
         if (dg.getStatus() == DailyGage.Status.SETTLED) {
             throw new IllegalStateException("Voting is closed — gage already settled");
         }
@@ -255,17 +267,60 @@ public class DailyGageService {
         }
 
         List<DailyGage> gages = dailyGageRepository.findByMatchDate(matchDay);
-        if (gages.isEmpty()) {
-            log.debug("No daily gage configured for {}", matchDay);
-            return;
-        }
         for (DailyGage dg : gages) {
             settleGage(dg, startOfDay, endOfDay, matchDay);
         }
+
+        sendScoresRecapForGagesDisabledGroups(startOfDay, endOfDay, matchDay);
+    }
+
+    /**
+     * Groups with gages disabled never configure a {@link DailyGage} at all — there's
+     * nothing to propose/vote/select. Once the day's events are finished they still get
+     * a plain scores recap, just without singling out a loser or a gage.
+     */
+    private void sendScoresRecapForGagesDisabledGroups(LocalDateTime startOfDay, LocalDateTime endOfDay, LocalDate matchDay) {
+        List<BetParticipation> allParticipations =
+                betParticipationRepository.findSettledByMatchDay(startOfDay, endOfDay, Bet.Status.VALIDATED);
+        if (allParticipations.isEmpty()) return;
+
+        Map<Group, List<BetParticipation>> byGroup = allParticipations.stream()
+                .filter(bp -> !bp.getBet().getGroup().isGagesEnabled())
+                .collect(Collectors.groupingBy(bp -> bp.getBet().getGroup()));
+
+        byGroup.forEach((group, participations) -> sendScoresRecap(group, participations, matchDay));
+    }
+
+    private void sendScoresRecap(Group group, List<BetParticipation> participations, LocalDate matchDay) {
+        Map<User, Integer> dailyPoints = participations.stream()
+                .collect(Collectors.groupingBy(
+                        BetParticipation::getUser,
+                        Collectors.summingInt(BetParticipation::getPointsEarned)));
+
+        Map<String, Integer> namedScores = dailyPoints.entrySet().stream()
+                .collect(Collectors.toMap(
+                        e -> e.getKey().getDisplayName() != null ? e.getKey().getDisplayName() : e.getKey().getUsername(),
+                        Map.Entry::getValue));
+        String groupName = group.getName();
+        GageDayContext dayContext = contextForGageDay(participations);
+
+        groupMemberRepository.findByGroupId(group.getId()).stream()
+                .filter(m -> m.getStatus() == GroupMember.MemberStatus.ACTIVE)
+                .map(GroupMember::getUser)
+                .filter(User::isEmailGageEnabled)
+                .forEach(subscriber -> emailService.sendDailyScoresEmail(
+                        subscriber, groupName, namedScores, dayContext.theme(), dayContext.dayLabel()));
+
+        log.info("📊 Scores-only recap sent for gage-disabled group {} on {} ({} bettor(s))",
+                group.getId(), matchDay, dailyPoints.size());
     }
 
     private void settleGage(DailyGage dg, LocalDateTime startOfDay, LocalDateTime endOfDay, LocalDate matchDay) {
         if (dg.getStatus() == DailyGage.Status.SETTLED) return;
+        if (!dg.getGroup().isGagesEnabled()) {
+            log.debug("⏭️ Gages disabled for group {} — leaving daily gage {} ({}) unsettled", dg.getGroup().getId(), dg.getId(), matchDay);
+            return;
+        }
         Long groupId = dg.getGroup().getId();
 
         // Determine the forfeit to assign
@@ -381,6 +436,9 @@ public class DailyGageService {
         User user = CurrentUserLookup.requireCurrent(userRepository);
         DailyGage dg = requireDailyGage(id);
         groupMemberGuard.requireGroupAdmin(dg.getGroup().getId(), user.getId());
+        if (!dg.getGroup().isGagesEnabled()) {
+            throw new IllegalStateException("Les gages sont désactivés pour ce groupe");
+        }
 
         if (dg.getStatus() == DailyGage.Status.SETTLED) {
             throw new IllegalStateException("Daily gage is already settled");

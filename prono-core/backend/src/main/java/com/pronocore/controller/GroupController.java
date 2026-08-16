@@ -6,6 +6,7 @@ import com.pronocore.dto.request.JoinGroupRequest;
 import com.pronocore.dto.request.NotifyNewMatchesRequest;
 import com.pronocore.dto.request.NotifyNewRacesRequest;
 import com.pronocore.dto.request.UpdateGroupPrivacyRequest;
+import com.pronocore.dto.request.UpdateGroupGagesEnabledRequest;
 import com.pronocore.dto.request.UpdateGroupInfoRequest;
 import com.pronocore.dto.request.UpdateGroupInviteCodeRequest;
 import com.pronocore.dto.response.GroupAdminCountsResponse;
@@ -136,6 +137,14 @@ public class GroupController {
                                                         @RequestBody UpdateGroupPrivacyRequest request,
                                                         Authentication auth) {
         return ResponseEntity.ok(groupAdminService.updatePrivacy(groupId, request.isPrivate(), auth.getName()));
+    }
+
+    @PatchMapping("/{groupId}/gages-enabled")
+    @Operation(summary = "Enable or disable the daily gage mechanic for the group (Group admin only)")
+    public ResponseEntity<GroupResponse> updateGagesEnabled(@PathVariable Long groupId,
+                                                             @RequestBody UpdateGroupGagesEnabledRequest request,
+                                                             Authentication auth) {
+        return ResponseEntity.ok(groupAdminService.updateGagesEnabled(groupId, request.isGagesEnabled(), auth.getName()));
     }
 
     @PatchMapping("/{groupId}/sports")

@@ -81,6 +81,19 @@ const EMAIL_TEMPLATES: EmailTemplateInfo[] = [
     ),
   },
   {
+    type: 'DAILY_SCORES_RECAP',
+    label: 'Scores du jour (gages désactivés)',
+    theme: 'NEUTRAL',
+    description: (
+      <>
+        Envoyé automatiquement à la fin de la journée à la place de la résolution du gage, pour les groupes ayant
+        désactivé les gages : mêmes destinataires et même classement du jour, mais sans loser ni gage attribué.
+        Comme la résolution du gage, le thème est calculé au runtime — l'aperçu de test utilise toujours 🎯 Neutre.
+        Le test utilise des données fictives (groupe "Groupe des Amis", 3 joueurs).
+      </>
+    ),
+  },
+  {
     type: 'GROUP_NEW_MATCHES',
     label: 'Nouveaux matchs ouverts (chef de groupe)',
     theme: 'FOOTBALL',

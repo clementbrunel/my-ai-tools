@@ -36,6 +36,11 @@ public class Group {
     @Builder.Default
     private boolean isPrivate = false;
 
+    /** When false, the daily gage mechanic (propose/vote/select/assign) is fully disabled for this group. */
+    @Column(name = "gages_enabled", nullable = false)
+    @Builder.Default
+    private boolean gagesEnabled = true;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by", nullable = false)
     private User createdBy;

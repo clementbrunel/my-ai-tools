@@ -41,6 +41,7 @@ export interface Group {
   createdByDisplayName?: string;
   memberCount: number;
   isPrivate: boolean;
+  gagesEnabled: boolean;
   members: GroupMember[];
   pendingApplications?: GroupMember[];
   createdAt: string;
