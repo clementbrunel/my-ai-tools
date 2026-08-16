@@ -91,14 +91,7 @@ const AdminMatchesTab: React.FC = () => {
         setCompetitions(competitionsData);
         const activeOnes = competitionsData.filter((c) => c.active);
         if (activeOnes.length > 0) {
-          const first = activeOnes[0];
-          setNewCompetitionId(first.id);
-          try {
-            const initialTeams = await getCompetitionTeams(first.id);
-            setCompetitionTeams(initialTeams);
-          } catch {
-            setCompetitionTeams([]);
-          }
+          await handleCompetitionChange(String(activeOnes[0].id));
         }
       } catch {
         // competitions unavailable, form will show empty state
