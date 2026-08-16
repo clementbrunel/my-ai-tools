@@ -22,12 +22,14 @@ public class LeaderboardController {
     private final LeaderboardService leaderboardService;
 
     @GetMapping("/group/{groupId}")
-    @Operation(summary = "Get leaderboard for a specific group (optionally filtered by sport code: FOOT | F1)")
+    @Operation(summary = "Get leaderboard for a specific group (optionally filtered by sport code: FOOT | F1, "
+            + "or narrowed further to a single competition id — competitionId takes priority over sport when both are given)")
     @LoggedAt(Level.INFO)
     public ResponseEntity<List<LeaderboardEntryResponse>> getGroupLeaderboard(
             @PathVariable Long groupId,
-            @RequestParam(required = false) String sport) {
-        return ResponseEntity.ok(leaderboardService.getGroupLeaderboard(groupId, parseSport(sport)));
+            @RequestParam(required = false) String sport,
+            @RequestParam(required = false) Long competitionId) {
+        return ResponseEntity.ok(leaderboardService.getGroupLeaderboard(groupId, parseSport(sport), competitionId));
     }
 
     /** The API carries a plain sport code — parsed here, never the entity enum in the signature. */

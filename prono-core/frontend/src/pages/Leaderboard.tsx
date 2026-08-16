@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { getGroupLeaderboard } from '@/api/leaderboard';
+import { getCompetitions } from '@/api/competitions';
 import { useSport, toApiSport } from '@/context/SportContext';
 import { getMyGroups } from '@/api/groups';
 import { getGroupAssignments } from '@/api/forfeits';
-import type { GroupUserForfeit, LeaderboardEntry, Group } from '@/types';
+import type { GroupUserForfeit, LeaderboardEntry, Group, CompetitionDto } from '@/types';
 import LeaderboardRow from '@/components/LeaderboardRow';
 import NoGroupBanner from '@/components/NoGroupBanner';
 import Avatar from '@/components/Avatar';
@@ -123,6 +124,8 @@ const Leaderboard: React.FC = () => {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
+  const [competitions, setCompetitions] = useState<CompetitionDto[]>([]);
+  const [selectedCompetitionId, setSelectedCompetitionId] = useState<number | null>(null);
   const [allGages, setAllGages] = useState<GroupUserForfeit[]>([]);
   const [gagesFilter, setGagesFilter] = useState<'pending' | 'completed'>('pending');
   const [isLoading, setIsLoading] = useState(true);
@@ -153,14 +156,43 @@ const Leaderboard: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sportKey, groups]);
 
-  // Load the leaderboard for the selected group
+  // Load this sport's competitions
+  useEffect(() => {
+    let cancelled = false;
+    getCompetitions([sportKey])
+      .then((all) => {
+        if (!cancelled) setCompetitions(all);
+      })
+      .catch(logger.error);
+    return () => {
+      cancelled = true;
+    };
+  }, [sportKey]);
+
+  // Default to the first active competition when the sport (or competition list)
+  // changes, falling back to the first competition if none are active. A
+  // still-valid selection is kept as-is, so picking an inactive competition to
+  // review an old ranking survives this effect re-running.
+  useEffect(() => {
+    if (competitions.length === 0) {
+      setSelectedCompetitionId(null);
+      return;
+    }
+    if (!competitions.some((c) => c.id === selectedCompetitionId)) {
+      const defaultCompetition = competitions.find((c) => c.active) ?? competitions[0];
+      setSelectedCompetitionId(defaultCompetition.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [competitions]);
+
+  // Load the leaderboard for the selected group + competition
   useEffect(() => {
     if (selectedGroupId == null) {
       setIsLoading(false);
       return;
     }
     setIsLoading(true);
-    getGroupLeaderboard(selectedGroupId, sportKey)
+    getGroupLeaderboard(selectedGroupId, sportKey, selectedCompetitionId ?? undefined)
       .then(setEntries).catch(logger.error).finally(() => setIsLoading(false));
 
     if (selectedGroupId != null) {
@@ -168,7 +200,7 @@ const Leaderboard: React.FC = () => {
     } else {
       setAllGages([]);
     }
-  }, [selectedGroupId, sportKey]);
+  }, [selectedGroupId, sportKey, selectedCompetitionId]);
 
   if (isLoading) {
     return (
@@ -186,17 +218,35 @@ const Leaderboard: React.FC = () => {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="page-title mb-0">🏆 Classement</h1>
         {filteredGroups.length > 0 ? (
-          <div className="flex items-center gap-2">
-            <label className="label mb-0">Groupe</label>
-            <select
-              value={selectedGroupId ?? ''}
-              onChange={(e) => setSelectedGroupId(Number(e.target.value))}
-              className="input-field"
-            >
-              {filteredGroups.map((g) => (
-                <option key={g.id} value={g.id}>{g.name}</option>
-              ))}
-            </select>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <label className="label mb-0">Groupe</label>
+              <select
+                value={selectedGroupId ?? ''}
+                onChange={(e) => setSelectedGroupId(Number(e.target.value))}
+                className="input-field"
+              >
+                {filteredGroups.map((g) => (
+                  <option key={g.id} value={g.id}>{g.name}</option>
+                ))}
+              </select>
+            </div>
+            {competitions.length > 1 && (
+              <div className="flex items-center gap-2">
+                <label className="label mb-0">Compétition</label>
+                <select
+                  value={selectedCompetitionId ?? ''}
+                  onChange={(e) => setSelectedCompetitionId(Number(e.target.value))}
+                  className="input-field"
+                >
+                  {competitions.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}{!c.active ? ' (inactive)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
         ) : (
           <NoGroupBanner message="Rejoins ou crée un groupe pour voir le classement." />

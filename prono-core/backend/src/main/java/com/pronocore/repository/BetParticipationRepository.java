@@ -90,6 +90,31 @@ public interface BetParticipationRepository extends JpaRepository<BetParticipati
     List<Object[]> countBetsWonByGroupIdAndSport(@Param("groupId") Long groupId, @Param("f1") boolean f1);
 
     /**
+     * Competition-filtered variant: only bets on that competition's matches (FOOT) or
+     * races (F1) — lets the leaderboard be narrowed to a single competition, including an
+     * inactive one kept around to review an old ranking.
+     */
+    @Query("""
+            SELECT bp.user.id, COALESCE(SUM(bp.pointsEarned), 0)
+            FROM BetParticipation bp
+            WHERE bp.bet.group.id = :groupId AND bp.bet.status = 'VALIDATED'
+              AND ((bp.bet.match IS NOT NULL AND bp.bet.match.competition.id = :competitionId)
+                OR (bp.bet.race IS NOT NULL AND bp.bet.race.competition.id = :competitionId))
+            GROUP BY bp.user.id
+            """)
+    List<Object[]> sumPointsEarnedByGroupIdAndCompetition(@Param("groupId") Long groupId, @Param("competitionId") Long competitionId);
+
+    @Query("""
+            SELECT bp.user.id, COUNT(bp)
+            FROM BetParticipation bp
+            WHERE bp.bet.group.id = :groupId AND bp.bet.status = 'VALIDATED' AND bp.pointsEarned > 0
+              AND ((bp.bet.match IS NOT NULL AND bp.bet.match.competition.id = :competitionId)
+                OR (bp.bet.race IS NOT NULL AND bp.bet.race.competition.id = :competitionId))
+            GROUP BY bp.user.id
+            """)
+    List<Object[]> countBetsWonByGroupIdAndCompetition(@Param("groupId") Long groupId, @Param("competitionId") Long competitionId);
+
+    /**
      * Bulk, sport-filtered sum of points per (groupId, userId), same F1/FOOT split as
      * {@link #sumPointsEarnedByGroupIdAndSport}. Used to compute the dashboard's group ranks.
      */
