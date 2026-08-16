@@ -34,6 +34,8 @@ const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) =>
 
   const [rosterTeamIds, setRosterTeamIds] = useState<Set<number>>(new Set());
   const [knownTeams, setKnownTeams] = useState<TeamDto[]>([]);
+  const [teamSearch, setTeamSearch] = useState('');
+  const [teamOriginFilter, setTeamOriginFilter] = useState<'ALL' | 'NATIONAL' | 'CLUB'>('ALL');
   const [newTeamName, setNewTeamName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
@@ -161,6 +163,15 @@ const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) =>
   };
 
   const inRoster = (teamId: number) => rosterTeamIds.has(teamId);
+
+  // National teams carry an iso2 (World Cup backfill); club teams (football-data.org imports) don't.
+  const normalize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const filteredKnownTeams = knownTeams.filter((team) => {
+    if (teamOriginFilter === 'NATIONAL' && team.iso2 == null) return false;
+    if (teamOriginFilter === 'CLUB' && team.iso2 != null) return false;
+    if (teamSearch.trim() && !normalize(team.name).includes(normalize(teamSearch.trim()))) return false;
+    return true;
+  });
 
   const toggleActive = async (competition: CompetitionDto) => {
     const active = !competition.active;
@@ -467,9 +478,40 @@ const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) =>
                 </button>
               </div>
 
+              {/* Search + origin filter for the team grid below */}
+              <div className="flex flex-wrap gap-2 mb-3">
+                <input
+                  type="text"
+                  value={teamSearch}
+                  onChange={(e) => setTeamSearch(e.target.value)}
+                  className="input-field flex-1 min-w-[160px]"
+                  placeholder="🔍 Rechercher une équipe..."
+                />
+                <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+                  {([
+                    ['ALL', 'Toutes'],
+                    ['NATIONAL', '🌍 Pays'],
+                    ['CLUB', '🛡️ Clubs'],
+                  ] as const).map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setTeamOriginFilter(value)}
+                      className={`h-9 px-3 text-sm font-medium transition-colors whitespace-nowrap ${
+                        teamOriginFilter === value
+                          ? 'bg-wc-green text-white'
+                          : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Team grid */}
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mb-4">
-                {knownTeams.map((team) => {
+                {filteredKnownTeams.map((team) => {
                   const checked = inRoster(team.id);
                   return (
                     <label
@@ -493,6 +535,11 @@ const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) =>
                 {knownTeams.length === 0 && (
                   <p className="col-span-full text-sm text-gray-400">
                     Aucune équipe connue — saisissez-en une ci-dessus.
+                  </p>
+                )}
+                {knownTeams.length > 0 && filteredKnownTeams.length === 0 && (
+                  <p className="col-span-full text-sm text-gray-400">
+                    Aucune équipe ne correspond à ce filtre.
                   </p>
                 )}
               </div>
