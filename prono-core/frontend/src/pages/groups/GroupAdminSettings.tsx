@@ -5,6 +5,7 @@ import DailyGagePanel from '@/components/DailyGagePanel';
 import ForfeitsPanel from './ForfeitsPanel';
 import NotifyMatchesPanel from './NotifyMatchesPanel';
 import { useToast } from '@/components/Toast';
+import { extractErrorMessage } from '@/utils/errors';
 import type { Group, Sport } from '@/types';
 import { useGroupAdminCounts } from '@/context/GroupAdminCountsContext';
 
@@ -13,11 +14,6 @@ type AdminSection = 'forfeits' | 'daily-gages' | 'notify-matches';
 interface Props {
   group: Group;
   onGroupUpdate: (updated: Group) => void;
-}
-
-function extractErrorMessage(e: unknown, fallback: string): string {
-  const message = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
-  return message ?? fallback;
 }
 
 const GroupAdminSettings: React.FC<Props> = ({ group, onGroupUpdate }) => {

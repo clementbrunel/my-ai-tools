@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
+import { extractErrorMessage } from '@/utils/errors';
 
 const Register: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -19,8 +20,7 @@ const Register: React.FC = () => {
       const verifiedEmail = await register({ username, email, password });
       navigate(`/verify-email?email=${encodeURIComponent(verifiedEmail)}`);
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { message?: string } } };
-      setError(axiosErr.response?.data?.message || 'Erreur lors de l\'inscription');
+      setError(extractErrorMessage(err, 'Erreur lors de l\'inscription'));
     } finally {
       setIsLoading(false);
     }
