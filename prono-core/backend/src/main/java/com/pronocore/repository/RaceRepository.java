@@ -30,6 +30,18 @@ public interface RaceRepository extends JpaRepository<Race, Long> {
     @Query("SELECT r.raceDate, r.status FROM Race r WHERE r.raceDate >= :start AND r.raceDate < :end")
     List<Object[]> findRaceDatesAndStatusesInRange(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 
+    /** Races whose start is older than the admin-alert cutoff and are still not FINISHED —
+     *  surfaced in the daily admin digest as probable auto-resolution failures. Results are
+     *  entered manually by an admin (no auto-sync for F1), so this flags races an admin
+     *  forgot rather than a technical failure, but the alert reads the same either way. */
+    @Query("""
+            SELECT r FROM Race r JOIN FETCH r.competition
+            WHERE r.status <> com.pronocore.entity.Race.Status.FINISHED
+              AND r.raceDate < :cutoff
+            ORDER BY r.raceDate ASC
+            """)
+    List<Race> findOverdueUnresolvedRaces(@Param("cutoff") LocalDateTime cutoff);
+
     /** Upcoming races whose start falls in [from, to] and for which no reminder has been sent yet. */
     @Query("""
             SELECT r FROM Race r

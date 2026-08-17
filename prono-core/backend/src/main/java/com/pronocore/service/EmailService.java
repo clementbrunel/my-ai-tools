@@ -2,6 +2,7 @@ package com.pronocore.service;
 
 import com.pronocore.dto.request.EmailType;
 import com.pronocore.entity.Competition;
+import com.pronocore.entity.DailyGage;
 import com.pronocore.entity.Group;
 import com.pronocore.entity.GroupMember;
 import com.pronocore.entity.Match;
@@ -12,6 +13,7 @@ import com.pronocore.entity.User;
 import com.pronocore.repository.GroupMemberRepository;
 import com.pronocore.service.email.EmailSender;
 import com.pronocore.service.email.EmailTheme;
+import com.pronocore.service.email.template.AdminUnresolvedAlertEmailTemplate;
 import com.pronocore.service.email.template.DailyScoresEmailTemplate;
 import com.pronocore.service.email.template.GageResolutionEmailTemplate;
 import com.pronocore.service.email.template.GroupNewMatchesEmailTemplate;
@@ -56,7 +58,7 @@ public class EmailService {
      */
     private EmailTheme themeFor(EmailType emailType) {
         return switch (emailType) {
-            case VERIFICATION, PASSWORD_RESET, TEST_CEDRIC, GAGE_RESOLUTION, DAILY_SCORES_RECAP, GROUP_MEMBERSHIP_REQUEST -> EmailTheme.NEUTRAL;
+            case VERIFICATION, PASSWORD_RESET, TEST_CEDRIC, GAGE_RESOLUTION, DAILY_SCORES_RECAP, GROUP_MEMBERSHIP_REQUEST, ADMIN_UNRESOLVED_ALERT -> EmailTheme.NEUTRAL;
             case MATCH_REMINDER, GROUP_NEW_MATCHES -> EmailTheme.FOOTBALL;
             case RACE_REMINDER, QUALIFYING_REMINDER, GROUP_NEW_RACES -> EmailTheme.F1;
         };
@@ -158,6 +160,27 @@ public class EmailService {
                 User fakeLeader = User.builder().username("chef_test").displayName("Le Chef").email(to).build();
                 User fakeApplicant = User.builder().username("nouveau_test").displayName("Le Nouveau").build();
                 sendMembershipRequestEmail(fakeLeader, "Groupe des Amis", fakeApplicant);
+            }
+            case ADMIN_UNRESOLVED_ALERT -> {
+                User fakeAdmin = User.builder().username("admin_test").displayName("Admin Test").email(to).build();
+                List<Match> fakeMatches = List.of(
+                    Match.builder().id(0L)
+                        .teamA(Team.builder().id(1L).name("France").iso2("fr").build())
+                        .teamB(Team.builder().id(2L).name("Brésil").iso2("br").build())
+                        .matchDate(LocalDateTime.now().minusHours(14))
+                        .competition(FIFA_WORLD_CUP_2026).round("Finale").build()
+                );
+                List<Race> fakeRaces = List.of(
+                    Race.builder().id(0L).name("Grand Prix de Monaco").circuit("Circuit de Monaco")
+                        .round(7).raceDate(LocalDateTime.now().minusHours(26))
+                        .competition(F1_CHAMPIONSHIP_2026).build()
+                );
+                List<DailyGage> fakeGages = List.of(
+                    DailyGage.builder().id(0L).group(Group.builder().id(1L).name("Groupe des Amis").build())
+                        .matchDate(LocalDateTime.now().minusDays(2).toLocalDate())
+                        .status(DailyGage.Status.PENDING).build()
+                );
+                sendAdminUnresolvedAlert(fakeAdmin, fakeMatches, fakeRaces, fakeGages);
             }
             case TEST_CEDRIC -> sendTestCedricEmail(to);
         }
@@ -321,6 +344,21 @@ public class EmailService {
             log.info("Membership request email sent to {} (group {}, applicant {})", recipient.getEmail(), groupName, applicantName);
         } catch (Exception e) {
             log.error("Failed to send membership request email to {}: {}", recipient.getEmail(), e.getMessage());
+        }
+    }
+
+    /** Daily digest for platform admins — matches/races/gages still unresolved past their
+     *  admin-alert grace period. Silently skips sending when nothing is overdue. */
+    public void sendAdminUnresolvedAlert(User admin, List<Match> overdueMatches, List<Race> overdueRaces, List<DailyGage> overdueGages) {
+        if (overdueMatches.isEmpty() && overdueRaces.isEmpty() && overdueGages.isEmpty()) return;
+        int total = overdueMatches.size() + overdueRaces.size() + overdueGages.size();
+        try {
+            emailSender.send(admin.getEmail(), AdminUnresolvedAlertEmailTemplate.subject(total),
+                AdminUnresolvedAlertEmailTemplate.build(themeFor(EmailType.ADMIN_UNRESOLVED_ALERT), admin, overdueMatches, overdueRaces, overdueGages, frontendUrl));
+            log.info("Admin unresolved alert sent to {} ({} match(es), {} race(s), {} gage(s))",
+                admin.getEmail(), overdueMatches.size(), overdueRaces.size(), overdueGages.size());
+        } catch (Exception e) {
+            log.error("Failed to send admin unresolved alert to {}: {}", admin.getEmail(), e.getMessage());
         }
     }
 

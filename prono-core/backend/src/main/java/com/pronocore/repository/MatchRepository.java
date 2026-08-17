@@ -74,6 +74,16 @@ public interface MatchRepository extends JpaRepository<Match, Long> {
             """)
     List<Match> findSyncableMatches();
 
+    /** Matches whose kick-off is older than the admin-alert cutoff and are still not FINISHED —
+     *  surfaced in the daily admin digest as probable auto-resolution failures. */
+    @Query("""
+            SELECT m FROM Match m JOIN FETCH m.teamA JOIN FETCH m.teamB JOIN FETCH m.competition
+            WHERE m.status <> com.pronocore.entity.Match.Status.FINISHED
+              AND m.matchDate < :cutoff
+            ORDER BY m.matchDate ASC
+            """)
+    List<Match> findOverdueUnresolvedMatches(@Param("cutoff") LocalDateTime cutoff);
+
     /** Upcoming matches whose kick-off falls in [from, to] and for which no reminder has been sent yet. */
     @Query("""
             SELECT m FROM Match m
