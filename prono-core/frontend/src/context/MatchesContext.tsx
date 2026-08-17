@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useRef, useState } from 'react';
 import { getMatchesForMyGroups } from '@/api/matches';
-import { getMyGroups } from '@/api/groups';
+import { useMyGroups } from './MyGroupsContext';
 import type { Match } from '@/types';
 import { logger } from '@/utils/logger';
 
@@ -17,11 +17,15 @@ interface MatchesCtx {
 const MatchesContext = createContext<MatchesCtx | null>(null);
 
 export function MatchesProvider({ children }: { children: React.ReactNode }) {
+  const { groups } = useMyGroups();
   const [matches, setMatches] = useState<Match[]>([]);
-  const [hasGroups, setHasGroups] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const fetchedAtRef = useRef<number | null>(null);
   const pendingRef = useRef<Promise<void> | null>(null);
+
+  // groups is null while MyGroupsContext is still loading — default to true so
+  // the empty-state banner doesn't flash before the real groups arrive.
+  const hasGroups = groups === null || groups.length > 0;
 
   const fetchIfNeeded = useCallback(() => {
     const now = Date.now();
@@ -33,11 +37,7 @@ export function MatchesProvider({ children }: { children: React.ReactNode }) {
 
     const doFetch = async () => {
       try {
-        const [groups, matchesData] = await Promise.all([
-          getMyGroups(),
-          getMatchesForMyGroups(),
-        ]);
-        setHasGroups(groups.length > 0);
+        const matchesData = await getMatchesForMyGroups();
         setMatches(matchesData);
         fetchedAtRef.current = Date.now();
       } catch (err) {

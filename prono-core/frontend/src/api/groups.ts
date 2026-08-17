@@ -50,6 +50,11 @@ export const updateGroupPrivacy = async (groupId: number, isPrivate: boolean): P
   return response.data;
 };
 
+export const updateGroupGagesEnabled = async (groupId: number, gagesEnabled: boolean): Promise<Group> => {
+  const response = await apiClient.patch<Group>(`/groups/${groupId}/gages-enabled`, { gagesEnabled });
+  return response.data;
+};
+
 export const updateGroupInfo = async (groupId: number, data: UpdateGroupInfoRequest): Promise<Group> => {
   const response = await apiClient.patch<Group>(`/groups/${groupId}/info`, data);
   return response.data;

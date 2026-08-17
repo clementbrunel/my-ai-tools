@@ -44,14 +44,23 @@ const NotifyMatchesPanel: React.FC<Props> = ({ groupId, isOpen, groupSports }) =
     }
   };
 
+  // If the group's sports change (e.g. an admin drops the sport currently
+  // selected here) and the panel's current tab is no longer valid, fall back
+  // to the first sport the group still plays.
+  useEffect(() => {
+    if (!groupSports.includes(notifySport)) {
+      setNotifySport(groupSports[0] ?? 'FOOT');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupSports]);
+
   useEffect(() => {
     if (isOpen) loadFutureOpenBets(notifySport);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen]);
+  }, [isOpen, notifySport]);
 
-  const handleSwitchNotifySport = async (sport: Sport) => {
+  const handleSwitchNotifySport = (sport: Sport) => {
     setNotifySport(sport);
-    if (isOpen) await loadFutureOpenBets(sport);
   };
 
   const handleToggleMatchSelection = (matchId: number) => {

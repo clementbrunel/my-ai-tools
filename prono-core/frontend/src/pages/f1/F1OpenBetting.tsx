@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { getMyGroups } from '@/api/groups';
 import { getBets } from '@/api/bets';
 import { closeRaceForBetting, getRaces, openCompetitionRaces, openRaceForBetting } from '@/api/f1';
 import { getCompetitions } from '@/api/competitions';
-import type { CompetitionDto, Group, Race } from '@/types';
+import type { CompetitionDto, Race } from '@/types';
 import { formatDate } from '@/utils/dates';
 import { useToast } from '@/components/Toast';
 import PillTabs from '@/components/PillTabs';
+import { useMyGroups } from '@/context/MyGroupsContext';
 
 type StatusFilter = 'CLOSED' | 'OPEN';
 
@@ -16,27 +16,25 @@ type StatusFilter = 'CLOSED' | 'OPEN';
  */
 const F1OpenBetting: React.FC = () => {
   const { showToast } = useToast();
-  const [adminGroups, setAdminGroups] = useState<Group[]>([]);
+  const { groups: myGroupsCtx } = useMyGroups();
+  const adminGroups = useMemo(
+    () => (myGroupsCtx ?? []).filter((g) => g.currentUserRole === 'GROUP_ADMIN' && g.sports?.includes('F1')),
+    [myGroupsCtx],
+  );
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
   const [races, setRaces] = useState<Race[]>([]);
   const [openRaceIds, setOpenRaceIds] = useState<Set<number>>(new Set());
-  const [isLoading, setIsLoading] = useState(true);
+  const isLoading = myGroupsCtx === null;
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [allCompetitions, setAllCompetitions] = useState<CompetitionDto[]>([]);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('CLOSED');
   const [competitionFilter, setCompetitionFilter] = useState<number | ''>('');
 
+  // Default the group picker to the first F1 group the user administers.
   useEffect(() => {
-    getMyGroups()
-      .then((groups) => {
-        const admin = groups.filter((g) => g.currentUserRole === 'GROUP_ADMIN' && g.sports?.includes('F1'));
-        setAdminGroups(admin);
-        if (admin.length > 0) setSelectedGroupId(admin[0].id);
-      })
-      .catch(() => setError('Impossible de charger vos groupes'))
-      .finally(() => setIsLoading(false));
-  }, []);
+    if (selectedGroupId == null && adminGroups.length > 0) setSelectedGroupId(adminGroups[0].id);
+  }, [adminGroups, selectedGroupId]);
 
   // Load the full list of registered F1 competitions (seasons) for the filter dropdown
   useEffect(() => {

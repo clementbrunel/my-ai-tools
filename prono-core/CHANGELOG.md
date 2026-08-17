@@ -4,6 +4,13 @@ Historique des fonctionnalités et correctifs notables, ordonné par date décro
 
 ---
 
+## Août 2026 (16)
+
+### Fonctionnalités
+- **Désactivation des gages par groupe** : nouveau réglage admin `gagesEnabled` — quand il est désactivé, plus de proposition/vote/sélection ni d'attribution de gage quotidien ; l'email de fin de journée bascule sur un récap "scores uniquement" (nouveau template `DailyScoresEmailTemplate`) sans mentionner de perdant. Les badges "gages manquants" et le panneau "Gages du jour" du groupe sont masqués/neutralisés quand le réglage est désactivé.
+
+---
+
 ## Juin 2026 (15)
 
 ### Fonctionnalités

@@ -12,6 +12,7 @@ import com.pronocore.entity.User;
 import com.pronocore.repository.GroupMemberRepository;
 import com.pronocore.service.email.EmailSender;
 import com.pronocore.service.email.EmailTheme;
+import com.pronocore.service.email.template.DailyScoresEmailTemplate;
 import com.pronocore.service.email.template.GageResolutionEmailTemplate;
 import com.pronocore.service.email.template.GroupNewMatchesEmailTemplate;
 import com.pronocore.service.email.template.GroupNewRacesEmailTemplate;
@@ -55,7 +56,7 @@ public class EmailService {
      */
     private EmailTheme themeFor(EmailType emailType) {
         return switch (emailType) {
-            case VERIFICATION, PASSWORD_RESET, TEST_CEDRIC, GAGE_RESOLUTION, GROUP_MEMBERSHIP_REQUEST -> EmailTheme.NEUTRAL;
+            case VERIFICATION, PASSWORD_RESET, TEST_CEDRIC, GAGE_RESOLUTION, DAILY_SCORES_RECAP, GROUP_MEMBERSHIP_REQUEST -> EmailTheme.NEUTRAL;
             case MATCH_REMINDER, GROUP_NEW_MATCHES -> EmailTheme.FOOTBALL;
             case RACE_REMINDER, QUALIFYING_REMINDER, GROUP_NEW_RACES -> EmailTheme.F1;
         };
@@ -114,6 +115,15 @@ public class EmailService {
                     "Autre Joueur", 15
                 );
                 sendGageResolutionEmail(fakeRecipient, "Les 10 pompes", "Fais 10 pompes devant tout le groupe", fakeLucky, "Groupe des Amis", fakeScores);
+            }
+            case DAILY_SCORES_RECAP -> {
+                User fakeRecipient = User.builder().username("joueur_test").displayName("Joueur Test").email(to).build();
+                Map<String, Integer> fakeScores = Map.of(
+                    "Joueur Test", 20,
+                    "Autre Joueur", 15,
+                    "Troisième Joueur", 5
+                );
+                sendDailyScoresEmail(fakeRecipient, "Groupe des Amis", fakeScores);
             }
             case GROUP_NEW_MATCHES -> {
                 User fakeRecipient = User.builder().username("joueur_test").displayName("Joueur Test").email(to).build();
@@ -234,6 +244,28 @@ public class EmailService {
             log.info("Gage resolution email sent to {} (group {})", recipient.getEmail(), groupName);
         } catch (Exception e) {
             log.error("Failed to send gage resolution email to {}: {}", recipient.getEmail(), e.getMessage());
+        }
+    }
+
+    public void sendDailyScoresEmail(User recipient, String groupName, Map<String, Integer> dailyScores) {
+        sendDailyScoresEmail(recipient, groupName, dailyScores, themeFor(EmailType.DAILY_SCORES_RECAP), "de pronostics");
+    }
+
+    /**
+     * Sent instead of {@link #sendGageResolutionEmail} for groups that disabled the daily
+     * gage mechanic — same score recap, no loser/gage section. Like the gage email, the
+     * theme/day-label aren't fixed by the {@link EmailType}, so the caller (whoever looked
+     * at that day's participations) picks them.
+     */
+    public void sendDailyScoresEmail(User recipient, String groupName, Map<String, Integer> dailyScores,
+                                     EmailTheme theme, String dayLabel) {
+        String displayName = recipient.getDisplayName() != null ? recipient.getDisplayName() : recipient.getUsername();
+        try {
+            emailSender.send(recipient.getEmail(), DailyScoresEmailTemplate.subject(groupName),
+                DailyScoresEmailTemplate.build(theme, displayName, groupName, dailyScores, dayLabel));
+            log.info("Daily scores recap email sent to {} (group {})", recipient.getEmail(), groupName);
+        } catch (Exception e) {
+            log.error("Failed to send daily scores recap email to {}: {}", recipient.getEmail(), e.getMessage());
         }
     }
 

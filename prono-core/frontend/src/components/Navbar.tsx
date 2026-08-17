@@ -2,7 +2,8 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useGroupAdminCounts } from '@/context/GroupAdminCountsContext';
 import { useUserCounts } from '@/context/UserCountsContext';
-import { useSport } from '@/context/SportContext';
+import { useMyGroups } from '@/context/MyGroupsContext';
+import { useSport, toApiSport } from '@/context/SportContext';
 import { isAdmin } from '@/types';
 import { useState } from 'react';
 import Avatar from './Avatar';
@@ -12,10 +13,17 @@ const Navbar: React.FC = () => {
   const { user, logout } = useAuth();
   const { totalBadge } = useGroupAdminCounts();
   const { totalBadge: userTotalBadge } = useUserCounts();
+  const { groups: myGroups } = useMyGroups();
   const { sport, basePath, setSport } = useSport();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // myGroups is null while loading — the Gages tab stays visible by default
+  // so it doesn't flash in/out for the common case (gages enabled).
+  const showGagesTab =
+    myGroups === null ||
+    myGroups.some((g) => g.sports.includes(toApiSport(sport)) && g.gagesEnabled);
 
   const handleLogout = () => {
     logout();
@@ -46,21 +54,22 @@ const Navbar: React.FC = () => {
       ? 'text-wc-gold font-bold border-b-2 border-wc-gold'
       : 'text-gray-400 hover:text-gray-200 transition-colors';
 
-  const sportLinks =
+  const sportLinks = (
     sport === 'f1'
       ? [
           { to: '/f1', label: '🏎 Accueil' },
           { to: '/f1/races', label: '🏁 Courses' },
           { to: '/f1/standings', label: '📊 Championnat' },
-          { to: '/f1/gages', label: '🃏 Gages' },
+          { to: '/f1/gages', label: '🃏 Gages', gagesTab: true },
           { to: '/f1/leaderboard', label: '🏆 Classement' },
         ]
       : [
           { to: '/foot', label: '🏠 Accueil' },
           { to: '/foot/matches', label: '⚽ Matchs' },
-          { to: '/foot/gages', label: '🃏 Gages' },
+          { to: '/foot/gages', label: '🃏 Gages', gagesTab: true },
           { to: '/foot/leaderboard', label: '🏆 Classement' },
-        ];
+        ]
+  ).filter((link) => !link.gagesTab || showGagesTab);
 
   return (
     <nav className="wc-header shadow-lg sticky top-0 z-50">

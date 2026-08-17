@@ -97,6 +97,17 @@ public class GroupAdminService {
     }
 
     @Transactional
+    public GroupResponse updateGagesEnabled(Long groupId, boolean gagesEnabled, String adminUsername) {
+        assertGroupAdmin(groupId, adminUsername);
+
+        Group group = groupService.findGroup(groupId);
+        group.setGagesEnabled(gagesEnabled);
+        groupRepository.save(group);
+
+        return groupService.toResponse(group, GroupMember.GroupRole.GROUP_ADMIN, true);
+    }
+
+    @Transactional
     public GroupResponse updateInfo(Long groupId, String name, String description, String adminUsername) {
         assertGroupAdmin(groupId, adminUsername);
 
@@ -292,6 +303,13 @@ public class GroupAdminService {
             .map(m -> m.getGroup().getId())
             .toList();
 
+        Map<Long, Boolean> gagesEnabledByGroupId = adminMemberships.stream()
+            .collect(Collectors.toMap(
+                m -> m.getGroup().getId(),
+                m -> m.getGroup().isGagesEnabled(),
+                (a, b) -> a
+            ));
+
         // pendingApplications — single batch query instead of N
         int pendingApplications = groupMemberRepository.countPendingByGroupIds(adminGroupIds).stream()
             .mapToInt(row -> ((Number) row[1]).intValue())
@@ -318,10 +336,13 @@ public class GroupAdminService {
                 Collectors.mapping(DailyGage::getMatchDate, Collectors.toSet())
             ));
 
+        // Groups with gages disabled never need a daily gage configured, so they never
+        // contribute to this badge.
         Map<Long, Integer> missingGagesPerGroup = adminGroupIds.stream()
             .collect(Collectors.toMap(
                 gid -> gid,
                 gid -> {
+                    if (!gagesEnabledByGroupId.getOrDefault(gid, true)) return 0;
                     List<LocalDate> datesWithOpenBets = betRepository
                         .findDistinctMatchesWithOpenBetsForGroup(gid).stream()
                         .map(m -> m.getMatchDate().toLocalDate())

@@ -8,12 +8,12 @@ vi.mock('../api/matches', () => ({
   getMatchesForMyGroups: vi.fn(),
 }));
 
-vi.mock('../api/groups', () => ({
-  getMyGroups: vi.fn(),
+vi.mock('./MyGroupsContext', () => ({
+  useMyGroups: vi.fn(),
 }));
 
 import * as matchesApi from '@/api/matches';
-import * as groupsApi from '@/api/groups';
+import * as myGroupsContext from './MyGroupsContext';
 
 // ── Test consumer ──────────────────────────────────────────────────────────────
 
@@ -58,6 +58,7 @@ describe('MatchesContext — useMatches sans provider', () => {
   it('throw si utilisé hors MatchesProvider', () => {
     const err = console.error;
     console.error = vi.fn(); // silence React's error boundary log
+    vi.mocked(myGroupsContext.useMyGroups).mockReturnValue({ groups: oneGroup, refresh: vi.fn() });
     expect(() => render(<TestConsumer />)).toThrow('useMatches must be used within MatchesProvider');
     console.error = err;
   });
@@ -66,22 +67,21 @@ describe('MatchesContext — useMatches sans provider', () => {
 describe('MatchesContext — fetchIfNeeded', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(groupsApi.getMyGroups).mockResolvedValue(oneGroup);
+    vi.mocked(myGroupsContext.useMyGroups).mockReturnValue({ groups: oneGroup, refresh: vi.fn() });
     vi.mocked(matchesApi.getMatchesForMyGroups).mockResolvedValue(twoMatches);
   });
 
-  it('appelle les deux endpoints API', async () => {
+  it('appelle l\'endpoint des matchs', async () => {
     renderContext();
 
     await act(async () => { screen.getByText('Fetch').click(); });
 
     await waitFor(() => {
-      expect(groupsApi.getMyGroups).toHaveBeenCalledTimes(1);
       expect(matchesApi.getMatchesForMyGroups).toHaveBeenCalledTimes(1);
     });
   });
 
-  it('peuple matches et hasGroups depuis la réponse API', async () => {
+  it('peuple matches et hasGroups depuis le contexte de groupes', async () => {
     renderContext();
 
     await act(async () => { screen.getByText('Fetch').click(); });
@@ -92,8 +92,8 @@ describe('MatchesContext — fetchIfNeeded', () => {
     });
   });
 
-  it('hasGroups: false quand getMyGroups retourne un tableau vide', async () => {
-    vi.mocked(groupsApi.getMyGroups).mockResolvedValue([]);
+  it('hasGroups: false quand MyGroupsContext retourne un tableau vide', async () => {
+    vi.mocked(myGroupsContext.useMyGroups).mockReturnValue({ groups: [], refresh: vi.fn() });
     renderContext();
 
     await act(async () => { screen.getByText('Fetch').click(); });
@@ -101,6 +101,13 @@ describe('MatchesContext — fetchIfNeeded', () => {
     await waitFor(() => {
       expect(screen.getByTestId('hasGroups').textContent).toBe('false');
     });
+  });
+
+  it('hasGroups: true (défaut) tant que MyGroupsContext charge encore (groups === null)', async () => {
+    vi.mocked(myGroupsContext.useMyGroups).mockReturnValue({ groups: null, refresh: vi.fn() });
+    renderContext();
+
+    expect(screen.getByTestId('hasGroups').textContent).toBe('true');
   });
 
   it('isLoading: true pendant le premier fetch, false après', async () => {
@@ -198,7 +205,7 @@ describe('MatchesContext — fetchIfNeeded', () => {
 describe('MatchesContext — markParticipated', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
-    vi.mocked(groupsApi.getMyGroups).mockResolvedValue(oneGroup);
+    vi.mocked(myGroupsContext.useMyGroups).mockReturnValue({ groups: oneGroup, refresh: vi.fn() });
     vi.mocked(matchesApi.getMatchesForMyGroups).mockResolvedValue(twoMatches);
   });
 

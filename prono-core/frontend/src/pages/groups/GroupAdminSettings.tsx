@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { updateGroupPrivacy, updateGroupSports } from '@/api/groups';
+import { updateGroupGagesEnabled, updateGroupPrivacy, updateGroupSports } from '@/api/groups';
 import DailyGagePanel from '@/components/DailyGagePanel';
 import ForfeitsPanel from './ForfeitsPanel';
 import NotifyMatchesPanel from './NotifyMatchesPanel';
+import { useToast } from '@/components/Toast';
+import { extractErrorMessage } from '@/utils/errors';
 import type { Group, Sport } from '@/types';
 import { useGroupAdminCounts } from '@/context/GroupAdminCountsContext';
 
@@ -16,6 +18,7 @@ interface Props {
 
 const GroupAdminSettings: React.FC<Props> = ({ group, onGroupUpdate }) => {
   const { pendingForfeitsPerGroup, missingGagesPerGroup, matchesWithoutBetsPerGroup, refresh: refreshCounts } = useGroupAdminCounts();
+  const { showToast } = useToast();
 
   const groupSports = group.sports ?? ['FOOT'];
 
@@ -33,8 +36,20 @@ const GroupAdminSettings: React.FC<Props> = ({ group, onGroupUpdate }) => {
     try {
       const updated = await updateGroupPrivacy(group.id, !group.isPrivate);
       onGroupUpdate(updated);
-    } catch {
-      // Silently fail — privacy toggle is non-critical
+    } catch (e: unknown) {
+      showToast(extractErrorMessage(e, 'Impossible de modifier la confidentialité du groupe'), 'error');
+    }
+  };
+
+  const handleToggleGagesEnabled = async () => {
+    try {
+      const updated = await updateGroupGagesEnabled(group.id, !group.gagesEnabled);
+      onGroupUpdate(updated);
+      if (openSection === 'forfeits' || openSection === 'daily-gages') {
+        setOpenSection(null);
+      }
+    } catch (e: unknown) {
+      showToast(extractErrorMessage(e, 'Impossible de modifier les gages du groupe'), 'error');
     }
   };
 
@@ -47,8 +62,8 @@ const GroupAdminSettings: React.FC<Props> = ({ group, onGroupUpdate }) => {
     try {
       const updated = await updateGroupSports(group.id, next);
       onGroupUpdate(updated);
-    } catch {
-      // Silent
+    } catch (e: unknown) {
+      showToast(extractErrorMessage(e, 'Impossible de modifier les sports du groupe'), 'error');
     }
   };
 
@@ -116,35 +131,13 @@ const GroupAdminSettings: React.FC<Props> = ({ group, onGroupUpdate }) => {
         </div>
       </div>
 
-      {/* Forfeits section button */}
-      <div className="flex items-center justify-between gap-3 pt-1">
-        <p className="text-xs text-yellow-800 dark:text-yellow-300 font-semibold">
-          Configurez les gages customisés de votre groupe.
-        </p>
-        <button
-          onClick={() => handleToggleSection('forfeits')}
-          className={`relative text-xs px-3 py-1.5 rounded-lg font-medium transition-colors inline-flex items-center gap-1.5 shrink-0 ${
-            openSection === 'forfeits'
-              ? 'bg-yellow-500 text-white'
-              : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-200'
-          }`}
-        >
-          🃏 Gages du groupe
-          {pendingForfeitsBadge > 0 && (
-            <span className="inline-flex items-center justify-center bg-red-500 text-white text-[10px] font-bold leading-none rounded-full min-w-[16px] h-4 px-1">
-              {pendingForfeitsBadge}
-            </span>
-          )}
-        </button>
-      </div>
-
       {/* Workflow guide */}
       <div className="text-xs text-yellow-800 dark:text-yellow-300 pt-1 space-y-2 border-t border-yellow-200 dark:border-yellow-800/40">
         <p className="font-semibold pt-1">Configuration des paris de votre groupe</p>
         {(group.sports ?? ['FOOT']).includes('FOOT') && (
           <div className="flex items-center justify-between gap-3">
             <p>1. <span className="font-semibold">⚽ Foot</span> — Ouvrez les matchs aux paris pour la journée.</p>
-            <Link to="/foot/open-betting" className="relative btn-primary text-xs whitespace-nowrap inline-flex items-center gap-1.5 shrink-0">
+            <Link to="/foot/open-betting" className="relative btn-primary text-xs whitespace-nowrap inline-flex items-center justify-center gap-1.5 shrink-0 min-w-[160px]">
               🎲 Ouvrir aux paris
               {(matchesWithoutBetsPerGroup[group.id] ?? 0) > 0 && (
                 <span className="inline-flex items-center justify-center bg-red-500 text-white text-[10px] font-bold leading-none rounded-full min-w-[16px] h-4 px-1">
@@ -157,31 +150,13 @@ const GroupAdminSettings: React.FC<Props> = ({ group, onGroupUpdate }) => {
         {(group.sports ?? []).includes('F1') && (
           <div className="flex items-center justify-between gap-3">
             <p>1bis. <span className="font-semibold">🏎 F1</span> — Ouvrez les Grands Prix aux pronos.</p>
-            <Link to="/f1/open-betting" className="btn-primary text-xs whitespace-nowrap inline-flex items-center gap-1.5 shrink-0">
+            <Link to="/f1/open-betting" className="btn-primary text-xs whitespace-nowrap inline-flex items-center justify-center gap-1.5 shrink-0 min-w-[160px]">
               🏎 Ouvrir les GP
             </Link>
           </div>
         )}
         <div className="flex items-center justify-between gap-3">
-          <p>2. Pimentez la partie en ajoutant un gage au plus mauvais parieur 🌶️</p>
-          <button
-            onClick={() => handleToggleSection('daily-gages')}
-            className={`relative text-xs px-3 py-1.5 rounded-lg font-medium transition-colors inline-flex items-center gap-1.5 shrink-0 ${
-              openSection === 'daily-gages'
-                ? 'bg-yellow-500 text-white'
-                : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-200'
-            }`}
-          >
-            📅 Gages du jour
-            {missingGagesBadge > 0 && (
-              <span className="inline-flex items-center justify-center bg-orange-500 text-white text-[10px] font-bold leading-none rounded-full min-w-[16px] h-4 px-1">
-                {missingGagesBadge}
-              </span>
-            )}
-          </button>
-        </div>
-        <div className="flex items-center justify-between gap-3">
-          <p>3. Prévenez le groupe quand de nouveaux paris sont ouverts 📣</p>
+          <p>2. Prévenez le groupe quand de nouveaux paris sont ouverts 📣</p>
           <button
             onClick={() => handleToggleSection('notify-matches')}
             className={`relative text-xs px-3 py-1.5 rounded-lg font-medium transition-colors inline-flex items-center gap-1.5 shrink-0 ${
@@ -195,19 +170,92 @@ const GroupAdminSettings: React.FC<Props> = ({ group, onGroupUpdate }) => {
         </div>
       </div>
 
-      <ForfeitsPanel
-        groupId={group.id}
-        isOpen={openSection === 'forfeits'}
-        onPendingCountChange={setPendingCount}
-        onForfeitsChanged={refreshCounts}
-      />
+      {/* Gages — enable/disable + custom gages library + daily gage, grouped together */}
+      <div className="pt-1 space-y-2 border-t border-yellow-200 dark:border-yellow-800/40">
+        <p className="text-xs font-semibold text-yellow-700 dark:text-yellow-400 uppercase tracking-wide pt-1">
+          🃏 Gages
+        </p>
 
-      {openSection === 'daily-gages' && (
-        <div className="space-y-2 pt-3 border-t border-yellow-200 dark:border-yellow-800/40">
-          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">📅 Gages du jour</h3>
-          <DailyGagePanel groupId={group.id} />
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-gray-700 dark:text-gray-300 font-medium">Gages du groupe</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {group.gagesEnabled
+                ? 'Un gage est attribué chaque jour au plus mauvais parieur'
+                : "Désactivés — l'email quotidien ne montre plus que les scores"}
+            </p>
+          </div>
+          <button
+            onClick={handleToggleGagesEnabled}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+              group.gagesEnabled ? 'bg-wc-green' : 'bg-gray-300 dark:bg-gray-600'
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                group.gagesEnabled ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
+          </button>
         </div>
-      )}
+
+        {group.gagesEnabled && (
+          <>
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs text-yellow-800 dark:text-yellow-300 font-semibold">
+                Gages customisés du groupe
+              </p>
+              <button
+                onClick={() => handleToggleSection('forfeits')}
+                className={`relative text-xs px-3 py-1.5 rounded-lg font-medium transition-colors inline-flex items-center gap-1.5 shrink-0 ${
+                  openSection === 'forfeits'
+                    ? 'bg-yellow-500 text-white'
+                    : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-200'
+                }`}
+              >
+                🃏 Gages customisés
+                {pendingForfeitsBadge > 0 && (
+                  <span className="inline-flex items-center justify-center bg-red-500 text-white text-[10px] font-bold leading-none rounded-full min-w-[16px] h-4 px-1">
+                    {pendingForfeitsBadge}
+                  </span>
+                )}
+              </button>
+            </div>
+            <ForfeitsPanel
+              groupId={group.id}
+              isOpen={openSection === 'forfeits'}
+              onPendingCountChange={setPendingCount}
+              onForfeitsChanged={refreshCounts}
+            />
+
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs text-yellow-800 dark:text-yellow-300 font-semibold">
+                Gages du jour
+              </p>
+              <button
+                onClick={() => handleToggleSection('daily-gages')}
+                className={`relative text-xs px-3 py-1.5 rounded-lg font-medium transition-colors inline-flex items-center gap-1.5 shrink-0 ${
+                  openSection === 'daily-gages'
+                    ? 'bg-yellow-500 text-white'
+                    : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-200'
+                }`}
+              >
+                📅 Gages du jour
+                {missingGagesBadge > 0 && (
+                  <span className="inline-flex items-center justify-center bg-orange-500 text-white text-[10px] font-bold leading-none rounded-full min-w-[16px] h-4 px-1">
+                    {missingGagesBadge}
+                  </span>
+                )}
+              </button>
+            </div>
+            {openSection === 'daily-gages' && (
+              <div className="space-y-2 pt-1">
+                <DailyGagePanel groupId={group.id} />
+              </div>
+            )}
+          </>
+        )}
+      </div>
 
       <NotifyMatchesPanel
         groupId={group.id}

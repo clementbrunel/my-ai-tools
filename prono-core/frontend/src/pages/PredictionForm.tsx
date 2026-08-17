@@ -6,6 +6,7 @@ import { usePredictionForm } from '@/hooks/usePredictionForm';
 import type { Bet, BetParticipation, Match } from '@/types';
 import { formatDateTime } from '@/utils/dates';
 import { computePoints } from '@/utils/matchCalculations';
+import { extractErrorMessage } from '@/utils/errors';
 import ScoreInput from '@/components/ScoreInput';
 
 interface Props {
@@ -53,8 +54,7 @@ const PredictionForm: React.FC<Props> = ({ match, bet, participations, canBet, r
       setSaveMsg(alreadyVoted ? '✅ Pronostic mis à jour !' : '✅ Pronostic enregistré !');
       setTimeout(() => setSaveMsg(''), 3000);
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { message?: string } } };
-      setSaveError(axiosErr.response?.data?.message || "Erreur lors de l'enregistrement");
+      setSaveError(extractErrorMessage(err, "Erreur lors de l'enregistrement"));
     } finally {
       setIsSaving(false);
     }

@@ -217,6 +217,7 @@ public class GroupService {
             .description(group.getDescription())
             .inviteCode(group.getInviteCode())
             .isPrivate(group.isPrivate())
+            .gagesEnabled(group.isGagesEnabled())
             .createdByUsername(group.getCreatedBy().getUsername())
             .createdByDisplayName(group.getCreatedBy().getDisplayName())
             .memberCount(activeMembers.size())

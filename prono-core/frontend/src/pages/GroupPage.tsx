@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getMyGroups, getPublicGroups, createGroup, joinGroup, applyToGroup } from '@/api/groups';
+import { getPublicGroups, createGroup, joinGroup, applyToGroup } from '@/api/groups';
+import { useMyGroups } from '@/context/MyGroupsContext';
 import type { Group, PublicGroup, Sport } from '@/types';
 import GroupCard from './groups/GroupCard';
 
@@ -8,10 +9,13 @@ type Tab = 'mine' | 'discover';
 
 const GroupPage: React.FC = () => {
   const navigate = useNavigate();
+  const { groups: myGroupsFromCtx, refresh: refreshMyGroups } = useMyGroups();
   const [activeTab, setActiveTab] = useState<Tab>('mine');
+  // Local, optimistically-updated copy of the shared "my groups" — kept in
+  // sync with the context (single fetch, shared with the Navbar) below.
   const [groups, setGroups] = useState<Group[]>([]);
   const [publicGroups, setPublicGroups] = useState<PublicGroup[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingPublic, setIsLoadingPublic] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [showCreate, setShowCreate] = useState(false);
@@ -22,26 +26,28 @@ const GroupPage: React.FC = () => {
   const [showJoin, setShowJoin] = useState(false);
   const [joinCode, setJoinCode] = useState('');
 
-  const loadData = async () => {
-    setIsLoading(true);
-    try {
-      const [myGroups, pubGroups] = await Promise.all([getMyGroups(), getPublicGroups()]);
-      setGroups(myGroups);
-      setPublicGroups(pubGroups);
-    } catch {
-      setError('Impossible de charger les groupes');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const isLoading = myGroupsFromCtx === null || isLoadingPublic;
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    if (myGroupsFromCtx !== null) setGroups(myGroupsFromCtx);
+  }, [myGroupsFromCtx]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setIsLoadingPublic(true);
+    getPublicGroups()
+      .then((pubGroups) => { if (!cancelled) setPublicGroups(pubGroups); })
+      .catch(() => { if (!cancelled) setError('Impossible de charger les groupes'); })
+      .finally(() => { if (!cancelled) setIsLoadingPublic(false); });
+    return () => { cancelled = true; };
+  }, []);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const g = await createGroup({ name: createName, description: createDesc, sports: createSports });
       setGroups((prev) => [...prev, g]);
+      refreshMyGroups();
       setShowCreate(false);
       setCreateName('');
       setCreateDesc('');
@@ -59,6 +65,7 @@ const GroupPage: React.FC = () => {
     try {
       const g = await joinGroup({ inviteCode: joinCode.trim().toUpperCase() });
       setGroups((prev) => [...prev, g]);
+      refreshMyGroups();
       setPublicGroups((prev) =>
         prev.map((pg) => pg.id === g.id ? { ...pg, currentUserStatus: 'ACTIVE' } : pg)
       );
@@ -83,6 +90,7 @@ const GroupPage: React.FC = () => {
 
   const handleLeaveGroup = (groupId: number) => {
     setGroups((prev) => prev.filter((g) => g.id !== groupId));
+    refreshMyGroups();
     setPublicGroups((prev) =>
       prev.map((pg) => pg.id === groupId ? { ...pg, currentUserStatus: null } : pg)
     );
@@ -90,6 +98,7 @@ const GroupPage: React.FC = () => {
 
   const handleUpdateGroup = (updated: Group) => {
     setGroups((prev) => prev.map((g) => g.id === updated.id ? updated : g));
+    refreshMyGroups();
     setPublicGroups((prev) =>
       updated.isPrivate
         ? prev.filter((pg) => pg.id !== updated.id)

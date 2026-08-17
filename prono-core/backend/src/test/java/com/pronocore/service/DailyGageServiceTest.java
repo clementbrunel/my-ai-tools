@@ -23,6 +23,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
@@ -45,6 +46,7 @@ class DailyGageServiceTest {
     @Mock private GroupRepository              groupRepository;
     @Mock private GroupMemberRepository        groupMemberRepository;
     @Mock private GroupMemberGuard             groupMemberGuard;
+    @Mock private EmailService                 emailService;
     @Spy   private ForfeitMapper               forfeitMapper = new ForfeitMapper();
 
     @InjectMocks
@@ -157,6 +159,19 @@ class DailyGageServiceTest {
         verify(dailyGageRepository, never()).save(any());
     }
 
+    @Test
+    void createDailyGage_shouldThrow_whenGagesDisabledForGroup() {
+        group.setGagesEnabled(false);
+        CreateDailyGageRequest req = buildRequest(MATCH_DAY, DailyGage.Mode.DIRECT);
+
+        when(groupRepository.findById(GROUP_ID)).thenReturn(Optional.of(group));
+
+        assertThatThrownBy(() -> dailyGageService.createDailyGage(req))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("désactivés");
+        verify(dailyGageRepository, never()).save(any());
+    }
+
     // ── selectForfeitDirectly ─────────────────────────────────────────────────
 
     @Test
@@ -195,6 +210,18 @@ class DailyGageServiceTest {
 
         assertThatThrownBy(() -> dailyGageService.selectForfeitDirectly(1L, 1L))
                 .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void selectForfeitDirectly_shouldThrowWhenGagesDisabledForGroup() {
+        group.setGagesEnabled(false);
+        DailyGage dg = gage(1L, DailyGage.Mode.DIRECT, DailyGage.Status.PENDING);
+        when(dailyGageRepository.findByIdWithDetails(1L)).thenReturn(Optional.of(dg));
+
+        assertThatThrownBy(() -> dailyGageService.selectForfeitDirectly(1L, 1L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("désactivés");
+        verify(dailyGageRepository, never()).save(any());
     }
 
     // ── addCandidate / removeCandidate ────────────────────────────────────────
@@ -425,6 +452,41 @@ class DailyGageServiceTest {
         assertThat(captor.getValue().getUser()).isEqualTo(loser);
         assertThat(captor.getValue().getForfeit()).isEqualTo(forfeit);
         assertThat(captor.getValue().getAssignedBy()).isEqualTo(adminUser);
+    }
+
+    @Test
+    void onMatchSettled_shouldSendScoresRecap_whenGroupHasGagesDisabled() {
+        group.setGagesEnabled(false);
+
+        User member = User.builder().id(4L).username("member").email("m@test.com")
+                .password("encoded").role(User.Role.USER).emailGageEnabled(true)
+                .build();
+        GroupMember memberMembership = GroupMember.builder()
+                .id(2L).group(group).user(member)
+                .role(GroupMember.GroupRole.MEMBER).status(GroupMember.MemberStatus.ACTIVE)
+                .build();
+
+        Bet bet = Bet.builder().id(1L).group(group).match(sampleMatch).build();
+        BetParticipation adminPart  = BetParticipation.builder().bet(bet).user(adminUser).pointsEarned(5).build();
+        BetParticipation memberPart = BetParticipation.builder().bet(bet).user(member).pointsEarned(0).build();
+
+        when(matchRepository.countUnfinishedMatchesOnDay(any(), any(), any())).thenReturn(0L);
+        when(dailyGageRepository.findByMatchDate(MATCH_DAY)).thenReturn(List.of());
+        when(betParticipationRepository.findSettledByMatchDay(any(), any(), any()))
+                .thenReturn(List.of(adminPart, memberPart));
+        when(groupMemberRepository.findByGroupId(GROUP_ID))
+                .thenReturn(List.of(adminMembership(GroupMember.GroupRole.GROUP_ADMIN), memberMembership));
+
+        dailyGageService.onMatchSettled(MATCH_DAY);
+
+        verify(userForfeitRepository, never()).save(any());
+        verify(dailyGageRepository, never()).save(any());
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Map<String, Integer>> scoresCaptor = ArgumentCaptor.forClass(Map.class);
+        verify(emailService).sendDailyScoresEmail(eq(member), eq("Les Potes"), scoresCaptor.capture(), any(), any());
+        assertThat(scoresCaptor.getValue()).containsEntry("admin", 5).containsEntry("member", 0);
+        verify(emailService, never()).sendDailyScoresEmail(eq(adminUser), any(), any(), any(), any());
     }
 
     @Test

@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { getGroupLeaderboard } from '@/api/leaderboard';
 import { getCompetitions } from '@/api/competitions';
 import { useSport, toApiSport } from '@/context/SportContext';
-import { getMyGroups } from '@/api/groups';
+import { useMyGroups } from '@/context/MyGroupsContext';
 import { getGroupAssignments } from '@/api/forfeits';
-import type { GroupUserForfeit, LeaderboardEntry, Group, CompetitionDto } from '@/types';
+import type { GroupUserForfeit, LeaderboardEntry, CompetitionDto } from '@/types';
 import LeaderboardRow from '@/components/LeaderboardRow';
 import NoGroupBanner from '@/components/NoGroupBanner';
 import Avatar from '@/components/Avatar';
@@ -122,7 +122,8 @@ const Leaderboard: React.FC = () => {
   const [searchParams] = useSearchParams();
   const groupIdFromUrl = searchParams.get('groupId') ? Number(searchParams.get('groupId')) : null;
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
-  const [groups, setGroups] = useState<Group[]>([]);
+  const { groups: myGroupsCtx } = useMyGroups();
+  const groups = useMemo(() => myGroupsCtx ?? [], [myGroupsCtx]);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
   const [competitions, setCompetitions] = useState<CompetitionDto[]>([]);
   // 'all' = cumulated points across every competition for the current sport;
@@ -131,13 +132,6 @@ const Leaderboard: React.FC = () => {
   const [allGages, setAllGages] = useState<GroupUserForfeit[]>([]);
   const [gagesFilter, setGagesFilter] = useState<'pending' | 'completed'>('pending');
   const [isLoading, setIsLoading] = useState(true);
-
-  // Load the user's groups
-  useEffect(() => {
-    getMyGroups()
-      .then(setGroups)
-      .catch(logger.error);
-  }, []);
 
   // Keep the selected group in sync with the active sport: only groups
   // playing the current sport are selectable, so switching sports (or the

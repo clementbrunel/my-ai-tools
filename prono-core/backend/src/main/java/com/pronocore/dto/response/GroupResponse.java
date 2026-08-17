@@ -27,6 +27,7 @@ public class GroupResponse {
     private int memberCount;
     @JsonProperty("isPrivate")
     private boolean isPrivate;
+    private boolean gagesEnabled;
     private List<GroupMemberResponse> members;
     /** Pending applications — only populated for GROUP_ADMIN. */
     private List<GroupMemberResponse> pendingApplications;
