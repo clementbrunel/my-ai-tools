@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import { getMyGroups } from '@/api/groups';
 import { getMatches } from '@/api/matches';
 import { getBets, openMatchForBetting, openCompetitionForBetting, closeMatchForBetting } from '@/api/bets';
 import { getCompetitions } from '@/api/competitions';
-import type { CompetitionDto, Group, Match, MatchPhase } from '@/types';
+import type { CompetitionDto, Match, MatchPhase } from '@/types';
 import { formatDate } from '@/utils/dates';
 import ConfirmModal from '@/components/ConfirmModal';
 import PillTabs from '@/components/PillTabs';
 import { useGroupAdminCounts } from '@/context/GroupAdminCountsContext';
+import { useMyGroups } from '@/context/MyGroupsContext';
 
 type StatusFilter = 'CLOSED' | 'OPEN';
 
@@ -23,11 +23,15 @@ const OpenBetting: React.FC = () => {
     clearMatchesWithoutBetsAlert();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const [adminGroups, setAdminGroups] = useState<Group[]>([]);
+  const { groups: myGroupsCtx } = useMyGroups();
+  const adminGroups = useMemo(
+    () => (myGroupsCtx ?? []).filter((g) => g.currentUserRole === 'GROUP_ADMIN'),
+    [myGroupsCtx],
+  );
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
   const [openMatchIds, setOpenMatchIds] = useState<Set<number>>(new Set());
-  const [isLoading, setIsLoading] = useState(true);
+  const isLoading = myGroupsCtx === null;
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [matchToClose, setMatchToClose] = useState<Match | null>(null);
@@ -36,17 +40,10 @@ const OpenBetting: React.FC = () => {
   const [competitionFilter, setCompetitionFilter] = useState<number | ''>('');
   const [phaseFilter, setPhaseFilter] = useState<MatchPhase | ''>('');
 
-  // Load the groups the user administers
+  // Default the group picker to the first group the user administers.
   useEffect(() => {
-    getMyGroups()
-      .then((groups) => {
-        const admin = groups.filter((g) => g.currentUserRole === 'GROUP_ADMIN');
-        setAdminGroups(admin);
-        if (admin.length > 0) setSelectedGroupId(admin[0].id);
-      })
-      .catch(() => setError('Impossible de charger vos groupes'))
-      .finally(() => setIsLoading(false));
-  }, []);
+    if (selectedGroupId == null && adminGroups.length > 0) setSelectedGroupId(adminGroups[0].id);
+  }, [adminGroups, selectedGroupId]);
 
   // Load the full list of registered football competitions for the filter dropdown
   useEffect(() => {

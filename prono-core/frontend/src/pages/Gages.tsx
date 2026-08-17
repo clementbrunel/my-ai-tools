@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { getForfeits, proposeForfeit, voteForfeit } from '@/api/forfeits';
-import { getMyGroups } from '@/api/groups';
+import { useMyGroups } from '@/context/MyGroupsContext';
 import { useSport, toApiSport } from '@/context/SportContext';
-import type { Forfeit, Group } from '@/types';
+import type { Forfeit } from '@/types';
 import { logger } from '@/utils/logger';
 
 const categoryEmoji: Record<string, string> = {
@@ -23,9 +23,11 @@ const DEFAULT_GAGE_EMOJI = '🎯';
 
 const Gages: React.FC = () => {
   const { sport } = useSport();
+  const { groups: myGroupsCtx } = useMyGroups();
+  const groups = myGroupsCtx ?? [];
   const [forfeits, setForfeits] = useState<Forfeit[]>([]);
-  const [groups, setGroups] = useState<Group[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingForfeits, setIsLoadingForfeits] = useState(true);
+  const isLoading = myGroupsCtx === null || isLoadingForfeits;
 
   // Propose form
   const [filter, setFilter] = useState<'all' | 'shared' | 'groups'>('all');
@@ -39,16 +41,18 @@ const Gages: React.FC = () => {
   const [propSuccess, setPropSuccess] = useState('');
 
   useEffect(() => {
-    setIsLoading(true);
-    Promise.all([getForfeits(toApiSport(sport)), getMyGroups()])
-      .then(([f, g]) => {
-        setForfeits(f);
-        setGroups(g);
-        if (g.length > 0) setPropGroupId(g[0].id);
-      })
+    setIsLoadingForfeits(true);
+    getForfeits(toApiSport(sport))
+      .then(setForfeits)
       .catch(logger.error)
-      .finally(() => setIsLoading(false));
+      .finally(() => setIsLoadingForfeits(false));
   }, [sport]);
+
+  useEffect(() => {
+    if (groups.length === 0) return;
+    setPropGroupId((prev) => (prev !== '' && groups.some((g) => g.id === prev) ? prev : groups[0].id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groups]);
 
   const handleVote = async (forfeitId: number, vote: 1 | -1 | 0) => {
     try {
