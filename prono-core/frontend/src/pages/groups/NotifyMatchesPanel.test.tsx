@@ -117,4 +117,16 @@ describe('NotifyMatchesPanel — bascule de sport', () => {
     expect(screen.getByText('⚽ Foot')).toBeInTheDocument();
     expect(screen.getByText('🏎 F1')).toBeInTheDocument();
   });
+
+  it("bascule automatiquement et recharge si le sport affiché n'est plus joué par le groupe", async () => {
+    vi.mocked(getFutureOpenRaces).mockResolvedValue([makeRace({ id: 9, name: 'GP de Monaco' })]);
+    const { rerender } = render(<NotifyMatchesPanel groupId={7} isOpen={true} groupSports={['F1']} />);
+    await screen.findByText('GP de Monaco');
+
+    vi.mocked(getFutureOpenMatches).mockResolvedValue([makeMatch({ id: 5 })]);
+    rerender(<NotifyMatchesPanel groupId={7} isOpen={true} groupSports={['FOOT']} />);
+
+    expect(await screen.findByText('France – Brésil')).toBeInTheDocument();
+    expect(getFutureOpenMatches).toHaveBeenCalledWith(7);
+  });
 });
