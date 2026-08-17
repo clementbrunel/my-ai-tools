@@ -4,6 +4,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider } from './context/AuthContext';
 import { GroupAdminCountsProvider } from './context/GroupAdminCountsContext';
 import { UserCountsProvider } from './context/UserCountsContext';
+import { MyGroupsProvider } from './context/MyGroupsContext';
 import { SportProvider, useSport } from './context/SportContext';
 import { getEquivalentPath } from './utils/sportPaths';
 import { ToastProvider } from './components/Toast';
@@ -54,6 +55,7 @@ function App() {
     <AuthProvider>
       <GroupAdminCountsProvider>
       <UserCountsProvider>
+      <MyGroupsProvider>
       <ToastProvider>
       <MatchesProvider>
       <BrowserRouter>
@@ -121,6 +123,7 @@ function App() {
       </BrowserRouter>
       </MatchesProvider>
       </ToastProvider>
+      </MyGroupsProvider>
       </UserCountsProvider>
       </GroupAdminCountsProvider>
     </AuthProvider>

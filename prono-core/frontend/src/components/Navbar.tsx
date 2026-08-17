@@ -2,38 +2,25 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useGroupAdminCounts } from '@/context/GroupAdminCountsContext';
 import { useUserCounts } from '@/context/UserCountsContext';
+import { useMyGroups } from '@/context/MyGroupsContext';
 import { useSport, toApiSport } from '@/context/SportContext';
 import { isAdmin } from '@/types';
-import type { Group } from '@/types';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Avatar from './Avatar';
 import { getEquivalentPath } from '@/utils/sportPaths';
-import { getMyGroups } from '@/api/groups';
 
 const Navbar: React.FC = () => {
   const { user, logout } = useAuth();
   const { totalBadge } = useGroupAdminCounts();
   const { totalBadge: userTotalBadge } = useUserCounts();
+  const { groups: myGroups } = useMyGroups();
   const { sport, basePath, setSport } = useSport();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
-  // null while loading — the Gages tab stays visible by default so it doesn't
-  // flash in/out for the common case (gages enabled) once groups are fetched.
-  const [myGroups, setMyGroups] = useState<Group[] | null>(null);
 
-  useEffect(() => {
-    if (!user) {
-      setMyGroups(null);
-      return;
-    }
-    let cancelled = false;
-    getMyGroups()
-      .then((groups) => { if (!cancelled) setMyGroups(groups); })
-      .catch(() => { /* badge/nav errors are non-blocking */ });
-    return () => { cancelled = true; };
-  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-
+  // myGroups is null while loading — the Gages tab stays visible by default
+  // so it doesn't flash in/out for the common case (gages enabled).
   const showGagesTab =
     myGroups === null ||
     myGroups.some((g) => g.sports.includes(toApiSport(sport)) && g.gagesEnabled);
