@@ -4,6 +4,7 @@ import { updateGroupGagesEnabled, updateGroupPrivacy, updateGroupSports } from '
 import DailyGagePanel from '@/components/DailyGagePanel';
 import ForfeitsPanel from './ForfeitsPanel';
 import NotifyMatchesPanel from './NotifyMatchesPanel';
+import { useToast } from '@/components/Toast';
 import type { Group, Sport } from '@/types';
 import { useGroupAdminCounts } from '@/context/GroupAdminCountsContext';
 
@@ -14,8 +15,14 @@ interface Props {
   onGroupUpdate: (updated: Group) => void;
 }
 
+function extractErrorMessage(e: unknown, fallback: string): string {
+  const message = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
+  return message ?? fallback;
+}
+
 const GroupAdminSettings: React.FC<Props> = ({ group, onGroupUpdate }) => {
   const { pendingForfeitsPerGroup, missingGagesPerGroup, matchesWithoutBetsPerGroup, refresh: refreshCounts } = useGroupAdminCounts();
+  const { showToast } = useToast();
 
   const groupSports = group.sports ?? ['FOOT'];
 
@@ -33,8 +40,8 @@ const GroupAdminSettings: React.FC<Props> = ({ group, onGroupUpdate }) => {
     try {
       const updated = await updateGroupPrivacy(group.id, !group.isPrivate);
       onGroupUpdate(updated);
-    } catch {
-      // Silently fail — privacy toggle is non-critical
+    } catch (e: unknown) {
+      showToast(extractErrorMessage(e, 'Impossible de modifier la confidentialité du groupe'), 'error');
     }
   };
 
@@ -45,8 +52,8 @@ const GroupAdminSettings: React.FC<Props> = ({ group, onGroupUpdate }) => {
       if (openSection === 'forfeits' || openSection === 'daily-gages') {
         setOpenSection(null);
       }
-    } catch {
-      // Silently fail — gages toggle is non-critical
+    } catch (e: unknown) {
+      showToast(extractErrorMessage(e, 'Impossible de modifier les gages du groupe'), 'error');
     }
   };
 
@@ -59,8 +66,8 @@ const GroupAdminSettings: React.FC<Props> = ({ group, onGroupUpdate }) => {
     try {
       const updated = await updateGroupSports(group.id, next);
       onGroupUpdate(updated);
-    } catch {
-      // Silent
+    } catch (e: unknown) {
+      showToast(extractErrorMessage(e, 'Impossible de modifier les sports du groupe'), 'error');
     }
   };
 
