@@ -1,6 +1,6 @@
 # prono-core — World Cup 2026 Betting App
 
-Full-stack app: **Java 21 + Spring Boot 3.3.11** (backend) + **React 18 + TypeScript + Vite** (frontend) + **PostgreSQL 16** (database).
+Full-stack app: **Java 21 + Spring Boot 3.5.16** (backend) + **React 18 + TypeScript + Vite** (frontend) + **PostgreSQL 16** (database).
 
 ## Running the Project
 
