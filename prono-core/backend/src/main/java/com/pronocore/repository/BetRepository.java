@@ -176,10 +176,15 @@ public interface BetRepository extends JpaRepository<Bet, Long> {
             """)
     List<Race> findFutureDistinctRacesWithOpenBetsForGroup(@Param("groupId") Long groupId, @Param("now") LocalDateTime now);
 
-    /** Count of UPCOMING matches that have no bet (any status) in the given group. */
+    /**
+     * Count of UPCOMING matches that have no bet (any status) in the given group.
+     * Matches from an inactive competition (betting disabled platform-wide) are excluded —
+     * an admin has no action to take on them, so they shouldn't inflate the badge.
+     */
     @Query("""
             SELECT COUNT(m) FROM Match m
             WHERE m.status = com.pronocore.entity.Match.Status.UPCOMING
+              AND m.competition.active = true
               AND NOT EXISTS (
                 SELECT 1 FROM Bet b WHERE b.match = m AND b.group.id = :groupId
               )
