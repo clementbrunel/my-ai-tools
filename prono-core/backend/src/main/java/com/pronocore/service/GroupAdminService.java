@@ -365,6 +365,7 @@ public class GroupAdminService {
             ));
 
         // matchesWithoutBetsPerGroup — UPCOMING matches not yet opened to betting in the group
+        // (0 for non-FOOT groups; see countUpcomingMatchesWithoutBetsForGroup)
         Map<Long, Integer> matchesWithoutBetsPerGroup = adminGroupIds.stream()
             .collect(Collectors.toMap(
                 gid -> gid,
