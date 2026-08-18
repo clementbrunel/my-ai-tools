@@ -179,12 +179,18 @@ public interface BetRepository extends JpaRepository<Bet, Long> {
     /**
      * Count of UPCOMING matches that have no bet (any status) in the given group.
      * Matches from an inactive competition (betting disabled platform-wide) are excluded —
-     * an admin has no action to take on them, so they shouldn't inflate the badge.
+     * an admin has no action to take on them, so they shouldn't inflate the badge. Groups
+     * that don't play FOOT always return 0 — they can never open a football bet, so every
+     * unopened match on the platform would otherwise count against them.
      */
     @Query("""
             SELECT COUNT(m) FROM Match m
             WHERE m.status = com.pronocore.entity.Match.Status.UPCOMING
               AND m.competition.active = true
+              AND EXISTS (
+                SELECT 1 FROM Group g JOIN g.sports s
+                WHERE g.id = :groupId AND s = com.pronocore.entity.Sport.FOOT
+              )
               AND NOT EXISTS (
                 SELECT 1 FROM Bet b WHERE b.match = m AND b.group.id = :groupId
               )
