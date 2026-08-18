@@ -650,6 +650,26 @@ class GroupAdminServiceTest {
     }
 
     @Test
+    void getCounts_f1OnlyGroup_neverCountsMatchesWithoutBets() {
+        groupA.setSports(Set.of(Sport.F1));
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(countsUser));
+        when(groupMemberRepository.findByUserIdAndStatus(1L, MemberStatus.ACTIVE))
+                .thenReturn(List.of(adminMemberA));
+        when(groupMemberRepository.countPendingByGroupIds(List.of(12L))).thenReturn(List.of());
+        when(forfeitRepository.countPendingByGroupIds(List.of(12L))).thenReturn(List.of());
+        when(betRepository.findDistinctMatchesWithOpenBetsForGroup(12L)).thenReturn(List.of());
+        when(dailyGageRepository.findByGroupIdInOrderByMatchDateDesc(List.of(12L))).thenReturn(List.of());
+        when(betRepository.findGroupIdsWithOpenBets(List.of(12L))).thenReturn(Set.of());
+
+        GroupAdminCountsResponse result = groupAdminService.getCounts("alice");
+
+        // F1-only group never opens football bets — it shouldn't be flagged for
+        // every football match on the platform that has no bet in this group.
+        assertThat(result.getMatchesWithoutBetsPerGroup()).containsEntry(12L, 0);
+        verify(betRepository, never()).countUpcomingMatchesWithoutBetsForGroup(12L);
+    }
+
+    @Test
     void getCounts_gagesDisabledGroup_neverCountsMissingGages() {
         groupA.setGagesEnabled(false);
         when(userRepository.findByUsername("alice")).thenReturn(Optional.of(countsUser));

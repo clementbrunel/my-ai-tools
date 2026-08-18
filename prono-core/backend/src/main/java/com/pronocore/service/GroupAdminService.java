@@ -310,6 +310,13 @@ public class GroupAdminService {
                 (a, b) -> a
             ));
 
+        Map<Long, Set<Sport>> sportsByGroupId = adminMemberships.stream()
+            .collect(Collectors.toMap(
+                m -> m.getGroup().getId(),
+                m -> m.getGroup().getSports(),
+                (a, b) -> a
+            ));
+
         // pendingApplications — single batch query instead of N
         int pendingApplications = groupMemberRepository.countPendingByGroupIds(adminGroupIds).stream()
             .mapToInt(row -> ((Number) row[1]).intValue())
@@ -364,11 +371,15 @@ public class GroupAdminService {
                 gid -> !groupsWithOpenBets.contains(gid)
             ));
 
-        // matchesWithoutBetsPerGroup — UPCOMING matches not yet opened to betting in the group
+        // matchesWithoutBetsPerGroup — UPCOMING matches not yet opened to betting in the group.
+        // Football-only metric: F1-only groups never open football bets, so they'd otherwise be
+        // flagged for every unopened match on the platform.
         Map<Long, Integer> matchesWithoutBetsPerGroup = adminGroupIds.stream()
             .collect(Collectors.toMap(
                 gid -> gid,
-                gid -> (int) betRepository.countUpcomingMatchesWithoutBetsForGroup(gid)
+                gid -> sportsByGroupId.getOrDefault(gid, Set.of()).contains(Sport.FOOT)
+                    ? (int) betRepository.countUpcomingMatchesWithoutBetsForGroup(gid)
+                    : 0
             ));
 
         return GroupAdminCountsResponse.builder()
