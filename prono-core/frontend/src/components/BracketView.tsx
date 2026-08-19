@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import type { Match } from '@/types';
 import { formatDate, formatTime } from '@/utils/dates';
-import { buildBracketData } from '@/utils/bracket';
+import { buildBracketsByCompetition, type BracketData } from '@/utils/bracket';
 import TeamLogo from './TeamLogo';
 
 interface BracketViewProps {
@@ -57,17 +57,33 @@ const BracketMatchCard: React.FC<{ match: Match; highlight?: string }> = ({ matc
 };
 
 const BracketView: React.FC<BracketViewProps> = ({ matches, highlight }) => {
-  const { tiers, thirdPlace } = buildBracketData(matches);
+  const brackets = buildBracketsByCompetition(matches);
 
-  if (tiers.length === 0) {
+  if (brackets.length === 0) {
     return (
       <div className="card text-center py-12 text-gray-500 dark:text-gray-400">
         <div className="text-4xl mb-3">🏆</div>
-        <p>Le tableau final sera disponible dès que la phase éliminatoire commence</p>
+        <p>Aucune phase éliminatoire disponible pour les compétitions sélectionnées</p>
       </div>
     );
   }
 
+  return (
+    <div className="space-y-10">
+      {brackets.map(({ competition, data }) => (
+        <div key={competition.id}>
+          {brackets.length > 1 && (
+            <h2 className="text-sm font-bold text-gray-700 dark:text-gray-200 mb-4">{competition.name}</h2>
+          )}
+          <SingleBracket data={data} highlight={highlight} />
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const SingleBracket: React.FC<{ data: BracketData; highlight?: string }> = ({ data, highlight }) => {
+  const { tiers, thirdPlace } = data;
   const firstTierCount = tiers[0].matches.length;
   const totalHeight = firstTierCount * CARD_HEIGHT + (firstTierCount - 1) * GAP;
 

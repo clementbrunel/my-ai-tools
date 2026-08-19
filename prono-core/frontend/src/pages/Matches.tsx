@@ -42,6 +42,23 @@ const Matches: React.FC = () => {
     });
   }, [matches, filter, hasGroups, search, selectedCompetitions]);
 
+  // Vue bracket : respecte le filtre compétition mais pas le statut (l'arbre a besoin
+  // des matchs joués ET à venir pour reconstruire les tours).
+  const bracketMatches = useMemo(() => {
+    if (!hasGroups) return [];
+    if (!selectedCompetitions) return matches;
+    return matches.filter((m) => selectedCompetitions.has(m.competition.id));
+  }, [matches, hasGroups, selectedCompetitions]);
+
+  const hasKnockoutInSelection = useMemo(
+    () => bracketMatches.some((m) => m.phase === 'KNOCKOUT'),
+    [bracketMatches]
+  );
+
+  useEffect(() => {
+    if (viewMode === 'bracket' && !hasKnockoutInSelection) setViewMode('grid');
+  }, [viewMode, hasKnockoutInSelection]);
+
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
@@ -100,9 +117,7 @@ const Matches: React.FC = () => {
             </button>
           )}
         </div>
-        {viewMode !== 'bracket' && (
-          <CompetitionFilterPills sport="FOOT" selected={selectedCompetitions ?? new Set()} onChange={setSelectedCompetitions} />
-        )}
+        <CompetitionFilterPills sport="FOOT" selected={selectedCompetitions ?? new Set()} onChange={setSelectedCompetitions} />
         <div className="flex items-center justify-between gap-2">
           <div className="flex gap-1 min-w-0">
             {viewMode !== 'bracket' && filters.map((f) => (
@@ -154,12 +169,15 @@ const Matches: React.FC = () => {
               </svg>
             </button>
             <button
-              onClick={() => setViewMode('bracket')}
-              title="Vue tableau final"
+              onClick={() => hasKnockoutInSelection && setViewMode('bracket')}
+              disabled={!hasKnockoutInSelection}
+              title={hasKnockoutInSelection ? 'Vue tableau final' : 'Aucune phase finale dans la sélection actuelle'}
               className={`p-1.5 rounded-md transition-colors ${
                 viewMode === 'bracket'
                   ? 'bg-white dark:bg-gray-600 shadow text-wc-green'
-                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                  : hasKnockoutInSelection
+                    ? 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                    : 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
               }`}
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -171,14 +189,15 @@ const Matches: React.FC = () => {
         </div>
       )}
 
-      {/* Bracket view — full knockout tree, ignores day grouping and status filter */}
+      {/* Vue bracket — un arbre par compétition sélectionnée, ignore le groupement par
+          jour et le filtre de statut (garde matchs joués + à venir pour reconstruire l'arbre) */}
       {isLoading ? (
         <div className="text-center py-12">
           <div className="text-5xl animate-bounce-slow">⚽</div>
           <p className="text-gray-500 mt-3">Chargement...</p>
         </div>
       ) : hasGroups && viewMode === 'bracket' ? (
-        <BracketView matches={matches} highlight={search} />
+        <BracketView matches={bracketMatches} highlight={search} />
       ) : hasGroups && sortedDays.length > 0 ? (
         <div className="space-y-8">
           {sortedDays.map((day) => {
