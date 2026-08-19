@@ -16,7 +16,6 @@ const makeEntry = (overrides?: Partial<LeaderboardEntry>): LeaderboardEntry => (
   user: makeUser({ id: 42, username: 'alice', displayName: 'Alice Dupont' }),
   betsWon: 5,
   totalPoints: 120,
-  forfeitsReceived: 1,
   ...overrides,
 });
 
@@ -34,11 +33,16 @@ const makeBet = (overrides?: Partial<UserBetSummary>): UserBetSummary => ({
   ...overrides,
 });
 
-const renderRow = (entry = makeEntry(), groupId: number | null = 7) =>
+const renderRow = (
+  entry = makeEntry(),
+  groupId: number | null = 7,
+  competitionId?: number,
+  sport?: 'FOOT' | 'F1',
+) =>
   render(
     <table>
       <tbody>
-        <LeaderboardRow entry={entry} groupId={groupId} />
+        <LeaderboardRow entry={entry} groupId={groupId} competitionId={competitionId} sport={sport} />
       </tbody>
     </table>
   );
@@ -57,11 +61,6 @@ describe('LeaderboardRow — rendu initial', () => {
   it('affiche le nombre de paris gagnés', () => {
     renderRow();
     expect(screen.getByText('5')).toBeDefined();
-  });
-
-  it('affiche le nombre de forfeits', () => {
-    renderRow();
-    expect(screen.getByText(/1 🃏/)).toBeDefined();
   });
 
   it('affiche le rang numérique si > 3', () => {
@@ -89,8 +88,34 @@ describe('LeaderboardRow — expand au clic', () => {
     await user.click(screen.getByText('Alice Dupont'));
 
     await waitFor(() => {
-      expect(betsApi.getUserBetsInGroup).toHaveBeenCalledWith(7, 42);
+      expect(betsApi.getUserBetsInGroup).toHaveBeenCalledWith(7, 42, undefined, undefined);
       expect(screen.getByText('Résultat France-Brésil')).toBeDefined();
+    });
+  });
+
+  it('transmet le competitionId sélectionné à getUserBetsInGroup', async () => {
+    const user = userEvent.setup();
+    vi.mocked(betsApi.getUserBetsInGroup).mockResolvedValue([makeBet()]);
+
+    renderRow(makeEntry(), 7, 99);
+
+    await user.click(screen.getByText('Alice Dupont'));
+
+    await waitFor(() => {
+      expect(betsApi.getUserBetsInGroup).toHaveBeenCalledWith(7, 42, 99, undefined);
+    });
+  });
+
+  it('transmet le sport sélectionné à getUserBetsInGroup', async () => {
+    const user = userEvent.setup();
+    vi.mocked(betsApi.getUserBetsInGroup).mockResolvedValue([makeBet()]);
+
+    renderRow(makeEntry(), 7, undefined, 'F1');
+
+    await user.click(screen.getByText('Alice Dupont'));
+
+    await waitFor(() => {
+      expect(betsApi.getUserBetsInGroup).toHaveBeenCalledWith(7, 42, undefined, 'F1');
     });
   });
 

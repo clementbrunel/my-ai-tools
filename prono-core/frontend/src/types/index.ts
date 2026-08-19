@@ -275,7 +275,6 @@ export interface LeaderboardEntry {
   user: User;
   betsWon: number;
   totalPoints: number;
-  forfeitsReceived: number;
 }
 
 export interface AuthResponse {

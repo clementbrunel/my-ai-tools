@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { LeaderboardEntry, UserBetSummary } from '@/types';
 import { isAdmin } from '@/types';
 import { getUserBetsInGroup } from '@/api/bets';
@@ -9,6 +9,8 @@ interface LeaderboardRowProps {
   entry: LeaderboardEntry;
   isCurrentUser?: boolean;
   groupId: number | null;
+  competitionId?: number;
+  sport?: 'FOOT' | 'F1';
 }
 
 const rankEmoji: Record<number, string> = {
@@ -17,11 +19,18 @@ const rankEmoji: Record<number, string> = {
   3: '🥉',
 };
 
-const LeaderboardRow: React.FC<LeaderboardRowProps> = ({ entry, isCurrentUser, groupId }) => {
-  const { rank, user, betsWon, totalPoints, forfeitsReceived } = entry;
+const LeaderboardRow: React.FC<LeaderboardRowProps> = ({ entry, isCurrentUser, groupId, competitionId, sport }) => {
+  const { rank, user, betsWon, totalPoints } = entry;
   const [expanded, setExpanded] = useState(false);
   const [bets, setBets] = useState<UserBetSummary[] | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Re-fetch when the selected competition or sport changes so an already-expanded
+  // row doesn't keep showing the previous filter's history.
+  useEffect(() => {
+    setBets(null);
+    setExpanded(false);
+  }, [competitionId, sport]);
 
   const handleRowClick = async () => {
     if (!groupId) return;
@@ -29,7 +38,7 @@ const LeaderboardRow: React.FC<LeaderboardRowProps> = ({ entry, isCurrentUser, g
       setExpanded(true);
       setLoading(true);
       try {
-        const data = await getUserBetsInGroup(groupId, user.id);
+        const data = await getUserBetsInGroup(groupId, user.id, competitionId, sport);
         setBets(data);
       } catch {
         setBets([]);
@@ -88,13 +97,6 @@ const LeaderboardRow: React.FC<LeaderboardRowProps> = ({ entry, isCurrentUser, g
         <td className="py-3 px-4 text-center">
           <span className="text-wc-green dark:text-green-400 font-semibold">{betsWon}</span>
         </td>
-        <td className="py-3 px-4 text-center">
-          {forfeitsReceived > 0 ? (
-            <span className="text-wc-red font-semibold">{forfeitsReceived} 🃏</span>
-          ) : (
-            <span className="text-gray-400">0</span>
-          )}
-        </td>
         {groupId && (
           <td className="py-3 px-4 text-center w-8">
             <span className="text-gray-400 text-xs">{expanded ? '▲' : '▼'}</span>
@@ -104,7 +106,7 @@ const LeaderboardRow: React.FC<LeaderboardRowProps> = ({ entry, isCurrentUser, g
 
       {expanded && (
         <tr className="border-b border-gray-100 dark:border-gray-700">
-          <td colSpan={groupId ? 6 : 5} className="px-4 pb-4 pt-0 bg-gray-50 dark:bg-gray-800/30">
+          <td colSpan={groupId ? 5 : 4} className="px-4 pb-4 pt-0 bg-gray-50 dark:bg-gray-800/30">
             {loading ? (
               <div className="flex items-center justify-center gap-2 py-3">
                 <svg className="animate-spin h-4 w-4 text-wc-green" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">

@@ -233,4 +233,41 @@ public interface BetParticipationRepository extends JpaRepository<BetParticipati
     List<BetParticipation> findByUserIdAndGroupId(@Param("userId") Long userId,
                                                    @Param("groupId") Long groupId,
                                                    @Param("now") java.time.LocalDateTime now);
+
+    /** Same as {@link #findByUserIdAndGroupId}, narrowed to a single competition's matches (FOOT)
+     *  or races (F1) — used when the leaderboard is filtered to one competition. */
+    @Query("""
+            SELECT bp FROM BetParticipation bp
+            JOIN FETCH bp.bet b
+            LEFT JOIN FETCH b.match m
+            LEFT JOIN FETCH b.race r
+            WHERE bp.user.id = :userId AND b.group.id = :groupId
+              AND ((m IS NOT NULL AND m.matchDate < :now AND m.competition.id = :competitionId)
+                OR (r IS NOT NULL AND r.raceDate < :now AND r.competition.id = :competitionId))
+            ORDER BY COALESCE(m.matchDate, r.raceDate) DESC
+            """)
+    List<BetParticipation> findByUserIdAndGroupIdAndCompetition(@Param("userId") Long userId,
+                                                                  @Param("groupId") Long groupId,
+                                                                  @Param("competitionId") Long competitionId,
+                                                                  @Param("now") java.time.LocalDateTime now);
+
+    /**
+     * Same as {@link #findByUserIdAndGroupId}, narrowed to one sport — F1 = bets on a race,
+     * FOOT = everything else. Safe unlike the equivalent forfeit-side filter: every bet has
+     * either a match or a race, so there is no unattributable row to worry about here.
+     */
+    @Query("""
+            SELECT bp FROM BetParticipation bp
+            JOIN FETCH bp.bet b
+            LEFT JOIN FETCH b.match m
+            LEFT JOIN FETCH b.race r
+            WHERE bp.user.id = :userId AND b.group.id = :groupId
+              AND ((m IS NOT NULL AND m.matchDate < :now) OR (r IS NOT NULL AND r.raceDate < :now))
+              AND ((:f1 = true AND r IS NOT NULL) OR (:f1 = false AND r IS NULL))
+            ORDER BY COALESCE(m.matchDate, r.raceDate) DESC
+            """)
+    List<BetParticipation> findByUserIdAndGroupIdAndSport(@Param("userId") Long userId,
+                                                            @Param("groupId") Long groupId,
+                                                            @Param("f1") boolean f1,
+                                                            @Param("now") java.time.LocalDateTime now);
 }
