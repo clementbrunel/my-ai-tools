@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { getForfeits, proposeForfeit, voteForfeit } from '@/api/forfeits';
 import { useMyGroups } from '@/context/MyGroupsContext';
 import { useSport, toApiSport } from '@/context/SportContext';
@@ -24,7 +24,7 @@ const DEFAULT_GAGE_EMOJI = '🎯';
 const Gages: React.FC = () => {
   const { sport } = useSport();
   const { groups: myGroupsCtx } = useMyGroups();
-  const groups = myGroupsCtx ?? [];
+  const groups = useMemo(() => myGroupsCtx ?? [], [myGroupsCtx]);
   const [forfeits, setForfeits] = useState<Forfeit[]>([]);
   const [isLoadingForfeits, setIsLoadingForfeits] = useState(true);
   const isLoading = myGroupsCtx === null || isLoadingForfeits;
@@ -51,7 +51,6 @@ const Gages: React.FC = () => {
   useEffect(() => {
     if (groups.length === 0) return;
     setPropGroupId((prev) => (prev !== '' && groups.some((g) => g.id === prev) ? prev : groups[0].id));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groups]);
 
   const handleVote = async (forfeitId: number, vote: 1 | -1 | 0) => {

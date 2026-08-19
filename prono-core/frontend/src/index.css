@@ -1,6 +1,5 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@config "../tailwind.config.js";
 
 @layer base {
   :root {
@@ -103,7 +102,7 @@
   }
 
   .stat-card {
-    @apply card flex flex-col items-center justify-center p-6 text-center;
+    @apply bg-white dark:bg-wc-dark-secondary rounded-xl shadow-md p-4 transition-shadow hover:shadow-lg flex flex-col items-center justify-center p-6 text-center;
   }
 
   .stat-value {

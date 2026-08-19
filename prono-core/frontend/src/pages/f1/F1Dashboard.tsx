@@ -47,6 +47,7 @@ const F1Dashboard: React.FC = () => {
     getRace(lastFinished.id)
       .then(setLastRaceDetail)
       .catch(() => setLastRaceDetail(null));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only the id should retrigger the fetch
   }, [lastFinished?.id]);
 
   const nextRaceFlag = getFlagUrl(nextRace?.countryIso2?.toLowerCase());

@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, act } from '@testing-library/react';
+import { describe, it, expect } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ToastProvider, useToast } from './Toast';
 
@@ -82,39 +82,26 @@ describe('ToastProvider — rendering', () => {
   });
 });
 
-// Tests with fake timers (auto-dismiss)
+// Auto-dismiss tests run against real timers: React 19's scheduler and
+// jsdom's fake-timer shims (no native MessageChannel) don't interoperate —
+// vi.advanceTimersByTime hangs indefinitely once fired inside act() after a
+// userEvent interaction. waitFor polls on a real interval instead.
 describe('ToastProvider — auto-dismiss', () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-  });
-
-  afterEach(() => {
-    vi.runOnlyPendingTimers();
-    vi.useRealTimers();
-  });
-
   it('dismisses toast after 4 seconds', async () => {
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime.bind(vi) });
+    const user = userEvent.setup();
     renderWithProvider(<ToastTrigger message="Temporaire" type="info" />);
     await user.click(screen.getByText('Afficher'));
     expect(screen.getByText('Temporaire')).toBeDefined();
 
-    act(() => {
-      vi.advanceTimersByTime(4000);
-    });
-
-    expect(screen.queryByText('Temporaire')).toBeNull();
-  });
+    await waitFor(() => expect(screen.queryByText('Temporaire')).toBeNull(), { timeout: 5000 });
+  }, 10000);
 
   it('does not dismiss before 4 seconds', async () => {
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime.bind(vi) });
+    const user = userEvent.setup();
     renderWithProvider(<ToastTrigger message="Persistant" type="info" />);
     await user.click(screen.getByText('Afficher'));
 
-    act(() => {
-      vi.advanceTimersByTime(3999);
-    });
-
+    await new Promise((resolve) => setTimeout(resolve, 3500));
     expect(screen.getByText('Persistant')).toBeDefined();
-  });
+  }, 10000);
 });
