@@ -15,5 +15,4 @@ public class LeaderboardEntryResponse {
     private UserResponse user;
     private int betsWon;
     private int totalPoints;
-    private int forfeitsReceived;
 }

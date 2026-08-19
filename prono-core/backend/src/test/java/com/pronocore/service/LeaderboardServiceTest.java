@@ -5,7 +5,6 @@ import com.pronocore.dto.response.UserResponse;
 import com.pronocore.entity.User;
 import com.pronocore.mapper.UserMapper;
 import com.pronocore.repository.BetParticipationRepository;
-import com.pronocore.repository.UserForfeitRepository;
 import com.pronocore.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -24,7 +23,6 @@ class LeaderboardServiceTest {
 
     @Mock private UserRepository             userRepository;
     @Mock private BetParticipationRepository betParticipationRepository;
-    @Mock private UserForfeitRepository      userForfeitRepository;
     @Mock private UserMapper                 userMapper;
 
     @InjectMocks
@@ -89,32 +87,6 @@ class LeaderboardServiceTest {
     }
 
     @Test
-    void getGroupLeaderboard_shouldReportForfeitsReceivedPerGroup() {
-        User alice = user(1L, "alice");
-        User bob   = user(2L, "bob");
-
-        Object[] alicePts = { 1L, 50 };
-        Object[] bobPts   = { 2L, 30 };
-        Object[] aliceForfeits = { 1L, 2L };
-
-        when(userRepository.findAllByGroupId(42L))
-                .thenReturn(new ArrayList<>(List.of(alice, bob)));
-        when(betParticipationRepository.sumPointsEarnedByGroupId(42L))
-                .thenReturn(List.of(alicePts, bobPts));
-        when(betParticipationRepository.countBetsWonByGroupId(42L)).thenReturn(List.of());
-        // alice received 2 gages in THIS group, bob 0
-        when(userForfeitRepository.countByGroupIdGroupedByUser(42L))
-                .thenReturn(List.<Object[]>of(aliceForfeits));
-        when(userMapper.toResponse(alice)).thenReturn(userResponse(1L, "alice"));
-        when(userMapper.toResponse(bob)).thenReturn(userResponse(2L, "bob"));
-
-        List<LeaderboardEntryResponse> result = leaderboardService.getGroupLeaderboard(42L);
-
-        assertThat(result.get(0).getForfeitsReceived()).isEqualTo(2); // alice, per-group
-        assertThat(result.get(1).getForfeitsReceived()).isEqualTo(0); // bob
-    }
-
-    @Test
     void getGroupLeaderboard_shouldDefaultToZeroForUsersWithNoGroupParticipation() {
         User alice = user(1L, "alice");
 
@@ -132,24 +104,22 @@ class LeaderboardServiceTest {
     }
 
     @Test
-    void getGroupLeaderboard_shouldUseCompetitionFilteredForfeitsWhenCompetitionIdGiven() {
+    void getGroupLeaderboard_shouldUseCompetitionFilteredQueriesWhenCompetitionIdGiven() {
         User alice = user(1L, "alice");
+        Object[] alicePts = { 1L, 12 };
 
         when(userRepository.findAllByGroupId(42L))
                 .thenReturn(new ArrayList<>(List.of(alice)));
         when(betParticipationRepository.sumPointsEarnedByGroupIdAndCompetition(42L, 7L))
-                .thenReturn(List.of());
+                .thenReturn(List.<Object[]>of(alicePts));
         when(betParticipationRepository.countBetsWonByGroupIdAndCompetition(42L, 7L))
                 .thenReturn(List.of());
-        // alice received 3 gages tied to this competition's bets, but 5 total in the group
-        when(userForfeitRepository.countByGroupIdAndCompetitionGroupedByUser(42L, 7L))
-                .thenReturn(List.<Object[]>of(new Object[]{ 1L, 3L }));
         when(userMapper.toResponse(alice)).thenReturn(userResponse(1L, "alice"));
 
         List<LeaderboardEntryResponse> result = leaderboardService.getGroupLeaderboard(42L, null, 7L);
 
-        assertThat(result.get(0).getForfeitsReceived()).isEqualTo(3);
-        verify(userForfeitRepository, never()).countByGroupIdGroupedByUser(anyLong());
+        assertThat(result.get(0).getTotalPoints()).isEqualTo(12);
+        verify(betParticipationRepository, never()).sumPointsEarnedByGroupId(anyLong());
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────

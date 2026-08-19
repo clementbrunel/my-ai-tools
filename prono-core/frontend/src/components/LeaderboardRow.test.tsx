@@ -16,7 +16,6 @@ const makeEntry = (overrides?: Partial<LeaderboardEntry>): LeaderboardEntry => (
   user: makeUser({ id: 42, username: 'alice', displayName: 'Alice Dupont' }),
   betsWon: 5,
   totalPoints: 120,
-  forfeitsReceived: 1,
   ...overrides,
 });
 

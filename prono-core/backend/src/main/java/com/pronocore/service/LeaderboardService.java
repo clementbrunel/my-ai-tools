@@ -5,7 +5,6 @@ import com.pronocore.entity.Sport;
 import com.pronocore.entity.User;
 import com.pronocore.mapper.UserMapper;
 import com.pronocore.repository.BetParticipationRepository;
-import com.pronocore.repository.UserForfeitRepository;
 import com.pronocore.repository.UserRepository;
 import com.pronocore.util.RankingComparator;
 import lombok.RequiredArgsConstructor;
@@ -24,7 +23,6 @@ public class LeaderboardService {
 
     private final UserRepository userRepository;
     private final BetParticipationRepository betParticipationRepository;
-    private final UserForfeitRepository userForfeitRepository;
     private final UserMapper userMapper;
 
     @Transactional(readOnly = true)
@@ -67,14 +65,6 @@ public class LeaderboardService {
             betsWonByUser.put(((Number) row[0]).longValue(), ((Number) row[1]).intValue());
         }
 
-        List<Object[]> forfeitRows = competitionId != null
-            ? userForfeitRepository.countByGroupIdAndCompetitionGroupedByUser(groupId, competitionId)
-            : userForfeitRepository.countByGroupIdGroupedByUser(groupId);
-        Map<Long, Integer> forfeitsByUser = new HashMap<>();
-        for (Object[] row : forfeitRows) {
-            forfeitsByUser.put(((Number) row[0]).longValue(), ((Number) row[1]).intValue());
-        }
-
         members.sort(Comparator.comparing(User::getId, RankingComparator.byPointsThenBetsWonDesc(pointsByUser, betsWonByUser)));
 
         List<LeaderboardEntryResponse> leaderboard = new ArrayList<>();
@@ -85,7 +75,6 @@ public class LeaderboardService {
                 .user(userMapper.toResponse(user))
                 .betsWon(betsWonByUser.getOrDefault(user.getId(), 0))
                 .totalPoints(pointsByUser.getOrDefault(user.getId(), 0))
-                .forfeitsReceived(forfeitsByUser.getOrDefault(user.getId(), 0))
                 .build());
         }
         return leaderboard;
