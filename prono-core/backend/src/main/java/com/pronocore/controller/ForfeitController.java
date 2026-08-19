@@ -117,12 +117,9 @@ public class ForfeitController {
     }
 
     @GetMapping("/group/{groupId}/assignments")
-    @Operation(summary = "Get all gage assignments for all members of a group, pending first then completed (group member), "
-            + "optionally narrowed to a single competition id — matches the leaderboard's competition filter")
-    public ResponseEntity<List<GroupUserForfeitResponse>> getGroupAssignments(
-            @PathVariable Long groupId,
-            @RequestParam(required = false) Long competitionId) {
-        return ResponseEntity.ok(forfeitService.getGroupAssignments(groupId, competitionId));
+    @Operation(summary = "Get all gage assignments for all members of a group, pending first then completed (group member)")
+    public ResponseEntity<List<GroupUserForfeitResponse>> getGroupAssignments(@PathVariable Long groupId) {
+        return ResponseEntity.ok(forfeitService.getGroupAssignments(groupId));
     }
 
     @PatchMapping("/group/{groupId}/{forfeitId}/approve")

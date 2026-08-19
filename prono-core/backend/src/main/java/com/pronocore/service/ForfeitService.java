@@ -280,18 +280,9 @@ public class ForfeitService {
     /** Returns all gage assignments for all members of a group, pending first then completed (any group member can call this). */
     @Transactional(readOnly = true)
     public List<GroupUserForfeitResponse> getGroupAssignments(Long groupId) {
-        return getGroupAssignments(groupId, null);
-    }
-
-    /** competitionId, when given, narrows the assignments to gages tied to that competition's bets — matches the leaderboard's competition filter. */
-    @Transactional(readOnly = true)
-    public List<GroupUserForfeitResponse> getGroupAssignments(Long groupId, Long competitionId) {
         User user = CurrentUserLookup.requireCurrent(userRepository);
         groupMemberGuard.requireActiveMembership(groupId, user.getId());
-        List<UserForfeit> assignments = competitionId != null
-            ? userForfeitRepository.findAllByGroupIdAndCompetitionId(groupId, competitionId)
-            : userForfeitRepository.findAllByGroupId(groupId);
-        return assignments.stream()
+        return userForfeitRepository.findAllByGroupId(groupId).stream()
                 .map(this::toGroupUserForfeitResponse)
                 .toList();
     }

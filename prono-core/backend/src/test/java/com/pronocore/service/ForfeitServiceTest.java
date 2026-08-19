@@ -340,7 +340,7 @@ class ForfeitServiceTest {
     // ── getGroupAssignments ────────────────────────────────────────────────────
 
     @Test
-    void getGroupAssignments_withoutCompetitionId_shouldUseUnfilteredQuery() {
+    void getGroupAssignments_shouldReturnAllAssignmentsForGroup() {
         Group group = Group.builder().id(7L).name("Les Potes").build();
         GroupMember m = GroupMember.builder()
                 .id(1L).group(group).user(regularUser)
@@ -358,29 +358,7 @@ class ForfeitServiceTest {
         List<?> result = forfeitService.getGroupAssignments(7L);
 
         assertThat(result).hasSize(1);
-        verify(userForfeitRepository, never()).findAllByGroupIdAndCompetitionId(anyLong(), anyLong());
-    }
-
-    @Test
-    void getGroupAssignments_withCompetitionId_shouldUseCompetitionFilteredQuery() {
-        Group group = Group.builder().id(7L).name("Les Potes").build();
-        GroupMember m = GroupMember.builder()
-                .id(1L).group(group).user(regularUser)
-                .role(GroupMember.GroupRole.MEMBER).status(GroupMember.MemberStatus.ACTIVE)
-                .build();
-        UserForfeit uf = UserForfeit.builder()
-                .id(1L).user(regularUser).forfeit(forfeit)
-                .assignedBy(adminUser).completed(false)
-                .build();
-
-        when(userRepository.findByUsername("player")).thenReturn(Optional.of(regularUser));
-        when(groupMemberGuard.requireActiveMembership(7L, 2L)).thenReturn(m);
-        when(userForfeitRepository.findAllByGroupIdAndCompetitionId(7L, 5L)).thenReturn(List.of(uf));
-
-        List<?> result = forfeitService.getGroupAssignments(7L, 5L);
-
-        assertThat(result).hasSize(1);
-        verify(userForfeitRepository, never()).findAllByGroupId(anyLong());
+        verify(userForfeitRepository).findAllByGroupId(7L);
     }
 
     // ── getMyForfeits ─────────────────────────────────────────────────────────
