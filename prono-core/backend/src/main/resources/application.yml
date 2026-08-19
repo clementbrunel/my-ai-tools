@@ -23,6 +23,12 @@ app:
   frontend-url: ${FRONTEND_URL:http://localhost:5173}
   cors:
     extra-origin: ${CORS_EXTRA_ORIGIN:}
+  # Grace period after a match/race/gage's deadline before it's flagged in the daily
+  # admin digest as a probable auto-resolution failure (still not FINISHED/SETTLED).
+  admin-alerts:
+    match-grace-hours: ${ADMIN_ALERT_MATCH_GRACE_HOURS:12}
+    race-grace-hours: ${ADMIN_ALERT_RACE_GRACE_HOURS:24}
+    gage-grace-hours: ${ADMIN_ALERT_GAGE_GRACE_HOURS:12}
 
 jwt:
   secret: ${JWT_SECRET}

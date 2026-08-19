@@ -44,6 +44,17 @@ public interface DailyGageRepository extends JpaRepository<DailyGage, Long> {
             """)
     List<DailyGage> findByGroupIdInOrderByMatchDateDesc(@Param("groupIds") List<Long> groupIds);
 
+    /** Gages whose day is older than the admin-alert cutoff and still not SETTLED — surfaced
+     *  in the daily admin digest (auto-settlement normally fires once the day's matches/races
+     *  all finish; a gage stuck past the grace period means that never happened). */
+    @Query("""
+            SELECT dg FROM DailyGage dg JOIN FETCH dg.group
+            WHERE dg.status <> com.pronocore.entity.DailyGage.Status.SETTLED
+              AND dg.matchDate < :cutoffDate
+            ORDER BY dg.matchDate ASC
+            """)
+    List<DailyGage> findOverdueUnsettledGages(@Param("cutoffDate") LocalDate cutoffDate);
+
     /** Single gage with group, forfeit, assignedTo and candidates+their forfeits pre-loaded. */
     @Query("""
             SELECT DISTINCT dg FROM DailyGage dg

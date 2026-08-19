@@ -23,4 +23,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     @Query("SELECT u FROM User u WHERE u.id IN (SELECT gm.user.id FROM GroupMember gm WHERE gm.group.id = :groupId)")
     List<User> findAllByGroupId(Long groupId);
+
+    List<User> findByRole(User.Role role);
 }
