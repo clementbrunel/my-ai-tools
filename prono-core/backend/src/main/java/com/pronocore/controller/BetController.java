@@ -126,11 +126,13 @@ public class BetController {
     }
 
     @GetMapping("/group/{groupId}/user/{userId}/participations")
-    @Operation(summary = "Get all bets placed by a user in a group (caller must be a member of that group)")
+    @Operation(summary = "Get all bets placed by a user in a group (caller must be a member of that group), "
+            + "optionally narrowed to a single competition id")
     public ResponseEntity<List<UserBetSummaryResponse>> getUserBetsInGroup(@PathVariable Long groupId,
                                                                             @PathVariable Long userId,
+                                                                            @RequestParam(required = false) Long competitionId,
                                                                             Authentication authentication) {
-        return ResponseEntity.ok(betService.getUserBetsInGroup(groupId, userId, authentication.getName()));
+        return ResponseEntity.ok(betService.getUserBetsInGroup(groupId, userId, competitionId, authentication.getName()));
     }
 
     @PostMapping("/{id}/validate")

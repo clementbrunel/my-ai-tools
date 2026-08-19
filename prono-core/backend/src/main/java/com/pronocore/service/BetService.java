@@ -79,10 +79,14 @@ public class BetService {
     }
 
     @Transactional(readOnly = true)
-    public List<UserBetSummaryResponse> getUserBetsInGroup(Long groupId, Long userId, String callerUsername) {
+    public List<UserBetSummaryResponse> getUserBetsInGroup(Long groupId, Long userId, Long competitionId, String callerUsername) {
         User caller = CurrentUserLookup.require(userRepository, callerUsername);
         groupMemberGuard.requireActiveMembership(groupId, caller.getId());
-        return participationRepository.findByUserIdAndGroupId(userId, groupId, java.time.LocalDateTime.now()).stream()
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        List<BetParticipation> participations = competitionId != null
+            ? participationRepository.findByUserIdAndGroupIdAndCompetition(userId, groupId, competitionId, now)
+            : participationRepository.findByUserIdAndGroupId(userId, groupId, now);
+        return participations.stream()
             .map(this::toUserBetSummary)
             .toList();
     }

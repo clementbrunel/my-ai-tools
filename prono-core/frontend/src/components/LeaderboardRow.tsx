@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { LeaderboardEntry, UserBetSummary } from '@/types';
 import { isAdmin } from '@/types';
 import { getUserBetsInGroup } from '@/api/bets';
@@ -9,6 +9,7 @@ interface LeaderboardRowProps {
   entry: LeaderboardEntry;
   isCurrentUser?: boolean;
   groupId: number | null;
+  competitionId?: number;
 }
 
 const rankEmoji: Record<number, string> = {
@@ -17,11 +18,18 @@ const rankEmoji: Record<number, string> = {
   3: '🥉',
 };
 
-const LeaderboardRow: React.FC<LeaderboardRowProps> = ({ entry, isCurrentUser, groupId }) => {
+const LeaderboardRow: React.FC<LeaderboardRowProps> = ({ entry, isCurrentUser, groupId, competitionId }) => {
   const { rank, user, betsWon, totalPoints, forfeitsReceived } = entry;
   const [expanded, setExpanded] = useState(false);
   const [bets, setBets] = useState<UserBetSummary[] | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Re-fetch when the selected competition changes so an already-expanded
+  // row doesn't keep showing the previous filter's history.
+  useEffect(() => {
+    setBets(null);
+    setExpanded(false);
+  }, [competitionId]);
 
   const handleRowClick = async () => {
     if (!groupId) return;
@@ -29,7 +37,7 @@ const LeaderboardRow: React.FC<LeaderboardRowProps> = ({ entry, isCurrentUser, g
       setExpanded(true);
       setLoading(true);
       try {
-        const data = await getUserBetsInGroup(groupId, user.id);
+        const data = await getUserBetsInGroup(groupId, user.id, competitionId);
         setBets(data);
       } catch {
         setBets([]);

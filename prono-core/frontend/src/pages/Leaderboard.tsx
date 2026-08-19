@@ -377,6 +377,7 @@ const Leaderboard: React.FC = () => {
                   entry={entry}
                   isCurrentUser={entry.user.username === user?.username}
                   groupId={selectedGroupId}
+                  competitionId={typeof selectedCompetitionId === 'number' ? selectedCompetitionId : undefined}
                 />
               ))}
             </tbody>

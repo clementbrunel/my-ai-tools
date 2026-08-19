@@ -52,7 +52,15 @@ export const getParticipationsByMatch = async (matchId: number): Promise<BetPart
   return response.data;
 };
 
-export const getUserBetsInGroup = async (groupId: number, userId: number): Promise<UserBetSummary[]> => {
-  const response = await apiClient.get<UserBetSummary[]>(`/bets/group/${groupId}/user/${userId}/participations`);
+export const getUserBetsInGroup = async (
+  groupId: number,
+  userId: number,
+  competitionId?: number,
+): Promise<UserBetSummary[]> => {
+  const response = await apiClient.get<UserBetSummary[]>(`/bets/group/${groupId}/user/${userId}/participations`, {
+    params: {
+      ...(competitionId != null ? { competitionId } : {}),
+    },
+  });
   return response.data;
 };
