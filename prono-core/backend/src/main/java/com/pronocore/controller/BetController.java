@@ -7,6 +7,7 @@ import com.pronocore.dto.request.ParticipateRequest;
 import com.pronocore.dto.response.BetParticipationResponse;
 import com.pronocore.dto.response.BetResponse;
 import com.pronocore.dto.response.UserBetSummaryResponse;
+import com.pronocore.entity.Sport;
 import com.pronocore.aspect.LoggedAt;
 import com.pronocore.service.BetService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -127,12 +128,23 @@ public class BetController {
 
     @GetMapping("/group/{groupId}/user/{userId}/participations")
     @Operation(summary = "Get all bets placed by a user in a group (caller must be a member of that group), "
-            + "optionally narrowed to a single competition id")
+            + "optionally narrowed to a single competition id or sport code (FOOT | F1) — competitionId takes priority over sport when both are given")
     public ResponseEntity<List<UserBetSummaryResponse>> getUserBetsInGroup(@PathVariable Long groupId,
                                                                             @PathVariable Long userId,
                                                                             @RequestParam(required = false) Long competitionId,
+                                                                            @RequestParam(required = false) String sport,
                                                                             Authentication authentication) {
-        return ResponseEntity.ok(betService.getUserBetsInGroup(groupId, userId, competitionId, authentication.getName()));
+        return ResponseEntity.ok(betService.getUserBetsInGroup(groupId, userId, competitionId, parseSport(sport), authentication.getName()));
+    }
+
+    /** The API carries a plain sport code — parsed here, never the entity enum in the signature. */
+    private Sport parseSport(String code) {
+        if (code == null || code.isBlank()) return null;
+        try {
+            return Sport.valueOf(code.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Sport inconnu : " + code + " (attendu FOOT ou F1)");
+        }
     }
 
     @PostMapping("/{id}/validate")

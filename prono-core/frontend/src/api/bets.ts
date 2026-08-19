@@ -56,10 +56,12 @@ export const getUserBetsInGroup = async (
   groupId: number,
   userId: number,
   competitionId?: number,
+  sport?: 'FOOT' | 'F1',
 ): Promise<UserBetSummary[]> => {
   const response = await apiClient.get<UserBetSummary[]>(`/bets/group/${groupId}/user/${userId}/participations`, {
     params: {
       ...(competitionId != null ? { competitionId } : {}),
+      ...(sport ? { sport } : {}),
     },
   });
   return response.data;

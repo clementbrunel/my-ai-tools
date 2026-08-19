@@ -78,14 +78,20 @@ public class BetService {
             .toList();
     }
 
+    /**
+     * competitionId, when given, takes priority over sport — same rule as
+     * {@link LeaderboardService#getGroupLeaderboard(Long, Sport, Long)}.
+     */
     @Transactional(readOnly = true)
-    public List<UserBetSummaryResponse> getUserBetsInGroup(Long groupId, Long userId, Long competitionId, String callerUsername) {
+    public List<UserBetSummaryResponse> getUserBetsInGroup(Long groupId, Long userId, Long competitionId, Sport sport, String callerUsername) {
         User caller = CurrentUserLookup.require(userRepository, callerUsername);
         groupMemberGuard.requireActiveMembership(groupId, caller.getId());
         java.time.LocalDateTime now = java.time.LocalDateTime.now();
         List<BetParticipation> participations = competitionId != null
             ? participationRepository.findByUserIdAndGroupIdAndCompetition(userId, groupId, competitionId, now)
-            : participationRepository.findByUserIdAndGroupId(userId, groupId, now);
+            : sport == null
+                ? participationRepository.findByUserIdAndGroupId(userId, groupId, now)
+                : participationRepository.findByUserIdAndGroupIdAndSport(userId, groupId, sport == Sport.F1, now);
         return participations.stream()
             .map(this::toUserBetSummary)
             .toList();
