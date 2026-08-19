@@ -64,11 +64,6 @@ describe('LeaderboardRow — rendu initial', () => {
     expect(screen.getByText('5')).toBeDefined();
   });
 
-  it('affiche le nombre de forfeits', () => {
-    renderRow();
-    expect(screen.getByText(/1 🃏/)).toBeDefined();
-  });
-
   it('affiche le rang numérique si > 3', () => {
     renderRow(makeEntry({ rank: 5 }));
     expect(screen.getByText('#5')).toBeDefined();

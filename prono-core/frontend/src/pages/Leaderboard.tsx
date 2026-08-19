@@ -191,13 +191,17 @@ const Leaderboard: React.FC = () => {
     const competitionId = typeof selectedCompetitionId === 'number' ? selectedCompetitionId : undefined;
     getGroupLeaderboard(selectedGroupId, sportKey, competitionId)
       .then(setEntries).catch(logger.error).finally(() => setIsLoading(false));
-
-    if (selectedGroupId != null) {
-      getGroupAssignments(selectedGroupId, competitionId).then(setAllGages).catch(logger.error);
-    } else {
-      setAllGages([]);
-    }
   }, [selectedGroupId, sportKey, selectedCompetitionId]);
+
+  // Gages assignments aren't reliably attributable to a competition (daily gages carry no
+  // match/race link), so this section always shows the group's full history, unfiltered.
+  useEffect(() => {
+    if (selectedGroupId == null) {
+      setAllGages([]);
+      return;
+    }
+    getGroupAssignments(selectedGroupId).then(setAllGages).catch(logger.error);
+  }, [selectedGroupId]);
 
   if (isLoading) {
     return (
@@ -366,7 +370,6 @@ const Leaderboard: React.FC = () => {
                 <th className="py-3 px-4 text-left text-xs font-semibold text-gray-500 uppercase">Joueur</th>
                 <th className="py-3 px-4 text-center text-xs font-semibold text-gray-500 uppercase">Points</th>
                 <th className="py-3 px-4 text-center text-xs font-semibold text-gray-500 uppercase">Paris gagnés</th>
-                <th className="py-3 px-4 text-center text-xs font-semibold text-gray-500 uppercase">Gages 🃏</th>
                 {selectedGroupId && <th className="py-3 px-4 w-8"></th>}
               </tr>
             </thead>
