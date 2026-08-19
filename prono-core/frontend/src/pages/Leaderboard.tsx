@@ -215,13 +215,13 @@ const Leaderboard: React.FC = () => {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="page-title mb-0">🏆 Classement</h1>
         {filteredGroups.length > 0 ? (
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2">
-              <label className="label mb-0">Groupe</label>
+          <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3 w-full sm:w-auto">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <label className="label mb-0 w-24 sm:w-auto shrink-0">Groupe</label>
               <select
                 value={selectedGroupId ?? ''}
                 onChange={(e) => setSelectedGroupId(Number(e.target.value))}
-                className="input-field"
+                className="input-field sm:w-auto"
               >
                 {filteredGroups.map((g) => (
                   <option key={g.id} value={g.id}>{g.name}</option>
@@ -229,15 +229,15 @@ const Leaderboard: React.FC = () => {
               </select>
             </div>
             {competitions.length > 1 && (
-              <div className="flex items-center gap-2">
-                <label className="label mb-0">Compétition</label>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <label className="label mb-0 w-24 sm:w-auto shrink-0">Compétition</label>
                 <select
                   value={selectedCompetitionId ?? ''}
                   onChange={(e) => {
                     const value = e.target.value;
                     setSelectedCompetitionId(value === 'all' ? 'all' : Number(value));
                   }}
-                  className="input-field"
+                  className="input-field sm:w-auto"
                 >
                   <option value="all">Toutes</option>
                   {competitions.map((c) => (
