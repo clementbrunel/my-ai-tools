@@ -64,7 +64,7 @@ const AdminCompetitionsTab: React.FC<AdminCompetitionsTabProps> = ({ sport }) =>
       if (first) await loadRoster(first);
       else setSelectedCompetition(null);
     })();
-  }, [sport]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sport]);
 
   const loadRoster = async (competition: CompetitionDto) => {
     loadingForRef.current = competition.id;
