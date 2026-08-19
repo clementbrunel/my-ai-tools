@@ -129,3 +129,27 @@ export const buildBracketData = (allMatches: Match[]): BracketData => {
 
   return { tiers, thirdPlace };
 };
+
+export interface CompetitionBracket {
+  competition: Match['competition'];
+  data: BracketData;
+}
+
+/**
+ * Un arbre par compétition : mélanger les matchs de plusieurs compétitions
+ * dans un seul `buildBracketData` casserait la reconstruction par équipe
+ * partagée (bracket.ts:64-72), qui suppose un seul tournoi cohérent.
+ */
+export const buildBracketsByCompetition = (matches: Match[]): CompetitionBracket[] => {
+  const byCompetition = new Map<number, { competition: Match['competition']; matches: Match[] }>();
+  for (const m of matches) {
+    if (m.phase !== 'KNOCKOUT') continue;
+    const entry = byCompetition.get(m.competition.id);
+    if (entry) entry.matches.push(m);
+    else byCompetition.set(m.competition.id, { competition: m.competition, matches: [m] });
+  }
+
+  return Array.from(byCompetition.values())
+    .map(({ competition, matches: compMatches }) => ({ competition, data: buildBracketData(compMatches) }))
+    .sort((a, b) => a.competition.name.localeCompare(b.competition.name));
+};
