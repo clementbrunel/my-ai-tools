@@ -133,6 +133,19 @@ const EMAIL_TEMPLATES: EmailTemplateInfo[] = [
     ),
   },
   {
+    type: 'ADMIN_UNRESOLVED_ALERT',
+    label: 'Digest admin : résolutions en anomalie',
+    theme: 'NEUTRAL',
+    description: (
+      <>
+        Envoyé automatiquement chaque matin à 8h à tous les PLATFORM_ADMIN, listant les matchs, courses F1 et gages
+        toujours non résolus alors que leur échéance + délai de grâce est dépassée (réglages dans application.yml :
+        app.admin-alerts.match/race/gage-grace-hours). Aucun email n'est envoyé s'il n'y a rien à signaler.
+        Le test utilise des données fictives (1 match, 1 course, 1 gage en retard).
+      </>
+    ),
+  },
+  {
     type: 'TEST_CEDRIC',
     label: 'test cédric 🏦',
     theme: 'NEUTRAL',
