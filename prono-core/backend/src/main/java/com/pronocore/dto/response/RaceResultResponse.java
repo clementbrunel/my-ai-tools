@@ -12,6 +12,10 @@ import lombok.NoArgsConstructor;
 public class RaceResultResponse {
 
     private DriverResponse driver;
+    /** Constructor the driver raced for AT THIS RACE — may differ from driver.constructorId (loan/swap). */
+    private Long constructorId;
+    private String constructorName;
+    private String constructorColor;
     private Integer position;
     private Integer sprintPosition;
     private boolean pole;

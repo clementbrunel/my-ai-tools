@@ -22,6 +22,12 @@ import { useToast } from '@/components/Toast';
 import MiniF1Car from '@/components/f1/MiniF1Car';
 import ConfirmModal from '@/components/ConfirmModal';
 
+interface ConstructorOption {
+  id: number;
+  name: string;
+  color: string;
+}
+
 interface RowProps {
   driver: Driver;
   index: number;
@@ -29,16 +35,20 @@ interface RowProps {
   pole: boolean;
   fastestLap: boolean;
   time: string;
+  constructorId: number;
+  constructors: ConstructorOption[];
   onToggleUnclassified: () => void;
   onSetPole: () => void;
   onSetFastestLap: () => void;
   onTimeChange: (value: string) => void;
+  onConstructorChange: (constructorId: number) => void;
 }
 
 const SortableDriverRow: React.FC<RowProps> = ({
-  driver, index, unclassified, pole, fastestLap, time,
-  onToggleUnclassified, onSetPole, onSetFastestLap, onTimeChange,
+  driver, index, unclassified, pole, fastestLap, time, constructorId, constructors,
+  onToggleUnclassified, onSetPole, onSetFastestLap, onTimeChange, onConstructorChange,
 }) => {
+  const racedForHomeTeam = constructorId === driver.constructorId;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: driver.id,
   });
@@ -60,11 +70,20 @@ const SortableDriverRow: React.FC<RowProps> = ({
         ⠿
       </button>
       <span className="w-8 text-right font-black text-gray-400">{unclassified ? 'NC' : index + 1}</span>
-      <MiniF1Car color={driver.constructorColor} size={28} />
+      <MiniF1Car color={constructors.find((c) => c.id === constructorId)?.color ?? driver.constructorColor} size={28} />
       <span className="font-bold text-gray-900 dark:text-white flex-1 min-w-0 truncate">
         {driver.name}
-        <span className="text-gray-400 font-medium text-xs ml-2 hidden sm:inline">{driver.constructorName}</span>
       </span>
+      <select
+        value={constructorId}
+        onChange={(e) => onConstructorChange(Number(e.target.value))}
+        title="Écurie pour laquelle il court CETTE course — à changer uniquement en cas de remplacement ponctuel (prêt d'un pilote pour une course)"
+        className={`input-field !w-auto !py-0.5 !px-1.5 text-xs ${racedForHomeTeam ? '' : 'ring-2 ring-amber-400'}`}
+      >
+        {constructors.map((c) => (
+          <option key={c.id} value={c.id}>{c.name}</option>
+        ))}
+      </select>
       <input
         type="text"
         value={time}
@@ -102,6 +121,10 @@ const AdminF1Tab: React.FC = () => {
   const [poleId, setPoleId] = useState<number | null>(null);
   const [fastestLapId, setFastestLapId] = useState<number | null>(null);
   const [timeById, setTimeById] = useState<Record<number, string>>({});
+  // Per-race constructor override — defaults to each driver's own team, but can be changed
+  // to record a one-off loan/swap (e.g. a driver covering a single GP for another team)
+  // without touching the driver's season-long constructor.
+  const [constructorIdById, setConstructorIdById] = useState<Record<number, number>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isResyncingGrid, setIsResyncingGrid] = useState(false);
@@ -148,6 +171,7 @@ const AdminF1Tab: React.FC = () => {
     setUnclassifiedIds(new Set(sorted.filter((r) => r.position == null).map((r) => r.driver.id)));
     setPoleId(sorted.find((r) => r.pole)?.driver.id ?? null);
     setFastestLapId(sorted.find((r) => r.fastestLap)?.driver.id ?? null);
+    setConstructorIdById(Object.fromEntries(sorted.map((r) => [r.driver.id, r.constructorId])));
     setTimeById(Object.fromEntries(
       sorted.filter((r) => r.time).map((r) => [r.driver.id, r.time as string]),
     ));
@@ -245,6 +269,13 @@ const AdminF1Tab: React.FC = () => {
     });
   };
 
+  // Distinct constructors across the full roster — offered in the per-row team override select.
+  const constructors = useMemo<ConstructorOption[]>(() => {
+    const byId = new Map<number, ConstructorOption>();
+    order.forEach((d) => byId.set(d.constructorId, { id: d.constructorId, name: d.constructorName, color: d.constructorColor }));
+    return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [order]);
+
   // Classified drivers first (in current order), unclassified pinned at the bottom
   const displayOrder = useMemo(() => {
     const classified = order.filter((d) => !unclassifiedIds.has(d.id));
@@ -269,6 +300,7 @@ const AdminF1Tab: React.FC = () => {
       const classified = displayOrder.filter((d) => !unclassifiedIds.has(d.id));
       const entries = displayOrder.map((driver) => ({
         driverId: driver.id,
+        constructorId: constructorIdById[driver.id] ?? driver.constructorId,
         position: unclassifiedIds.has(driver.id) ? null : classified.indexOf(driver) + 1,
         pole: driver.id === poleId,
         fastestLap: driver.id === fastestLapId,
@@ -357,6 +389,8 @@ const AdminF1Tab: React.FC = () => {
                   pole={poleId === driver.id}
                   fastestLap={fastestLapId === driver.id}
                   time={timeById[driver.id] ?? ''}
+                  constructorId={constructorIdById[driver.id] ?? driver.constructorId}
+                  constructors={constructors}
                   onToggleUnclassified={() =>
                     setUnclassifiedIds((prev) => {
                       const next = new Set(prev);
@@ -368,6 +402,7 @@ const AdminF1Tab: React.FC = () => {
                   onSetPole={() => setPoleId(driver.id)}
                   onSetFastestLap={() => setFastestLapId(driver.id)}
                   onTimeChange={(value) => setTimeById((prev) => ({ ...prev, [driver.id]: value }))}
+                  onConstructorChange={(value) => setConstructorIdById((prev) => ({ ...prev, [driver.id]: value }))}
                 />
               ))}
             </div>

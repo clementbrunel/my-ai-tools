@@ -11,16 +11,17 @@ import java.util.List;
 @Repository
 public interface RaceResultRepository extends JpaRepository<RaceResult, Long> {
 
-    @Query("SELECT rr FROM RaceResult rr JOIN FETCH rr.driver d JOIN FETCH d.constructor WHERE rr.race.id = :raceId ORDER BY rr.position ASC NULLS LAST")
+    @Query("SELECT rr FROM RaceResult rr JOIN FETCH rr.driver d JOIN FETCH d.constructor JOIN FETCH rr.constructor WHERE rr.race.id = :raceId ORDER BY rr.position ASC NULLS LAST")
     List<RaceResult> findByRaceIdWithDrivers(@Param("raceId") Long raceId);
 
     void deleteByRaceId(Long raceId);
 
-    /** All results of FINISHED races of a competition — feeds the standings. */
+    /** All results of FINISHED races of a competition — feeds the standings, from the per-race constructor snapshot. */
     @Query("""
             SELECT rr FROM RaceResult rr
             JOIN FETCH rr.driver d
             JOIN FETCH d.constructor
+            JOIN FETCH rr.constructor
             WHERE rr.race.competition.id = :competitionId
               AND rr.race.status = com.pronocore.entity.Race.Status.FINISHED
             """)

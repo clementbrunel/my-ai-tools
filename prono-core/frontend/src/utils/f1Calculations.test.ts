@@ -8,7 +8,8 @@ const driver = (id: number): Driver => ({
 });
 
 const entry = (id: number, position: number | null, time: string | null): RaceResultEntry => ({
-  driver: driver(id), position, sprintPosition: null, pole: false, fastestLap: false, dnf: position == null, time,
+  driver: driver(id), constructorId: 1, constructorName: 'Team', constructorColor: '#000000',
+  position, sprintPosition: null, pole: false, fastestLap: false, dnf: position == null, time,
 });
 
 describe('computeLapsDown', () => {

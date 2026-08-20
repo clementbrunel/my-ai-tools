@@ -255,6 +255,62 @@ class F1SyncServiceTest {
         assertThat(message).contains("Aucun résultat disponible");
     }
 
+    // ── One-race loan: driver's home constructor must survive a sync ──────────
+
+    /**
+     * A driver's home constructor (drivers.constructor_id) must never be silently flipped by
+     * a sync, even when jolpica reports them racing for a different team this weekend (a
+     * one-off loan). The race result itself still snapshots the team they actually raced
+     * for, via the entry's constructorId — that's what feeds the standings.
+     */
+    @Test
+    void fetchAndSettleResults_existingDriverHomeConstructorUnchanged_butEntrySnapshotsRaceConstructor() {
+        Competition competition = Competition.builder().id(9L).name("Formule 1 2026").sport(Sport.F1).season(2026).build();
+        Race round1 = race(101L, 1, Race.Status.FINISHED, competition);
+
+        Constructor racingBulls = Constructor.builder().id(5L).name("Racing Bulls").color("#6692FF").build();
+        Constructor redBull = Constructor.builder().id(6L).name("Red Bull").color("#3671C6").build();
+        // VER is on file as a Racing Bulls driver (his home team) — but jolpica reports him
+        // racing for Red Bull this weekend (a one-off loan for this GP only).
+        Driver existingVer = Driver.builder().id(33L).code("VER").name("Max Verstappen").number(33).constructor(racingBulls).build();
+
+        when(raceRepository.findById(101L)).thenReturn(Optional.of(round1));
+        when(jolpicaClient.get("2026/1/results.json?limit=40")).thenReturn(ROUND1_RESULTS_JSON);
+        when(jolpicaClient.get("2026/1/sprint.json?limit=40")).thenReturn(ROUND1_SPRINT_JSON);
+        when(qualifyingResultRepository.findByRaceIdWithDrivers(101L)).thenReturn(List.of());
+
+        when(constructorRepository.findByName(anyString())).thenReturn(Optional.empty());
+        when(constructorRepository.findByName("Red Bull")).thenReturn(Optional.of(redBull));
+        when(constructorRepository.save(any(Constructor.class))).thenAnswer(inv -> {
+            Constructor c = inv.getArgument(0);
+            c.setId((long) c.getName().hashCode());
+            return c;
+        });
+        when(driverRepository.findByCode(anyString())).thenReturn(Optional.empty());
+        when(driverRepository.findByCode("VER")).thenReturn(Optional.of(existingVer));
+        when(driverRepository.findByName(anyString())).thenReturn(Optional.empty());
+        long[] driverSeq = {100};
+        when(driverRepository.save(any(Driver.class))).thenAnswer(inv -> {
+            Driver d = inv.getArgument(0);
+            if (d.getId() == null) d.setId(++driverSeq[0]);
+            return d;
+        });
+
+        f1SyncService.syncResultsForRace(101L);
+
+        ArgumentCaptor<EnterRaceResultsRequest> requestCaptor = ArgumentCaptor.forClass(EnterRaceResultsRequest.class);
+        verify(f1RaceService).enterResults(eq(101L), requestCaptor.capture());
+        EnterRaceResultsRequest.Entry verEntry = requestCaptor.getValue().getResults().stream()
+                .filter(e -> e.getDriverId().equals(33L)).findFirst().orElseThrow();
+        assertThat(verEntry.getConstructorId()).isEqualTo(redBull.getId());   // race-specific snapshot: Red Bull
+
+        ArgumentCaptor<Driver> driverCaptor = ArgumentCaptor.forClass(Driver.class);
+        verify(driverRepository, atLeastOnce()).save(driverCaptor.capture());
+        Driver savedVer = driverCaptor.getAllValues().stream()
+                .filter(d -> "VER".equals(d.getCode())).reduce((first, last) -> last).orElseThrow();
+        assertThat(savedVer.getConstructor()).isEqualTo(racingBulls);   // home team: untouched by the sync
+    }
+
     /** Entry-list upserts (drivers/constructors) — everything created fresh, no pre-existing match. */
     private void stubEntryListUpserts() {
         when(constructorRepository.findByName(anyString())).thenReturn(Optional.empty());

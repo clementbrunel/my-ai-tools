@@ -25,6 +25,15 @@ public class RaceResult {
     @JoinColumn(name = "driver_id", nullable = false)
     private Driver driver;
 
+    /**
+     * Constructor the driver raced for AT THIS RACE — snapshotted at entry time, independent
+     * of {@code driver.constructor}. Keeps historical results correct after a driver's home
+     * team changes (mercato, or a one-off single-race loan to another team).
+     */
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "constructor_id", nullable = false)
+    private Constructor constructor;
+
     /** Final classification, null when the driver was not classified. */
     @Column
     private Integer position;
