@@ -39,6 +39,9 @@ const StandingRow: React.FC<{ standing: FootStanding }> = ({ standing }) => {
 };
 
 const FootStandings: React.FC = () => {
+  // Only competitions wired to a football-data.org code can show a table — for now that's
+  // Ligue 1 alone. The World Cup has no standings worth showing, so it's left out entirely
+  // rather than listed and disabled.
   const [competitions, setCompetitions] = useState<CompetitionDto[] | null>(null);
   const [selectedCompetitionId, setSelectedCompetitionId] = useState<number | null>(null);
   const [standings, setStandings] = useState<FootStanding[]>([]);
@@ -48,9 +51,9 @@ const FootStandings: React.FC = () => {
   useEffect(() => {
     getCompetitions(['FOOT'])
       .then((all) => {
-        setCompetitions(all);
-        const ligue1 = all.find((c) => c.footballDataCompetitionCode != null);
-        setSelectedCompetitionId(ligue1 ? ligue1.id : null);
+        const eligible = all.filter((c) => c.footballDataCompetitionCode != null);
+        setCompetitions(eligible);
+        setSelectedCompetitionId(eligible[0]?.id ?? null);
       })
       .catch(() => setError('Impossible de charger les compétitions'));
   }, []);
@@ -74,16 +77,16 @@ const FootStandings: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h1 className="page-title mb-0">📊 Championnat</h1>
-        {competitions && competitions.length > 0 && (
+        {/* Hidden while there's nothing to choose between — same rule as CompetitionFilterPills. */}
+        {competitions && competitions.length > 1 && (
           <select
             value={selectedCompetitionId ?? ''}
             onChange={(e) => setSelectedCompetitionId(e.target.value ? Number(e.target.value) : null)}
             className="px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 border-none focus:ring-2 focus:ring-wc-green"
           >
             {competitions.map((c) => (
-              <option key={c.id} value={c.id} disabled={c.footballDataCompetitionCode == null}>
+              <option key={c.id} value={c.id}>
                 {c.name}
-                {c.footballDataCompetitionCode == null ? ' (bientôt disponible)' : ''}
               </option>
             ))}
           </select>
