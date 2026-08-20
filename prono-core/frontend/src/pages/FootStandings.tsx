@@ -3,6 +3,10 @@ import { getCompetitions, getStandings } from '@/api/competitions';
 import type { CompetitionDto, FootStanding, FootStandingZone } from '@/types';
 import TeamLogo from '@/components/TeamLogo';
 
+/** Only Ligue 1 has a standings table worth showing — other FOOT competitions (e.g. the
+ *  World Cup) may also carry a football-data.org code but aren't offered here. */
+const LIGUE1_CODE = 'FL1';
+
 const ZONE_STYLES: Record<FootStandingZone, { bar: string; label: string }> = {
   CHAMPIONS_LEAGUE: { bar: 'bg-blue-500', label: 'Ligue des Champions' },
   CHAMPIONS_LEAGUE_QUALIFYING: { bar: 'bg-blue-300', label: 'Qualifications Ligue des Champions' },
@@ -39,9 +43,6 @@ const StandingRow: React.FC<{ standing: FootStanding }> = ({ standing }) => {
 };
 
 const FootStandings: React.FC = () => {
-  // Only competitions wired to a football-data.org code can show a table — for now that's
-  // Ligue 1 alone. The World Cup has no standings worth showing, so it's left out entirely
-  // rather than listed and disabled.
   const [competitions, setCompetitions] = useState<CompetitionDto[] | null>(null);
   const [selectedCompetitionId, setSelectedCompetitionId] = useState<number | null>(null);
   const [standings, setStandings] = useState<FootStanding[]>([]);
@@ -51,7 +52,7 @@ const FootStandings: React.FC = () => {
   useEffect(() => {
     getCompetitions(['FOOT'])
       .then((all) => {
-        const eligible = all.filter((c) => c.footballDataCompetitionCode != null);
+        const eligible = all.filter((c) => c.footballDataCompetitionCode === LIGUE1_CODE);
         setCompetitions(eligible);
         setSelectedCompetitionId(eligible[0]?.id ?? null);
       })
