@@ -112,16 +112,16 @@ const FootStandings: React.FC = () => {
             <thead>
               <tr className="text-[10px] uppercase text-gray-400 border-b border-gray-100 dark:border-gray-800">
                 <th className="w-1.5" />
-                <th className="py-2 pr-2 text-right">#</th>
+                <th className="py-2 pr-2 text-right cursor-help" title="Position">#</th>
                 <th className="py-2 px-2 text-left">Équipe</th>
-                <th className="py-2 px-1.5 text-center">J</th>
-                <th className="py-2 px-1.5 text-center">G</th>
-                <th className="py-2 px-1.5 text-center">N</th>
-                <th className="py-2 px-1.5 text-center">P</th>
-                <th className="py-2 px-1.5 text-center hidden sm:table-cell">BP</th>
-                <th className="py-2 px-1.5 text-center hidden sm:table-cell">BC</th>
-                <th className="py-2 px-1.5 text-center">Diff</th>
-                <th className="py-2 pl-1.5 pr-2 text-right">Pts</th>
+                <th className="py-2 px-1.5 text-center cursor-help" title="Matchs joués">J</th>
+                <th className="py-2 px-1.5 text-center cursor-help" title="Victoires">G</th>
+                <th className="py-2 px-1.5 text-center cursor-help" title="Matchs nuls">N</th>
+                <th className="py-2 px-1.5 text-center cursor-help" title="Défaites">P</th>
+                <th className="py-2 px-1.5 text-center hidden sm:table-cell cursor-help" title="Buts marqués">BP</th>
+                <th className="py-2 px-1.5 text-center hidden sm:table-cell cursor-help" title="Buts encaissés">BC</th>
+                <th className="py-2 px-1.5 text-center cursor-help" title="Différence de buts">Diff</th>
+                <th className="py-2 pl-1.5 pr-2 text-right cursor-help" title="Points">Pts</th>
               </tr>
             </thead>
             <tbody>
