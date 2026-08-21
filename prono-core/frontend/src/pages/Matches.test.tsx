@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import Matches from './Matches';
 import {
   makeMatch,
+  makeTeam,
   TEAM_FRANCE,
   TEAM_BRESIL,
   TEAM_ESPAGNE,
@@ -232,6 +233,42 @@ describe('Matches — pagination', () => {
 
     await waitFor(() => {
       expect(screen.getAllByText('France').length).toBe(5);
+    });
+  });
+
+  it('filtre Tous : la page 1 montre les matchs les plus récents, pas les plus anciens', async () => {
+    vi.clearAllMocks();
+    const user = userEvent.setup();
+    const manyMatches = Array.from({ length: 35 }, (_, i) => {
+      const day = i < 28 ? `2026-06-${String(i + 1).padStart(2, '0')}` : `2026-07-${String(i - 27).padStart(2, '0')}`;
+      return makeMatch({
+        id: i + 1,
+        teamA: makeTeam({ id: 100 + i, name: `Equipe${String(i + 1).padStart(2, '0')}` }),
+        teamB: TEAM_BRESIL,
+        status: 'FINISHED',
+        scoreA: 1,
+        scoreB: 0,
+        matchDate: `${day}T20:00:00Z`,
+      });
+    });
+    vi.mocked(matchesCtx.useMatches).mockReturnValue(makeCtx({ matches: manyMatches }));
+
+    renderPage();
+
+    await user.click(screen.getByText(/Tous/));
+
+    await waitFor(() => {
+      // Le match le plus récent (Equipe35, 2026-07-05) doit être sur la page 1 ;
+      // le plus ancien (Equipe01, 2026-06-01) ne doit apparaître qu'en page 2.
+      expect(screen.getByText('Equipe35')).toBeDefined();
+      expect(screen.queryByText('Equipe01')).toBeNull();
+    });
+
+    await user.click(screen.getByText('2'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Equipe01')).toBeDefined();
+      expect(screen.queryByText('Equipe35')).toBeNull();
     });
   });
 
