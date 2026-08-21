@@ -1,5 +1,5 @@
 import apiClient from './axios';
-import type { CompetitionDto, Sport, TeamDto } from '@/types';
+import type { CompetitionDto, FootStanding, Sport, TeamDto } from '@/types';
 
 /** The sport is required — competitions are always created in an explicit sport. */
 export const createCompetition = async (name: string, sport: Sport): Promise<void> => {
@@ -11,6 +11,12 @@ export const getCompetitions = async (sports?: Sport[]): Promise<CompetitionDto[
   const response = await apiClient.get<CompetitionDto[]>('/competitions', {
     params: sports && sports.length > 0 ? { sport: sports.join(',') } : undefined,
   });
+  return response.data;
+};
+
+/** Live league table, proxied from football-data.org — not stored, so this hits the network each call. */
+export const getStandings = async (competitionId: number): Promise<FootStanding[]> => {
+  const response = await apiClient.get<FootStanding[]>(`/competitions/${competitionId}/standings`);
   return response.data;
 };
 

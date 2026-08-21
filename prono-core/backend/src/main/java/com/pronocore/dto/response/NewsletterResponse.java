@@ -1,6 +1,7 @@
 package com.pronocore.dto.response;
 
 import com.pronocore.entity.Newsletter;
+import com.pronocore.entity.Sport;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -19,6 +20,7 @@ public class NewsletterResponse {
     private String subtitle;
     private String bodyMd;
     private Newsletter.Theme theme;
+    private Sport targetSport;
     private String ctaLabel;
     private String ctaUrl;
     private Newsletter.Status status;
@@ -34,6 +36,7 @@ public class NewsletterResponse {
                 .subtitle(n.getSubtitle())
                 .bodyMd(n.getBodyMd())
                 .theme(n.getTheme())
+                .targetSport(n.getTargetSport())
                 .ctaLabel(n.getCtaLabel())
                 .ctaUrl(n.getCtaUrl())
                 .status(n.getStatus())

@@ -45,6 +45,21 @@ public class FootballDataClient {
             Integer matchday
     ) {}
 
+    public record FdStanding(
+            int position,
+            String teamName,
+            String teamShortName,
+            String crestUrl,
+            int playedGames,
+            int won,
+            int draw,
+            int lost,
+            int goalsFor,
+            int goalsAgainst,
+            int goalDifference,
+            int points
+    ) {}
+
     public static final Set<String> FINISHED_STATUSES = Set.of("FINISHED");
     public static final Set<String> LIVE_STATUSES     = Set.of("IN_PLAY", "PAUSED", "LIVE");
 
@@ -62,8 +77,9 @@ public class FootballDataClient {
     private final FootballDataProperties props;
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
-    private final Map<String, Cached<List<FdMatch>>> matchesCache = new HashMap<>();
-    private final Map<String, Cached<List<FdTeam>>>   teamsCache   = new HashMap<>();
+    private final Map<String, Cached<List<FdMatch>>>    matchesCache   = new HashMap<>();
+    private final Map<String, Cached<List<FdTeam>>>     teamsCache     = new HashMap<>();
+    private final Map<String, Cached<List<FdStanding>>> standingsCache = new HashMap<>();
 
     private record Cached<T>(T value, Instant expiresAt) {
         boolean isFresh() { return Instant.now().isBefore(expiresAt); }
@@ -115,9 +131,23 @@ public class FootballDataClient {
         return teams;
     }
 
+    /**
+     * Current league table for a competition — live proxy, no local persistence. Cached like
+     * the season fixture list (10 min) so a standings page doesn't burn the free tier's
+     * 10 requests/minute budget on every page load.
+     */
+    public synchronized List<FdStanding> getStandings(String competitionCode) {
+        Cached<List<FdStanding>> cached = standingsCache.get(competitionCode);
+        if (cached != null && cached.isFresh()) return cached.value();
+        List<FdStanding> standings = parseStandings(get("/competitions/" + competitionCode + "/standings"));
+        standingsCache.put(competitionCode, new Cached<>(standings, Instant.now().plus(SEASON_TTL)));
+        return standings;
+    }
+
     public synchronized void invalidateCache() {
         matchesCache.clear();
         teamsCache.clear();
+        standingsCache.clear();
     }
 
     private static String cacheKey(String competitionCode, int season) {
@@ -159,6 +189,37 @@ public class FootballDataClient {
         return OffsetDateTime.parse(isoOffsetDateTime, API_DT)
                 .atZoneSameInstant(AppTime.APP_ZONE)
                 .toLocalDateTime();
+    }
+
+    /** The response also carries HOME/AWAY splits — only the overall "TOTAL" table is used. */
+    private List<FdStanding> parseStandings(String json) {
+        try {
+            JsonNode root = objectMapper.readTree(json);
+            List<FdStanding> result = new ArrayList<>();
+            for (JsonNode group : root.path("standings")) {
+                if (!"TOTAL".equals(group.path("type").asText(""))) continue;
+                for (JsonNode row : group.path("table")) {
+                    JsonNode team = row.path("team");
+                    JsonNode crest = team.path("crest");
+                    result.add(new FdStanding(
+                            row.path("position").asInt(),
+                            team.path("name").asText(""),
+                            team.path("shortName").asText(""),
+                            crest.isMissingNode() || crest.isNull() || crest.asText().isBlank() ? null : crest.asText(),
+                            row.path("playedGames").asInt(),
+                            row.path("won").asInt(),
+                            row.path("draw").asInt(),
+                            row.path("lost").asInt(),
+                            row.path("goalsFor").asInt(),
+                            row.path("goalsAgainst").asInt(),
+                            row.path("goalDifference").asInt(),
+                            row.path("points").asInt()));
+                }
+            }
+            return result;
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to parse football-data.org standings", e);
+        }
     }
 
     private List<FdTeam> parseTeams(String json) {

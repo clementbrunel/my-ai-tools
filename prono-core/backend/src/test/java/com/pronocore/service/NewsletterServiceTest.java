@@ -3,6 +3,7 @@ package com.pronocore.service;
 import com.pronocore.dto.request.NewsletterRequest;
 import com.pronocore.dto.response.NewsletterResponse;
 import com.pronocore.entity.Newsletter;
+import com.pronocore.entity.Sport;
 import com.pronocore.entity.User;
 import com.pronocore.repository.NewsletterRepository;
 import com.pronocore.service.email.EmailSender;
@@ -62,6 +63,24 @@ class NewsletterServiceTest {
         assertThat(count).isEqualTo(2);
         verify(newsletterRepository).markAsSent(eq(1L), any(), eq(2));
         verify(dispatcher).dispatch(eq(1L), eq(List.of("a@test.com", "b@test.com")), eq("Grosse feature"), anyString());
+    }
+
+    @Test
+    void broadcast_sportTargeted_usesGroupFilteredQueryAndDedupesAcrossGroups() {
+        Newsletter n = draft();
+        n.setTargetSport(Sport.F1);
+        when(newsletterRepository.findById(1L)).thenReturn(Optional.of(n));
+        // A user in two F1 groups appears only once here: DISTINCT is enforced by the repository query itself.
+        when(newsletterRepository.findNewsletterRecipientsBySport(Sport.F1)).thenReturn(List.of(
+                User.builder().id(1L).email("a@test.com").build()));
+        when(newsletterRepository.markAsSent(eq(1L), any(), eq(1))).thenReturn(1);
+
+        int count = service.broadcast(1L);
+
+        assertThat(count).isEqualTo(1);
+        verify(newsletterRepository).findNewsletterRecipientsBySport(Sport.F1);
+        verify(newsletterRepository, never()).findNewsletterRecipients();
+        verify(dispatcher).dispatch(eq(1L), eq(List.of("a@test.com")), eq("Grosse feature"), anyString());
     }
 
     @Test

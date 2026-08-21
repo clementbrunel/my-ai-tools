@@ -106,6 +106,30 @@ export interface CompetitionDto {
   footballDataCompetitionCode: string | null;
 }
 
+export type FootStandingZone =
+  | 'CHAMPIONS_LEAGUE'
+  | 'CHAMPIONS_LEAGUE_QUALIFYING'
+  | 'RELEGATION_PLAYOFF'
+  | 'RELEGATION';
+
+/** One row of a football league table, proxied live from football-data.org (no local persistence). */
+export interface FootStanding {
+  position: number;
+  teamName: string;
+  teamShortName: string | null;
+  crestUrl: string | null;
+  played: number;
+  won: number;
+  draw: number;
+  lost: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  goalDifference: number;
+  points: number;
+  /** Null outside any highlighted zone. Only ever set for Ligue 1. */
+  zone: FootStandingZone | null;
+}
+
 export type MatchPhase = 'POOL' | 'KNOCKOUT';
 
 export interface Match {

@@ -3,9 +3,11 @@ package com.pronocore.controller;
 import com.pronocore.dto.request.CreateCompetitionRequest;
 import com.pronocore.dto.request.UpdateCompetitionSettingsRequest;
 import com.pronocore.dto.response.CompetitionResponse;
+import com.pronocore.dto.response.FootStandingResponse;
 import com.pronocore.dto.response.TeamResponse;
 import com.pronocore.entity.Sport;
 import com.pronocore.service.CompetitionService;
+import com.pronocore.service.FootStandingsService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.validation.Valid;
@@ -24,6 +26,7 @@ import java.util.List;
 public class CompetitionController {
 
     private final CompetitionService competitionService;
+    private final FootStandingsService footStandingsService;
 
     @GetMapping
     @Operation(summary = "Competitions, optionally restricted to a set of sports")
@@ -37,6 +40,13 @@ public class CompetitionController {
     @Operation(summary = "Teams in a competition roster")
     public ResponseEntity<List<TeamResponse>> getTeams(@PathVariable Long competitionId) {
         return ResponseEntity.ok(competitionService.getTeamsForCompetition(competitionId));
+    }
+
+    @GetMapping("/{competitionId}/standings")
+    @Operation(summary = "League table, proxied live from football-data.org (Champions League / relegation "
+            + "zone highlighting is only computed for Ligue 1)")
+    public ResponseEntity<List<FootStandingResponse>> getStandings(@PathVariable Long competitionId) {
+        return ResponseEntity.ok(footStandingsService.getStandings(competitionId));
     }
 
     @PostMapping

@@ -66,6 +66,7 @@ const Navbar: React.FC = () => {
       : [
           { to: '/foot', label: '🏠 Accueil' },
           { to: '/foot/matches', label: '⚽ Matchs' },
+          { to: '/foot/standings', label: '📊 Championnat' },
           { to: '/foot/gages', label: '🃏 Gages', gagesTab: true },
           { to: '/foot/leaderboard', label: '🏆 Classement' },
         ]
