@@ -121,7 +121,7 @@ const AdminLogsTab: React.FC = () => {
                 <tr className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
                   <th className="py-2 px-3 text-left text-gray-500 uppercase whitespace-nowrap">Heure</th>
                   <th className="py-2 px-3 text-left text-gray-500 uppercase whitespace-nowrap">Niveau</th>
-                  <th className="py-2 px-3 text-left text-gray-500 uppercase whitespace-nowrap">Logger</th>
+                  <th className="py-2 px-3 text-left text-gray-500 uppercase whitespace-nowrap hidden sm:table-cell">Logger</th>
                   <th className="py-2 px-3 text-left text-gray-500 uppercase">Message</th>
                 </tr>
               </thead>
@@ -139,10 +139,13 @@ const AdminLogsTab: React.FC = () => {
                         {entry.level}
                       </span>
                     </td>
-                    <td className="py-1.5 px-3 text-gray-400 align-top max-w-[220px] truncate" title={entry.logger}>
+                    <td className="py-1.5 px-3 text-gray-400 align-top max-w-[220px] truncate hidden sm:table-cell" title={entry.logger}>
                       {entry.logger.split('.').pop()}
                     </td>
                     <td className="py-1.5 px-3 text-gray-700 dark:text-gray-300 align-top break-all">
+                      <span className="block text-[10px] text-gray-400 dark:text-gray-500 sm:hidden" title={entry.logger}>
+                        {entry.logger.split('.').pop()}
+                      </span>
                       {entry.message}
                     </td>
                   </tr>
