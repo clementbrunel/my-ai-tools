@@ -28,6 +28,7 @@ class F1RaceServiceTest {
     @Mock private RaceResultRepository raceResultRepository;
     @Mock private QualifyingResultRepository qualifyingResultRepository;
     @Mock private DriverRepository driverRepository;
+    @Mock private ConstructorRepository constructorRepository;
     @Mock private F1PredictionRepository predictionRepository;
     @Mock private BetRepository betRepository;
     @Mock private BetParticipationRepository participationRepository;
@@ -185,6 +186,48 @@ class F1RaceServiceTest {
         verify(f1ScoringService).settleBetsForRace(eq(race), resultsCaptor.capture());
         assertThat(resultsCaptor.getValue()).extracting(rr -> rr.getDriver().getCode())
                 .containsExactly("NOR", "PIA", "LEC", "HAM", "BOT");
+        // No override supplied: every result snapshots the driver's own (current) constructor.
+        assertThat(resultsCaptor.getValue()).extracting(RaceResult::getConstructor)
+                .containsExactly(mclaren, mclaren, ferrari, ferrari, ferrari);
+        verifyNoInteractions(constructorRepository);
+    }
+
+    /**
+     * A one-off single-race loan: the admin flags a driver as racing for another team just for
+     * this GP by overriding the entry's constructorId. This must not touch driver.constructor
+     * (their season-long team) — it only lands on this race's snapshot.
+     */
+    @Test
+    void enterResults_withConstructorOverride_snapshotsTheOverrideNotTheDriversOwnTeam() {
+        Race race = raceAt(LocalDateTime.now().minusDays(2), LocalDateTime.now().minusDays(1));
+        Constructor redBull = Constructor.builder().id(3L).name("Red Bull").color("#3671C6").build();
+
+        when(raceRepository.findById(100L)).thenReturn(Optional.of(race));
+        when(driverRepository.findById(1L)).thenReturn(Optional.of(nor));   // home team: McLaren
+        when(driverRepository.findById(2L)).thenReturn(Optional.of(pia));
+        when(driverRepository.findById(3L)).thenReturn(Optional.of(lec));
+        when(constructorRepository.findById(3L)).thenReturn(Optional.of(redBull));
+        when(raceRepository.save(any(Race.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(raceResultRepository.findByRaceIdWithDrivers(100L)).thenReturn(List.of());
+
+        EnterRaceResultsRequest.Entry norLoanedToRedBull = entry(1L, 1, true, false, false);
+        norLoanedToRedBull.setConstructorId(3L);
+
+        EnterRaceResultsRequest request = new EnterRaceResultsRequest();
+        request.setResults(List.of(
+                norLoanedToRedBull,
+                entry(2L, 2, false, false, false),
+                entry(3L, 3, false, false, false)
+        ));
+
+        f1RaceService.enterResults(100L, request);
+
+        ArgumentCaptor<List<RaceResult>> resultsCaptor = ArgumentCaptor.forClass(List.class);
+        verify(f1ScoringService).settleBetsForRace(eq(race), resultsCaptor.capture());
+        RaceResult norResult = resultsCaptor.getValue().stream()
+                .filter(rr -> rr.getDriver().getCode().equals("NOR")).findFirst().orElseThrow();
+        assertThat(norResult.getConstructor()).isEqualTo(redBull);   // this race only
+        assertThat(nor.getConstructor()).isEqualTo(mclaren);         // driver's own team, untouched
     }
 
     @Test

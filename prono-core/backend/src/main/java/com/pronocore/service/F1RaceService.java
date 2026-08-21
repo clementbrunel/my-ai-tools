@@ -43,6 +43,7 @@ public class F1RaceService {
     private final RaceResultRepository raceResultRepository;
     private final QualifyingResultRepository qualifyingResultRepository;
     private final DriverRepository driverRepository;
+    private final ConstructorRepository constructorRepository;
     private final F1PredictionRepository predictionRepository;
     private final BetRepository betRepository;
     private final BetParticipationRepository participationRepository;
@@ -392,18 +393,22 @@ public class F1RaceService {
         raceResultRepository.deleteByRaceId(raceId);
         raceResultRepository.flush();
         List<RaceResult> results = request.getResults().stream()
-                .map(entry -> RaceResult.builder()
-                        .race(race)
-                        .driver(requireDriver(entry.getDriverId()))
-                        .position(entry.getPosition())
-                        .sprintPosition(entry.getSprintPosition() != null
-                                ? entry.getSprintPosition()
-                                : storedSprintPositions.get(entry.getDriverId()))
-                        .pole(entry.isPole())
-                        .fastestLap(entry.isFastestLap())
-                        .dnf(entry.isDnf())
-                        .time(entry.getTime())
-                        .build())
+                .map(entry -> {
+                    Driver driver = requireDriver(entry.getDriverId());
+                    return RaceResult.builder()
+                            .race(race)
+                            .driver(driver)
+                            .constructor(resolveResultConstructor(entry, driver))
+                            .position(entry.getPosition())
+                            .sprintPosition(entry.getSprintPosition() != null
+                                    ? entry.getSprintPosition()
+                                    : storedSprintPositions.get(entry.getDriverId()))
+                            .pole(entry.isPole())
+                            .fastestLap(entry.isFastestLap())
+                            .dnf(entry.isDnf())
+                            .time(entry.getTime())
+                            .build();
+                })
                 .toList();
         raceResultRepository.saveAll(results);
 
@@ -440,6 +445,9 @@ public class F1RaceService {
     private RaceResultResponse toResultResponse(RaceResult rr) {
         return RaceResultResponse.builder()
                 .driver(toDriverResponse(rr.getDriver()))
+                .constructorId(rr.getConstructor().getId())
+                .constructorName(rr.getConstructor().getName())
+                .constructorColor(rr.getConstructor().getColor())
                 .position(rr.getPosition())
                 .sprintPosition(rr.getSprintPosition())
                 .pole(rr.isPole())
@@ -447,6 +455,19 @@ public class F1RaceService {
                 .dnf(rr.isDnf())
                 .time(rr.getTime())
                 .build();
+    }
+
+    /**
+     * The constructor a result is attributed to — an explicit override (a one-off loan/swap
+     * for this race only) or the driver's current constructor by default. Never mutates
+     * {@code driver.constructor}, so the driver's season-long team is untouched.
+     */
+    private Constructor resolveResultConstructor(EnterRaceResultsRequest.Entry entry, Driver driver) {
+        if (entry.getConstructorId() == null) {
+            return driver.getConstructor();
+        }
+        return constructorRepository.findById(entry.getConstructorId())
+                .orElseThrow(() -> new EntityNotFoundException("Constructor not found: " + entry.getConstructorId()));
     }
 
     private RaceResponse toRaceResponse(Race race) {

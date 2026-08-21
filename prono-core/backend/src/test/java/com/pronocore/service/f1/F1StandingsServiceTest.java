@@ -35,7 +35,7 @@ class F1StandingsServiceTest {
     private final Driver pia = driver(2L, "PIA", mclaren);
 
     private RaceResult result(Driver d, Integer position) {
-        return RaceResult.builder().driver(d).position(position).build();
+        return RaceResult.builder().driver(d).constructor(d.getConstructor()).position(position).build();
     }
 
     // ── FIA scale ──────────────────────────────────────────────────────────────
@@ -82,7 +82,11 @@ class F1StandingsServiceTest {
     }
 
     private RaceResult resultAt(Race race, Driver d, Integer position) {
-        return RaceResult.builder().race(race).driver(d).position(position).build();
+        return RaceResult.builder().race(race).driver(d).constructor(d.getConstructor()).position(position).build();
+    }
+
+    private RaceResult resultAt(Race race, Driver d, Integer position, Constructor racedFor) {
+        return RaceResult.builder().race(race).driver(d).constructor(racedFor).position(position).build();
     }
 
     @Test
@@ -148,5 +152,32 @@ class F1StandingsServiceTest {
 
         var mclarenSeries = history.getSeries().stream().filter(s -> s.getLabel().equals("McLaren")).findFirst().orElseThrow();
         assertThat(mclarenSeries.getPoints()).containsExactly(43); // 25 + 18 combined
+    }
+
+    // ── one-race loan: a driver's current team must not reattribute past results ──
+
+    @Test
+    void constructorStandings_useThePerRaceSnapshot_notTheDriversCurrentTeam() {
+        Competition competition = Competition.builder().id(9L).name("Formule 1 2026").sport(Sport.F1).build();
+        Race round1 = raceRound(100L, 1);
+        Race round2 = raceRound(101L, 2);
+        Constructor racingBulls = Constructor.builder().id(4L).name("Racing Bulls").color("#6692FF").build();
+        Constructor redBull = Constructor.builder().id(5L).name("Red Bull").color("#3671C6").build();
+        // A driver whose CURRENT constructor is Red Bull (e.g. after a mid-season loan was
+        // recorded on their driver row) but who raced round 1 for Racing Bulls.
+        Driver loanedDriver = driver(9L, "LAW", redBull);
+
+        when(competitionRepository.findFirstBySportOrderByIdDesc(Sport.F1)).thenReturn(Optional.of(competition));
+        when(raceResultRepository.findByCompetitionIdWithDrivers(9L)).thenReturn(List.of(
+                resultAt(round1, loanedDriver, 1, racingBulls),  // round 1: raced for Racing Bulls (25 pts)
+                resultAt(round2, loanedDriver, 1, redBull)       // round 2: raced for Red Bull (25 pts)
+        ));
+
+        var standings = f1StandingsService.getConstructorStandings();
+
+        var racingBullsRow = standings.stream().filter(s -> s.getConstructorName().equals("Racing Bulls")).findFirst().orElseThrow();
+        var redBullRow = standings.stream().filter(s -> s.getConstructorName().equals("Red Bull")).findFirst().orElseThrow();
+        assertThat(racingBullsRow.getPoints()).isEqualTo(25);   // round 1 stays Racing Bulls's, even though the driver is now at Red Bull
+        assertThat(redBullRow.getPoints()).isEqualTo(25);       // round 2 correctly credited to Red Bull
     }
 }

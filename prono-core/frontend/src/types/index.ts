@@ -373,6 +373,10 @@ export interface Driver {
 
 export interface RaceResultEntry {
   driver: Driver;
+  /** Constructor the driver raced for AT THIS RACE — may differ from driver.constructorId (loan/swap). */
+  constructorId: number;
+  constructorName: string;
+  constructorColor: string;
   position: number | null;
   sprintPosition?: number | null;
   pole: boolean;
@@ -481,6 +485,9 @@ export interface F1StandingHistory {
 
 export interface RaceResultEntryRequest {
   driverId: number;
+  /** Constructor this driver raced for AT THIS RACE; omit to use their current constructor.
+   *  Set only to record a one-off loan/swap without touching the driver's season-long team. */
+  constructorId?: number | null;
   position: number | null;
   pole: boolean;
   fastestLap: boolean;

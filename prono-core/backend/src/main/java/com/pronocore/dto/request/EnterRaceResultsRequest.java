@@ -21,6 +21,13 @@ public class EnterRaceResultsRequest {
         @NotNull
         private Long driverId;
 
+        /**
+         * Constructor this driver raced for AT THIS RACE; null = use the driver's current
+         * constructor. Set explicitly to record a one-off loan/swap (e.g. a driver covering
+         * a single GP for another team) without touching the driver's season-long team.
+         */
+        private Long constructorId;
+
         /** Final position; null = not classified. */
         private Integer position;
 

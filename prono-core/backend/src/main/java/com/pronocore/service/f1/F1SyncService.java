@@ -310,9 +310,13 @@ public class F1SyncService {
         List<EnterRaceResultsRequest.Entry> entries = new ArrayList<>();
         for (JsonNode result : results) {
             Driver driver = upsertDriver(result.path("Driver"), result.path("Constructor"));
+            // The constructor this driver raced for AT THIS RESULT, from jolpica — may differ
+            // from the driver's stored home constructor (see upsertDriver) on a swap weekend.
+            Constructor raceConstructor = upsertConstructor(result.path("Constructor").path("name").asText("?"));
 
             EnterRaceResultsRequest.Entry entry = new EnterRaceResultsRequest.Entry();
             entry.setDriverId(driver.getId());
+            entry.setConstructorId(raceConstructor.getId());
             String positionText = result.path("positionText").asText("");
             entry.setPosition(positionText.matches("\\d+") ? Integer.parseInt(positionText) : null);
             String status = result.path("status").asText("");
@@ -365,13 +369,17 @@ public class F1SyncService {
         int number = driverNode.path("permanentNumber").asInt(0);
         Constructor constructor = upsertConstructor(constructorNode.path("name").asText("?"));
 
+        // Constructor is only set at creation — an existing driver's home team must not be
+        // silently overwritten by a sync (e.g. a one-off single-race loan to another team
+        // would otherwise flip their season-long constructor and corrupt past standings the
+        // moment the next sync runs). Per-race results record the constructor they actually
+        // raced for via race_results.constructor_id (see F1RaceService), not this field.
         Driver driver = driverRepository.findByCode(code)
                 .or(() -> driverRepository.findByName(name))
                 .orElseGet(() -> Driver.builder().code(code).name(name).number(number).constructor(constructor).build());
         driver.setCode(code);
         driver.setName(name);
         if (number > 0) driver.setNumber(number);
-        driver.setConstructor(constructor);
         driver.setActive(true);
         return driverRepository.save(driver);
     }

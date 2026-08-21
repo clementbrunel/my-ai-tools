@@ -89,7 +89,9 @@ public class F1StandingsService {
         Map<Long, Integer> podiums = new HashMap<>();
 
         for (RaceResult rr : results) {
-            Constructor constructor = rr.getDriver().getConstructor();
+            // The team raced for AT THIS RESULT (snapshot), not the driver's current team —
+            // a mid-season swap must not reattribute past races to the new constructor.
+            Constructor constructor = rr.getConstructor();
             Long constructorId = constructor.getId();
             byConstructor.computeIfAbsent(constructorId, id -> F1StandingResponse.builder()
                     .constructorId(constructorId)
@@ -112,7 +114,7 @@ public class F1StandingsService {
     @Transactional(readOnly = true)
     public F1StandingHistoryResponse getConstructorStandingsHistory() {
         List<RaceResult> results = findSeasonResults();
-        return buildStandingsHistory(computeConstructorStandings(results), results, rr -> rr.getDriver().getConstructor().getId());
+        return buildStandingsHistory(computeConstructorStandings(results), results, rr -> rr.getConstructor().getId());
     }
 
     /** Walks the season's race results in round order to build a cumulative points series per entity. */
