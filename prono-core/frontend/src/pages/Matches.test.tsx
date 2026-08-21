@@ -62,6 +62,22 @@ describe('Matches — filtrage', () => {
     });
   });
 
+  it('filtre UPCOMING : garde les matchs ONGOING (sync live)', async () => {
+    vi.mocked(matchesCtx.useMatches).mockReturnValue(makeCtx({
+      matches: [
+        makeMatch({ id: 1, teamA: TEAM_FRANCE, teamB: TEAM_BRESIL, status: 'ONGOING', scoreA: 1, scoreB: 0 }),
+        makeMatch({ id: 2, teamA: TEAM_ESPAGNE, teamB: TEAM_ITALIE, status: 'FINISHED', scoreA: 1, scoreB: 0 }),
+      ],
+    }));
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText('France')).toBeDefined();
+      expect(screen.queryByText('Espagne')).toBeNull();
+    });
+  });
+
   it("filtre FINISHED : n'affiche que les matchs terminés", async () => {
     const user = userEvent.setup();
     vi.mocked(matchesCtx.useMatches).mockReturnValue(makeCtx({

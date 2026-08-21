@@ -9,6 +9,7 @@ import CompetitionFilterPills from '@/components/CompetitionFilterPills';
 import Pagination from '@/components/Pagination';
 import { useMatches } from '@/context/MatchesContext';
 import { formatDate } from '@/utils/dates';
+import { isUpcomingStatus } from '@/utils/matchStatus';
 
 type FilterStatus = 'ALL' | 'UPCOMING' | 'FINISHED';
 type ViewMode = 'grid' | 'list' | 'bracket';
@@ -35,7 +36,8 @@ const Matches: React.FC = () => {
     if (!hasGroups) return [];
     const q = search.trim().toLowerCase();
     return matches.filter((m) => {
-      if (filter !== 'ALL' && m.status !== filter) return false;
+      if (filter === 'UPCOMING' && !isUpcomingStatus(m.status)) return false;
+      if (filter === 'FINISHED' && m.status !== 'FINISHED') return false;
       if (selectedCompetitions && !selectedCompetitions.has(m.competition.id)) return false;
       if (!q) return true;
       return m.teamA.name.toLowerCase().includes(q) || m.teamB.name.toLowerCase().includes(q);

@@ -12,6 +12,7 @@ import GroupRankTile from '@/components/GroupRankTile';
 import DailyGageWidget from '@/components/DailyGageWidget';
 import { formatDate } from '@/utils/dates';
 import { logger } from '@/utils/logger';
+import { isUpcomingStatus } from '@/utils/matchStatus';
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
@@ -43,7 +44,7 @@ const Dashboard: React.FC = () => {
     fetchData();
   }, []);
 
-  const upcomingMatches = matches.filter((m) => m.status === 'UPCOMING');
+  const upcomingMatches = matches.filter((m) => isUpcomingStatus(m.status));
 
   // Last matchday with finished matches — grouped by calendar day, same as the Matches page.
   const lastResults = useMemo(() => {
