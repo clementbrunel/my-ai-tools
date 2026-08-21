@@ -1,4 +1,4 @@
--- V72__f1_race_results_constructor_snapshot.sql — per-race constructor snapshot.
+-- V74__f1_race_results_constructor_snapshot.sql — per-race constructor snapshot.
 --
 -- Standings were computed by joining race_results -> drivers -> constructors,
 -- i.e. from the driver's CURRENT constructor_id, not the team they actually
