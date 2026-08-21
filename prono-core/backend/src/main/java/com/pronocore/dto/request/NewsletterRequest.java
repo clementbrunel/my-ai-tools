@@ -1,6 +1,7 @@
 package com.pronocore.dto.request;
 
 import com.pronocore.entity.Newsletter;
+import com.pronocore.entity.Sport;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -20,6 +21,9 @@ public class NewsletterRequest {
     private String bodyMd;
 
     private Newsletter.Theme theme = Newsletter.Theme.FOOTBALL;
+
+    /** Null = broadcast to every opted-in user; otherwise restricted to members of groups playing this sport. */
+    private Sport targetSport;
 
     @Size(max = 100)
     private String ctaLabel;
