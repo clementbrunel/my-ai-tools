@@ -20,8 +20,6 @@ Retour à la configuration habituelle dès le prochain Grand Prix.
 
 **Avant de valider votre prono Podium+** (P1/P2/P3, pole, meilleur tour, lanterne rouge) pour ce GP, vérifiez bien la grille : vos picks habituels pourraient ne pas coller à la réalité du plateau ce week-end.
 
-Pas d''inquiétude côté classement : pilotes et constructeurs restent calculés correctement sur la durée, écurie par écurie, course par course — ce changement ponctuel n''aura aucun impact sur le long terme.
-
 🏁 Rendez-vous à Zandvoort !',
     'F1',
     'Voir le GP des Pays-Bas',
