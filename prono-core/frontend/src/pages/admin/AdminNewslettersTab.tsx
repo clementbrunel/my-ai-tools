@@ -11,10 +11,13 @@ import {
   type NewsletterInput,
   type NewsletterTheme,
 } from '@/api/newsletter';
+import type { Sport } from '@/types';
 import { useFormMessages } from '@/hooks/useFormMessages';
 import ConfirmModal from '@/components/ConfirmModal';
 
-const EMPTY: NewsletterInput = { title: '', subtitle: '', bodyMd: '', theme: 'FOOTBALL', ctaLabel: '', ctaUrl: '' };
+const EMPTY: NewsletterInput = { title: '', subtitle: '', bodyMd: '', theme: 'FOOTBALL', targetSport: null, ctaLabel: '', ctaUrl: '' };
+
+const TARGET_LABELS: Record<string, string> = { FOOT: '⚽ Membres des groupes Foot', F1: '🏎️ Membres des groupes F1' };
 
 const AdminNewslettersTab: React.FC = () => {
   const [items, setItems] = useState<Newsletter[]>([]);
@@ -57,6 +60,7 @@ const AdminNewslettersTab: React.FC = () => {
       subtitle: n.subtitle ?? '',
       bodyMd: n.bodyMd,
       theme: n.theme,
+      targetSport: n.targetSport ?? null,
       ctaLabel: n.ctaLabel ?? '',
       ctaUrl: n.ctaUrl ?? '',
     });
@@ -220,6 +224,16 @@ const AdminNewslettersTab: React.FC = () => {
                   <option value="F1">🏎️ F1</option>
                 </select>
               </div>
+              <div>
+                <label className="label">Destinataires</label>
+                <select className="input-field" value={form.targetSport ?? ''} disabled={!isDraft}
+                  onChange={(e) => setForm({ ...form, targetSport: e.target.value === '' ? null : (e.target.value as Sport) })}>
+                  <option value="">Tous les membres inscrits</option>
+                  <option value="FOOT">⚽ Membres des groupes Foot</option>
+                  <option value="F1">🏎️ Membres des groupes F1</option>
+                </select>
+                <p className="text-xs text-gray-400 mt-1">Un membre de plusieurs groupes concernés ne reçoit l'email qu'une fois.</p>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -255,7 +269,7 @@ const AdminNewslettersTab: React.FC = () => {
 
                 {isDraft && (
                   <button onClick={() => setConfirmSend(true)} className="btn-primary w-full text-sm" disabled={busy}>
-                    🚀 Envoyer à tous les membres
+                    🚀 {form.targetSport ? `Envoyer — ${TARGET_LABELS[form.targetSport]}` : 'Envoyer à tous les membres'}
                   </button>
                 )}
               </div>
@@ -283,8 +297,13 @@ const AdminNewslettersTab: React.FC = () => {
           <div className="bg-white dark:bg-gray-900 rounded-xl p-6 max-w-md w-full space-y-4">
             <h4 className="font-bold text-lg text-gray-900 dark:text-white">Confirmer la diffusion</h4>
             <p className="text-sm text-gray-600 dark:text-gray-300">
-              Cette newsletter va être envoyée <strong>à tous les membres inscrits ayant activé les annonces</strong>.
-              L'opération est <strong>définitive</strong> et ne peut pas être renvoyée.
+              Cette newsletter va être envoyée à{' '}
+              <strong>
+                {form.targetSport
+                  ? `tous les ${TARGET_LABELS[form.targetSport].toLowerCase()} ayant activé les annonces`
+                  : 'tous les membres inscrits ayant activé les annonces'}
+              </strong>
+              . L'opération est <strong>définitive</strong> et ne peut pas être renvoyée.
             </p>
             <div className="flex justify-end gap-2">
               <button onClick={() => setConfirmSend(false)} className="btn-secondary text-sm">Annuler</button>

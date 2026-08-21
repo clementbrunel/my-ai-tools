@@ -1,4 +1,5 @@
 import apiClient from './axios';
+import type { Sport } from '@/types';
 
 export type NewsletterTheme = 'FOOTBALL' | 'F1';
 export type NewsletterStatus = 'DRAFT' | 'SENT';
@@ -9,6 +10,8 @@ export interface Newsletter {
   subtitle?: string;
   bodyMd: string;
   theme: NewsletterTheme;
+  /** Null = sent to every opted-in user. Otherwise restricted to members of groups playing this sport. */
+  targetSport?: Sport | null;
   ctaLabel?: string;
   ctaUrl?: string;
   status: NewsletterStatus;
@@ -23,6 +26,7 @@ export interface NewsletterInput {
   subtitle?: string;
   bodyMd: string;
   theme: NewsletterTheme;
+  targetSport?: Sport | null;
   ctaLabel?: string;
   ctaUrl?: string;
 }

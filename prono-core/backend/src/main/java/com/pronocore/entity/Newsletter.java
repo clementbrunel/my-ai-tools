@@ -39,6 +39,11 @@ public class Newsletter {
     @Builder.Default
     private Theme theme = Theme.FOOTBALL;
 
+    /** When set, the broadcast is restricted to members of groups playing this sport. Null = everyone. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "target_sport", length = 10)
+    private Sport targetSport;
+
     @Column(name = "cta_label", length = 100)
     private String ctaLabel;
 

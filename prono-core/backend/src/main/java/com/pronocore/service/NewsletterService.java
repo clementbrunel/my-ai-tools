@@ -51,6 +51,7 @@ public class NewsletterService {
                 .subtitle(req.getSubtitle())
                 .bodyMd(req.getBodyMd())
                 .theme(req.getTheme() != null ? req.getTheme() : Newsletter.Theme.FOOTBALL)
+                .targetSport(req.getTargetSport())
                 .ctaLabel(req.getCtaLabel())
                 .ctaUrl(req.getCtaUrl())
                 .status(Newsletter.Status.DRAFT)
@@ -67,6 +68,7 @@ public class NewsletterService {
         n.setSubtitle(req.getSubtitle());
         n.setBodyMd(req.getBodyMd());
         n.setTheme(req.getTheme() != null ? req.getTheme() : Newsletter.Theme.FOOTBALL);
+        n.setTargetSport(req.getTargetSport());
         n.setCtaLabel(req.getCtaLabel());
         n.setCtaUrl(req.getCtaUrl());
         return NewsletterResponse.from(newsletterRepository.save(n));
@@ -105,7 +107,9 @@ public class NewsletterService {
         Newsletter n = load(id);
         requireDraft(n);
 
-        List<User> recipients = newsletterRepository.findNewsletterRecipients();
+        List<User> recipients = n.getTargetSport() != null
+                ? newsletterRepository.findNewsletterRecipientsBySport(n.getTargetSport())
+                : newsletterRepository.findNewsletterRecipients();
         List<String> emails = recipients.stream().map(User::getEmail).toList();
         String html = render(n);
 
