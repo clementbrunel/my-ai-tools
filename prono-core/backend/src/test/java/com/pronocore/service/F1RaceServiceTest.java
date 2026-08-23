@@ -178,7 +178,7 @@ class F1RaceServiceTest {
         f1RaceService.enterResults(100L, request);
 
         assertThat(race.getStatus()).isEqualTo(Race.Status.FINISHED);
-        verify(dailyGageService).onMatchSettled(race.getRaceDate().toLocalDate());
+        verify(dailyGageService).onMatchSettled(race.getRaceDate().toLocalDate(), true);
         verify(raceResultRepository).deleteByRaceId(100L);
         verify(raceResultRepository).saveAll(anyList());
 
@@ -190,6 +190,55 @@ class F1RaceServiceTest {
         assertThat(resultsCaptor.getValue()).extracting(RaceResult::getConstructor)
                 .containsExactly(mclaren, mclaren, ferrari, ferrari, ferrari);
         verifyNoInteractions(constructorRepository);
+    }
+
+    @Test
+    void enterResults_recalculOnAlreadyFinishedRace_doesNotNotifyByDefault() {
+        Race race = raceAt(LocalDateTime.now().minusDays(2), LocalDateTime.now().minusDays(1));
+        race.setStatus(Race.Status.FINISHED);
+
+        when(raceRepository.findById(100L)).thenReturn(Optional.of(race));
+        when(driverRepository.findById(1L)).thenReturn(Optional.of(nor));
+        when(driverRepository.findById(2L)).thenReturn(Optional.of(pia));
+        when(driverRepository.findById(3L)).thenReturn(Optional.of(lec));
+        when(raceRepository.save(any(Race.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(raceResultRepository.findByRaceIdWithDrivers(100L)).thenReturn(List.of());
+
+        EnterRaceResultsRequest request = new EnterRaceResultsRequest();
+        request.setResults(List.of(
+                entry(1L, 1, true, false, false),
+                entry(2L, 2, false, false, false),
+                entry(3L, 3, false, false, false)
+        ));
+
+        f1RaceService.enterResults(100L, request);
+
+        verify(dailyGageService).onMatchSettled(race.getRaceDate().toLocalDate(), false);
+    }
+
+    @Test
+    void enterResults_recalculOnAlreadyFinishedRace_notifiesWhenAdminOptsIn() {
+        Race race = raceAt(LocalDateTime.now().minusDays(2), LocalDateTime.now().minusDays(1));
+        race.setStatus(Race.Status.FINISHED);
+
+        when(raceRepository.findById(100L)).thenReturn(Optional.of(race));
+        when(driverRepository.findById(1L)).thenReturn(Optional.of(nor));
+        when(driverRepository.findById(2L)).thenReturn(Optional.of(pia));
+        when(driverRepository.findById(3L)).thenReturn(Optional.of(lec));
+        when(raceRepository.save(any(Race.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(raceResultRepository.findByRaceIdWithDrivers(100L)).thenReturn(List.of());
+
+        EnterRaceResultsRequest request = new EnterRaceResultsRequest();
+        request.setNotifyByEmail(true);
+        request.setResults(List.of(
+                entry(1L, 1, true, false, false),
+                entry(2L, 2, false, false, false),
+                entry(3L, 3, false, false, false)
+        ));
+
+        f1RaceService.enterResults(100L, request);
+
+        verify(dailyGageService).onMatchSettled(race.getRaceDate().toLocalDate(), true);
     }
 
     /**

@@ -248,14 +248,25 @@ public class DailyGageService {
     // Auto-settlement (called by MatchService)
     // ---------------------------------------------------------------
 
+    /** Same as {@link #onMatchSettled(LocalDate, boolean)}, always notifying players by email. */
+    @Transactional
+    public void onMatchSettled(LocalDate matchDay) {
+        onMatchSettled(matchDay, true);
+    }
+
     /**
      * Called after every match or F1 race settlement. Once every event of the
      * calendar day (matches AND races) is FINISHED, each group's daily gage for
      * that day is assigned to the group member who earned the fewest points
      * among that group's participations (football and F1 points combined).
+     *
+     * @param sendEmail whether to notify players by email — gage/points assignment always
+     *                  happens regardless; set to false for a recalcul the caller doesn't
+     *                  want to re-announce (e.g. an F1 admin correcting an already-settled
+     *                  race without the admin opting in to a fresh notification).
      */
     @Transactional
-    public void onMatchSettled(LocalDate matchDay) {
+    public void onMatchSettled(LocalDate matchDay, boolean sendEmail) {
         LocalDateTime startOfDay = matchDay.atStartOfDay();
         LocalDateTime endOfDay   = matchDay.plusDays(1).atStartOfDay();
 
@@ -268,10 +279,12 @@ public class DailyGageService {
 
         List<DailyGage> gages = dailyGageRepository.findByMatchDate(matchDay);
         for (DailyGage dg : gages) {
-            settleGage(dg, startOfDay, endOfDay, matchDay);
+            settleGage(dg, startOfDay, endOfDay, matchDay, sendEmail);
         }
 
-        sendScoresRecapForGagesDisabledGroups(startOfDay, endOfDay, matchDay);
+        if (sendEmail) {
+            sendScoresRecapForGagesDisabledGroups(startOfDay, endOfDay, matchDay);
+        }
     }
 
     /**
@@ -315,7 +328,7 @@ public class DailyGageService {
                 group.getId(), matchDay, dailyPoints.size());
     }
 
-    private void settleGage(DailyGage dg, LocalDateTime startOfDay, LocalDateTime endOfDay, LocalDate matchDay) {
+    private void settleGage(DailyGage dg, LocalDateTime startOfDay, LocalDateTime endOfDay, LocalDate matchDay, boolean sendEmail) {
         if (dg.getStatus() == DailyGage.Status.SETTLED) return;
         if (!dg.getGroup().isGagesEnabled()) {
             log.debug("⏭️ Gages disabled for group {} — leaving daily gage {} ({}) unsettled", dg.getGroup().getId(), dg.getId(), matchDay);
@@ -386,6 +399,8 @@ public class DailyGageService {
 
         log.info("🃏 Daily gage '{}' assigned to {} (group {}) for {} ({} pts, {} loser(s) in draw)",
                 forfeit.getTitle(), unlucky.getUsername(), groupId, matchDay, minPoints, losers.size());
+
+        if (!sendEmail) return;
 
         // Send gage resolution email to subscribed group members
         final Forfeit resolvedForfeit = forfeit;
@@ -459,7 +474,7 @@ public class DailyGageService {
                     unfinished + " match(s) ou course(s) non terminé(s) ce jour-là — impossible de forcer l'attribution");
         }
 
-        settleGage(dg, startOfDay, endOfDay, matchDay);
+        settleGage(dg, startOfDay, endOfDay, matchDay, true);
 
         return toResponse(requireDailyGage(id), user);
     }

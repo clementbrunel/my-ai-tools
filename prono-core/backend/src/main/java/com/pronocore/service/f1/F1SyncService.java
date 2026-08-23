@@ -275,7 +275,8 @@ public class F1SyncService {
         for (Race race : raceRepository.findByCompetition_IdOrderByRaceDateAsc(competition.getId())) {
             if (race.getStatus() == Race.Status.FINISHED) continue;
             throttle();
-            if (fetchAndSettleResults(season, race)) settled.add(race.getRound());
+            // Never previously finished, so this always notifies regardless of the flag here.
+            if (fetchAndSettleResults(season, race, false)) settled.add(race.getRound());
         }
         return settled;
     }
@@ -285,19 +286,23 @@ public class F1SyncService {
      * regardless of its FINISHED status — for admin corrections when a penalty is confirmed
      * (or jolpica's own data is amended) after {@link #syncResults} already settled and
      * skipped it. Re-settling recomputes points/gages/forfeits, same as a manual re-entry.
+     *
+     * @param notifyByEmail whether to notify players by email if this resync recalculates an
+     *                      already-finished race — false by default from the admin UI so a
+     *                      routine resync doesn't re-spam every subscriber.
      */
     @Transactional
-    public String syncResultsForRace(Long raceId) {
+    public String syncResultsForRace(Long raceId, boolean notifyByEmail) {
         Race race = raceRepository.findById(raceId)
                 .orElseThrow(() -> new EntityNotFoundException("Race not found: " + raceId));
         int season = requireSeason(race.getCompetition());
-        return fetchAndSettleResults(season, race)
+        return fetchAndSettleResults(season, race, notifyByEmail)
                 ? "Résultats réimportés et paris réglés pour " + race.getName()
                 : "Aucun résultat disponible sur jolpica pour " + race.getName();
     }
 
     /** Fetches the full classification from jolpica and settles it — false if jolpica has nothing yet. */
-    private boolean fetchAndSettleResults(int season, Race race) {
+    private boolean fetchAndSettleResults(int season, Race race, boolean notifyByEmail) {
         JsonNode raceNode = read(season + "/" + race.getRound() + "/results.json?limit=40")
                 .path("MRData").path("RaceTable").path("Races");
         if (!raceNode.isArray() || raceNode.isEmpty()) return false;   // not raced yet
@@ -331,6 +336,7 @@ public class F1SyncService {
 
         EnterRaceResultsRequest request = new EnterRaceResultsRequest();
         request.setResults(entries);
+        request.setNotifyByEmail(notifyByEmail);
         f1RaceService.enterResults(race.getId(), request);
         return true;
     }

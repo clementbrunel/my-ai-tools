@@ -135,6 +135,10 @@ const AdminF1Tab: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isResyncingGrid, setIsResyncingGrid] = useState(false);
   const [isResyncingResults, setIsResyncingResults] = useState(false);
+  // Only asked when recalculating an already-finished race (resync results / re-save) — a
+  // first-time settle always notifies. Unchecked by default so a routine correction doesn't
+  // re-spam every subscriber with the day's gage/scores email.
+  const [notifyByEmail, setNotifyByEmail] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{
     title: string; message: string; confirmLabel?: string;
@@ -185,6 +189,7 @@ const AdminF1Tab: React.FC = () => {
 
   // Prefill from existing results when selecting an already-finished race
   useEffect(() => {
+    setNotifyByEmail(false);
     if (selectedRaceId == null) return;
     getRace(selectedRaceId)
       .then(applyRaceResultsToForm)
@@ -234,7 +239,7 @@ const AdminF1Tab: React.FC = () => {
     if (selectedRaceId == null) return;
     setIsResyncingResults(true);
     try {
-      const message = await resyncResults(selectedRaceId);
+      const message = await resyncResults(selectedRaceId, notifyByEmail);
       showToast(message, 'success');
       // The server's status is authoritative — a "nothing to import yet" resync (e.g. forced
       // on a race jolpica hasn't raced yet) settles nothing, so it must not flip the local
@@ -313,7 +318,7 @@ const AdminF1Tab: React.FC = () => {
         dnf: unclassifiedIds.has(driver.id),
         time: unclassifiedIds.has(driver.id) ? null : (timeById[driver.id]?.trim() || null),
       }));
-      await enterRaceResults(selectedRaceId, entries);
+      await enterRaceResults(selectedRaceId, entries, notifyByEmail);
       showToast('Résultats enregistrés — paris réglés ! 🏁', 'success');
       setRaces((prev) => prev.map((r) => (r.id === selectedRaceId ? { ...r, status: 'FINISHED' } : r)));
     } catch (e: unknown) {
@@ -342,9 +347,23 @@ const AdminF1Tab: React.FC = () => {
           ))}
         </select>
         {selectedRace?.status === 'FINISHED' && (
-          <span className="text-xs font-bold px-2 py-1 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 text-center sm:text-left">
-            Déjà réglée — réenregistrer recalcule les points
-          </span>
+          <>
+            <span className="text-xs font-bold px-2 py-1 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 text-center sm:text-left">
+              Déjà réglée — réenregistrer recalcule les points
+            </span>
+            <label
+              className="flex items-center gap-1.5 text-xs cursor-pointer whitespace-nowrap"
+              title="Un recalcul (réenregistrement ou resync résultats) ne prévient plus les joueurs par email par défaut, pour éviter de les spammer — coche pour renvoyer l'email du jour (gage/récap) malgré tout"
+            >
+              <input
+                type="checkbox"
+                checked={notifyByEmail}
+                onChange={(e) => setNotifyByEmail(e.target.checked)}
+                className="accent-wc-green w-4 h-4"
+              />
+              Prévenir les joueurs par email
+            </label>
+          </>
         )}
         <button
           onClick={handleResyncQualifying}

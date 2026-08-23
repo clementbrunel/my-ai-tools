@@ -235,7 +235,7 @@ class F1SyncServiceTest {
         when(qualifyingResultRepository.findByRaceIdWithDrivers(101L)).thenReturn(List.of());
         stubEntryListUpserts();
 
-        String message = f1SyncService.syncResultsForRace(101L);
+        String message = f1SyncService.syncResultsForRace(101L, false);
 
         verify(f1RaceService).enterResults(eq(101L), any());
         assertThat(message).contains("Résultats réimportés");
@@ -249,7 +249,7 @@ class F1SyncServiceTest {
         when(raceRepository.findById(102L)).thenReturn(Optional.of(round2));
         when(jolpicaClient.get("2026/2/results.json?limit=40")).thenReturn(EMPTY_RESULTS_JSON);
 
-        String message = f1SyncService.syncResultsForRace(102L);
+        String message = f1SyncService.syncResultsForRace(102L, false);
 
         verify(f1RaceService, never()).enterResults(any(), any());
         assertThat(message).contains("Aucun résultat disponible");
@@ -296,7 +296,7 @@ class F1SyncServiceTest {
             return d;
         });
 
-        f1SyncService.syncResultsForRace(101L);
+        f1SyncService.syncResultsForRace(101L, false);
 
         ArgumentCaptor<EnterRaceResultsRequest> requestCaptor = ArgumentCaptor.forClass(EnterRaceResultsRequest.class);
         verify(f1RaceService).enterResults(eq(101L), requestCaptor.capture());
