@@ -230,7 +230,13 @@ public class F1SyncService {
         }
         if (grid.isEmpty()) return false;
 
+        // deleteByRaceId is a derived delete — Hibernate queues the removes instead of running
+        // them immediately, but QualifyingResult's IDENTITY-generated id forces saveAll's inserts
+        // to fire eagerly. Without the flush, re-importing an already-stored grid collides with
+        // its own rows before the delete lands (uq_qualifying_result violation). Same fix as
+        // F1RaceService.enterResults uses for raceResultRepository.
         qualifyingResultRepository.deleteByRaceId(race.getId());
+        qualifyingResultRepository.flush();
         qualifyingResultRepository.saveAll(grid);
         return true;
     }
