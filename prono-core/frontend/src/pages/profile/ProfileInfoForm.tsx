@@ -140,7 +140,7 @@ const ProfileInfoForm: React.FC<Props> = ({
 
       <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
         <div>
-          <p className="font-medium text-gray-900 dark:text-white text-sm">🃏 Résolution des gages de mes groupes</p>
+          <p className="font-medium text-gray-900 dark:text-white text-sm">📊 Résultat journalier des paris</p>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
             Reçois un email avec le bilan des paris et l'attribution du gage quand la journée se termine
           </p>

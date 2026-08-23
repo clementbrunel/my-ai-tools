@@ -146,7 +146,7 @@ const Profile: React.FC = () => {
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-gray-500 dark:text-gray-400">🃏 Résolution des gages de mes groupes</span>
+              <span className="text-gray-500 dark:text-gray-400">📊 Résultat journalier des paris</span>
               <span className={user?.emailGageEnabled ? 'text-wc-green font-semibold' : 'text-gray-400'}>
                 {user?.emailGageEnabled ? 'Activé' : 'Désactivé'}
               </span>
