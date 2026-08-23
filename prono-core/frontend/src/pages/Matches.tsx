@@ -9,6 +9,7 @@ import CompetitionFilterPills from '@/components/CompetitionFilterPills';
 import Pagination from '@/components/Pagination';
 import { useMatches } from '@/context/MatchesContext';
 import { formatDate } from '@/utils/dates';
+import { isUpcomingStatus } from '@/utils/matchStatus';
 
 type FilterStatus = 'ALL' | 'UPCOMING' | 'FINISHED';
 type ViewMode = 'grid' | 'list' | 'bracket';
@@ -34,11 +35,22 @@ const Matches: React.FC = () => {
   const filtered = useMemo(() => {
     if (!hasGroups) return [];
     const q = search.trim().toLowerCase();
-    return matches.filter((m) => {
-      if (filter !== 'ALL' && m.status !== filter) return false;
+    const result = matches.filter((m) => {
+      if (filter === 'UPCOMING' && !isUpcomingStatus(m.status)) return false;
+      if (filter === 'FINISHED' && m.status !== 'FINISHED') return false;
       if (selectedCompetitions && !selectedCompetitions.has(m.competition.id)) return false;
       if (!q) return true;
       return m.teamA.name.toLowerCase().includes(q) || m.teamB.name.toLowerCase().includes(q);
+    });
+    // Trié ici, avant la pagination : "À venir" du plus proche au plus lointain,
+    // "Terminés"/"Tous" du plus récent au plus ancien par jour — sinon la
+    // pagination découperait un ordre non trié et l'inversion par jour n'aurait
+    // plus de sens. L'ordre chronologique est conservé au sein d'une même journée.
+    return result.sort((a, b) => {
+      const dayA = a.matchDate.slice(0, 10);
+      const dayB = b.matchDate.slice(0, 10);
+      const dayCompare = filter === 'UPCOMING' ? dayA.localeCompare(dayB) : dayB.localeCompare(dayA);
+      return dayCompare !== 0 ? dayCompare : a.matchDate.localeCompare(b.matchDate);
     });
   }, [matches, filter, hasGroups, search, selectedCompetitions]);
 
