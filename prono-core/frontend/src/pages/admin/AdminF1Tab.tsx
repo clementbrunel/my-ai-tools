@@ -56,53 +56,59 @@ const SortableDriverRow: React.FC<RowProps> = ({
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`flex items-center gap-2 py-1.5 px-2 rounded-lg border text-sm
+      className={`flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2 py-2 sm:py-1.5 px-2 rounded-lg border text-sm
         ${isDragging ? 'z-10 shadow-lg border-wc-green bg-white dark:bg-wc-dark-secondary' : 'border-gray-100 dark:border-gray-800 bg-white dark:bg-wc-dark-secondary'}
         ${unclassified ? 'opacity-50' : ''}`}
     >
-      <button
-        type="button"
-        {...listeners}
-        {...attributes}
-        className="cursor-grab active:cursor-grabbing text-gray-400 px-1 touch-none"
-        aria-label={`Déplacer ${driver.code}`}
-      >
-        ⠿
-      </button>
-      <span className="w-8 text-right font-black text-gray-400">{unclassified ? 'NC' : index + 1}</span>
-      <MiniF1Car color={constructors.find((c) => c.id === constructorId)?.color ?? driver.constructorColor} size={28} />
-      <span className="font-bold text-gray-900 dark:text-white flex-1 min-w-0 truncate">
-        {driver.name}
-      </span>
-      <select
-        value={constructorId}
-        onChange={(e) => onConstructorChange(Number(e.target.value))}
-        title="Écurie pour laquelle il court CETTE course — à changer uniquement en cas de remplacement ponctuel (prêt d'un pilote pour une course)"
-        className={`input-field !w-auto !py-0.5 !px-1.5 text-xs ${racedForHomeTeam ? '' : 'ring-2 ring-amber-400'}`}
-      >
-        {constructors.map((c) => (
-          <option key={c.id} value={c.id}>{c.name}</option>
-        ))}
-      </select>
-      <input
-        type="text"
-        value={time}
-        onChange={(e) => onTimeChange(e.target.value)}
-        disabled={unclassified}
-        placeholder="temps / écart"
-        title="Temps (vainqueur) ou écart au vainqueur, ex: 1:32:53.435 ou +22.792"
-        className="input-field !w-24 !py-0.5 !px-1.5 text-xs tabular-nums disabled:opacity-40"
-      />
-      <label className="flex items-center gap-1 text-xs cursor-pointer" title="Pole position">
-        <input type="radio" name="pole" checked={pole} onChange={onSetPole} className="accent-wc-green" />⏱
-      </label>
-      <label className="flex items-center gap-1 text-xs cursor-pointer" title="Meilleur tour">
-        <input type="radio" name="fastestLap" checked={fastestLap} onChange={onSetFastestLap} className="accent-purple-600" />🟣
-      </label>
-      <label className="flex items-center gap-1 text-xs cursor-pointer" title="Abandon / non classé">
-        <input type="checkbox" checked={unclassified} onChange={onToggleUnclassified} className="accent-red-500" />
-        DNF
-      </label>
+      <div className="flex items-center gap-2 min-w-0">
+        <button
+          type="button"
+          {...listeners}
+          {...attributes}
+          className="cursor-grab active:cursor-grabbing text-gray-400 px-1 touch-none shrink-0"
+          aria-label={`Déplacer ${driver.code}`}
+        >
+          ⠿
+        </button>
+        <span className="w-8 text-right font-black text-gray-400 shrink-0">{unclassified ? 'NC' : index + 1}</span>
+        <MiniF1Car color={constructors.find((c) => c.id === constructorId)?.color ?? driver.constructorColor} size={28} />
+        <span className="font-bold text-gray-900 dark:text-white flex-1 min-w-0 truncate">
+          {driver.name}
+        </span>
+      </div>
+      <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap sm:ml-auto">
+        <select
+          value={constructorId}
+          onChange={(e) => onConstructorChange(Number(e.target.value))}
+          title="Écurie pour laquelle il court CETTE course — à changer uniquement en cas de remplacement ponctuel (prêt d'un pilote pour une course)"
+          className={`input-field !w-auto flex-1 min-w-[6.5rem] sm:flex-none !py-0.5 !px-1.5 text-xs ${racedForHomeTeam ? '' : 'ring-2 ring-amber-400'}`}
+        >
+          {constructors.map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
+        <input
+          type="text"
+          value={time}
+          onChange={(e) => onTimeChange(e.target.value)}
+          disabled={unclassified}
+          placeholder="temps / écart"
+          title="Temps (vainqueur) ou écart au vainqueur, ex: 1:32:53.435 ou +22.792"
+          className="input-field !w-24 !py-0.5 !px-1.5 text-xs tabular-nums disabled:opacity-40 shrink-0"
+        />
+        <div className="flex items-center gap-3 sm:gap-1 ml-auto sm:ml-0 shrink-0">
+          <label className="flex items-center gap-1 text-xs cursor-pointer whitespace-nowrap" title="Pole position">
+            <input type="radio" name="pole" checked={pole} onChange={onSetPole} className="accent-wc-green w-4 h-4" />⏱
+          </label>
+          <label className="flex items-center gap-1 text-xs cursor-pointer whitespace-nowrap" title="Meilleur tour">
+            <input type="radio" name="fastestLap" checked={fastestLap} onChange={onSetFastestLap} className="accent-purple-600 w-4 h-4" />🟣
+          </label>
+          <label className="flex items-center gap-1 text-xs cursor-pointer whitespace-nowrap" title="Abandon / non classé">
+            <input type="checkbox" checked={unclassified} onChange={onToggleUnclassified} className="accent-red-500 w-4 h-4" />
+            DNF
+          </label>
+        </div>
+      </div>
     </div>
   );
 };
@@ -322,9 +328,9 @@ const AdminF1Tab: React.FC = () => {
     <div className="space-y-4">
       {error && <div className="card bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300">{error}</div>}
 
-      <div className="card flex flex-wrap items-center gap-3">
+      <div className="card flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-3">
         <select
-          className="input-field !w-auto"
+          className="input-field w-full sm:!w-auto"
           value={selectedRaceId ?? ''}
           onChange={(e) => setSelectedRaceId(Number(e.target.value))}
         >
@@ -336,14 +342,14 @@ const AdminF1Tab: React.FC = () => {
           ))}
         </select>
         {selectedRace?.status === 'FINISHED' && (
-          <span className="text-xs font-bold px-2 py-1 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300">
+          <span className="text-xs font-bold px-2 py-1 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 text-center sm:text-left">
             Déjà réglée — réenregistrer recalcule les points
           </span>
         )}
         <button
           onClick={handleResyncQualifying}
           disabled={isResyncingGrid || selectedRaceId == null}
-          className="btn-secondary ml-auto"
+          className="btn-secondary w-full sm:w-auto sm:ml-auto"
           title="Force le re-import de la grille de qualifs de cette course depuis jolpica, même si elle est déjà terminée (utile après une pénalité sur grille confirmée après coup)"
         >
           {isResyncingGrid ? 'Import…' : '⏱ Resync grille qualifs'}
@@ -351,18 +357,18 @@ const AdminF1Tab: React.FC = () => {
         <button
           onClick={handleResyncResults}
           disabled={isResyncingResults || selectedRaceId == null}
-          className="btn-secondary"
+          className="btn-secondary w-full sm:w-auto"
           title="Force le re-import du classement de cette course depuis jolpica et re-règle les paris, même si elle est déjà terminée (utile après une pénalité post-course confirmée après coup)"
         >
           {isResyncingResults ? 'Import…' : '🏁 Resync résultats course'}
         </button>
-        <button onClick={handleSync} disabled={isSyncing} className="btn-gold" title="Importe calendrier, grille et résultats depuis l'API jolpica-f1, et règle les paris des courses terminées">
+        <button onClick={handleSync} disabled={isSyncing} className="btn-gold w-full sm:w-auto" title="Importe calendrier, grille et résultats depuis l'API jolpica-f1, et règle les paris des courses terminées">
           {isSyncing ? 'Import en cours…' : '🔄 Importer les résultats (jolpica)'}
         </button>
         <button
           onClick={handleDeleteRace}
           disabled={selectedRaceId == null}
-          className="btn-secondary text-red-600 dark:text-red-400"
+          className="btn-secondary w-full sm:w-auto text-red-600 dark:text-red-400"
           title="Supprime la course sélectionnée — refusé si des pronostics existent déjà dessus (l'avoir juste ouverte aux paris n'empêche pas la suppression)"
         >
           🗑 Supprimer la course
