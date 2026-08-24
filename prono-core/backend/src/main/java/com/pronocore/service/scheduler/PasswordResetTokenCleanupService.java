@@ -22,7 +22,7 @@ public class PasswordResetTokenCleanupService {
     @Scheduled(cron = "0 0 3 * * *")
     @Transactional
     public void cleanupExpiredTokens() {
-        passwordResetTokenRepository.deleteExpired(LocalDateTime.now());
-        log.info("Expired password reset tokens cleaned up");
+        int deletedCount = passwordResetTokenRepository.deleteExpired(LocalDateTime.now());
+        log.info("Expired password reset tokens cleaned up: {}", deletedCount);
     }
 }
