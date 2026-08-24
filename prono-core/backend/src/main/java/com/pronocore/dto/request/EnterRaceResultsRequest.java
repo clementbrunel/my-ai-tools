@@ -15,6 +15,14 @@ public class EnterRaceResultsRequest {
     @Valid
     private List<Entry> results;
 
+    /**
+     * Whether to notify players by email when this entry recalculates an ALREADY-FINISHED
+     * race (a correction). Ignored when the race is settled for the first time — that always
+     * notifies, same as before. Defaults to false so a routine recalcul (post-race penalty,
+     * typo fix) doesn't re-spam every subscriber by default.
+     */
+    private boolean notifyByEmail;
+
     @Data
     public static class Entry {
 

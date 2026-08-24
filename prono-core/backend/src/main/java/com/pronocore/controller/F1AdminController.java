@@ -47,8 +47,9 @@ public class F1AdminController {
     @Operation(summary = "Force re-import of a race's full classification from jolpica and re-settle it — works "
             + "even once already finished, for corrections (post-race penalty confirmed after the fact)")
     @LoggedAt(Level.INFO)
-    public ResponseEntity<String> resyncResults(@PathVariable Long raceId) {
-        return ResponseEntity.ok(f1SyncService.syncResultsForRace(raceId));
+    public ResponseEntity<String> resyncResults(@PathVariable Long raceId,
+            @RequestParam(defaultValue = "false") boolean notifyByEmail) {
+        return ResponseEntity.ok(f1SyncService.syncResultsForRace(raceId, notifyByEmail));
     }
 
     @PostMapping("/races/{raceId}/results")

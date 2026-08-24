@@ -217,6 +217,30 @@ class F1SyncServiceTest {
         assertThat(message).contains("Grille de départ réimportée");
     }
 
+    /**
+     * deleteByRaceId is a derived delete — Hibernate queues the removes instead of running them
+     * immediately, but QualifyingResult's IDENTITY-generated id forces saveAll's inserts to fire
+     * eagerly. Without a flush in between, re-importing an already-stored grid collides with its
+     * own not-yet-deleted rows (uq_qualifying_result violation) — reproduced in prod when an
+     * admin re-ran the jolpica sync on a race whose grid was already imported.
+     */
+    @Test
+    void syncQualifyingForRace_flushesDeleteBeforeReinserting() {
+        Competition competition = Competition.builder().id(9L).name("Formule 1 2026").sport(Sport.F1).season(2026).build();
+        Race round1 = race(101L, 1, Race.Status.FINISHED, competition);
+
+        when(raceRepository.findById(101L)).thenReturn(Optional.of(round1));
+        when(jolpicaClient.get("2026/1/qualifying.json?limit=40")).thenReturn(ROUND1_QUALI_JSON);
+        stubEntryListUpserts();
+
+        f1SyncService.syncQualifyingForRace(101L);
+
+        var inOrder = inOrder(qualifyingResultRepository);
+        inOrder.verify(qualifyingResultRepository).deleteByRaceId(101L);
+        inOrder.verify(qualifyingResultRepository).flush();
+        inOrder.verify(qualifyingResultRepository).saveAll(anyList());
+    }
+
     @Test
     void syncQualifyingForRace_unknownRace_throws() {
         when(raceRepository.findById(999L)).thenReturn(Optional.empty());
@@ -235,7 +259,7 @@ class F1SyncServiceTest {
         when(qualifyingResultRepository.findByRaceIdWithDrivers(101L)).thenReturn(List.of());
         stubEntryListUpserts();
 
-        String message = f1SyncService.syncResultsForRace(101L);
+        String message = f1SyncService.syncResultsForRace(101L, false);
 
         verify(f1RaceService).enterResults(eq(101L), any());
         assertThat(message).contains("Résultats réimportés");
@@ -249,7 +273,7 @@ class F1SyncServiceTest {
         when(raceRepository.findById(102L)).thenReturn(Optional.of(round2));
         when(jolpicaClient.get("2026/2/results.json?limit=40")).thenReturn(EMPTY_RESULTS_JSON);
 
-        String message = f1SyncService.syncResultsForRace(102L);
+        String message = f1SyncService.syncResultsForRace(102L, false);
 
         verify(f1RaceService, never()).enterResults(any(), any());
         assertThat(message).contains("Aucun résultat disponible");
@@ -296,7 +320,7 @@ class F1SyncServiceTest {
             return d;
         });
 
-        f1SyncService.syncResultsForRace(101L);
+        f1SyncService.syncResultsForRace(101L, false);
 
         ArgumentCaptor<EnterRaceResultsRequest> requestCaptor = ArgumentCaptor.forClass(EnterRaceResultsRequest.class);
         verify(f1RaceService).enterResults(eq(101L), requestCaptor.capture());

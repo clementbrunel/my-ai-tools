@@ -455,6 +455,57 @@ class DailyGageServiceTest {
     }
 
     @Test
+    void onMatchSettled_withSendEmailFalse_stillAssignsForfeitButSkipsEmail() {
+        Forfeit forfeit = buildForfeit(1L, "Do pushups");
+        User loser = User.builder().id(3L).username("loser").email("l@test.com")
+                .password("encoded").role(User.Role.USER)
+                .build();
+
+        DailyGage dg = gage(1L, DailyGage.Mode.DIRECT, DailyGage.Status.ACTIVE);
+        dg.setForfeit(forfeit);
+
+        BetParticipation loserPart  = BetParticipation.builder().user(loser).pointsEarned(0).build();
+        BetParticipation winnerPart = BetParticipation.builder().user(adminUser).pointsEarned(5).build();
+
+        when(matchRepository.countUnfinishedMatchesOnDay(any(), any(), any())).thenReturn(0L);
+        when(dailyGageRepository.findByMatchDate(MATCH_DAY)).thenReturn(List.of(dg));
+        when(betParticipationRepository.findSettledByMatchDayAndGroup(any(), any(), any(), eq(GROUP_ID)))
+                .thenReturn(List.of(loserPart, winnerPart));
+
+        dailyGageService.onMatchSettled(MATCH_DAY, false);
+
+        assertThat(dg.getStatus()).isEqualTo(DailyGage.Status.SETTLED);
+        assertThat(dg.getAssignedTo()).isEqualTo(loser);
+        verify(userForfeitRepository).save(any());
+        verifyNoInteractions(emailService);
+    }
+
+    @Test
+    void onMatchSettled_withSendEmailFalse_skipsScoresRecapForGagesDisabledGroups() {
+        group.setGagesEnabled(false);
+
+        User member = User.builder().id(4L).username("member").email("m@test.com")
+                .password("encoded").role(User.Role.USER).emailGageEnabled(true)
+                .build();
+        GroupMember memberMembership = GroupMember.builder()
+                .id(2L).group(group).user(member)
+                .role(GroupMember.GroupRole.MEMBER).status(GroupMember.MemberStatus.ACTIVE)
+                .build();
+
+        Bet bet = Bet.builder().id(1L).group(group).match(sampleMatch).build();
+        BetParticipation adminPart  = BetParticipation.builder().bet(bet).user(adminUser).pointsEarned(5).build();
+        BetParticipation memberPart = BetParticipation.builder().bet(bet).user(member).pointsEarned(0).build();
+
+        when(matchRepository.countUnfinishedMatchesOnDay(any(), any(), any())).thenReturn(0L);
+        when(dailyGageRepository.findByMatchDate(MATCH_DAY)).thenReturn(List.of());
+
+        dailyGageService.onMatchSettled(MATCH_DAY, false);
+
+        verifyNoInteractions(emailService);
+        verify(betParticipationRepository, never()).findSettledByMatchDay(any(), any(), any());
+    }
+
+    @Test
     void onMatchSettled_shouldSendScoresRecap_whenGroupHasGagesDisabled() {
         group.setGagesEnabled(false);
 

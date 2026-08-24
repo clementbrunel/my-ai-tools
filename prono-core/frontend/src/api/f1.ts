@@ -100,18 +100,28 @@ export const resyncQualifying = async (raceId: number): Promise<string> => {
   return response.data;
 };
 
+/**
+ * notifyByEmail only matters when this recalculates an ALREADY-FINISHED race (a correction) —
+ * it's ignored (players are always notified) the first time a race is settled. Defaults to
+ * false so a routine recalcul doesn't re-spam every subscriber.
+ */
 export const enterRaceResults = async (
   raceId: number,
   results: RaceResultEntryRequest[],
+  notifyByEmail = false,
 ): Promise<Race> => {
-  const response = await apiClient.post<Race>(`/admin/f1/races/${raceId}/results`, { results });
+  const response = await apiClient.post<Race>(`/admin/f1/races/${raceId}/results`, { results, notifyByEmail });
   return response.data;
 };
 
 /** Forces a re-import of one race's full classification, even once already finished
- *  (post-race penalty confirmed after the fact, jolpica data corrected). Re-settles all bets. */
-export const resyncResults = async (raceId: number): Promise<string> => {
-  const response = await apiClient.post<string>(`/admin/f1/races/${raceId}/results/resync`);
+ *  (post-race penalty confirmed after the fact, jolpica data corrected). Re-settles all bets.
+ *  notifyByEmail (default false) only matters when the race was already finished — same
+ *  opt-in-to-notify rule as {@link enterRaceResults}. */
+export const resyncResults = async (raceId: number, notifyByEmail = false): Promise<string> => {
+  const response = await apiClient.post<string>(
+    `/admin/f1/races/${raceId}/results/resync`, null, { params: { notifyByEmail } },
+  );
   return response.data;
 };
 

@@ -364,6 +364,7 @@ public class F1RaceService {
     @Transactional
     public RaceResponse enterResults(Long raceId, EnterRaceResultsRequest request) {
         Race race = requireRace(raceId);
+        boolean wasAlreadyFinished = race.getStatus() == Race.Status.FINISHED;
 
         Set<Long> seenDrivers = new HashSet<>();
         Set<Integer> seenPositions = new HashSet<>();
@@ -418,7 +419,11 @@ public class F1RaceService {
         f1ScoringService.settleBetsForRace(race, results);
         // A race day is a gage day like any match day: once everything of the
         // day is finished, the group's daily gage is assigned to the day's loser.
-        dailyGageService.onMatchSettled(race.getRaceDate().toLocalDate());
+        // First-time settlement always notifies players; a recalcul on an already-finished
+        // race (manual correction or forced resync) only notifies if the admin opted in,
+        // so a routine recalcul doesn't re-send the day's emails to everyone.
+        boolean notifyByEmail = !wasAlreadyFinished || request.isNotifyByEmail();
+        dailyGageService.onMatchSettled(race.getRaceDate().toLocalDate(), notifyByEmail);
         return getRaceForAdmin(race);
     }
 

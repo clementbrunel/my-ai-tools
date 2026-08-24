@@ -17,9 +17,9 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { deleteRace, enterRaceResults, getDrivers, getRace, getRaces, resyncQualifying, resyncResults, syncSeason } from '@/api/f1';
 import type { Driver, Race } from '@/types';
-import { formatDate } from '@/utils/dates';
 import { useToast } from '@/components/Toast';
 import MiniF1Car from '@/components/f1/MiniF1Car';
+import RaceSyncPanel from '@/components/f1/RaceSyncPanel';
 import ConfirmModal from '@/components/ConfirmModal';
 
 interface ConstructorOption {
@@ -135,6 +135,14 @@ const AdminF1Tab: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isResyncingGrid, setIsResyncingGrid] = useState(false);
   const [isResyncingResults, setIsResyncingResults] = useState(false);
+  // Only asked when recalculating an already-finished race (resync results / re-save) — a
+  // first-time settle always notifies. Unchecked by default so a routine correction doesn't
+  // re-spam every subscriber with the day's gage/scores email.
+  const [notifyByEmail, setNotifyByEmail] = useState(false);
+  // Full detail of the selected race (qualifying grid, results) — the list endpoint that
+  // fills `races` doesn't carry them, only `getRace(id)` does; RaceSyncPanel's status chips
+  // read it.
+  const [raceDetail, setRaceDetail] = useState<Race | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{
     title: string; message: string; confirmLabel?: string;
@@ -185,9 +193,11 @@ const AdminF1Tab: React.FC = () => {
 
   // Prefill from existing results when selecting an already-finished race
   useEffect(() => {
+    setNotifyByEmail(false);
+    setRaceDetail(null);
     if (selectedRaceId == null) return;
     getRace(selectedRaceId)
-      .then(applyRaceResultsToForm)
+      .then((race) => { applyRaceResultsToForm(race); setRaceDetail(race); })
       .catch(() => { /* keep current grid order */ });
   }, [selectedRaceId, applyRaceResultsToForm]);
 
@@ -202,7 +212,9 @@ const AdminF1Tab: React.FC = () => {
       setRaces(raceRows);
       setOrder(driverRows);
       if (selectedRaceId != null) {
-        await getRace(selectedRaceId).then(applyRaceResultsToForm).catch(() => { /* keep current grid order */ });
+        await getRace(selectedRaceId)
+          .then((race) => { applyRaceResultsToForm(race); setRaceDetail(race); })
+          .catch(() => { /* keep current grid order */ });
       }
     } catch (e: unknown) {
       const message = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
@@ -220,6 +232,7 @@ const AdminF1Tab: React.FC = () => {
     try {
       const message = await resyncQualifying(selectedRaceId);
       showToast(message, 'success');
+      await getRace(selectedRaceId).then(setRaceDetail).catch(() => { /* keep current chip state */ });
     } catch (e: unknown) {
       const message = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
       showToast(message ?? 'Échec du re-import de la grille de qualifs', 'error');
@@ -234,13 +247,14 @@ const AdminF1Tab: React.FC = () => {
     if (selectedRaceId == null) return;
     setIsResyncingResults(true);
     try {
-      const message = await resyncResults(selectedRaceId);
+      const message = await resyncResults(selectedRaceId, notifyByEmail);
       showToast(message, 'success');
       // The server's status is authoritative — a "nothing to import yet" resync (e.g. forced
       // on a race jolpica hasn't raced yet) settles nothing, so it must not flip the local
       // "✓ Déjà réglée" badge.
       const race = await getRace(selectedRaceId);
       applyRaceResultsToForm(race);
+      setRaceDetail(race);
       setRaces((prev) => prev.map((r) => (r.id === selectedRaceId ? { ...r, status: race.status } : r)));
     } catch (e: unknown) {
       const message = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
@@ -313,9 +327,10 @@ const AdminF1Tab: React.FC = () => {
         dnf: unclassifiedIds.has(driver.id),
         time: unclassifiedIds.has(driver.id) ? null : (timeById[driver.id]?.trim() || null),
       }));
-      await enterRaceResults(selectedRaceId, entries);
+      await enterRaceResults(selectedRaceId, entries, notifyByEmail);
       showToast('Résultats enregistrés — paris réglés ! 🏁', 'success');
       setRaces((prev) => prev.map((r) => (r.id === selectedRaceId ? { ...r, status: 'FINISHED' } : r)));
+      setRaceDetail((prev) => (prev ? { ...prev, status: 'FINISHED' } : prev));
     } catch (e: unknown) {
       const message = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
       showToast(message ?? "Impossible d'enregistrer les résultats", 'error');
@@ -328,52 +343,23 @@ const AdminF1Tab: React.FC = () => {
     <div className="space-y-4">
       {error && <div className="card bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300">{error}</div>}
 
-      <div className="card flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-3">
-        <select
-          className="input-field w-full sm:!w-auto"
-          value={selectedRaceId ?? ''}
-          onChange={(e) => setSelectedRaceId(Number(e.target.value))}
-        >
-          {races.map((race) => (
-            <option key={race.id} value={race.id}>
-              R{race.round} · {race.name} — {formatDate(race.raceDate)}
-              {race.status === 'FINISHED' ? ' ✓' : ''}
-            </option>
-          ))}
-        </select>
-        {selectedRace?.status === 'FINISHED' && (
-          <span className="text-xs font-bold px-2 py-1 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 text-center sm:text-left">
-            Déjà réglée — réenregistrer recalcule les points
-          </span>
-        )}
-        <button
-          onClick={handleResyncQualifying}
-          disabled={isResyncingGrid || selectedRaceId == null}
-          className="btn-secondary w-full sm:w-auto sm:ml-auto"
-          title="Force le re-import de la grille de qualifs de cette course depuis jolpica, même si elle est déjà terminée (utile après une pénalité sur grille confirmée après coup)"
-        >
-          {isResyncingGrid ? 'Import…' : '⏱ Resync grille qualifs'}
-        </button>
-        <button
-          onClick={handleResyncResults}
-          disabled={isResyncingResults || selectedRaceId == null}
-          className="btn-secondary w-full sm:w-auto"
-          title="Force le re-import du classement de cette course depuis jolpica et re-règle les paris, même si elle est déjà terminée (utile après une pénalité post-course confirmée après coup)"
-        >
-          {isResyncingResults ? 'Import…' : '🏁 Resync résultats course'}
-        </button>
-        <button onClick={handleSync} disabled={isSyncing} className="btn-gold w-full sm:w-auto" title="Importe calendrier, grille et résultats depuis l'API jolpica-f1, et règle les paris des courses terminées">
-          {isSyncing ? 'Import en cours…' : '🔄 Importer les résultats (jolpica)'}
-        </button>
-        <button
-          onClick={handleDeleteRace}
-          disabled={selectedRaceId == null}
-          className="btn-secondary w-full sm:w-auto text-red-600 dark:text-red-400"
-          title="Supprime la course sélectionnée — refusé si des pronostics existent déjà dessus (l'avoir juste ouverte aux paris n'empêche pas la suppression)"
-        >
-          🗑 Supprimer la course
-        </button>
-      </div>
+      <RaceSyncPanel
+        key={selectedRaceId ?? 'none'}
+        races={races}
+        selectedRaceId={selectedRaceId}
+        selectedRace={selectedRace}
+        raceDetail={raceDetail}
+        onSelectRace={setSelectedRaceId}
+        isSyncing={isSyncing}
+        onSync={handleSync}
+        isResyncingGrid={isResyncingGrid}
+        onResyncQualifying={handleResyncQualifying}
+        isResyncingResults={isResyncingResults}
+        onResyncResults={handleResyncResults}
+        onDeleteRace={handleDeleteRace}
+        notifyByEmail={notifyByEmail}
+        onNotifyByEmailChange={setNotifyByEmail}
+      />
 
       <div className="card space-y-2">
         <div className="flex items-center justify-between flex-wrap gap-2">
