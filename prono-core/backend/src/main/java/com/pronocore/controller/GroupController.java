@@ -9,6 +9,7 @@ import com.pronocore.dto.request.UpdateGroupPrivacyRequest;
 import com.pronocore.dto.request.UpdateGroupGagesEnabledRequest;
 import com.pronocore.dto.request.UpdateGroupInfoRequest;
 import com.pronocore.dto.request.UpdateGroupInviteCodeRequest;
+import com.pronocore.dto.request.UpdateGroupMemberNotificationPrefsRequest;
 import com.pronocore.dto.response.GroupAdminCountsResponse;
 import com.pronocore.dto.response.GroupMemberResponse;
 import com.pronocore.dto.response.GroupResponse;
@@ -145,6 +146,14 @@ public class GroupController {
                                                              @RequestBody UpdateGroupGagesEnabledRequest request,
                                                              Authentication auth) {
         return ResponseEntity.ok(groupAdminService.updateGagesEnabled(groupId, request.isGagesEnabled(), auth.getName()));
+    }
+
+    @PatchMapping("/{groupId}/members/me/notifications")
+    @Operation(summary = "Update the current user's per-group email notification overrides (any active member)")
+    public ResponseEntity<GroupResponse> updateMyNotificationPrefs(@PathVariable Long groupId,
+                                                                    @RequestBody UpdateGroupMemberNotificationPrefsRequest request,
+                                                                    Authentication auth) {
+        return ResponseEntity.ok(groupService.updateMyNotificationPrefs(groupId, request, auth.getName()));
     }
 
     @PatchMapping("/{groupId}/sports")

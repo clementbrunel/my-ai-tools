@@ -244,7 +244,7 @@ public class ReminderSchedulerService {
 
                 for (GroupMember gm : members) {
                     User user = gm.getUser();
-                    if (!user.isEmailReminderEnabled()) continue;
+                    if (!gm.isEffectiveEmailReminderEnabled()) continue;
                     // Dedup against the trigger day (not "today") so a user reminded
                     // earlier today for a 15h event still receives the 2h-next-morning email.
                     if (latestTriggerDay.equals(lastSentOf.apply(user))) continue;

@@ -179,7 +179,7 @@ class GroupAdminServiceTest {
         when(groupService.findUser("creator")).thenReturn(creator);
         when(groupService.findGroup(10L)).thenReturn(group);
         when(groupRepository.save(group)).thenReturn(group);
-        when(groupService.toResponse(group, GroupMember.GroupRole.GROUP_ADMIN, true))
+        when(groupService.toResponse(eq(group), any(), eq(true)))
                 .thenReturn(com.pronocore.dto.response.GroupResponse.builder().id(10L).name("New name").build());
 
         groupAdminService.updateInfo(10L, " New name ", " New description ", "creator");
@@ -194,7 +194,7 @@ class GroupAdminServiceTest {
         when(groupService.findUser("creator")).thenReturn(creator);
         when(groupService.findGroup(10L)).thenReturn(group);
         when(groupRepository.save(group)).thenReturn(group);
-        when(groupService.toResponse(group, GroupMember.GroupRole.GROUP_ADMIN, true))
+        when(groupService.toResponse(eq(group), any(), eq(true)))
                 .thenReturn(com.pronocore.dto.response.GroupResponse.builder().id(10L).build());
 
         groupAdminService.updateInfo(10L, "Test Group", "   ", "creator");
@@ -220,7 +220,7 @@ class GroupAdminServiceTest {
         when(groupService.findUser("creator")).thenReturn(creator);
         when(groupService.findGroup(10L)).thenReturn(group);
         when(groupRepository.save(group)).thenReturn(group);
-        when(groupService.toResponse(group, GroupMember.GroupRole.GROUP_ADMIN, true))
+        when(groupService.toResponse(eq(group), any(), eq(true)))
                 .thenReturn(com.pronocore.dto.response.GroupResponse.builder().id(10L).gagesEnabled(false).build());
 
         groupAdminService.updateGagesEnabled(10L, false, "creator");
@@ -248,7 +248,7 @@ class GroupAdminServiceTest {
         when(groupService.findGroup(10L)).thenReturn(group);
         when(groupService.generateUniqueCode()).thenReturn("RANDOM99");
         when(groupRepository.save(group)).thenReturn(group);
-        when(groupService.toResponse(group, GroupMember.GroupRole.GROUP_ADMIN, true))
+        when(groupService.toResponse(eq(group), any(), eq(true)))
                 .thenReturn(com.pronocore.dto.response.GroupResponse.builder().id(10L).build());
 
         groupAdminService.updateInviteCode(10L, "  ", "creator");
@@ -262,7 +262,7 @@ class GroupAdminServiceTest {
         when(groupService.findGroup(10L)).thenReturn(group);
         when(groupRepository.existsByInviteCode("CUSTOM01")).thenReturn(false);
         when(groupRepository.save(group)).thenReturn(group);
-        when(groupService.toResponse(group, GroupMember.GroupRole.GROUP_ADMIN, true))
+        when(groupService.toResponse(eq(group), any(), eq(true)))
                 .thenReturn(com.pronocore.dto.response.GroupResponse.builder().id(10L).build());
 
         groupAdminService.updateInviteCode(10L, " custom01 ", "creator");
@@ -296,7 +296,7 @@ class GroupAdminServiceTest {
         when(groupService.findUser("creator")).thenReturn(creator);
         when(groupService.findGroup(10L)).thenReturn(group);
         when(groupRepository.save(group)).thenReturn(group);
-        when(groupService.toResponse(group, GroupMember.GroupRole.GROUP_ADMIN, true))
+        when(groupService.toResponse(eq(group), any(), eq(true)))
                 .thenReturn(com.pronocore.dto.response.GroupResponse.builder().id(10L).build());
 
         groupAdminService.updateInviteCode(10L, "TESTCODE", "creator");

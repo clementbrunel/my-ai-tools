@@ -455,6 +455,53 @@ class DailyGageServiceTest {
     }
 
     @Test
+    void onMatchSettled_shouldRespectPerGroupGageEmailOverride() {
+        Forfeit forfeit = buildForfeit(1L, "Do pushups");
+        User loser = User.builder().id(3L).username("loser").email("l@test.com")
+                .password("encoded").role(User.Role.USER)
+                .build();
+
+        // Global default off, but this group overrides it on.
+        User optedInGlobally = User.builder().id(4L).username("optedInGlobally").email("g@test.com")
+                .password("encoded").role(User.Role.USER).emailGageEnabled(false)
+                .build();
+        GroupMember optedInMembership = GroupMember.builder()
+                .id(2L).group(group).user(optedInGlobally)
+                .role(GroupMember.GroupRole.MEMBER).status(GroupMember.MemberStatus.ACTIVE)
+                .emailGageEnabled(true)
+                .build();
+
+        // Global default on, but this group overrides it off.
+        User optedOutForGroup = User.builder().id(5L).username("optedOutForGroup").email("o@test.com")
+                .password("encoded").role(User.Role.USER).emailGageEnabled(true)
+                .build();
+        GroupMember optedOutMembership = GroupMember.builder()
+                .id(3L).group(group).user(optedOutForGroup)
+                .role(GroupMember.GroupRole.MEMBER).status(GroupMember.MemberStatus.ACTIVE)
+                .emailGageEnabled(false)
+                .build();
+
+        DailyGage dg = gage(1L, DailyGage.Mode.DIRECT, DailyGage.Status.ACTIVE);
+        dg.setForfeit(forfeit);
+
+        BetParticipation loserPart        = BetParticipation.builder().user(loser).pointsEarned(0).build();
+        BetParticipation optedInPart      = BetParticipation.builder().user(optedInGlobally).pointsEarned(5).build();
+        BetParticipation optedOutPart     = BetParticipation.builder().user(optedOutForGroup).pointsEarned(5).build();
+
+        when(matchRepository.countUnfinishedMatchesOnDay(any(), any(), any())).thenReturn(0L);
+        when(dailyGageRepository.findByMatchDate(MATCH_DAY)).thenReturn(List.of(dg));
+        when(betParticipationRepository.findSettledByMatchDayAndGroup(any(), any(), any(), eq(GROUP_ID)))
+                .thenReturn(List.of(loserPart, optedInPart, optedOutPart));
+        when(groupMemberRepository.findByGroupId(GROUP_ID))
+                .thenReturn(List.of(optedInMembership, optedOutMembership));
+
+        dailyGageService.onMatchSettled(MATCH_DAY);
+
+        verify(emailService).sendGageResolutionEmail(eq(optedInGlobally), any(), any(), any(), any(), any(), any(), any());
+        verify(emailService, never()).sendGageResolutionEmail(eq(optedOutForGroup), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
     void onMatchSettled_withSendEmailFalse_stillAssignsForfeitButSkipsEmail() {
         Forfeit forfeit = buildForfeit(1L, "Do pushups");
         User loser = User.builder().id(3L).username("loser").email("l@test.com")

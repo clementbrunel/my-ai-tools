@@ -118,7 +118,8 @@ const ProfileInfoForm: React.FC<Props> = ({
         <div>
           <p className="font-medium text-gray-900 dark:text-white text-sm">🔔 Rappel avant chaque pari</p>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-            Reçois un email 4 heures avant le match si tu n'as pas encore saisi ton pronostic
+            Reçois un email 4 heures avant le match si tu n'as pas encore saisi ton pronostic.
+            Réglage par défaut — ajustable groupe par groupe depuis chaque groupe.
           </p>
         </div>
         <button
@@ -142,7 +143,8 @@ const ProfileInfoForm: React.FC<Props> = ({
         <div>
           <p className="font-medium text-gray-900 dark:text-white text-sm">📊 Résultat journalier des paris</p>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-            Reçois un email avec le bilan des paris et l'attribution du gage quand la journée se termine
+            Reçois un email avec le bilan des paris et l'attribution du gage quand la journée se termine.
+            Réglage par défaut — ajustable groupe par groupe depuis chaque groupe.
           </p>
         </div>
         <button

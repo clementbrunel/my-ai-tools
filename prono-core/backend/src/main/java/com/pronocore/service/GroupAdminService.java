@@ -87,41 +87,41 @@ public class GroupAdminService {
 
     @Transactional
     public GroupResponse updatePrivacy(Long groupId, boolean isPrivate, String adminUsername) {
-        assertGroupAdmin(groupId, adminUsername);
+        GroupMember admin = assertGroupAdmin(groupId, adminUsername);
 
         Group group = groupService.findGroup(groupId);
         group.setPrivate(isPrivate);
         groupRepository.save(group);
 
-        return groupService.toResponse(group, GroupMember.GroupRole.GROUP_ADMIN, true);
+        return groupService.toResponse(group, admin, true);
     }
 
     @Transactional
     public GroupResponse updateGagesEnabled(Long groupId, boolean gagesEnabled, String adminUsername) {
-        assertGroupAdmin(groupId, adminUsername);
+        GroupMember admin = assertGroupAdmin(groupId, adminUsername);
 
         Group group = groupService.findGroup(groupId);
         group.setGagesEnabled(gagesEnabled);
         groupRepository.save(group);
 
-        return groupService.toResponse(group, GroupMember.GroupRole.GROUP_ADMIN, true);
+        return groupService.toResponse(group, admin, true);
     }
 
     @Transactional
     public GroupResponse updateInfo(Long groupId, String name, String description, String adminUsername) {
-        assertGroupAdmin(groupId, adminUsername);
+        GroupMember admin = assertGroupAdmin(groupId, adminUsername);
 
         Group group = groupService.findGroup(groupId);
         group.setName(name.trim());
         group.setDescription(description != null && !description.isBlank() ? description.trim() : null);
         groupRepository.save(group);
 
-        return groupService.toResponse(group, GroupMember.GroupRole.GROUP_ADMIN, true);
+        return groupService.toResponse(group, admin, true);
     }
 
     @Transactional
     public GroupResponse updateInviteCode(Long groupId, String requestedCode, String adminUsername) {
-        assertGroupAdmin(groupId, adminUsername);
+        GroupMember admin = assertGroupAdmin(groupId, adminUsername);
 
         Group group = groupService.findGroup(groupId);
         if (requestedCode == null || requestedCode.isBlank()) {
@@ -138,12 +138,12 @@ public class GroupAdminService {
         }
         groupRepository.save(group);
 
-        return groupService.toResponse(group, GroupMember.GroupRole.GROUP_ADMIN, true);
+        return groupService.toResponse(group, admin, true);
     }
 
     @Transactional
     public GroupResponse updateSports(Long groupId, Set<Sport> sports, String adminUsername) {
-        assertGroupAdmin(groupId, adminUsername);
+        GroupMember admin = assertGroupAdmin(groupId, adminUsername);
         if (sports == null || sports.isEmpty()) {
             throw new IllegalArgumentException("Un groupe doit jouer à au moins un sport");
         }
@@ -153,7 +153,7 @@ public class GroupAdminService {
         group.getSports().addAll(sports);
         groupRepository.save(group);
 
-        return groupService.toResponse(group, GroupMember.GroupRole.GROUP_ADMIN, true);
+        return groupService.toResponse(group, admin, true);
     }
 
     @Transactional
@@ -383,8 +383,8 @@ public class GroupAdminService {
 
     // -------------------------------------------------------------------------
 
-    private void assertGroupAdmin(Long groupId, String username) {
+    private GroupMember assertGroupAdmin(Long groupId, String username) {
         Long userId = groupService.findUser(username).getId();
-        groupMemberGuard.requireGroupAdmin(groupId, userId);
+        return groupMemberGuard.requireGroupAdmin(groupId, userId);
     }
 }

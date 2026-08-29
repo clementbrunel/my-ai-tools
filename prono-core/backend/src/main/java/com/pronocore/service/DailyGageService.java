@@ -319,8 +319,8 @@ public class DailyGageService {
 
         groupMemberRepository.findByGroupId(group.getId()).stream()
                 .filter(m -> m.getStatus() == GroupMember.MemberStatus.ACTIVE)
+                .filter(GroupMember::isEffectiveEmailGageEnabled)
                 .map(GroupMember::getUser)
-                .filter(User::isEmailGageEnabled)
                 .forEach(subscriber -> emailService.sendDailyScoresEmail(
                         subscriber, groupName, namedScores, dayContext.theme(), dayContext.dayLabel()));
 
@@ -414,8 +414,8 @@ public class DailyGageService {
 
         groupMemberRepository.findByGroupId(groupId).stream()
                 .filter(m -> m.getStatus() == GroupMember.MemberStatus.ACTIVE)
+                .filter(GroupMember::isEffectiveEmailGageEnabled)
                 .map(GroupMember::getUser)
-                .filter(User::isEmailGageEnabled)
                 .forEach(subscriber -> emailService.sendGageResolutionEmail(
                         subscriber, resolvedForfeit.getTitle(), resolvedForfeit.getDescription(),
                         resolvedUnlucky, groupName, namedScores, dayContext.theme(), dayContext.dayLabel()));

@@ -7,6 +7,7 @@ import GroupAdminSettings from './GroupAdminSettings';
 import GroupNameEditor from './GroupNameEditor';
 import InviteCodeEditor from './InviteCodeEditor';
 import MembersList from './MembersList';
+import NotificationPrefsPanel from './NotificationPrefsPanel';
 import { logger } from '@/utils/logger';
 
 interface Props {
@@ -84,6 +85,8 @@ const GroupCard: React.FC<Props> = ({ group, onLeave, onUpdate }) => {
         currentUsername={user?.username}
         onUpdate={onUpdate}
       />
+
+      <NotificationPrefsPanel group={group} onUpdate={onUpdate} />
 
       <InviteCodeEditor group={group} isGroupAdmin={isGroupAdmin} onUpdate={onUpdate} />
 
