@@ -31,6 +31,19 @@ export interface GroupMember {
   joinedAt: string;
 }
 
+/** Raw fields are null when the user hasn't overridden this group — the effective fields reflect what actually gates sending. */
+export interface GroupNotificationPrefs {
+  emailReminderEnabled: boolean | null;
+  emailGageEnabled: boolean | null;
+  effectiveEmailReminderEnabled: boolean;
+  effectiveEmailGageEnabled: boolean;
+}
+
+export interface UpdateGroupMemberNotificationPrefsRequest {
+  emailReminderEnabled: boolean | null;
+  emailGageEnabled: boolean | null;
+}
+
 export interface Group {
   id: number;
   sports: Sport[];
@@ -46,6 +59,8 @@ export interface Group {
   pendingApplications?: GroupMember[];
   createdAt: string;
   currentUserRole: GroupRole | null;
+  /** Requesting user's notification prefs for this group — null when not an active member. */
+  currentUserNotificationPrefs: GroupNotificationPrefs | null;
 }
 
 export interface PublicGroup {

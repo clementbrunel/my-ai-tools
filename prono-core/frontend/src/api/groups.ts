@@ -1,5 +1,5 @@
 import apiClient from './axios';
-import type { Group, GroupMember, PublicGroup, CreateGroupRequest, JoinGroupRequest, UpdateGroupInfoRequest, Match, Race, Sport } from '@/types';
+import type { Group, GroupMember, PublicGroup, CreateGroupRequest, JoinGroupRequest, UpdateGroupInfoRequest, Match, Race, Sport, UpdateGroupMemberNotificationPrefsRequest } from '@/types';
 
 export const getAllGroups = async (): Promise<Group[]> => {
   const response = await apiClient.get<Group[]>('/groups');
@@ -52,6 +52,14 @@ export const updateGroupPrivacy = async (groupId: number, isPrivate: boolean): P
 
 export const updateGroupGagesEnabled = async (groupId: number, gagesEnabled: boolean): Promise<Group> => {
   const response = await apiClient.patch<Group>(`/groups/${groupId}/gages-enabled`, { gagesEnabled });
+  return response.data;
+};
+
+export const updateMyGroupNotificationPrefs = async (
+  groupId: number,
+  data: UpdateGroupMemberNotificationPrefsRequest
+): Promise<Group> => {
+  const response = await apiClient.patch<Group>(`/groups/${groupId}/members/me/notifications`, data);
   return response.data;
 };
 

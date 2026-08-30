@@ -2,7 +2,9 @@ package com.pronocore.service;
 
 import com.pronocore.dto.request.CreateGroupRequest;
 import com.pronocore.dto.request.JoinGroupRequest;
+import com.pronocore.dto.request.UpdateGroupMemberNotificationPrefsRequest;
 import com.pronocore.dto.response.GroupMemberResponse;
+import com.pronocore.dto.response.GroupNotificationPrefsResponse;
 import com.pronocore.dto.response.GroupResponse;
 import com.pronocore.dto.response.PublicGroupResponse;
 import com.pronocore.entity.Group;
@@ -57,7 +59,7 @@ public class GroupService {
         groupMemberRepository.save(membership);
         log.info("Group '{}' created by {}", group.getName(), username);
 
-        return toResponse(group, GroupMember.GroupRole.GROUP_ADMIN, true);
+        return toResponse(group, membership, true);
     }
 
     @Transactional
@@ -80,7 +82,7 @@ public class GroupService {
         groupMemberRepository.save(membership);
         log.info("User {} joined group '{}'", username, group.getName());
 
-        return toResponse(group, GroupMember.GroupRole.MEMBER, false);
+        return toResponse(group, membership, false);
     }
 
     @Transactional
@@ -117,18 +119,18 @@ public class GroupService {
         Group group = findGroup(groupId);
 
         GroupMember membership = groupMemberRepository.findByGroupIdAndUserId(groupId, user.getId()).orElse(null);
-        GroupMember.GroupRole currentUserRole = (membership != null && membership.getStatus() == GroupMember.MemberStatus.ACTIVE)
-            ? membership.getRole() : null;
-        boolean isAdmin = currentUserRole == GroupMember.GroupRole.GROUP_ADMIN;
+        boolean isActiveMember = membership != null && membership.getStatus() == GroupMember.MemberStatus.ACTIVE;
+        GroupMember activeMembership = isActiveMember ? membership : null;
+        boolean isAdmin = isActiveMember && membership.getRole() == GroupMember.GroupRole.GROUP_ADMIN;
 
-        return toResponse(group, currentUserRole, isAdmin);
+        return toResponse(group, activeMembership, isAdmin);
     }
 
     @Transactional(readOnly = true)
     public List<GroupResponse> getMyGroups(String username) {
         User user = findUser(username);
         return groupMemberRepository.findByUserIdAndStatus(user.getId(), GroupMember.MemberStatus.ACTIVE).stream()
-            .map(m -> toResponse(m.getGroup(), m.getRole(), m.getRole() == GroupMember.GroupRole.GROUP_ADMIN))
+            .map(m -> toResponse(m.getGroup(), m, m.getRole() == GroupMember.GroupRole.GROUP_ADMIN))
             .toList();
     }
 
@@ -159,7 +161,7 @@ public class GroupService {
     @Transactional(readOnly = true)
     public List<GroupResponse> getAllGroups() {
         return groupRepository.findAllWithCreatedBy().stream()
-            .map(g -> toResponse(g, null, false))
+            .map(g -> toResponse(g, (GroupMember) null, false))
             .toList();
     }
 
@@ -189,6 +191,21 @@ public class GroupService {
         log.info("User {} left group {}", username, groupId);
     }
 
+    /** Any active member can set their own per-group override; a null field resets it to "inherit the global default". */
+    @Transactional
+    public GroupResponse updateMyNotificationPrefs(Long groupId, UpdateGroupMemberNotificationPrefsRequest request, String username) {
+        User user = findUser(username);
+        GroupMember membership = groupMemberGuard.requireActiveMembership(groupId, user.getId());
+
+        membership.setEmailReminderEnabled(request.getEmailReminderEnabled());
+        membership.setEmailGageEnabled(request.getEmailGageEnabled());
+        groupMemberRepository.save(membership);
+        log.info("User {} updated notification prefs for group {}: reminder={}, gage={}",
+            username, groupId, request.getEmailReminderEnabled(), request.getEmailGageEnabled());
+
+        return toResponse(membership.getGroup(), membership, membership.getRole() == GroupMember.GroupRole.GROUP_ADMIN);
+    }
+
     // -------------------------------------------------------------------------
     // Shared with GroupAdminService — package-private on purpose.
     // -------------------------------------------------------------------------
@@ -203,7 +220,8 @@ public class GroupService {
             .orElseThrow(() -> new IllegalArgumentException("Group not found: " + groupId));
     }
 
-    GroupResponse toResponse(Group group, GroupMember.GroupRole currentUserRole, boolean includeAdminData) {
+    /** currentUserMembership is null when the requester isn't an active member of this group (e.g. platform admin browsing). */
+    GroupResponse toResponse(Group group, GroupMember currentUserMembership, boolean includeAdminData) {
         List<GroupMember> activeMembers = groupMemberRepository.findByGroupIdAndStatus(group.getId(), GroupMember.MemberStatus.ACTIVE);
         List<GroupMemberResponse> pendingApplications = null;
         if (includeAdminData) {
@@ -224,8 +242,19 @@ public class GroupService {
             .members(activeMembers.stream().map(this::toMemberResponse).toList())
             .pendingApplications(pendingApplications)
             .createdAt(group.getCreatedAt())
-            .currentUserRole(currentUserRole)
+            .currentUserRole(currentUserMembership != null ? currentUserMembership.getRole() : null)
+            .currentUserNotificationPrefs(toNotificationPrefsResponse(currentUserMembership))
             .sports(new HashSet<>(group.getSports()))
+            .build();
+    }
+
+    private GroupNotificationPrefsResponse toNotificationPrefsResponse(GroupMember membership) {
+        if (membership == null) return null;
+        return GroupNotificationPrefsResponse.builder()
+            .emailReminderEnabled(membership.getEmailReminderEnabled())
+            .emailGageEnabled(membership.getEmailGageEnabled())
+            .effectiveEmailReminderEnabled(membership.isEffectiveEmailReminderEnabled())
+            .effectiveEmailGageEnabled(membership.isEffectiveEmailGageEnabled())
             .build();
     }
 

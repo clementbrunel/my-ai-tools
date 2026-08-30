@@ -37,9 +37,25 @@ public class GroupMember {
     @Builder.Default
     private MemberStatus status = MemberStatus.ACTIVE;
 
+    /** Per-group override of {@link User#isEmailReminderEnabled()}. Null = inherit the user's global default. */
+    @Column(name = "email_reminder_enabled")
+    private Boolean emailReminderEnabled;
+
+    /** Per-group override of {@link User#isEmailGageEnabled()}. Null = inherit the user's global default. */
+    @Column(name = "email_gage_enabled")
+    private Boolean emailGageEnabled;
+
     @CreationTimestamp
     @Column(name = "joined_at", nullable = false, updatable = false)
     private LocalDateTime joinedAt;
+
+    public boolean isEffectiveEmailReminderEnabled() {
+        return emailReminderEnabled != null ? emailReminderEnabled : user.isEmailReminderEnabled();
+    }
+
+    public boolean isEffectiveEmailGageEnabled() {
+        return emailGageEnabled != null ? emailGageEnabled : user.isEmailGageEnabled();
+    }
 
     public enum GroupRole {
         GROUP_ADMIN, MEMBER

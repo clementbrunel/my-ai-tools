@@ -36,6 +36,9 @@ public class GroupResponse {
     /** Role of the requesting user within this group (null if not a member). */
     private GroupMember.GroupRole currentUserRole;
 
+    /** Requesting user's notification prefs for this group (null if not an active member). */
+    private GroupNotificationPrefsResponse currentUserNotificationPrefs;
+
     /** Sports this group plays. */
     private Set<Sport> sports;
 }

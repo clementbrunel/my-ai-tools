@@ -117,6 +117,50 @@ class ReminderSchedulerServiceTest {
     }
 
     @Test
+    void sendMatchReminders_shouldSkipUserWithPerGroupReminderOverrideDisabled() {
+        // Global default is enabled, but this group's membership overrides it off.
+        membership.setEmailReminderEnabled(false);
+        Match trigger = Match.builder().id(10L).matchDate(LocalDateTime.now().plusHours(4)).build();
+        Bet openBet = Bet.builder().id(100L).status(Bet.Status.OPEN).group(group).build();
+
+        when(matchRepository.findUpcomingMatchesForReminder(any(), any())).thenReturn(List.of(trigger));
+        when(betRepository.findByMatchIdAndStatusOrderByCreatedAtDesc(10L, Bet.Status.OPEN))
+                .thenReturn(List.of(openBet));
+        when(groupMemberRepository.findByGroupIdAndStatus(1L, GroupMember.MemberStatus.ACTIVE))
+                .thenReturn(List.of(membership));
+
+        reminderSchedulerService.sendMatchReminders();
+
+        verify(emailService, never()).sendMatchReminder(any(), any());
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void sendMatchReminders_shouldEmailUserWithPerGroupReminderOverrideEnabledDespiteGlobalDefaultOff() {
+        // Global default is disabled, but this group's membership overrides it on.
+        user.setEmailReminderEnabled(false);
+        membership.setEmailReminderEnabled(true);
+        Match trigger = Match.builder().id(10L).matchDate(LocalDateTime.now().plusHours(4))
+                .teamA(Team.builder().id(1L).name("France").build())
+                .teamB(Team.builder().id(2L).name("Brésil").build())
+                .build();
+        Bet openBet = Bet.builder().id(100L).status(Bet.Status.OPEN).group(group).build();
+
+        when(matchRepository.findUpcomingMatchesForReminder(any(), any())).thenReturn(List.of(trigger));
+        when(betRepository.findByMatchIdAndStatusOrderByCreatedAtDesc(10L, Bet.Status.OPEN))
+                .thenReturn(List.of(openBet));
+        when(groupMemberRepository.findByGroupIdAndStatus(1L, GroupMember.MemberStatus.ACTIVE))
+                .thenReturn(List.of(membership));
+        when(betParticipationRepository.existsByUserIdAndMatchId(1L, 10L)).thenReturn(false);
+        when(matchRepository.findPendingMatchesTodayForUser(eq(1L), any(), any(), any()))
+                .thenReturn(List.of(trigger));
+
+        reminderSchedulerService.sendMatchReminders();
+
+        verify(emailService).sendMatchReminder(eq(user), eq(List.of(trigger)));
+    }
+
+    @Test
     void sendMatchReminders_shouldSkipUserWhoAlreadyBetOnTheMatch() {
         Match trigger = Match.builder().id(10L).matchDate(LocalDateTime.now().plusHours(4)).build();
         Bet openBet = Bet.builder().id(100L).status(Bet.Status.OPEN).group(group).build();

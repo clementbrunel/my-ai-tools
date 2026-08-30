@@ -93,6 +93,12 @@ export const makeGroup = (overrides?: Partial<Group>): Group => ({
   members: [makeGroupMember()],
   createdAt: '2026-06-01T00:00:00Z',
   currentUserRole: 'GROUP_ADMIN',
+  currentUserNotificationPrefs: {
+    emailReminderEnabled: null,
+    emailGageEnabled: null,
+    effectiveEmailReminderEnabled: true,
+    effectiveEmailGageEnabled: false,
+  },
   ...overrides,
 });
 
