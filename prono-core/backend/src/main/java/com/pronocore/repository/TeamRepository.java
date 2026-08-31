@@ -13,4 +13,6 @@ public interface TeamRepository extends JpaRepository<Team, Long> {
     Optional<Team> findByName(String name);
 
     List<Team> findAllByOrderByNameAsc();
+
+    List<Team> findAllByNameIn(List<String> names);
 }

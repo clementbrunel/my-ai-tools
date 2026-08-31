@@ -13,6 +13,8 @@ import lombok.NoArgsConstructor;
 public class FootStandingResponse {
 
     private int position;
+    /** Our internal team ID, when the team has been synced locally — null otherwise (e.g. not yet imported). */
+    private Long teamId;
     private String teamName;
     private String teamShortName;
     private String crestUrl;
