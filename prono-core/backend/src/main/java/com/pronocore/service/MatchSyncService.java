@@ -1,8 +1,12 @@
 package com.pronocore.service;
 
 import com.pronocore.client.FootballDataClient;
+import com.pronocore.dto.response.FixtureImportResponse;
+import com.pronocore.entity.Competition;
 import com.pronocore.entity.Match;
 import com.pronocore.entity.MatchExternalLinks;
+import com.pronocore.entity.Sport;
+import com.pronocore.repository.CompetitionRepository;
 import com.pronocore.repository.MatchRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,9 +28,10 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class MatchSyncService {
 
-    private final MatchRepository    matchRepository;
-    private final MatchService       matchService;
-    private final FootballDataClient footballDataClient;
+    private final MatchRepository       matchRepository;
+    private final MatchService          matchService;
+    private final FootballDataClient    footballDataClient;
+    private final CompetitionRepository competitionRepository;
 
     /**
      * Guards against the scheduled poll and an admin-triggered sync running at once:
@@ -70,6 +75,33 @@ public class MatchSyncService {
             doManualSync(matchRepository.findSyncableMatches());
         } finally {
             running.set(false);
+        }
+    }
+
+    /**
+     * Once a day, re-imports each active FOOT competition's season-wide fixture list so a
+     * reschedule reported by football-data.org (broadcast times are often only confirmed a
+     * few weeks out — until then several fixtures of the same matchday can share one
+     * placeholder kickoff time) gets picked up automatically, instead of relying on an admin
+     * remembering to click "Importer le calendrier". Runs before the 8am unresolved-matches
+     * digest so a date correction lands before that digest would otherwise flag the affected
+     * matches as stuck: a match whose stored kickoff time never matches the score-sync poll's
+     * window (see {@link #syncMatches}) never gets its score synced and stays open forever.
+     */
+    @Scheduled(cron = "0 0 3 * * *")
+    public void reconcileFixtureDates() {
+        if (footballDataClient.isDisabled()) return;
+        for (Competition competition : competitionRepository.findBySportAndActiveTrueAndFootballDataCompetitionCodeIsNotNull(Sport.FOOT)) {
+            try {
+                FixtureImportResponse result = matchService.importFixturesFromFootballData(competition.getId());
+                if (!result.created().isEmpty() || !result.rescheduled().isEmpty()) {
+                    log.info("MatchSyncService: fixture reconciliation for \"{}\" — {} new match(es), {} rescheduled",
+                            competition.getName(), result.created().size(), result.rescheduled().size());
+                }
+            } catch (Exception e) {
+                log.warn("MatchSyncService: fixture reconciliation failed for \"{}\" — {}",
+                        competition.getName(), e.getMessage());
+            }
         }
     }
 
