@@ -1,10 +1,13 @@
 package com.pronocore.service;
 
 import com.pronocore.client.FootballDataClient;
+import com.pronocore.dto.response.FixtureImportResponse;
 import com.pronocore.entity.Competition;
 import com.pronocore.entity.Match;
 import com.pronocore.entity.MatchExternalLinks;
+import com.pronocore.entity.Sport;
 import com.pronocore.entity.Team;
+import com.pronocore.repository.CompetitionRepository;
 import com.pronocore.repository.MatchRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -24,9 +27,10 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class MatchSyncServiceTest {
 
-    @Mock private MatchRepository    matchRepository;
-    @Mock private MatchService       matchService;
-    @Mock private FootballDataClient footballDataClient;
+    @Mock private MatchRepository       matchRepository;
+    @Mock private MatchService          matchService;
+    @Mock private FootballDataClient    footballDataClient;
+    @Mock private CompetitionRepository competitionRepository;
 
     @InjectMocks
     private MatchSyncService matchSyncService;
@@ -234,5 +238,46 @@ class MatchSyncServiceTest {
         matchSyncService.syncMatches();
 
         verify(matchRepository, never()).findSyncableMatches();
+    }
+
+    // ── Fixture date reconciliation (daily) ──────────────────────────────────
+
+    @Test
+    void doesNothingWhenApiKeyIsMissingForReconciliation() {
+        when(footballDataClient.isDisabled()).thenReturn(true);
+
+        matchSyncService.reconcileFixtureDates();
+
+        verifyNoInteractions(competitionRepository, matchService);
+    }
+
+    @Test
+    void reimportsEachActiveFootCompetitionWithAFootballDataCode() {
+        Competition premierLeague = Competition.builder().id(5L).name("Premier League").build();
+        when(footballDataClient.isDisabled()).thenReturn(false);
+        when(competitionRepository.findBySportAndActiveTrueAndFootballDataCompetitionCodeIsNotNull(Sport.FOOT))
+                .thenReturn(List.of(LIGUE_1, premierLeague));
+        when(matchService.importFixturesFromFootballData(anyLong()))
+                .thenReturn(FixtureImportResponse.builder().created(List.of()).rescheduled(List.of()).build());
+
+        matchSyncService.reconcileFixtureDates();
+
+        verify(matchService).importFixturesFromFootballData(2L);
+        verify(matchService).importFixturesFromFootballData(5L);
+    }
+
+    @Test
+    void keepsReconcilingOtherCompetitionsWhenOneImportFails() {
+        Competition premierLeague = Competition.builder().id(5L).name("Premier League").build();
+        when(footballDataClient.isDisabled()).thenReturn(false);
+        when(competitionRepository.findBySportAndActiveTrueAndFootballDataCompetitionCodeIsNotNull(Sport.FOOT))
+                .thenReturn(List.of(LIGUE_1, premierLeague));
+        when(matchService.importFixturesFromFootballData(2L)).thenThrow(new IllegalStateException("boom"));
+        when(matchService.importFixturesFromFootballData(5L))
+                .thenReturn(FixtureImportResponse.builder().created(List.of()).rescheduled(List.of()).build());
+
+        assertThatCode(() -> matchSyncService.reconcileFixtureDates()).doesNotThrowAnyException();
+
+        verify(matchService).importFixturesFromFootballData(5L);
     }
 }
