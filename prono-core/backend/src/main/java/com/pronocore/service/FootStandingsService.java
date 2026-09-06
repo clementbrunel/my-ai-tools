@@ -4,13 +4,17 @@ import com.pronocore.client.FootballDataClient;
 import com.pronocore.dto.response.FootStandingResponse;
 import com.pronocore.dto.response.FootStandingZone;
 import com.pronocore.entity.Competition;
+import com.pronocore.entity.Team;
 import com.pronocore.repository.CompetitionRepository;
+import com.pronocore.repository.TeamRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Football league table — a live, unstored proxy onto football-data.org's own standings
@@ -28,6 +32,7 @@ public class FootStandingsService {
 
     private final CompetitionRepository competitionRepository;
     private final FootballDataClient footballDataClient;
+    private final TeamRepository teamRepository;
 
     @Transactional(readOnly = true)
     public List<FootStandingResponse> getStandings(Long competitionId) {
@@ -42,9 +47,15 @@ public class FootStandingsService {
             throw new IllegalStateException("football-data.org sync is disabled — no FOOTBALL_DATA_API_KEY configured");
         }
 
-        return footballDataClient.getStandings(code).stream()
+        List<FootballDataClient.FdStanding> standings = footballDataClient.getStandings(code);
+        Map<String, Long> teamIdByName = teamRepository
+                .findAllByNameIn(standings.stream().map(FootballDataClient.FdStanding::teamName).toList()).stream()
+                .collect(Collectors.toMap(Team::getName, Team::getId));
+
+        return standings.stream()
                 .map(row -> FootStandingResponse.builder()
                         .position(row.position())
+                        .teamId(teamIdByName.get(row.teamName()))
                         .teamName(row.teamName())
                         .teamShortName(row.teamShortName())
                         .crestUrl(row.crestUrl())

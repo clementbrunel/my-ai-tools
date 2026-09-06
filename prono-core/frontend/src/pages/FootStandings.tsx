@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { getCompetitions, getStandings } from '@/api/competitions';
 import type { CompetitionDto, FootStanding, FootStandingZone } from '@/types';
 import TeamLogo from '@/components/TeamLogo';
@@ -15,9 +16,16 @@ const ZONE_STYLES: Record<FootStandingZone, { bar: string; label: string }> = {
 };
 
 const StandingRow: React.FC<{ standing: FootStanding }> = ({ standing }) => {
+  const navigate = useNavigate();
   const zone = standing.zone ? ZONE_STYLES[standing.zone] : null;
+  const teamId = standing.teamId;
   return (
-    <tr className="border-b border-gray-100 dark:border-gray-800 last:border-0">
+    <tr
+      className={`border-b border-gray-100 dark:border-gray-800 last:border-0 ${
+        teamId != null ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50' : ''
+      }`}
+      onClick={teamId != null ? () => navigate(`/foot/teams/${teamId}`) : undefined}
+    >
       <td className="p-0 w-1.5">
         <div className={`w-1.5 h-full min-h-[2.5rem] ${zone?.bar ?? ''}`} />
       </td>
@@ -25,7 +33,13 @@ const StandingRow: React.FC<{ standing: FootStanding }> = ({ standing }) => {
       <td className="py-2 px-2">
         <div className="flex items-center gap-2 min-w-0">
           <TeamLogo name={standing.teamName} crestUrl={standing.crestUrl} className="w-5 h-5 object-contain shrink-0" />
-          <span className="font-bold text-gray-900 dark:text-white truncate">{standing.teamName}</span>
+          {teamId != null ? (
+            <Link to={`/foot/teams/${teamId}`} className="font-bold text-gray-900 dark:text-white truncate hover:underline">
+              {standing.teamName}
+            </Link>
+          ) : (
+            <span className="font-bold text-gray-900 dark:text-white truncate">{standing.teamName}</span>
+          )}
         </div>
       </td>
       <td className="py-2 px-1.5 text-center text-gray-600 dark:text-gray-300">{standing.played}</td>
