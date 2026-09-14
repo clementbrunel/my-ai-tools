@@ -32,7 +32,7 @@ public class AnalysisController {
     @PostMapping(consumes = "multipart/form-data")
     public AnalysisSessionResponse analyze(
             @RequestParam(required = false) String title,
-            @RequestParam("word") MultipartFile wordFile,
+            @RequestParam(value = "word", required = false) MultipartFile wordFile,
             @RequestParam(value = "jxmlArchive", required = false) MultipartFile jxmlArchive,
             @RequestParam(value = "jxmlText", required = false) String jxmlText) throws IOException {
         return analysisService.analyze(title, wordFile, jxmlArchive, jxmlText);

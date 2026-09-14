@@ -53,7 +53,13 @@ public class AnalysisService {
 
     @Transactional
     public AnalysisSessionResponse analyze(String title, MultipartFile wordFile, MultipartFile jxmlArchive, String jxmlText) throws IOException {
-        String wordText = wordSpecParser.extractText(wordFile.getInputStream());
+        boolean hasWord = wordFile != null && !wordFile.isEmpty();
+        boolean hasJxml = (jxmlArchive != null && !jxmlArchive.isEmpty()) || (jxmlText != null && !jxmlText.isBlank());
+        if (!hasWord && !hasJxml) {
+            throw new IllegalArgumentException("Au moins une source (Word ou JXML) est requise.");
+        }
+
+        String wordText = hasWord ? wordSpecParser.extractText(wordFile.getInputStream()) : "";
 
         Map<String, String> jxmlFiles;
         AnalysisSession.JxmlSourceType sourceType;
@@ -68,7 +74,7 @@ public class AnalysisService {
 
         AnalysisSession session = new AnalysisSession();
         session.setTitle(title);
-        session.setWordFilename(wordFile.getOriginalFilename());
+        session.setWordFilename(hasWord ? wordFile.getOriginalFilename() : null);
         session.setJxmlSourceType(sourceType);
         session.setJxmlFilename(jxmlArchive != null ? jxmlArchive.getOriginalFilename() : null);
         session.setStatus(AnalysisSession.AnalysisStatus.CREATED);

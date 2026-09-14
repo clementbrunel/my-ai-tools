@@ -5,13 +5,13 @@ const client = axios.create({ baseURL: '/api' })
 
 export async function createAnalysis(params: {
   title?: string
-  word: File
+  word?: File
   jxmlArchive?: File
   jxmlText?: string
 }): Promise<AnalysisSessionResponse> {
   const form = new FormData()
   if (params.title) form.append('title', params.title)
-  form.append('word', params.word)
+  if (params.word) form.append('word', params.word)
   if (params.jxmlArchive) form.append('jxmlArchive', params.jxmlArchive)
   if (params.jxmlText) form.append('jxmlText', params.jxmlText)
 

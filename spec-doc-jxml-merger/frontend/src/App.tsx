@@ -17,16 +17,9 @@ function App() {
   const [error, setError] = useState<string | null>(null)
 
   async function handleAnalyze() {
-    if (!wordFile) {
-      setError('Sélectionne un fichier Word (.docx).')
-      return
-    }
-    if (jxmlMode === 'zip' && !jxmlFile) {
-      setError('Sélectionne une archive .zip du projet JWAY.')
-      return
-    }
-    if (jxmlMode === 'text' && !jxmlText.trim()) {
-      setError('Colle le contenu JXML.')
+    const hasJxml = jxmlMode === 'zip' ? !!jxmlFile : !!jxmlText.trim()
+    if (!wordFile && !hasJxml) {
+      setError('Fournis au moins une source : Word (.docx) ou JXML.')
       return
     }
     setError(null)
@@ -34,7 +27,7 @@ function App() {
     try {
       const result = await createAnalysis({
         title: title || undefined,
-        word: wordFile,
+        word: wordFile ?? undefined,
         jxmlArchive: jxmlMode === 'zip' ? (jxmlFile ?? undefined) : undefined,
         jxmlText: jxmlMode === 'text' ? jxmlText : undefined,
       })
@@ -109,7 +102,7 @@ function App() {
 
       <div className="panes">
         <section className="pane pane-word">
-          <h2>Spec Word</h2>
+          <h2>Spec Word (optionnel)</h2>
           <input type="file" accept=".docx" onChange={(e) => setWordFile(e.target.files?.[0] ?? null)} />
           {wordFile && <p className="filename">{wordFile.name}</p>}
         </section>
