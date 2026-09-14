@@ -27,8 +27,9 @@ services:
       DB_USER: ${DB_USER}
       DB_PASS: ${DB_PASS}
       FRONTEND_URL: ${FRONTEND_URL}
-      MISTRAL_VIBE_BASE_URL: ${MISTRAL_VIBE_BASE_URL:-}
-      MISTRAL_VIBE_API_KEY: ${MISTRAL_VIBE_API_KEY:-}
+      MISTRAL_BASE_URL: ${MISTRAL_BASE_URL:-}
+      MISTRAL_MODEL: ${MISTRAL_MODEL:-}
+      MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
       TZ: Europe/Paris
     depends_on:
       postgres:

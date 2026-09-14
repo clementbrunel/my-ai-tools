@@ -1,4 +1,7 @@
 spring:
+  output:
+    ansi:
+      enabled: ALWAYS
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5434/specmerger}
     username: ${DB_USER}
@@ -19,13 +22,16 @@ spring:
     multipart:
       max-file-size: 50MB
       max-request-size: 50MB
+  ai:
+    mistralai:
+      api-key: ${MISTRAL_API_KEY:}
+      chat:
+        base-url: ${MISTRAL_BASE_URL:https://mistral.invalid}
+        options:
+          model: ${MISTRAL_MODEL:unset}
 
 app:
   frontend-url: ${FRONTEND_URL:http://localhost:5173}
-
-mistral-vibe:
-  base-url: ${MISTRAL_VIBE_BASE_URL:https://mistral-vibe.internal}
-  api-key: ${MISTRAL_VIBE_API_KEY:}
 
 server:
   port: 8080
