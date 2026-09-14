@@ -17,6 +17,13 @@ docker compose up --build
 - pgAdmin: http://localhost:5051
 
 ### Backend only
+
+Option 1 — script (backend + postgres + pgAdmin dans Docker, suit les logs) :
+```bash
+./dev-back.sh
+```
+
+Option 2 — Maven local (backend en dehors de Docker, plus rapide à itérer) :
 ```bash
 docker compose up postgres -d
 cd backend && mvn spring-boot:run   # listens on :8080
