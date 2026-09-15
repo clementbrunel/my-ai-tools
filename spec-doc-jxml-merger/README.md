@@ -2,8 +2,6 @@
 
 Fusionne la spécification Word d'un projet JWAY avec son code JXML en un markdown unique, éditable et versionné.
 
-Voir [`SPEC.md`](./SPEC.md) pour l'architecture détaillée.
-
 ## Lancer le projet
 
 ### Stack complète (dev)

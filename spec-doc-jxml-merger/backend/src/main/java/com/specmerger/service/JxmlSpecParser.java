@@ -14,7 +14,7 @@ import java.util.zip.ZipInputStream;
  * Reads JXML sources, either as an uploaded archive of a JWAY project (multiple
  * .jxml files, possibly split into nested fragments) or as raw text pasted directly
  * in the UI. Real JXML-aware parsing (JWAY custom tags) is not implemented yet —
- * it needs the JWAY documentation, to be supplied separately — see SPEC.md.
+ * it needs the JWAY documentation, to be supplied separately — see issue #262.
  */
 @Component
 public class JxmlSpecParser {
