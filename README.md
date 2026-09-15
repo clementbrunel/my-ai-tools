@@ -11,6 +11,7 @@ A personal collection of AI development tools for inspecting, diagnosing, and op
 | [`mottaret-watch`](./mottaret-watch/) | Python script (Docker + Synology Task Scheduler) that scrapes rental availability for Méribel Mottaret Les Bleuets and sends email alerts via Resend |
 | [`prono-core`](./prono-core/)         | Full-stack World Cup 2026 betting app for friends — Java/Spring Boot + React, deployed via private Docker registry on NAS  |
 | [`my-house`](./my-house/)             | Home Assistant setup guide (Synology NAS Docker or Raspberry Pi 3B+ HAOS) with Somfy RTS (RFXCOM) and Zigbee integration   |
+| [`my-money-hub`](./my-money-hub/)     | Personal account aggregator — Java/Spring Boot + React, self-hosted alternative to Linxo (Enable Banking API for Boursorama/N26/Revolut, woob scraping for BNP Paribas) |
 | [`spec-doc-jxml-merger`](./spec-doc-jxml-merger/) | Merges a project's Word specification with its JWAY JXML source into a single, editable, version-tracked markdown — Java/Spring Boot + React + Postgres |
 
 ## Roadmap

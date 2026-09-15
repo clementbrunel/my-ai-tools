@@ -1,0 +1,30 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: my-money-hub
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5433/mymoneyhub}
+    username: ${DB_USER:mymoneyhub}
+    password: ${DB_PASS:mymoneyhub}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+mymoneyhub:
+  enable-banking:
+    base-url: ${ENABLE_BANKING_BASE_URL:https://api.enablebanking.com}
+    application-id: ${ENABLE_BANKING_APPLICATION_ID:}
+    private-key-path: ${ENABLE_BANKING_PRIVATE_KEY_PATH:}
+    redirect-url: ${ENABLE_BANKING_REDIRECT_URL:http://localhost:5173/connect/callback}
+  woob:
+    binary-path: ${WOOB_BINARY_PATH:woob}
