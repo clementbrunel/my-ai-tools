@@ -11,7 +11,7 @@ import java.util.stream.Collectors;
 
 /**
  * Extracts raw text from the Word specification. Splitting into logical sections
- * (screens, features...) is not implemented yet — see SPEC.md "Découpage des specs".
+ * (screens, features...) is not implemented yet — see issues #260 and #261.
  */
 @Component
 public class WordSpecParser {

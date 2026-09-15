@@ -13,7 +13,7 @@ Each tool lives in its own subdirectory with its own `package.json`, `src/`, and
 | `mottaret-watch/`  | `mottaret-watch`  | Python cron (GitHub Actions) — scrapes rental availability, emails alerts |
 | `prono-core/`      | `prono-core`      | Full-stack World Cup 2026 betting app (Java/Spring + React)              |
 | `my-house/`        | `my-house`        | Home Assistant setup (NAS Docker or Pi 3B+ HAOS) + Somfy RTS/Zigbee      |
-| `spec-doc-jxml-merger/` | `spec-doc-jxml-merger` | Merges a project's Word spec with its JWAY JXML source into a single editable, version-tracked markdown (Java/Spring Boot + React + Postgres, see its own `SPEC.md`) |
+| `spec-doc-jxml-merger/` | `spec-doc-jxml-merger` | Merges a project's Word spec with its JWAY JXML source into a single editable, version-tracked markdown (Java/Spring Boot + React + Postgres) |
 
 ## Adding a new tool
 

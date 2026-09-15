@@ -12,7 +12,7 @@ import java.util.Set;
  * Naive line-level comparison between the Word text and the concatenated JXML text.
  * A real diff needs the actual JWAY grammar (headings, screens, fields) to align
  * sections meaningfully — this heuristic is a placeholder until the JWAY docs and
- * a real granularity (see SPEC.md "Découpage des specs") are available.
+ * a real granularity are available (see issues #260 and #263).
  */
 @Component
 public class DiffEngine {
