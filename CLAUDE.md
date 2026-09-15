@@ -21,6 +21,12 @@ Each tool lives in its own subdirectory with its own `package.json`, `src/`, and
 2. Add `package.json`, `tsconfig.json`, `src/`, `README.md`
 3. Add a row to the table above and in the root `README.md`
 
+## GitHub issues & PRs
+
+Every issue/PR gets a label matching the sub-project directory it belongs to (`ai-env-manager`,
+`mistral-chat`, `mottaret-watch`, `prono-core`, `my-house`) so work stays filterable by tool in
+this monorepo. See `.claude/skills/github-issue-pr/` for the convention and how to apply it.
+
 ## Common commands (per tool)
 
 ```bash
