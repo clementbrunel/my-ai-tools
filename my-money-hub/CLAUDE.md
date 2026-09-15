@@ -2,7 +2,7 @@
 
 Full-stack app: **Java 21 + Spring Boot 3.5.16** (backend) + **React 19 + TypeScript + Vite** (frontend) + **PostgreSQL 16** (database).
 
-Voir [`SPECS.md`](./SPECS.md) pour le détail fonctionnel/technique : couverture par institution, modèle de données, API, état des connecteurs et prochaines étapes.
+Détail fonctionnel/technique (couverture par institution, modèle de données, API, état des connecteurs) : voir les [issues GitHub du projet](https://github.com/clementbrunel/my-ai-tools/issues?q=label%3Amy-money-hub).
 
 ## Running the Project
 
@@ -41,7 +41,6 @@ cd frontend && npm install && npm run dev   # listens on :5173, proxies /api →
 | `backend/` | Spring Boot — entités, repositories, `connector/` (un `BankConnector` par institution), `service/SyncService` (orchestrateur) |
 | `frontend/` | React — Dashboard (patrimoine total + liste des comptes) |
 | `docker-compose.yml` | Stack dev (backend + frontend + postgres + pgAdmin) |
-| `SPECS.md` | Spécification fonctionnelle/technique — couverture par institution, modèle de données, API, connecteurs, prochaines étapes |
 
 ## Environment Variables
 
