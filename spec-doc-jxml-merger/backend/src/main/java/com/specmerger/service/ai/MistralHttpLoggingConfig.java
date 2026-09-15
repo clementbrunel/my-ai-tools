@@ -20,10 +20,10 @@ import java.nio.charset.StandardCharsets;
 
 /**
  * Logs the raw HTTP request/response exchanged with the mistral-vibe gateway
- * (URL, headers with Authorization masked, pretty-printed body) so the exact
- * wire contract can be inspected while it's being confirmed with the platform
- * team. Requests are logged in cyan, successful responses in green, error
- * responses in red — easy to spot which is which in the console.
+ * (URL, headers with Authorization masked, pretty-printed body) — kept for
+ * ongoing debug visibility on the confirmed contract. Requests are logged in
+ * cyan, successful responses in green, error responses in red — easy to spot
+ * which is which in the console.
  */
 @Slf4j
 @Configuration
