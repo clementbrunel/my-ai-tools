@@ -14,12 +14,19 @@ Each tool lives in its own subdirectory with its own `package.json`, `src/`, and
 | `prono-core/`      | `prono-core`      | Full-stack World Cup 2026 betting app (Java/Spring + React)              |
 | `my-house/`        | `my-house`        | Home Assistant setup (NAS Docker or Pi 3B+ HAOS) + Somfy RTS/Zigbee      |
 | `my-money-hub/`    | `my-money-hub`    | Personal multi-bank/insurance account aggregator (Java/Spring + React), self-hosted alternative to Linxo |
+| `spec-doc-jxml-merger/` | `spec-doc-jxml-merger` | Merges a project's Word spec with its JWAY JXML source into a single editable, version-tracked markdown (Java/Spring Boot + React + Postgres) |
 
 ## Adding a new tool
 
 1. Create a new directory: `mkdir my-new-tool && cd my-new-tool`
 2. Add `package.json`, `tsconfig.json`, `src/`, `README.md`
 3. Add a row to the table above and in the root `README.md`
+
+## GitHub issues & PRs
+
+Every issue/PR gets a label matching the sub-project directory it belongs to (`ai-env-manager`,
+`mistral-chat`, `mottaret-watch`, `prono-core`, `my-house`) so work stays filterable by tool in
+this monorepo. See `.claude/skills/github-issue-pr/` for the convention and how to apply it.
 
 ## Common commands (per tool)
 

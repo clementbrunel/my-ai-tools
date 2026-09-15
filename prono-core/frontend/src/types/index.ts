@@ -130,6 +130,8 @@ export type FootStandingZone =
 /** One row of a football league table, proxied live from football-data.org (no local persistence). */
 export interface FootStanding {
   position: number;
+  /** Our internal team ID, when the team has been synced locally — null otherwise. */
+  teamId: number | null;
   teamName: string;
   teamShortName: string | null;
   crestUrl: string | null;

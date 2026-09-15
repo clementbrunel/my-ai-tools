@@ -1,0 +1,49 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: specmerger-postgres
+    environment:
+      POSTGRES_DB: specmerger
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    container_name: specmerger-backend
+    ports:
+      - "8091:8080"
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/specmerger
+      DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASS}
+      FRONTEND_URL: ${FRONTEND_URL}
+      MISTRAL_BASE_URL: ${MISTRAL_BASE_URL:-}
+      MISTRAL_MODEL: ${MISTRAL_MODEL:-}
+      MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
+      TZ: Europe/Paris
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: specmerger-frontend
+    ports:
+      - "3001:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
