@@ -13,6 +13,7 @@ function App() {
   const [gitlabProjects, setGitlabProjects] = useState<GitLabProjectSummary[]>([])
   const [gitlabProjectId, setGitlabProjectId] = useState('')
   const [gitlabLoading, setGitlabLoading] = useState(false)
+  const [gitlabSearch, setGitlabSearch] = useState('')
   const [session, setSession] = useState<AnalysisSessionResponse | null>(null)
   const [markdown, setMarkdown] = useState('')
   const [versions, setVersions] = useState<DocumentVersion[]>([])
@@ -96,6 +97,13 @@ function App() {
     a.click()
     URL.revokeObjectURL(url)
   }
+
+  const gitlabSearchTerm = gitlabSearch.trim().toLowerCase()
+  const filteredGitlabProjects = gitlabSearchTerm
+    ? gitlabProjects.filter((p) =>
+        `${p.groupKey} ${p.pathWithNamespace} ${p.name}`.toLowerCase().includes(gitlabSearchTerm),
+      )
+    : gitlabProjects
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -229,18 +237,29 @@ function App() {
                 {gitlabLoading ? 'Chargement…' : 'Charger les projets GitLab'}
               </button>
               {gitlabProjects.length > 0 && (
-                <select
-                  value={gitlabProjectId}
-                  onChange={(e) => setGitlabProjectId(e.target.value)}
-                  className="rounded border border-[#dcdcde] px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-gl-orange"
-                >
-                  <option value="">— Choisir un projet —</option>
-                  {gitlabProjects.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      [{p.groupKey}] {p.pathWithNamespace}
+                <>
+                  <input
+                    type="text"
+                    value={gitlabSearch}
+                    onChange={(e) => setGitlabSearch(e.target.value)}
+                    placeholder="Rechercher un projet (groupe, chemin, nom)…"
+                    className="rounded border border-[#dcdcde] px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-gl-orange"
+                  />
+                  <select
+                    value={gitlabProjectId}
+                    onChange={(e) => setGitlabProjectId(e.target.value)}
+                    className="rounded border border-[#dcdcde] px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-gl-orange"
+                  >
+                    <option value="">
+                      {filteredGitlabProjects.length === 0 ? 'Aucun projet ne correspond' : '— Choisir un projet —'}
                     </option>
-                  ))}
-                </select>
+                    {filteredGitlabProjects.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        [{p.groupKey}] {p.pathWithNamespace}
+                      </option>
+                    ))}
+                  </select>
+                </>
               )}
             </div>
           )}
