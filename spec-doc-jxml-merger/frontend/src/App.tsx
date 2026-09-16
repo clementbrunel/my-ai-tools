@@ -5,7 +5,6 @@ import {
   listGitlabProjects,
   listGitlabSources,
   previewGitlabJxml,
-  previewGitlabSpec,
 } from './api/analysis'
 import CodePanel from './components/CodePanel'
 import CollapsedPanel from './components/CollapsedPanel'
@@ -172,7 +171,10 @@ function App() {
       } else if (jxmlMode === 'gitlab') {
         const params = currentGitlabPreviewParams()
         if (!params) return
-        setMarkdown(await previewGitlabSpec(params))
+        // No GitLab-specific generation endpoint — resolve the Include chain first (same call
+        // the raw-JXML preview uses), then feed the result into the generic jxml generator.
+        const resolved = await previewGitlabJxml(params)
+        setMarkdown(await generateSpecFromJxml({ jxmlText: resolved.content }))
       } else if (jxmlMode === 'zip') {
         setMarkdown(await generateSpecFromJxml({ jxmlArchive: jxmlFile as File }))
       } else {

@@ -14,10 +14,13 @@ import org.springframework.web.multipart.MultipartFile;
 
 /**
  * Generates a markdown spec from a single source — Word alone, or JXML alone (uploaded archive
- * or pasted text; the GitLab source's equivalent is {@link GitLabController#previewSpec}, which
- * additionally resolves Include fragments). Read-only, no analysis session is created. Backs the
- * single adaptive "Générer la doc" action: which source is used is decided by the caller, not
- * here — see issue #262. Combining both sources into one diffed spec is not implemented yet.
+ * or pasted text). For a GitLab source, the caller resolves the JXML first via
+ * {@link GitLabController#previewJxml} (which flattens Include fragments) and passes the result
+ * here as {@code jxmlText} — there's no GitLab-specific generation endpoint, so Include
+ * resolution and spec generation stay decoupled instead of duplicating this logic per source.
+ * Read-only, no analysis session is created. Backs the single adaptive "Générer la doc" action:
+ * which source is used is decided by the caller, not here — see issue #262. Combining both
+ * sources into one diffed spec is not implemented yet.
  */
 @RestController
 @RequestMapping("/api/spec")

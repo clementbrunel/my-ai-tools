@@ -83,14 +83,6 @@ export async function previewGitlabJxml(params: GitlabPreviewParams): Promise<Gi
   return data
 }
 
-/** The markdown spec the model generates from the resolved JXML alone (no Word/diff yet). */
-export async function previewGitlabSpec(params: GitlabPreviewParams): Promise<string> {
-  const { data } = await client.get<SpecGenerationResult>('/gitlab/preview-spec', {
-    params: buildGitlabPreviewQuery(params),
-  })
-  return data.markdown
-}
-
 /** The markdown spec the model generates from the Word/Excel spec alone (no JXML/diff yet). */
 export async function generateSpecFromWord(word: File): Promise<string> {
   const form = new FormData()
@@ -103,8 +95,8 @@ export async function generateSpecFromWord(word: File): Promise<string> {
 
 /**
  * The markdown spec the model generates from JXML sources alone (zip archive or pasted text —
- * no Include resolution, unlike the GitLab source's {@link previewGitlabSpec}; see
- * SpecGenerationController).
+ * for a GitLab source, resolve the JXML first via {@link previewGitlabJxml} and pass its content
+ * as jxmlText; see SpecGenerationController).
  */
 export async function generateSpecFromJxml(params: { jxmlArchive?: File; jxmlText?: string }): Promise<string> {
   const form = new FormData()
