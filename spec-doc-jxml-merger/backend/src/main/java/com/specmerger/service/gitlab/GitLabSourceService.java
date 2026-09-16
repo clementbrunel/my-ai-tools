@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -77,6 +78,8 @@ public class GitLabSourceService {
                             group.key()));
                 }
             }
+            summaries.sort(Comparator.comparing(GitLabProjectSummary::groupKey, String.CASE_INSENSITIVE_ORDER)
+                    .thenComparing(GitLabProjectSummary::name, String.CASE_INSENSITIVE_ORDER));
             return summaries;
         }
     }
