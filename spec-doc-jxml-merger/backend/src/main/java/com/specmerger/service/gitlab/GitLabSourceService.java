@@ -202,14 +202,20 @@ public class GitLabSourceService {
      * Fetches the selected sources (forcing the chosen démarche's entry point in, exactly
      * like {@link #fetchRelevantSources}) and flattens its Include chain into a single
      * document — this is what the user reviews before it's actually sent to the model.
+     * Issues worth the user's attention (unresolved Includes, incomplete tag nesting) are
+     * reported separately from the content, rather than left for them to spot buried in it.
      */
-    public String previewResolvedJxml(String groupKey, String projectIdOrPath, Collection<String> selectedPaths,
-            String entryPointPath) throws GitLabApiException, IOException {
+    public JxmlPreviewResult previewResolvedJxml(String groupKey, String projectIdOrPath,
+            Collection<String> selectedPaths, String entryPointPath) throws GitLabApiException, IOException {
         if (entryPointPath == null || entryPointPath.isBlank()) {
             throw new IllegalArgumentException("entryPointPath est requis pour prévisualiser le JXML résolu.");
         }
         Map<String, String> filesByPath = fetchRelevantSources(groupKey, projectIdOrPath, selectedPaths, entryPointPath);
-        return JxmlIncludeResolver.resolve(entryPointPath, filesByPath);
+        String resolved = JxmlIncludeResolver.resolve(entryPointPath, filesByPath);
+        return new JxmlPreviewResult(resolved, JxmlIncludeResolver.findWarnings(resolved));
+    }
+
+    public record JxmlPreviewResult(String content, List<String> warnings) {
     }
 
     private static Collection<String> withEntryPoint(Collection<String> selectedPaths, String entryPointPath) {

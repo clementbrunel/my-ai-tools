@@ -24,6 +24,7 @@ export interface GitLabSourceListing {
 
 export interface GitLabJxmlPreview {
   content: string
+  warnings: string[]
 }
 
 export interface Divergence {

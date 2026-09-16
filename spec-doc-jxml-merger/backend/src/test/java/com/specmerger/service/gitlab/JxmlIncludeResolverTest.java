@@ -3,6 +3,7 @@ package com.specmerger.service.gitlab;
 import org.junit.jupiter.api.Test;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -70,5 +71,38 @@ class JxmlIncludeResolverTest {
     @Test
     void returnsEmptyStringWhenTheRootFileIsUnknown() {
         assertThat(JxmlIncludeResolver.resolve("forms/missing.jxml", Map.of())).isEmpty();
+    }
+
+    @Test
+    void reportsNoWarningsForWellFormedContent() {
+        List<String> warnings = JxmlIncludeResolver.findWarnings("<JForm><Section><Title>Un</Title></Section></JForm>");
+
+        assertThat(warnings).isEmpty();
+    }
+
+    @Test
+    void reportsUnresolvedIncludesAsWarnings() {
+        Map<String, String> files = Map.of(
+                "forms/demarche.jxml", "<JForm><Include DocumentId=\"absent\" /></JForm>");
+        String resolved = JxmlIncludeResolver.resolve("forms/demarche.jxml", files);
+
+        List<String> warnings = JxmlIncludeResolver.findWarnings(resolved);
+
+        assertThat(warnings).hasSize(1);
+        assertThat(warnings.get(0)).contains("absent").contains("introuvable");
+    }
+
+    @Test
+    void reportsAnUnclosedTagAsAWarning() {
+        List<String> warnings = JxmlIncludeResolver.findWarnings("<JForm><Section><Title>Un</Title></Section>");
+
+        assertThat(warnings).anySatisfy(w -> assertThat(w).contains("JForm").contains("jamais refermée"));
+    }
+
+    @Test
+    void reportsAMismatchedClosingTagAsAWarning() {
+        List<String> warnings = JxmlIncludeResolver.findWarnings("<JForm><Section><Title>Un</Section></Title></JForm>");
+
+        assertThat(warnings).anySatisfy(w -> assertThat(w).contains("Imbrication incomplète"));
     }
 }

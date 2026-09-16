@@ -25,6 +25,7 @@ function App() {
   const [gitlabSourcesLoading, setGitlabSourcesLoading] = useState(false)
   const [gitlabPreviewOpen, setGitlabPreviewOpen] = useState(false)
   const [gitlabPreviewContent, setGitlabPreviewContent] = useState('')
+  const [gitlabPreviewWarnings, setGitlabPreviewWarnings] = useState<string[]>([])
   const [gitlabPreviewLoading, setGitlabPreviewLoading] = useState(false)
 
   const { session, markdown, setMarkdown, versions, loading, error, setError, analyze, save, restore } =
@@ -103,13 +104,14 @@ function App() {
     setGitlabPreviewOpen(true)
     setGitlabPreviewLoading(true)
     try {
-      const content = await previewGitlabJxml({
+      const preview = await previewGitlabJxml({
         groupKey: project.groupKey,
         projectId: gitlabProjectId,
         entryPointPath: gitlabEntryPointPath,
         selectedPaths: Array.from(gitlabSelectedPaths),
       })
-      setGitlabPreviewContent(content)
+      setGitlabPreviewContent(preview.content)
+      setGitlabPreviewWarnings(preview.warnings)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Échec de la prévisualisation — voir la console.')
       console.error(e)
@@ -182,6 +184,7 @@ function App() {
           onPreviewGitlabJxml={handlePreviewGitlabJxml}
           gitlabPreviewOpen={gitlabPreviewOpen}
           gitlabPreviewContent={gitlabPreviewContent}
+          gitlabPreviewWarnings={gitlabPreviewWarnings}
           gitlabPreviewLoading={gitlabPreviewLoading}
           onCloseGitlabPreview={() => setGitlabPreviewOpen(false)}
           gitlabSourcePaths={gitlabSourcePaths}

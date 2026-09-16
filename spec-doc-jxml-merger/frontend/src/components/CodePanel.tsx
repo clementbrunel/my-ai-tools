@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react'
 import type { GitLabEntryPoint, GitLabProjectSummary, JxmlMode } from '../types'
+import XmlTreeView from './XmlTreeView'
 
 interface CodePanelProps {
   jxmlMode: JxmlMode
@@ -20,6 +22,7 @@ interface CodePanelProps {
   onPreviewGitlabJxml: () => void
   gitlabPreviewOpen: boolean
   gitlabPreviewContent: string
+  gitlabPreviewWarnings: string[]
   gitlabPreviewLoading: boolean
   onCloseGitlabPreview: () => void
   gitlabSourcePaths: string[]
@@ -56,6 +59,7 @@ function CodePanel({
   onPreviewGitlabJxml,
   gitlabPreviewOpen,
   gitlabPreviewContent,
+  gitlabPreviewWarnings,
   gitlabPreviewLoading,
   onCloseGitlabPreview,
   gitlabSourcePaths,
@@ -65,6 +69,17 @@ function CodePanel({
   onClearGitlabPaths,
   gitlabSourcesLoading,
 }: CodePanelProps) {
+  const [previewViewMode, setPreviewViewMode] = useState<'tree' | 'raw'>('tree')
+
+  useEffect(() => {
+    if (!gitlabPreviewOpen) return
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') onCloseGitlabPreview()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [gitlabPreviewOpen, onCloseGitlabPreview])
+
   const gitlabSearchTerm = gitlabSearch.trim().toLowerCase()
   const filteredGitlabProjects = gitlabSearchTerm
     ? gitlabProjects.filter((p) =>
@@ -183,26 +198,68 @@ function CodePanel({
             </button>
           )}
           {gitlabPreviewOpen && (
-            <div className="border border-[#dcdcde] rounded">
-              <div className="flex items-center justify-between gap-2 px-2 py-1.5 border-b border-[#dcdcde] bg-[#fafafa] text-sm">
-                <span className="text-gray-600">
-                  JXML envoyé au modèle (Include résolus, includes/traductions/Java non affichés ici)
-                </span>
-                <button
-                  type="button"
-                  className="text-gl-blue hover:text-gl-blue-dark hover:underline"
-                  onClick={onCloseGitlabPreview}
-                >
-                  Fermer
-                </button>
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+              onClick={onCloseGitlabPreview}
+            >
+              <div
+                className="bg-white rounded shadow-xl w-full max-w-5xl max-h-[85vh] flex flex-col"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-[#dcdcde] bg-[#fafafa] text-sm shrink-0">
+                  <span className="text-gray-600">
+                    JXML envoyé au modèle (Include résolus, includes/traductions/Java non affichés ici)
+                  </span>
+                  <button
+                    type="button"
+                    className="text-gl-blue hover:text-gl-blue-dark hover:underline"
+                    onClick={onCloseGitlabPreview}
+                  >
+                    Fermer
+                  </button>
+                </div>
+                {gitlabPreviewLoading ? (
+                  <p className="text-sm text-gray-500 p-3">Chargement…</p>
+                ) : (
+                  <>
+                    {gitlabPreviewWarnings.length > 0 && (
+                      <div className="px-3 py-2 border-b border-amber-200 bg-amber-50 text-sm shrink-0">
+                        <p className="font-medium text-amber-800 mb-1">
+                          {gitlabPreviewWarnings.length} problème(s) détecté(s) dans le JXML généré
+                        </p>
+                        <ul className="list-disc list-inside text-amber-800 space-y-0.5">
+                          {gitlabPreviewWarnings.map((warning, i) => (
+                            <li key={i}>{warning}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    <div className="flex gap-4 px-3 pt-2 text-sm border-b border-[#dcdcde] shrink-0">
+                      {(['tree', 'raw'] as const).map((mode) => (
+                        <button
+                          key={mode}
+                          type="button"
+                          className={`pb-2 -mb-px border-b-2 ${
+                            previewViewMode === mode
+                              ? 'border-gl-orange text-[#303030] font-medium'
+                              : 'border-transparent text-gray-500 hover:text-[#303030]'
+                          }`}
+                          onClick={() => setPreviewViewMode(mode)}
+                        >
+                          {mode === 'tree' ? 'Arborescence' : 'Texte brut'}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="overflow-auto p-3 flex-1">
+                      {previewViewMode === 'tree' ? (
+                        <XmlTreeView xml={gitlabPreviewContent} />
+                      ) : (
+                        <pre className="text-[12px] whitespace-pre-wrap break-all">{gitlabPreviewContent}</pre>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
-              {gitlabPreviewLoading ? (
-                <p className="text-sm text-gray-500 p-2">Chargement…</p>
-              ) : (
-                <pre className="max-h-96 overflow-auto text-[12px] p-2 whitespace-pre-wrap break-all">
-                  {gitlabPreviewContent}
-                </pre>
-              )}
             </div>
           )}
           {gitlabSourcePaths.length > 0 && (
