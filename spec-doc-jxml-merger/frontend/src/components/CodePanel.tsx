@@ -85,7 +85,7 @@ function CodePanel({
     : gitlabProjects
 
   return (
-    <section className="card p-4 overflow-auto">
+    <section className="card p-4 overflow-auto min-h-0">
       <div className="flex items-center justify-between gap-2 mb-3">
         <h2 className="field-label">Spec JXML</h2>
         {onCollapse && (

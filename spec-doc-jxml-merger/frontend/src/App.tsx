@@ -211,7 +211,7 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="h-screen flex flex-col overflow-hidden">
       <Header
         title={title}
         onTitleChange={setTitle}
@@ -224,58 +224,60 @@ function App() {
       />
 
       {error && (
-        <div className="px-4 py-2 bg-red-50 text-gl-danger text-sm border-b border-red-200">{error}</div>
+        <div className="shrink-0 px-4 py-2 bg-red-50 text-gl-danger text-sm border-b border-red-200">{error}</div>
       )}
 
-      <div className={`grid grid-cols-1 ${gridColsClass} gap-3 p-3 flex-1`}>
-        {specCollapsed ? (
-          <CollapsedPanel label="Spec Word" icon="▶" onExpand={() => setSpecCollapsed(false)} />
-        ) : (
-          <SpecPanel
-            wordFile={wordFile}
-            onWordFileChange={setWordFile}
-            onCollapse={() => setSpecCollapsed(true)}
-          />
-        )}
+      <div className="flex-1 min-h-0 flex flex-col overflow-y-auto">
+        <div className={`grid grid-cols-1 ${gridColsClass} gap-3 p-3 flex-1 min-h-0`}>
+          {specCollapsed ? (
+            <CollapsedPanel label="Spec Word" icon="▶" onExpand={() => setSpecCollapsed(false)} />
+          ) : (
+            <SpecPanel
+              wordFile={wordFile}
+              onWordFileChange={setWordFile}
+              onCollapse={() => setSpecCollapsed(true)}
+            />
+          )}
 
-        <MergePanel markdown={markdown} onMarkdownChange={setMarkdown} versions={versions} onRestore={restore} />
+          <MergePanel markdown={markdown} onMarkdownChange={setMarkdown} versions={versions} onRestore={restore} />
 
-        {codeCollapsed ? (
-          <CollapsedPanel label="Spec JXML" icon="◀" onExpand={() => setCodeCollapsed(false)} />
-        ) : (
-          <CodePanel
-            jxmlMode={jxmlMode}
-            onJxmlModeChange={setJxmlMode}
-            jxmlText={jxmlText}
-            onJxmlTextChange={setJxmlText}
-            gitlabProjects={gitlabProjects}
-            gitlabProjectId={gitlabProjectId}
-            onSelectGitlabProject={handleSelectGitlabProject}
-            gitlabLoading={gitlabLoading}
-            onLoadGitlabProjects={handleLoadGitlabProjects}
-            gitlabSearch={gitlabSearch}
-            onGitlabSearchChange={setGitlabSearch}
-            gitlabEntryPoints={gitlabEntryPoints}
-            gitlabEntryPointPath={gitlabEntryPointPath}
-            onSelectGitlabEntryPoint={setGitlabEntryPointPath}
-            onPreviewGitlabJxml={handlePreviewGitlabJxml}
-            gitlabPreviewOpen={gitlabPreviewOpen}
-            gitlabPreviewContent={gitlabPreviewContent}
-            gitlabPreviewWarnings={gitlabPreviewWarnings}
-            gitlabPreviewLoading={gitlabPreviewLoading}
-            onCloseGitlabPreview={() => setGitlabPreviewOpen(false)}
-            gitlabSourcePaths={gitlabSourcePaths}
-            gitlabSelectedPaths={gitlabSelectedPaths}
-            onToggleGitlabPath={handleToggleGitlabPath}
-            onSelectAllGitlabPaths={() => setGitlabSelectedPaths(new Set(gitlabSourcePaths))}
-            onClearGitlabPaths={() => setGitlabSelectedPaths(new Set())}
-            gitlabSourcesLoading={gitlabSourcesLoading}
-            onCollapse={() => setCodeCollapsed(true)}
-          />
-        )}
+          {codeCollapsed ? (
+            <CollapsedPanel label="Spec JXML" icon="◀" onExpand={() => setCodeCollapsed(false)} />
+          ) : (
+            <CodePanel
+              jxmlMode={jxmlMode}
+              onJxmlModeChange={setJxmlMode}
+              jxmlText={jxmlText}
+              onJxmlTextChange={setJxmlText}
+              gitlabProjects={gitlabProjects}
+              gitlabProjectId={gitlabProjectId}
+              onSelectGitlabProject={handleSelectGitlabProject}
+              gitlabLoading={gitlabLoading}
+              onLoadGitlabProjects={handleLoadGitlabProjects}
+              gitlabSearch={gitlabSearch}
+              onGitlabSearchChange={setGitlabSearch}
+              gitlabEntryPoints={gitlabEntryPoints}
+              gitlabEntryPointPath={gitlabEntryPointPath}
+              onSelectGitlabEntryPoint={setGitlabEntryPointPath}
+              onPreviewGitlabJxml={handlePreviewGitlabJxml}
+              gitlabPreviewOpen={gitlabPreviewOpen}
+              gitlabPreviewContent={gitlabPreviewContent}
+              gitlabPreviewWarnings={gitlabPreviewWarnings}
+              gitlabPreviewLoading={gitlabPreviewLoading}
+              onCloseGitlabPreview={() => setGitlabPreviewOpen(false)}
+              gitlabSourcePaths={gitlabSourcePaths}
+              gitlabSelectedPaths={gitlabSelectedPaths}
+              onToggleGitlabPath={handleToggleGitlabPath}
+              onSelectAllGitlabPaths={() => setGitlabSelectedPaths(new Set(gitlabSourcePaths))}
+              onClearGitlabPaths={() => setGitlabSelectedPaths(new Set())}
+              gitlabSourcesLoading={gitlabSourcesLoading}
+              onCollapse={() => setCodeCollapsed(true)}
+            />
+          )}
+        </div>
+
+        {session && <DivergencesTable divergences={session.divergences} />}
       </div>
-
-      {session && <DivergencesTable divergences={session.divergences} />}
     </div>
   )
 }

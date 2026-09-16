@@ -6,7 +6,7 @@ interface SpecPanelProps {
 
 function SpecPanel({ wordFile, onWordFileChange, onCollapse }: SpecPanelProps) {
   return (
-    <section className="card p-4 overflow-auto">
+    <section className="card p-4 overflow-auto min-h-0">
       <div className="flex items-center justify-between gap-2 mb-3">
         <h2 className="field-label">Spec Word (optionnel)</h2>
         {onCollapse && (

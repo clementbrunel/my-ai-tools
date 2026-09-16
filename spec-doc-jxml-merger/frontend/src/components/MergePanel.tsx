@@ -21,7 +21,7 @@ function MergePanel({ markdown, onMarkdownChange, versions, onRestore }: MergePa
   }, [viewMode, markdown])
 
   return (
-    <section className="card p-4 overflow-auto flex flex-col">
+    <section className="card p-4 overflow-auto flex flex-col min-h-0">
       <div className="flex items-center justify-between gap-2 mb-3">
         <h2 className="field-label">Markdown de fusion</h2>
         <div className="flex gap-3 text-sm border-b border-[#dcdcde]">
