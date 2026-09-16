@@ -181,7 +181,7 @@ function App() {
           {jxmlMode === 'gitlab' && (
             <div className="gitlab-picker">
               <button type="button" onClick={handleLoadGitlabProjects} disabled={gitlabLoading}>
-                {gitlabLoading ? 'Chargement…' : 'Charger les projets du sous-groupe'}
+                {gitlabLoading ? 'Chargement…' : 'Charger les projets GitLab'}
               </button>
               {gitlabProjects.length > 0 && (
                 <select value={gitlabProjectId} onChange={(e) => setGitlabProjectId(e.target.value)}>
