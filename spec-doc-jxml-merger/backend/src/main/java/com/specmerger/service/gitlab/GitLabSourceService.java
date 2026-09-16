@@ -2,6 +2,7 @@ package com.specmerger.service.gitlab;
 
 import com.specmerger.config.GitLabProperties;
 import com.specmerger.dto.GitLabProjectSummary;
+import jakarta.annotation.PostConstruct;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -34,6 +35,21 @@ public class GitLabSourceService {
         this.properties = properties;
     }
 
+    @PostConstruct
+    void logConfiguration() {
+        log.info("GitLab config : url='{}', token={}", properties.url(), maskedToken());
+        if (properties.groups().isEmpty()) {
+            log.warn("GitLab config : gitlab.groups est vide, aucun groupe GitLab ne sera interrogé.");
+            return;
+        }
+        for (GitLabProperties.Group group : properties.groups()) {
+            boolean enabled = group.path() != null && !group.path().isBlank();
+            log.info("GitLab config : groupe key='{}' path='{}' ({}), translationPatterns='{}', javaPatterns='{}'",
+                    group.key(), group.path(), enabled ? "activé" : "désactivé, path vide",
+                    group.translationPatterns(), group.javaPatterns());
+        }
+    }
+
     /** Lists the projects of every configured group, tagged with the group's key. */
     public List<GitLabProjectSummary> listAllProjects() throws GitLabApiException {
         try (GitLabApi api = apiFactory.create()) {
@@ -42,7 +58,19 @@ public class GitLabSourceService {
                 if (group.path() == null || group.path().isBlank()) {
                     continue;
                 }
-                List<Project> projects = api.getGroupApi().getProjects(resolveIdentifier(group.path()));
+                Object identifier = resolveIdentifier(group.path());
+                log.debug("GitLab: listing des projets du groupe '{}' (identifiant résolu='{}')",
+                        group.key(), identifier);
+                List<Project> projects;
+                try {
+                    projects = api.getGroupApi().getProjects(identifier);
+                } catch (GitLabApiException e) {
+                    log.error("GitLab: échec du listing des projets pour le groupe '{}' (GITLAB_GROUP path='{}', "
+                                    + "identifiant résolu='{}') : HTTP {} {} — {}",
+                            group.key(), group.path(), identifier, e.getHttpStatus(), e.getReason(), e.getMessage());
+                    throw e;
+                }
+                log.info("GitLab: {} projet(s) trouvé(s) pour le groupe '{}'", projects.size(), group.key());
                 for (Project p : projects) {
                     summaries.add(new GitLabProjectSummary(
                             p.getId(), p.getName(), p.getPathWithNamespace(), p.getDefaultBranch(), p.getWebUrl(),
@@ -63,10 +91,31 @@ public class GitLabSourceService {
         SourceFileFilter filter = filterFor(groupKey);
         try (GitLabApi api = apiFactory.create()) {
             Object projectId = resolveIdentifier(projectIdOrPath);
-            Project project = api.getProjectApi().getProject(projectId);
+            log.debug("GitLab: résolution du projet '{}' (groupe='{}', identifiant résolu='{}')",
+                    projectIdOrPath, groupKey, projectId);
+            Project project;
+            try {
+                project = api.getProjectApi().getProject(projectId);
+            } catch (GitLabApiException e) {
+                log.error("GitLab: échec de la résolution du projet '{}' (groupe='{}', identifiant résolu='{}') : "
+                                + "HTTP {} {} — {}",
+                        projectIdOrPath, groupKey, projectId, e.getHttpStatus(), e.getReason(), e.getMessage());
+                throw e;
+            }
             String ref = project.getDefaultBranch();
+            log.debug("GitLab: projet '{}' résolu (branche par défaut='{}')", project.getPathWithNamespace(), ref);
 
-            List<TreeItem> tree = api.getRepositoryApi().getTree(projectId, "", ref, true);
+            List<TreeItem> tree;
+            try {
+                tree = api.getRepositoryApi().getTree(projectId, "", ref, true);
+            } catch (GitLabApiException e) {
+                log.error("GitLab: échec de la lecture de l'arborescence du projet '{}' (branche='{}') : "
+                                + "HTTP {} {} — {}",
+                        project.getPathWithNamespace(), ref, e.getHttpStatus(), e.getReason(), e.getMessage());
+                throw e;
+            }
+            log.debug("GitLab: {} entrée(s) dans l'arborescence de '{}'", tree.size(), project.getPathWithNamespace());
+
             Map<String, String> filesByPath = new LinkedHashMap<>();
             for (TreeItem item : tree) {
                 if (item.getType() != TreeItem.Type.BLOB || !filter.isRelevant(item.getPath())) {
@@ -74,10 +123,15 @@ public class GitLabSourceService {
                 }
                 try (InputStream raw = api.getRepositoryFileApi().getRawFile(projectId, ref, item.getPath())) {
                     filesByPath.put(item.getPath(), new String(raw.readAllBytes(), StandardCharsets.UTF_8));
+                } catch (GitLabApiException e) {
+                    log.error("GitLab: échec du téléchargement de '{}' dans '{}' (branche='{}') : HTTP {} {} — {}",
+                            item.getPath(), project.getPathWithNamespace(), ref,
+                            e.getHttpStatus(), e.getReason(), e.getMessage());
+                    throw e;
                 }
             }
             log.info("GitLab: {} fichier(s) retenu(s) sur {} ({}) après filtrage",
-                    filesByPath.size(), projectIdOrPath, groupKey);
+                    filesByPath.size(), project.getPathWithNamespace(), groupKey);
             return filesByPath;
         }
     }
@@ -97,5 +151,14 @@ public class GitLabSourceService {
         } catch (NumberFormatException e) {
             return trimmed;
         }
+    }
+
+    private String maskedToken() {
+        String token = properties.token();
+        if (token == null || token.isBlank()) {
+            return "(absent)";
+        }
+        int visible = Math.min(3, token.length());
+        return "?".repeat(token.length() - visible) + token.substring(token.length() - visible);
     }
 }

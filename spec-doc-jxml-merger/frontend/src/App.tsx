@@ -226,7 +226,7 @@ function App() {
                 onClick={handleLoadGitlabProjects}
                 disabled={gitlabLoading}
               >
-                {gitlabLoading ? 'Chargement…' : 'Charger les projets du sous-groupe'}
+                {gitlabLoading ? 'Chargement…' : 'Charger les projets GitLab'}
               </button>
               {gitlabProjects.length > 0 && (
                 <select
