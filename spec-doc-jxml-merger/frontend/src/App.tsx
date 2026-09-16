@@ -8,9 +8,10 @@ import {
   restoreVersion,
   saveVersion,
 } from './api/analysis'
-import type { AnalysisSessionResponse, DocumentVersion, GitLabProjectSummary } from './types'
-
-type JxmlMode = 'zip' | 'text' | 'gitlab'
+import CodePanel from './components/CodePanel'
+import MergePanel from './components/MergePanel'
+import SpecPanel from './components/SpecPanel'
+import type { AnalysisSessionResponse, DocumentVersion, GitLabProjectSummary, JxmlMode } from './types'
 
 function App() {
   const [title, setTitle] = useState('')
@@ -145,13 +146,6 @@ function App() {
     URL.revokeObjectURL(url)
   }
 
-  const gitlabSearchTerm = gitlabSearch.trim().toLowerCase()
-  const filteredGitlabProjects = gitlabSearchTerm
-    ? gitlabProjects.filter((p) =>
-        `${p.groupKey} ${p.pathWithNamespace} ${p.name}`.toLowerCase().includes(gitlabSearchTerm),
-      )
-    : gitlabProjects
-
   return (
     <div className="min-h-screen flex flex-col">
       <header className="flex items-center gap-3 px-4 py-3 bg-gl-dark shadow-sm">
@@ -185,172 +179,36 @@ function App() {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-[1fr_1.4fr_1fr] gap-3 p-3 flex-1">
-        <section className="card p-4 overflow-auto">
-          <h2 className="field-label mb-3">Spec Word (optionnel)</h2>
-          <input
-            type="file"
-            accept=".docx"
-            onChange={(e) => setWordFile(e.target.files?.[0] ?? null)}
-            className="text-sm file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:bg-gl-blue file:text-white file:text-sm hover:file:bg-gl-blue-dark file:cursor-pointer"
-          />
-          {wordFile && <p className="text-sm text-gray-500 mt-2">{wordFile.name}</p>}
-        </section>
+        <SpecPanel wordFile={wordFile} onWordFileChange={setWordFile} />
 
-        <section className="card p-4 overflow-auto flex flex-col">
-          <h2 className="field-label mb-3">Markdown de fusion</h2>
-          <textarea
-            value={markdown}
-            onChange={(e) => setMarkdown(e.target.value)}
-            placeholder="Le markdown de fusion apparaîtra ici après analyse."
-            className="w-full min-h-[50vh] flex-1 rounded border border-[#dcdcde] p-2 font-mono text-[13px] focus:outline-none focus:ring-2 focus:ring-gl-orange"
-          />
-          {versions.length > 0 && (
-            <div className="mt-4">
-              <h3 className="field-label mb-2">Historique</h3>
-              <ul className="text-sm divide-y divide-[#eee]">
-                {versions.map((v) => (
-                  <li key={v.id} className="py-1.5 flex items-center justify-between gap-2">
-                    <span className="text-gray-600">
-                      v{v.versionNumber} — {v.source} — {new Date(v.createdAt).toLocaleString('fr-FR')}
-                    </span>
-                    <button
-                      onClick={() => handleRestore(v.id)}
-                      className="text-gl-blue hover:text-gl-blue-dark hover:underline shrink-0"
-                    >
-                      Restaurer
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </section>
+        <MergePanel
+          markdown={markdown}
+          onMarkdownChange={setMarkdown}
+          versions={versions}
+          onRestore={handleRestore}
+        />
 
-        <section className="card p-4 overflow-auto">
-          <h2 className="field-label mb-3">Spec JXML</h2>
-          <div className="flex gap-4 mb-3 border-b border-[#dcdcde] text-sm">
-            {(
-              [
-                ['zip', 'Archive .zip'],
-                ['text', 'Coller le texte'],
-                ['gitlab', 'Projet GitLab'],
-              ] as const
-            ).map(([mode, label]) => (
-              <label
-                key={mode}
-                className={`pb-2 -mb-px border-b-2 cursor-pointer ${
-                  jxmlMode === mode
-                    ? 'border-gl-orange text-[#303030] font-medium'
-                    : 'border-transparent text-gray-500 hover:text-[#303030]'
-                }`}
-              >
-                <input
-                  type="radio"
-                  className="sr-only"
-                  checked={jxmlMode === mode}
-                  onChange={() => setJxmlMode(mode)}
-                />
-                {label}
-              </label>
-            ))}
-          </div>
-          {jxmlMode === 'zip' && (
-            <>
-              <input
-                type="file"
-                accept=".zip"
-                onChange={(e) => setJxmlFile(e.target.files?.[0] ?? null)}
-                className="text-sm file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:bg-gl-blue file:text-white file:text-sm hover:file:bg-gl-blue-dark file:cursor-pointer"
-              />
-              {jxmlFile && <p className="text-sm text-gray-500 mt-2">{jxmlFile.name}</p>}
-            </>
-          )}
-          {jxmlMode === 'text' && (
-            <textarea
-              value={jxmlText}
-              onChange={(e) => setJxmlText(e.target.value)}
-              placeholder="Colle ici le contenu JXML"
-              className="w-full min-h-[40vh] rounded border border-[#dcdcde] p-2 font-mono text-[13px] focus:outline-none focus:ring-2 focus:ring-gl-orange"
-            />
-          )}
-          {jxmlMode === 'gitlab' && (
-            <div className="flex flex-col gap-3">
-              <button
-                type="button"
-                className="btn-secondary self-start"
-                onClick={handleLoadGitlabProjects}
-                disabled={gitlabLoading}
-              >
-                {gitlabLoading ? 'Chargement…' : 'Charger les projets GitLab'}
-              </button>
-              {gitlabProjects.length > 0 && (
-                <>
-                  <input
-                    type="text"
-                    value={gitlabSearch}
-                    onChange={(e) => setGitlabSearch(e.target.value)}
-                    placeholder="Rechercher un projet (groupe, chemin, nom)…"
-                    className="rounded border border-[#dcdcde] px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-gl-orange"
-                  />
-                  <select
-                    value={gitlabProjectId}
-                    onChange={(e) => handleSelectGitlabProject(e.target.value)}
-                    className="rounded border border-[#dcdcde] px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-gl-orange"
-                  >
-                    <option value="">
-                      {filteredGitlabProjects.length === 0 ? 'Aucun projet ne correspond' : '— Choisir un projet —'}
-                    </option>
-                    {filteredGitlabProjects.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        [{p.groupKey}] {p.pathWithNamespace}
-                      </option>
-                    ))}
-                  </select>
-                </>
-              )}
-              {gitlabSourcesLoading && <p className="text-sm text-gray-500">Chargement des fichiers…</p>}
-              {gitlabSourcePaths.length > 0 && (
-                <div className="border border-[#dcdcde] rounded">
-                  <div className="flex items-center justify-between gap-2 px-2 py-1.5 border-b border-[#dcdcde] bg-[#fafafa] text-sm">
-                    <span className="text-gray-600">
-                      {gitlabSelectedPaths.size} / {gitlabSourcePaths.length} fichier(s) inclus
-                    </span>
-                    <span className="flex gap-3">
-                      <button
-                        type="button"
-                        className="text-gl-blue hover:text-gl-blue-dark hover:underline"
-                        onClick={() => setGitlabSelectedPaths(new Set(gitlabSourcePaths))}
-                      >
-                        Tout cocher
-                      </button>
-                      <button
-                        type="button"
-                        className="text-gl-blue hover:text-gl-blue-dark hover:underline"
-                        onClick={() => setGitlabSelectedPaths(new Set())}
-                      >
-                        Tout décocher
-                      </button>
-                    </span>
-                  </div>
-                  <ul className="max-h-64 overflow-auto text-sm divide-y divide-[#eee]">
-                    {gitlabSourcePaths.map((path) => (
-                      <li key={path} className="px-2 py-1">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={gitlabSelectedPaths.has(path)}
-                            onChange={() => handleToggleGitlabPath(path)}
-                          />
-                          <span className="font-mono text-[13px] break-all">{path}</span>
-                        </label>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          )}
-        </section>
+        <CodePanel
+          jxmlMode={jxmlMode}
+          onJxmlModeChange={setJxmlMode}
+          jxmlFile={jxmlFile}
+          onJxmlFileChange={setJxmlFile}
+          jxmlText={jxmlText}
+          onJxmlTextChange={setJxmlText}
+          gitlabProjects={gitlabProjects}
+          gitlabProjectId={gitlabProjectId}
+          onSelectGitlabProject={handleSelectGitlabProject}
+          gitlabLoading={gitlabLoading}
+          onLoadGitlabProjects={handleLoadGitlabProjects}
+          gitlabSearch={gitlabSearch}
+          onGitlabSearchChange={setGitlabSearch}
+          gitlabSourcePaths={gitlabSourcePaths}
+          gitlabSelectedPaths={gitlabSelectedPaths}
+          onToggleGitlabPath={handleToggleGitlabPath}
+          onSelectAllGitlabPaths={() => setGitlabSelectedPaths(new Set(gitlabSourcePaths))}
+          onClearGitlabPaths={() => setGitlabSelectedPaths(new Set())}
+          gitlabSourcesLoading={gitlabSourcesLoading}
+        />
       </div>
 
       {session && session.divergences.length > 0 && (
