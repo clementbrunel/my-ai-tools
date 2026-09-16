@@ -20,8 +20,6 @@ interface CodePanelProps {
   gitlabEntryPointPath: string
   onSelectGitlabEntryPoint: (path: string) => void
   onPreviewGitlabJxml: () => void
-  onGenerateSpecFromJxml: () => void
-  gitlabSpecLoading: boolean
   gitlabPreviewOpen: boolean
   gitlabPreviewContent: string
   gitlabPreviewWarnings: string[]
@@ -60,8 +58,6 @@ function CodePanel({
   gitlabEntryPointPath,
   onSelectGitlabEntryPoint,
   onPreviewGitlabJxml,
-  onGenerateSpecFromJxml,
-  gitlabSpecLoading,
   gitlabPreviewOpen,
   gitlabPreviewContent,
   gitlabPreviewWarnings,
@@ -207,25 +203,14 @@ function CodePanel({
             </div>
           )}
           {gitlabEntryPointPath && (
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                className="btn-secondary self-start"
-                onClick={onPreviewGitlabJxml}
-                disabled={gitlabPreviewLoading}
-              >
-                {gitlabPreviewLoading ? 'Génération de la prévisualisation…' : 'Prévisualiser le JXML résolu'}
-              </button>
-              <button
-                type="button"
-                className="btn-secondary self-start"
-                onClick={onGenerateSpecFromJxml}
-                disabled={gitlabSpecLoading}
-                title="Remplace le contenu du panneau « Markdown de fusion » par la doc générée depuis ce JXML"
-              >
-                {gitlabSpecLoading ? 'Génération de la doc…' : 'Générer la doc dans le markdown de fusion'}
-              </button>
-            </div>
+            <button
+              type="button"
+              className="btn-secondary self-start"
+              onClick={onPreviewGitlabJxml}
+              disabled={gitlabPreviewLoading}
+            >
+              {gitlabPreviewLoading ? 'Génération de la prévisualisation…' : 'Prévisualiser le JXML résolu'}
+            </button>
           )}
           {gitlabPreviewOpen && (
             <div

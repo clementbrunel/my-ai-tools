@@ -1,5 +1,12 @@
 import { useState } from 'react'
-import { listGitlabProjects, listGitlabSources, previewGitlabJxml, previewGitlabSpec } from './api/analysis'
+import {
+  generateSpecFromJxml,
+  generateSpecFromWord,
+  listGitlabProjects,
+  listGitlabSources,
+  previewGitlabJxml,
+  previewGitlabSpec,
+} from './api/analysis'
 import CodePanel from './components/CodePanel'
 import CollapsedPanel from './components/CollapsedPanel'
 import DivergencesTable from './components/DivergencesTable'
@@ -28,16 +35,19 @@ function App() {
   const [gitlabPreviewContent, setGitlabPreviewContent] = useState('')
   const [gitlabPreviewWarnings, setGitlabPreviewWarnings] = useState<string[]>([])
   const [gitlabPreviewLoading, setGitlabPreviewLoading] = useState(false)
-  const [gitlabSpecLoading, setGitlabSpecLoading] = useState(false)
+  const [specGenerating, setSpecGenerating] = useState(false)
   const [specCollapsed, setSpecCollapsed] = useState(false)
   const [codeCollapsed, setCodeCollapsed] = useState(false)
 
   const { session, markdown, setMarkdown, versions, loading, error, setError, analyze, save, restore } =
     useAnalysisSession()
 
+  function hasJxmlSource() {
+    return jxmlMode === 'zip' ? !!jxmlFile : jxmlMode === 'text' ? !!jxmlText.trim() : !!gitlabProjectId
+  }
+
   async function handleAnalyze() {
-    const hasJxml =
-      jxmlMode === 'zip' ? !!jxmlFile : jxmlMode === 'text' ? !!jxmlText.trim() : !!gitlabProjectId
+    const hasJxml = hasJxmlSource()
     if (!wordFile && !hasJxml) {
       setError('Fournis au moins une source : Word (.docx) ou JXML.')
       return
@@ -132,20 +142,47 @@ function App() {
     }
   }
 
-  /** Generates the markdown spec from the JXML alone and drops it straight into the merge panel. */
-  async function handleGenerateSpecFromJxml() {
-    const params = currentGitlabPreviewParams()
-    if (!params) return
+  const hasWord = !!wordFile
+  const hasJxml = hasJxmlSource()
+  // Exactly one source for now — combining both into a diffed spec is issue #262's next step.
+  const canGenerateSpec = hasWord !== hasJxml
+  const generateSpecTitle = hasWord && hasJxml
+    ? 'Génération combinée (avec diff) pas encore disponible — retire une des deux sources pour générer individuellement.'
+    : !hasWord && !hasJxml
+      ? 'Fournis une source : Word (.docx) ou JXML.'
+      : undefined
+
+  /**
+   * Generates the markdown spec from whichever single source is filled in (Word alone, or JXML
+   * alone) and drops it straight into the merge panel. Disabled via canGenerateSpec when both
+   * or neither source is present.
+   */
+  async function handleGenerateSpec() {
+    if (!canGenerateSpec) return
+    if (hasJxml && jxmlMode === 'gitlab' && gitlabEntryPoints.length > 0 && !gitlabEntryPointPath) {
+      setError('Choisis la démarche à documenter parmi les points d’entrée trouvés dans FORMS.jxml.')
+      return
+    }
 
     setError(null)
-    setGitlabSpecLoading(true)
+    setSpecGenerating(true)
     try {
-      setMarkdown(await previewGitlabSpec(params))
+      if (hasWord) {
+        setMarkdown(await generateSpecFromWord(wordFile as File))
+      } else if (jxmlMode === 'gitlab') {
+        const params = currentGitlabPreviewParams()
+        if (!params) return
+        setMarkdown(await previewGitlabSpec(params))
+      } else if (jxmlMode === 'zip') {
+        setMarkdown(await generateSpecFromJxml({ jxmlArchive: jxmlFile as File }))
+      } else {
+        setMarkdown(await generateSpecFromJxml({ jxmlText }))
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Échec de la génération de la doc — voir la console.')
       console.error(e)
     } finally {
-      setGitlabSpecLoading(false)
+      setSpecGenerating(false)
     }
   }
 
@@ -192,6 +229,10 @@ function App() {
         hasSession={!!session}
         onSave={save}
         onDownload={handleDownload}
+        onGenerateSpec={handleGenerateSpec}
+        canGenerateSpec={canGenerateSpec}
+        specGenerating={specGenerating}
+        generateSpecTitle={generateSpecTitle}
       />
 
       {error && (
@@ -232,8 +273,6 @@ function App() {
             gitlabEntryPointPath={gitlabEntryPointPath}
             onSelectGitlabEntryPoint={setGitlabEntryPointPath}
             onPreviewGitlabJxml={handlePreviewGitlabJxml}
-            onGenerateSpecFromJxml={handleGenerateSpecFromJxml}
-            gitlabSpecLoading={gitlabSpecLoading}
             gitlabPreviewOpen={gitlabPreviewOpen}
             gitlabPreviewContent={gitlabPreviewContent}
             gitlabPreviewWarnings={gitlabPreviewWarnings}

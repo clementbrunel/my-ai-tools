@@ -11,6 +11,9 @@ const baseProps = {
   hasSession: false,
   onSave: vi.fn(),
   onDownload: vi.fn(),
+  onGenerateSpec: vi.fn(),
+  canGenerateSpec: true,
+  specGenerating: false,
 }
 
 describe('Header', () => {
@@ -47,5 +50,22 @@ describe('Header', () => {
     await userEvent.click(screen.getByText('Télécharger le markdown'))
     expect(onSave).toHaveBeenCalledTimes(1)
     expect(onDownload).toHaveBeenCalledTimes(1)
+  })
+
+  it('calls onGenerateSpec when the Générer la doc button is clicked', async () => {
+    const onGenerateSpec = vi.fn()
+    render(<Header {...baseProps} onGenerateSpec={onGenerateSpec} />)
+    await userEvent.click(screen.getByText('Générer la doc'))
+    expect(onGenerateSpec).toHaveBeenCalledTimes(1)
+  })
+
+  it('disables the Générer la doc button when canGenerateSpec is false', () => {
+    render(<Header {...baseProps} canGenerateSpec={false} />)
+    expect(screen.getByText('Générer la doc')).toBeDisabled()
+  })
+
+  it('shows a progress label and disables the button while generating', () => {
+    render(<Header {...baseProps} specGenerating={true} />)
+    expect(screen.getByText('Génération…')).toBeDisabled()
   })
 })

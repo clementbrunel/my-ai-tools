@@ -27,7 +27,8 @@ export interface GitLabJxmlPreview {
   warnings: string[]
 }
 
-export interface GitLabSpecPreview {
+/** The markdown a spec-generation call produced from a single source. */
+export interface SpecGenerationResult {
   markdown: string
 }
 

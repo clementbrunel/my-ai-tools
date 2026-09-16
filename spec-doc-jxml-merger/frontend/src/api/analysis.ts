@@ -5,7 +5,7 @@ import type {
   GitLabJxmlPreview,
   GitLabProjectSummary,
   GitLabSourceListing,
-  GitLabSpecPreview,
+  SpecGenerationResult,
 } from '../types'
 
 export async function createAnalysis(params: {
@@ -85,8 +85,33 @@ export async function previewGitlabJxml(params: GitlabPreviewParams): Promise<Gi
 
 /** The markdown spec the model generates from the resolved JXML alone (no Word/diff yet). */
 export async function previewGitlabSpec(params: GitlabPreviewParams): Promise<string> {
-  const { data } = await client.get<GitLabSpecPreview>('/gitlab/preview-spec', {
+  const { data } = await client.get<SpecGenerationResult>('/gitlab/preview-spec', {
     params: buildGitlabPreviewQuery(params),
+  })
+  return data.markdown
+}
+
+/** The markdown spec the model generates from the Word/Excel spec alone (no JXML/diff yet). */
+export async function generateSpecFromWord(word: File): Promise<string> {
+  const form = new FormData()
+  form.append('word', word)
+  const { data } = await client.post<SpecGenerationResult>('/spec/generate-from-word', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return data.markdown
+}
+
+/**
+ * The markdown spec the model generates from JXML sources alone (zip archive or pasted text —
+ * no Include resolution, unlike the GitLab source's {@link previewGitlabSpec}; see
+ * SpecGenerationController).
+ */
+export async function generateSpecFromJxml(params: { jxmlArchive?: File; jxmlText?: string }): Promise<string> {
+  const form = new FormData()
+  if (params.jxmlArchive) form.append('jxmlArchive', params.jxmlArchive)
+  if (params.jxmlText) form.append('jxmlText', params.jxmlText)
+  const { data } = await client.post<SpecGenerationResult>('/spec/generate-from-jxml', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
   })
   return data.markdown
 }

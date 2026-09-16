@@ -3,7 +3,7 @@ package com.specmerger.controller;
 import com.specmerger.dto.GitLabJxmlPreview;
 import com.specmerger.dto.GitLabProjectSummary;
 import com.specmerger.dto.GitLabSourceListing;
-import com.specmerger.dto.GitLabSpecPreview;
+import com.specmerger.dto.SpecGenerationResult;
 import com.specmerger.service.ai.SpecResolutionAIProvider;
 import com.specmerger.service.gitlab.GitLabSourceService;
 import java.io.IOException;
@@ -63,7 +63,7 @@ public class GitLabController {
      * no analysis session is created.
      */
     @GetMapping("/preview-spec")
-    public GitLabSpecPreview previewSpec(@RequestParam String groupKey, @RequestParam String projectId,
+    public SpecGenerationResult previewSpec(@RequestParam String groupKey, @RequestParam String projectId,
             @RequestParam String entryPointPath,
             @RequestParam(required = false) List<String> selectedPaths,
             @RequestParam(required = false) Boolean selectedPathsProvided) throws GitLabApiException, IOException {
@@ -72,6 +72,6 @@ public class GitLabController {
                 : null;
         GitLabSourceService.JxmlPreviewResult resolved =
                 gitLabSourceService.previewResolvedJxml(groupKey, projectId, effectiveSelectedPaths, entryPointPath);
-        return new GitLabSpecPreview(aiProvider.generateSpecFromJxml(resolved.content()));
+        return new SpecGenerationResult(aiProvider.generateSpecFromJxml(resolved.content()));
     }
 }
