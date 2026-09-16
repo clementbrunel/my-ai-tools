@@ -31,6 +31,7 @@ interface CodePanelProps {
   onSelectAllGitlabPaths: () => void
   onClearGitlabPaths: () => void
   gitlabSourcesLoading: boolean
+  onCollapse?: () => void
 }
 
 const JXML_MODES: Array<[JxmlMode, string]> = [
@@ -68,6 +69,7 @@ function CodePanel({
   onSelectAllGitlabPaths,
   onClearGitlabPaths,
   gitlabSourcesLoading,
+  onCollapse,
 }: CodePanelProps) {
   const [previewViewMode, setPreviewViewMode] = useState<'tree' | 'raw'>('tree')
 
@@ -89,7 +91,20 @@ function CodePanel({
 
   return (
     <section className="card p-4 overflow-auto">
-      <h2 className="field-label mb-3">Spec JXML</h2>
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <h2 className="field-label">Spec JXML</h2>
+        {onCollapse && (
+          <button
+            type="button"
+            onClick={onCollapse}
+            title="Réduire le panneau"
+            aria-label="Réduire le panneau Spec JXML"
+            className="text-gray-400 hover:text-gl-blue leading-none px-1 shrink-0"
+          >
+            ▶
+          </button>
+        )}
+      </div>
       <div className="flex gap-4 mb-3 border-b border-[#dcdcde] text-sm">
         {JXML_MODES.map(([mode, label]) => (
           <label

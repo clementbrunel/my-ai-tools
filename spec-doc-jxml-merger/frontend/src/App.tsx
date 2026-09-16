@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { listGitlabProjects, listGitlabSources, previewGitlabJxml } from './api/analysis'
 import CodePanel from './components/CodePanel'
+import CollapsedPanel from './components/CollapsedPanel'
 import DivergencesTable from './components/DivergencesTable'
 import Header from './components/Header'
 import MergePanel from './components/MergePanel'
@@ -27,6 +28,8 @@ function App() {
   const [gitlabPreviewContent, setGitlabPreviewContent] = useState('')
   const [gitlabPreviewWarnings, setGitlabPreviewWarnings] = useState<string[]>([])
   const [gitlabPreviewLoading, setGitlabPreviewLoading] = useState(false)
+  const [specCollapsed, setSpecCollapsed] = useState(false)
+  const [codeCollapsed, setCodeCollapsed] = useState(false)
 
   const { session, markdown, setMarkdown, versions, loading, error, setError, analyze, save, restore } =
     useAnalysisSession()
@@ -133,6 +136,17 @@ function App() {
     })
   }
 
+  // Retracted side panels free up their width so the merge panel (and the
+  // remaining side panel, if any) can grow from a third of the screen to a half.
+  const gridColsClass =
+    specCollapsed && codeCollapsed
+      ? 'md:grid-cols-[3rem_1fr_3rem]'
+      : specCollapsed
+        ? 'md:grid-cols-[3rem_1fr_1fr]'
+        : codeCollapsed
+          ? 'md:grid-cols-[1fr_1fr_3rem]'
+          : 'md:grid-cols-[1fr_1.4fr_1fr]'
+
   function handleDownload() {
     const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' })
     const url = URL.createObjectURL(blob)
@@ -159,41 +173,54 @@ function App() {
         <div className="px-4 py-2 bg-red-50 text-gl-danger text-sm border-b border-red-200">{error}</div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_1.4fr_1fr] gap-3 p-3 flex-1">
-        <SpecPanel wordFile={wordFile} onWordFileChange={setWordFile} />
+      <div className={`grid grid-cols-1 ${gridColsClass} gap-3 p-3 flex-1`}>
+        {specCollapsed ? (
+          <CollapsedPanel label="Spec Word" icon="▶" onExpand={() => setSpecCollapsed(false)} />
+        ) : (
+          <SpecPanel
+            wordFile={wordFile}
+            onWordFileChange={setWordFile}
+            onCollapse={() => setSpecCollapsed(true)}
+          />
+        )}
 
         <MergePanel markdown={markdown} onMarkdownChange={setMarkdown} versions={versions} onRestore={restore} />
 
-        <CodePanel
-          jxmlMode={jxmlMode}
-          onJxmlModeChange={setJxmlMode}
-          jxmlFile={jxmlFile}
-          onJxmlFileChange={setJxmlFile}
-          jxmlText={jxmlText}
-          onJxmlTextChange={setJxmlText}
-          gitlabProjects={gitlabProjects}
-          gitlabProjectId={gitlabProjectId}
-          onSelectGitlabProject={handleSelectGitlabProject}
-          gitlabLoading={gitlabLoading}
-          onLoadGitlabProjects={handleLoadGitlabProjects}
-          gitlabSearch={gitlabSearch}
-          onGitlabSearchChange={setGitlabSearch}
-          gitlabEntryPoints={gitlabEntryPoints}
-          gitlabEntryPointPath={gitlabEntryPointPath}
-          onSelectGitlabEntryPoint={setGitlabEntryPointPath}
-          onPreviewGitlabJxml={handlePreviewGitlabJxml}
-          gitlabPreviewOpen={gitlabPreviewOpen}
-          gitlabPreviewContent={gitlabPreviewContent}
-          gitlabPreviewWarnings={gitlabPreviewWarnings}
-          gitlabPreviewLoading={gitlabPreviewLoading}
-          onCloseGitlabPreview={() => setGitlabPreviewOpen(false)}
-          gitlabSourcePaths={gitlabSourcePaths}
-          gitlabSelectedPaths={gitlabSelectedPaths}
-          onToggleGitlabPath={handleToggleGitlabPath}
-          onSelectAllGitlabPaths={() => setGitlabSelectedPaths(new Set(gitlabSourcePaths))}
-          onClearGitlabPaths={() => setGitlabSelectedPaths(new Set())}
-          gitlabSourcesLoading={gitlabSourcesLoading}
-        />
+        {codeCollapsed ? (
+          <CollapsedPanel label="Spec JXML" icon="◀" onExpand={() => setCodeCollapsed(false)} />
+        ) : (
+          <CodePanel
+            jxmlMode={jxmlMode}
+            onJxmlModeChange={setJxmlMode}
+            jxmlFile={jxmlFile}
+            onJxmlFileChange={setJxmlFile}
+            jxmlText={jxmlText}
+            onJxmlTextChange={setJxmlText}
+            gitlabProjects={gitlabProjects}
+            gitlabProjectId={gitlabProjectId}
+            onSelectGitlabProject={handleSelectGitlabProject}
+            gitlabLoading={gitlabLoading}
+            onLoadGitlabProjects={handleLoadGitlabProjects}
+            gitlabSearch={gitlabSearch}
+            onGitlabSearchChange={setGitlabSearch}
+            gitlabEntryPoints={gitlabEntryPoints}
+            gitlabEntryPointPath={gitlabEntryPointPath}
+            onSelectGitlabEntryPoint={setGitlabEntryPointPath}
+            onPreviewGitlabJxml={handlePreviewGitlabJxml}
+            gitlabPreviewOpen={gitlabPreviewOpen}
+            gitlabPreviewContent={gitlabPreviewContent}
+            gitlabPreviewWarnings={gitlabPreviewWarnings}
+            gitlabPreviewLoading={gitlabPreviewLoading}
+            onCloseGitlabPreview={() => setGitlabPreviewOpen(false)}
+            gitlabSourcePaths={gitlabSourcePaths}
+            gitlabSelectedPaths={gitlabSelectedPaths}
+            onToggleGitlabPath={handleToggleGitlabPath}
+            onSelectAllGitlabPaths={() => setGitlabSelectedPaths(new Set(gitlabSourcePaths))}
+            onClearGitlabPaths={() => setGitlabSelectedPaths(new Set())}
+            gitlabSourcesLoading={gitlabSourcesLoading}
+            onCollapse={() => setCodeCollapsed(true)}
+          />
+        )}
       </div>
 
       {session && <DivergencesTable divergences={session.divergences} />}
