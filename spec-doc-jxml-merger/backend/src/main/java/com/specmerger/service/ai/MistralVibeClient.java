@@ -1,5 +1,6 @@
 package com.specmerger.service.ai;
 
+import com.specmerger.service.JxmlTagDocRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
@@ -7,6 +8,8 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+
+import java.util.List;
 
 /**
  * Client for the internal mistral-vibe gateway (proxy in front of the Mistral
@@ -20,22 +23,29 @@ import org.springframework.stereotype.Component;
 @Component
 public class MistralVibeClient implements SpecResolutionAIProvider {
 
+    private static final int MAX_TAG_DOCS = 5;
+    private static final int MAX_TAG_DOCS_CHARS = 6000;
+
     private final ChatModel chatModel;
     private final String apiKey;
+    private final JxmlTagDocRepository tagDocRepository;
 
-    public MistralVibeClient(ChatModel chatModel, @Value("${spring.ai.mistralai.api-key:}") String apiKey) {
+    public MistralVibeClient(ChatModel chatModel, @Value("${spring.ai.mistralai.api-key:}") String apiKey,
+                              JxmlTagDocRepository tagDocRepository) {
         this.chatModel = chatModel;
         this.apiKey = apiKey;
+        this.tagDocRepository = tagDocRepository;
     }
 
     @Override
     public String proposeResolution(String wordExcerpt, String jxmlExcerpt) {
         String prompt = """
-                Compare ces deux extraits de spécification pour le même écran/fonctionnalité.
+                %sCompare ces deux extraits de spécification pour le même écran/fonctionnalité.
                 Word (spec fonctionnelle déclarée) : %s
                 JXML (code réel) : %s
                 Propose la version à retenir dans le markdown final, avec une courte justification.
                 """.formatted(
+                buildTagContext(jxmlExcerpt),
                 wordExcerpt == null ? "(absent)" : wordExcerpt,
                 jxmlExcerpt == null ? "(absent)" : jxmlExcerpt);
 
@@ -50,6 +60,15 @@ public class MistralVibeClient implements SpecResolutionAIProvider {
             log.error("mistral-vibe call failed (api-key \"{}\"): {}", maskedApiKey(), e.getMessage(), e);
             return fallback(wordExcerpt, jxmlExcerpt);
         }
+    }
+
+    private String buildTagContext(String jxmlExcerpt) {
+        List<String> docs = tagDocRepository.findRelevantDocs(jxmlExcerpt, MAX_TAG_DOCS, MAX_TAG_DOCS_CHARS);
+        if (docs.isEmpty()) {
+            return "";
+        }
+        return "Documentation des balises JWAY détectées dans l'extrait JXML ci-dessous :\n"
+                + String.join("\n---\n", docs) + "\n\n";
     }
 
     private String maskedApiKey() {
