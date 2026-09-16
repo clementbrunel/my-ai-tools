@@ -98,50 +98,72 @@ function App() {
   }
 
   return (
-    <div className="app">
-      <header className="toolbar">
+    <div className="min-h-screen flex flex-col">
+      <header className="flex items-center gap-3 px-4 py-3 bg-gl-dark shadow-sm">
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="h-6 w-6 rounded-sm bg-gradient-to-br from-gl-orange to-gl-orange-dark" />
+          <span className="text-white font-semibold text-sm hidden sm:inline">Spec Doc/JXML Merger</span>
+        </div>
         <input
           placeholder="Titre de la spécification"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
+          className="flex-1 min-w-0 rounded border border-transparent bg-white/95 px-3 py-1.5 text-sm text-[#303030] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gl-orange"
         />
-        <button onClick={handleAnalyze} disabled={loading}>
+        <button className="btn-primary" onClick={handleAnalyze} disabled={loading}>
           {loading ? 'Analyse en cours…' : 'Analyser'}
         </button>
         {session && (
           <>
-            <button onClick={handleSave} disabled={loading}>
+            <button className="btn-secondary" onClick={handleSave} disabled={loading}>
               Enregistrer l'édition
             </button>
-            <button onClick={handleDownload}>Télécharger le markdown</button>
+            <button className="btn-secondary" onClick={handleDownload}>
+              Télécharger le markdown
+            </button>
           </>
         )}
       </header>
 
-      {error && <div className="error">{error}</div>}
+      {error && (
+        <div className="px-4 py-2 bg-red-50 text-gl-danger text-sm border-b border-red-200">{error}</div>
+      )}
 
-      <div className="panes">
-        <section className="pane pane-word">
-          <h2>Spec Word (optionnel)</h2>
-          <input type="file" accept=".docx" onChange={(e) => setWordFile(e.target.files?.[0] ?? null)} />
-          {wordFile && <p className="filename">{wordFile.name}</p>}
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_1.4fr_1fr] gap-3 p-3 flex-1">
+        <section className="card p-4 overflow-auto">
+          <h2 className="field-label mb-3">Spec Word (optionnel)</h2>
+          <input
+            type="file"
+            accept=".docx"
+            onChange={(e) => setWordFile(e.target.files?.[0] ?? null)}
+            className="text-sm file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:bg-gl-blue file:text-white file:text-sm hover:file:bg-gl-blue-dark file:cursor-pointer"
+          />
+          {wordFile && <p className="text-sm text-gray-500 mt-2">{wordFile.name}</p>}
         </section>
 
-        <section className="pane pane-markdown">
-          <h2>Markdown de fusion</h2>
+        <section className="card p-4 overflow-auto flex flex-col">
+          <h2 className="field-label mb-3">Markdown de fusion</h2>
           <textarea
             value={markdown}
             onChange={(e) => setMarkdown(e.target.value)}
             placeholder="Le markdown de fusion apparaîtra ici après analyse."
+            className="w-full min-h-[50vh] flex-1 rounded border border-[#dcdcde] p-2 font-mono text-[13px] focus:outline-none focus:ring-2 focus:ring-gl-orange"
           />
           {versions.length > 0 && (
-            <div className="versions">
-              <h3>Historique</h3>
-              <ul>
+            <div className="mt-4">
+              <h3 className="field-label mb-2">Historique</h3>
+              <ul className="text-sm divide-y divide-[#eee]">
                 {versions.map((v) => (
-                  <li key={v.id}>
-                    v{v.versionNumber} — {v.source} — {new Date(v.createdAt).toLocaleString('fr-FR')}{' '}
-                    <button onClick={() => handleRestore(v.id)}>Restaurer</button>
+                  <li key={v.id} className="py-1.5 flex items-center justify-between gap-2">
+                    <span className="text-gray-600">
+                      v{v.versionNumber} — {v.source} — {new Date(v.createdAt).toLocaleString('fr-FR')}
+                    </span>
+                    <button
+                      onClick={() => handleRestore(v.id)}
+                      className="text-gl-blue hover:text-gl-blue-dark hover:underline shrink-0"
+                    >
+                      Restaurer
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -149,26 +171,43 @@ function App() {
           )}
         </section>
 
-        <section className="pane pane-jxml">
-          <h2>Spec JXML</h2>
-          <div className="jxml-mode-toggle">
-            <label>
-              <input type="radio" checked={jxmlMode === 'zip'} onChange={() => setJxmlMode('zip')} />
-              Archive .zip
-            </label>
-            <label>
-              <input type="radio" checked={jxmlMode === 'text'} onChange={() => setJxmlMode('text')} />
-              Coller le texte
-            </label>
-            <label>
-              <input type="radio" checked={jxmlMode === 'gitlab'} onChange={() => setJxmlMode('gitlab')} />
-              Projet GitLab
-            </label>
+        <section className="card p-4 overflow-auto">
+          <h2 className="field-label mb-3">Spec JXML</h2>
+          <div className="flex gap-4 mb-3 border-b border-[#dcdcde] text-sm">
+            {(
+              [
+                ['zip', 'Archive .zip'],
+                ['text', 'Coller le texte'],
+                ['gitlab', 'Projet GitLab'],
+              ] as const
+            ).map(([mode, label]) => (
+              <label
+                key={mode}
+                className={`pb-2 -mb-px border-b-2 cursor-pointer ${
+                  jxmlMode === mode
+                    ? 'border-gl-orange text-[#303030] font-medium'
+                    : 'border-transparent text-gray-500 hover:text-[#303030]'
+                }`}
+              >
+                <input
+                  type="radio"
+                  className="sr-only"
+                  checked={jxmlMode === mode}
+                  onChange={() => setJxmlMode(mode)}
+                />
+                {label}
+              </label>
+            ))}
           </div>
           {jxmlMode === 'zip' && (
             <>
-              <input type="file" accept=".zip" onChange={(e) => setJxmlFile(e.target.files?.[0] ?? null)} />
-              {jxmlFile && <p className="filename">{jxmlFile.name}</p>}
+              <input
+                type="file"
+                accept=".zip"
+                onChange={(e) => setJxmlFile(e.target.files?.[0] ?? null)}
+                className="text-sm file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:bg-gl-blue file:text-white file:text-sm hover:file:bg-gl-blue-dark file:cursor-pointer"
+              />
+              {jxmlFile && <p className="text-sm text-gray-500 mt-2">{jxmlFile.name}</p>}
             </>
           )}
           {jxmlMode === 'text' && (
@@ -176,15 +215,25 @@ function App() {
               value={jxmlText}
               onChange={(e) => setJxmlText(e.target.value)}
               placeholder="Colle ici le contenu JXML"
+              className="w-full min-h-[40vh] rounded border border-[#dcdcde] p-2 font-mono text-[13px] focus:outline-none focus:ring-2 focus:ring-gl-orange"
             />
           )}
           {jxmlMode === 'gitlab' && (
-            <div className="gitlab-picker">
-              <button type="button" onClick={handleLoadGitlabProjects} disabled={gitlabLoading}>
+            <div className="flex flex-col gap-3">
+              <button
+                type="button"
+                className="btn-secondary self-start"
+                onClick={handleLoadGitlabProjects}
+                disabled={gitlabLoading}
+              >
                 {gitlabLoading ? 'Chargement…' : 'Charger les projets du sous-groupe'}
               </button>
               {gitlabProjects.length > 0 && (
-                <select value={gitlabProjectId} onChange={(e) => setGitlabProjectId(e.target.value)}>
+                <select
+                  value={gitlabProjectId}
+                  onChange={(e) => setGitlabProjectId(e.target.value)}
+                  className="rounded border border-[#dcdcde] px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-gl-orange"
+                >
                   <option value="">— Choisir un projet —</option>
                   {gitlabProjects.map((p) => (
                     <option key={p.id} value={p.id}>
@@ -199,24 +248,24 @@ function App() {
       </div>
 
       {session && session.divergences.length > 0 && (
-        <section className="divergences">
-          <h2>Divergences détectées ({session.divergences.length})</h2>
-          <table>
+        <section className="mx-3 mb-3 card p-4 overflow-x-auto">
+          <h2 className="field-label mb-3">Divergences détectées ({session.divergences.length})</h2>
+          <table className="w-full border-collapse text-sm">
             <thead>
-              <tr>
-                <th>Section</th>
-                <th>Word</th>
-                <th>JXML</th>
-                <th>Proposition IA</th>
+              <tr className="bg-[#fafafa]">
+                <th className="border border-[#dcdcde] px-3 py-2 text-left font-semibold text-[#626168]">Section</th>
+                <th className="border border-[#dcdcde] px-3 py-2 text-left font-semibold text-[#626168]">Word</th>
+                <th className="border border-[#dcdcde] px-3 py-2 text-left font-semibold text-[#626168]">JXML</th>
+                <th className="border border-[#dcdcde] px-3 py-2 text-left font-semibold text-[#626168]">Proposition IA</th>
               </tr>
             </thead>
             <tbody>
               {session.divergences.map((d) => (
-                <tr key={d.id}>
-                  <td>{d.sectionRef}</td>
-                  <td>{d.wordExcerpt ?? '—'}</td>
-                  <td>{d.jxmlExcerpt ?? '—'}</td>
-                  <td>{d.aiProposal ?? '—'}</td>
+                <tr key={d.id} className="hover:bg-[#fafafa]">
+                  <td className="border border-[#dcdcde] px-3 py-2 align-top">{d.sectionRef}</td>
+                  <td className="border border-[#dcdcde] px-3 py-2 align-top">{d.wordExcerpt ?? '—'}</td>
+                  <td className="border border-[#dcdcde] px-3 py-2 align-top">{d.jxmlExcerpt ?? '—'}</td>
+                  <td className="border border-[#dcdcde] px-3 py-2 align-top">{d.aiProposal ?? '—'}</td>
                 </tr>
               ))}
             </tbody>

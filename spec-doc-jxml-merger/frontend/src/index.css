@@ -1,135 +1,44 @@
-* {
-  box-sizing: border-box;
-}
+@import "tailwindcss";
+@config "../tailwind.config.js";
 
-body {
-  margin: 0;
-  font-family: system-ui, -apple-system, sans-serif;
-  background: #f7f7f8;
-  color: #1a1a1a;
-}
+@layer base {
+  :root {
+    --gl-orange: #fc6d26;
+    --gl-orange-dark: #e24329;
+    --gl-purple: #6e49cb;
+    --gl-blue: #1f75cb;
+    --gl-blue-dark: #1068bf;
+    --gl-dark: #2e2e2e;
+    --gl-success: #108548;
+    --gl-danger: #dd2b0e;
+    --gl-warning: #ab6100;
+  }
 
-.app {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-}
+  * {
+    box-sizing: border-box;
+  }
 
-.toolbar {
-  display: flex;
-  gap: 0.75rem;
-  align-items: center;
-  padding: 0.75rem 1rem;
-  background: #1f2937;
-}
-
-.toolbar input {
-  flex: 1;
-  padding: 0.4rem 0.6rem;
-  border-radius: 4px;
-  border: 1px solid #ccc;
-}
-
-.toolbar button {
-  padding: 0.4rem 0.9rem;
-  border-radius: 4px;
-  border: none;
-  background: #2563eb;
-  color: white;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.toolbar button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.error {
-  padding: 0.5rem 1rem;
-  background: #fee2e2;
-  color: #991b1b;
-}
-
-.panes {
-  display: grid;
-  grid-template-columns: 1fr 1.4fr 1fr;
-  gap: 1px;
-  background: #e5e7eb;
-  flex: 1;
-  min-height: 60vh;
-}
-
-@media (max-width: 900px) {
-  .panes {
-    grid-template-columns: 1fr;
+  body {
+    @apply antialiased bg-[#fafafa] text-[#303030];
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
   }
 }
 
-.pane {
-  background: white;
-  padding: 1rem;
-  overflow: auto;
-}
+@layer components {
+  .btn-primary {
+    @apply bg-gl-blue hover:bg-gl-blue-dark text-white font-medium text-sm py-2 px-4 rounded transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center whitespace-nowrap;
+  }
 
-.pane h2 {
-  margin-top: 0;
-  font-size: 1rem;
-}
+  .btn-secondary {
+    @apply bg-white hover:bg-gray-50 text-[#303030] font-medium text-sm py-2 px-4 rounded border border-[#dcdcde] transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center whitespace-nowrap;
+  }
 
-.pane-markdown textarea {
-  width: 100%;
-  min-height: 50vh;
-  font-family: ui-monospace, monospace;
-  font-size: 0.85rem;
-}
+  .card {
+    @apply bg-white rounded border border-[#dcdcde];
+  }
 
-.pane-jxml textarea {
-  width: 100%;
-  min-height: 40vh;
-  font-family: ui-monospace, monospace;
-}
-
-.jxml-mode-toggle {
-  display: flex;
-  gap: 1rem;
-  margin-bottom: 0.75rem;
-  font-size: 0.9rem;
-}
-
-.filename {
-  font-size: 0.85rem;
-  color: #555;
-}
-
-.versions ul {
-  list-style: none;
-  padding: 0;
-  font-size: 0.85rem;
-}
-
-.versions li {
-  padding: 0.25rem 0;
-  border-bottom: 1px solid #eee;
-}
-
-.divergences {
-  padding: 1rem;
-  background: white;
-  border-top: 1px solid #e5e7eb;
-  overflow-x: auto;
-}
-
-.divergences table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.85rem;
-}
-
-.divergences th,
-.divergences td {
-  border: 1px solid #e5e7eb;
-  padding: 0.4rem 0.6rem;
-  text-align: left;
-  vertical-align: top;
+  .field-label {
+    @apply text-[13px] font-semibold text-[#626168] uppercase tracking-wide;
+  }
 }
