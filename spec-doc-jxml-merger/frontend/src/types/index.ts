@@ -1,6 +1,6 @@
 export type JxmlSourceType = 'ZIP_UPLOAD' | 'PASTED_TEXT' | 'GITLAB_PROJECT'
 
-export type JxmlMode = 'zip' | 'text' | 'gitlab'
+export type JxmlMode = 'text' | 'gitlab'
 
 export interface GitLabProjectSummary {
   id: number
@@ -25,6 +25,11 @@ export interface GitLabSourceListing {
 export interface GitLabJxmlPreview {
   content: string
   warnings: string[]
+}
+
+/** The markdown a spec-generation call produced from a single source. */
+export interface SpecGenerationResult {
+  markdown: string
 }
 
 export interface Divergence {

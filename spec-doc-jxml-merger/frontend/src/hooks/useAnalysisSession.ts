@@ -5,7 +5,6 @@ import type { AnalysisSessionResponse, DocumentVersion } from '../types'
 interface AnalyzeParams {
   title?: string
   word?: File
-  jxmlArchive?: File
   jxmlText?: string
   gitlabGroupKey?: string
   gitlabProjectId?: string

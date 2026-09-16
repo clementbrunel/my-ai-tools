@@ -1,5 +1,12 @@
 import { useState } from 'react'
-import { listGitlabProjects, listGitlabSources, previewGitlabJxml } from './api/analysis'
+import {
+  generateSpecFromGitlab,
+  generateSpecFromJxml,
+  generateSpecFromWord,
+  listGitlabProjects,
+  listGitlabSources,
+  previewGitlabJxml,
+} from './api/analysis'
 import CodePanel from './components/CodePanel'
 import CollapsedPanel from './components/CollapsedPanel'
 import DivergencesTable from './components/DivergencesTable'
@@ -12,8 +19,7 @@ import type { GitLabEntryPoint, GitLabProjectSummary, JxmlMode } from './types'
 function App() {
   const [title, setTitle] = useState('')
   const [wordFile, setWordFile] = useState<File | null>(null)
-  const [jxmlMode, setJxmlMode] = useState<JxmlMode>('zip')
-  const [jxmlFile, setJxmlFile] = useState<File | null>(null)
+  const [jxmlMode, setJxmlMode] = useState<JxmlMode>('text')
   const [jxmlText, setJxmlText] = useState('')
   const [gitlabProjects, setGitlabProjects] = useState<GitLabProjectSummary[]>([])
   const [gitlabProjectId, setGitlabProjectId] = useState('')
@@ -28,34 +34,15 @@ function App() {
   const [gitlabPreviewContent, setGitlabPreviewContent] = useState('')
   const [gitlabPreviewWarnings, setGitlabPreviewWarnings] = useState<string[]>([])
   const [gitlabPreviewLoading, setGitlabPreviewLoading] = useState(false)
+  const [specGenerating, setSpecGenerating] = useState(false)
   const [specCollapsed, setSpecCollapsed] = useState(false)
   const [codeCollapsed, setCodeCollapsed] = useState(false)
 
   const { session, markdown, setMarkdown, versions, loading, error, setError, analyze, save, restore } =
     useAnalysisSession()
 
-  async function handleAnalyze() {
-    const hasJxml =
-      jxmlMode === 'zip' ? !!jxmlFile : jxmlMode === 'text' ? !!jxmlText.trim() : !!gitlabProjectId
-    if (!wordFile && !hasJxml) {
-      setError('Fournis au moins une source : Word (.docx) ou JXML.')
-      return
-    }
-    if (jxmlMode === 'gitlab' && gitlabEntryPoints.length > 0 && !gitlabEntryPointPath) {
-      setError('Choisis la démarche à documenter parmi les points d’entrée trouvés dans FORMS.jxml.')
-      return
-    }
-    const selectedGitlabProject = gitlabProjects.find((p) => String(p.id) === gitlabProjectId)
-    await analyze({
-      title: title || undefined,
-      word: wordFile ?? undefined,
-      jxmlArchive: jxmlMode === 'zip' ? (jxmlFile ?? undefined) : undefined,
-      jxmlText: jxmlMode === 'text' ? jxmlText : undefined,
-      gitlabGroupKey: jxmlMode === 'gitlab' ? selectedGitlabProject?.groupKey : undefined,
-      gitlabProjectId: jxmlMode === 'gitlab' ? gitlabProjectId : undefined,
-      gitlabSelectedPaths: jxmlMode === 'gitlab' ? Array.from(gitlabSelectedPaths) : undefined,
-      gitlabEntryPointPath: jxmlMode === 'gitlab' ? gitlabEntryPointPath || undefined : undefined,
-    })
+  function hasJxmlSource() {
+    return jxmlMode === 'text' ? !!jxmlText.trim() : !!gitlabProjectId
   }
 
   async function handleLoadGitlabProjects() {
@@ -99,20 +86,27 @@ function App() {
     }
   }
 
-  async function handlePreviewGitlabJxml() {
+  function currentGitlabPreviewParams() {
     const project = gitlabProjects.find((p) => String(p.id) === gitlabProjectId)
-    if (!project || !gitlabEntryPointPath) return
+    if (!project || !gitlabEntryPointPath) return null
+    return {
+      groupKey: project.groupKey,
+      projectId: gitlabProjectId,
+      entryPointPath: gitlabEntryPointPath,
+      selectedPaths: Array.from(gitlabSelectedPaths),
+    }
+  }
+
+  /** Opens the read-only modal showing the full resolved JXML that will be sent to the model. */
+  async function handlePreviewGitlabJxml() {
+    const params = currentGitlabPreviewParams()
+    if (!params) return
 
     setError(null)
     setGitlabPreviewOpen(true)
     setGitlabPreviewLoading(true)
     try {
-      const preview = await previewGitlabJxml({
-        groupKey: project.groupKey,
-        projectId: gitlabProjectId,
-        entryPointPath: gitlabEntryPointPath,
-        selectedPaths: Array.from(gitlabSelectedPaths),
-      })
+      const preview = await previewGitlabJxml(params)
       setGitlabPreviewContent(preview.content)
       setGitlabPreviewWarnings(preview.warnings)
     } catch (e) {
@@ -122,6 +116,65 @@ function App() {
     } finally {
       setGitlabPreviewLoading(false)
     }
+  }
+
+  /**
+   * Generates the markdown spec from whichever single source is filled in (Word alone, or JXML
+   * alone) and drops it straight into the merge panel — no session created.
+   */
+  async function generateSpecFromSingleSource(hasWord: boolean) {
+    setSpecGenerating(true)
+    try {
+      if (hasWord) {
+        setMarkdown(await generateSpecFromWord(wordFile as File))
+      } else if (jxmlMode === 'gitlab') {
+        const params = currentGitlabPreviewParams()
+        if (!params) return
+        setMarkdown(await generateSpecFromGitlab(params))
+      } else {
+        setMarkdown(await generateSpecFromJxml(jxmlText))
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Échec de la génération de la doc — voir la console.')
+      console.error(e)
+    } finally {
+      setSpecGenerating(false)
+    }
+  }
+
+  /**
+   * The single top-level action, adaptive to what's filled in: exactly one source generates its
+   * spec straight into the merge panel; both sources fall back to the full session-based pipeline
+   * (DiffEngine, divergences, versions) until the diff-based reconciliation (#262) replaces it.
+   */
+  async function handleAnalyze() {
+    const hasWord = !!wordFile
+    const hasJxml = hasJxmlSource()
+    if (!hasWord && !hasJxml) {
+      setError('Fournis au moins une source : Word (.docx) ou JXML.')
+      return
+    }
+    if (jxmlMode === 'gitlab' && gitlabEntryPoints.length > 0 && !gitlabEntryPointPath) {
+      setError('Choisis la démarche à documenter parmi les points d’entrée trouvés dans FORMS.jxml.')
+      return
+    }
+
+    setError(null)
+    if (hasWord !== hasJxml) {
+      await generateSpecFromSingleSource(hasWord)
+      return
+    }
+
+    const selectedGitlabProject = gitlabProjects.find((p) => String(p.id) === gitlabProjectId)
+    await analyze({
+      title: title || undefined,
+      word: wordFile ?? undefined,
+      jxmlText: jxmlMode === 'text' ? jxmlText : undefined,
+      gitlabGroupKey: jxmlMode === 'gitlab' ? selectedGitlabProject?.groupKey : undefined,
+      gitlabProjectId: jxmlMode === 'gitlab' ? gitlabProjectId : undefined,
+      gitlabSelectedPaths: jxmlMode === 'gitlab' ? Array.from(gitlabSelectedPaths) : undefined,
+      gitlabEntryPointPath: jxmlMode === 'gitlab' ? gitlabEntryPointPath || undefined : undefined,
+    })
   }
 
   function handleToggleGitlabPath(path: string) {
@@ -163,8 +216,9 @@ function App() {
         title={title}
         onTitleChange={setTitle}
         onAnalyze={handleAnalyze}
-        loading={loading}
+        loading={loading || specGenerating}
         hasSession={!!session}
+        hasMarkdown={!!markdown}
         onSave={save}
         onDownload={handleDownload}
       />
@@ -192,8 +246,6 @@ function App() {
           <CodePanel
             jxmlMode={jxmlMode}
             onJxmlModeChange={setJxmlMode}
-            jxmlFile={jxmlFile}
-            onJxmlFileChange={setJxmlFile}
             jxmlText={jxmlText}
             onJxmlTextChange={setJxmlText}
             gitlabProjects={gitlabProjects}

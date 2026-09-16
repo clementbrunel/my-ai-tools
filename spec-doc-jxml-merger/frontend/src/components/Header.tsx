@@ -4,11 +4,12 @@ interface HeaderProps {
   onAnalyze: () => void
   loading: boolean
   hasSession: boolean
+  hasMarkdown: boolean
   onSave: () => void
   onDownload: () => void
 }
 
-function Header({ title, onTitleChange, onAnalyze, loading, hasSession, onSave, onDownload }: HeaderProps) {
+function Header({ title, onTitleChange, onAnalyze, loading, hasSession, hasMarkdown, onSave, onDownload }: HeaderProps) {
   return (
     <header className="flex items-center gap-3 px-4 py-3 bg-gl-dark shadow-sm">
       <div className="flex items-center gap-2 shrink-0">
@@ -25,14 +26,14 @@ function Header({ title, onTitleChange, onAnalyze, loading, hasSession, onSave, 
         {loading ? 'Analyse en cours…' : 'Analyser'}
       </button>
       {hasSession && (
-        <>
-          <button className="btn-secondary" onClick={onSave} disabled={loading}>
-            Enregistrer l'édition
-          </button>
-          <button className="btn-secondary" onClick={onDownload}>
-            Télécharger le markdown
-          </button>
-        </>
+        <button className="btn-secondary" onClick={onSave} disabled={loading}>
+          Enregistrer l'édition
+        </button>
+      )}
+      {hasMarkdown && (
+        <button className="btn-secondary" onClick={onDownload}>
+          Télécharger le markdown
+        </button>
       )}
     </header>
   )

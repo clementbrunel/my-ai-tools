@@ -11,10 +11,8 @@ const projects: GitLabProjectSummary[] = [
 
 function baseProps(overrides: Partial<React.ComponentProps<typeof CodePanel>> = {}) {
   return {
-    jxmlMode: 'zip' as const,
+    jxmlMode: 'text' as const,
     onJxmlModeChange: vi.fn(),
-    jxmlFile: null,
-    onJxmlFileChange: vi.fn(),
     jxmlText: '',
     onJxmlTextChange: vi.fn(),
     gitlabProjects: [] as GitLabProjectSummary[],
@@ -44,21 +42,16 @@ function baseProps(overrides: Partial<React.ComponentProps<typeof CodePanel>> = 
 }
 
 describe('CodePanel', () => {
-  it('shows the zip file input in zip mode', () => {
-    const { container } = render(<CodePanel {...baseProps()} />)
-    expect(container.querySelector('input[type="file"][accept=".zip"]')).not.toBeNull()
+  it('renders a textarea bound to jxmlText in text mode', () => {
+    render(<CodePanel {...baseProps({ jxmlText: '<jform/>' })} />)
+    expect(screen.getByPlaceholderText('Colle ici le contenu JXML')).toHaveValue('<jform/>')
   })
 
   it('calls onJxmlModeChange when a tab is clicked', async () => {
     const onJxmlModeChange = vi.fn()
     render(<CodePanel {...baseProps({ onJxmlModeChange })} />)
-    await userEvent.click(screen.getByText('Coller le texte'))
-    expect(onJxmlModeChange).toHaveBeenCalledWith('text')
-  })
-
-  it('renders a textarea bound to jxmlText in text mode', () => {
-    render(<CodePanel {...baseProps({ jxmlMode: 'text', jxmlText: '<jform/>' })} />)
-    expect(screen.getByPlaceholderText('Colle ici le contenu JXML')).toHaveValue('<jform/>')
+    await userEvent.click(screen.getByText('Projet GitLab'))
+    expect(onJxmlModeChange).toHaveBeenCalledWith('gitlab')
   })
 
   it('calls onLoadGitlabProjects when the load button is clicked in gitlab mode', async () => {
@@ -200,6 +193,7 @@ describe('CodePanel', () => {
     )
     await userEvent.click(screen.getByText('Texte brut'))
     expect(screen.getByText('<JForm><Section/></JForm>')).toBeDefined()
+    expect(screen.getByText(/JXML envoyé au modèle/)).toBeDefined()
   })
 
   it('shows preview warnings prominently when present', () => {

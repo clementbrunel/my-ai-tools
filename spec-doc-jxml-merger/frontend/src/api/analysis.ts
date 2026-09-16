@@ -5,12 +5,12 @@ import type {
   GitLabJxmlPreview,
   GitLabProjectSummary,
   GitLabSourceListing,
+  SpecGenerationResult,
 } from '../types'
 
 export async function createAnalysis(params: {
   title?: string
   word?: File
-  jxmlArchive?: File
   jxmlText?: string
   gitlabGroupKey?: string
   gitlabProjectId?: string
@@ -20,7 +20,6 @@ export async function createAnalysis(params: {
   const form = new FormData()
   if (params.title) form.append('title', params.title)
   if (params.word) form.append('word', params.word)
-  if (params.jxmlArchive) form.append('jxmlArchive', params.jxmlArchive)
   if (params.jxmlText) form.append('jxmlText', params.jxmlText)
   if (params.gitlabGroupKey) form.append('gitlabGroupKey', params.gitlabGroupKey)
   if (params.gitlabProjectId) form.append('gitlabProjectId', params.gitlabProjectId)
@@ -48,20 +47,17 @@ export async function listGitlabSources(groupKey: string, projectId: string): Pr
   return data
 }
 
-/**
- * The flattened JXML (entry point + its Include chain resolved) exactly as it will be sent to
- * the model, plus any warnings (unresolved Includes, incomplete tag nesting) worth showing
- * separately from the content itself.
- */
-export async function previewGitlabJxml(params: {
+interface GitlabPreviewParams {
   groupKey: string
   projectId: string
   entryPointPath: string
   selectedPaths?: string[]
-}): Promise<GitLabJxmlPreview> {
-  // Built manually (not via axios' object params) so arrays serialize as repeated
-  // `selectedPaths=a&selectedPaths=b`, matching how Spring binds a List<String> — axios'
-  // default array serialization uses `selectedPaths[]=...`, which Spring won't bind.
+}
+
+// Built manually (not via axios' object params) so arrays serialize as repeated
+// `selectedPaths=a&selectedPaths=b`, matching how Spring binds a List<String> — axios'
+// default array serialization uses `selectedPaths[]=...`, which Spring won't bind.
+function buildGitlabPreviewQuery(params: GitlabPreviewParams): URLSearchParams {
   const query = new URLSearchParams()
   query.set('groupKey', params.groupKey)
   query.set('projectId', params.projectId)
@@ -70,8 +66,51 @@ export async function previewGitlabJxml(params: {
     query.set('selectedPathsProvided', 'true')
     params.selectedPaths.forEach((path) => query.append('selectedPaths', path))
   }
-  const { data } = await client.get<GitLabJxmlPreview>('/gitlab/preview', { params: query })
+  return query
+}
+
+/**
+ * The flattened JXML (entry point + its Include chain resolved) exactly as it will be sent to
+ * the model, plus any warnings (unresolved Includes, incomplete tag nesting) worth showing
+ * separately from the content itself.
+ */
+export async function previewGitlabJxml(params: GitlabPreviewParams): Promise<GitLabJxmlPreview> {
+  const { data } = await client.get<GitLabJxmlPreview>('/gitlab/preview', {
+    params: buildGitlabPreviewQuery(params),
+  })
   return data
+}
+
+/** The markdown spec the model generates from the Word/Excel spec alone (no JXML/diff yet). */
+export async function generateSpecFromWord(word: File): Promise<string> {
+  const form = new FormData()
+  form.append('word', word)
+  const { data } = await client.post<SpecGenerationResult>('/spec/generate-from-word', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return data.markdown
+}
+
+/**
+ * The markdown spec the model generates from a JXML text alone — must be well-formed XML with
+ * no <Include> tags (unresolvable without the rest of the project's files). For a GitLab source,
+ * use {@link generateSpecFromGitlab} instead, which resolves Include fragments server-side.
+ */
+export async function generateSpecFromJxml(jxmlText: string): Promise<string> {
+  const { data } = await client.post<SpecGenerationResult>('/spec/generate-from-jxml', { jxmlText })
+  return data.markdown
+}
+
+/**
+ * The markdown spec the model generates from a GitLab entry point's JXML — Include chain resolved
+ * and spec generated server-side in one request, instead of chaining previewGitlabJxml into
+ * generateSpecFromJxml from the frontend.
+ */
+export async function generateSpecFromGitlab(params: GitlabPreviewParams): Promise<string> {
+  const { data } = await client.get<SpecGenerationResult>('/gitlab/generate-spec', {
+    params: buildGitlabPreviewQuery(params),
+  })
+  return data.markdown
 }
 
 export async function getAnalysis(sessionId: string): Promise<AnalysisSessionResponse> {
