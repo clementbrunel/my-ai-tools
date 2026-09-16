@@ -11,6 +11,21 @@ export interface GitLabProjectSummary {
   groupKey: string
 }
 
+/** A démarche entry point declared by FORMS.jxml (one Hyperlink Type="Document"). */
+export interface GitLabEntryPoint {
+  documentId: string
+  path: string
+}
+
+export interface GitLabSourceListing {
+  entryPoints: GitLabEntryPoint[]
+  optionalPaths: string[]
+}
+
+export interface GitLabJxmlPreview {
+  content: string
+}
+
 export interface Divergence {
   id: string
   sectionRef: string

@@ -1,7 +1,9 @@
 package com.specmerger.service.gitlab;
 
 import com.specmerger.config.GitLabProperties;
+import com.specmerger.dto.GitLabEntryPoint;
 import com.specmerger.dto.GitLabProjectSummary;
+import com.specmerger.dto.GitLabSourceListing;
 import jakarta.annotation.PostConstruct;
 import java.io.IOException;
 import java.io.InputStream;
@@ -10,8 +12,11 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.gitlab4j.api.GitLabApi;
 import org.gitlab4j.api.GitLabApiException;
@@ -88,30 +93,85 @@ public class GitLabSourceService {
     /**
      * Lists the paths of the files a project has that {@link SourceFileFilter} deems
      * relevant, without downloading their content — used to let the user review/deselect
-     * sources (checkboxes) before they're actually fetched for analysis.
+     * sources (checkboxes) before they're actually fetched for analysis. Files that FORMS.jxml
+     * (the EAR's démarche menu) references as entry points are singled out separately: the
+     * user picks exactly one démarche to document, not a free checkbox selection like the
+     * rest (includes, translations, Java).
      */
-    public List<String> listRelevantSourcePaths(String groupKey, String projectIdOrPath) throws GitLabApiException {
+    public GitLabSourceListing listRelevantSourcePaths(String groupKey, String projectIdOrPath) throws GitLabApiException {
         try (GitLabApi api = apiFactory.create()) {
             ResolvedTree resolved = resolveTree(api, groupKey, projectIdOrPath);
-            List<String> paths = resolved.tree().stream()
+            List<String> allPaths = resolved.tree().stream()
                     .filter(item -> item.getType() == TreeItem.Type.BLOB && resolved.filter().isRelevant(item.getPath()))
                     .map(TreeItem::getPath)
                     .sorted()
                     .toList();
-            log.info("GitLab: {} fichier(s) pertinent(s) sur {} ({})",
-                    paths.size(), resolved.project().getPathWithNamespace(), groupKey);
-            return paths;
+
+            List<GitLabEntryPoint> entryPoints = resolveEntryPoints(api, resolved, allPaths);
+            Set<String> entryPointPaths = entryPoints.stream().map(GitLabEntryPoint::path).collect(Collectors.toSet());
+            List<String> optionalPaths = allPaths.stream().filter(p -> !entryPointPaths.contains(p)).toList();
+
+            log.info("GitLab: {} fichier(s) pertinent(s) sur {} ({}), dont {} point(s) d'entrée FORMS.jxml",
+                    allPaths.size(), resolved.project().getPathWithNamespace(), groupKey, entryPoints.size());
+            return new GitLabSourceListing(entryPoints, optionalPaths);
         }
+    }
+
+    /**
+     * Locates FORMS.jxml among the project's relevant files (there may be none — not every
+     * GitLab project browsed here is an EAR with a démarche menu) and resolves each
+     * {@code <Hyperlink Type="Document" DocumentId="...">} it declares to the matching file
+     * path, so the caller can offer them as a single-select list instead of free checkboxes.
+     * Never fails the whole listing: a missing FORMS.jxml, an unparseable one, or a
+     * DocumentId with no matching file just yields fewer (or zero) entry points.
+     */
+    private List<GitLabEntryPoint> resolveEntryPoints(GitLabApi api, ResolvedTree resolved, List<String> allPaths) {
+        String formsPath = allPaths.stream()
+                .filter(p -> fileNameWithoutExtension(p).equalsIgnoreCase("FORMS"))
+                .findFirst()
+                .orElse(null);
+        if (formsPath == null) {
+            return List.of();
+        }
+
+        String formsContent;
+        try (InputStream raw = api.getRepositoryFileApi().getRawFile(resolved.projectId(), resolved.ref(), formsPath)) {
+            formsContent = new String(raw.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException | GitLabApiException e) {
+            log.warn("GitLab: impossible de lire '{}' pour résoudre les points d'entrée de '{}' : {}",
+                    formsPath, resolved.project().getPathWithNamespace(), e.getMessage());
+            return List.of();
+        }
+
+        List<GitLabEntryPoint> entryPoints = new ArrayList<>();
+        for (String documentId : FormsEntryPointParser.extractDocumentIds(formsContent)) {
+            allPaths.stream()
+                    .filter(p -> fileNameWithoutExtension(p).equals(documentId))
+                    .findFirst()
+                    .ifPresentOrElse(
+                            path -> entryPoints.add(new GitLabEntryPoint(documentId, path)),
+                            () -> log.warn("GitLab: point d'entrée '{}' référencé par '{}' introuvable parmi les "
+                                    + "fichiers de '{}'", documentId, formsPath, resolved.project().getPathWithNamespace()));
+        }
+        return entryPoints;
+    }
+
+    private static String fileNameWithoutExtension(String path) {
+        String name = path.substring(path.lastIndexOf('/') + 1);
+        int dot = name.lastIndexOf('.');
+        return dot > 0 ? name.substring(0, dot) : name;
     }
 
     /**
      * Downloads the content of the project's relevant files, keyed by their repository
      * path. When {@code selectedPaths} is non-null, only those among the relevant files
-     * are downloaded (the user's checkbox selection from {@link #listRelevantSourcePaths});
-     * a null {@code selectedPaths} downloads every relevant file.
+     * (plus {@code entryPointPath}, if given — see {@link #listRelevantSourcePaths}, it's
+     * never itself offered as a checkbox) are downloaded; a null {@code selectedPaths}
+     * downloads every relevant file.
      */
-    public Map<String, String> fetchRelevantSources(String groupKey, String projectIdOrPath, Collection<String> selectedPaths)
-            throws GitLabApiException, IOException {
+    public Map<String, String> fetchRelevantSources(String groupKey, String projectIdOrPath,
+            Collection<String> selectedPaths, String entryPointPath) throws GitLabApiException, IOException {
+        Collection<String> effectivePaths = withEntryPoint(selectedPaths, entryPointPath);
         try (GitLabApi api = apiFactory.create()) {
             ResolvedTree resolved = resolveTree(api, groupKey, projectIdOrPath);
             Map<String, String> filesByPath = new LinkedHashMap<>();
@@ -119,7 +179,7 @@ public class GitLabSourceService {
                 if (item.getType() != TreeItem.Type.BLOB || !resolved.filter().isRelevant(item.getPath())) {
                     continue;
                 }
-                if (selectedPaths != null && !selectedPaths.contains(item.getPath())) {
+                if (effectivePaths != null && !effectivePaths.contains(item.getPath())) {
                     continue;
                 }
                 try (InputStream raw = api.getRepositoryFileApi().getRawFile(resolved.projectId(), resolved.ref(), item.getPath())) {
@@ -133,9 +193,32 @@ public class GitLabSourceService {
             }
             log.info("GitLab: {} fichier(s) retenu(s) sur {} ({}) après filtrage{}",
                     filesByPath.size(), resolved.project().getPathWithNamespace(), groupKey,
-                    selectedPaths != null ? " et sélection utilisateur" : "");
+                    effectivePaths != null ? " et sélection utilisateur" : "");
             return filesByPath;
         }
+    }
+
+    /**
+     * Fetches the selected sources (forcing the chosen démarche's entry point in, exactly
+     * like {@link #fetchRelevantSources}) and flattens its Include chain into a single
+     * document — this is what the user reviews before it's actually sent to the model.
+     */
+    public String previewResolvedJxml(String groupKey, String projectIdOrPath, Collection<String> selectedPaths,
+            String entryPointPath) throws GitLabApiException, IOException {
+        if (entryPointPath == null || entryPointPath.isBlank()) {
+            throw new IllegalArgumentException("entryPointPath est requis pour prévisualiser le JXML résolu.");
+        }
+        Map<String, String> filesByPath = fetchRelevantSources(groupKey, projectIdOrPath, selectedPaths, entryPointPath);
+        return JxmlIncludeResolver.resolve(entryPointPath, filesByPath);
+    }
+
+    private static Collection<String> withEntryPoint(Collection<String> selectedPaths, String entryPointPath) {
+        if (selectedPaths == null || entryPointPath == null || entryPointPath.isBlank()) {
+            return selectedPaths;
+        }
+        Set<String> merged = new LinkedHashSet<>(selectedPaths);
+        merged.add(entryPointPath);
+        return merged;
     }
 
     private record ResolvedTree(Object projectId, Project project, String ref, List<TreeItem> tree, SourceFileFilter filter) {

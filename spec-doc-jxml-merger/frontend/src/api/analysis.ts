@@ -1,5 +1,11 @@
 import { client } from './client'
-import type { AnalysisSessionResponse, DocumentVersion, GitLabProjectSummary } from '../types'
+import type {
+  AnalysisSessionResponse,
+  DocumentVersion,
+  GitLabJxmlPreview,
+  GitLabProjectSummary,
+  GitLabSourceListing,
+} from '../types'
 
 export async function createAnalysis(params: {
   title?: string
@@ -9,6 +15,7 @@ export async function createAnalysis(params: {
   gitlabGroupKey?: string
   gitlabProjectId?: string
   gitlabSelectedPaths?: string[]
+  gitlabEntryPointPath?: string
 }): Promise<AnalysisSessionResponse> {
   const form = new FormData()
   if (params.title) form.append('title', params.title)
@@ -17,6 +24,7 @@ export async function createAnalysis(params: {
   if (params.jxmlText) form.append('jxmlText', params.jxmlText)
   if (params.gitlabGroupKey) form.append('gitlabGroupKey', params.gitlabGroupKey)
   if (params.gitlabProjectId) form.append('gitlabProjectId', params.gitlabProjectId)
+  if (params.gitlabEntryPointPath) form.append('gitlabEntryPointPath', params.gitlabEntryPointPath)
   if (params.gitlabSelectedPaths !== undefined) {
     // A multipart form can't represent "field present but empty" any other way — an
     // unchecked-everything selection must still be distinguishable from "not provided".
@@ -35,9 +43,31 @@ export async function listGitlabProjects(): Promise<GitLabProjectSummary[]> {
   return data
 }
 
-export async function listGitlabSources(groupKey: string, projectId: string): Promise<string[]> {
-  const { data } = await client.get<string[]>('/gitlab/sources', { params: { groupKey, projectId } })
+export async function listGitlabSources(groupKey: string, projectId: string): Promise<GitLabSourceListing> {
+  const { data } = await client.get<GitLabSourceListing>('/gitlab/sources', { params: { groupKey, projectId } })
   return data
+}
+
+/** The flattened JXML (entry point + its Include chain resolved) exactly as it will be sent to the model. */
+export async function previewGitlabJxml(params: {
+  groupKey: string
+  projectId: string
+  entryPointPath: string
+  selectedPaths?: string[]
+}): Promise<string> {
+  // Built manually (not via axios' object params) so arrays serialize as repeated
+  // `selectedPaths=a&selectedPaths=b`, matching how Spring binds a List<String> — axios'
+  // default array serialization uses `selectedPaths[]=...`, which Spring won't bind.
+  const query = new URLSearchParams()
+  query.set('groupKey', params.groupKey)
+  query.set('projectId', params.projectId)
+  query.set('entryPointPath', params.entryPointPath)
+  if (params.selectedPaths !== undefined) {
+    query.set('selectedPathsProvided', 'true')
+    params.selectedPaths.forEach((path) => query.append('selectedPaths', path))
+  }
+  const { data } = await client.get<GitLabJxmlPreview>('/gitlab/preview', { params: query })
+  return data.content
 }
 
 export async function getAnalysis(sessionId: string): Promise<AnalysisSessionResponse> {
