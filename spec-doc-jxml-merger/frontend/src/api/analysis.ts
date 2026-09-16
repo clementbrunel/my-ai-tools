@@ -10,6 +10,7 @@ export async function createAnalysis(params: {
   jxmlText?: string
   gitlabGroupKey?: string
   gitlabProjectId?: string
+  gitlabSelectedPaths?: string[]
 }): Promise<AnalysisSessionResponse> {
   const form = new FormData()
   if (params.title) form.append('title', params.title)
@@ -18,6 +19,12 @@ export async function createAnalysis(params: {
   if (params.jxmlText) form.append('jxmlText', params.jxmlText)
   if (params.gitlabGroupKey) form.append('gitlabGroupKey', params.gitlabGroupKey)
   if (params.gitlabProjectId) form.append('gitlabProjectId', params.gitlabProjectId)
+  if (params.gitlabSelectedPaths !== undefined) {
+    // A multipart form can't represent "field present but empty" any other way — an
+    // unchecked-everything selection must still be distinguishable from "not provided".
+    form.append('gitlabSelectedPathsProvided', 'true')
+    params.gitlabSelectedPaths.forEach((path) => form.append('gitlabSelectedPaths', path))
+  }
 
   const { data } = await client.post<AnalysisSessionResponse>('/analysis', form, {
     headers: { 'Content-Type': 'multipart/form-data' },
@@ -27,6 +34,11 @@ export async function createAnalysis(params: {
 
 export async function listGitlabProjects(): Promise<GitLabProjectSummary[]> {
   const { data } = await client.get<GitLabProjectSummary[]>('/gitlab/projects')
+  return data
+}
+
+export async function listGitlabSources(groupKey: string, projectId: string): Promise<string[]> {
+  const { data } = await client.get<string[]>('/gitlab/sources', { params: { groupKey, projectId } })
   return data
 }
 

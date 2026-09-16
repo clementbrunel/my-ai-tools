@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -85,58 +86,90 @@ public class GitLabSourceService {
     }
 
     /**
-     * Downloads only the files of the project that the group's {@link SourceFileFilter}
-     * deems relevant (JXML sources, translation resources, and — when configured —
-     * outbound business-call Java classes), keyed by their repository path.
+     * Lists the paths of the files a project has that {@link SourceFileFilter} deems
+     * relevant, without downloading their content — used to let the user review/deselect
+     * sources (checkboxes) before they're actually fetched for analysis.
      */
-    public Map<String, String> fetchRelevantSources(String groupKey, String projectIdOrPath)
-            throws GitLabApiException, IOException {
-        SourceFileFilter filter = filterFor(groupKey);
+    public List<String> listRelevantSourcePaths(String groupKey, String projectIdOrPath) throws GitLabApiException {
         try (GitLabApi api = apiFactory.create()) {
-            Object projectId = resolveIdentifier(projectIdOrPath);
-            log.debug("GitLab: résolution du projet '{}' (groupe='{}', identifiant résolu='{}')",
-                    projectIdOrPath, groupKey, projectId);
-            Project project;
-            try {
-                project = api.getProjectApi().getProject(projectId);
-            } catch (GitLabApiException e) {
-                log.error("GitLab: échec de la résolution du projet '{}' (groupe='{}', identifiant résolu='{}') : "
-                                + "HTTP {} {} — {}",
-                        projectIdOrPath, groupKey, projectId, e.getHttpStatus(), e.getReason(), e.getMessage());
-                throw e;
-            }
-            String ref = project.getDefaultBranch();
-            log.debug("GitLab: projet '{}' résolu (branche par défaut='{}')", project.getPathWithNamespace(), ref);
+            ResolvedTree resolved = resolveTree(api, groupKey, projectIdOrPath);
+            List<String> paths = resolved.tree().stream()
+                    .filter(item -> item.getType() == TreeItem.Type.BLOB && resolved.filter().isRelevant(item.getPath()))
+                    .map(TreeItem::getPath)
+                    .sorted()
+                    .toList();
+            log.info("GitLab: {} fichier(s) pertinent(s) sur {} ({})",
+                    paths.size(), resolved.project().getPathWithNamespace(), groupKey);
+            return paths;
+        }
+    }
 
-            List<TreeItem> tree;
-            try {
-                tree = api.getRepositoryApi().getTree(projectId, "", ref, true);
-            } catch (GitLabApiException e) {
-                log.error("GitLab: échec de la lecture de l'arborescence du projet '{}' (branche='{}') : "
-                                + "HTTP {} {} — {}",
-                        project.getPathWithNamespace(), ref, e.getHttpStatus(), e.getReason(), e.getMessage());
-                throw e;
-            }
-            log.debug("GitLab: {} entrée(s) dans l'arborescence de '{}'", tree.size(), project.getPathWithNamespace());
-
+    /**
+     * Downloads the content of the project's relevant files, keyed by their repository
+     * path. When {@code selectedPaths} is non-null, only those among the relevant files
+     * are downloaded (the user's checkbox selection from {@link #listRelevantSourcePaths});
+     * a null {@code selectedPaths} downloads every relevant file.
+     */
+    public Map<String, String> fetchRelevantSources(String groupKey, String projectIdOrPath, Collection<String> selectedPaths)
+            throws GitLabApiException, IOException {
+        try (GitLabApi api = apiFactory.create()) {
+            ResolvedTree resolved = resolveTree(api, groupKey, projectIdOrPath);
             Map<String, String> filesByPath = new LinkedHashMap<>();
-            for (TreeItem item : tree) {
-                if (item.getType() != TreeItem.Type.BLOB || !filter.isRelevant(item.getPath())) {
+            for (TreeItem item : resolved.tree()) {
+                if (item.getType() != TreeItem.Type.BLOB || !resolved.filter().isRelevant(item.getPath())) {
                     continue;
                 }
-                try (InputStream raw = api.getRepositoryFileApi().getRawFile(projectId, ref, item.getPath())) {
+                if (selectedPaths != null && !selectedPaths.contains(item.getPath())) {
+                    continue;
+                }
+                try (InputStream raw = api.getRepositoryFileApi().getRawFile(resolved.projectId(), resolved.ref(), item.getPath())) {
                     filesByPath.put(item.getPath(), new String(raw.readAllBytes(), StandardCharsets.UTF_8));
                 } catch (GitLabApiException e) {
                     log.error("GitLab: échec du téléchargement de '{}' dans '{}' (branche='{}') : HTTP {} {} — {}",
-                            item.getPath(), project.getPathWithNamespace(), ref,
+                            item.getPath(), resolved.project().getPathWithNamespace(), resolved.ref(),
                             e.getHttpStatus(), e.getReason(), e.getMessage());
                     throw e;
                 }
             }
-            log.info("GitLab: {} fichier(s) retenu(s) sur {} ({}) après filtrage",
-                    filesByPath.size(), project.getPathWithNamespace(), groupKey);
+            log.info("GitLab: {} fichier(s) retenu(s) sur {} ({}) après filtrage{}",
+                    filesByPath.size(), resolved.project().getPathWithNamespace(), groupKey,
+                    selectedPaths != null ? " et sélection utilisateur" : "");
             return filesByPath;
         }
+    }
+
+    private record ResolvedTree(Object projectId, Project project, String ref, List<TreeItem> tree, SourceFileFilter filter) {
+    }
+
+    private ResolvedTree resolveTree(GitLabApi api, String groupKey, String projectIdOrPath) throws GitLabApiException {
+        SourceFileFilter filter = filterFor(groupKey);
+        Object projectId = resolveIdentifier(projectIdOrPath);
+        log.debug("GitLab: résolution du projet '{}' (groupe='{}', identifiant résolu='{}')",
+                projectIdOrPath, groupKey, projectId);
+        Project project;
+        try {
+            project = api.getProjectApi().getProject(projectId);
+        } catch (GitLabApiException e) {
+            log.error("GitLab: échec de la résolution du projet '{}' (groupe='{}', identifiant résolu='{}') : "
+                            + "HTTP {} {} — {}",
+                    projectIdOrPath, groupKey, projectId, e.getHttpStatus(), e.getReason(), e.getMessage());
+            throw e;
+        }
+        String ref = project.getDefaultBranch();
+        log.debug("GitLab: projet '{}' résolu (branche par défaut='{}')", project.getPathWithNamespace(), ref);
+
+        List<TreeItem> tree;
+        try {
+            tree = api.getRepositoryApi().getTree(projectId, "", ref, true);
+        } catch (GitLabApiException e) {
+            log.error("GitLab: échec de la lecture de l'arborescence du projet '{}' (branche='{}') : "
+                            + "HTTP {} {} — {}",
+                    project.getPathWithNamespace(), ref, e.getHttpStatus(), e.getReason(), e.getMessage());
+            throw e;
+        }
+        log.debug("GitLab: {} entrée(s) dans l'arborescence de '{}'", tree.size(), project.getPathWithNamespace());
+
+        return new ResolvedTree(projectId, project, ref, tree, filter);
     }
 
     private SourceFileFilter filterFor(String groupKey) {

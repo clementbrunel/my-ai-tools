@@ -1,5 +1,13 @@
 import { useState } from 'react'
-import { createAnalysis, getAnalysis, listGitlabProjects, listVersions, restoreVersion, saveVersion } from './api/analysis'
+import {
+  createAnalysis,
+  getAnalysis,
+  listGitlabProjects,
+  listGitlabSources,
+  listVersions,
+  restoreVersion,
+  saveVersion,
+} from './api/analysis'
 import type { AnalysisSessionResponse, DocumentVersion, GitLabProjectSummary } from './types'
 
 type JxmlMode = 'zip' | 'text' | 'gitlab'
@@ -14,6 +22,9 @@ function App() {
   const [gitlabProjectId, setGitlabProjectId] = useState('')
   const [gitlabLoading, setGitlabLoading] = useState(false)
   const [gitlabSearch, setGitlabSearch] = useState('')
+  const [gitlabSourcePaths, setGitlabSourcePaths] = useState<string[]>([])
+  const [gitlabSelectedPaths, setGitlabSelectedPaths] = useState<Set<string>>(new Set())
+  const [gitlabSourcesLoading, setGitlabSourcesLoading] = useState(false)
   const [session, setSession] = useState<AnalysisSessionResponse | null>(null)
   const [markdown, setMarkdown] = useState('')
   const [versions, setVersions] = useState<DocumentVersion[]>([])
@@ -38,6 +49,7 @@ function App() {
         jxmlText: jxmlMode === 'text' ? jxmlText : undefined,
         gitlabGroupKey: jxmlMode === 'gitlab' ? selectedGitlabProject?.groupKey : undefined,
         gitlabProjectId: jxmlMode === 'gitlab' ? gitlabProjectId : undefined,
+        gitlabSelectedPaths: jxmlMode === 'gitlab' ? Array.from(gitlabSelectedPaths) : undefined,
       })
       setSession(result)
       setMarkdown(result.markdown)
@@ -61,6 +73,41 @@ function App() {
     } finally {
       setGitlabLoading(false)
     }
+  }
+
+  async function handleSelectGitlabProject(projectId: string) {
+    setGitlabProjectId(projectId)
+    setGitlabSourcePaths([])
+    setGitlabSelectedPaths(new Set())
+    if (!projectId) return
+
+    const project = gitlabProjects.find((p) => String(p.id) === projectId)
+    if (!project) return
+
+    setError(null)
+    setGitlabSourcesLoading(true)
+    try {
+      const paths = await listGitlabSources(project.groupKey, projectId)
+      setGitlabSourcePaths(paths)
+      setGitlabSelectedPaths(new Set(paths))
+    } catch (e) {
+      setError('Échec du chargement des fichiers du projet — voir la console.')
+      console.error(e)
+    } finally {
+      setGitlabSourcesLoading(false)
+    }
+  }
+
+  function handleToggleGitlabPath(path: string) {
+    setGitlabSelectedPaths((prev) => {
+      const next = new Set(prev)
+      if (next.has(path)) {
+        next.delete(path)
+      } else {
+        next.add(path)
+      }
+      return next
+    })
   }
 
   async function handleSave() {
@@ -247,7 +294,7 @@ function App() {
                   />
                   <select
                     value={gitlabProjectId}
-                    onChange={(e) => setGitlabProjectId(e.target.value)}
+                    onChange={(e) => handleSelectGitlabProject(e.target.value)}
                     className="rounded border border-[#dcdcde] px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-gl-orange"
                   >
                     <option value="">
@@ -260,6 +307,46 @@ function App() {
                     ))}
                   </select>
                 </>
+              )}
+              {gitlabSourcesLoading && <p className="text-sm text-gray-500">Chargement des fichiers…</p>}
+              {gitlabSourcePaths.length > 0 && (
+                <div className="border border-[#dcdcde] rounded">
+                  <div className="flex items-center justify-between gap-2 px-2 py-1.5 border-b border-[#dcdcde] bg-[#fafafa] text-sm">
+                    <span className="text-gray-600">
+                      {gitlabSelectedPaths.size} / {gitlabSourcePaths.length} fichier(s) inclus
+                    </span>
+                    <span className="flex gap-3">
+                      <button
+                        type="button"
+                        className="text-gl-blue hover:text-gl-blue-dark hover:underline"
+                        onClick={() => setGitlabSelectedPaths(new Set(gitlabSourcePaths))}
+                      >
+                        Tout cocher
+                      </button>
+                      <button
+                        type="button"
+                        className="text-gl-blue hover:text-gl-blue-dark hover:underline"
+                        onClick={() => setGitlabSelectedPaths(new Set())}
+                      >
+                        Tout décocher
+                      </button>
+                    </span>
+                  </div>
+                  <ul className="max-h-64 overflow-auto text-sm divide-y divide-[#eee]">
+                    {gitlabSourcePaths.map((path) => (
+                      <li key={path} className="px-2 py-1">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={gitlabSelectedPaths.has(path)}
+                            onChange={() => handleToggleGitlabPath(path)}
+                          />
+                          <span className="font-mono text-[13px] break-all">{path}</span>
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               )}
             </div>
           )}
