@@ -1,5 +1,7 @@
 export type JxmlSourceType = 'ZIP_UPLOAD' | 'PASTED_TEXT' | 'GITLAB_PROJECT'
 
+export type JxmlMode = 'zip' | 'text' | 'gitlab'
+
 export interface GitLabProjectSummary {
   id: number
   name: string

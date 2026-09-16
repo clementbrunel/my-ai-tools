@@ -1,7 +1,5 @@
-import axios from 'axios'
+import { client } from './client'
 import type { AnalysisSessionResponse, DocumentVersion, GitLabProjectSummary } from '../types'
-
-const client = axios.create({ baseURL: '/api' })
 
 export async function createAnalysis(params: {
   title?: string
