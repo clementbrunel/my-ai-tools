@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import {
+  generateSpecFromGitlab,
   generateSpecFromJxml,
   generateSpecFromWord,
   listGitlabProjects,
@@ -129,10 +130,7 @@ function App() {
       } else if (jxmlMode === 'gitlab') {
         const params = currentGitlabPreviewParams()
         if (!params) return
-        // No GitLab-specific generation endpoint — resolve the Include chain first (same call
-        // the raw-JXML preview uses), then feed the result into the generic jxml generator.
-        const resolved = await previewGitlabJxml(params)
-        setMarkdown(await generateSpecFromJxml(resolved.content))
+        setMarkdown(await generateSpecFromGitlab(params))
       } else {
         setMarkdown(await generateSpecFromJxml(jxmlText))
       }
