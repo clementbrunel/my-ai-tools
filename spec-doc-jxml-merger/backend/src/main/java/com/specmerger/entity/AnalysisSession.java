@@ -45,7 +45,8 @@ public class AnalysisSession {
 
     public enum JxmlSourceType {
         ZIP_UPLOAD,
-        PASTED_TEXT
+        PASTED_TEXT,
+        GITLAB_PROJECT
     }
 
     public enum AnalysisStatus {

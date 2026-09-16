@@ -1,4 +1,13 @@
-export type JxmlSourceType = 'ZIP_UPLOAD' | 'PASTED_TEXT'
+export type JxmlSourceType = 'ZIP_UPLOAD' | 'PASTED_TEXT' | 'GITLAB_PROJECT'
+
+export interface GitLabProjectSummary {
+  id: number
+  name: string
+  pathWithNamespace: string
+  defaultBranch: string | null
+  webUrl: string
+  groupKey: string
+}
 
 export interface Divergence {
   id: string

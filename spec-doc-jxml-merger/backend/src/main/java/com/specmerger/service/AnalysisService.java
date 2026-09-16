@@ -10,6 +10,8 @@ import com.specmerger.repository.AnalysisSessionRepository;
 import com.specmerger.repository.DivergenceRepository;
 import com.specmerger.repository.DocumentVersionRepository;
 import com.specmerger.service.ai.SpecResolutionAIProvider;
+import com.specmerger.service.gitlab.GitLabSourceService;
+import org.gitlab4j.api.GitLabApiException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -29,6 +31,7 @@ public class AnalysisService {
     private final DivergenceRepository divergenceRepository;
     private final WordSpecParser wordSpecParser;
     private final JxmlSpecParser jxmlSpecParser;
+    private final GitLabSourceService gitLabSourceService;
     private final DiffEngine diffEngine;
     private final SpecResolutionAIProvider aiProvider;
     private final MarkdownGenerator markdownGenerator;
@@ -38,6 +41,7 @@ public class AnalysisService {
                             DivergenceRepository divergenceRepository,
                             WordSpecParser wordSpecParser,
                             JxmlSpecParser jxmlSpecParser,
+                            GitLabSourceService gitLabSourceService,
                             DiffEngine diffEngine,
                             SpecResolutionAIProvider aiProvider,
                             MarkdownGenerator markdownGenerator) {
@@ -46,24 +50,34 @@ public class AnalysisService {
         this.divergenceRepository = divergenceRepository;
         this.wordSpecParser = wordSpecParser;
         this.jxmlSpecParser = jxmlSpecParser;
+        this.gitLabSourceService = gitLabSourceService;
         this.diffEngine = diffEngine;
         this.aiProvider = aiProvider;
         this.markdownGenerator = markdownGenerator;
     }
 
     @Transactional
-    public AnalysisSessionResponse analyze(String title, MultipartFile wordFile, MultipartFile jxmlArchive, String jxmlText) throws IOException {
+    public AnalysisSessionResponse analyze(String title, MultipartFile wordFile, MultipartFile jxmlArchive,
+                                            String jxmlText, String gitlabGroupKey, String gitlabProjectId)
+            throws IOException, GitLabApiException {
         boolean hasWord = wordFile != null && !wordFile.isEmpty();
-        boolean hasJxml = (jxmlArchive != null && !jxmlArchive.isEmpty()) || (jxmlText != null && !jxmlText.isBlank());
+        boolean hasGitlab = gitlabProjectId != null && !gitlabProjectId.isBlank();
+        boolean hasJxml = (jxmlArchive != null && !jxmlArchive.isEmpty()) || (jxmlText != null && !jxmlText.isBlank()) || hasGitlab;
         if (!hasWord && !hasJxml) {
             throw new IllegalArgumentException("Au moins une source (Word ou JXML) est requise.");
+        }
+        if (hasGitlab && (gitlabGroupKey == null || gitlabGroupKey.isBlank())) {
+            throw new IllegalArgumentException("gitlabGroupKey est requis avec gitlabProjectId.");
         }
 
         String wordText = hasWord ? wordSpecParser.extractText(wordFile.getInputStream()) : "";
 
         Map<String, String> jxmlFiles;
         AnalysisSession.JxmlSourceType sourceType;
-        if (jxmlArchive != null && !jxmlArchive.isEmpty()) {
+        if (hasGitlab) {
+            jxmlFiles = gitLabSourceService.fetchRelevantSources(gitlabGroupKey, gitlabProjectId);
+            sourceType = AnalysisSession.JxmlSourceType.GITLAB_PROJECT;
+        } else if (jxmlArchive != null && !jxmlArchive.isEmpty()) {
             jxmlFiles = jxmlSpecParser.extractFromZip(jxmlArchive.getInputStream());
             sourceType = AnalysisSession.JxmlSourceType.ZIP_UPLOAD;
         } else {
@@ -76,7 +90,8 @@ public class AnalysisService {
         session.setTitle(title);
         session.setWordFilename(hasWord ? wordFile.getOriginalFilename() : null);
         session.setJxmlSourceType(sourceType);
-        session.setJxmlFilename(jxmlArchive != null ? jxmlArchive.getOriginalFilename() : null);
+        session.setJxmlFilename(hasGitlab ? gitlabGroupKey + ":" + gitlabProjectId
+                : jxmlArchive != null ? jxmlArchive.getOriginalFilename() : null);
         session.setStatus(AnalysisSession.AnalysisStatus.CREATED);
         session = sessionRepository.save(session);
 

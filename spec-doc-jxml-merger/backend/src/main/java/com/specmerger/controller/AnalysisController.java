@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import org.gitlab4j.api.GitLabApiException;
+
 import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
@@ -34,8 +36,10 @@ public class AnalysisController {
             @RequestParam(required = false) String title,
             @RequestParam(value = "word", required = false) MultipartFile wordFile,
             @RequestParam(value = "jxmlArchive", required = false) MultipartFile jxmlArchive,
-            @RequestParam(value = "jxmlText", required = false) String jxmlText) throws IOException {
-        return analysisService.analyze(title, wordFile, jxmlArchive, jxmlText);
+            @RequestParam(value = "jxmlText", required = false) String jxmlText,
+            @RequestParam(value = "gitlabGroupKey", required = false) String gitlabGroupKey,
+            @RequestParam(value = "gitlabProjectId", required = false) String gitlabProjectId) throws IOException, GitLabApiException {
+        return analysisService.analyze(title, wordFile, jxmlArchive, jxmlText, gitlabGroupKey, gitlabProjectId);
     }
 
     @GetMapping("/{sessionId}")
