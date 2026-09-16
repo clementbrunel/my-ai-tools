@@ -37,6 +37,14 @@
 > - Les valeurs entre chevrons (`<comme ceci>`) sont des placeholders à remplacer par
 >   le contenu réel ; s'ils ne peuvent pas être renseignés, les laisser tels quels
 >   plutôt que d'inventer une valeur.
+>
+> **Périmètre généré aujourd'hui** : `WordSpecParser` et `JxmlSpecParser` (voir issues
+> #260-#263) ne produisent pour l'instant que le chapitre **5. Contenu — détail par
+> section et par écran** — c'est la seule unité comparée par `DiffEngine`. Les sections
+> 1 à 4, 6, 7 et 8 décrivent la forme d'un document complet et sont conservées ici pour
+> une future génération de document entier, mais ne sont pas à produire par un appel qui
+> ne documente qu'un écran ou une démarche à partir de son seul JXML/texte source — se
+> reporter aux instructions du prompt appelant pour savoir quelles sections produire.
 
 ---
 
@@ -205,6 +213,51 @@ sous-section>`
 |---|---|---|
 | `<id>` | `<type>` | `<description>` |
 
+##### Pièces jointes
+
+> Une ligne par pièce jointe attendue sur cet écran. Omettre cette sous-section si
+> l'écran n'en comporte aucune.
+
+| ID | Libellé | Obligatoire | Types de fichiers acceptés | Taille max (par fichier) | Nombre max | Condition d'affichage | Contrôles appliqués |
+|---|---|---|---|---|---|---|---|
+| `<id>` | `<libellé>` | `<oui/non>` | `<extensions/mime-types>` | `<taille>` | `<nombre>` | `<condition>` | `<antivirus / format / lisibilité / …>` |
+
+##### Appels de service web
+
+> Un bloc par appel de service externe déclenché depuis cet écran (vérification,
+> enrichissement de données, pré-remplissage, notification, …). Omettre cette
+> sous-section si l'écran n'en déclenche aucun.
+
+###### `<ID / nom du service>`
+
+| Champ | Valeur |
+|---|---|
+| Déclencheur | `<élément de cet écran ou condition qui déclenche l'appel>` |
+| Méthode HTTP | `<GET / POST / PUT / …>` |
+| Endpoint | `<url ou référence de configuration ; ne pas figer une URL d'environnement>` |
+| Authentification | `<mécanisme (aucune, basic, jeton, mutuel TLS, …)>` |
+| Synchrone / asynchrone | `<synchrone bloquant / asynchrone>` |
+| Délai d'attente (timeout) | `<valeur>` |
+| Comportement en cas d'échec ou de dépassement de délai | `<message affiché, blocage ou poursuite de la saisie, nombre de tentatives>` |
+
+**Données envoyées**
+
+| Champ envoyé | Origine (élément de cet écran) |
+|---|---|
+| `<champ>` | `<id d'élément source>` |
+
+**Données reçues et mapping**
+
+| Champ reçu | Élément/donnée alimenté(e) |
+|---|---|
+| `<champ>` | `<id d'élément ou donnée cible>` |
+
+**Gestion des erreurs**
+
+| Code / cas d'erreur | Comportement |
+|---|---|
+| `<code ou cas>` | `<message affiché / action>` |
+
 ## 6. Document généré
 
 > Si la fonctionnalité produit un document en sortie (PDF, export, accusé de
@@ -251,61 +304,7 @@ tableau des éléments de chaque écran>`
 l'utilisateur et le système cible après la transmission initiale ? à l'initiative de
 qui ? selon quels modèles de message ?>`
 
-## 8. Pièces jointes
-
-> Une ligne par pièce jointe attendue. Omettre cette section si la fonctionnalité n'en
-> comporte aucune.
-
-| ID | Libellé | Obligatoire | Types de fichiers acceptés | Taille max (par fichier) | Nombre max | Condition d'affichage | Contrôles appliqués |
-|---|---|---|---|---|---|---|---|
-| `<id>` | `<libellé>` | `<oui/non>` | `<extensions/mime-types>` | `<taille>` | `<nombre>` | `<condition>` | `<antivirus / format / lisibilité / …>` |
-
-Règles générales par défaut (sauf mention contraire ci-dessus pour une pièce jointe
-donnée) :
-- Taille maximale par défaut : `<valeur>`
-- Nombre maximal de fichiers par défaut : `<valeur>`
-- Types de fichiers acceptés par défaut : `<liste>`
-- Contrôle appliqué à l'upload (antivirus, format, lisibilité) : `<description>`
-- Devenir des pièces jointes après transmission (accessibilité, conservation, purge) :
-  `<description>`
-
-## 9. Appels de service web
-
-> Un bloc par appel de service externe déclenché par la fonctionnalité (vérification,
-> enrichissement de données, pré-remplissage, notification, …). Omettre cette section
-> si la fonctionnalité n'en effectue aucun.
-
-### 9.1. `<ID / nom du service>`
-
-| Champ | Valeur |
-|---|---|
-| Déclencheur | `<action ou condition qui déclenche l'appel>` |
-| Méthode HTTP | `<GET / POST / PUT / …>` |
-| Endpoint | `<url ou référence de configuration ; ne pas figer une URL d'environnement>` |
-| Authentification | `<mécanisme (aucune, basic, jeton, mutuel TLS, …)>` |
-| Synchrone / asynchrone | `<synchrone bloquant / asynchrone>` |
-| Délai d'attente (timeout) | `<valeur>` |
-| Comportement en cas d'échec ou de dépassement de délai | `<message affiché, blocage ou poursuite de la saisie, nombre de tentatives>` |
-
-**Données envoyées**
-
-| Champ envoyé | Origine (élément de saisie) |
-|---|---|
-| `<champ>` | `<id d'élément source>` |
-
-**Données reçues et mapping**
-
-| Champ reçu | Élément/donnée alimenté(e) |
-|---|---| 
-| `<champ>` | `<id d'élément ou donnée cible>` |
-
-**Gestion des erreurs**
-
-| Code / cas d'erreur | Comportement |
-|---|---|
-| `<code ou cas>` | `<message affiché / action>` |
-
-## 10. Annexes — listes de valeurs
+## 8. Annexes — listes de valeurs
 
 ### `<NOM_DE_LA_LISTE>`
 

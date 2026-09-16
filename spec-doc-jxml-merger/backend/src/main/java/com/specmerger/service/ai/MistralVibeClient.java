@@ -7,8 +7,12 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
@@ -30,6 +34,12 @@ public class MistralVibeClient implements SpecResolutionAIProvider {
     // excerpt — give it a much bigger context budget.
     private static final int MAX_TAG_DOCS_SPEC_GENERATION = 20;
     private static final int MAX_TAG_DOCS_CHARS_SPEC_GENERATION = 40_000;
+
+    // Shared by generateSpecFromJxml and generateSpecFromWord so both sides of a démarche
+    // are structured the same way (see templates/documentation-template.md and issues
+    // #260/#263) — the screen-level diff only works if the two independently generated
+    // markdowns follow the same section/table shape.
+    private static final String DOCUMENTATION_TEMPLATE = loadDocumentationTemplate();
 
     private final ChatModel chatModel;
     private final String apiKey;
@@ -103,34 +113,52 @@ public class MistralVibeClient implements SpecResolutionAIProvider {
         String tagContext = docs.isEmpty() ? "" : "Documentation des balises JWAY détectées dans ce JXML :\n"
                 + String.join("\n---\n", docs) + "\n\n";
         return """
+                %s
+
                 %sTu es assisté par la documentation JWAY ci-dessus pour comprendre les balises propriétaires.
                 Génère la documentation markdown de ce formulaire à partir du JXML suivant (les fragments
-                <Include> ont déjà été résolus et intégrés).
-                Découpe le résultat par écran : un écran correspond à une <Section NewPage="screen"> de premier
-                niveau sous <JForm> ; les <Section NewPage="none"> imbriquées restent dans le même écran que leur
-                section parente.
-                Pour chaque écran, utilise un titre de niveau 2 (## Nom de l'écran, repris de sa balise <Title>),
-                puis décris les champs et leur comportement (obligatoire, visibilité conditionnelle, contrôles de
-                validation) en te basant sur les attributs réels du JXML plutôt que sur des suppositions.
+                <Include> ont déjà été résolus et intégrés), en suivant IMPÉRATIVEMENT le gabarit ci-dessus :
+                ne produis que le chapitre « 5. Contenu — détail par section et par écran » (démarre directement
+                au titre « ### Section : ... », sans reprendre le titre « ## 5. Contenu... » lui-même) ; les
+                autres chapitres du gabarit ne sont pas à produire ici.
+                Un écran correspond à une <Section NewPage="screen"> de premier niveau sous <JForm> ; les
+                <Section NewPage="none"> imbriquées restent dans le même écran que leur section parente.
+                Reprends le titre de chaque écran depuis sa balise <Title>.
+                Pour chaque champ, base la colonne Type/le comportement (obligatoire, visibilité conditionnelle,
+                contrôles de validation) sur les attributs réels du JXML plutôt que sur des suppositions, et
+                l'ID sur l'attribut technique Name (ou Id pour un WebService) comme l'exige le gabarit.
                 Les appels trans(...) référencent des clés de traduction externes non résolues ici : laisse-les
                 telles quelles plutôt que de deviner leur contenu.
 
                 JXML :
                 %s
-                """.formatted(tagContext, safeJxml);
+                """.formatted(DOCUMENTATION_TEMPLATE, tagContext, safeJxml);
     }
 
     String buildWordSpecPrompt(String wordText) {
         String safeWord = wordText == null ? "" : wordText;
         return """
-                Restructure ce texte extrait d'une spécification Word/Excel en documentation markdown, découpée
-                par écran ou fonctionnalité dans le même ordre que le document d'origine.
-                Pour chaque écran, utilise un titre de niveau 2 (## Nom de l'écran) puis décris les champs et
-                comportements attendus tels que déclarés dans le texte, sans y ajouter d'information absente.
+                %s
+
+                Restructure ce texte extrait d'une spécification Word/Excel en documentation markdown, en
+                suivant IMPÉRATIVEMENT le gabarit ci-dessus : ne produis que le chapitre « 5. Contenu — détail
+                par section et par écran » (démarre directement au titre « ### Section : ... », sans reprendre
+                le titre « ## 5. Contenu... » lui-même) ; les autres chapitres du gabarit ne sont pas à produire
+                ici. Respecte le même ordre d'apparition des sections/écrans que dans le document d'origine, et
+                décris les champs et comportements tels que déclarés dans le texte, sans y ajouter d'information
+                absente.
 
                 Texte extrait :
                 %s
-                """.formatted(safeWord);
+                """.formatted(DOCUMENTATION_TEMPLATE, safeWord);
+    }
+
+    private static String loadDocumentationTemplate() {
+        try (InputStream is = new ClassPathResource("templates/documentation-template.md").getInputStream()) {
+            return new String(is.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new IllegalStateException("Impossible de charger templates/documentation-template.md", e);
+        }
     }
 
     private String jxmlSpecFallback(String resolvedJxml) {
