@@ -1,6 +1,12 @@
 package com.specmerger.service;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
@@ -9,6 +15,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 class JxmlTagDocRepositoryTest {
 
     private final JxmlTagDocRepository repository = new JxmlTagDocRepository();
+    private final ListAppender<ILoggingEvent> logAppender = new ListAppender<>();
+    private final Logger repositoryLogger = (Logger) LoggerFactory.getLogger(JxmlTagDocRepository.class);
+
+    {
+        logAppender.start();
+        repositoryLogger.addAppender(logAppender);
+    }
+
+    @AfterEach
+    void detachAppender() {
+        repositoryLogger.detachAppender(logAppender);
+    }
 
     @Test
     void matchesElementTagByName() {
@@ -62,6 +80,39 @@ class JxmlTagDocRepositoryTest {
         List<String> docs = repository.findRelevantDocs(jxml, 2, 20_000);
 
         assertThat(docs).hasSize(2);
+    }
+
+    @Test
+    void warnsWhenDocsAreDroppedBecauseOfTheDocCountCap() {
+        String jxml = "<Content><Section><Title/><Paragraph/><List/><Table/></Section></Content>";
+
+        repository.findRelevantDocs(jxml, 2, 20_000);
+
+        assertThat(logAppender.list)
+                .anySatisfy(event -> {
+                    assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                    assertThat(event.getFormattedMessage()).contains("faute de place");
+                });
+    }
+
+    @Test
+    void warnsWhenDocsAreDroppedBecauseOfTheCharBudgetCap() {
+        String jxml = "<Content><Section><Title/><Paragraph/></Section></Content>";
+
+        // Tiny char budget: even a single doc's content won't fit.
+        List<String> docs = repository.findRelevantDocs(jxml, 10, 50);
+
+        assertThat(docs).isEmpty();
+        assertThat(logAppender.list).anyMatch(event -> event.getLevel() == Level.WARN);
+    }
+
+    @Test
+    void doesNotWarnWhenEverythingFits() {
+        String jxml = "<Content OutputMode=\"all\" />";
+
+        repository.findRelevantDocs(jxml, 10, 20_000);
+
+        assertThat(logAppender.list).noneMatch(event -> event.getLevel() == Level.WARN);
     }
 
     @Test

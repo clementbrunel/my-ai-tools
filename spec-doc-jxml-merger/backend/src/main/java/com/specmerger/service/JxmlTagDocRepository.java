@@ -1,5 +1,6 @@
 package com.specmerger.service;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.stereotype.Component;
@@ -21,6 +22,7 @@ import java.util.regex.Pattern;
  * a given JXML excerpt, so they can be injected as context for the AI
  * resolver instead of asking it to interpret unfamiliar JWAY syntax blind.
  */
+@Slf4j
 @Component
 public class JxmlTagDocRepository {
 
@@ -57,23 +59,43 @@ public class JxmlTagDocRepository {
     /**
      * Returns the content of the docs whose tag, Control Type or function name is
      * detected in the excerpt, capped so the combined size stays reasonable in a prompt.
+     * If relevant docs had to be left out to stay under the cap, logs a warning naming
+     * them — a recurring warning here means jxml-tags/ needs trimming (e.g. drop the
+     * code examples) or a smarter selection, not just a higher cap.
      */
     public List<String> findRelevantDocs(String jxmlExcerpt, int maxDocs, int maxTotalChars) {
         if (jxmlExcerpt == null || jxmlExcerpt.isBlank()) {
             return List.of();
         }
-        List<String> matches = new ArrayList<>();
-        int totalChars = 0;
+        List<Doc> matched = new ArrayList<>();
         for (Doc doc : docs) {
-            if (matches.size() >= maxDocs || totalChars >= maxTotalChars) {
-                break;
-            }
             if (doc.matches(jxmlExcerpt)) {
-                matches.add(doc.content);
-                totalChars += doc.content.length();
+                matched.add(doc);
             }
         }
-        return matches;
+
+        List<String> selected = new ArrayList<>();
+        List<String> dropped = new ArrayList<>();
+        int totalChars = 0;
+        for (Doc doc : matched) {
+            boolean fits = selected.size() < maxDocs && totalChars + doc.content.length() <= maxTotalChars;
+            if (fits) {
+                selected.add(doc.content);
+                totalChars += doc.content.length();
+            } else {
+                dropped.add(doc.id);
+            }
+        }
+
+        if (!dropped.isEmpty()) {
+            log.warn("jxml-tags: {} fiche(s) pertinente(s) non incluses dans le prompt Mistral faute de place "
+                            + "(cap actuel : {} fiches / {} caractères) : {}. Si ce warning revient souvent, il "
+                            + "faudra alléger ces fiches (retirer les exemples de code par ex.) ou revoir la "
+                            + "sélection plutôt que d'augmenter indéfiniment la limite.",
+                    dropped.size(), maxDocs, maxTotalChars, dropped);
+        }
+
+        return selected;
     }
 
     private static List<Pattern> buildPatterns(String id, String content) {
