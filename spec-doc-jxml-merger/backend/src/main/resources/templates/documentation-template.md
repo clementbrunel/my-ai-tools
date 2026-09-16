@@ -15,9 +15,22 @@
 >   `_Non renseigné dans la source._` plutôt que supprimée, pour que le diff reste
 >   aligné section par section.
 > - Chaque élément documenté (champ, bouton, pièce jointe, appel de service, …) reçoit
->   un **identifiant stable** (colonne `ID`) : c'est cet identifiant, pas le libellé en
->   langage naturel, qui sert de clé de rapprochement lors du diff entre la version
->   issue de la spec et celle issue du code.
+>   un **identifiant** (colonne `ID`), attribué selon la source :
+>   - **Depuis le JXML** : reprendre tel quel l'attribut technique `Name` (ou `Id` pour
+>     un `WebService`) porté par la balise JWAY correspondante — il existe déjà dans le
+>     code, ne jamais en inventer un autre.
+>   - **Depuis une spec Word/PowerPoint/Excel** : si le document référence déjà un nom
+>     technique de champ, le reprendre tel quel. Sinon, numéroter chaque élément selon
+>     son ordre d'apparition dans l'écran, au format `<numéro d'écran>.<numéro
+>     séquentiel sur 3 chiffres>` (ex. `1.001`, `1.002`, …), en conservant la même
+>     numérotation à chaque régénération tant que la liste et l'ordre des éléments de
+>     l'écran ne changent pas dans la source.
+>   - **Cette numérotation positionnelle ne garantit pas de tomber sur le même ID que
+>     le `Name` JXML du même champ** — elle assure seulement la stabilité d'un même
+>     document régénéré plusieurs fois, pas la correspondance entre les deux sources.
+>     Rapprocher un ID positionnel Word avec un `Name` JXML reste un problème de
+>     rapprochement (par libellé, position ou mapping déclaré) à résoudre côté moteur
+>     de diff, pas par la génération de documentation elle-même.
 > - Aucune notion propre à une plateforme ou un back-office particulier ne doit
 >   apparaître : les intitulés ci-dessous sont volontairement génériques (« système
 >   cible », « canal », « écran ») à charge pour le contenu généré de rester neutre.
@@ -175,6 +188,9 @@ sous-section>`
 `<maquette, capture d'écran ou description de la mise en page de l'écran>`
 
 ##### Éléments
+
+> Colonne `ID` : cf. règle d'attribution des identifiants en tête de document
+> (attribut technique `Name` côté JXML, numérotation positionnelle sinon).
 
 | ID | Élément (label) | Type : nature, format, taille, contrôle | Valeur par défaut | Condition d'affichage | Obligatoire |
 |---|---|---|---|---|---|
