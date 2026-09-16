@@ -40,6 +40,16 @@ cd frontend && npm install && npm run dev   # écoute sur :5173, proxy /api → 
 
 Copier `.env.example` → `.env`. Voir ce fichier pour le détail de chaque variable (credentials Postgres, URL frontend pour CORS, config mistral-vibe, config GitLab).
 
+## Gabarit de documentation attendue
+
+`backend/src/main/resources/templates/documentation-template.md` définit la forme que
+doit toujours prendre la documentation produite par l'IA — côté Word (spec déclarée)
+comme côté JXML (code réel) — afin que les deux versions restent structurellement
+comparables et diffable section par section, écran par écran, élément par élément.
+À utiliser comme contexte de génération dès que l'IA produit ou reformule de la
+documentation fonctionnelle (aujourd'hui la résolution des divergences Word/JXML,
+demain la génération depuis PowerPoint/Word/Excel).
+
 ## Source JXML via GitLab (#266)
 
 En plus de l'upload d'une archive `.zip` ou du texte collé, la spec JXML peut être
