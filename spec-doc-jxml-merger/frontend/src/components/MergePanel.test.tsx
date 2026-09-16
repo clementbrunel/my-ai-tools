@@ -40,4 +40,24 @@ describe('MergePanel', () => {
     await userEvent.click(buttons[0])
     expect(onRestore).toHaveBeenCalledWith('v2')
   })
+
+  it('renders the markdown as formatted HTML when switching to Aperçu', async () => {
+    render(<MergePanel markdown={'# Titre\n\ntexte **gras**'} onMarkdownChange={vi.fn()} versions={[]} onRestore={vi.fn()} />)
+    await userEvent.click(screen.getByText('Aperçu'))
+    expect(screen.getByRole('heading', { level: 1, name: 'Titre' })).toBeDefined()
+    expect(screen.getByText('gras').tagName).toBe('STRONG')
+  })
+
+  it('sanitizes raw HTML embedded in the markdown before rendering', async () => {
+    render(
+      <MergePanel
+        markdown={'texte <img src=x onerror="window.__pwned = true">'}
+        onMarkdownChange={vi.fn()}
+        versions={[]}
+        onRestore={vi.fn()}
+      />,
+    )
+    await userEvent.click(screen.getByText('Aperçu'))
+    expect(document.querySelector('img[onerror]')).toBeNull()
+  })
 })
