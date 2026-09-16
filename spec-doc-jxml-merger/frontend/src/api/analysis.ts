@@ -5,6 +5,7 @@ import type {
   GitLabJxmlPreview,
   GitLabProjectSummary,
   GitLabSourceListing,
+  GitLabSpecPreview,
 } from '../types'
 
 export async function createAnalysis(params: {
@@ -48,20 +49,17 @@ export async function listGitlabSources(groupKey: string, projectId: string): Pr
   return data
 }
 
-/**
- * The flattened JXML (entry point + its Include chain resolved) exactly as it will be sent to
- * the model, plus any warnings (unresolved Includes, incomplete tag nesting) worth showing
- * separately from the content itself.
- */
-export async function previewGitlabJxml(params: {
+interface GitlabPreviewParams {
   groupKey: string
   projectId: string
   entryPointPath: string
   selectedPaths?: string[]
-}): Promise<GitLabJxmlPreview> {
-  // Built manually (not via axios' object params) so arrays serialize as repeated
-  // `selectedPaths=a&selectedPaths=b`, matching how Spring binds a List<String> — axios'
-  // default array serialization uses `selectedPaths[]=...`, which Spring won't bind.
+}
+
+// Built manually (not via axios' object params) so arrays serialize as repeated
+// `selectedPaths=a&selectedPaths=b`, matching how Spring binds a List<String> — axios'
+// default array serialization uses `selectedPaths[]=...`, which Spring won't bind.
+function buildGitlabPreviewQuery(params: GitlabPreviewParams): URLSearchParams {
   const query = new URLSearchParams()
   query.set('groupKey', params.groupKey)
   query.set('projectId', params.projectId)
@@ -70,8 +68,31 @@ export async function previewGitlabJxml(params: {
     query.set('selectedPathsProvided', 'true')
     params.selectedPaths.forEach((path) => query.append('selectedPaths', path))
   }
-  const { data } = await client.get<GitLabJxmlPreview>('/gitlab/preview', { params: query })
+  return query
+}
+
+/**
+ * The flattened JXML (entry point + its Include chain resolved) exactly as it will be sent to
+ * the model, plus any warnings (unresolved Includes, incomplete tag nesting) worth showing
+ * separately from the content itself.
+ */
+export async function previewGitlabJxml(params: GitlabPreviewParams): Promise<GitLabJxmlPreview> {
+  const { data } = await client.get<GitLabJxmlPreview>('/gitlab/preview', {
+    params: buildGitlabPreviewQuery(params),
+  })
   return data
+}
+
+/**
+ * The markdown spec the model generates from the resolved JXML alone (no Word/diff yet).
+ * Shaped like {@link previewGitlabJxml}'s response (content + warnings) so both can back the
+ * same preview panel — there's just nothing to warn about here yet.
+ */
+export async function previewGitlabSpec(params: GitlabPreviewParams): Promise<GitLabJxmlPreview> {
+  const { data } = await client.get<GitLabSpecPreview>('/gitlab/preview-spec', {
+    params: buildGitlabPreviewQuery(params),
+  })
+  return { content: data.markdown, warnings: [] }
 }
 
 export async function getAnalysis(sessionId: string): Promise<AnalysisSessionResponse> {

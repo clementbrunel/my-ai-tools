@@ -28,7 +28,9 @@ function baseProps(overrides: Partial<React.ComponentProps<typeof CodePanel>> = 
     gitlabEntryPointPath: '',
     onSelectGitlabEntryPoint: vi.fn(),
     onPreviewGitlabJxml: vi.fn(),
+    onPreviewGitlabSpec: vi.fn(),
     gitlabPreviewOpen: false,
+    gitlabPreviewKind: 'jxml' as const,
     gitlabPreviewContent: '',
     gitlabPreviewWarnings: [] as string[],
     gitlabPreviewLoading: false,
@@ -187,6 +189,17 @@ describe('CodePanel', () => {
     expect(container.textContent).toContain('Section')
   })
 
+  it('calls onPreviewGitlabSpec when the spec preview button is clicked', async () => {
+    const onPreviewGitlabSpec = vi.fn()
+    render(
+      <CodePanel
+        {...baseProps({ jxmlMode: 'gitlab', gitlabEntryPointPath: 'forms/demarche_un.jxml', onPreviewGitlabSpec })}
+      />,
+    )
+    await userEvent.click(screen.getByText('Générer la doc depuis le JXML (aperçu IA)'))
+    expect(onPreviewGitlabSpec).toHaveBeenCalledTimes(1)
+  })
+
   it('shows the raw text when the raw view mode is selected', async () => {
     render(
       <CodePanel
@@ -194,12 +207,30 @@ describe('CodePanel', () => {
           jxmlMode: 'gitlab',
           gitlabEntryPointPath: 'forms/demarche_un.jxml',
           gitlabPreviewOpen: true,
+          gitlabPreviewKind: 'jxml',
           gitlabPreviewContent: '<JForm><Section/></JForm>',
         })}
       />,
     )
     await userEvent.click(screen.getByText('Texte brut'))
     expect(screen.getByText('<JForm><Section/></JForm>')).toBeDefined()
+    expect(screen.getByText(/JXML envoyé au modèle/)).toBeDefined()
+  })
+
+  it('shows the generated spec content when the spec preview panel is open', () => {
+    render(
+      <CodePanel
+        {...baseProps({
+          jxmlMode: 'gitlab',
+          gitlabEntryPointPath: 'forms/demarche_un.jxml',
+          gitlabPreviewOpen: true,
+          gitlabPreviewKind: 'spec',
+          gitlabPreviewContent: '## Écran 1 — Description du champ.',
+        })}
+      />,
+    )
+    expect(screen.getByText('## Écran 1 — Description du champ.')).toBeDefined()
+    expect(screen.getByText(/Documentation générée par l'IA/)).toBeDefined()
   })
 
   it('shows preview warnings prominently when present', () => {

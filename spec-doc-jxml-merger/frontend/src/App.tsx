@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { listGitlabProjects, listGitlabSources, previewGitlabJxml } from './api/analysis'
+import { listGitlabProjects, listGitlabSources, previewGitlabJxml, previewGitlabSpec } from './api/analysis'
 import CodePanel from './components/CodePanel'
 import CollapsedPanel from './components/CollapsedPanel'
 import DivergencesTable from './components/DivergencesTable'
@@ -25,6 +25,7 @@ function App() {
   const [gitlabSelectedPaths, setGitlabSelectedPaths] = useState<Set<string>>(new Set())
   const [gitlabSourcesLoading, setGitlabSourcesLoading] = useState(false)
   const [gitlabPreviewOpen, setGitlabPreviewOpen] = useState(false)
+  const [gitlabPreviewKind, setGitlabPreviewKind] = useState<'jxml' | 'spec'>('jxml')
   const [gitlabPreviewContent, setGitlabPreviewContent] = useState('')
   const [gitlabPreviewWarnings, setGitlabPreviewWarnings] = useState<string[]>([])
   const [gitlabPreviewLoading, setGitlabPreviewLoading] = useState(false)
@@ -99,15 +100,19 @@ function App() {
     }
   }
 
-  async function handlePreviewGitlabJxml() {
+  async function runGitlabPreview(
+    kind: 'jxml' | 'spec',
+    fetcher: (params: Parameters<typeof previewGitlabJxml>[0]) => ReturnType<typeof previewGitlabJxml>,
+  ) {
     const project = gitlabProjects.find((p) => String(p.id) === gitlabProjectId)
     if (!project || !gitlabEntryPointPath) return
 
     setError(null)
+    setGitlabPreviewKind(kind)
     setGitlabPreviewOpen(true)
     setGitlabPreviewLoading(true)
     try {
-      const preview = await previewGitlabJxml({
+      const preview = await fetcher({
         groupKey: project.groupKey,
         projectId: gitlabProjectId,
         entryPointPath: gitlabEntryPointPath,
@@ -123,6 +128,9 @@ function App() {
       setGitlabPreviewLoading(false)
     }
   }
+
+  const handlePreviewGitlabJxml = () => runGitlabPreview('jxml', previewGitlabJxml)
+  const handlePreviewGitlabSpec = () => runGitlabPreview('spec', previewGitlabSpec)
 
   function handleToggleGitlabPath(path: string) {
     setGitlabSelectedPaths((prev) => {
@@ -207,7 +215,9 @@ function App() {
             gitlabEntryPointPath={gitlabEntryPointPath}
             onSelectGitlabEntryPoint={setGitlabEntryPointPath}
             onPreviewGitlabJxml={handlePreviewGitlabJxml}
+            onPreviewGitlabSpec={handlePreviewGitlabSpec}
             gitlabPreviewOpen={gitlabPreviewOpen}
+            gitlabPreviewKind={gitlabPreviewKind}
             gitlabPreviewContent={gitlabPreviewContent}
             gitlabPreviewWarnings={gitlabPreviewWarnings}
             gitlabPreviewLoading={gitlabPreviewLoading}

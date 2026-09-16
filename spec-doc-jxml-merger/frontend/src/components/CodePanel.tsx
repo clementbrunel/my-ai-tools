@@ -20,7 +20,9 @@ interface CodePanelProps {
   gitlabEntryPointPath: string
   onSelectGitlabEntryPoint: (path: string) => void
   onPreviewGitlabJxml: () => void
+  onPreviewGitlabSpec: () => void
   gitlabPreviewOpen: boolean
+  gitlabPreviewKind: 'jxml' | 'spec'
   gitlabPreviewContent: string
   gitlabPreviewWarnings: string[]
   gitlabPreviewLoading: boolean
@@ -58,7 +60,9 @@ function CodePanel({
   gitlabEntryPointPath,
   onSelectGitlabEntryPoint,
   onPreviewGitlabJxml,
+  onPreviewGitlabSpec,
   gitlabPreviewOpen,
+  gitlabPreviewKind,
   gitlabPreviewContent,
   gitlabPreviewWarnings,
   gitlabPreviewLoading,
@@ -203,14 +207,28 @@ function CodePanel({
             </div>
           )}
           {gitlabEntryPointPath && (
-            <button
-              type="button"
-              className="btn-secondary self-start"
-              onClick={onPreviewGitlabJxml}
-              disabled={gitlabPreviewLoading}
-            >
-              {gitlabPreviewLoading ? 'Génération de la prévisualisation…' : 'Prévisualiser le JXML résolu'}
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="btn-secondary self-start"
+                onClick={onPreviewGitlabJxml}
+                disabled={gitlabPreviewLoading}
+              >
+                {gitlabPreviewLoading && gitlabPreviewKind === 'jxml'
+                  ? 'Génération de la prévisualisation…'
+                  : 'Prévisualiser le JXML résolu'}
+              </button>
+              <button
+                type="button"
+                className="btn-secondary self-start"
+                onClick={onPreviewGitlabSpec}
+                disabled={gitlabPreviewLoading}
+              >
+                {gitlabPreviewLoading && gitlabPreviewKind === 'spec'
+                  ? 'Génération de la doc…'
+                  : 'Générer la doc depuis le JXML (aperçu IA)'}
+              </button>
+            </div>
           )}
           {gitlabPreviewOpen && (
             <div
@@ -223,7 +241,9 @@ function CodePanel({
               >
                 <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-[#dcdcde] bg-[#fafafa] text-sm shrink-0">
                   <span className="text-gray-600">
-                    JXML envoyé au modèle (Include résolus, includes/traductions/Java non affichés ici)
+                    {gitlabPreviewKind === 'spec'
+                      ? "Documentation générée par l'IA à partir du JXML seul (aperçu, sans comparaison Word)"
+                      : 'JXML envoyé au modèle (Include résolus, includes/traductions/Java non affichés ici)'}
                   </span>
                   <button
                     type="button"
@@ -249,24 +269,26 @@ function CodePanel({
                         </ul>
                       </div>
                     )}
-                    <div className="flex gap-4 px-3 pt-2 text-sm border-b border-[#dcdcde] shrink-0">
-                      {(['tree', 'raw'] as const).map((mode) => (
-                        <button
-                          key={mode}
-                          type="button"
-                          className={`pb-2 -mb-px border-b-2 ${
-                            previewViewMode === mode
-                              ? 'border-gl-orange text-[#303030] font-medium'
-                              : 'border-transparent text-gray-500 hover:text-[#303030]'
-                          }`}
-                          onClick={() => setPreviewViewMode(mode)}
-                        >
-                          {mode === 'tree' ? 'Arborescence' : 'Texte brut'}
-                        </button>
-                      ))}
-                    </div>
+                    {gitlabPreviewKind === 'jxml' && (
+                      <div className="flex gap-4 px-3 pt-2 text-sm border-b border-[#dcdcde] shrink-0">
+                        {(['tree', 'raw'] as const).map((mode) => (
+                          <button
+                            key={mode}
+                            type="button"
+                            className={`pb-2 -mb-px border-b-2 ${
+                              previewViewMode === mode
+                                ? 'border-gl-orange text-[#303030] font-medium'
+                                : 'border-transparent text-gray-500 hover:text-[#303030]'
+                            }`}
+                            onClick={() => setPreviewViewMode(mode)}
+                          >
+                            {mode === 'tree' ? 'Arborescence' : 'Texte brut'}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                     <div className="overflow-auto p-3 flex-1">
-                      {previewViewMode === 'tree' ? (
+                      {gitlabPreviewKind === 'jxml' && previewViewMode === 'tree' ? (
                         <XmlTreeView xml={gitlabPreviewContent} />
                       ) : (
                         <pre className="text-[12px] whitespace-pre-wrap break-all">{gitlabPreviewContent}</pre>

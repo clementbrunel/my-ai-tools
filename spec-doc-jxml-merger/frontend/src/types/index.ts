@@ -27,6 +27,10 @@ export interface GitLabJxmlPreview {
   warnings: string[]
 }
 
+export interface GitLabSpecPreview {
+  markdown: string
+}
+
 export interface Divergence {
   id: string
   sectionRef: string
