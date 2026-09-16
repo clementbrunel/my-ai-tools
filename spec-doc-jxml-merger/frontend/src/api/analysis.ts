@@ -8,6 +8,7 @@ export async function createAnalysis(params: {
   word?: File
   jxmlArchive?: File
   jxmlText?: string
+  gitlabGroupKey?: string
   gitlabProjectId?: string
 }): Promise<AnalysisSessionResponse> {
   const form = new FormData()
@@ -15,6 +16,7 @@ export async function createAnalysis(params: {
   if (params.word) form.append('word', params.word)
   if (params.jxmlArchive) form.append('jxmlArchive', params.jxmlArchive)
   if (params.jxmlText) form.append('jxmlText', params.jxmlText)
+  if (params.gitlabGroupKey) form.append('gitlabGroupKey', params.gitlabGroupKey)
   if (params.gitlabProjectId) form.append('gitlabProjectId', params.gitlabProjectId)
 
   const { data } = await client.post<AnalysisSessionResponse>('/analysis', form, {

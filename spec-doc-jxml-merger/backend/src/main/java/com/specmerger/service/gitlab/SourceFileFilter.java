@@ -2,8 +2,6 @@ package com.specmerger.service.gitlab;
 
 import java.util.Arrays;
 import java.util.List;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
 import org.springframework.util.AntPathMatcher;
 import org.springframework.util.StringUtils;
 
@@ -12,9 +10,10 @@ import org.springframework.util.StringUtils;
  * JXML sources themselves, their translation resources (to resolve {@code trans(...)}
  * keys), and — only when explicitly configured — Java classes for outbound business
  * calls. Everything else in the repo (build files, tests, generated assets, ...) is
- * dropped before download.
+ * dropped before download. Translation/Java patterns are per GitLab group (see
+ * {@link com.specmerger.config.GitLabProperties.Group}), since different groups use
+ * different conventions (e.g. fixed-name .properties files vs. .xlf).
  */
-@Component
 public class SourceFileFilter {
 
     private static final AntPathMatcher MATCHER = new AntPathMatcher();
@@ -22,11 +21,9 @@ public class SourceFileFilter {
     private final List<String> translationPatterns;
     private final List<String> javaPatterns;
 
-    public SourceFileFilter(
-            @Value("${gitlab.source-filter.translation-patterns:}") String translationPatterns,
-            @Value("${gitlab.source-filter.java-patterns:}") String javaPatterns) {
-        this.translationPatterns = splitPatterns(translationPatterns);
-        this.javaPatterns = splitPatterns(javaPatterns);
+    public SourceFileFilter(String translationPatternsCsv, String javaPatternsCsv) {
+        this.translationPatterns = splitPatterns(translationPatternsCsv);
+        this.javaPatterns = splitPatterns(javaPatternsCsv);
     }
 
     public boolean isRelevant(String path) {

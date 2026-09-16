@@ -1,7 +1,7 @@
 package com.specmerger.service.gitlab;
 
+import com.specmerger.config.GitLabProperties;
 import org.gitlab4j.api.GitLabApi;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
@@ -12,16 +12,15 @@ import org.springframework.stereotype.Component;
 @Component
 public class GitLabApiFactory {
 
-    private final String url;
-    private final String token;
+    private final GitLabProperties properties;
 
-    public GitLabApiFactory(@Value("${gitlab.url:}") String url, @Value("${gitlab.token:}") String token) {
-        this.url = url;
-        this.token = token;
+    public GitLabApiFactory(GitLabProperties properties) {
+        this.properties = properties;
     }
 
     public boolean isConfigured() {
-        return !url.isBlank() && !token.isBlank();
+        return properties.url() != null && !properties.url().isBlank()
+                && properties.token() != null && !properties.token().isBlank();
     }
 
     public GitLabApi create() {
@@ -29,6 +28,6 @@ public class GitLabApiFactory {
             throw new IllegalStateException(
                     "GitLab non configuré : renseigner GITLAB_URL et GITLAB_TOKEN.");
         }
-        return new GitLabApi(url, token);
+        return new GitLabApi(properties.url(), properties.token());
     }
 }

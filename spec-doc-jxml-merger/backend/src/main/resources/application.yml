@@ -36,16 +36,23 @@ app:
 gitlab:
   url: ${GITLAB_URL:}
   token: ${GITLAB_TOKEN:}
-  # Sous-groupe contenant les projets JWAY : chemin complet ("mon-groupe/mon-sous-groupe")
-  # de préférence, ou ID numérique si le nom n'est pas stable.
-  subgroup: ${GITLAB_SUBGROUP:}
-  source-filter:
-    # Patterns Ant (séparés par des virgules) des fichiers de traduction JWAY à inclure.
-    # À ajuster selon la structure réelle des projets du sous-groupe.
-    translation-patterns: ${GITLAB_TRANSLATION_PATTERNS:**/*.properties,**/trad/**,**/i18n/**}
-    # Patterns Ant des classes Java d'appels métier vers l'extérieur à inclure.
-    # Vide par défaut : aucune classe Java n'est envoyée tant que ce n'est pas explicitement configuré.
-    java-patterns: ${GITLAB_JAVA_PATTERNS:}
+  # Groupes GitLab contenant des projets JWAY à traiter. Chaque groupe a sa propre
+  # convention de fichiers de traduction (noms de fichiers fixes .properties dans un
+  # groupe, fichiers .xlf dans l'autre) — "key" identifie le groupe côté API/frontend
+  # pour retrouver son filtre au moment du téléchargement des sources d'un projet.
+  groups:
+    - key: ${GITLAB_GROUP_1_KEY:properties}
+      # Chemin complet du groupe/sous-groupe ("mon-groupe/mon-sous-groupe") de préférence,
+      # ou ID numérique si le nom n'est pas stable.
+      path: ${GITLAB_GROUP_1_PATH:}
+      translation-patterns: ${GITLAB_GROUP_1_TRANSLATION_PATTERNS:**/de.properties,**/en.properties,**/fr.properties}
+      # Patterns Ant des classes Java d'appels métier vers l'extérieur à inclure.
+      # Vide par défaut : aucune classe Java n'est envoyée tant que ce n'est pas configuré.
+      java-patterns: ${GITLAB_GROUP_1_JAVA_PATTERNS:}
+    - key: ${GITLAB_GROUP_2_KEY:xlf}
+      path: ${GITLAB_GROUP_2_PATH:}
+      translation-patterns: ${GITLAB_GROUP_2_TRANSLATION_PATTERNS:**/*.xlf}
+      java-patterns: ${GITLAB_GROUP_2_JAVA_PATTERNS:}
 
 server:
   port: 8080

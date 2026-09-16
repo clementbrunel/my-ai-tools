@@ -5,5 +5,6 @@ public record GitLabProjectSummary(
         String name,
         String pathWithNamespace,
         String defaultBranch,
-        String webUrl) {
+        String webUrl,
+        String groupKey) {
 }

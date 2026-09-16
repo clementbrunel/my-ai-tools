@@ -20,6 +20,6 @@ public class GitLabController {
 
     @GetMapping("/projects")
     public List<GitLabProjectSummary> listProjects() throws GitLabApiException {
-        return gitLabSourceService.listSubgroupProjects();
+        return gitLabSourceService.listAllProjects();
     }
 }

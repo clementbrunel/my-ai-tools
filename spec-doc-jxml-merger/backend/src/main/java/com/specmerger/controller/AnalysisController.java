@@ -37,8 +37,9 @@ public class AnalysisController {
             @RequestParam(value = "word", required = false) MultipartFile wordFile,
             @RequestParam(value = "jxmlArchive", required = false) MultipartFile jxmlArchive,
             @RequestParam(value = "jxmlText", required = false) String jxmlText,
+            @RequestParam(value = "gitlabGroupKey", required = false) String gitlabGroupKey,
             @RequestParam(value = "gitlabProjectId", required = false) String gitlabProjectId) throws IOException, GitLabApiException {
-        return analysisService.analyze(title, wordFile, jxmlArchive, jxmlText, gitlabProjectId);
+        return analysisService.analyze(title, wordFile, jxmlArchive, jxmlText, gitlabGroupKey, gitlabProjectId);
     }
 
     @GetMapping("/{sessionId}")

@@ -6,6 +6,7 @@ export interface GitLabProjectSummary {
   pathWithNamespace: string
   defaultBranch: string | null
   webUrl: string
+  groupKey: string
 }
 
 export interface Divergence {

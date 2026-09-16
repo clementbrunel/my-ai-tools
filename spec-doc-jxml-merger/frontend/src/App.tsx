@@ -29,11 +29,13 @@ function App() {
     setError(null)
     setLoading(true)
     try {
+      const selectedGitlabProject = gitlabProjects.find((p) => String(p.id) === gitlabProjectId)
       const result = await createAnalysis({
         title: title || undefined,
         word: wordFile ?? undefined,
         jxmlArchive: jxmlMode === 'zip' ? (jxmlFile ?? undefined) : undefined,
         jxmlText: jxmlMode === 'text' ? jxmlText : undefined,
+        gitlabGroupKey: jxmlMode === 'gitlab' ? selectedGitlabProject?.groupKey : undefined,
         gitlabProjectId: jxmlMode === 'gitlab' ? gitlabProjectId : undefined,
       })
       setSession(result)
@@ -186,7 +188,7 @@ function App() {
                   <option value="">— Choisir un projet —</option>
                   {gitlabProjects.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.pathWithNamespace}
+                      [{p.groupKey}] {p.pathWithNamespace}
                     </option>
                   ))}
                 </select>

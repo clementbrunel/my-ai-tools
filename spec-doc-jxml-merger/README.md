@@ -43,13 +43,22 @@ Copier `.env.example` → `.env`. Voir ce fichier pour le détail de chaque vari
 ## Source JXML via GitLab (#266)
 
 En plus de l'upload d'une archive `.zip` ou du texte collé, la spec JXML peut être
-récupérée directement depuis un projet GitLab :
+récupérée directement depuis un projet GitLab. Les projets JWAY sont répartis sur
+**deux groupes GitLab, chacun avec sa propre convention de fichiers de traduction** :
+noms de fichiers fixes `de.properties`/`en.properties`/`fr.properties` dans l'un,
+fichiers `.xlf` dans l'autre. Chaque groupe est donc configuré séparément
+(`GITLAB_GROUP_1_*` / `GITLAB_GROUP_2_*` dans `.env.example`), avec sa propre `KEY`,
+son chemin (`PATH`) et ses patterns Ant de fichiers à inclure.
 
-1. Renseigner `GITLAB_URL`, `GITLAB_TOKEN` et `GITLAB_SUBGROUP` (nom complet du
-   sous-groupe, ex. `mon-groupe/mon-sous-groupe`, ou son ID numérique).
-2. `GET /api/gitlab/projects` liste les projets du sous-groupe.
-3. `POST /api/analysis` avec `gitlabProjectId` (ID ou chemin du projet) télécharge
-   uniquement les fichiers pertinents du projet — les `.jxml`, les ressources de
-   traduction (`GITLAB_TRANSLATION_PATTERNS`), et, si configuré, les classes Java
-   d'appels métier vers l'extérieur (`GITLAB_JAVA_PATTERNS`) — au lieu du reste du
-   dépôt (build, tests, assets, ...).
+1. Renseigner `GITLAB_URL`, `GITLAB_TOKEN`, puis pour chaque groupe `GITLAB_GROUP_n_PATH`
+   (chemin complet du groupe/sous-groupe, ex. `mon-groupe/sous-groupe`, ou son ID
+   numérique) et éventuellement `GITLAB_GROUP_n_TRANSLATION_PATTERNS` /
+   `GITLAB_GROUP_n_JAVA_PATTERNS` si les valeurs par défaut ne conviennent pas. Un
+   groupe dont le `PATH` est vide est simplement ignoré.
+2. `GET /api/gitlab/projects` liste les projets des groupes configurés, chacun tagué
+   avec la `groupKey` du groupe dont il provient.
+3. `POST /api/analysis` avec `gitlabGroupKey` + `gitlabProjectId` (ID ou chemin du
+   projet) télécharge uniquement les fichiers pertinents du projet — les `.jxml`
+   (toujours inclus), les ressources de traduction propres au groupe, et, si
+   configuré, les classes Java d'appels métier vers l'extérieur — au lieu du reste
+   du dépôt (build, tests, assets, ...).
