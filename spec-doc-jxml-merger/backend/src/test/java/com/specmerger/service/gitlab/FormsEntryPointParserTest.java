@@ -62,6 +62,24 @@ class FormsEntryPointParserTest {
     void returnsEmptyListWithoutThrowingOnMalformedXml() {
         assertThat(FormsEntryPointParser.extractDocumentIds("<JForm><Unclosed>")).isEmpty();
         assertThat(FormsEntryPointParser.extractDocumentIds("")).isEmpty();
+        assertThat(FormsEntryPointParser.extractDocumentIds(null)).isEmpty();
+    }
+
+    @Test
+    void extractsDocumentIdsEvenWhenTheSurroundingFileIsNotWellFormedXml() {
+        // Real JXML isn't guaranteed to be strict XML (e.g. unescaped operators in
+        // Condition/Expression attributes elsewhere in the file) — a DOM parser would reject
+        // the whole document and silently drop every entry point.
+        String forms = """
+                <JForm documentId="FORMS">
+                  <Variable Expression="x < y && z > 1" />
+                  <Hyperlink Type="Document" DocumentId="demarche_un" />
+                </JForm>
+                """;
+
+        List<String> documentIds = FormsEntryPointParser.extractDocumentIds(forms);
+
+        assertThat(documentIds).containsExactly("demarche_un");
     }
 
     @Test
