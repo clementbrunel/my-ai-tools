@@ -48,13 +48,17 @@ export async function listGitlabSources(groupKey: string, projectId: string): Pr
   return data
 }
 
-/** The flattened JXML (entry point + its Include chain resolved) exactly as it will be sent to the model. */
+/**
+ * The flattened JXML (entry point + its Include chain resolved) exactly as it will be sent to
+ * the model, plus any warnings (unresolved Includes, incomplete tag nesting) worth showing
+ * separately from the content itself.
+ */
 export async function previewGitlabJxml(params: {
   groupKey: string
   projectId: string
   entryPointPath: string
   selectedPaths?: string[]
-}): Promise<string> {
+}): Promise<GitLabJxmlPreview> {
   // Built manually (not via axios' object params) so arrays serialize as repeated
   // `selectedPaths=a&selectedPaths=b`, matching how Spring binds a List<String> — axios'
   // default array serialization uses `selectedPaths[]=...`, which Spring won't bind.
@@ -67,7 +71,7 @@ export async function previewGitlabJxml(params: {
     params.selectedPaths.forEach((path) => query.append('selectedPaths', path))
   }
   const { data } = await client.get<GitLabJxmlPreview>('/gitlab/preview', { params: query })
-  return data.content
+  return data
 }
 
 export async function getAnalysis(sessionId: string): Promise<AnalysisSessionResponse> {

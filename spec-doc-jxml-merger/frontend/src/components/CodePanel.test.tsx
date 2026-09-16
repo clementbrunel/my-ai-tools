@@ -30,6 +30,7 @@ function baseProps(overrides: Partial<React.ComponentProps<typeof CodePanel>> = 
     onPreviewGitlabJxml: vi.fn(),
     gitlabPreviewOpen: false,
     gitlabPreviewContent: '',
+    gitlabPreviewWarnings: [] as string[],
     gitlabPreviewLoading: false,
     onCloseGitlabPreview: vi.fn(),
     gitlabSourcePaths: [] as string[],
@@ -171,7 +172,22 @@ describe('CodePanel', () => {
     expect(onPreviewGitlabJxml).toHaveBeenCalledTimes(1)
   })
 
-  it('shows the resolved JXML content when the preview panel is open', () => {
+  it('shows the resolved JXML content as a collapsible tree when the preview panel is open', () => {
+    const { container } = render(
+      <CodePanel
+        {...baseProps({
+          jxmlMode: 'gitlab',
+          gitlabEntryPointPath: 'forms/demarche_un.jxml',
+          gitlabPreviewOpen: true,
+          gitlabPreviewContent: '<JForm><Section/></JForm>',
+        })}
+      />,
+    )
+    expect(container.textContent).toContain('JForm')
+    expect(container.textContent).toContain('Section')
+  })
+
+  it('shows the raw text when the raw view mode is selected', async () => {
     render(
       <CodePanel
         {...baseProps({
@@ -182,7 +198,23 @@ describe('CodePanel', () => {
         })}
       />,
     )
+    await userEvent.click(screen.getByText('Texte brut'))
     expect(screen.getByText('<JForm><Section/></JForm>')).toBeDefined()
+  })
+
+  it('shows preview warnings prominently when present', () => {
+    render(
+      <CodePanel
+        {...baseProps({
+          jxmlMode: 'gitlab',
+          gitlabEntryPointPath: 'forms/demarche_un.jxml',
+          gitlabPreviewOpen: true,
+          gitlabPreviewContent: '<JForm><Section></JForm>',
+          gitlabPreviewWarnings: ['Balise <Section> jamais refermée.'],
+        })}
+      />,
+    )
+    expect(screen.getByText('Balise <Section> jamais refermée.')).toBeDefined()
   })
 
   it('calls onCloseGitlabPreview when the preview panel is closed', async () => {

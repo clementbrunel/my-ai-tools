@@ -47,7 +47,8 @@ public class GitLabController {
         List<String> effectiveSelectedPaths = Boolean.TRUE.equals(selectedPathsProvided)
                 ? (selectedPaths == null ? List.of() : selectedPaths)
                 : null;
-        String content = gitLabSourceService.previewResolvedJxml(groupKey, projectId, effectiveSelectedPaths, entryPointPath);
-        return new GitLabJxmlPreview(content);
+        GitLabSourceService.JxmlPreviewResult result =
+                gitLabSourceService.previewResolvedJxml(groupKey, projectId, effectiveSelectedPaths, entryPointPath);
+        return new GitLabJxmlPreview(result.content(), result.warnings());
     }
 }
