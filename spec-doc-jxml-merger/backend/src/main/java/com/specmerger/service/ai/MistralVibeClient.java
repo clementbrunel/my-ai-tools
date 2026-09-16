@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.function.Supplier;
 
 /**
  * Client for the internal mistral-vibe gateway (proxy in front of the Mistral
@@ -41,6 +42,16 @@ public class MistralVibeClient implements SpecResolutionAIProvider {
     // markdowns follow the same section/table shape.
     private static final String DOCUMENTATION_TEMPLATE = loadDocumentationTemplate();
 
+    // Shared scoping instruction for generateSpecFromJxml/generateSpecFromWord: only section 5
+    // of the gabarit is generated today (see the "Périmètre généré aujourd'hui" note at the top
+    // of documentation-template.md) — kept in one place so both prompts stay in sync if that
+    // scope changes.
+    private static final String TEMPLATE_SCOPE_INSTRUCTION =
+            "en suivant IMPÉRATIVEMENT le gabarit ci-dessus : ne produis que le chapitre « 5. Contenu — "
+            + "détail par section et par écran » (démarre directement au titre « ### Section : ... », sans "
+            + "reprendre le titre « ## 5. Contenu... » lui-même) ; les autres chapitres du gabarit ne sont "
+            + "pas à produire ici.";
+
     private final ChatModel chatModel;
     private final String apiKey;
     private final JxmlTagDocRepository tagDocRepository;
@@ -60,21 +71,15 @@ public class MistralVibeClient implements SpecResolutionAIProvider {
                 JXML (code réel) : %s
                 Propose la version à retenir dans le markdown final, avec une courte justification.
                 """.formatted(
-                buildTagContext(jxmlExcerpt),
+                buildTagContext(jxmlExcerpt, MAX_TAG_DOCS, MAX_TAG_DOCS_CHARS,
+                        "Documentation des balises JWAY détectées dans l'extrait JXML ci-dessous"),
                 wordExcerpt == null ? "(absent)" : wordExcerpt,
                 jxmlExcerpt == null ? "(absent)" : jxmlExcerpt);
 
         log.debug("mistral-vibe resolving divergence: word={} chars, jxml={} chars",
                 wordExcerpt == null ? 0 : wordExcerpt.length(),
                 jxmlExcerpt == null ? 0 : jxmlExcerpt.length());
-        try {
-            ChatResponse response = chatModel.call(new Prompt(new UserMessage(prompt)));
-            String content = response.getResult() != null ? response.getResult().getOutput().getText() : null;
-            return content != null && !content.isBlank() ? content : fallback(wordExcerpt, jxmlExcerpt);
-        } catch (Exception e) {
-            log.error("mistral-vibe call failed (api-key \"{}\"): {}", maskedApiKey(), e.getMessage(), e);
-            return fallback(wordExcerpt, jxmlExcerpt);
-        }
+        return call(prompt, () -> fallback(wordExcerpt, jxmlExcerpt));
     }
 
     @Override
@@ -82,45 +87,39 @@ public class MistralVibeClient implements SpecResolutionAIProvider {
         String prompt = buildJxmlSpecPrompt(resolvedJxml);
         log.debug("mistral-vibe generating spec from JXML: {} chars",
                 resolvedJxml == null ? 0 : resolvedJxml.length());
-        try {
-            ChatResponse response = chatModel.call(new Prompt(new UserMessage(prompt)));
-            String content = response.getResult() != null ? response.getResult().getOutput().getText() : null;
-            return content != null && !content.isBlank() ? content : jxmlSpecFallback(resolvedJxml);
-        } catch (Exception e) {
-            log.error("mistral-vibe call failed (api-key \"{}\"): {}", maskedApiKey(), e.getMessage(), e);
-            return jxmlSpecFallback(resolvedJxml);
-        }
+        return call(prompt, () -> jxmlSpecFallback(resolvedJxml));
     }
 
     @Override
     public String generateSpecFromWord(String wordText) {
         String prompt = buildWordSpecPrompt(wordText);
         log.debug("mistral-vibe generating spec from Word: {} chars", wordText == null ? 0 : wordText.length());
+        return call(prompt, () -> wordSpecFallback(wordText));
+    }
+
+    /** Shared call/fallback path for the three prompt methods above: same retry-free error
+     * handling, only the prompt and the fallback message differ. */
+    private String call(String prompt, Supplier<String> fallback) {
         try {
             ChatResponse response = chatModel.call(new Prompt(new UserMessage(prompt)));
             String content = response.getResult() != null ? response.getResult().getOutput().getText() : null;
-            return content != null && !content.isBlank() ? content : wordSpecFallback(wordText);
+            return content != null && !content.isBlank() ? content : fallback.get();
         } catch (Exception e) {
             log.error("mistral-vibe call failed (api-key \"{}\"): {}", maskedApiKey(), e.getMessage(), e);
-            return wordSpecFallback(wordText);
+            return fallback.get();
         }
     }
 
     String buildJxmlSpecPrompt(String resolvedJxml) {
         String safeJxml = resolvedJxml == null ? "" : resolvedJxml;
-        List<String> docs = tagDocRepository.findRelevantDocs(
-                safeJxml, MAX_TAG_DOCS_SPEC_GENERATION, MAX_TAG_DOCS_CHARS_SPEC_GENERATION);
-        String tagContext = docs.isEmpty() ? "" : "Documentation des balises JWAY détectées dans ce JXML :\n"
-                + String.join("\n---\n", docs) + "\n\n";
+        String tagContext = buildTagContext(safeJxml, MAX_TAG_DOCS_SPEC_GENERATION, MAX_TAG_DOCS_CHARS_SPEC_GENERATION,
+                "Documentation des balises JWAY détectées dans ce JXML");
         return """
                 %s
 
                 %sTu es assisté par la documentation JWAY ci-dessus pour comprendre les balises propriétaires.
                 Génère la documentation markdown de ce formulaire à partir du JXML suivant (les fragments
-                <Include> ont déjà été résolus et intégrés), en suivant IMPÉRATIVEMENT le gabarit ci-dessus :
-                ne produis que le chapitre « 5. Contenu — détail par section et par écran » (démarre directement
-                au titre « ### Section : ... », sans reprendre le titre « ## 5. Contenu... » lui-même) ; les
-                autres chapitres du gabarit ne sont pas à produire ici.
+                <Include> ont déjà été résolus et intégrés), %s
                 Un écran correspond à une <Section NewPage="screen"> de premier niveau sous <JForm> ; les
                 <Section NewPage="none"> imbriquées restent dans le même écran que leur section parente.
                 Reprends le titre de chaque écran depuis sa balise <Title>.
@@ -132,7 +131,7 @@ public class MistralVibeClient implements SpecResolutionAIProvider {
 
                 JXML :
                 %s
-                """.formatted(DOCUMENTATION_TEMPLATE, tagContext, safeJxml);
+                """.formatted(DOCUMENTATION_TEMPLATE, tagContext, TEMPLATE_SCOPE_INSTRUCTION, safeJxml);
     }
 
     String buildWordSpecPrompt(String wordText) {
@@ -140,17 +139,14 @@ public class MistralVibeClient implements SpecResolutionAIProvider {
         return """
                 %s
 
-                Restructure ce texte extrait d'une spécification Word/Excel en documentation markdown, en
-                suivant IMPÉRATIVEMENT le gabarit ci-dessus : ne produis que le chapitre « 5. Contenu — détail
-                par section et par écran » (démarre directement au titre « ### Section : ... », sans reprendre
-                le titre « ## 5. Contenu... » lui-même) ; les autres chapitres du gabarit ne sont pas à produire
-                ici. Respecte le même ordre d'apparition des sections/écrans que dans le document d'origine, et
+                Restructure ce texte extrait d'une spécification Word/Excel en documentation markdown, %s
+                Respecte le même ordre d'apparition des sections/écrans que dans le document d'origine, et
                 décris les champs et comportements tels que déclarés dans le texte, sans y ajouter d'information
                 absente.
 
                 Texte extrait :
                 %s
-                """.formatted(DOCUMENTATION_TEMPLATE, safeWord);
+                """.formatted(DOCUMENTATION_TEMPLATE, TEMPLATE_SCOPE_INSTRUCTION, safeWord);
     }
 
     private static String loadDocumentationTemplate() {
@@ -171,13 +167,12 @@ public class MistralVibeClient implements SpecResolutionAIProvider {
                 + (wordText == null ? "(absent)" : wordText);
     }
 
-    private String buildTagContext(String jxmlExcerpt) {
-        List<String> docs = tagDocRepository.findRelevantDocs(jxmlExcerpt, MAX_TAG_DOCS, MAX_TAG_DOCS_CHARS);
+    private String buildTagContext(String jxmlExcerpt, int maxDocs, int maxChars, String intro) {
+        List<String> docs = tagDocRepository.findRelevantDocs(jxmlExcerpt, maxDocs, maxChars);
         if (docs.isEmpty()) {
             return "";
         }
-        return "Documentation des balises JWAY détectées dans l'extrait JXML ci-dessous :\n"
-                + String.join("\n---\n", docs) + "\n\n";
+        return intro + " :\n" + String.join("\n---\n", docs) + "\n\n";
     }
 
     private String maskedApiKey() {
