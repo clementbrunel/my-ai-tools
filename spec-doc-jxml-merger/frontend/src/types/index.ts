@@ -1,6 +1,6 @@
 export type JxmlSourceType = 'ZIP_UPLOAD' | 'PASTED_TEXT' | 'GITLAB_PROJECT'
 
-export type JxmlMode = 'zip' | 'text' | 'gitlab'
+export type JxmlMode = 'text' | 'gitlab'
 
 export interface GitLabProjectSummary {
   id: number
@@ -9,6 +9,27 @@ export interface GitLabProjectSummary {
   defaultBranch: string | null
   webUrl: string
   groupKey: string
+}
+
+/** A démarche entry point declared by FORMS.jxml (one Hyperlink Type="Document"). */
+export interface GitLabEntryPoint {
+  documentId: string
+  path: string
+}
+
+export interface GitLabSourceListing {
+  entryPoints: GitLabEntryPoint[]
+  optionalPaths: string[]
+}
+
+export interface GitLabJxmlPreview {
+  content: string
+  warnings: string[]
+}
+
+/** The markdown a spec-generation call produced from a single source. */
+export interface SpecGenerationResult {
+  markdown: string
 }
 
 export interface Divergence {

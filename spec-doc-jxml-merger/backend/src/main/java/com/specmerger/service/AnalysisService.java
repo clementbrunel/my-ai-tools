@@ -59,7 +59,7 @@ public class AnalysisService {
     @Transactional
     public AnalysisSessionResponse analyze(String title, MultipartFile wordFile, MultipartFile jxmlArchive,
                                             String jxmlText, String gitlabGroupKey, String gitlabProjectId,
-                                            List<String> gitlabSelectedPaths)
+                                            List<String> gitlabSelectedPaths, String gitlabEntryPointPath)
             throws IOException, GitLabApiException {
         boolean hasWord = wordFile != null && !wordFile.isEmpty();
         boolean hasGitlab = gitlabProjectId != null && !gitlabProjectId.isBlank();
@@ -76,7 +76,8 @@ public class AnalysisService {
         Map<String, String> jxmlFiles;
         AnalysisSession.JxmlSourceType sourceType;
         if (hasGitlab) {
-            jxmlFiles = gitLabSourceService.fetchRelevantSources(gitlabGroupKey, gitlabProjectId, gitlabSelectedPaths);
+            jxmlFiles = gitLabSourceService.fetchRelevantSources(
+                    gitlabGroupKey, gitlabProjectId, gitlabSelectedPaths, gitlabEntryPointPath);
             sourceType = AnalysisSession.JxmlSourceType.GITLAB_PROJECT;
         } else if (jxmlArchive != null && !jxmlArchive.isEmpty()) {
             jxmlFiles = jxmlSpecParser.extractFromZip(jxmlArchive.getInputStream());

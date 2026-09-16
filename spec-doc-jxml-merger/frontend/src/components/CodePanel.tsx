@@ -1,10 +1,10 @@
-import type { GitLabProjectSummary, JxmlMode } from '../types'
+import { useEffect, useState } from 'react'
+import type { GitLabEntryPoint, GitLabProjectSummary, JxmlMode } from '../types'
+import XmlTreeView from './XmlTreeView'
 
 interface CodePanelProps {
   jxmlMode: JxmlMode
   onJxmlModeChange: (mode: JxmlMode) => void
-  jxmlFile: File | null
-  onJxmlFileChange: (file: File | null) => void
   jxmlText: string
   onJxmlTextChange: (value: string) => void
   gitlabProjects: GitLabProjectSummary[]
@@ -14,16 +14,25 @@ interface CodePanelProps {
   onLoadGitlabProjects: () => void
   gitlabSearch: string
   onGitlabSearchChange: (value: string) => void
+  gitlabEntryPoints: GitLabEntryPoint[]
+  gitlabEntryPointPath: string
+  onSelectGitlabEntryPoint: (path: string) => void
+  onPreviewGitlabJxml: () => void
+  gitlabPreviewOpen: boolean
+  gitlabPreviewContent: string
+  gitlabPreviewWarnings: string[]
+  gitlabPreviewLoading: boolean
+  onCloseGitlabPreview: () => void
   gitlabSourcePaths: string[]
   gitlabSelectedPaths: Set<string>
   onToggleGitlabPath: (path: string) => void
   onSelectAllGitlabPaths: () => void
   onClearGitlabPaths: () => void
   gitlabSourcesLoading: boolean
+  onCollapse?: () => void
 }
 
 const JXML_MODES: Array<[JxmlMode, string]> = [
-  ['zip', 'Archive .zip'],
   ['text', 'Coller le texte'],
   ['gitlab', 'Projet GitLab'],
 ]
@@ -31,8 +40,6 @@ const JXML_MODES: Array<[JxmlMode, string]> = [
 function CodePanel({
   jxmlMode,
   onJxmlModeChange,
-  jxmlFile,
-  onJxmlFileChange,
   jxmlText,
   onJxmlTextChange,
   gitlabProjects,
@@ -42,13 +49,34 @@ function CodePanel({
   onLoadGitlabProjects,
   gitlabSearch,
   onGitlabSearchChange,
+  gitlabEntryPoints,
+  gitlabEntryPointPath,
+  onSelectGitlabEntryPoint,
+  onPreviewGitlabJxml,
+  gitlabPreviewOpen,
+  gitlabPreviewContent,
+  gitlabPreviewWarnings,
+  gitlabPreviewLoading,
+  onCloseGitlabPreview,
   gitlabSourcePaths,
   gitlabSelectedPaths,
   onToggleGitlabPath,
   onSelectAllGitlabPaths,
   onClearGitlabPaths,
   gitlabSourcesLoading,
+  onCollapse,
 }: CodePanelProps) {
+  const [previewViewMode, setPreviewViewMode] = useState<'tree' | 'raw'>('tree')
+
+  useEffect(() => {
+    if (!gitlabPreviewOpen) return
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') onCloseGitlabPreview()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [gitlabPreviewOpen, onCloseGitlabPreview])
+
   const gitlabSearchTerm = gitlabSearch.trim().toLowerCase()
   const filteredGitlabProjects = gitlabSearchTerm
     ? gitlabProjects.filter((p) =>
@@ -58,7 +86,20 @@ function CodePanel({
 
   return (
     <section className="card p-4 overflow-auto">
-      <h2 className="field-label mb-3">Spec JXML</h2>
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <h2 className="field-label">Spec JXML</h2>
+        {onCollapse && (
+          <button
+            type="button"
+            onClick={onCollapse}
+            title="Réduire le panneau"
+            aria-label="Réduire le panneau Spec JXML"
+            className="text-gray-400 hover:text-gl-blue leading-none px-1 shrink-0"
+          >
+            ▶
+          </button>
+        )}
+      </div>
       <div className="flex gap-4 mb-3 border-b border-[#dcdcde] text-sm">
         {JXML_MODES.map(([mode, label]) => (
           <label
@@ -79,24 +120,19 @@ function CodePanel({
           </label>
         ))}
       </div>
-      {jxmlMode === 'zip' && (
-        <>
-          <input
-            type="file"
-            accept=".zip"
-            onChange={(e) => onJxmlFileChange(e.target.files?.[0] ?? null)}
-            className="text-sm file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:bg-gl-blue file:text-white file:text-sm hover:file:bg-gl-blue-dark file:cursor-pointer"
-          />
-          {jxmlFile && <p className="text-sm text-gray-500 mt-2">{jxmlFile.name}</p>}
-        </>
-      )}
       {jxmlMode === 'text' && (
-        <textarea
-          value={jxmlText}
-          onChange={(e) => onJxmlTextChange(e.target.value)}
-          placeholder="Colle ici le contenu JXML"
-          className="w-full min-h-[40vh] rounded border border-[#dcdcde] p-2 font-mono text-[13px] focus:outline-none focus:ring-2 focus:ring-gl-orange"
-        />
+        <>
+          <textarea
+            value={jxmlText}
+            onChange={(e) => onJxmlTextChange(e.target.value)}
+            placeholder="Colle ici le contenu JXML"
+            className="w-full min-h-[40vh] rounded border border-[#dcdcde] p-2 font-mono text-[13px] focus:outline-none focus:ring-2 focus:ring-gl-orange"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            Doit être un JXML valide sans balise &lt;Include&gt; (non résolvable ici — utilise le mode GitLab
+            pour un JXML avec des Include).
+          </p>
+        </>
       )}
       {jxmlMode === 'gitlab' && (
         <div className="flex flex-col gap-3">
@@ -134,6 +170,103 @@ function CodePanel({
             </>
           )}
           {gitlabSourcesLoading && <p className="text-sm text-gray-500">Chargement des fichiers…</p>}
+          {gitlabEntryPoints.length > 0 && (
+            <div className="border border-[#dcdcde] rounded">
+              <div className="px-2 py-1.5 border-b border-[#dcdcde] bg-[#fafafa] text-sm text-gray-600">
+                Démarche à documenter (trouvée{gitlabEntryPoints.length > 1 ? 's' : ''} dans FORMS.jxml)
+              </div>
+              <ul className="text-sm divide-y divide-[#eee]">
+                {gitlabEntryPoints.map((entryPoint) => (
+                  <li key={entryPoint.path} className="px-2 py-1">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="gitlab-entry-point"
+                        checked={gitlabEntryPointPath === entryPoint.path}
+                        onChange={() => onSelectGitlabEntryPoint(entryPoint.path)}
+                      />
+                      <span className="font-mono text-[13px] break-all">{entryPoint.documentId}</span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {gitlabEntryPointPath && (
+            <button
+              type="button"
+              className="btn-secondary self-start"
+              onClick={onPreviewGitlabJxml}
+              disabled={gitlabPreviewLoading}
+            >
+              {gitlabPreviewLoading ? 'Génération de la prévisualisation…' : 'Prévisualiser le JXML résolu'}
+            </button>
+          )}
+          {gitlabPreviewOpen && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+              onClick={onCloseGitlabPreview}
+            >
+              <div
+                className="bg-white rounded shadow-xl w-full max-w-5xl max-h-[85vh] flex flex-col"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-[#dcdcde] bg-[#fafafa] text-sm shrink-0">
+                  <span className="text-gray-600">
+                    JXML envoyé au modèle (Include résolus, includes/traductions/Java non affichés ici)
+                  </span>
+                  <button
+                    type="button"
+                    className="text-gl-blue hover:text-gl-blue-dark hover:underline"
+                    onClick={onCloseGitlabPreview}
+                  >
+                    Fermer
+                  </button>
+                </div>
+                {gitlabPreviewLoading ? (
+                  <p className="text-sm text-gray-500 p-3">Chargement…</p>
+                ) : (
+                  <>
+                    {gitlabPreviewWarnings.length > 0 && (
+                      <div className="px-3 py-2 border-b border-amber-200 bg-amber-50 text-sm shrink-0">
+                        <p className="font-medium text-amber-800 mb-1">
+                          {gitlabPreviewWarnings.length} problème(s) détecté(s) dans le JXML généré
+                        </p>
+                        <ul className="list-disc list-inside text-amber-800 space-y-0.5">
+                          {gitlabPreviewWarnings.map((warning, i) => (
+                            <li key={i}>{warning}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    <div className="flex gap-4 px-3 pt-2 text-sm border-b border-[#dcdcde] shrink-0">
+                      {(['tree', 'raw'] as const).map((mode) => (
+                        <button
+                          key={mode}
+                          type="button"
+                          className={`pb-2 -mb-px border-b-2 ${
+                            previewViewMode === mode
+                              ? 'border-gl-orange text-[#303030] font-medium'
+                              : 'border-transparent text-gray-500 hover:text-[#303030]'
+                          }`}
+                          onClick={() => setPreviewViewMode(mode)}
+                        >
+                          {mode === 'tree' ? 'Arborescence' : 'Texte brut'}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="overflow-auto p-3 flex-1">
+                      {previewViewMode === 'tree' ? (
+                        <XmlTreeView xml={gitlabPreviewContent} />
+                      ) : (
+                        <pre className="text-[12px] whitespace-pre-wrap break-all">{gitlabPreviewContent}</pre>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
           {gitlabSourcePaths.length > 0 && (
             <div className="border border-[#dcdcde] rounded">
               <div className="flex items-center justify-between gap-2 px-2 py-1.5 border-b border-[#dcdcde] bg-[#fafafa] text-sm">

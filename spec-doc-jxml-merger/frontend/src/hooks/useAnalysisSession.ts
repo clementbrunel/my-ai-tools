@@ -5,11 +5,11 @@ import type { AnalysisSessionResponse, DocumentVersion } from '../types'
 interface AnalyzeParams {
   title?: string
   word?: File
-  jxmlArchive?: File
   jxmlText?: string
   gitlabGroupKey?: string
   gitlabProjectId?: string
   gitlabSelectedPaths?: string[]
+  gitlabEntryPointPath?: string
 }
 
 function errorMessage(e: unknown, fallback: string): string {

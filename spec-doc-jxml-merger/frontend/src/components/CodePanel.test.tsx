@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import CodePanel from './CodePanel'
-import type { GitLabProjectSummary } from '../types'
+import type { GitLabEntryPoint, GitLabProjectSummary } from '../types'
 
 const projects: GitLabProjectSummary[] = [
   { id: 1, name: 'onboarding-kyc', pathWithNamespace: 'jway-forms/onboarding-kyc', defaultBranch: 'main', webUrl: '', groupKey: 'jway-forms' },
@@ -11,10 +11,8 @@ const projects: GitLabProjectSummary[] = [
 
 function baseProps(overrides: Partial<React.ComponentProps<typeof CodePanel>> = {}) {
   return {
-    jxmlMode: 'zip' as const,
+    jxmlMode: 'text' as const,
     onJxmlModeChange: vi.fn(),
-    jxmlFile: null,
-    onJxmlFileChange: vi.fn(),
     jxmlText: '',
     onJxmlTextChange: vi.fn(),
     gitlabProjects: [] as GitLabProjectSummary[],
@@ -24,6 +22,15 @@ function baseProps(overrides: Partial<React.ComponentProps<typeof CodePanel>> = 
     onLoadGitlabProjects: vi.fn(),
     gitlabSearch: '',
     onGitlabSearchChange: vi.fn(),
+    gitlabEntryPoints: [] as GitLabEntryPoint[],
+    gitlabEntryPointPath: '',
+    onSelectGitlabEntryPoint: vi.fn(),
+    onPreviewGitlabJxml: vi.fn(),
+    gitlabPreviewOpen: false,
+    gitlabPreviewContent: '',
+    gitlabPreviewWarnings: [] as string[],
+    gitlabPreviewLoading: false,
+    onCloseGitlabPreview: vi.fn(),
     gitlabSourcePaths: [] as string[],
     gitlabSelectedPaths: new Set<string>(),
     onToggleGitlabPath: vi.fn(),
@@ -35,21 +42,16 @@ function baseProps(overrides: Partial<React.ComponentProps<typeof CodePanel>> = 
 }
 
 describe('CodePanel', () => {
-  it('shows the zip file input in zip mode', () => {
-    const { container } = render(<CodePanel {...baseProps()} />)
-    expect(container.querySelector('input[type="file"][accept=".zip"]')).not.toBeNull()
+  it('renders a textarea bound to jxmlText in text mode', () => {
+    render(<CodePanel {...baseProps({ jxmlText: '<jform/>' })} />)
+    expect(screen.getByPlaceholderText('Colle ici le contenu JXML')).toHaveValue('<jform/>')
   })
 
   it('calls onJxmlModeChange when a tab is clicked', async () => {
     const onJxmlModeChange = vi.fn()
     render(<CodePanel {...baseProps({ onJxmlModeChange })} />)
-    await userEvent.click(screen.getByText('Coller le texte'))
-    expect(onJxmlModeChange).toHaveBeenCalledWith('text')
-  })
-
-  it('renders a textarea bound to jxmlText in text mode', () => {
-    render(<CodePanel {...baseProps({ jxmlMode: 'text', jxmlText: '<jform/>' })} />)
-    expect(screen.getByPlaceholderText('Colle ici le contenu JXML')).toHaveValue('<jform/>')
+    await userEvent.click(screen.getByText('Projet GitLab'))
+    expect(onJxmlModeChange).toHaveBeenCalledWith('gitlab')
   })
 
   it('calls onLoadGitlabProjects when the load button is clicked in gitlab mode', async () => {
@@ -104,6 +106,126 @@ describe('CodePanel', () => {
     )
     await userEvent.click(screen.getByRole('checkbox'))
     expect(onToggleGitlabPath).toHaveBeenCalledWith('forms/kyc.jxml')
+  })
+
+  it('renders the entry point candidates as a single-select radio group', () => {
+    const entryPoints: GitLabEntryPoint[] = [
+      { documentId: 'demarche_un', path: 'forms/demarche_un.jxml' },
+      { documentId: 'DEMARCHE_DEUX', path: 'forms/DEMARCHE_DEUX.jxml' },
+    ]
+    render(
+      <CodePanel
+        {...baseProps({ jxmlMode: 'gitlab', gitlabEntryPoints: entryPoints, gitlabEntryPointPath: 'forms/demarche_un.jxml' })}
+      />,
+    )
+    const radios = screen.getAllByRole('radio', { name: /demarche/i })
+    expect(radios).toHaveLength(2)
+    expect(radios[0]).toBeChecked()
+    expect(radios[1]).not.toBeChecked()
+  })
+
+  it('calls onSelectGitlabEntryPoint when another entry point is picked', async () => {
+    const onSelectGitlabEntryPoint = vi.fn()
+    const entryPoints: GitLabEntryPoint[] = [
+      { documentId: 'demarche_un', path: 'forms/demarche_un.jxml' },
+      { documentId: 'DEMARCHE_DEUX', path: 'forms/DEMARCHE_DEUX.jxml' },
+    ]
+    render(
+      <CodePanel
+        {...baseProps({
+          jxmlMode: 'gitlab',
+          gitlabEntryPoints: entryPoints,
+          gitlabEntryPointPath: 'forms/demarche_un.jxml',
+          onSelectGitlabEntryPoint,
+        })}
+      />,
+    )
+    await userEvent.click(screen.getByText('DEMARCHE_DEUX'))
+    expect(onSelectGitlabEntryPoint).toHaveBeenCalledWith('forms/DEMARCHE_DEUX.jxml')
+  })
+
+  it('does not render the entry point section when there are no candidates', () => {
+    render(<CodePanel {...baseProps({ jxmlMode: 'gitlab', gitlabEntryPoints: [] })} />)
+    expect(screen.queryByText(/Démarche à documenter/)).toBeNull()
+  })
+
+  it('does not show the preview button before an entry point is chosen', () => {
+    render(<CodePanel {...baseProps({ jxmlMode: 'gitlab', gitlabEntryPointPath: '' })} />)
+    expect(screen.queryByText('Prévisualiser le JXML résolu')).toBeNull()
+  })
+
+  it('calls onPreviewGitlabJxml when the preview button is clicked', async () => {
+    const onPreviewGitlabJxml = vi.fn()
+    render(
+      <CodePanel
+        {...baseProps({ jxmlMode: 'gitlab', gitlabEntryPointPath: 'forms/demarche_un.jxml', onPreviewGitlabJxml })}
+      />,
+    )
+    await userEvent.click(screen.getByText('Prévisualiser le JXML résolu'))
+    expect(onPreviewGitlabJxml).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows the resolved JXML content as a collapsible tree when the preview panel is open', () => {
+    const { container } = render(
+      <CodePanel
+        {...baseProps({
+          jxmlMode: 'gitlab',
+          gitlabEntryPointPath: 'forms/demarche_un.jxml',
+          gitlabPreviewOpen: true,
+          gitlabPreviewContent: '<JForm><Section/></JForm>',
+        })}
+      />,
+    )
+    expect(container.textContent).toContain('JForm')
+    expect(container.textContent).toContain('Section')
+  })
+
+  it('shows the raw text when the raw view mode is selected', async () => {
+    render(
+      <CodePanel
+        {...baseProps({
+          jxmlMode: 'gitlab',
+          gitlabEntryPointPath: 'forms/demarche_un.jxml',
+          gitlabPreviewOpen: true,
+          gitlabPreviewContent: '<JForm><Section/></JForm>',
+        })}
+      />,
+    )
+    await userEvent.click(screen.getByText('Texte brut'))
+    expect(screen.getByText('<JForm><Section/></JForm>')).toBeDefined()
+    expect(screen.getByText(/JXML envoyé au modèle/)).toBeDefined()
+  })
+
+  it('shows preview warnings prominently when present', () => {
+    render(
+      <CodePanel
+        {...baseProps({
+          jxmlMode: 'gitlab',
+          gitlabEntryPointPath: 'forms/demarche_un.jxml',
+          gitlabPreviewOpen: true,
+          gitlabPreviewContent: '<JForm><Section></JForm>',
+          gitlabPreviewWarnings: ['Balise <Section> jamais refermée.'],
+        })}
+      />,
+    )
+    expect(screen.getByText('Balise <Section> jamais refermée.')).toBeDefined()
+  })
+
+  it('calls onCloseGitlabPreview when the preview panel is closed', async () => {
+    const onCloseGitlabPreview = vi.fn()
+    render(
+      <CodePanel
+        {...baseProps({
+          jxmlMode: 'gitlab',
+          gitlabEntryPointPath: 'forms/demarche_un.jxml',
+          gitlabPreviewOpen: true,
+          gitlabPreviewContent: '<JForm/>',
+          onCloseGitlabPreview,
+        })}
+      />,
+    )
+    await userEvent.click(screen.getByText('Fermer'))
+    expect(onCloseGitlabPreview).toHaveBeenCalledTimes(1)
   })
 
   it('calls onSelectAllGitlabPaths / onClearGitlabPaths from the bulk actions', async () => {
