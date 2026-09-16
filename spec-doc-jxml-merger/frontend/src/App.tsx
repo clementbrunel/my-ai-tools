@@ -18,8 +18,7 @@ import type { GitLabEntryPoint, GitLabProjectSummary, JxmlMode } from './types'
 function App() {
   const [title, setTitle] = useState('')
   const [wordFile, setWordFile] = useState<File | null>(null)
-  const [jxmlMode, setJxmlMode] = useState<JxmlMode>('zip')
-  const [jxmlFile, setJxmlFile] = useState<File | null>(null)
+  const [jxmlMode, setJxmlMode] = useState<JxmlMode>('text')
   const [jxmlText, setJxmlText] = useState('')
   const [gitlabProjects, setGitlabProjects] = useState<GitLabProjectSummary[]>([])
   const [gitlabProjectId, setGitlabProjectId] = useState('')
@@ -42,30 +41,7 @@ function App() {
     useAnalysisSession()
 
   function hasJxmlSource() {
-    return jxmlMode === 'zip' ? !!jxmlFile : jxmlMode === 'text' ? !!jxmlText.trim() : !!gitlabProjectId
-  }
-
-  async function handleAnalyze() {
-    const hasJxml = hasJxmlSource()
-    if (!wordFile && !hasJxml) {
-      setError('Fournis au moins une source : Word (.docx) ou JXML.')
-      return
-    }
-    if (jxmlMode === 'gitlab' && gitlabEntryPoints.length > 0 && !gitlabEntryPointPath) {
-      setError('Choisis la démarche à documenter parmi les points d’entrée trouvés dans FORMS.jxml.')
-      return
-    }
-    const selectedGitlabProject = gitlabProjects.find((p) => String(p.id) === gitlabProjectId)
-    await analyze({
-      title: title || undefined,
-      word: wordFile ?? undefined,
-      jxmlArchive: jxmlMode === 'zip' ? (jxmlFile ?? undefined) : undefined,
-      jxmlText: jxmlMode === 'text' ? jxmlText : undefined,
-      gitlabGroupKey: jxmlMode === 'gitlab' ? selectedGitlabProject?.groupKey : undefined,
-      gitlabProjectId: jxmlMode === 'gitlab' ? gitlabProjectId : undefined,
-      gitlabSelectedPaths: jxmlMode === 'gitlab' ? Array.from(gitlabSelectedPaths) : undefined,
-      gitlabEntryPointPath: jxmlMode === 'gitlab' ? gitlabEntryPointPath || undefined : undefined,
-    })
+    return jxmlMode === 'text' ? !!jxmlText.trim() : !!gitlabProjectId
   }
 
   async function handleLoadGitlabProjects() {
@@ -141,29 +117,11 @@ function App() {
     }
   }
 
-  const hasWord = !!wordFile
-  const hasJxml = hasJxmlSource()
-  // Exactly one source for now — combining both into a diffed spec is issue #262's next step.
-  const canGenerateSpec = hasWord !== hasJxml
-  const generateSpecTitle = hasWord && hasJxml
-    ? 'Génération combinée (avec diff) pas encore disponible — retire une des deux sources pour générer individuellement.'
-    : !hasWord && !hasJxml
-      ? 'Fournis une source : Word (.docx) ou JXML.'
-      : undefined
-
   /**
    * Generates the markdown spec from whichever single source is filled in (Word alone, or JXML
-   * alone) and drops it straight into the merge panel. Disabled via canGenerateSpec when both
-   * or neither source is present.
+   * alone) and drops it straight into the merge panel — no session created.
    */
-  async function handleGenerateSpec() {
-    if (!canGenerateSpec) return
-    if (hasJxml && jxmlMode === 'gitlab' && gitlabEntryPoints.length > 0 && !gitlabEntryPointPath) {
-      setError('Choisis la démarche à documenter parmi les points d’entrée trouvés dans FORMS.jxml.')
-      return
-    }
-
-    setError(null)
+  async function generateSpecFromSingleSource(hasWord: boolean) {
     setSpecGenerating(true)
     try {
       if (hasWord) {
@@ -174,11 +132,9 @@ function App() {
         // No GitLab-specific generation endpoint — resolve the Include chain first (same call
         // the raw-JXML preview uses), then feed the result into the generic jxml generator.
         const resolved = await previewGitlabJxml(params)
-        setMarkdown(await generateSpecFromJxml({ jxmlText: resolved.content }))
-      } else if (jxmlMode === 'zip') {
-        setMarkdown(await generateSpecFromJxml({ jxmlArchive: jxmlFile as File }))
+        setMarkdown(await generateSpecFromJxml(resolved.content))
       } else {
-        setMarkdown(await generateSpecFromJxml({ jxmlText }))
+        setMarkdown(await generateSpecFromJxml(jxmlText))
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Échec de la génération de la doc — voir la console.')
@@ -186,6 +142,41 @@ function App() {
     } finally {
       setSpecGenerating(false)
     }
+  }
+
+  /**
+   * The single top-level action, adaptive to what's filled in: exactly one source generates its
+   * spec straight into the merge panel; both sources fall back to the full session-based pipeline
+   * (DiffEngine, divergences, versions) until the diff-based reconciliation (#262) replaces it.
+   */
+  async function handleAnalyze() {
+    const hasWord = !!wordFile
+    const hasJxml = hasJxmlSource()
+    if (!hasWord && !hasJxml) {
+      setError('Fournis au moins une source : Word (.docx) ou JXML.')
+      return
+    }
+    if (jxmlMode === 'gitlab' && gitlabEntryPoints.length > 0 && !gitlabEntryPointPath) {
+      setError('Choisis la démarche à documenter parmi les points d’entrée trouvés dans FORMS.jxml.')
+      return
+    }
+
+    setError(null)
+    if (hasWord !== hasJxml) {
+      await generateSpecFromSingleSource(hasWord)
+      return
+    }
+
+    const selectedGitlabProject = gitlabProjects.find((p) => String(p.id) === gitlabProjectId)
+    await analyze({
+      title: title || undefined,
+      word: wordFile ?? undefined,
+      jxmlText: jxmlMode === 'text' ? jxmlText : undefined,
+      gitlabGroupKey: jxmlMode === 'gitlab' ? selectedGitlabProject?.groupKey : undefined,
+      gitlabProjectId: jxmlMode === 'gitlab' ? gitlabProjectId : undefined,
+      gitlabSelectedPaths: jxmlMode === 'gitlab' ? Array.from(gitlabSelectedPaths) : undefined,
+      gitlabEntryPointPath: jxmlMode === 'gitlab' ? gitlabEntryPointPath || undefined : undefined,
+    })
   }
 
   function handleToggleGitlabPath(path: string) {
@@ -227,14 +218,11 @@ function App() {
         title={title}
         onTitleChange={setTitle}
         onAnalyze={handleAnalyze}
-        loading={loading}
+        loading={loading || specGenerating}
         hasSession={!!session}
+        hasMarkdown={!!markdown}
         onSave={save}
         onDownload={handleDownload}
-        onGenerateSpec={handleGenerateSpec}
-        canGenerateSpec={canGenerateSpec}
-        specGenerating={specGenerating}
-        generateSpecTitle={generateSpecTitle}
       />
 
       {error && (
@@ -260,8 +248,6 @@ function App() {
           <CodePanel
             jxmlMode={jxmlMode}
             onJxmlModeChange={setJxmlMode}
-            jxmlFile={jxmlFile}
-            onJxmlFileChange={setJxmlFile}
             jxmlText={jxmlText}
             onJxmlTextChange={setJxmlText}
             gitlabProjects={gitlabProjects}

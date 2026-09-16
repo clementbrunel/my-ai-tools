@@ -1,39 +1,44 @@
 package com.specmerger.controller;
 
+import com.specmerger.dto.GenerateFromJxmlRequest;
 import com.specmerger.dto.SpecGenerationResult;
-import com.specmerger.service.JxmlSpecParser;
 import com.specmerger.service.WordSpecParser;
 import com.specmerger.service.ai.SpecResolutionAIProvider;
 import java.io.IOException;
-import java.util.Map;
+import java.io.StringReader;
+import java.util.regex.Pattern;
+import javax.xml.parsers.DocumentBuilderFactory;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import org.xml.sax.InputSource;
 
 /**
- * Generates a markdown spec from a single source — Word alone, or JXML alone (uploaded archive
- * or pasted text). For a GitLab source, the caller resolves the JXML first via
- * {@link GitLabController#previewJxml} (which flattens Include fragments) and passes the result
- * here as {@code jxmlText} — there's no GitLab-specific generation endpoint, so Include
- * resolution and spec generation stay decoupled instead of duplicating this logic per source.
- * Read-only, no analysis session is created. Backs the single adaptive "Générer la doc" action:
- * which source is used is decided by the caller, not here — see issue #262. Combining both
- * sources into one diffed spec is not implemented yet.
+ * Generates a markdown spec from a single source — Word alone, or a JXML text alone. For a
+ * GitLab source, the caller resolves the JXML first via {@link GitLabController#previewJxml}
+ * (which flattens Include fragments) and passes the result here as {@code jxmlText} — there's no
+ * GitLab-specific generation endpoint, so Include resolution and spec generation stay decoupled
+ * instead of duplicating this logic per source. Read-only, no analysis session is created. Backs
+ * the single adaptive "Générer la doc" action: which source is used is decided by the caller, not
+ * here — see issue #262. Combining both sources into one diffed spec is not implemented yet.
  */
 @RestController
 @RequestMapping("/api/spec")
 public class SpecGenerationController {
 
+    // Pasted-text JXML has no way to resolve <Include> fragments — that needs the full file set
+    // (see JxmlIncludeResolver / the GitLab source) — so it's rejected outright rather than sent
+    // to the model half-resolved.
+    private static final Pattern INCLUDE_TAG = Pattern.compile("<Include\\b", Pattern.CASE_INSENSITIVE);
+
     private final WordSpecParser wordSpecParser;
-    private final JxmlSpecParser jxmlSpecParser;
     private final SpecResolutionAIProvider aiProvider;
 
-    public SpecGenerationController(WordSpecParser wordSpecParser, JxmlSpecParser jxmlSpecParser,
-                                     SpecResolutionAIProvider aiProvider) {
+    public SpecGenerationController(WordSpecParser wordSpecParser, SpecResolutionAIProvider aiProvider) {
         this.wordSpecParser = wordSpecParser;
-        this.jxmlSpecParser = jxmlSpecParser;
         this.aiProvider = aiProvider;
     }
 
@@ -46,26 +51,37 @@ public class SpecGenerationController {
         return new SpecGenerationResult(aiProvider.generateSpecFromWord(text));
     }
 
-    @PostMapping(value = "/generate-from-jxml", consumes = "multipart/form-data")
-    public SpecGenerationResult generateFromJxml(
-            @RequestParam(value = "jxmlArchive", required = false) MultipartFile jxmlArchive,
-            @RequestParam(value = "jxmlText", required = false) String jxmlText) throws IOException {
-        return new SpecGenerationResult(aiProvider.generateSpecFromJxml(resolveJxmlText(jxmlArchive, jxmlText)));
+    @PostMapping("/generate-from-jxml")
+    public SpecGenerationResult generateFromJxml(@RequestBody GenerateFromJxmlRequest request) {
+        return new SpecGenerationResult(aiProvider.generateSpecFromJxml(validateJxmlText(request.jxmlText())));
     }
 
     /**
-     * Zip/pasted-text JXML has no entry point or Include resolution (that's GitLab-only, see
-     * JxmlIncludeResolver) — every .jxml file in the archive is just concatenated, same
-     * simplicity level as the rest of {@link JxmlSpecParser}.
+     * Unlike JXML scanned from a real GitLab repo (which isn't guaranteed well-formed — see
+     * FormsEntryPointParser/JxmlIncludeResolver), text pasted here is a deliberate one-off test
+     * input, so it's held to a stricter bar: must be well-formed XML, and must not reference
+     * Include fragments this endpoint has no way to resolve.
      */
-    String resolveJxmlText(MultipartFile jxmlArchive, String jxmlText) throws IOException {
-        if (jxmlArchive != null && !jxmlArchive.isEmpty()) {
-            Map<String, String> filesByPath = jxmlSpecParser.extractFromZip(jxmlArchive.getInputStream());
-            return String.join("\n\n", filesByPath.values());
+    String validateJxmlText(String jxmlText) {
+        if (jxmlText == null || jxmlText.isBlank()) {
+            throw new IllegalArgumentException("jxmlText est requis pour générer la doc depuis le JXML.");
         }
-        if (jxmlText != null && !jxmlText.isBlank()) {
-            return jxmlText;
+        if (INCLUDE_TAG.matcher(jxmlText).find()) {
+            throw new IllegalArgumentException(
+                    "Le JXML collé contient des balises <Include>, non résolvables sans les autres fichiers "
+                            + "du projet — utilise le mode GitLab pour un JXML avec des Include.");
         }
-        throw new IllegalArgumentException("jxmlArchive ou jxmlText est requis pour générer la doc depuis le JXML.");
+        try {
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+            factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
+            factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+            factory.setXIncludeAware(false);
+            factory.setExpandEntityReferences(false);
+            factory.newDocumentBuilder().parse(new InputSource(new StringReader(jxmlText)));
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Le JXML collé n'est pas un XML valide : " + e.getMessage());
+        }
+        return jxmlText;
     }
 }

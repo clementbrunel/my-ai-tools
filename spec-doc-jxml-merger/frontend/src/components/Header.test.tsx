@@ -9,11 +9,9 @@ const baseProps = {
   onAnalyze: vi.fn(),
   loading: false,
   hasSession: false,
+  hasMarkdown: false,
   onSave: vi.fn(),
   onDownload: vi.fn(),
-  onGenerateSpec: vi.fn(),
-  canGenerateSpec: true,
-  specGenerating: false,
 }
 
 describe('Header', () => {
@@ -36,36 +34,27 @@ describe('Header', () => {
     expect(screen.getByText('Analyse en cours…')).toBeDisabled()
   })
 
-  it('hides Save/Download buttons when there is no session', () => {
+  it('hides the Save button when there is no session', () => {
     render(<Header {...baseProps} hasSession={false} />)
     expect(screen.queryByText("Enregistrer l'édition")).toBeNull()
+  })
+
+  it('shows and wires the Save button once a session exists', async () => {
+    const onSave = vi.fn()
+    render(<Header {...baseProps} hasSession={true} onSave={onSave} />)
+    await userEvent.click(screen.getByText("Enregistrer l'édition"))
+    expect(onSave).toHaveBeenCalledTimes(1)
+  })
+
+  it('hides the Download button when there is no markdown yet', () => {
+    render(<Header {...baseProps} hasMarkdown={false} />)
     expect(screen.queryByText('Télécharger le markdown')).toBeNull()
   })
 
-  it('shows Save/Download buttons and wires them once a session exists', async () => {
-    const onSave = vi.fn()
+  it('shows and wires the Download button once markdown exists, even without a session', async () => {
     const onDownload = vi.fn()
-    render(<Header {...baseProps} hasSession={true} onSave={onSave} onDownload={onDownload} />)
-    await userEvent.click(screen.getByText("Enregistrer l'édition"))
+    render(<Header {...baseProps} hasSession={false} hasMarkdown={true} onDownload={onDownload} />)
     await userEvent.click(screen.getByText('Télécharger le markdown'))
-    expect(onSave).toHaveBeenCalledTimes(1)
     expect(onDownload).toHaveBeenCalledTimes(1)
-  })
-
-  it('calls onGenerateSpec when the Générer la doc button is clicked', async () => {
-    const onGenerateSpec = vi.fn()
-    render(<Header {...baseProps} onGenerateSpec={onGenerateSpec} />)
-    await userEvent.click(screen.getByText('Générer la doc'))
-    expect(onGenerateSpec).toHaveBeenCalledTimes(1)
-  })
-
-  it('disables the Générer la doc button when canGenerateSpec is false', () => {
-    render(<Header {...baseProps} canGenerateSpec={false} />)
-    expect(screen.getByText('Générer la doc')).toBeDisabled()
-  })
-
-  it('shows a progress label and disables the button while generating', () => {
-    render(<Header {...baseProps} specGenerating={true} />)
-    expect(screen.getByText('Génération…')).toBeDisabled()
   })
 })

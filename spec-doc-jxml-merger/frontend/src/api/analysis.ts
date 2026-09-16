@@ -11,7 +11,6 @@ import type {
 export async function createAnalysis(params: {
   title?: string
   word?: File
-  jxmlArchive?: File
   jxmlText?: string
   gitlabGroupKey?: string
   gitlabProjectId?: string
@@ -21,7 +20,6 @@ export async function createAnalysis(params: {
   const form = new FormData()
   if (params.title) form.append('title', params.title)
   if (params.word) form.append('word', params.word)
-  if (params.jxmlArchive) form.append('jxmlArchive', params.jxmlArchive)
   if (params.jxmlText) form.append('jxmlText', params.jxmlText)
   if (params.gitlabGroupKey) form.append('gitlabGroupKey', params.gitlabGroupKey)
   if (params.gitlabProjectId) form.append('gitlabProjectId', params.gitlabProjectId)
@@ -94,17 +92,13 @@ export async function generateSpecFromWord(word: File): Promise<string> {
 }
 
 /**
- * The markdown spec the model generates from JXML sources alone (zip archive or pasted text —
- * for a GitLab source, resolve the JXML first via {@link previewGitlabJxml} and pass its content
- * as jxmlText; see SpecGenerationController).
+ * The markdown spec the model generates from a JXML text alone — must be well-formed XML with
+ * no <Include> tags (unresolvable without the rest of the project's files). For a GitLab source,
+ * resolve the JXML first via {@link previewGitlabJxml} and pass its content as jxmlText; see
+ * SpecGenerationController.
  */
-export async function generateSpecFromJxml(params: { jxmlArchive?: File; jxmlText?: string }): Promise<string> {
-  const form = new FormData()
-  if (params.jxmlArchive) form.append('jxmlArchive', params.jxmlArchive)
-  if (params.jxmlText) form.append('jxmlText', params.jxmlText)
-  const { data } = await client.post<SpecGenerationResult>('/spec/generate-from-jxml', form, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  })
+export async function generateSpecFromJxml(jxmlText: string): Promise<string> {
+  const { data } = await client.post<SpecGenerationResult>('/spec/generate-from-jxml', { jxmlText })
   return data.markdown
 }
 

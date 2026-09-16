@@ -5,8 +5,6 @@ import XmlTreeView from './XmlTreeView'
 interface CodePanelProps {
   jxmlMode: JxmlMode
   onJxmlModeChange: (mode: JxmlMode) => void
-  jxmlFile: File | null
-  onJxmlFileChange: (file: File | null) => void
   jxmlText: string
   onJxmlTextChange: (value: string) => void
   gitlabProjects: GitLabProjectSummary[]
@@ -35,7 +33,6 @@ interface CodePanelProps {
 }
 
 const JXML_MODES: Array<[JxmlMode, string]> = [
-  ['zip', 'Archive .zip'],
   ['text', 'Coller le texte'],
   ['gitlab', 'Projet GitLab'],
 ]
@@ -43,8 +40,6 @@ const JXML_MODES: Array<[JxmlMode, string]> = [
 function CodePanel({
   jxmlMode,
   onJxmlModeChange,
-  jxmlFile,
-  onJxmlFileChange,
   jxmlText,
   onJxmlTextChange,
   gitlabProjects,
@@ -125,24 +120,19 @@ function CodePanel({
           </label>
         ))}
       </div>
-      {jxmlMode === 'zip' && (
-        <>
-          <input
-            type="file"
-            accept=".zip"
-            onChange={(e) => onJxmlFileChange(e.target.files?.[0] ?? null)}
-            className="text-sm file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:bg-gl-blue file:text-white file:text-sm hover:file:bg-gl-blue-dark file:cursor-pointer"
-          />
-          {jxmlFile && <p className="text-sm text-gray-500 mt-2">{jxmlFile.name}</p>}
-        </>
-      )}
       {jxmlMode === 'text' && (
-        <textarea
-          value={jxmlText}
-          onChange={(e) => onJxmlTextChange(e.target.value)}
-          placeholder="Colle ici le contenu JXML"
-          className="w-full min-h-[40vh] rounded border border-[#dcdcde] p-2 font-mono text-[13px] focus:outline-none focus:ring-2 focus:ring-gl-orange"
-        />
+        <>
+          <textarea
+            value={jxmlText}
+            onChange={(e) => onJxmlTextChange(e.target.value)}
+            placeholder="Colle ici le contenu JXML"
+            className="w-full min-h-[40vh] rounded border border-[#dcdcde] p-2 font-mono text-[13px] focus:outline-none focus:ring-2 focus:ring-gl-orange"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            Doit être un JXML valide sans balise &lt;Include&gt; (non résolvable ici — utilise le mode GitLab
+            pour un JXML avec des Include).
+          </p>
+        </>
       )}
       {jxmlMode === 'gitlab' && (
         <div className="flex flex-col gap-3">
