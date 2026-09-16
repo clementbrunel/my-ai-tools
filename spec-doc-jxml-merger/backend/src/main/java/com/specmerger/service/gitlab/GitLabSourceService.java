@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -164,11 +165,13 @@ public class GitLabSourceService {
     /**
      * Downloads the content of the project's relevant files, keyed by their repository
      * path. When {@code selectedPaths} is non-null, only those among the relevant files
-     * are downloaded (the user's checkbox selection from {@link #listRelevantSourcePaths});
-     * a null {@code selectedPaths} downloads every relevant file.
+     * (plus {@code entryPointPath}, if given — see {@link #listRelevantSourcePaths}, it's
+     * never itself offered as a checkbox) are downloaded; a null {@code selectedPaths}
+     * downloads every relevant file.
      */
-    public Map<String, String> fetchRelevantSources(String groupKey, String projectIdOrPath, Collection<String> selectedPaths)
-            throws GitLabApiException, IOException {
+    public Map<String, String> fetchRelevantSources(String groupKey, String projectIdOrPath,
+            Collection<String> selectedPaths, String entryPointPath) throws GitLabApiException, IOException {
+        Collection<String> effectivePaths = withEntryPoint(selectedPaths, entryPointPath);
         try (GitLabApi api = apiFactory.create()) {
             ResolvedTree resolved = resolveTree(api, groupKey, projectIdOrPath);
             Map<String, String> filesByPath = new LinkedHashMap<>();
@@ -176,7 +179,7 @@ public class GitLabSourceService {
                 if (item.getType() != TreeItem.Type.BLOB || !resolved.filter().isRelevant(item.getPath())) {
                     continue;
                 }
-                if (selectedPaths != null && !selectedPaths.contains(item.getPath())) {
+                if (effectivePaths != null && !effectivePaths.contains(item.getPath())) {
                     continue;
                 }
                 try (InputStream raw = api.getRepositoryFileApi().getRawFile(resolved.projectId(), resolved.ref(), item.getPath())) {
@@ -190,9 +193,32 @@ public class GitLabSourceService {
             }
             log.info("GitLab: {} fichier(s) retenu(s) sur {} ({}) après filtrage{}",
                     filesByPath.size(), resolved.project().getPathWithNamespace(), groupKey,
-                    selectedPaths != null ? " et sélection utilisateur" : "");
+                    effectivePaths != null ? " et sélection utilisateur" : "");
             return filesByPath;
         }
+    }
+
+    /**
+     * Fetches the selected sources (forcing the chosen démarche's entry point in, exactly
+     * like {@link #fetchRelevantSources}) and flattens its Include chain into a single
+     * document — this is what the user reviews before it's actually sent to the model.
+     */
+    public String previewResolvedJxml(String groupKey, String projectIdOrPath, Collection<String> selectedPaths,
+            String entryPointPath) throws GitLabApiException, IOException {
+        if (entryPointPath == null || entryPointPath.isBlank()) {
+            throw new IllegalArgumentException("entryPointPath est requis pour prévisualiser le JXML résolu.");
+        }
+        Map<String, String> filesByPath = fetchRelevantSources(groupKey, projectIdOrPath, selectedPaths, entryPointPath);
+        return JxmlIncludeResolver.resolve(entryPointPath, filesByPath);
+    }
+
+    private static Collection<String> withEntryPoint(Collection<String> selectedPaths, String entryPointPath) {
+        if (selectedPaths == null || entryPointPath == null || entryPointPath.isBlank()) {
+            return selectedPaths;
+        }
+        Set<String> merged = new LinkedHashSet<>(selectedPaths);
+        merged.add(entryPointPath);
+        return merged;
     }
 
     private record ResolvedTree(Object projectId, Project project, String ref, List<TreeItem> tree, SourceFileFilter filter) {

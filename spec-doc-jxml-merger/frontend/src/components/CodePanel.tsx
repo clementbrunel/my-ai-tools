@@ -17,6 +17,11 @@ interface CodePanelProps {
   gitlabEntryPoints: GitLabEntryPoint[]
   gitlabEntryPointPath: string
   onSelectGitlabEntryPoint: (path: string) => void
+  onPreviewGitlabJxml: () => void
+  gitlabPreviewOpen: boolean
+  gitlabPreviewContent: string
+  gitlabPreviewLoading: boolean
+  onCloseGitlabPreview: () => void
   gitlabSourcePaths: string[]
   gitlabSelectedPaths: Set<string>
   onToggleGitlabPath: (path: string) => void
@@ -48,6 +53,11 @@ function CodePanel({
   gitlabEntryPoints,
   gitlabEntryPointPath,
   onSelectGitlabEntryPoint,
+  onPreviewGitlabJxml,
+  gitlabPreviewOpen,
+  gitlabPreviewContent,
+  gitlabPreviewLoading,
+  onCloseGitlabPreview,
   gitlabSourcePaths,
   gitlabSelectedPaths,
   onToggleGitlabPath,
@@ -160,6 +170,39 @@ function CodePanel({
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+          {gitlabEntryPointPath && (
+            <button
+              type="button"
+              className="btn-secondary self-start"
+              onClick={onPreviewGitlabJxml}
+              disabled={gitlabPreviewLoading}
+            >
+              {gitlabPreviewLoading ? 'Génération de la prévisualisation…' : 'Prévisualiser le JXML résolu'}
+            </button>
+          )}
+          {gitlabPreviewOpen && (
+            <div className="border border-[#dcdcde] rounded">
+              <div className="flex items-center justify-between gap-2 px-2 py-1.5 border-b border-[#dcdcde] bg-[#fafafa] text-sm">
+                <span className="text-gray-600">
+                  JXML envoyé au modèle (Include résolus, includes/traductions/Java non affichés ici)
+                </span>
+                <button
+                  type="button"
+                  className="text-gl-blue hover:text-gl-blue-dark hover:underline"
+                  onClick={onCloseGitlabPreview}
+                >
+                  Fermer
+                </button>
+              </div>
+              {gitlabPreviewLoading ? (
+                <p className="text-sm text-gray-500 p-2">Chargement…</p>
+              ) : (
+                <pre className="max-h-96 overflow-auto text-[12px] p-2 whitespace-pre-wrap break-all">
+                  {gitlabPreviewContent}
+                </pre>
+              )}
             </div>
           )}
           {gitlabSourcePaths.length > 0 && (

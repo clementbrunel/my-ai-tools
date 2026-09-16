@@ -1,5 +1,11 @@
 import { client } from './client'
-import type { AnalysisSessionResponse, DocumentVersion, GitLabProjectSummary, GitLabSourceListing } from '../types'
+import type {
+  AnalysisSessionResponse,
+  DocumentVersion,
+  GitLabJxmlPreview,
+  GitLabProjectSummary,
+  GitLabSourceListing,
+} from '../types'
 
 export async function createAnalysis(params: {
   title?: string
@@ -40,6 +46,28 @@ export async function listGitlabProjects(): Promise<GitLabProjectSummary[]> {
 export async function listGitlabSources(groupKey: string, projectId: string): Promise<GitLabSourceListing> {
   const { data } = await client.get<GitLabSourceListing>('/gitlab/sources', { params: { groupKey, projectId } })
   return data
+}
+
+/** The flattened JXML (entry point + its Include chain resolved) exactly as it will be sent to the model. */
+export async function previewGitlabJxml(params: {
+  groupKey: string
+  projectId: string
+  entryPointPath: string
+  selectedPaths?: string[]
+}): Promise<string> {
+  // Built manually (not via axios' object params) so arrays serialize as repeated
+  // `selectedPaths=a&selectedPaths=b`, matching how Spring binds a List<String> — axios'
+  // default array serialization uses `selectedPaths[]=...`, which Spring won't bind.
+  const query = new URLSearchParams()
+  query.set('groupKey', params.groupKey)
+  query.set('projectId', params.projectId)
+  query.set('entryPointPath', params.entryPointPath)
+  if (params.selectedPaths !== undefined) {
+    query.set('selectedPathsProvided', 'true')
+    params.selectedPaths.forEach((path) => query.append('selectedPaths', path))
+  }
+  const { data } = await client.get<GitLabJxmlPreview>('/gitlab/preview', { params: query })
+  return data.content
 }
 
 export async function getAnalysis(sessionId: string): Promise<AnalysisSessionResponse> {

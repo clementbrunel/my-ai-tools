@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { listGitlabProjects, listGitlabSources } from './api/analysis'
+import { listGitlabProjects, listGitlabSources, previewGitlabJxml } from './api/analysis'
 import CodePanel from './components/CodePanel'
 import DivergencesTable from './components/DivergencesTable'
 import Header from './components/Header'
@@ -23,6 +23,9 @@ function App() {
   const [gitlabSourcePaths, setGitlabSourcePaths] = useState<string[]>([])
   const [gitlabSelectedPaths, setGitlabSelectedPaths] = useState<Set<string>>(new Set())
   const [gitlabSourcesLoading, setGitlabSourcesLoading] = useState(false)
+  const [gitlabPreviewOpen, setGitlabPreviewOpen] = useState(false)
+  const [gitlabPreviewContent, setGitlabPreviewContent] = useState('')
+  const [gitlabPreviewLoading, setGitlabPreviewLoading] = useState(false)
 
   const { session, markdown, setMarkdown, versions, loading, error, setError, analyze, save, restore } =
     useAnalysisSession()
@@ -92,6 +95,30 @@ function App() {
     }
   }
 
+  async function handlePreviewGitlabJxml() {
+    const project = gitlabProjects.find((p) => String(p.id) === gitlabProjectId)
+    if (!project || !gitlabEntryPointPath) return
+
+    setError(null)
+    setGitlabPreviewOpen(true)
+    setGitlabPreviewLoading(true)
+    try {
+      const content = await previewGitlabJxml({
+        groupKey: project.groupKey,
+        projectId: gitlabProjectId,
+        entryPointPath: gitlabEntryPointPath,
+        selectedPaths: Array.from(gitlabSelectedPaths),
+      })
+      setGitlabPreviewContent(content)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Échec de la prévisualisation — voir la console.')
+      console.error(e)
+      setGitlabPreviewOpen(false)
+    } finally {
+      setGitlabPreviewLoading(false)
+    }
+  }
+
   function handleToggleGitlabPath(path: string) {
     setGitlabSelectedPaths((prev) => {
       const next = new Set(prev)
@@ -152,6 +179,11 @@ function App() {
           gitlabEntryPoints={gitlabEntryPoints}
           gitlabEntryPointPath={gitlabEntryPointPath}
           onSelectGitlabEntryPoint={setGitlabEntryPointPath}
+          onPreviewGitlabJxml={handlePreviewGitlabJxml}
+          gitlabPreviewOpen={gitlabPreviewOpen}
+          gitlabPreviewContent={gitlabPreviewContent}
+          gitlabPreviewLoading={gitlabPreviewLoading}
+          onCloseGitlabPreview={() => setGitlabPreviewOpen(false)}
           gitlabSourcePaths={gitlabSourcePaths}
           gitlabSelectedPaths={gitlabSelectedPaths}
           onToggleGitlabPath={handleToggleGitlabPath}

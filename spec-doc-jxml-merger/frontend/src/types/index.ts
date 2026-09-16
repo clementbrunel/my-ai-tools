@@ -22,6 +22,10 @@ export interface GitLabSourceListing {
   optionalPaths: string[]
 }
 
+export interface GitLabJxmlPreview {
+  content: string
+}
+
 export interface Divergence {
   id: string
   sectionRef: string
