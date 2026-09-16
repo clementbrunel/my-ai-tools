@@ -182,4 +182,37 @@ public class XXXXX{
 
 [Projet exemple](https://git.formsolution.dev/exemple/FormulaireExemple/-/tree/main/WebServiceRest)
 
+## Fonction callExtension()
+
+Autre mécanisme d'appel externe, alternatif au **WebService** de type Rest/Soap : l'appel direct d'une classe Java `extends FormPublisherExtension`.
+
+**Description **: Cette fonction appelle la méthode `call(Object... arg)` de la classe **FormPublisherExtension** nommée %var-2%, avec les arguments %var-3% à %var-n%. Elle exécute une classe Java située dans le répertoire `*.REF/common/extensions/lu/jway/extension`.
+
+**Syntaxe **: callExtension(Object, String, Object) retourne une valeur de type **Object**
+
+**Paramètre[1] **: **Object **: Variable purement technique, utiliser toujours la valeur : `this`
+
+**Paramètre[2] **: **String **: Nom de la classe FormPublisherExtension à utiliser
+
+**Paramètre[3] **: **Object **: liste des arguments à passer à la FormPublisherExtension
+
+**Exemple **: `callExtension(:this, 'MyCustomExtension', 'param1', 'param2')`
+
+```xml
+<!-- Appelle la classe MyCustomExtension avec les arguments param1 et param2. -->
+<Variable Expression="callExtension(:this, 'MyCustomExtension', 'param1', 'param2')" Submit="false" DataType="object" Name="ExtensionResult" />
+```
+
+La classe Java correspondante doit étendre `FormPublisherExtension` :
+
+```java
+public class MyCustomExtension extends FormPublisherExtension {
+    @Override
+    public Object call(Object... arg) {
+        // traitement personnalisé
+        return null;
+    }
+}
+```
+
 Source : documentation JWAY Campus, page "appel REST" (https://campus.jway.eu/portal/documentation/step/2855).

@@ -63,4 +63,45 @@ class JxmlTagDocRepositoryTest {
 
         assertThat(docs).hasSize(2);
     }
+
+    @Test
+    void matchesCallExtensionFunction() {
+        String jxml = "<Variable Expression=\"callExtension(:this, 'MyCustomExtension', 'param1')\" Name=\"Result\" />";
+
+        List<String> docs = repository.findRelevantDocs(jxml, 10, 20_000);
+
+        assertThat(docs).anySatisfy(doc -> assertThat(doc).contains("## Fonction callExtension()"));
+    }
+
+    @Test
+    void matchesJavaClassExtendingFormPublisherExtension() {
+        String javaSnippet = "public class MyCustomExtension extends FormPublisherExtension {\n"
+                + "    public Object call(Object... arg) { return null; }\n"
+                + "}";
+
+        List<String> docs = repository.findRelevantDocs(javaSnippet, 10, 20_000);
+
+        assertThat(docs).anySatisfy(doc -> assertThat(doc).contains("## Fonction callExtension()"));
+    }
+
+    @Test
+    void addsDocOnlyOnceEvenWithMultipleOccurrencesOfTheSameTag() {
+        String jxml = "<TextBox Name=\"a\"/><TextBox Name=\"b\"/><TextBox Name=\"c\"/>";
+
+        List<String> docs = repository.findRelevantDocs(jxml, 10, 20_000);
+
+        assertThat(docs).filteredOn(doc -> doc.startsWith("# TextBox")).hasSize(1);
+    }
+
+    @Test
+    void addsDocOnlyOnceEvenWhenMultiplePatternsOfTheSameDocMatch() {
+        // Both the callExtension() call and the extending Java class independently
+        // match AppelREST's patterns — it must still be included only once.
+        String jxml = "<Variable Expression=\"callExtension(:this, 'X')\" />"
+                + "public class X extends FormPublisherExtension {}";
+
+        List<String> docs = repository.findRelevantDocs(jxml, 10, 20_000);
+
+        assertThat(docs).filteredOn(doc -> doc.startsWith("# appel REST")).hasSize(1);
+    }
 }

@@ -10,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -25,6 +26,14 @@ public class JxmlTagDocRepository {
 
     private static final Pattern FUNCTION_HEADING =
             Pattern.compile("(?i)fonction\\s+\\**([A-Za-z_][A-Za-z0-9_]*)\\(\\)");
+
+    // Extra trigger patterns that don't fit the generic <Tag>/Type="..."/Fonction x()
+    // conventions, keyed by doc id (filename without extension). AppelREST also covers
+    // callExtension(), which is invoked from a Java class "extends FormPublisherExtension"
+    // rather than from a JXML tag — so a matching class in the excerpt is relevant too.
+    private static final Map<String, List<Pattern>> EXTRA_PATTERNS = Map.of(
+            "AppelREST", List.of(Pattern.compile("extends\\s+FormPublisherExtension"))
+    );
 
     private final List<Doc> docs = new ArrayList<>();
 
@@ -85,6 +94,7 @@ public class JxmlTagDocRepository {
         for (String fn : functionNames) {
             patterns.add(Pattern.compile("\\b" + Pattern.quote(fn) + "\\s*\\("));
         }
+        patterns.addAll(EXTRA_PATTERNS.getOrDefault(id, List.of()));
         return patterns;
     }
 
