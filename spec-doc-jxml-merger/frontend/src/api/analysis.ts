@@ -83,16 +83,12 @@ export async function previewGitlabJxml(params: GitlabPreviewParams): Promise<Gi
   return data
 }
 
-/**
- * The markdown spec the model generates from the resolved JXML alone (no Word/diff yet).
- * Shaped like {@link previewGitlabJxml}'s response (content + warnings) so both can back the
- * same preview panel — there's just nothing to warn about here yet.
- */
-export async function previewGitlabSpec(params: GitlabPreviewParams): Promise<GitLabJxmlPreview> {
+/** The markdown spec the model generates from the resolved JXML alone (no Word/diff yet). */
+export async function previewGitlabSpec(params: GitlabPreviewParams): Promise<string> {
   const { data } = await client.get<GitLabSpecPreview>('/gitlab/preview-spec', {
     params: buildGitlabPreviewQuery(params),
   })
-  return { content: data.markdown, warnings: [] }
+  return data.markdown
 }
 
 export async function getAnalysis(sessionId: string): Promise<AnalysisSessionResponse> {

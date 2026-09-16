@@ -25,10 +25,10 @@ function App() {
   const [gitlabSelectedPaths, setGitlabSelectedPaths] = useState<Set<string>>(new Set())
   const [gitlabSourcesLoading, setGitlabSourcesLoading] = useState(false)
   const [gitlabPreviewOpen, setGitlabPreviewOpen] = useState(false)
-  const [gitlabPreviewKind, setGitlabPreviewKind] = useState<'jxml' | 'spec'>('jxml')
   const [gitlabPreviewContent, setGitlabPreviewContent] = useState('')
   const [gitlabPreviewWarnings, setGitlabPreviewWarnings] = useState<string[]>([])
   const [gitlabPreviewLoading, setGitlabPreviewLoading] = useState(false)
+  const [gitlabSpecLoading, setGitlabSpecLoading] = useState(false)
   const [specCollapsed, setSpecCollapsed] = useState(false)
   const [codeCollapsed, setCodeCollapsed] = useState(false)
 
@@ -100,24 +100,27 @@ function App() {
     }
   }
 
-  async function runGitlabPreview(
-    kind: 'jxml' | 'spec',
-    fetcher: (params: Parameters<typeof previewGitlabJxml>[0]) => ReturnType<typeof previewGitlabJxml>,
-  ) {
+  function currentGitlabPreviewParams() {
     const project = gitlabProjects.find((p) => String(p.id) === gitlabProjectId)
-    if (!project || !gitlabEntryPointPath) return
+    if (!project || !gitlabEntryPointPath) return null
+    return {
+      groupKey: project.groupKey,
+      projectId: gitlabProjectId,
+      entryPointPath: gitlabEntryPointPath,
+      selectedPaths: Array.from(gitlabSelectedPaths),
+    }
+  }
+
+  /** Opens the read-only modal showing the full resolved JXML that will be sent to the model. */
+  async function handlePreviewGitlabJxml() {
+    const params = currentGitlabPreviewParams()
+    if (!params) return
 
     setError(null)
-    setGitlabPreviewKind(kind)
     setGitlabPreviewOpen(true)
     setGitlabPreviewLoading(true)
     try {
-      const preview = await fetcher({
-        groupKey: project.groupKey,
-        projectId: gitlabProjectId,
-        entryPointPath: gitlabEntryPointPath,
-        selectedPaths: Array.from(gitlabSelectedPaths),
-      })
+      const preview = await previewGitlabJxml(params)
       setGitlabPreviewContent(preview.content)
       setGitlabPreviewWarnings(preview.warnings)
     } catch (e) {
@@ -129,8 +132,22 @@ function App() {
     }
   }
 
-  const handlePreviewGitlabJxml = () => runGitlabPreview('jxml', previewGitlabJxml)
-  const handlePreviewGitlabSpec = () => runGitlabPreview('spec', previewGitlabSpec)
+  /** Generates the markdown spec from the JXML alone and drops it straight into the merge panel. */
+  async function handleGenerateSpecFromJxml() {
+    const params = currentGitlabPreviewParams()
+    if (!params) return
+
+    setError(null)
+    setGitlabSpecLoading(true)
+    try {
+      setMarkdown(await previewGitlabSpec(params))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Échec de la génération de la doc — voir la console.')
+      console.error(e)
+    } finally {
+      setGitlabSpecLoading(false)
+    }
+  }
 
   function handleToggleGitlabPath(path: string) {
     setGitlabSelectedPaths((prev) => {
@@ -215,9 +232,9 @@ function App() {
             gitlabEntryPointPath={gitlabEntryPointPath}
             onSelectGitlabEntryPoint={setGitlabEntryPointPath}
             onPreviewGitlabJxml={handlePreviewGitlabJxml}
-            onPreviewGitlabSpec={handlePreviewGitlabSpec}
+            onGenerateSpecFromJxml={handleGenerateSpecFromJxml}
+            gitlabSpecLoading={gitlabSpecLoading}
             gitlabPreviewOpen={gitlabPreviewOpen}
-            gitlabPreviewKind={gitlabPreviewKind}
             gitlabPreviewContent={gitlabPreviewContent}
             gitlabPreviewWarnings={gitlabPreviewWarnings}
             gitlabPreviewLoading={gitlabPreviewLoading}

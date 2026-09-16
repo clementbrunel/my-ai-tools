@@ -28,9 +28,9 @@ function baseProps(overrides: Partial<React.ComponentProps<typeof CodePanel>> = 
     gitlabEntryPointPath: '',
     onSelectGitlabEntryPoint: vi.fn(),
     onPreviewGitlabJxml: vi.fn(),
-    onPreviewGitlabSpec: vi.fn(),
+    onGenerateSpecFromJxml: vi.fn(),
+    gitlabSpecLoading: false,
     gitlabPreviewOpen: false,
-    gitlabPreviewKind: 'jxml' as const,
     gitlabPreviewContent: '',
     gitlabPreviewWarnings: [] as string[],
     gitlabPreviewLoading: false,
@@ -189,15 +189,31 @@ describe('CodePanel', () => {
     expect(container.textContent).toContain('Section')
   })
 
-  it('calls onPreviewGitlabSpec when the spec preview button is clicked', async () => {
-    const onPreviewGitlabSpec = vi.fn()
+  it('calls onGenerateSpecFromJxml when the generate-doc button is clicked', async () => {
+    const onGenerateSpecFromJxml = vi.fn()
     render(
       <CodePanel
-        {...baseProps({ jxmlMode: 'gitlab', gitlabEntryPointPath: 'forms/demarche_un.jxml', onPreviewGitlabSpec })}
+        {...baseProps({ jxmlMode: 'gitlab', gitlabEntryPointPath: 'forms/demarche_un.jxml', onGenerateSpecFromJxml })}
       />,
     )
-    await userEvent.click(screen.getByText('Générer la doc depuis le JXML (aperçu IA)'))
-    expect(onPreviewGitlabSpec).toHaveBeenCalledTimes(1)
+    await userEvent.click(screen.getByText('Générer la doc dans le markdown de fusion'))
+    expect(onGenerateSpecFromJxml).toHaveBeenCalledTimes(1)
+    // Generating the spec never opens the raw-JXML preview modal — it writes straight to the merge panel.
+    expect(screen.queryByText('Fermer')).toBeNull()
+  })
+
+  it('disables the generate-doc button while generating, independently of the preview loading state', () => {
+    render(
+      <CodePanel
+        {...baseProps({
+          jxmlMode: 'gitlab',
+          gitlabEntryPointPath: 'forms/demarche_un.jxml',
+          gitlabSpecLoading: true,
+        })}
+      />,
+    )
+    expect(screen.getByText('Génération de la doc…')).toBeDefined()
+    expect(screen.getByText('Prévisualiser le JXML résolu')).toBeDefined()
   })
 
   it('shows the raw text when the raw view mode is selected', async () => {
@@ -207,7 +223,6 @@ describe('CodePanel', () => {
           jxmlMode: 'gitlab',
           gitlabEntryPointPath: 'forms/demarche_un.jxml',
           gitlabPreviewOpen: true,
-          gitlabPreviewKind: 'jxml',
           gitlabPreviewContent: '<JForm><Section/></JForm>',
         })}
       />,
@@ -215,22 +230,6 @@ describe('CodePanel', () => {
     await userEvent.click(screen.getByText('Texte brut'))
     expect(screen.getByText('<JForm><Section/></JForm>')).toBeDefined()
     expect(screen.getByText(/JXML envoyé au modèle/)).toBeDefined()
-  })
-
-  it('shows the generated spec content when the spec preview panel is open', () => {
-    render(
-      <CodePanel
-        {...baseProps({
-          jxmlMode: 'gitlab',
-          gitlabEntryPointPath: 'forms/demarche_un.jxml',
-          gitlabPreviewOpen: true,
-          gitlabPreviewKind: 'spec',
-          gitlabPreviewContent: '## Écran 1 — Description du champ.',
-        })}
-      />,
-    )
-    expect(screen.getByText('## Écran 1 — Description du champ.')).toBeDefined()
-    expect(screen.getByText(/Documentation générée par l'IA/)).toBeDefined()
   })
 
   it('shows preview warnings prominently when present', () => {
