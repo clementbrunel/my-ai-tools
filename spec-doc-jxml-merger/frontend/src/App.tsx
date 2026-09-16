@@ -6,7 +6,7 @@ import Header from './components/Header'
 import MergePanel from './components/MergePanel'
 import SpecPanel from './components/SpecPanel'
 import { useAnalysisSession } from './hooks/useAnalysisSession'
-import type { GitLabProjectSummary, JxmlMode } from './types'
+import type { GitLabEntryPoint, GitLabProjectSummary, JxmlMode } from './types'
 
 function App() {
   const [title, setTitle] = useState('')
@@ -18,6 +18,8 @@ function App() {
   const [gitlabProjectId, setGitlabProjectId] = useState('')
   const [gitlabLoading, setGitlabLoading] = useState(false)
   const [gitlabSearch, setGitlabSearch] = useState('')
+  const [gitlabEntryPoints, setGitlabEntryPoints] = useState<GitLabEntryPoint[]>([])
+  const [gitlabEntryPointPath, setGitlabEntryPointPath] = useState('')
   const [gitlabSourcePaths, setGitlabSourcePaths] = useState<string[]>([])
   const [gitlabSelectedPaths, setGitlabSelectedPaths] = useState<Set<string>>(new Set())
   const [gitlabSourcesLoading, setGitlabSourcesLoading] = useState(false)
@@ -32,6 +34,10 @@ function App() {
       setError('Fournis au moins une source : Word (.docx) ou JXML.')
       return
     }
+    if (jxmlMode === 'gitlab' && gitlabEntryPoints.length > 0 && !gitlabEntryPointPath) {
+      setError('Choisis la démarche à documenter parmi les points d’entrée trouvés dans FORMS.jxml.')
+      return
+    }
     const selectedGitlabProject = gitlabProjects.find((p) => String(p.id) === gitlabProjectId)
     await analyze({
       title: title || undefined,
@@ -41,6 +47,7 @@ function App() {
       gitlabGroupKey: jxmlMode === 'gitlab' ? selectedGitlabProject?.groupKey : undefined,
       gitlabProjectId: jxmlMode === 'gitlab' ? gitlabProjectId : undefined,
       gitlabSelectedPaths: jxmlMode === 'gitlab' ? Array.from(gitlabSelectedPaths) : undefined,
+      gitlabEntryPointPath: jxmlMode === 'gitlab' ? gitlabEntryPointPath || undefined : undefined,
     })
   }
 
@@ -61,6 +68,8 @@ function App() {
     setGitlabProjectId(projectId)
     setGitlabSourcePaths([])
     setGitlabSelectedPaths(new Set())
+    setGitlabEntryPoints([])
+    setGitlabEntryPointPath('')
     if (!projectId) return
 
     const project = gitlabProjects.find((p) => String(p.id) === projectId)
@@ -69,9 +78,12 @@ function App() {
     setError(null)
     setGitlabSourcesLoading(true)
     try {
-      const paths = await listGitlabSources(project.groupKey, projectId)
-      setGitlabSourcePaths(paths)
-      setGitlabSelectedPaths(new Set(paths))
+      const listing = await listGitlabSources(project.groupKey, projectId)
+      setGitlabSourcePaths(listing.optionalPaths)
+      setGitlabSelectedPaths(new Set(listing.optionalPaths))
+      setGitlabEntryPoints(listing.entryPoints)
+      // Nothing to choose between when there's exactly one candidate démarche.
+      setGitlabEntryPointPath(listing.entryPoints.length === 1 ? listing.entryPoints[0].path : '')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Échec du chargement des fichiers du projet — voir la console.')
       console.error(e)
@@ -137,6 +149,9 @@ function App() {
           onLoadGitlabProjects={handleLoadGitlabProjects}
           gitlabSearch={gitlabSearch}
           onGitlabSearchChange={setGitlabSearch}
+          gitlabEntryPoints={gitlabEntryPoints}
+          gitlabEntryPointPath={gitlabEntryPointPath}
+          onSelectGitlabEntryPoint={setGitlabEntryPointPath}
           gitlabSourcePaths={gitlabSourcePaths}
           gitlabSelectedPaths={gitlabSelectedPaths}
           onToggleGitlabPath={handleToggleGitlabPath}

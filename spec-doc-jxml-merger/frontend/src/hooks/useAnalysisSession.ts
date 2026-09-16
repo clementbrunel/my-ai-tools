@@ -10,6 +10,7 @@ interface AnalyzeParams {
   gitlabGroupKey?: string
   gitlabProjectId?: string
   gitlabSelectedPaths?: string[]
+  gitlabEntryPointPath?: string
 }
 
 function errorMessage(e: unknown, fallback: string): string {

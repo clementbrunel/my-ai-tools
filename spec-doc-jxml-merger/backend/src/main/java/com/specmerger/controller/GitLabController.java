@@ -1,6 +1,7 @@
 package com.specmerger.controller;
 
 import com.specmerger.dto.GitLabProjectSummary;
+import com.specmerger.dto.GitLabSourceListing;
 import com.specmerger.service.gitlab.GitLabSourceService;
 import java.util.List;
 import org.gitlab4j.api.GitLabApiException;
@@ -26,7 +27,7 @@ public class GitLabController {
 
     /** Paths only, no content — lets the user pick which files to actually include before analysis. */
     @GetMapping("/sources")
-    public List<String> listSources(@RequestParam String groupKey, @RequestParam String projectId) throws GitLabApiException {
+    public GitLabSourceListing listSources(@RequestParam String groupKey, @RequestParam String projectId) throws GitLabApiException {
         return gitLabSourceService.listRelevantSourcePaths(groupKey, projectId);
     }
 }

@@ -18,6 +18,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -59,7 +61,7 @@ public class AnalysisService {
     @Transactional
     public AnalysisSessionResponse analyze(String title, MultipartFile wordFile, MultipartFile jxmlArchive,
                                             String jxmlText, String gitlabGroupKey, String gitlabProjectId,
-                                            List<String> gitlabSelectedPaths)
+                                            List<String> gitlabSelectedPaths, String gitlabEntryPointPath)
             throws IOException, GitLabApiException {
         boolean hasWord = wordFile != null && !wordFile.isEmpty();
         boolean hasGitlab = gitlabProjectId != null && !gitlabProjectId.isBlank();
@@ -76,7 +78,11 @@ public class AnalysisService {
         Map<String, String> jxmlFiles;
         AnalysisSession.JxmlSourceType sourceType;
         if (hasGitlab) {
-            jxmlFiles = gitLabSourceService.fetchRelevantSources(gitlabGroupKey, gitlabProjectId, gitlabSelectedPaths);
+            // The démarche's own entry point (FORMS.jxml's chosen Hyperlink target) is the root
+            // of what's being documented — it's never left to the optional checkbox selection,
+            // so it's always fetched even if the user's selection doesn't happen to include it.
+            Collection<String> effectivePaths = mergeEntryPoint(gitlabSelectedPaths, gitlabEntryPointPath);
+            jxmlFiles = gitLabSourceService.fetchRelevantSources(gitlabGroupKey, gitlabProjectId, effectivePaths);
             sourceType = AnalysisSession.JxmlSourceType.GITLAB_PROJECT;
         } else if (jxmlArchive != null && !jxmlArchive.isEmpty()) {
             jxmlFiles = jxmlSpecParser.extractFromZip(jxmlArchive.getInputStream());
@@ -168,6 +174,22 @@ public class AnalysisService {
     @Transactional(readOnly = true)
     public List<DocumentVersion> listVersions(UUID sessionId) {
         return versionRepository.findBySessionIdOrderByVersionNumberDesc(sessionId);
+    }
+
+    /**
+     * {@code gitlabSelectedPaths} is null when the user didn't restrict the selection at all
+     * (download everything relevant) — the entry point is then already included, nothing to
+     * merge. Otherwise, add it to the explicit selection so it's fetched regardless of whether
+     * it happened to be checked (it isn't even offered as a checkbox — see
+     * {@link com.specmerger.dto.GitLabSourceListing}).
+     */
+    private Collection<String> mergeEntryPoint(List<String> gitlabSelectedPaths, String gitlabEntryPointPath) {
+        if (gitlabSelectedPaths == null || gitlabEntryPointPath == null || gitlabEntryPointPath.isBlank()) {
+            return gitlabSelectedPaths;
+        }
+        Collection<String> merged = new LinkedHashSet<>(gitlabSelectedPaths);
+        merged.add(gitlabEntryPointPath);
+        return merged;
     }
 
     private int nextVersionNumber(UUID sessionId) {

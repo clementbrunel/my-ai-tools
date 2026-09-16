@@ -40,7 +40,8 @@ public class AnalysisController {
             @RequestParam(value = "gitlabGroupKey", required = false) String gitlabGroupKey,
             @RequestParam(value = "gitlabProjectId", required = false) String gitlabProjectId,
             @RequestParam(value = "gitlabSelectedPaths", required = false) List<String> gitlabSelectedPaths,
-            @RequestParam(value = "gitlabSelectedPathsProvided", required = false) Boolean gitlabSelectedPathsProvided)
+            @RequestParam(value = "gitlabSelectedPathsProvided", required = false) Boolean gitlabSelectedPathsProvided,
+            @RequestParam(value = "gitlabEntryPointPath", required = false) String gitlabEntryPointPath)
             throws IOException, GitLabApiException {
         // Multipart forms can't send an explicitly-empty field: "unchecked everything" and
         // "field omitted" both arrive as no gitlabSelectedPaths entries, so the frontend also
@@ -50,7 +51,7 @@ public class AnalysisController {
                 ? (gitlabSelectedPaths == null ? List.of() : gitlabSelectedPaths)
                 : null;
         return analysisService.analyze(title, wordFile, jxmlArchive, jxmlText, gitlabGroupKey, gitlabProjectId,
-                effectiveSelectedPaths);
+                effectiveSelectedPaths, gitlabEntryPointPath);
     }
 
     @GetMapping("/{sessionId}")

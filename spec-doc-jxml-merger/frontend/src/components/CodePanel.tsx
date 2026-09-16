@@ -1,4 +1,4 @@
-import type { GitLabProjectSummary, JxmlMode } from '../types'
+import type { GitLabEntryPoint, GitLabProjectSummary, JxmlMode } from '../types'
 
 interface CodePanelProps {
   jxmlMode: JxmlMode
@@ -14,6 +14,9 @@ interface CodePanelProps {
   onLoadGitlabProjects: () => void
   gitlabSearch: string
   onGitlabSearchChange: (value: string) => void
+  gitlabEntryPoints: GitLabEntryPoint[]
+  gitlabEntryPointPath: string
+  onSelectGitlabEntryPoint: (path: string) => void
   gitlabSourcePaths: string[]
   gitlabSelectedPaths: Set<string>
   onToggleGitlabPath: (path: string) => void
@@ -42,6 +45,9 @@ function CodePanel({
   onLoadGitlabProjects,
   gitlabSearch,
   onGitlabSearchChange,
+  gitlabEntryPoints,
+  gitlabEntryPointPath,
+  onSelectGitlabEntryPoint,
   gitlabSourcePaths,
   gitlabSelectedPaths,
   onToggleGitlabPath,
@@ -134,6 +140,28 @@ function CodePanel({
             </>
           )}
           {gitlabSourcesLoading && <p className="text-sm text-gray-500">Chargement des fichiers…</p>}
+          {gitlabEntryPoints.length > 0 && (
+            <div className="border border-[#dcdcde] rounded">
+              <div className="px-2 py-1.5 border-b border-[#dcdcde] bg-[#fafafa] text-sm text-gray-600">
+                Démarche à documenter (trouvée{gitlabEntryPoints.length > 1 ? 's' : ''} dans FORMS.jxml)
+              </div>
+              <ul className="text-sm divide-y divide-[#eee]">
+                {gitlabEntryPoints.map((entryPoint) => (
+                  <li key={entryPoint.path} className="px-2 py-1">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="gitlab-entry-point"
+                        checked={gitlabEntryPointPath === entryPoint.path}
+                        onChange={() => onSelectGitlabEntryPoint(entryPoint.path)}
+                      />
+                      <span className="font-mono text-[13px] break-all">{entryPoint.documentId}</span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           {gitlabSourcePaths.length > 0 && (
             <div className="border border-[#dcdcde] rounded">
               <div className="flex items-center justify-between gap-2 px-2 py-1.5 border-b border-[#dcdcde] bg-[#fafafa] text-sm">
