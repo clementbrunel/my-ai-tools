@@ -8,7 +8,11 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.io.ClassPathResource;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -279,6 +283,31 @@ class JxmlTagDocRepositoryTest {
         }
 
         @Test
+        void removesColonTerminatedLeadInLeftDanglingByExampleRemoval() {
+            // Not every intro is a "#" heading: AppelREST.md introduces some of its examples
+            // with a bold, colon-terminated label/sentence instead (e.g. "**Exemple avec une
+            // liste** :"). Once the fenced example is stripped, that label is just as dangling
+            // as an empty heading would be, and must go too.
+            String raw = "## Mapping\n\nCeci explique le mapping.\n\n**Exemple avec une liste** :\n\n"
+                    + "```xml\n<jsonTemplate/>\n```\n\n## Section suivante\n\nContenu utile.";
+
+            String compact = JxmlTagDocRepository.compactForPrompt(raw);
+
+            assertThat(compact).doesNotContain("Exemple avec une liste").doesNotContain("```");
+            assertThat(compact).contains("Ceci explique le mapping.");
+            assertThat(compact).contains("## Section suivante").contains("Contenu utile.");
+        }
+
+        @Test
+        void removesColonTerminatedLeadInLeftDanglingAtTheEndOfTheDocument() {
+            String raw = "# Foo\n\nTexte principal.\n\nLa classe doit étendre `Foo` :\n\n```java\nclass X {}\n```\n";
+
+            String compact = JxmlTagDocRepository.compactForPrompt(raw);
+
+            assertThat(compact).isEqualTo("# Foo\n\nTexte principal.");
+        }
+
+        @Test
         void collapsesThreeOrMoreConsecutiveNewlinesIntoOneBlankLine() {
             String raw = "Paragraphe un.\n\n\n\nParagraphe deux.";
 
@@ -319,6 +348,122 @@ class JxmlTagDocRepositoryTest {
             assertThat(compact).doesNotContain("Exemple de code JXML");
             assertThat(compact).doesNotContain("```").doesNotContain("MyAge");
             assertThat(compact).doesNotContain("Source :").doesNotContain("documentation JWAY Campus");
+        }
+    }
+
+    /**
+     * The synthetic snippets above pin down each regex in isolation, but the real jxml-tags/
+     * fiches contain shapes those snippets don't: several examples per fiche, headings with
+     * suffixes or embedded bold markup, examples introduced by a sentence rather than a
+     * heading, and pre-existing empty headings unrelated to the stripping at all. These tests
+     * run compactForPrompt() on the actual borderline fiches found while auditing the corpus,
+     * so a change to the regexes gets caught against real content, not just crafted cases.
+     */
+    @Nested
+    class RealFichesEdgeCasesTest {
+
+        @Test
+        void stripsBothSuffixedHeadingsAndTheCascadingPreexistingEmptyHeadingAfterThem() throws IOException {
+            // lessThan_greaterThan.md has two examples, each under its own suffixed heading
+            // ("... - lessThan" / "... - **greaterThan**"), immediately followed by a
+            // pre-existing empty "## Mode flow" heading — a three-deep cascade where only the
+            // first heading directly introduces a stripped example.
+            String compact = loadFiche("controls/lessThan_greaterThan.md");
+
+            assertThat(compact).doesNotContain("```").doesNotContain("Exemple de code");
+            assertThat(compact).doesNotContain("Mode flow");
+            assertThat(compact).startsWith("# lessThan / greaterThan");
+            assertThat(compact).contains("## Paramètres");
+            // Legitimate content mentioning "Exemple" without introducing a stripped block
+            // (ends in "####", not a heading or dangling colon) must survive.
+            assertThat(compact).contains("Exemple de formatage d’un nombre : ####");
+        }
+
+        @Test
+        void stripsNamedAndUnnamedDanglingHeadingsFromSignatureBox() throws IOException {
+            // SignatureBox.md has two examples: one under "## Exemple de code JXML" and a
+            // second under a differently-worded "## Code JXML dans le formFlow" — the fix
+            // must not be keyed to the word "Exemple" to catch both.
+            String compact = loadFiche("inputs/SignatureBox.md");
+
+            assertThat(compact).doesNotContain("```");
+            assertThat(compact).doesNotContain("Exemple de code JXML");
+            assertThat(compact).doesNotContain("Code JXML dans le formFlow");
+            assertThat(compact).contains("## Paramètres de signature");
+            assertThat(compact).contains("`phoneNumber` : numéro de téléphone");
+            assertThat(compact).contains("## Attributs");
+        }
+
+        @Test
+        void stripsExampleHeadingAndThePreexistingEmptyHeadingsThatFollowItInIban() throws IOException {
+            // IBAN.md's "## Exemple de code JXML" is itself followed by two pre-existing empty
+            // headings from the source page ("## Mode flow", "## Rendu visuel") with nothing
+            // under them even before any stripping — all three must disappear, while the
+            // earlier "## **Exemple**" heading (a bullet list of sample IBANs, not a stripped
+            // fenced block) has real content and must be kept.
+            String compact = loadFiche("controls/IBAN.md");
+
+            assertThat(compact).doesNotContain("```").doesNotContain("Exemple de code JXML");
+            assertThat(compact).doesNotContain("Mode flow").doesNotContain("Rendu visuel");
+            assertThat(compact).contains("## **Exemple**").contains("FR7630001007941234567890185");
+            assertThat(compact).contains("## Élément qui l’utilise");
+        }
+
+        @Test
+        void keepsBothPluralExemplesHeadingWithContentAndDropsTheSingularOneLeftEmptyInConstants() throws IOException {
+            // Constants.md has both "## Exemples" (a bullet list of True/False — real content,
+            // must stay) and "## Exemple de code JXML" (a fenced block only — must go). The
+            // near-identical wording proves the cleanup is structural, not keyword-based.
+            String compact = loadFiche("expressions/Constants.md");
+
+            assertThat(compact).doesNotContain("```").doesNotContain("Exemple de code JXML");
+            assertThat(compact).contains("## Exemples");
+            assertThat(compact).contains("Valeur booléenne représentant le vrai");
+        }
+
+        @Test
+        void keepsDescriptivePropseAroundEachFunctionExampleInDateFunctions() throws IOException {
+            // DateFunctions.md repeats "## Exemple d'utilisation de la fonction X()" ~25 times,
+            // each followed by real Description/Forme d'appel prose *before* its fenced
+            // example — none of those headings are dangling, so all must survive along with
+            // their prose, with only the fenced code stripped out from under them.
+            String compact = loadFiche("expressions/DateFunctions.md");
+
+            assertThat(compact).doesNotContain("```");
+            assertThat(compact).contains("## Exemple d’utilisation de la fonction getDate()");
+            assertThat(compact).contains("Retourne la date courante.");
+            assertThat(compact).contains("## Exemple d’utilisation de la fonction parseDate()");
+            // The literal example code itself is gone even though its heading/prose survive.
+            assertThat(compact).doesNotContain("<Variable DataType=\"date\" Expression=\"getDate()\"");
+        }
+
+        @Test
+        void stripsCascadingDanglingHeadingsAndColonTerminatedLeadInsFromAppelRest() throws IOException {
+            // AppelREST.md is the densest fiche: some examples are introduced by a heading
+            // ("## JsonTemplate"), others by a bold colon-terminated label ("**Exemple avec
+            // une liste** :"), and the very last line of the whole document is itself a
+            // colon-terminated lead-in with nothing after it (end of doc, not another
+            // heading). All of those must be stripped, while the substantial prose around
+            // each (which explains the mechanism, not just the sample) must remain.
+            String compact = loadFiche("expressions/AppelREST.md");
+
+            assertThat(compact).doesNotContain("```");
+            assertThat(compact).doesNotContain("Exemple avec une liste");
+            assertThat(compact).doesNotContain("Donne le **DataStore **suivant");
+            assertThat(compact).doesNotContain("La classe Java correspondante doit étendre");
+            assertThat(compact).startsWith("# appel REST");
+            assertThat(compact).contains("## JsonTemplate").contains("## Mapping").contains("## Properties");
+            assertThat(compact).contains("## Sécurisation des services");
+            assertThat(compact).contains("## Exemples et ressources").contains("[Projet exemple]");
+            assertThat(compact).contains("## Fonction callExtension()");
+            assertThat(compact).contains("**Description **:").contains("**Syntaxe **:");
+        }
+
+        private String loadFiche(String relativePath) throws IOException {
+            try (InputStream is = new ClassPathResource("jxml-tags/" + relativePath).getInputStream()) {
+                String raw = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+                return JxmlTagDocRepository.compactForPrompt(raw);
+            }
         }
     }
 }
