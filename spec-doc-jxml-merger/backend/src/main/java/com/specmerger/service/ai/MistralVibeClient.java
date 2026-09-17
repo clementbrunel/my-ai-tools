@@ -42,15 +42,17 @@ public class MistralVibeClient implements SpecResolutionAIProvider {
     // markdowns follow the same section/table shape.
     private static final String DOCUMENTATION_TEMPLATE = loadDocumentationTemplate();
 
-    // Shared scoping instruction for generateSpecFromJxml/generateSpecFromWord: only section 5
-    // of the gabarit is generated today (see the "Périmètre généré aujourd'hui" note at the top
-    // of documentation-template.md) — kept in one place so both prompts stay in sync if that
-    // scope changes.
-    private static final String TEMPLATE_SCOPE_INSTRUCTION =
-            "en suivant IMPÉRATIVEMENT le gabarit ci-dessus : ne produis que le chapitre « 5. Contenu — "
-            + "détail par section et par écran » (démarre directement au titre « ### Section : ... », sans "
-            + "reprendre le titre « ## 5. Contenu... » lui-même) ; les autres chapitres du gabarit ne sont "
-            + "pas à produire ici.";
+    // Shared instruction for generateSpecFromJxml/generateSpecFromWord: both must always produce
+    // the whole gabarit (not a subset — see the "Un seul gabarit pour les deux sources" rule at
+    // the top of documentation-template.md), leaving what a given source can't fill as
+    // "Non renseigné" rather than omitting it, so the two independently generated markdowns stay
+    // structurally comparable however incomplete either one is. Kept in one place so both prompts
+    // stay in sync if this instruction changes.
+    private static final String TEMPLATE_FOLLOW_INSTRUCTION =
+            "en suivant IMPÉRATIVEMENT le gabarit ci-dessus, dans son intégralité et dans le même "
+            + "ordre : ne saute aucune section même si cette source ne permet pas de la remplir — "
+            + "indique alors « _Non renseigné dans la source._ » (ou une ligne de tableau vide) "
+            + "plutôt que de l'omettre, comme le gabarit le demande.";
 
     private final ChatModel chatModel;
     private final String apiKey;
@@ -125,13 +127,14 @@ public class MistralVibeClient implements SpecResolutionAIProvider {
                 Reprends le titre de chaque écran depuis sa balise <Title>.
                 Pour chaque champ, base la colonne Type/le comportement (obligatoire, visibilité conditionnelle,
                 contrôles de validation) sur les attributs réels du JXML plutôt que sur des suppositions, et
-                l'ID sur l'attribut technique Name (ou Id pour un WebService) comme l'exige le gabarit.
+                l'ID sur son libellé résolu comme l'exige le gabarit.
                 Les appels trans(...) référencent des clés de traduction externes non résolues ici : laisse-les
-                telles quelles plutôt que de deviner leur contenu.
+                telles quelles plutôt que de deviner leur contenu — y compris comme ID quand le libellé d'un
+                champ n'est qu'un appel trans(...) non résolu.
 
                 JXML :
                 %s
-                """.formatted(DOCUMENTATION_TEMPLATE, tagContext, TEMPLATE_SCOPE_INSTRUCTION, safeJxml);
+                """.formatted(DOCUMENTATION_TEMPLATE, tagContext, TEMPLATE_FOLLOW_INSTRUCTION, safeJxml);
     }
 
     String buildWordSpecPrompt(String wordText) {
@@ -146,7 +149,7 @@ public class MistralVibeClient implements SpecResolutionAIProvider {
 
                 Texte extrait :
                 %s
-                """.formatted(DOCUMENTATION_TEMPLATE, TEMPLATE_SCOPE_INSTRUCTION, safeWord);
+                """.formatted(DOCUMENTATION_TEMPLATE, TEMPLATE_FOLLOW_INSTRUCTION, safeWord);
     }
 
     private static String loadDocumentationTemplate() {
