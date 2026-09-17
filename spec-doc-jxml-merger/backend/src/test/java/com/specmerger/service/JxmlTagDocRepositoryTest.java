@@ -150,6 +150,52 @@ class JxmlTagDocRepositoryTest {
     }
 
     @Test
+    void onlyIncludesTheCalledFunctionSectionFromAMultiFunctionFiche() {
+        // TextFunctions.md documents 16 functions; an excerpt calling only contains() must not
+        // drag in the other 15 (padLeft, formatString, …), which is where most of the doc's
+        // size lives.
+        String jxml = "<?if (contains($(who), 'Mister'))?><?end-if ?>";
+
+        List<String> docs = repository.findRelevantDocs(jxml, 10, 20_000);
+
+        assertThat(docs).anySatisfy(doc -> {
+            assertThat(doc).startsWith("# Text Functions");
+            assertThat(doc).contains("## Fonction contains()");
+            assertThat(doc).doesNotContain("## Fonction padLeft()");
+            assertThat(doc).doesNotContain("## Fonction formatString()");
+        });
+    }
+
+    @Test
+    void includesEveryCalledFunctionSectionWhenAnExcerptUsesSeveral() {
+        String jxml = "<?if (contains($(who), 'Mister'))?><?set $(x) = trim($(x))?><?end-if ?>";
+
+        List<String> docs = repository.findRelevantDocs(jxml, 10, 20_000);
+
+        assertThat(docs).anySatisfy(doc -> {
+            assertThat(doc).startsWith("# Text Functions");
+            assertThat(doc).contains("## Fonction contains()");
+            assertThat(doc).contains("## Fonction trim()");
+            assertThat(doc).doesNotContain("## Fonction padLeft()");
+        });
+    }
+
+    @Test
+    void keepsWholeFicheForADocWithOnlyOneFunctionHeading() {
+        // AppelREST.md has a single "## Fonction callExtension()" heading among substantial
+        // other content (JsonTemplate, Mapping, Properties, …) explaining the tag itself — it
+        // must never be reduced to just that one section.
+        String jxml = "<Variable Expression=\"callExtension(:this, 'X')\" />";
+
+        List<String> docs = repository.findRelevantDocs(jxml, 10, 20_000);
+
+        assertThat(docs).anySatisfy(doc -> {
+            assertThat(doc).startsWith("# appel REST");
+            assertThat(doc).contains("## JsonTemplate").contains("## Mapping").contains("## Properties");
+        });
+    }
+
+    @Test
     void addsDocOnlyOnceEvenWithMultipleOccurrencesOfTheSameTag() {
         String jxml = "<TextBox Name=\"a\"/><TextBox Name=\"b\"/><TextBox Name=\"c\"/>";
 

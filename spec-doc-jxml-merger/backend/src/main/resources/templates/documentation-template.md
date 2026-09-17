@@ -176,6 +176,13 @@ sous-section>`
 
 ## 5. Méta-données échangées
 
+> Cette section ne se déduit pas du JXML : elle vient de ce que la spec Word déclare
+> explicitement comme échangé avec le système cible, information qui n'existe nulle
+> part dans le code. Généré depuis le JXML seul, ne tente pas de la déduire ou de
+> l'inventer à partir des champs du formulaire : laisse la section avec `_Non renseigné
+> dans la source._` comme le reste de ce qu'une source ne peut pas remplir. Seule la
+> génération depuis le Word peut renseigner ce tableau.
+
 | Code | Libellé | Donnée source | Sens (saisie → système cible / système cible → saisie) |
 |---|---|---|---|
 | `<code>` | `<libellé>` | `<origine>` | `<sens>` |
