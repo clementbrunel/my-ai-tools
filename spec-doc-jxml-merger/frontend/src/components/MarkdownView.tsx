@@ -10,9 +10,9 @@ interface MarkdownViewProps {
 
 marked.setOptions({ gfm: true, breaks: false })
 
-/** An Édition/Aperçu toggle over a markdown value — the textarea edits it, the Aperçu tab renders it (sanitized). */
+/** An Aperçu/Édition toggle over a markdown value — the Aperçu tab renders it (sanitized), the textarea edits it. Defaults to Aperçu so generated docs are read before being edited. */
 function MarkdownView({ value, onChange, placeholder }: MarkdownViewProps) {
-  const [viewMode, setViewMode] = useState<'edit' | 'preview'>('edit')
+  const [viewMode, setViewMode] = useState<'edit' | 'preview'>('preview')
 
   const previewHtml = useMemo(() => {
     if (viewMode !== 'preview') return ''
@@ -22,7 +22,7 @@ function MarkdownView({ value, onChange, placeholder }: MarkdownViewProps) {
   return (
     <div className="flex flex-col min-h-0 flex-1">
       <div className="flex gap-3 text-sm border-b border-[#dcdcde] mb-2 shrink-0">
-        {(['edit', 'preview'] as const).map((mode) => (
+        {(['preview', 'edit'] as const).map((mode) => (
           <button
             key={mode}
             type="button"

@@ -141,7 +141,7 @@ describe('CodePanel', () => {
     await userEvent.type(screen.getByPlaceholderText('Colle ici le contenu JXML'), '<jform/>')
     await userEvent.click(screen.getByText('Générer la doc'))
     expect(generateSpecFromJxmlMock).toHaveBeenCalledWith('<jform/>')
-    expect(await screen.findByPlaceholderText(/apparaîtra ici/)).toHaveValue('# Doc JXML')
+    expect(await screen.findByRole('heading', { level: 1, name: 'Doc JXML' })).toBeDefined()
   })
 
   it('generates the spec from the GitLab entry point once one is selected', async () => {
@@ -154,7 +154,7 @@ describe('CodePanel', () => {
       entryPointPath: 'forms/demarche_un.jxml',
       selectedPaths: ['forms/kyc.jxml', 'forms/claims.jxml'],
     })
-    expect(await screen.findByPlaceholderText(/apparaîtra ici/)).toHaveValue('# Doc GitLab')
+    expect(await screen.findByRole('heading', { level: 1, name: 'Doc GitLab' })).toBeDefined()
   })
 
   it('shows an error message when generation fails', async () => {
