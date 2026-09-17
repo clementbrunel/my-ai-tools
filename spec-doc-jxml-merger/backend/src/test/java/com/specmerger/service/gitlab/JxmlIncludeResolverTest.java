@@ -68,6 +68,51 @@ class JxmlIncludeResolverTest {
     }
 
     @Test
+    void unwrapsAnIncludeDocumentTargetKeepingOnlyItsContentBlock() {
+        Map<String, String> files = new LinkedHashMap<>();
+        files.put("forms/demarche.jxml", "<JForm><Include DocumentId=\"include_adresse\" /></JForm>");
+        files.put("forms/include_adresse.jxml",
+                "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+                        + "<!--Produced by FormPublisher Studio Version: 3.5.009-->\n"
+                        + "<!DOCTYPE IncludeDocument PUBLIC \"-//JWAY//JFORM//FR\" \"./JForm.dtd\">\n"
+                        + "<IncludeDocument Language=\"fr\" DocumentId=\"include_adresse\">\n"
+                        + "<Content OutputMode=\"all\" OutputTarget=\"all\" NewPage=\"none\">"
+                        + "<Section><Title>Adresse</Title></Section>"
+                        + "</Content>\n"
+                        + "</IncludeDocument>");
+
+        String resolved = JxmlIncludeResolver.resolve("forms/demarche.jxml", files);
+
+        assertThat(resolved).isEqualTo("<JForm><Content OutputMode=\"all\" OutputTarget=\"all\" NewPage=\"none\">"
+                + "<Section><Title>Adresse</Title></Section></Content></JForm>");
+        assertThat(resolved).doesNotContain("<?xml").doesNotContain("<!DOCTYPE").doesNotContain("<IncludeDocument");
+    }
+
+    @Test
+    void unwrapsAnIncludeDocumentTargetWhoseFirstElementIsNotContent() {
+        Map<String, String> files = new LinkedHashMap<>();
+        files.put("forms/demarche.jxml", "<JForm><Include DocumentId=\"section_only\" /></JForm>");
+        files.put("forms/section_only.jxml",
+                "<IncludeDocument Language=\"fr\" DocumentId=\"section_only\"><Section/></IncludeDocument>");
+
+        String resolved = JxmlIncludeResolver.resolve("forms/demarche.jxml", files);
+
+        assertThat(resolved).isEqualTo("<JForm><Section/></JForm>");
+    }
+
+    @Test
+    void leavesAnIncludeDocumentTargetUntouchedWhenItHasNoInnerElement() {
+        Map<String, String> files = new LinkedHashMap<>();
+        files.put("forms/demarche.jxml", "<JForm><Include DocumentId=\"empty\" /></JForm>");
+        files.put("forms/empty.jxml", "<IncludeDocument Language=\"fr\" DocumentId=\"empty\"></IncludeDocument>");
+
+        String resolved = JxmlIncludeResolver.resolve("forms/demarche.jxml", files);
+
+        assertThat(resolved).isEqualTo(
+                "<JForm><IncludeDocument Language=\"fr\" DocumentId=\"empty\"></IncludeDocument></JForm>");
+    }
+
+    @Test
     void breaksCircularIncludesInsteadOfLoopingForever() {
         Map<String, String> files = new LinkedHashMap<>();
         files.put("forms/demarche.jxml", "<JForm><Include DocumentId=\"a\" /></JForm>");
