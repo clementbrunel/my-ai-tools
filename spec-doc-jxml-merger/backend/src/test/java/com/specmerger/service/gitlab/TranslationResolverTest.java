@@ -126,6 +126,114 @@ class TranslationResolverTest {
     }
 
     @Test
+    void resolvesAKeyFromXliffUsingTheUnitsOwnSourceLanguageAttributeEvenWhenTheFileTargetsAnotherLanguage() {
+        // Real JWAY exports: <file> only declares its own target-language ("de"/"en", matching
+        // the file's own name suffix), while each <trans-unit>'s <source> carries the master
+        // French text with its own xml:lang="fr" — the signal buildTranslations must key off to
+        // resolve "fr", since the file-level attributes alone say nothing about French at all.
+        String deXlf = """
+                <xliff version="1.2">
+                  <file target-language="de">
+                    <body>
+                      <trans-unit id="3">
+                        <source xml:lang="fr">Boîte postale</source>
+                        <target>Postfach</target>
+                      </trans-unit>
+                    </body>
+                  </file>
+                </xliff>
+                """;
+        String enXlf = """
+                <xliff version="1.2">
+                  <file target-language="en">
+                    <body>
+                      <trans-unit id="3">
+                        <source xml:lang="fr">Boîte postale</source>
+                        <target>P.O. box</target>
+                      </trans-unit>
+                    </body>
+                  </file>
+                </xliff>
+                """;
+        Map<String, String> files = Map.of(
+                "translation/addressBlock/include_address_Part_BP_de.xlf", deXlf,
+                "translation/addressBlock/include_address_Part_BP_en.xlf", enXlf);
+
+        Map<String, String> translations = TranslationResolver.buildTranslations(
+                files, "include_address_Part_BP", "fr");
+
+        assertThat(translations).containsExactly(Map.entry("3", "Boîte postale"));
+    }
+
+    @Test
+    void scopesAnXliffFamilyToItsOwnDocumentAndIgnoresAnotherDocumentsSameId() {
+        // include_address_Part_BP and include_address_Part_BU each publish their own
+        // fr/en/de.xlf family and independently number their keys starting at 1 — id "3" means
+        // a different field in each, so building translations for one document must not see
+        // (or conflict with) the other's file at all.
+        String bpFr = """
+                <xliff version="1.2">
+                  <file target-language="fr">
+                    <body>
+                      <trans-unit id="3"><source>Boîte postale</source><target>Boîte postale</target></trans-unit>
+                    </body>
+                  </file>
+                </xliff>
+                """;
+        String buFr = """
+                <xliff version="1.2">
+                  <file target-language="fr">
+                    <body>
+                      <trans-unit id="3"><source>Case postale</source><target>Case postale</target></trans-unit>
+                    </body>
+                  </file>
+                </xliff>
+                """;
+        Map<String, String> files = Map.of(
+                "translation/include_address_Part_BP_fr.xlf", bpFr,
+                "translation/include_address_Part_BU_fr.xlf", buFr);
+
+        Map<String, String> bpTranslations = TranslationResolver.buildTranslations(files, "include_address_Part_BP", "fr");
+        Map<String, String> buTranslations = TranslationResolver.buildTranslations(files, "include_address_Part_BU", "fr");
+
+        assertThat(bpTranslations).containsExactly(Map.entry("3", "Boîte postale"));
+        assertThat(buTranslations).containsExactly(Map.entry("3", "Case postale"));
+    }
+
+    @Test
+    void resolveAllResolvesEachJxmlDocumentAgainstOnlyItsOwnXliffFamilyWithoutCrossDocumentWarnings() {
+        String bpFr = """
+                <xliff version="1.2">
+                  <file target-language="fr">
+                    <body>
+                      <trans-unit id="3"><source>Boîte postale</source><target>Boîte postale</target></trans-unit>
+                    </body>
+                  </file>
+                </xliff>
+                """;
+        String buFr = """
+                <xliff version="1.2">
+                  <file target-language="fr">
+                    <body>
+                      <trans-unit id="3"><source>Case postale</source><target>Case postale</target></trans-unit>
+                    </body>
+                  </file>
+                </xliff>
+                """;
+        Map<String, String> files = new java.util.LinkedHashMap<>();
+        files.put("forms/include_address_Part_BP.jxml", "<Label>trans(3)</Label>");
+        files.put("forms/include_address_Part_BU.jxml", "<Label>trans(3)</Label>");
+        files.put("translation/include_address_Part_BP_fr.xlf", bpFr);
+        files.put("translation/include_address_Part_BU_fr.xlf", buFr);
+
+        Map<String, String> resolved = TranslationResolver.resolveAll(files, "fr");
+
+        assertThat(resolved.get("forms/include_address_Part_BP.jxml")).isEqualTo("<Label>Boîte postale</Label>");
+        assertThat(resolved.get("forms/include_address_Part_BU.jxml")).isEqualTo("<Label>Case postale</Label>");
+        assertThat(resolved.get("translation/include_address_Part_BP_fr.xlf")).isEqualTo(bpFr);
+    }
+
+    @Test
     void ignoresNonTranslationFiles() {
         Map<String, String> files = Map.of("forms/demarche.jxml", "117=not a translation");
 

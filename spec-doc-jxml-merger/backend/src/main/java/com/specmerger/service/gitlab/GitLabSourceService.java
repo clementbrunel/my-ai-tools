@@ -213,12 +213,12 @@ public class GitLabSourceService {
 
     /**
      * Fetches the selected sources (forcing the chosen démarche's entry point in, exactly
-     * like {@link #fetchRelevantSources}) and flattens its Include chain into a single
-     * document, then resolves its {@code trans(...)} calls against the translation resources
-     * among the same selected sources (see {@link TranslationResolver}, #285) — this is what
-     * the user reviews before it's actually sent to the model. Issues worth the user's
-     * attention (unresolved Includes, incomplete tag nesting, unresolved translation keys) are
-     * reported separately from the content, rather than left for them to spot buried in it.
+     * like {@link #fetchRelevantSources}) and resolves each source's own {@code trans(...)}
+     * calls against only its own translation resources (see {@link TranslationResolver#resolveAll},
+     * #285) before flattening the Include chain into a single document — this is what the user
+     * reviews before it's actually sent to the model. Issues worth the user's attention
+     * (unresolved Includes, incomplete tag nesting, unresolved translation keys) are reported
+     * separately from the content, rather than left for them to spot buried in it.
      */
     public JxmlPreviewResult previewResolvedJxml(String groupKey, String projectIdOrPath,
             Collection<String> selectedPaths, String entryPointPath) throws GitLabApiException, IOException {
@@ -226,8 +226,8 @@ public class GitLabSourceService {
             throw new IllegalArgumentException("entryPointPath est requis pour prévisualiser le JXML résolu.");
         }
         Map<String, String> filesByPath = fetchRelevantSources(groupKey, projectIdOrPath, selectedPaths, entryPointPath);
-        String includesResolved = JxmlIncludeResolver.resolve(entryPointPath, filesByPath);
-        String resolved = TranslationResolver.resolve(includesResolved, resolveTranslations(filesByPath));
+        Map<String, String> translatedFiles = resolveAllTranslations(filesByPath);
+        String resolved = JxmlIncludeResolver.resolve(entryPointPath, translatedFiles);
 
         List<String> warnings = new ArrayList<>(JxmlIncludeResolver.findWarnings(resolved));
         for (String key : TranslationResolver.findUnresolvedKeys(resolved)) {
@@ -236,12 +236,13 @@ public class GitLabSourceService {
         return new JxmlPreviewResult(resolved, warnings);
     }
 
-    /** Builds the {@code trans(...)} resolution map (configured language, see
-     * {@code gitlab.translation-language}) from a set of already-downloaded sources — exposed
-     * so callers other than {@link #previewResolvedJxml} (e.g. the Word/JXML diff pipeline)
-     * can apply the same resolution to sources fetched via {@link #fetchRelevantSources}. */
-    public Map<String, String> resolveTranslations(Map<String, String> filesByPath) {
-        return TranslationResolver.buildTranslations(filesByPath, properties.translationLanguage());
+    /** Resolves every source's own {@code trans(...)} calls (configured language, see
+     * {@code gitlab.translation-language}) against only its own translation resources (see
+     * {@link TranslationResolver#resolveAll}) — exposed so callers other than
+     * {@link #previewResolvedJxml} (e.g. the Word/JXML diff pipeline) can apply the same
+     * resolution to sources fetched via {@link #fetchRelevantSources}. */
+    public Map<String, String> resolveAllTranslations(Map<String, String> filesByPath) {
+        return TranslationResolver.resolveAll(filesByPath, properties.translationLanguage());
     }
 
     public record JxmlPreviewResult(String content, List<String> warnings) {
