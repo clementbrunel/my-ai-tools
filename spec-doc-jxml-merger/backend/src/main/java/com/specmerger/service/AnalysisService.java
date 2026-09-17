@@ -11,6 +11,7 @@ import com.specmerger.repository.DivergenceRepository;
 import com.specmerger.repository.DocumentVersionRepository;
 import com.specmerger.service.ai.SpecResolutionAIProvider;
 import com.specmerger.service.gitlab.GitLabSourceService;
+import com.specmerger.service.gitlab.TranslationResolver;
 import org.gitlab4j.api.GitLabApiException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -86,7 +87,14 @@ public class AnalysisService {
             jxmlFiles = jxmlSpecParser.fromPastedText(jxmlText == null ? "" : jxmlText);
             sourceType = AnalysisSession.JxmlSourceType.PASTED_TEXT;
         }
-        String concatenatedJxmlText = String.join("\n", jxmlFiles.values());
+        // Translation resources (.properties/.xlf) ride along with the JXML sources when they
+        // come from GitLab (#266/#283) — they resolve trans(...) keys (#285) but aren't
+        // themselves JXML content, so they're excluded from what's actually diffed/analyzed.
+        Map<String, String> translations = gitLabSourceService.resolveTranslations(jxmlFiles);
+        String concatenatedJxmlText = TranslationResolver.resolve(jxmlFiles.entrySet().stream()
+                .filter(entry -> !TranslationResolver.isTranslationFile(entry.getKey()))
+                .map(Map.Entry::getValue)
+                .collect(Collectors.joining("\n")), translations);
 
         AnalysisSession session = new AnalysisSession();
         session.setTitle(title);
