@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -29,6 +30,15 @@ public class JxmlTagDocRepository {
     private static final Pattern FUNCTION_HEADING =
             Pattern.compile("(?i)fonction\\s+\\**([A-Za-z_][A-Za-z0-9_]*)\\(\\)");
 
+    // The fiches are lifted as-is from JWAY Campus, XML example and page-source footer
+    // included — useful to a human reader, but they roughly account for a third of the
+    // corpus' size for no benefit to the model (it works from the caller's real JXML, not
+    // from a canned example). Stripped here at load time rather than by hand-editing the
+    // 76 .md files, so there's still a single source of truth for them.
+    private static final Pattern XML_EXAMPLE_BLOCK = Pattern.compile("(?s)```(?:xml|java)\\n.*?```\\n?");
+    private static final Pattern SOURCE_FOOTER =
+            Pattern.compile("(?m)^Source\\s*:\\s*documentation JWAY Campus.*$\\n?");
+
     // Extra trigger patterns that don't fit the generic <Tag>/Type="..."/Fonction x()
     // conventions, keyed by doc id (filename without extension). AppelREST also covers
     // callExtension(), which is invoked from a Java class "extends FormPublisherExtension"
@@ -48,8 +58,8 @@ public class JxmlTagDocRepository {
             PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
             for (Resource resource : resolver.getResources(locationPattern)) {
                 String id = stripExtension(resource.getFilename());
-                String content = readContent(resource);
-                docs.add(new Doc(id, content, buildPatterns(id, content)));
+                String rawContent = readContent(resource);
+                docs.add(new Doc(id, compactForPrompt(rawContent), buildPatterns(id, rawContent)));
             }
         } catch (IOException e) {
             throw new IllegalStateException("Impossible de charger les fiches jxml-tags/", e);
@@ -58,10 +68,12 @@ public class JxmlTagDocRepository {
 
     /**
      * Returns the content of the docs whose tag, Control Type or function name is
-     * detected in the excerpt, capped so the combined size stays reasonable in a prompt.
-     * If relevant docs had to be left out to stay under the cap, logs a warning naming
-     * them — a recurring warning here means jxml-tags/ needs trimming (e.g. drop the
-     * code examples) or a smarter selection, not just a higher cap.
+     * detected in the excerpt, already stripped of their XML examples and source
+     * footer (see {@link #compactForPrompt}) and ordered by how often they're matched
+     * in the excerpt (most-used tag first), capped so the combined size stays
+     * reasonable in a prompt. If relevant docs still had to be left out to stay under
+     * the cap, logs a warning naming them — a recurring warning here means jxml-tags/
+     * itself needs trimming further, not just a higher cap.
      */
     public List<String> findRelevantDocs(String jxmlExcerpt, int maxDocs, int maxTotalChars) {
         if (jxmlExcerpt == null || jxmlExcerpt.isBlank()) {
@@ -73,6 +85,10 @@ public class JxmlTagDocRepository {
                 matched.add(doc);
             }
         }
+        // Prioritize docs whose tag/Control Type/function occurs most often in the excerpt,
+        // so a heavily-used tag doesn't lose its spot to one mentioned once just because it
+        // sorts earlier on the classpath.
+        matched.sort(Comparator.<Doc>comparingInt(doc -> doc.occurrences(jxmlExcerpt)).reversed());
 
         List<String> selected = new ArrayList<>();
         List<String> dropped = new ArrayList<>();
@@ -120,6 +136,12 @@ public class JxmlTagDocRepository {
         return patterns;
     }
 
+    private static String compactForPrompt(String content) {
+        String withoutExamples = XML_EXAMPLE_BLOCK.matcher(content).replaceAll("");
+        String withoutFooter = SOURCE_FOOTER.matcher(withoutExamples).replaceAll("");
+        return withoutFooter.replaceAll("\\n{3,}", "\n\n").strip();
+    }
+
     private static String stripExtension(String filename) {
         if (filename == null) {
             return "unknown";
@@ -142,6 +164,17 @@ public class JxmlTagDocRepository {
                 }
             }
             return false;
+        }
+
+        int occurrences(String excerpt) {
+            int count = 0;
+            for (Pattern p : patterns) {
+                Matcher m = p.matcher(excerpt);
+                while (m.find()) {
+                    count++;
+                }
+            }
+            return count;
         }
     }
 }

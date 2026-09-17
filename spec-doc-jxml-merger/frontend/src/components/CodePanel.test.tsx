@@ -1,249 +1,165 @@
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import CodePanel from './CodePanel'
-import type { GitLabEntryPoint, GitLabProjectSummary } from '../types'
+import {
+  generateSpecFromGitlab,
+  generateSpecFromJxml,
+  listGitlabProjects,
+  listGitlabSources,
+  previewGitlabJxml,
+} from '../api/analysis'
+import type { GitLabProjectSummary, GitLabSourceListing } from '../types'
+
+vi.mock('../api/analysis', () => ({
+  generateSpecFromGitlab: vi.fn(),
+  generateSpecFromJxml: vi.fn(),
+  listGitlabProjects: vi.fn(),
+  listGitlabSources: vi.fn(),
+  previewGitlabJxml: vi.fn(),
+}))
+
+const generateSpecFromGitlabMock = vi.mocked(generateSpecFromGitlab)
+const generateSpecFromJxmlMock = vi.mocked(generateSpecFromJxml)
+const listGitlabProjectsMock = vi.mocked(listGitlabProjects)
+const listGitlabSourcesMock = vi.mocked(listGitlabSources)
+const previewGitlabJxmlMock = vi.mocked(previewGitlabJxml)
 
 const projects: GitLabProjectSummary[] = [
   { id: 1, name: 'onboarding-kyc', pathWithNamespace: 'jway-forms/onboarding-kyc', defaultBranch: 'main', webUrl: '', groupKey: 'jway-forms' },
   { id: 2, name: 'claims', pathWithNamespace: 'jway-forms/claims', defaultBranch: 'main', webUrl: '', groupKey: 'jway-forms' },
 ]
 
-function baseProps(overrides: Partial<React.ComponentProps<typeof CodePanel>> = {}) {
-  return {
-    jxmlMode: 'text' as const,
-    onJxmlModeChange: vi.fn(),
-    jxmlText: '',
-    onJxmlTextChange: vi.fn(),
-    gitlabProjects: [] as GitLabProjectSummary[],
-    gitlabProjectId: '',
-    onSelectGitlabProject: vi.fn(),
-    gitlabLoading: false,
-    onLoadGitlabProjects: vi.fn(),
-    gitlabSearch: '',
-    onGitlabSearchChange: vi.fn(),
-    gitlabEntryPoints: [] as GitLabEntryPoint[],
-    gitlabEntryPointPath: '',
-    onSelectGitlabEntryPoint: vi.fn(),
-    onPreviewGitlabJxml: vi.fn(),
-    gitlabPreviewOpen: false,
-    gitlabPreviewContent: '',
-    gitlabPreviewWarnings: [] as string[],
-    gitlabPreviewLoading: false,
-    onCloseGitlabPreview: vi.fn(),
-    gitlabSourcePaths: [] as string[],
-    gitlabSelectedPaths: new Set<string>(),
-    onToggleGitlabPath: vi.fn(),
-    onSelectAllGitlabPaths: vi.fn(),
-    onClearGitlabPaths: vi.fn(),
-    gitlabSourcesLoading: false,
-    ...overrides,
-  }
+const singleEntryPointListing: GitLabSourceListing = {
+  entryPoints: [{ documentId: 'demarche_un', path: 'forms/demarche_un.jxml' }],
+  optionalPaths: ['forms/kyc.jxml', 'forms/claims.jxml'],
+}
+
+beforeEach(() => {
+  generateSpecFromGitlabMock.mockReset()
+  generateSpecFromJxmlMock.mockReset()
+  listGitlabProjectsMock.mockReset()
+  listGitlabSourcesMock.mockReset()
+  previewGitlabJxmlMock.mockReset()
+})
+
+async function goToGitlabModeWithProject() {
+  listGitlabProjectsMock.mockResolvedValue(projects)
+  listGitlabSourcesMock.mockResolvedValue(singleEntryPointListing)
+  const result = render(<CodePanel />)
+  await userEvent.click(screen.getByText('Projet GitLab'))
+  await userEvent.click(screen.getByText('Charger les projets GitLab'))
+  await screen.findByRole('combobox')
+  await userEvent.selectOptions(screen.getByRole('combobox'), '1')
+  await screen.findByText('demarche_un')
+  return result
 }
 
 describe('CodePanel', () => {
-  it('renders a textarea bound to jxmlText in text mode', () => {
-    render(<CodePanel {...baseProps({ jxmlText: '<jform/>' })} />)
-    expect(screen.getByPlaceholderText('Colle ici le contenu JXML')).toHaveValue('<jform/>')
+  it('renders a textarea bound to jxmlText in text mode, on the Input tab by default', () => {
+    render(<CodePanel />)
+    expect(screen.getByPlaceholderText('Colle ici le contenu JXML')).toHaveValue('')
   })
 
-  it('calls onJxmlModeChange when a tab is clicked', async () => {
-    const onJxmlModeChange = vi.fn()
-    render(<CodePanel {...baseProps({ onJxmlModeChange })} />)
+  it('switches to gitlab mode when its tab is clicked', async () => {
+    render(<CodePanel />)
     await userEvent.click(screen.getByText('Projet GitLab'))
-    expect(onJxmlModeChange).toHaveBeenCalledWith('gitlab')
+    expect(screen.getByText('Charger les projets GitLab')).toBeDefined()
   })
 
-  it('calls onLoadGitlabProjects when the load button is clicked in gitlab mode', async () => {
-    const onLoadGitlabProjects = vi.fn()
-    render(<CodePanel {...baseProps({ jxmlMode: 'gitlab', onLoadGitlabProjects })} />)
+  it('loads and lists GitLab projects when the load button is clicked', async () => {
+    listGitlabProjectsMock.mockResolvedValue(projects)
+    render(<CodePanel />)
+    await userEvent.click(screen.getByText('Projet GitLab'))
     await userEvent.click(screen.getByText('Charger les projets GitLab'))
-    expect(onLoadGitlabProjects).toHaveBeenCalledTimes(1)
+    expect(await screen.findByText('[jway-forms] jway-forms/claims')).toBeDefined()
   })
 
-  it('filters the project dropdown using the search field', () => {
-    render(<CodePanel {...baseProps({ jxmlMode: 'gitlab', gitlabProjects: projects, gitlabSearch: 'claims' })} />)
+  it('filters the project dropdown using the search field', async () => {
+    listGitlabProjectsMock.mockResolvedValue(projects)
+    render(<CodePanel />)
+    await userEvent.click(screen.getByText('Projet GitLab'))
+    await userEvent.click(screen.getByText('Charger les projets GitLab'))
+    await screen.findByText('[jway-forms] jway-forms/claims')
+    await userEvent.type(screen.getByPlaceholderText(/Rechercher un projet/), 'claims')
     expect(screen.getByText('[jway-forms] jway-forms/claims')).toBeDefined()
     expect(screen.queryByText('[jway-forms] jway-forms/onboarding-kyc')).toBeNull()
   })
 
-  it('calls onSelectGitlabProject when a project is chosen', async () => {
-    const onSelectGitlabProject = vi.fn()
-    render(
-      <CodePanel {...baseProps({ jxmlMode: 'gitlab', gitlabProjects: projects, onSelectGitlabProject })} />,
-    )
-    await userEvent.selectOptions(screen.getByRole('combobox'), '1')
-    expect(onSelectGitlabProject).toHaveBeenCalledWith('1')
-  })
-
-  it('renders the source path checklist with the selection count', () => {
-    render(
-      <CodePanel
-        {...baseProps({
-          jxmlMode: 'gitlab',
-          gitlabProjects: projects,
-          gitlabSourcePaths: ['forms/kyc.jxml', 'forms/claims.jxml'],
-          gitlabSelectedPaths: new Set(['forms/kyc.jxml']),
-        })}
-      />,
-    )
-    expect(screen.getByText('1 / 2 fichier(s) inclus')).toBeDefined()
+  it('loads sources (all pre-selected) and auto-selects the single entry point candidate', async () => {
+    await goToGitlabModeWithProject()
+    expect(screen.getByText('2 / 2 fichier(s) inclus')).toBeDefined()
     expect(screen.getByText('forms/kyc.jxml')).toBeDefined()
-    expect(screen.getByText('forms/claims.jxml')).toBeDefined()
+    const radio = screen.getByRole('radio', { name: /demarche_un/i })
+    expect(radio).toBeChecked()
   })
 
-  it('calls onToggleGitlabPath when a checkbox is clicked', async () => {
-    const onToggleGitlabPath = vi.fn()
-    render(
-      <CodePanel
-        {...baseProps({
-          jxmlMode: 'gitlab',
-          gitlabSourcePaths: ['forms/kyc.jxml'],
-          gitlabSelectedPaths: new Set(['forms/kyc.jxml']),
-          onToggleGitlabPath,
-        })}
-      />,
-    )
-    await userEvent.click(screen.getByRole('checkbox'))
-    expect(onToggleGitlabPath).toHaveBeenCalledWith('forms/kyc.jxml')
-  })
-
-  it('renders the entry point candidates as a single-select radio group', () => {
-    const entryPoints: GitLabEntryPoint[] = [
-      { documentId: 'demarche_un', path: 'forms/demarche_un.jxml' },
-      { documentId: 'DEMARCHE_DEUX', path: 'forms/DEMARCHE_DEUX.jxml' },
-    ]
-    render(
-      <CodePanel
-        {...baseProps({ jxmlMode: 'gitlab', gitlabEntryPoints: entryPoints, gitlabEntryPointPath: 'forms/demarche_un.jxml' })}
-      />,
-    )
-    const radios = screen.getAllByRole('radio', { name: /demarche/i })
-    expect(radios).toHaveLength(2)
-    expect(radios[0]).toBeChecked()
-    expect(radios[1]).not.toBeChecked()
-  })
-
-  it('calls onSelectGitlabEntryPoint when another entry point is picked', async () => {
-    const onSelectGitlabEntryPoint = vi.fn()
-    const entryPoints: GitLabEntryPoint[] = [
-      { documentId: 'demarche_un', path: 'forms/demarche_un.jxml' },
-      { documentId: 'DEMARCHE_DEUX', path: 'forms/DEMARCHE_DEUX.jxml' },
-    ]
-    render(
-      <CodePanel
-        {...baseProps({
-          jxmlMode: 'gitlab',
-          gitlabEntryPoints: entryPoints,
-          gitlabEntryPointPath: 'forms/demarche_un.jxml',
-          onSelectGitlabEntryPoint,
-        })}
-      />,
-    )
-    await userEvent.click(screen.getByText('DEMARCHE_DEUX'))
-    expect(onSelectGitlabEntryPoint).toHaveBeenCalledWith('forms/DEMARCHE_DEUX.jxml')
-  })
-
-  it('does not render the entry point section when there are no candidates', () => {
-    render(<CodePanel {...baseProps({ jxmlMode: 'gitlab', gitlabEntryPoints: [] })} />)
-    expect(screen.queryByText(/Démarche à documenter/)).toBeNull()
-  })
-
-  it('does not show the preview button before an entry point is chosen', () => {
-    render(<CodePanel {...baseProps({ jxmlMode: 'gitlab', gitlabEntryPointPath: '' })} />)
-    expect(screen.queryByText('Prévisualiser le JXML résolu')).toBeNull()
-  })
-
-  it('calls onPreviewGitlabJxml when the preview button is clicked', async () => {
-    const onPreviewGitlabJxml = vi.fn()
-    render(
-      <CodePanel
-        {...baseProps({ jxmlMode: 'gitlab', gitlabEntryPointPath: 'forms/demarche_un.jxml', onPreviewGitlabJxml })}
-      />,
-    )
+  it('shows the preview button only once an entry point is chosen, and opens the resolved JXML', async () => {
+    const { container } = await goToGitlabModeWithProject()
+    previewGitlabJxmlMock.mockResolvedValue({ content: '<JForm><Section/></JForm>', warnings: [] })
     await userEvent.click(screen.getByText('Prévisualiser le JXML résolu'))
-    expect(onPreviewGitlabJxml).toHaveBeenCalledTimes(1)
-  })
-
-  it('shows the resolved JXML content as a collapsible tree when the preview panel is open', () => {
-    const { container } = render(
-      <CodePanel
-        {...baseProps({
-          jxmlMode: 'gitlab',
-          gitlabEntryPointPath: 'forms/demarche_un.jxml',
-          gitlabPreviewOpen: true,
-          gitlabPreviewContent: '<JForm><Section/></JForm>',
-        })}
-      />,
-    )
+    await screen.findByText(/JXML envoyé au modèle/)
     expect(container.textContent).toContain('JForm')
     expect(container.textContent).toContain('Section')
   })
 
-  it('shows the raw text when the raw view mode is selected', async () => {
-    render(
-      <CodePanel
-        {...baseProps({
-          jxmlMode: 'gitlab',
-          gitlabEntryPointPath: 'forms/demarche_un.jxml',
-          gitlabPreviewOpen: true,
-          gitlabPreviewContent: '<JForm><Section/></JForm>',
-        })}
-      />,
-    )
-    await userEvent.click(screen.getByText('Texte brut'))
-    expect(screen.getByText('<JForm><Section/></JForm>')).toBeDefined()
-    expect(screen.getByText(/JXML envoyé au modèle/)).toBeDefined()
+  it('toggles a source path via its checkbox', async () => {
+    await goToGitlabModeWithProject()
+    const checkbox = within(screen.getByText('forms/kyc.jxml').closest('li') as HTMLElement).getByRole('checkbox')
+    expect(checkbox).toBeChecked()
+    await userEvent.click(checkbox)
+    expect(checkbox).not.toBeChecked()
   })
 
-  it('shows preview warnings prominently when present', () => {
-    render(
-      <CodePanel
-        {...baseProps({
-          jxmlMode: 'gitlab',
-          gitlabEntryPointPath: 'forms/demarche_un.jxml',
-          gitlabPreviewOpen: true,
-          gitlabPreviewContent: '<JForm><Section></JForm>',
-          gitlabPreviewWarnings: ['Balise <Section> jamais refermée.'],
-        })}
-      />,
-    )
-    expect(screen.getByText('Balise <Section> jamais refermée.')).toBeDefined()
-  })
-
-  it('calls onCloseGitlabPreview when the preview panel is closed', async () => {
-    const onCloseGitlabPreview = vi.fn()
-    render(
-      <CodePanel
-        {...baseProps({
-          jxmlMode: 'gitlab',
-          gitlabEntryPointPath: 'forms/demarche_un.jxml',
-          gitlabPreviewOpen: true,
-          gitlabPreviewContent: '<JForm/>',
-          onCloseGitlabPreview,
-        })}
-      />,
-    )
-    await userEvent.click(screen.getByText('Fermer'))
-    expect(onCloseGitlabPreview).toHaveBeenCalledTimes(1)
-  })
-
-  it('calls onSelectAllGitlabPaths / onClearGitlabPaths from the bulk actions', async () => {
-    const onSelectAllGitlabPaths = vi.fn()
-    const onClearGitlabPaths = vi.fn()
-    render(
-      <CodePanel
-        {...baseProps({
-          jxmlMode: 'gitlab',
-          gitlabSourcePaths: ['forms/kyc.jxml'],
-          onSelectAllGitlabPaths,
-          onClearGitlabPaths,
-        })}
-      />,
-    )
-    await userEvent.click(screen.getByText('Tout cocher'))
+  it('bulk toggles all source paths', async () => {
+    await goToGitlabModeWithProject()
     await userEvent.click(screen.getByText('Tout décocher'))
-    expect(onSelectAllGitlabPaths).toHaveBeenCalledTimes(1)
-    expect(onClearGitlabPaths).toHaveBeenCalledTimes(1)
+    expect(screen.getByText('0 / 2 fichier(s) inclus')).toBeDefined()
+    await userEvent.click(screen.getByText('Tout cocher'))
+    expect(screen.getByText('2 / 2 fichier(s) inclus')).toBeDefined()
+  })
+
+  it('disables Générer la doc until jxmlText is filled in text mode', async () => {
+    render(<CodePanel />)
+    expect(screen.getByText('Générer la doc')).toBeDisabled()
+    await userEvent.type(screen.getByPlaceholderText('Colle ici le contenu JXML'), '<jform/>')
+    expect(screen.getByText('Générer la doc')).not.toBeDisabled()
+  })
+
+  it('generates the spec from pasted JXML text and switches to the Output tab', async () => {
+    generateSpecFromJxmlMock.mockResolvedValue('# Doc JXML')
+    render(<CodePanel />)
+    await userEvent.type(screen.getByPlaceholderText('Colle ici le contenu JXML'), '<jform/>')
+    await userEvent.click(screen.getByText('Générer la doc'))
+    expect(generateSpecFromJxmlMock).toHaveBeenCalledWith('<jform/>')
+    expect(await screen.findByPlaceholderText(/apparaîtra ici/)).toHaveValue('# Doc JXML')
+  })
+
+  it('generates the spec from the GitLab entry point once one is selected', async () => {
+    await goToGitlabModeWithProject()
+    generateSpecFromGitlabMock.mockResolvedValue('# Doc GitLab')
+    await userEvent.click(screen.getByText('Générer la doc'))
+    expect(generateSpecFromGitlabMock).toHaveBeenCalledWith({
+      groupKey: 'jway-forms',
+      projectId: '1',
+      entryPointPath: 'forms/demarche_un.jxml',
+      selectedPaths: ['forms/kyc.jxml', 'forms/claims.jxml'],
+    })
+    expect(await screen.findByPlaceholderText(/apparaîtra ici/)).toHaveValue('# Doc GitLab')
+  })
+
+  it('shows an error message when generation fails', async () => {
+    generateSpecFromJxmlMock.mockRejectedValue(new Error('JXML invalide'))
+    render(<CodePanel />)
+    await userEvent.type(screen.getByPlaceholderText('Colle ici le contenu JXML'), '<jform/>')
+    await userEvent.click(screen.getByText('Générer la doc'))
+    expect(await screen.findByText('JXML invalide')).toBeDefined()
+  })
+
+  it('calls onCollapse when the collapse button is clicked', async () => {
+    const onCollapse = vi.fn()
+    render(<CodePanel onCollapse={onCollapse} />)
+    await userEvent.click(screen.getByLabelText('Réduire le panneau Spec JXML'))
+    expect(onCollapse).toHaveBeenCalledTimes(1)
   })
 })
