@@ -21,8 +21,20 @@ import java.util.regex.Pattern;
  */
 public final class JxmlIncludeResolver {
 
+    /** Matches both the self-closing {@code <Include .../>} form and the open/close
+     * {@code <Include ...>...</Include>} form some JWAY sources use instead — real projects
+     * mix both, and a tag this misses is silently left as-is with nothing to substitute it
+     * and no warning, since {@link #findWarnings} only inspects what {@link #resolve} produced. */
     private static final Pattern INCLUDE_TAG =
-            Pattern.compile("<Include\\b[^>]*?DocumentId\\s*=\\s*[\"']([^\"']+)[\"'][^>]*?/>");
+            Pattern.compile(
+                    "<Include\\b[^>]*?DocumentId\\s*=\\s*[\"']([^\"']+)[\"'][^>]*?(?:/>|>.*?</Include\\s*>)",
+                    Pattern.DOTALL);
+
+    /** Any {@code <Include} still present after {@link #resolve} — should never happen once
+     * {@link #INCLUDE_TAG} matched it, but catches an unexpected real-world Include shape
+     * that slips past the regex above, so it's surfaced as a warning instead of silently
+     * left unreplaced in the output (see the DocumentId-not-substituted report). */
+    private static final Pattern LEFTOVER_INCLUDE_TAG = Pattern.compile("<Include\\b[^>]*>");
 
     private static final Pattern UNRESOLVED_INCLUDE_COMMENT =
             Pattern.compile("<!--\\s*Include non résolu\\s*:\\s*(.*?)\\s*-->");
@@ -85,6 +97,11 @@ public final class JxmlIncludeResolver {
         Matcher unresolved = UNRESOLVED_INCLUDE_COMMENT.matcher(resolvedContent);
         while (unresolved.find()) {
             warnings.add("Include non résolu : " + unresolved.group(1));
+        }
+        Matcher leftover = LEFTOVER_INCLUDE_TAG.matcher(resolvedContent);
+        while (leftover.find()) {
+            warnings.add("Balise <Include> non traitée (format inattendu, ni résolue ni signalée) : "
+                    + leftover.group());
         }
         warnings.addAll(findNestingIssues(resolvedContent));
         return warnings;
