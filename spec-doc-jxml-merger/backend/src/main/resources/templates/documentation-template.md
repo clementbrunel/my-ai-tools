@@ -18,25 +18,36 @@
 >   générations section par section, écran par écran, élément par élément.
 > - Reprendre exactement les titres de section ci-dessous (même niveau de titre, même
 >   libellé). Ne pas ajouter de section qui n'existe pas ici.
-> - Chaque élément documenté (champ, bouton, pièce jointe, appel de service, …) reçoit
->   pour `ID` **son libellé tel qu'affiché à l'utilisateur** (le texte du `<Label>` côté
->   JXML, la colonne « Élément » côté Word) — jamais un identifiant technique ou un
->   numéro de position. Le même libellé des deux côtés est ce qui permet au diff de
+> - Chaque élément documenté (champ, bouton, pièce jointe, appel de service, …) est
+>   identifié par **son libellé tel qu'affiché à l'utilisateur** (le texte du `<Label>`
+>   côté JXML, la colonne « Élément » côté Word) — jamais un identifiant technique ou un
+>   numéro de position, et jamais de colonne `ID` séparée puisqu'elle ne ferait que
+>   répéter ce libellé. Le même libellé des deux côtés est ce qui permet au diff de
 >   rapprocher un champ Word et son équivalent JXML sans clé technique commune.
 >   - **Depuis le JXML** : le libellé vient de la résolution des clés `trans(...)`.
 >     Tant que cette résolution n'est pas branchée (issue #285), laisse l'appel
 >     `trans(...)` tel quel — comme demandé plus bas pour le JXML — et il sert alors
->     d'ID brut, provisoirement pas comparable au libellé français du Word. C'est une
->     limite connue et temporaire, à ne pas contourner en inventant une traduction.
+>     d'identifiant brut, provisoirement pas comparable au libellé français du Word.
+>     C'est une limite connue et temporaire, à ne pas contourner en inventant une
+>     traduction.
 >   - Deux éléments peuvent légitimement partager le même libellé sur un même écran
 >     (ex. un bloc « Représentant » répété) : ne pas inventer de suffixe pour les
->     distinguer — le rapprochement se fait alors par section/tableau, pas par ID seul.
+>     distinguer — le rapprochement se fait alors par section/tableau, pas par libellé
+>     seul.
+> - Aucune référence visuelle (maquette, capture d'écran, schéma) : le gabarit reste
+>   intégralement textuel — toute mise en page, tout enchaînement ou toute navigation se
+>   décrit en mots.
 > - Aucune notion propre à une plateforme ou un back-office particulier ne doit
 >   apparaître : les intitulés ci-dessous sont volontairement génériques (« système
 >   cible », « canal », « écran ») à charge pour le contenu généré de rester neutre.
 > - Les valeurs entre chevrons (`<comme ceci>`) sont des placeholders à remplacer par
 >   le contenu réel ; s'ils ne peuvent pas être renseignés, les laisser tels quels
 >   plutôt que d'inventer une valeur.
+> - Dans une cellule de tableau, échappe tout caractère `|` en `\|` — en particulier
+>   dans les valeurs/conditions JWAY telles que `$(data|demandePersonnelle)=='NON'`,
+>   dont la profondeur (et donc le nombre de `|`) varie — sous peine de casser la
+>   structure du tableau markdown. Ne change rien d'autre à la valeur (pas de
+>   reformulation, pas de suppression des `|`).
 
 ---
 
@@ -72,8 +83,8 @@
 
 ## 3. Arbre de navigation
 
-Schéma de navigation entre sections et écrans (ou description textuelle équivalente),
-avec légende des symboles utilisés, et description des règles de navigation :
+Description textuelle de l'enchaînement des sections et écrans, et des règles de
+navigation :
 - Ordre de parcours des écrans/sections.
 - Conditions d'accès à une section/un écran, si certaines sont conditionnelles.
 - Comportement en cas de retour en arrière (les écrans suivants doivent-ils être
@@ -99,36 +110,33 @@ sous-section>`
 `<condition dans laquelle l'écran est proposé ; sinon, omettre uniquement cette
 sous-section>`
 
-##### Référence visuelle
-
-`<maquette, capture d'écran ou description de la mise en page de l'écran>`
-
 ##### Éléments
 
-> Colonne `ID` : cf. règle d'attribution des identifiants en tête de document (le
-> libellé de l'élément, pas une clé technique).
+> Colonne `Élément` : cf. règle d'identification par libellé en tête de document (le
+> libellé de l'élément, pas une clé technique) — c'est cette même valeur qui sert de
+> référence dans les sous-sections ci-dessous.
 
-| ID | Élément (label) | Type : nature, format, taille, contrôle | Valeur par défaut | Condition d'affichage | Obligatoire |
-|---|---|---|---|---|---|
-| `<id>` | `<label>` | `<type>` | `<valeur>` | `<condition>` | `<oui/non>` |
+| Élément | Type : nature, format, taille, contrôle | Valeur par défaut | Condition d'affichage | Obligatoire |
+|---|---|---|---|---|
+| `<label>` | `<type>` | `<valeur>` | `<condition>` | `<oui/non>` |
 
 ##### Règles de gestion, aides et messages d'erreur
 
 > Uniquement les règles/aides/erreurs propres à cet écran. Omettre cette sous-section
 > si elle est vide.
 
-| Référence (ID d'élément) | Type (règle de gestion / aide / erreur) | Description |
+| Référence (élément) | Type (règle de gestion / aide / erreur) | Description |
 |---|---|---|
-| `<id>` | `<type>` | `<description>` |
+| `<label>` | `<type>` | `<description>` |
 
 ##### Pièces jointes
 
 > Une ligne par pièce jointe attendue sur cet écran. Omettre cette sous-section si
 > l'écran n'en comporte aucune.
 
-| ID | Libellé | Obligatoire | Types de fichiers acceptés | Taille max (par fichier) | Nombre max | Condition d'affichage | Contrôles appliqués |
-|---|---|---|---|---|---|---|---|
-| `<id>` | `<libellé>` | `<oui/non>` | `<extensions/mime-types>` | `<taille>` | `<nombre>` | `<condition>` | `<antivirus / format / lisibilité / …>` |
+| Libellé | Obligatoire | Types de fichiers acceptés | Taille max (par fichier) | Nombre max | Condition d'affichage | Contrôles appliqués |
+|---|---|---|---|---|---|---|
+| `<libellé>` | `<oui/non>` | `<extensions/mime-types>` | `<taille>` | `<nombre>` | `<condition>` | `<antivirus / format / lisibilité / …>` |
 
 ##### Appels de service web
 
@@ -152,13 +160,13 @@ sous-section>`
 
 | Champ envoyé | Origine (élément de cet écran) |
 |---|---|
-| `<champ>` | `<id d'élément source>` |
+| `<champ>` | `<libellé de l'élément source>` |
 
 **Données reçues et mapping**
 
 | Champ reçu | Élément/donnée alimenté(e) |
 |---|---|
-| `<champ>` | `<id d'élément ou donnée cible>` |
+| `<champ>` | `<libellé de l'élément ou donnée cible>` |
 
 **Gestion des erreurs**
 
