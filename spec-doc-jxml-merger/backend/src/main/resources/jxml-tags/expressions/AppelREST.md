@@ -41,8 +41,6 @@ Comme on peut le voir dans cet exemple, il est possible d’injecter des donnée
 
 Il est également possible de conditionner la présence de certaines parties du corps grâce à des paires de** processing instructions** if / end-if, ou d’utiliser une itération.
 
-**Exemple avec une liste** :
-
 ```xml
 <jsonTemplate>
 {"liste": 
@@ -95,8 +93,6 @@ Exemple à l’appel de [https://apicarto.ign.fr/api/codes-postaux/communes/5724
 	}
 ]
 ```
-
-Donne le **DataStore **suivant :
 
 ```xml
 <output>
@@ -202,8 +198,6 @@ Autre mécanisme d'appel externe, alternatif au **WebService** de type Rest/Soap
 <!-- Appelle la classe MyCustomExtension avec les arguments param1 et param2. -->
 <Variable Expression="callExtension(:this, 'MyCustomExtension', 'param1', 'param2')" Submit="false" DataType="object" Name="ExtensionResult" />
 ```
-
-La classe Java correspondante doit étendre `FormPublisherExtension` :
 
 ```java
 public class MyCustomExtension extends FormPublisherExtension {

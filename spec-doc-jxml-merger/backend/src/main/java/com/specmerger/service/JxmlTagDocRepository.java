@@ -38,6 +38,16 @@ public class JxmlTagDocRepository {
     private static final Pattern XML_EXAMPLE_BLOCK = Pattern.compile("(?s)```(?:xml|java)\\n.*?```\\n?");
     private static final Pattern SOURCE_FOOTER =
             Pattern.compile("(?m)^Source\\s*:\\s*documentation JWAY Campus.*$\\n?");
+    // Once XML_EXAMPLE_BLOCK strips a fenced example, the heading that introduced it (e.g.
+    // "## Exemple de code JXML") is left dangling with nothing under it — still visible in the
+    // prompt even though the example itself is gone. Matches any heading immediately followed
+    // (blank lines aside) by another heading or the end of the doc, i.e. one with no remaining
+    // content of its own, regardless of its wording. Non-heading lead-ins (a bold, colon-
+    // terminated sentence/label instead of a "#" heading) aren't matched here on purpose —
+    // rather than widen this regex for that rarer shape, the one fiche that used to have them
+    // (AppelREST.md) was edited directly to drop them.
+    private static final Pattern DANGLING_HEADING =
+            Pattern.compile("(?m)^#{1,6}[^\\n]*\\n\\s*(?=#{1,6}[^\\n]*\\n|\\z)");
 
     // Extra trigger patterns that don't fit the generic <Tag>/Type="..."/Fonction x()
     // conventions, keyed by doc id (filename without extension). AppelREST also covers
@@ -92,23 +102,32 @@ public class JxmlTagDocRepository {
 
         List<String> selected = new ArrayList<>();
         List<String> dropped = new ArrayList<>();
+        boolean droppedForDocCountCap = false;
+        boolean droppedForCharBudgetCap = false;
         int totalChars = 0;
         for (Doc doc : matched) {
-            boolean fits = selected.size() < maxDocs && totalChars + doc.content.length() <= maxTotalChars;
-            if (fits) {
+            boolean docCountCapReached = selected.size() >= maxDocs;
+            boolean charBudgetCapReached = totalChars + doc.content.length() > maxTotalChars;
+            if (!docCountCapReached && !charBudgetCapReached) {
                 selected.add(doc.content);
                 totalChars += doc.content.length();
             } else {
                 dropped.add(doc.id);
+                droppedForDocCountCap |= docCountCapReached;
+                droppedForCharBudgetCap |= charBudgetCapReached;
             }
         }
 
         if (!dropped.isEmpty()) {
+            String limitingFactor = droppedForDocCountCap && droppedForCharBudgetCap
+                    ? "nombre de fiches ET caractères"
+                    : droppedForDocCountCap ? "nombre de fiches (cap de " + maxDocs + " atteint)"
+                    : "caractères (cap de " + maxTotalChars + " atteint)";
             log.warn("jxml-tags: {} fiche(s) pertinente(s) non incluses dans le prompt Mistral faute de place "
-                            + "(cap actuel : {} fiches / {} caractères) : {}. Si ce warning revient souvent, il "
-                            + "faudra alléger ces fiches (retirer les exemples de code par ex.) ou revoir la "
-                            + "sélection plutôt que d'augmenter indéfiniment la limite.",
-                    dropped.size(), maxDocs, maxTotalChars, dropped);
+                            + "(cap actuel : {} fiches / {} caractères ; facteur limitant : {}) : {}. Si ce warning "
+                            + "revient souvent, il faudra alléger ces fiches (retirer les exemples de code par ex.) "
+                            + "ou revoir la sélection plutôt que d'augmenter indéfiniment la limite.",
+                    dropped.size(), maxDocs, maxTotalChars, limitingFactor, dropped);
         }
 
         return selected;
@@ -136,10 +155,14 @@ public class JxmlTagDocRepository {
         return patterns;
     }
 
-    private static String compactForPrompt(String content) {
+    // Package-private rather than private so JxmlTagDocRepositoryTest can exercise each
+    // cleaning step directly with crafted snippets, instead of only indirectly through the
+    // real jxml-tags/ fiches via findRelevantDocs.
+    static String compactForPrompt(String content) {
         String withoutExamples = XML_EXAMPLE_BLOCK.matcher(content).replaceAll("");
         String withoutFooter = SOURCE_FOOTER.matcher(withoutExamples).replaceAll("");
-        return withoutFooter.replaceAll("\\n{3,}", "\n\n").strip();
+        String withoutDanglingHeadings = DANGLING_HEADING.matcher(withoutFooter).replaceAll("");
+        return withoutDanglingHeadings.replaceAll("\\n{3,}", "\n\n").strip();
     }
 
     private static String stripExtension(String filename) {
