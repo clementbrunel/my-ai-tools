@@ -21,9 +21,9 @@
 > - Chaque élément documenté (champ, bouton, pièce jointe, appel de service, …) est
 >   identifié par **son libellé tel qu'affiché à l'utilisateur** (le texte du `<Label>`
 >   côté JXML, la colonne « Élément » côté Word) — jamais un identifiant technique ou un
->   numéro de position, et jamais de colonne `ID` séparée puisqu'elle ne ferait que
->   répéter ce libellé. Le même libellé des deux côtés est ce qui permet au diff de
->   rapprocher un champ Word et son équivalent JXML sans clé technique commune.
+>   numéro de position en guise de libellé. Le même libellé des deux côtés est ce qui
+>   permet au diff de rapprocher un champ Word et son équivalent JXML sans clé technique
+>   commune.
 >   - **Depuis le JXML** : le libellé vient de la résolution des clés `trans(...)`.
 >     Tant que cette résolution n'est pas branchée (issue #285), laisse l'appel
 >     `trans(...)` tel quel — comme demandé plus bas pour le JXML — et il sert alors
@@ -34,6 +34,15 @@
 >     (ex. un bloc « Représentant » répété) : ne pas inventer de suffixe pour les
 >     distinguer — le rapprochement se fait alors par section/tableau, pas par libellé
 >     seul.
+> - Juste après la colonne du libellé, le tableau des éléments porte une colonne `ID` :
+>   le nom technique du champ tel que défini dans l'assistant JWAY (l'attribut `Name`
+>   du contrôle JXML, ex. `Name="Nom"`) — jamais le libellé, jamais une clé `trans(...)`.
+>   Cette colonne est nécessaire pour donner un sens aux règles de gestion, conditions
+>   d'affichage et expressions qui référencent un champ par son nom technique (ex.
+>   `VARIABLE_X=1`, `$(data|VARIABLE_X)`) : sans elle, rien ne permet de savoir à quel
+>   élément du tableau — potentiellement juste à côté — `VARIABLE_X` correspond. Depuis
+>   un Word qui n'expose pas ce nom technique, laisser la cellule vide plutôt que
+>   d'inventer une valeur.
 > - Aucune référence visuelle (maquette, capture d'écran, schéma) : le gabarit reste
 >   intégralement textuel — toute mise en page, tout enchaînement ou toute navigation se
 >   décrit en mots.
@@ -114,11 +123,13 @@ sous-section>`
 
 > Colonne `Élément` : cf. règle d'identification par libellé en tête de document (le
 > libellé de l'élément, pas une clé technique) — c'est cette même valeur qui sert de
-> référence dans les sous-sections ci-dessous.
+> référence dans les sous-sections ci-dessous. Colonne `ID` : cf. règle sur le nom
+> technique du champ en tête de document — c'est cette valeur qui apparaît dans les
+> conditions et règles de gestion référencées plus bas (ex. `VARIABLE_X=1`).
 
-| Élément | Type : nature, format, taille, contrôle | Valeur par défaut | Condition d'affichage | Obligatoire |
-|---|---|---|---|---|
-| `<label>` | `<type>` | `<valeur>` | `<condition>` | `<oui/non>` |
+| Élément | ID | Type : nature, format, taille, contrôle | Valeur par défaut | Condition d'affichage | Obligatoire |
+|---|---|---|---|---|---|
+| `<label>` | `<id>` | `<type>` | `<valeur>` | `<condition>` | `<oui/non>` |
 
 ##### Règles de gestion, aides et messages d'erreur
 
