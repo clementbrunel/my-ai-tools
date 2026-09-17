@@ -5,6 +5,7 @@ import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 
@@ -179,5 +180,145 @@ class JxmlTagDocRepositoryTest {
             assertThat(doc).doesNotContain("Exemple de code JXML");
             assertThat(doc).doesNotContain("```");
         });
+    }
+
+    /**
+     * compactForPrompt() runs four cleaning steps in sequence: strip fenced xml/java
+     * examples, strip the JWAY Campus source footer, strip the heading a stripped example
+     * leaves dangling, then collapse/trim whitespace. These tests exercise each step with
+     * crafted snippets rather than the real jxml-tags/ fiches, so a step's own regex can be
+     * pinned down (and a regression in it caught) independently of the others.
+     */
+    @Nested
+    class CompactForPromptTest {
+
+        @Test
+        void removesFencedXmlExampleBlock() {
+            String raw = "# Foo\n\nTexte avant.\n\n```xml\n<Foo Name=\"a\"/>\n```\n\nTexte après.";
+
+            String compact = JxmlTagDocRepository.compactForPrompt(raw);
+
+            assertThat(compact).doesNotContain("```").doesNotContain("<Foo Name=\"a\"/>");
+            assertThat(compact).contains("Texte avant.").contains("Texte après.");
+        }
+
+        @Test
+        void removesFencedJavaExampleBlock() {
+            String raw = "# Foo\n\nTexte avant.\n\n```java\npublic class Foo {}\n```\n\nTexte après.";
+
+            String compact = JxmlTagDocRepository.compactForPrompt(raw);
+
+            assertThat(compact).doesNotContain("```").doesNotContain("public class Foo {}");
+            assertThat(compact).contains("Texte avant.").contains("Texte après.");
+        }
+
+        @Test
+        void leavesFencedBlocksInOtherLanguagesUntouched() {
+            // Only xml/java fences are treated as disposable examples — anything else (a
+            // json payload, a shell snippet, …) is left as-is.
+            String raw = "# Foo\n\n```json\n{\"a\": 1}\n```\n";
+
+            String compact = JxmlTagDocRepository.compactForPrompt(raw);
+
+            assertThat(compact).contains("```json").contains("{\"a\": 1}");
+        }
+
+        @Test
+        void removesJwayCampusSourceFooterLine() {
+            String raw = "# Foo\n\nCorps de la fiche.\n\n"
+                    + "Source : documentation JWAY Campus, page \"Foo\" "
+                    + "(https://campus.jway.eu/portal/documentation/step/1234).\n";
+
+            String compact = JxmlTagDocRepository.compactForPrompt(raw);
+
+            assertThat(compact).isEqualTo("# Foo\n\nCorps de la fiche.");
+        }
+
+        @Test
+        void keepsASourceLineThatIsNotTheJwayCampusFooter() {
+            // The footer pattern is deliberately narrow (page-source attribution only) so it
+            // doesn't eat unrelated content that happens to start with "Source :".
+            String raw = "# Foo\n\nSource : audit interne du 12/01/2024.\n";
+
+            String compact = JxmlTagDocRepository.compactForPrompt(raw);
+
+            assertThat(compact).contains("Source : audit interne du 12/01/2024.");
+        }
+
+        @Test
+        void removesHeadingLeftDanglingBetweenTwoOtherHeadingsAfterExampleRemoval() {
+            String raw = "# Foo\n\n## Exemple de code JXML\n\n```xml\n<Foo/>\n```\n\n"
+                    + "## Autre section\n\nContenu utile.";
+
+            String compact = JxmlTagDocRepository.compactForPrompt(raw);
+
+            assertThat(compact).doesNotContain("Exemple de code JXML");
+            assertThat(compact).contains("## Autre section").contains("Contenu utile.");
+        }
+
+        @Test
+        void removesHeadingLeftDanglingAtTheEndOfTheDocumentAfterExampleRemoval() {
+            String raw = "# Foo\n\nTexte principal.\n\n## Exemple de code JXML\n\n```xml\n<Foo/>\n```\n";
+
+            String compact = JxmlTagDocRepository.compactForPrompt(raw);
+
+            assertThat(compact).isEqualTo("# Foo\n\nTexte principal.");
+        }
+
+        @Test
+        void keepsAHeadingThatStillHasRealContentAfterItsExampleIsRemoved() {
+            // Unlike a purely decorative "## Exemple de code JXML" heading, one that
+            // introduces actual explanatory prose (not just the code sample below it) must
+            // survive along with that prose, even though the code sample itself is stripped.
+            String raw = "# Foo\n\n## Utilisation\n\nCeci explique la fonction.\n\n```xml\n<Foo/>\n```\n";
+
+            String compact = JxmlTagDocRepository.compactForPrompt(raw);
+
+            assertThat(compact).contains("## Utilisation").contains("Ceci explique la fonction.");
+            assertThat(compact).doesNotContain("```");
+        }
+
+        @Test
+        void collapsesThreeOrMoreConsecutiveNewlinesIntoOneBlankLine() {
+            String raw = "Paragraphe un.\n\n\n\nParagraphe deux.";
+
+            String compact = JxmlTagDocRepository.compactForPrompt(raw);
+
+            assertThat(compact).isEqualTo("Paragraphe un.\n\nParagraphe deux.");
+        }
+
+        @Test
+        void trimsLeadingAndTrailingWhitespace() {
+            String raw = "\n\n  # Foo\n\nCorps.\n\n  \n";
+
+            String compact = JxmlTagDocRepository.compactForPrompt(raw);
+
+            assertThat(compact).isEqualTo("# Foo\n\nCorps.");
+        }
+
+        @Test
+        void appliesAllCleaningStepsTogetherOnARealisticFiche() {
+            // Shaped like the real jxml-tags/ fiches: title, attributes table, a remark,
+            // a decorative example, and the page-source footer.
+            String raw = "# ComboBox\n\n"
+                    + "Affiche une liste déroulante.\n\n"
+                    + "## Attributs\n\n"
+                    + "| Attribut | Description |\n|---|---|\n| `Name` | Identifiant |\n\n"
+                    + "## Remarques\n\n"
+                    + "À utiliser pour plus de 10 options.\n\n"
+                    + "## Exemple de code JXML\n\n"
+                    + "```xml\n<ComboBox Name=\"MyAge\"/>\n```\n\n"
+                    + "Source : documentation JWAY Campus, page \"ComboBox\" "
+                    + "(https://campus.jway.eu/portal/documentation/step/2785).\n";
+
+            String compact = JxmlTagDocRepository.compactForPrompt(raw);
+
+            assertThat(compact).startsWith("# ComboBox");
+            assertThat(compact).contains("## Attributs").contains("| `Name` | Identifiant |");
+            assertThat(compact).contains("## Remarques").contains("À utiliser pour plus de 10 options.");
+            assertThat(compact).doesNotContain("Exemple de code JXML");
+            assertThat(compact).doesNotContain("```").doesNotContain("MyAge");
+            assertThat(compact).doesNotContain("Source :").doesNotContain("documentation JWAY Campus");
+        }
     }
 }

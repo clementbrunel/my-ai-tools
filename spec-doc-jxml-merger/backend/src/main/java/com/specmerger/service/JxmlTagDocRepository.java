@@ -152,7 +152,10 @@ public class JxmlTagDocRepository {
         return patterns;
     }
 
-    private static String compactForPrompt(String content) {
+    // Package-private rather than private so JxmlTagDocRepositoryTest can exercise each
+    // cleaning step directly with crafted snippets, instead of only indirectly through the
+    // real jxml-tags/ fiches via findRelevantDocs.
+    static String compactForPrompt(String content) {
         String withoutExamples = XML_EXAMPLE_BLOCK.matcher(content).replaceAll("");
         String withoutFooter = SOURCE_FOOTER.matcher(withoutExamples).replaceAll("");
         String withoutDanglingHeadings = DANGLING_HEADING.matcher(withoutFooter).replaceAll("");
