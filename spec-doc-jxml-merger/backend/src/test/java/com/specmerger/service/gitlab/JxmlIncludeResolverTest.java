@@ -57,6 +57,17 @@ class JxmlIncludeResolverTest {
     }
 
     @Test
+    void substitutesAnOpenCloseIncludeTagJustLikeASelfClosingOne() {
+        Map<String, String> files = new LinkedHashMap<>();
+        files.put("forms/demarche.jxml", "<JForm><Include DocumentId=\"section_un\"></Include></JForm>");
+        files.put("forms/section_un.jxml", "<Section><Title>Un</Title></Section>");
+
+        String resolved = JxmlIncludeResolver.resolve("forms/demarche.jxml", files);
+
+        assertThat(resolved).isEqualTo("<JForm><Section><Title>Un</Title></Section></JForm>");
+    }
+
+    @Test
     void breaksCircularIncludesInsteadOfLoopingForever() {
         Map<String, String> files = new LinkedHashMap<>();
         files.put("forms/demarche.jxml", "<JForm><Include DocumentId=\"a\" /></JForm>");
@@ -90,6 +101,16 @@ class JxmlIncludeResolverTest {
 
         assertThat(warnings).hasSize(1);
         assertThat(warnings.get(0)).contains("absent").contains("introuvable");
+    }
+
+    @Test
+    void reportsAnUnmatchedIncludeTagAsAWarningInsteadOfLeavingItSilentlyUnreplaced() {
+        // Missing quotes around the DocumentId value: doesn't match INCLUDE_TAG, so resolve()
+        // never touches it — this is the safety net that surfaces it anyway (see the report of
+        // a checked Include silently staying unreplaced with no warning in the preview modal).
+        List<String> warnings = JxmlIncludeResolver.findWarnings("<JForm><Include DocumentId=x/></JForm>");
+
+        assertThat(warnings).anySatisfy(w -> assertThat(w).contains("<Include").contains("non traitée"));
     }
 
     @Test
