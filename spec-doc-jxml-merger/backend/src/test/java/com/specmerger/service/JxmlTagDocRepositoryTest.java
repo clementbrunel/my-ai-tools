@@ -92,6 +92,10 @@ class JxmlTagDocRepositoryTest {
                 .anySatisfy(event -> {
                     assertThat(event.getLevel()).isEqualTo(Level.WARN);
                     assertThat(event.getFormattedMessage()).contains("faute de place");
+                    // The char budget (20_000) is nowhere near exhausted here, so the doc-count
+                    // cap (2) must be named as the limiting factor, not the character budget.
+                    assertThat(event.getFormattedMessage()).contains("nombre de fiches");
+                    assertThat(event.getFormattedMessage()).doesNotContain("caractères (cap");
                 });
     }
 
@@ -99,11 +103,16 @@ class JxmlTagDocRepositoryTest {
     void warnsWhenDocsAreDroppedBecauseOfTheCharBudgetCap() {
         String jxml = "<Content><Section><Title/><Paragraph/></Section></Content>";
 
-        // Tiny char budget: even a single doc's content won't fit.
+        // Tiny char budget: even a single doc's content won't fit, well before the doc-count cap.
         List<String> docs = repository.findRelevantDocs(jxml, 10, 50);
 
         assertThat(docs).isEmpty();
-        assertThat(logAppender.list).anyMatch(event -> event.getLevel() == Level.WARN);
+        assertThat(logAppender.list)
+                .anySatisfy(event -> {
+                    assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                    assertThat(event.getFormattedMessage()).contains("caractères (cap");
+                    assertThat(event.getFormattedMessage()).doesNotContain("nombre de fiches (cap");
+                });
     }
 
     @Test
@@ -154,5 +163,21 @@ class JxmlTagDocRepositoryTest {
         List<String> docs = repository.findRelevantDocs(jxml, 10, 20_000);
 
         assertThat(docs).filteredOn(doc -> doc.startsWith("# appel REST")).hasSize(1);
+    }
+
+    @Test
+    void stripsExampleHeadingLeftDanglingOnceItsCodeBlockIsRemoved() {
+        // ComboBox.md's fenced example is stripped by compactForPrompt, and its
+        // introducing "## Exemple de code JXML" heading must go with it rather than
+        // being sent to the prompt with nothing underneath it.
+        String jxml = "<ComboBox Name=\"a\"/>";
+
+        List<String> docs = repository.findRelevantDocs(jxml, 10, 20_000);
+
+        assertThat(docs).anySatisfy(doc -> {
+            assertThat(doc).startsWith("# ComboBox");
+            assertThat(doc).doesNotContain("Exemple de code JXML");
+            assertThat(doc).doesNotContain("```");
+        });
     }
 }
