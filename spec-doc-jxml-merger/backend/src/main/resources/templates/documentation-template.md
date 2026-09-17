@@ -102,17 +102,19 @@ navigation :
 ## 4. Contenu — détail par section et par écran
 
 > Répéter ce gabarit pour chaque section, puis pour chaque écran de la section.
-> Une section correspond à un regroupement thématique d'écrans ; un écran correspond à
-> une page unique présentée à l'utilisateur.
+> Une section est un niveau de regroupement au-dessus de l'écran : elle est composée
+> d'un ou plusieurs écrans. Son titre porte la navigation de niveau 1 — côté JWAY, c'est
+> l'attribut `ShortTitle` de la section. Un écran correspond à une nouvelle page
+> présentée à l'utilisateur ; son propre titre porte la navigation de niveau 2.
 
-### 4.1. Section : `<nom section>`
+### 4.1. Section : `<titre de navigation niveau 1 — ShortTitle JWAY>`
 
 #### 4.1.1. Conditions d'affichage
 
 `<condition dans laquelle la section est proposée ; sinon, omettre uniquement cette
 sous-section>`
 
-#### 4.1.2. Écran : `<nom écran>`
+#### 4.1.2. Écran : `<titre de navigation niveau 2>`
 
 ##### Conditions d'affichage
 
