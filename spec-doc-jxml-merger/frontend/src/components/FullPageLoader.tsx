@@ -7,10 +7,12 @@ function FullPageLoader({ message }: FullPageLoaderProps) {
     <div
       role="status"
       aria-live="polite"
-      className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-4 bg-white/40"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-white/40"
     >
-      <div className="h-12 w-12 rounded-full border-4 border-gl-orange border-t-transparent animate-spin drop-shadow" />
-      <p className="text-sm font-medium text-[#303030] bg-white/90 rounded px-3 py-1.5 shadow">{message}</p>
+      <div className="flex items-center gap-3 rounded-full bg-white/95 shadow-lg px-5 py-3">
+        <div className="h-6 w-6 shrink-0 rounded-full border-[3px] border-gl-orange border-t-transparent animate-spin" />
+        <p className="text-sm font-medium text-[#303030] whitespace-nowrap">{message}</p>
+      </div>
     </div>
   )
 }
