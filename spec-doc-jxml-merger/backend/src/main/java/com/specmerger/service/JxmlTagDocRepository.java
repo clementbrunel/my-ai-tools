@@ -34,7 +34,7 @@ public class JxmlTagDocRepository {
     // included — useful to a human reader, but they roughly account for a third of the
     // corpus' size for no benefit to the model (it works from the caller's real JXML, not
     // from a canned example). Stripped here at load time rather than by hand-editing the
-    // 76 .md files, so there's still a single source of truth for them.
+    // .md files, so there's still a single source of truth for them.
     private static final Pattern XML_EXAMPLE_BLOCK = Pattern.compile("(?s)```(?:xml|java)\\n.*?```\\n?");
     private static final Pattern SOURCE_FOOTER =
             Pattern.compile("(?m)^Source\\s*:\\s*documentation JWAY Campus.*$\\n?");
@@ -83,7 +83,11 @@ public class JxmlTagDocRepository {
      * in the excerpt (most-used tag first), capped so the combined size stays
      * reasonable in a prompt. If relevant docs still had to be left out to stay under
      * the cap, logs a warning naming them — a recurring warning here means jxml-tags/
-     * itself needs trimming further, not just a higher cap.
+     * itself needs trimming further, not just a higher cap. A JWAY function reference
+     * that used to cover many functions in one fiche (TextFunctions.md, DateFunctions.md,
+     * …) is now split one function per file under its own subfolder (text-functions/,
+     * date-functions/, …), so an excerpt calling a single function only pulls in that
+     * function's own fiche rather than the whole former mega-fiche.
      */
     public List<String> findRelevantDocs(String jxmlExcerpt, int maxDocs, int maxTotalChars) {
         if (jxmlExcerpt == null || jxmlExcerpt.isBlank()) {

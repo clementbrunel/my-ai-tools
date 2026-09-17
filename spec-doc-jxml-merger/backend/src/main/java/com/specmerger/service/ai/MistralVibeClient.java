@@ -183,6 +183,9 @@ public class MistralVibeClient implements SpecResolutionAIProvider {
                 lesquelles aucune correspondance n'a été trouvée dans les fichiers de traduction sélectionnés
                 (voir #285) : laisse-les tels quels plutôt que de deviner leur contenu — y compris comme
                 identifiant quand le libellé d'un champ n'est qu'un appel trans(...) non résolu.
+                La section « 5. Méta-données échangées » ne se déduit pas du JXML (voir le gabarit) : laisse-la
+                avec « _Non renseigné dans la source._ » plutôt que d'y inventer des lignes à partir des champs
+                du formulaire.
                 """.formatted(DOCUMENTATION_TEMPLATE, tagContext, TEMPLATE_FOLLOW_INSTRUCTION);
         String user = "JXML :\n" + safeJxml;
         return new Prompt(List.of(new SystemMessage(system), new UserMessage(user)));

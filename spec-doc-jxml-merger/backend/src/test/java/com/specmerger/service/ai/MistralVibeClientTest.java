@@ -53,6 +53,21 @@ class MistralVibeClientTest {
     }
 
     @Test
+    void generateSpecFromJxmlTellsTheModelNotToInventExchangedMetadata() {
+        // Section 5 (Méta-données échangées) isn't derivable from the JXML — only a Word spec
+        // declares it — so the JXML-only prompt must steer the model away from guessing it.
+        AtomicReference<Prompt> receivedPrompt = new AtomicReference<>();
+        MistralVibeClient client = clientRespondingWith(receivedPrompt, "spec");
+
+        client.generateSpecFromJxml("<JForm/>");
+
+        // Distinct from the template's own reminder (shared with the Word prompt): this phrasing
+        // only exists in the JXML-specific instruction added around the template.
+        assertThat(promptText(receivedPrompt.get()))
+                .contains("Méta-données échangées » ne se déduit pas du JXML");
+    }
+
+    @Test
     void generateSpecFromJxmlFallsBackWhenTheModelCallFails() {
         MistralVibeClient client = new MistralVibeClient(
                 prompt -> { throw new RuntimeException("boom"); }, "", TAG_DOCS);
