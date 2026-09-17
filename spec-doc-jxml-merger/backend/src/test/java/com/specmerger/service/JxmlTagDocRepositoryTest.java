@@ -68,7 +68,20 @@ class JxmlTagDocRepositoryTest {
 
         List<String> docs = repository.findRelevantDocs(jxml, 10, 20_000);
 
-        assertThat(docs).anySatisfy(doc -> assertThat(doc).contains("## Fonction contains()"));
+        assertThat(docs).anySatisfy(doc -> assertThat(doc).contains("# Fonction contains()"));
+    }
+
+    @Test
+    void onlyPullsInTheCalledFunctionsOwnFicheFromAFormerMegaFiche() {
+        // text-functions/ used to be one TextFunctions.md documenting 16 functions; an excerpt
+        // calling only contains() must not also pull in unrelated ones like padLeft() or
+        // formatString(), which is exactly what splitting one fiche per function buys.
+        String jxml = "<?if (contains($(who), 'Mister'))?><?end-if ?>";
+
+        List<String> docs = repository.findRelevantDocs(jxml, 10, 20_000);
+
+        assertThat(docs).noneSatisfy(doc -> assertThat(doc).contains("# Fonction padLeft()"));
+        assertThat(docs).noneSatisfy(doc -> assertThat(doc).contains("# Fonction formatString()"));
     }
 
     @Test
@@ -150,49 +163,13 @@ class JxmlTagDocRepositoryTest {
     }
 
     @Test
-    void onlyIncludesTheCalledFunctionSectionFromAMultiFunctionFiche() {
-        // TextFunctions.md documents 16 functions; an excerpt calling only contains() must not
-        // drag in the other 15 (padLeft, formatString, …), which is where most of the doc's
-        // size lives.
-        String jxml = "<?if (contains($(who), 'Mister'))?><?end-if ?>";
-
-        List<String> docs = repository.findRelevantDocs(jxml, 10, 20_000);
-
-        assertThat(docs).anySatisfy(doc -> {
-            assertThat(doc).startsWith("# Text Functions");
-            assertThat(doc).contains("## Fonction contains()");
-            assertThat(doc).doesNotContain("## Fonction padLeft()");
-            assertThat(doc).doesNotContain("## Fonction formatString()");
-        });
-    }
-
-    @Test
-    void includesEveryCalledFunctionSectionWhenAnExcerptUsesSeveral() {
+    void includesEveryCalledFunctionsOwnFicheWhenAnExcerptUsesSeveral() {
         String jxml = "<?if (contains($(who), 'Mister'))?><?set $(x) = trim($(x))?><?end-if ?>";
 
         List<String> docs = repository.findRelevantDocs(jxml, 10, 20_000);
 
-        assertThat(docs).anySatisfy(doc -> {
-            assertThat(doc).startsWith("# Text Functions");
-            assertThat(doc).contains("## Fonction contains()");
-            assertThat(doc).contains("## Fonction trim()");
-            assertThat(doc).doesNotContain("## Fonction padLeft()");
-        });
-    }
-
-    @Test
-    void keepsWholeFicheForADocWithOnlyOneFunctionHeading() {
-        // AppelREST.md has a single "## Fonction callExtension()" heading among substantial
-        // other content (JsonTemplate, Mapping, Properties, …) explaining the tag itself — it
-        // must never be reduced to just that one section.
-        String jxml = "<Variable Expression=\"callExtension(:this, 'X')\" />";
-
-        List<String> docs = repository.findRelevantDocs(jxml, 10, 20_000);
-
-        assertThat(docs).anySatisfy(doc -> {
-            assertThat(doc).startsWith("# appel REST");
-            assertThat(doc).contains("## JsonTemplate").contains("## Mapping").contains("## Properties");
-        });
+        assertThat(docs).anySatisfy(doc -> assertThat(doc).contains("# Fonction contains()"));
+        assertThat(docs).anySatisfy(doc -> assertThat(doc).contains("# Fonction trim()"));
     }
 
     @Test
@@ -443,19 +420,20 @@ class JxmlTagDocRepositoryTest {
         }
 
         @Test
-        void keepsDescriptivePropseAroundEachFunctionExampleInDateFunctions() throws IOException {
-            // DateFunctions.md repeats "## Exemple d'utilisation de la fonction X()" ~25 times,
-            // each followed by real Description/Forme d'appel prose *before* its fenced
-            // example — none of those headings are dangling, so all must survive along with
-            // their prose, with only the fenced code stripped out from under them.
-            String compact = loadFiche("expressions/DateFunctions.md");
+        void keepsDescriptivePropseAroundBothOverloadsMergedIntoOneFunctionFiche() throws IOException {
+            // date-functions/getYear.md merges the fiche's two original "## Exemple
+            // d'utilisation de la fonction getYear(date)" / "...getYear()" sections (the
+            // with-argument and current-date overloads) under one "# Fonction getYear()"
+            // heading — both Description/Forme d'appel blocks must survive with only their
+            // fenced examples stripped out from under them.
+            String compact = loadFiche("expressions/date-functions/getYear.md");
 
             assertThat(compact).doesNotContain("```");
-            assertThat(compact).contains("## Exemple d’utilisation de la fonction getDate()");
-            assertThat(compact).contains("Retourne la date courante.");
-            assertThat(compact).contains("## Exemple d’utilisation de la fonction parseDate()");
-            // The literal example code itself is gone even though its heading/prose survive.
-            assertThat(compact).doesNotContain("<Variable DataType=\"date\" Expression=\"getDate()\"");
+            assertThat(compact).startsWith("# Fonction getYear()");
+            assertThat(compact).contains("Retourne la valeur numérique correspondant à l’année d’une date.");
+            assertThat(compact).contains("Retourne un nombre entier correspondant à l’année");
+            // The literal example code itself is gone even though its surrounding prose survives.
+            assertThat(compact).doesNotContain("<Variable DataType=\"integer\" Expression=\"getYear($(date))\"");
         }
 
         @Test

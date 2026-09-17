@@ -27,21 +27,14 @@ import java.util.regex.Pattern;
 @Component
 public class JxmlTagDocRepository {
 
-    // Deliberately permissive on what follows the name (empty "()", a parameter such as
-    // "(date)"/"($(date))", or trailing bold markup like "**roundHalfEven()**") so it catches
-    // every heading spelling used across the corpus — including DateFunctions.md's paired
-    // "getYear(date)" / "getYear()" headings for the same function — without missing any when
-    // used as section boundaries in {@link #splitByFunction}.
     private static final Pattern FUNCTION_HEADING =
-            Pattern.compile("(?i)fonction\\s+\\**([A-Za-z_][A-Za-z0-9_]*)\\**\\s*\\(");
-
-    private static final Pattern HEADING_LINE = Pattern.compile("(?m)^(#{1,6})\\s+.*$");
+            Pattern.compile("(?i)fonction\\s+\\**([A-Za-z_][A-Za-z0-9_]*)\\(\\)");
 
     // The fiches are lifted as-is from JWAY Campus, XML example and page-source footer
     // included — useful to a human reader, but they roughly account for a third of the
     // corpus' size for no benefit to the model (it works from the caller's real JXML, not
     // from a canned example). Stripped here at load time rather than by hand-editing the
-    // 76 .md files, so there's still a single source of truth for them.
+    // .md files, so there's still a single source of truth for them.
     private static final Pattern XML_EXAMPLE_BLOCK = Pattern.compile("(?s)```(?:xml|java)\\n.*?```\\n?");
     private static final Pattern SOURCE_FOOTER =
             Pattern.compile("(?m)^Source\\s*:\\s*documentation JWAY Campus.*$\\n?");
@@ -76,9 +69,7 @@ public class JxmlTagDocRepository {
             for (Resource resource : resolver.getResources(locationPattern)) {
                 String id = stripExtension(resource.getFilename());
                 String rawContent = readContent(resource);
-                String compacted = compactForPrompt(rawContent);
-                FunctionSplit split = splitByFunction(compacted);
-                docs.add(new Doc(id, compacted, split.preamble(), split.sections(), buildPatterns(id, rawContent)));
+                docs.add(new Doc(id, compactForPrompt(rawContent), buildPatterns(id, rawContent)));
             }
         } catch (IOException e) {
             throw new IllegalStateException("Impossible de charger les fiches jxml-tags/", e);
@@ -90,12 +81,13 @@ public class JxmlTagDocRepository {
      * detected in the excerpt, already stripped of their XML examples and source
      * footer (see {@link #compactForPrompt}) and ordered by how often they're matched
      * in the excerpt (most-used tag first), capped so the combined size stays
-     * reasonable in a prompt. A doc covering several functions (TextFunctions.md,
-     * DateFunctions.md, …) only contributes its intro plus the sections of the specific
-     * functions actually called in the excerpt (see {@link #splitByFunction}), rather
-     * than every function it documents. If relevant docs still had to be left out to
-     * stay under the cap, logs a warning naming them — a recurring warning here means
-     * jxml-tags/ itself needs trimming further, not just a higher cap.
+     * reasonable in a prompt. If relevant docs still had to be left out to stay under
+     * the cap, logs a warning naming them — a recurring warning here means jxml-tags/
+     * itself needs trimming further, not just a higher cap. A JWAY function reference
+     * that used to cover many functions in one fiche (TextFunctions.md, DateFunctions.md,
+     * …) is now split one function per file under its own subfolder (text-functions/,
+     * date-functions/, …), so an excerpt calling a single function only pulls in that
+     * function's own fiche rather than the whole former mega-fiche.
      */
     public List<String> findRelevantDocs(String jxmlExcerpt, int maxDocs, int maxTotalChars) {
         if (jxmlExcerpt == null || jxmlExcerpt.isBlank()) {
@@ -118,12 +110,11 @@ public class JxmlTagDocRepository {
         boolean droppedForCharBudgetCap = false;
         int totalChars = 0;
         for (Doc doc : matched) {
-            String docContent = doc.contentFor(jxmlExcerpt);
             boolean docCountCapReached = selected.size() >= maxDocs;
-            boolean charBudgetCapReached = totalChars + docContent.length() > maxTotalChars;
+            boolean charBudgetCapReached = totalChars + doc.content.length() > maxTotalChars;
             if (!docCountCapReached && !charBudgetCapReached) {
-                selected.add(docContent);
-                totalChars += docContent.length();
+                selected.add(doc.content);
+                totalChars += doc.content.length();
             } else {
                 dropped.add(doc.id);
                 droppedForDocCountCap |= docCountCapReached;
@@ -178,63 +169,6 @@ public class JxmlTagDocRepository {
         return withoutDanglingHeadings.replaceAll("\\n{3,}", "\n\n").strip();
     }
 
-    /**
-     * Splits an already-compacted doc into an always-kept preamble (everything before its
-     * first function heading — title, intro, the "## Liste des fonctions disponibles" summary
-     * when present) plus one {@link FunctionSection} per "## Fonction xxx(...)"-style heading,
-     * each bounded by the next heading of equal or higher level. Applied only when a doc
-     * documents at least two distinct functions (TextFunctions.md, DateFunctions.md, …): such
-     * "mega-fiches" otherwise dominate the prompt's char budget even though a given JXML
-     * excerpt typically calls only one or two of the many functions they cover. A doc with
-     * zero or one function heading (an element/control doc, or one whose match trigger is
-     * really its own tag rather than a single function, e.g. AppelREST.md) is returned with no
-     * sections, so its plain content is kept untouched — see {@link Doc#contentFor}.
-     */
-    private static FunctionSplit splitByFunction(String compactedContent) {
-        record Heading(int start, int level, String text) {
-        }
-        List<Heading> headings = new ArrayList<>();
-        Matcher hm = HEADING_LINE.matcher(compactedContent);
-        while (hm.find()) {
-            headings.add(new Heading(hm.start(), hm.group(1).length(), hm.group()));
-        }
-
-        List<FunctionSection> sections = new ArrayList<>();
-        int firstSectionStart = -1;
-        for (int i = 0; i < headings.size(); i++) {
-            Heading heading = headings.get(i);
-            Matcher fm = FUNCTION_HEADING.matcher(heading.text());
-            if (!fm.find()) {
-                continue;
-            }
-            if (firstSectionStart < 0) {
-                firstSectionStart = heading.start();
-            }
-            int end = compactedContent.length();
-            for (int j = i + 1; j < headings.size(); j++) {
-                if (headings.get(j).level() <= heading.level()) {
-                    end = headings.get(j).start();
-                    break;
-                }
-            }
-            String name = fm.group(1);
-            String text = compactedContent.substring(heading.start(), end).strip();
-            sections.add(new FunctionSection(name, Pattern.compile("\\b" + Pattern.quote(name) + "\\s*\\("), text));
-        }
-
-        long distinctFunctions = sections.stream().map(FunctionSection::name).distinct().count();
-        if (distinctFunctions < 2) {
-            return new FunctionSplit("", List.of());
-        }
-        return new FunctionSplit(compactedContent.substring(0, firstSectionStart).strip(), sections);
-    }
-
-    private record FunctionSplit(String preamble, List<FunctionSection> sections) {
-    }
-
-    private record FunctionSection(String name, Pattern callPattern, String text) {
-    }
-
     private static String stripExtension(String filename) {
         if (filename == null) {
             return "unknown";
@@ -249,8 +183,7 @@ public class JxmlTagDocRepository {
         }
     }
 
-    private record Doc(String id, String content, String preamble, List<FunctionSection> sections,
-                        List<Pattern> patterns) {
+    private record Doc(String id, String content, List<Pattern> patterns) {
         boolean matches(String excerpt) {
             for (Pattern p : patterns) {
                 if (p.matcher(excerpt).find()) {
@@ -269,26 +202,6 @@ public class JxmlTagDocRepository {
                 }
             }
             return count;
-        }
-
-        /**
-         * The doc content to actually inject for this excerpt: the full content as-is for a
-         * doc that wasn't split (no {@link #sections}), otherwise the preamble plus only the
-         * sections of the functions this excerpt actually calls. Falls back to the full content
-         * if none of the excerpt's calls line up with a named section — e.g. a split doc matched
-         * through some other pattern than a function call — so a real match is never dropped.
-         */
-        String contentFor(String excerpt) {
-            if (sections.isEmpty()) {
-                return content;
-            }
-            StringBuilder sb = new StringBuilder(preamble);
-            for (FunctionSection section : sections) {
-                if (section.callPattern().matcher(excerpt).find()) {
-                    sb.append("\n\n").append(section.text());
-                }
-            }
-            return sb.length() > preamble.length() ? sb.toString().strip() : content;
         }
     }
 }
