@@ -32,6 +32,7 @@ const projects: GitLabProjectSummary[] = [
 
 const singleEntryPointListing: GitLabSourceListing = {
   entryPoints: [{ documentId: 'demarche_un', path: 'forms/demarche_un.jxml' }],
+  mandatoryPaths: ['resources/fr.properties'],
   optionalPaths: ['forms/kyc.jxml', 'forms/claims.jxml'],
 }
 
@@ -101,6 +102,14 @@ describe('CodePanel', () => {
     await screen.findByText(/JXML envoyé au modèle/)
     expect(container.textContent).toContain('JForm')
     expect(container.textContent).toContain('Section')
+  })
+
+  it('lists translation files as always-included and non-uncheckable', async () => {
+    await goToGitlabModeWithProject()
+    const item = screen.getByText('resources/fr.properties').closest('li') as HTMLElement
+    const checkbox = within(item).getByRole('checkbox')
+    expect(checkbox).toBeChecked()
+    expect(checkbox).toBeDisabled()
   })
 
   it('toggles a source path via its checkbox', async () => {

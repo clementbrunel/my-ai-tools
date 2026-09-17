@@ -41,6 +41,7 @@ function CodePanel({ onCollapse }: CodePanelProps) {
   const [gitlabSearch, setGitlabSearch] = useState('')
   const [gitlabEntryPoints, setGitlabEntryPoints] = useState<GitLabEntryPoint[]>([])
   const [gitlabEntryPointPath, setGitlabEntryPointPath] = useState('')
+  const [gitlabMandatoryPaths, setGitlabMandatoryPaths] = useState<string[]>([])
   const [gitlabSourcePaths, setGitlabSourcePaths] = useState<string[]>([])
   const [gitlabSelectedPaths, setGitlabSelectedPaths] = useState<Set<string>>(new Set())
   const [gitlabSourcesLoading, setGitlabSourcesLoading] = useState(false)
@@ -77,6 +78,7 @@ function CodePanel({ onCollapse }: CodePanelProps) {
 
   async function handleSelectGitlabProject(projectId: string) {
     setGitlabProjectId(projectId)
+    setGitlabMandatoryPaths([])
     setGitlabSourcePaths([])
     setGitlabSelectedPaths(new Set())
     setGitlabEntryPoints([])
@@ -90,6 +92,7 @@ function CodePanel({ onCollapse }: CodePanelProps) {
     setGitlabSourcesLoading(true)
     try {
       const listing = await listGitlabSources(project.groupKey, projectId)
+      setGitlabMandatoryPaths(listing.mandatoryPaths)
       setGitlabSourcePaths(listing.optionalPaths)
       setGitlabSelectedPaths(new Set(listing.optionalPaths))
       setGitlabEntryPoints(listing.entryPoints)
@@ -376,6 +379,23 @@ function CodePanel({ onCollapse }: CodePanelProps) {
                       </>
                     )}
                   </div>
+                </div>
+              )}
+              {gitlabMandatoryPaths.length > 0 && (
+                <div className="border border-[#dcdcde] rounded">
+                  <div className="px-2 py-1.5 border-b border-[#dcdcde] bg-[#fafafa] text-sm text-gray-600">
+                    Fichiers de traduction — toujours inclus (résolvent les clés trans(...) du JXML, #285)
+                  </div>
+                  <ul className="max-h-32 overflow-auto text-sm divide-y divide-[#eee]">
+                    {gitlabMandatoryPaths.map((path) => (
+                      <li key={path} className="px-2 py-1">
+                        <label className="flex items-center gap-2 text-gray-500">
+                          <input type="checkbox" checked disabled />
+                          <span className="font-mono text-[13px] break-all">{path}</span>
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
               {gitlabSourcePaths.length > 0 && (

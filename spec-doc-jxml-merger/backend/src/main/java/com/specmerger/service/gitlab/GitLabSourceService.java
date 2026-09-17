@@ -96,7 +96,9 @@ public class GitLabSourceService {
      * sources (checkboxes) before they're actually fetched for analysis. Files that FORMS.jxml
      * (the EAR's démarche menu) references as entry points are singled out separately: the
      * user picks exactly one démarche to document, not a free checkbox selection like the
-     * rest (includes, translations, Java).
+     * rest. Translation resources ({@link TranslationResolver#isTranslationFile}) are also
+     * singled out as {@code mandatoryPaths}, since excluding them only leaves {@code
+     * trans(...)} keys unresolved (#285) — only includes/Java remain freely checkable.
      */
     public GitLabSourceListing listRelevantSourcePaths(String groupKey, String projectIdOrPath) throws GitLabApiException {
         try (GitLabApi api = apiFactory.create()) {
@@ -109,11 +111,17 @@ public class GitLabSourceService {
 
             List<GitLabEntryPoint> entryPoints = resolveEntryPoints(api, resolved, allPaths);
             Set<String> entryPointPaths = entryPoints.stream().map(GitLabEntryPoint::path).collect(Collectors.toSet());
-            List<String> optionalPaths = allPaths.stream().filter(p -> !entryPointPaths.contains(p)).toList();
+            List<String> remainingPaths = allPaths.stream().filter(p -> !entryPointPaths.contains(p)).toList();
+            List<String> mandatoryPaths = remainingPaths.stream().filter(TranslationResolver::isTranslationFile).toList();
+            List<String> optionalPaths = remainingPaths.stream()
+                    .filter(p -> !TranslationResolver.isTranslationFile(p))
+                    .toList();
 
-            log.info("GitLab: {} fichier(s) pertinent(s) sur {} ({}), dont {} point(s) d'entrée FORMS.jxml",
-                    allPaths.size(), resolved.project().getPathWithNamespace(), groupKey, entryPoints.size());
-            return new GitLabSourceListing(entryPoints, optionalPaths);
+            log.info("GitLab: {} fichier(s) pertinent(s) sur {} ({}), dont {} point(s) d'entrée FORMS.jxml et "
+                            + "{} fichier(s) de traduction obligatoire(s)",
+                    allPaths.size(), resolved.project().getPathWithNamespace(), groupKey, entryPoints.size(),
+                    mandatoryPaths.size());
+            return new GitLabSourceListing(entryPoints, mandatoryPaths, optionalPaths);
         }
     }
 
@@ -167,7 +175,11 @@ public class GitLabSourceService {
      * path. When {@code selectedPaths} is non-null, only those among the relevant files
      * (plus {@code entryPointPath}, if given — see {@link #listRelevantSourcePaths}, it's
      * never itself offered as a checkbox) are downloaded; a null {@code selectedPaths}
-     * downloads every relevant file.
+     * downloads every relevant file. Translation resources ({@link
+     * TranslationResolver#isTranslationFile}) are always downloaded regardless of {@code
+     * selectedPaths} — they're never offered as a checkbox in the first place (see
+     * {@link #listRelevantSourcePaths}'s {@code mandatoryPaths}), so a selection that omits
+     * them (e.g. a stale client) must not silently drop them either.
      */
     public Map<String, String> fetchRelevantSources(String groupKey, String projectIdOrPath,
             Collection<String> selectedPaths, String entryPointPath) throws GitLabApiException, IOException {
@@ -179,7 +191,8 @@ public class GitLabSourceService {
                 if (item.getType() != TreeItem.Type.BLOB || !resolved.filter().isRelevant(item.getPath())) {
                     continue;
                 }
-                if (effectivePaths != null && !effectivePaths.contains(item.getPath())) {
+                boolean isMandatoryTranslation = TranslationResolver.isTranslationFile(item.getPath());
+                if (effectivePaths != null && !effectivePaths.contains(item.getPath()) && !isMandatoryTranslation) {
                     continue;
                 }
                 try (InputStream raw = api.getRepositoryFileApi().getRawFile(resolved.projectId(), resolved.ref(), item.getPath())) {
