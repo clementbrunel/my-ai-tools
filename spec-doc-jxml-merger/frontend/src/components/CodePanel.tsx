@@ -17,8 +17,8 @@ interface CodePanelProps {
 type Tab = 'input' | 'output'
 
 const JXML_MODES: Array<[JxmlMode, string]> = [
-  ['text', 'Coller le texte'],
   ['gitlab', 'Projet GitLab'],
+  ['text', 'Coller le texte'],
 ]
 
 function downloadMarkdown(markdown: string, filename: string) {

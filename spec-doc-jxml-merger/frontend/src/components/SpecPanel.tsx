@@ -75,13 +75,22 @@ function SpecPanel({ onCollapse }: SpecPanelProps) {
 
       {tab === 'input' ? (
         <div className="flex flex-col gap-3 min-h-0 flex-1">
-          <input
-            type="file"
-            accept=".docx"
-            onChange={(e) => setWordFile(e.target.files?.[0] ?? null)}
-            className="text-sm file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:bg-gl-blue file:text-white file:text-sm hover:file:bg-gl-blue-dark file:cursor-pointer"
-          />
-          {wordFile && <p className="text-sm text-gray-500">{wordFile.name}</p>}
+          <div className="flex items-center gap-3">
+            <label
+              htmlFor="spec-word-file"
+              className="btn-primary cursor-pointer text-sm py-1.5 px-3"
+            >
+              Choisir un fichier
+            </label>
+            <input
+              id="spec-word-file"
+              type="file"
+              accept=".docx"
+              onChange={(e) => setWordFile(e.target.files?.[0] ?? null)}
+              className="sr-only"
+            />
+            <span className="text-sm text-gray-500">{wordFile ? wordFile.name : 'Aucun fichier choisi'}</span>
+          </div>
           <div className="mt-auto pt-3 border-t border-[#eee] flex items-center gap-3">
             <button type="button" className="btn-primary" onClick={handleGenerate} disabled={!wordFile || loading}>
               {loading ? 'Génération…' : 'Générer la doc'}
