@@ -54,7 +54,7 @@ describe('SpecPanel', () => {
     await userEvent.upload(input, file)
     await userEvent.click(screen.getByText('Générer la doc'))
     expect(generateSpecFromWordMock).toHaveBeenCalledWith(file)
-    expect(await screen.findByPlaceholderText(/apparaîtra ici/)).toHaveValue('# Doc générée')
+    expect(await screen.findByRole('heading', { level: 1, name: 'Doc générée' })).toBeDefined()
   })
 
   it('shows an error message when generation fails', async () => {

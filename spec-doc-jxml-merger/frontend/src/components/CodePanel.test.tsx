@@ -125,7 +125,7 @@ describe('CodePanel', () => {
       entryPointPath: 'forms/demarche_un.jxml',
       selectedPaths: ['forms/kyc.jxml', 'forms/claims.jxml'],
     })
-    expect(await screen.findByPlaceholderText(/apparaîtra ici/)).toHaveValue('# Doc GitLab')
+    expect(await screen.findByRole('heading', { level: 1, name: 'Doc GitLab' })).toBeDefined()
   })
 
   it('shows an error message when generation fails', async () => {
