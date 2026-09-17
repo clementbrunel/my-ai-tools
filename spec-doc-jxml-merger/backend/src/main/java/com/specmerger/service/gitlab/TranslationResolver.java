@@ -41,6 +41,10 @@ public final class TranslationResolver {
     // quotes/parens rather than whitelisting "word" characters.
     private static final Pattern TRANS_CALL = Pattern.compile("trans\\(\\s*['\"]?([^'\"()]+?)['\"]?\\s*\\)");
 
+    // e.g. "include_address_Part_BP_de" -> "de"; deliberately requires the leading underscore
+    // so a bare "de.xlf"/"fr.xlf" (matched by matchesLanguageByFileName instead) isn't affected.
+    private static final Pattern XLIFF_FILENAME_LANGUAGE_SUFFIX = Pattern.compile("_([a-zA-Z]{2})$");
+
     private TranslationResolver() {
     }
 
@@ -147,13 +151,24 @@ public final class TranslationResolver {
 
     /**
      * XLIFF 1.2 {@code <trans-unit id="...">} with {@code <source>}/{@code <target>} children.
-     * Language selection: the enclosing {@code <file>}'s {@code target-language}/{@code
-     * source-language} attributes are used when present (taking {@code <target>} text for the
-     * former, {@code <source>} for the latter); when neither is declared, falls back to the
-     * same fixed-file-name convention as {@code .properties} (e.g. {@code fr.xlf}), preferring
-     * each unit's {@code <target>} over its {@code <source>} if both exist.
+     * Language selection: when the file name itself carries a {@code _xx} language suffix (e.g.
+     * {@code include_address_Part_BP_de.xlf}), that name wins outright and the file is skipped
+     * entirely if it doesn't match {@code language} — several such per-component files can
+     * declare the very same {@code target-language} attribute while genuinely disagreeing on a
+     * given key's text (independently translated from different source languages), which
+     * otherwise floods the logs with spurious "defined differently" warnings for keys that were
+     * never meant to be merged together in the first place. Absent such a suffix, the enclosing
+     * {@code <file>}'s {@code target-language}/{@code source-language} attributes are used when
+     * present (taking {@code <target>} text for the former, {@code <source>} for the latter);
+     * when neither is declared, falls back to the same fixed-file-name convention as {@code
+     * .properties} (e.g. {@code fr.xlf}), preferring each unit's {@code <target>} over its
+     * {@code <source>} if both exist.
      */
     private static Map<String, String> parseXliff(String path, String content, String language) {
+        String fileNameLanguage = xliffFileNameLanguageSuffix(path);
+        if (fileNameLanguage != null && !fileNameLanguage.equalsIgnoreCase(language)) {
+            return Map.of();
+        }
         try {
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
             factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
@@ -230,6 +245,11 @@ public final class TranslationResolver {
         Node node = children.item(0);
         String text = node.getTextContent();
         return text == null || text.isBlank() ? null : text;
+    }
+
+    private static String xliffFileNameLanguageSuffix(String path) {
+        Matcher matcher = XLIFF_FILENAME_LANGUAGE_SUFFIX.matcher(fileNameWithoutExtension(path));
+        return matcher.find() ? matcher.group(1) : null;
     }
 
     private static String fileNameWithoutExtension(String path) {

@@ -126,6 +126,41 @@ class TranslationResolverTest {
     }
 
     @Test
+    void ignoresAnXliffFileWhoseNameSuffixDisagreesWithTheLanguageEvenWhenItsTargetLanguageAttributeMatches() {
+        String deXlf = """
+                <xliff version="1.2">
+                  <file source-language="de" target-language="fr">
+                    <body>
+                      <trans-unit id="4">
+                        <source>Adresse (DE)</source>
+                        <target>Adresse depuis DE</target>
+                      </trans-unit>
+                    </body>
+                  </file>
+                </xliff>
+                """;
+        String frXlf = """
+                <xliff version="1.2">
+                  <file source-language="fr" target-language="fr">
+                    <body>
+                      <trans-unit id="4">
+                        <source>Adresse</source>
+                        <target>Adresse</target>
+                      </trans-unit>
+                    </body>
+                  </file>
+                </xliff>
+                """;
+        Map<String, String> files = Map.of(
+                "translation/addressBlock/include_address_Part_BP_de.xlf", deXlf,
+                "translation/addressBlock/include_address_Part_BP_fr.xlf", frXlf);
+
+        Map<String, String> translations = TranslationResolver.buildTranslations(files, "fr");
+
+        assertThat(translations).containsExactly(Map.entry("4", "Adresse"));
+    }
+
+    @Test
     void ignoresNonTranslationFiles() {
         Map<String, String> files = Map.of("forms/demarche.jxml", "117=not a translation");
 
