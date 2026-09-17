@@ -78,8 +78,7 @@ public class MistralVibeClient implements SpecResolutionAIProvider {
         String system = """
                 %sCompare ces deux extraits de spécification pour le même écran/fonctionnalité.
                 Propose la version à retenir dans le markdown final, avec une courte justification.
-                """.formatted(buildTagContext(jxmlExcerpt, MAX_TAG_DOCS, MAX_TAG_DOCS_CHARS,
-                        "Documentation des balises JWAY détectées dans l'extrait JXML ci-dessous"));
+                """.formatted(buildTagContext(jxmlExcerpt));
         String user = """
                 Word (spec fonctionnelle déclarée) : %s
                 JXML (code réel) : %s
@@ -124,8 +123,7 @@ public class MistralVibeClient implements SpecResolutionAIProvider {
 
     Prompt buildJxmlSpecPrompt(String resolvedJxml) {
         String safeJxml = resolvedJxml == null ? "" : resolvedJxml;
-        String tagContext = buildTagContext(safeJxml, MAX_TAG_DOCS_SPEC_GENERATION, MAX_TAG_DOCS_CHARS_SPEC_GENERATION,
-                "Documentation des balises JWAY détectées dans ce JXML");
+        String tagContext = buildSpecGenerationTagContext(safeJxml);
         String system = """
                 %s
 
@@ -178,12 +176,23 @@ public class MistralVibeClient implements SpecResolutionAIProvider {
                 + (wordText == null ? "(absent)" : wordText);
     }
 
-    private String buildTagContext(String jxmlExcerpt, int maxDocs, int maxChars, String intro) {
-        List<String> docs = tagDocRepository.findRelevantDocs(jxmlExcerpt, maxDocs, maxChars);
+    private String buildTagContext(String jxmlExcerpt) {
+        List<String> docs = tagDocRepository.findRelevantDocs(jxmlExcerpt, MAX_TAG_DOCS, MAX_TAG_DOCS_CHARS);
         if (docs.isEmpty()) {
             return "";
         }
-        return intro + " :\n" + String.join("\n---\n", docs) + "\n\n";
+        return "Documentation des balises JWAY détectées dans l'extrait JXML ci-dessous :\n"
+                + String.join("\n---\n", docs) + "\n\n";
+    }
+
+    private String buildSpecGenerationTagContext(String jxmlText) {
+        List<String> docs = tagDocRepository.findRelevantDocs(
+                jxmlText, MAX_TAG_DOCS_SPEC_GENERATION, MAX_TAG_DOCS_CHARS_SPEC_GENERATION);
+        if (docs.isEmpty()) {
+            return "";
+        }
+        return "Documentation des balises JWAY détectées dans ce JXML :\n"
+                + String.join("\n---\n", docs) + "\n\n";
     }
 
     private String maskedApiKey() {
