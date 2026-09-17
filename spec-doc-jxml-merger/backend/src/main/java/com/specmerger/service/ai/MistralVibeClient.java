@@ -2,6 +2,7 @@ package com.specmerger.service.ai;
 
 import com.specmerger.service.JxmlTagDocRepository;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -18,6 +19,12 @@ import java.util.List;
  * logged by {@link MistralHttpLoggingConfig}; this class only adds business
  * context (which excerpt is being resolved) to avoid logging the same
  * request/response content twice.
+ *
+ * <p>Each call sends a {@link SystemMessage} carrying the stable task instructions and
+ * JWAY tag documentation, and a {@link UserMessage} carrying only the excerpt being
+ * processed (JXML or Word text) — separating the two mirrors how the chat-completions
+ * API is meant to be used and keeps the door open for the gateway to cache the mostly
+ * static system content across calls.
  */
 @Slf4j
 @Component
@@ -44,21 +51,23 @@ public class MistralVibeClient implements SpecResolutionAIProvider {
 
     @Override
     public String proposeResolution(String wordExcerpt, String jxmlExcerpt) {
-        String prompt = """
+        String system = """
                 %sCompare ces deux extraits de spécification pour le même écran/fonctionnalité.
+                Propose la version à retenir dans le markdown final, avec une courte justification.
+                """.formatted(buildTagContext(jxmlExcerpt));
+        String user = """
                 Word (spec fonctionnelle déclarée) : %s
                 JXML (code réel) : %s
-                Propose la version à retenir dans le markdown final, avec une courte justification.
                 """.formatted(
-                buildTagContext(jxmlExcerpt),
                 wordExcerpt == null ? "(absent)" : wordExcerpt,
                 jxmlExcerpt == null ? "(absent)" : jxmlExcerpt);
 
         log.debug("mistral-vibe resolving divergence: word={} chars, jxml={} chars",
                 wordExcerpt == null ? 0 : wordExcerpt.length(),
                 jxmlExcerpt == null ? 0 : jxmlExcerpt.length());
+        Prompt prompt = new Prompt(List.of(new SystemMessage(system), new UserMessage(user)));
         try {
-            ChatResponse response = chatModel.call(new Prompt(new UserMessage(prompt)));
+            ChatResponse response = chatModel.call(prompt);
             String content = response.getResult() != null ? response.getResult().getOutput().getText() : null;
             return content != null && !content.isBlank() ? content : fallback(wordExcerpt, jxmlExcerpt);
         } catch (Exception e) {
@@ -69,11 +78,11 @@ public class MistralVibeClient implements SpecResolutionAIProvider {
 
     @Override
     public String generateSpecFromJxml(String resolvedJxml) {
-        String prompt = buildJxmlSpecPrompt(resolvedJxml);
+        Prompt prompt = buildJxmlSpecPrompt(resolvedJxml);
         log.debug("mistral-vibe generating spec from JXML: {} chars",
                 resolvedJxml == null ? 0 : resolvedJxml.length());
         try {
-            ChatResponse response = chatModel.call(new Prompt(new UserMessage(prompt)));
+            ChatResponse response = chatModel.call(prompt);
             String content = response.getResult() != null ? response.getResult().getOutput().getText() : null;
             return content != null && !content.isBlank() ? content : jxmlSpecFallback(resolvedJxml);
         } catch (Exception e) {
@@ -84,10 +93,10 @@ public class MistralVibeClient implements SpecResolutionAIProvider {
 
     @Override
     public String generateSpecFromWord(String wordText) {
-        String prompt = buildWordSpecPrompt(wordText);
+        Prompt prompt = buildWordSpecPrompt(wordText);
         log.debug("mistral-vibe generating spec from Word: {} chars", wordText == null ? 0 : wordText.length());
         try {
-            ChatResponse response = chatModel.call(new Prompt(new UserMessage(prompt)));
+            ChatResponse response = chatModel.call(prompt);
             String content = response.getResult() != null ? response.getResult().getOutput().getText() : null;
             return content != null && !content.isBlank() ? content : wordSpecFallback(wordText);
         } catch (Exception e) {
@@ -96,15 +105,15 @@ public class MistralVibeClient implements SpecResolutionAIProvider {
         }
     }
 
-    String buildJxmlSpecPrompt(String resolvedJxml) {
+    Prompt buildJxmlSpecPrompt(String resolvedJxml) {
         String safeJxml = resolvedJxml == null ? "" : resolvedJxml;
         List<String> docs = tagDocRepository.findRelevantDocs(
                 safeJxml, MAX_TAG_DOCS_SPEC_GENERATION, MAX_TAG_DOCS_CHARS_SPEC_GENERATION);
         String tagContext = docs.isEmpty() ? "" : "Documentation des balises JWAY détectées dans ce JXML :\n"
                 + String.join("\n---\n", docs) + "\n\n";
-        return """
+        String system = """
                 %sTu es assisté par la documentation JWAY ci-dessus pour comprendre les balises propriétaires.
-                Génère la documentation markdown de ce formulaire à partir du JXML suivant (les fragments
+                Génère la documentation markdown de ce formulaire à partir du JXML fourni (les fragments
                 <Include> ont déjà été résolus et intégrés).
                 Découpe le résultat par écran : un écran correspond à une <Section NewPage="screen"> de premier
                 niveau sous <JForm> ; les <Section NewPage="none"> imbriquées restent dans le même écran que leur
@@ -114,23 +123,21 @@ public class MistralVibeClient implements SpecResolutionAIProvider {
                 validation) en te basant sur les attributs réels du JXML plutôt que sur des suppositions.
                 Les appels trans(...) référencent des clés de traduction externes non résolues ici : laisse-les
                 telles quelles plutôt que de deviner leur contenu.
-
-                JXML :
-                %s
-                """.formatted(tagContext, safeJxml);
+                """.formatted(tagContext);
+        String user = "JXML :\n" + safeJxml;
+        return new Prompt(List.of(new SystemMessage(system), new UserMessage(user)));
     }
 
-    String buildWordSpecPrompt(String wordText) {
+    Prompt buildWordSpecPrompt(String wordText) {
         String safeWord = wordText == null ? "" : wordText;
-        return """
+        String system = """
                 Restructure ce texte extrait d'une spécification Word/Excel en documentation markdown, découpée
                 par écran ou fonctionnalité dans le même ordre que le document d'origine.
                 Pour chaque écran, utilise un titre de niveau 2 (## Nom de l'écran) puis décris les champs et
                 comportements attendus tels que déclarés dans le texte, sans y ajouter d'information absente.
-
-                Texte extrait :
-                %s
-                """.formatted(safeWord);
+                """;
+        String user = "Texte extrait :\n" + safeWord;
+        return new Prompt(List.of(new SystemMessage(system), new UserMessage(user)));
     }
 
     private String jxmlSpecFallback(String resolvedJxml) {
