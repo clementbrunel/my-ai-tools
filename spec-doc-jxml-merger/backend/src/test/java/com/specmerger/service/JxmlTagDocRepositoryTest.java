@@ -283,31 +283,6 @@ class JxmlTagDocRepositoryTest {
         }
 
         @Test
-        void removesColonTerminatedLeadInLeftDanglingByExampleRemoval() {
-            // Not every intro is a "#" heading: AppelREST.md introduces some of its examples
-            // with a bold, colon-terminated label/sentence instead (e.g. "**Exemple avec une
-            // liste** :"). Once the fenced example is stripped, that label is just as dangling
-            // as an empty heading would be, and must go too.
-            String raw = "## Mapping\n\nCeci explique le mapping.\n\n**Exemple avec une liste** :\n\n"
-                    + "```xml\n<jsonTemplate/>\n```\n\n## Section suivante\n\nContenu utile.";
-
-            String compact = JxmlTagDocRepository.compactForPrompt(raw);
-
-            assertThat(compact).doesNotContain("Exemple avec une liste").doesNotContain("```");
-            assertThat(compact).contains("Ceci explique le mapping.");
-            assertThat(compact).contains("## Section suivante").contains("Contenu utile.");
-        }
-
-        @Test
-        void removesColonTerminatedLeadInLeftDanglingAtTheEndOfTheDocument() {
-            String raw = "# Foo\n\nTexte principal.\n\nLa classe doit étendre `Foo` :\n\n```java\nclass X {}\n```\n";
-
-            String compact = JxmlTagDocRepository.compactForPrompt(raw);
-
-            assertThat(compact).isEqualTo("# Foo\n\nTexte principal.");
-        }
-
-        @Test
         void collapsesThreeOrMoreConsecutiveNewlinesIntoOneBlankLine() {
             String raw = "Paragraphe un.\n\n\n\nParagraphe deux.";
 
@@ -438,13 +413,14 @@ class JxmlTagDocRepositoryTest {
         }
 
         @Test
-        void stripsCascadingDanglingHeadingsAndColonTerminatedLeadInsFromAppelRest() throws IOException {
-            // AppelREST.md is the densest fiche: some examples are introduced by a heading
-            // ("## JsonTemplate"), others by a bold colon-terminated label ("**Exemple avec
-            // une liste** :"), and the very last line of the whole document is itself a
-            // colon-terminated lead-in with nothing after it (end of doc, not another
-            // heading). All of those must be stripped, while the substantial prose around
-            // each (which explains the mechanism, not just the sample) must remain.
+        void hasNoDanglingLeadInLeftInAppelRestAfterItsBoldLabelsWereEditedOut() throws IOException {
+            // AppelREST.md is the densest fiche, mixing heading-introduced examples ("##
+            // JsonTemplate") with examples that used to be introduced by a bold,
+            // colon-terminated label instead of a heading (e.g. "**Exemple avec une liste**
+            // :", or the doc's very last line). Rather than widen DANGLING_HEADING's regex to
+            // catch that rarer non-heading shape, those labels were removed directly from the
+            // fiche — this pins down that the fiche stays clean and its substantial prose
+            // (which explains the mechanism, not just the sample) survives.
             String compact = loadFiche("expressions/AppelREST.md");
 
             assertThat(compact).doesNotContain("```");

@@ -38,15 +38,16 @@ public class JxmlTagDocRepository {
     private static final Pattern XML_EXAMPLE_BLOCK = Pattern.compile("(?s)```(?:xml|java)\\n.*?```\\n?");
     private static final Pattern SOURCE_FOOTER =
             Pattern.compile("(?m)^Source\\s*:\\s*documentation JWAY Campus.*$\\n?");
-    // Once XML_EXAMPLE_BLOCK strips a fenced example, whatever introduced it is left dangling
-    // with nothing under it — still visible in the prompt even though the example itself is
-    // gone. Two shapes of intro are used across jxml-tags/: a heading (e.g. "## Exemple de
-    // code JXML") or a colon-terminated lead-in sentence/label (e.g. "**Exemple avec une
-    // liste** :", found in AppelREST.md). Matches either one when immediately followed (blank
-    // lines aside) by another heading or the end of the doc, i.e. one with no remaining content
-    // of its own, regardless of its wording.
-    private static final Pattern DANGLING_INTRO =
-            Pattern.compile("(?m)^(?:#{1,6}[^\\n]*|[^\\n]*:\\**[ \\t]*)\\n\\s*(?=#{1,6}[^\\n]*\\n|\\z)");
+    // Once XML_EXAMPLE_BLOCK strips a fenced example, the heading that introduced it (e.g.
+    // "## Exemple de code JXML") is left dangling with nothing under it — still visible in the
+    // prompt even though the example itself is gone. Matches any heading immediately followed
+    // (blank lines aside) by another heading or the end of the doc, i.e. one with no remaining
+    // content of its own, regardless of its wording. Non-heading lead-ins (a bold, colon-
+    // terminated sentence/label instead of a "#" heading) aren't matched here on purpose —
+    // rather than widen this regex for that rarer shape, the one fiche that used to have them
+    // (AppelREST.md) was edited directly to drop them.
+    private static final Pattern DANGLING_HEADING =
+            Pattern.compile("(?m)^#{1,6}[^\\n]*\\n\\s*(?=#{1,6}[^\\n]*\\n|\\z)");
 
     // Extra trigger patterns that don't fit the generic <Tag>/Type="..."/Fonction x()
     // conventions, keyed by doc id (filename without extension). AppelREST also covers
@@ -160,8 +161,8 @@ public class JxmlTagDocRepository {
     static String compactForPrompt(String content) {
         String withoutExamples = XML_EXAMPLE_BLOCK.matcher(content).replaceAll("");
         String withoutFooter = SOURCE_FOOTER.matcher(withoutExamples).replaceAll("");
-        String withoutDanglingIntros = DANGLING_INTRO.matcher(withoutFooter).replaceAll("");
-        return withoutDanglingIntros.replaceAll("\\n{3,}", "\n\n").strip();
+        String withoutDanglingHeadings = DANGLING_HEADING.matcher(withoutFooter).replaceAll("");
+        return withoutDanglingHeadings.replaceAll("\\n{3,}", "\n\n").strip();
     }
 
     private static String stripExtension(String filename) {
