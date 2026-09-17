@@ -26,6 +26,12 @@ describe('SpecPanel', () => {
     expect(screen.queryByText(/\.docx/)).toBeNull()
   })
 
+  it('labels the picker in French instead of the native "Choose File" button', () => {
+    render(<SpecPanel />)
+    expect(screen.getByText('Choisir un fichier')).toBeDefined()
+    expect(screen.getByText('Aucun fichier choisi')).toBeDefined()
+  })
+
   it('shows the filename once a file is picked, and enables Générer la doc', async () => {
     const { container } = render(<SpecPanel />)
     const file = new File(['contenu'], 'spec.docx')
