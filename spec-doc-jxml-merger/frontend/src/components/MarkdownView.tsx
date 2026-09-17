@@ -10,19 +10,13 @@ interface MarkdownViewProps {
 
 marked.setOptions({ gfm: true, breaks: false })
 
-/** Markdown → HTML, stripped of scripts/event handlers/javascript: URLs before it's ever put in the DOM. */
-function sanitizedMarkdownHtml(markdown: string): string {
-  const rawHtml = marked.parse(markdown, { async: false }) as string
-  return DOMPurify.sanitize(rawHtml)
-}
-
 /** An Édition/Aperçu toggle over a markdown value — the textarea edits it, the Aperçu tab renders it (sanitized). */
 function MarkdownView({ value, onChange, placeholder }: MarkdownViewProps) {
   const [viewMode, setViewMode] = useState<'edit' | 'preview'>('edit')
 
   const previewHtml = useMemo(() => {
     if (viewMode !== 'preview') return ''
-    return sanitizedMarkdownHtml(value)
+    return DOMPurify.sanitize(marked.parse(value, { async: false }) as string)
   }, [viewMode, value])
 
   return (
