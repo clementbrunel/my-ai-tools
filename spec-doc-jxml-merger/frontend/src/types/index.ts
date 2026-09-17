@@ -19,6 +19,9 @@ export interface GitLabEntryPoint {
 
 export interface GitLabSourceListing {
   entryPoints: GitLabEntryPoint[]
+  /** Translation resources (.properties/.xlf) — always fetched to resolve trans(...) keys
+   * (see #285), never a free checkbox like optionalPaths. */
+  mandatoryPaths: string[]
   optionalPaths: string[]
 }
 

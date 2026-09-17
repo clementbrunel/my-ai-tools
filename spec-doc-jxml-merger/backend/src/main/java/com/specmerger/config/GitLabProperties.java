@@ -8,12 +8,20 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * with its own convention for translation resources (e.g. fixed-name .properties
  * files in one group, .xlf files in another) — see {@code gitlab.groups} in
  * application.yml.
+ *
+ * @param translationLanguage language used to resolve {@code trans(...)} keys found in JXML
+ *                            content against the selected {@code .properties}/{@code .xlf}
+ *                            resources (see {@link com.specmerger.service.gitlab.TranslationResolver}
+ *                            and issue #285) — an ISO-639-1 code matching either a translation
+ *                            file's fixed name (e.g. {@code fr.properties}) or an XLIFF file's
+ *                            {@code source-language}/{@code target-language} attribute.
  */
 @ConfigurationProperties(prefix = "gitlab")
-public record GitLabProperties(String url, String token, List<Group> groups) {
+public record GitLabProperties(String url, String token, List<Group> groups, String translationLanguage) {
 
     public GitLabProperties {
         groups = groups == null ? List.of() : groups;
+        translationLanguage = (translationLanguage == null || translationLanguage.isBlank()) ? "fr" : translationLanguage;
     }
 
     /**

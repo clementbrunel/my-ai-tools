@@ -36,6 +36,11 @@ app:
 gitlab:
   url: ${GITLAB_URL:}
   token: ${GITLAB_TOKEN:}
+  # Langue utilisée pour résoudre les clés trans(...) du JXML à partir des fichiers de
+  # traduction sélectionnés (.properties/.xlf) — voir #285. Code à 2 lettres, censé
+  # correspondre au nom fixe d'un fichier .properties (ex. "fr.properties") ou à l'attribut
+  # source-language/target-language d'un fichier .xlf.
+  translation-language: ${GITLAB_TRANSLATION_LANGUAGE:fr}
   # Groupes GitLab contenant des projets JWAY à traiter. Chaque groupe a sa propre
   # convention de fichiers de traduction (noms de fichiers fixes .properties dans un
   # groupe, fichiers .xlf dans l'autre) — "key" identifie le groupe côté API/frontend

@@ -136,9 +136,10 @@ public class MistralVibeClient implements SpecResolutionAIProvider {
                 Pour chaque champ, base la colonne Type/le comportement (obligatoire, visibilité conditionnelle,
                 contrôles de validation) sur les attributs réels du JXML plutôt que sur des suppositions, et
                 l'ID sur son libellé résolu comme l'exige le gabarit.
-                Les appels trans(...) référencent des clés de traduction externes non résolues ici : laisse-les
-                telles quelles plutôt que de deviner leur contenu — y compris comme ID quand le libellé d'un
-                champ n'est qu'un appel trans(...) non résolu.
+                Les appels trans(...) encore présents dans ce JXML référencent des clés de traduction pour
+                lesquelles aucune correspondance n'a été trouvée dans les fichiers de traduction sélectionnés
+                (voir #285) : laisse-les tels quels plutôt que de deviner leur contenu — y compris comme ID
+                quand le libellé d'un champ n'est qu'un appel trans(...) non résolu.
                 """.formatted(DOCUMENTATION_TEMPLATE, tagContext, TEMPLATE_FOLLOW_INSTRUCTION);
         String user = "JXML :\n" + safeJxml;
         return new Prompt(List.of(new SystemMessage(system), new UserMessage(user)));
