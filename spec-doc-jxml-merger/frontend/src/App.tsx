@@ -1,193 +1,13 @@
 import { useState } from 'react'
-import {
-  generateSpecFromGitlab,
-  generateSpecFromJxml,
-  generateSpecFromWord,
-  listGitlabProjects,
-  listGitlabSources,
-  previewGitlabJxml,
-} from './api/analysis'
 import CodePanel from './components/CodePanel'
 import CollapsedPanel from './components/CollapsedPanel'
-import DivergencesTable from './components/DivergencesTable'
 import Header from './components/Header'
 import MergePanel from './components/MergePanel'
 import SpecPanel from './components/SpecPanel'
-import { useAnalysisSession } from './hooks/useAnalysisSession'
-import type { GitLabEntryPoint, GitLabProjectSummary, JxmlMode } from './types'
 
 function App() {
-  const [title, setTitle] = useState('')
-  const [wordFile, setWordFile] = useState<File | null>(null)
-  const [jxmlMode, setJxmlMode] = useState<JxmlMode>('text')
-  const [jxmlText, setJxmlText] = useState('')
-  const [gitlabProjects, setGitlabProjects] = useState<GitLabProjectSummary[]>([])
-  const [gitlabProjectId, setGitlabProjectId] = useState('')
-  const [gitlabLoading, setGitlabLoading] = useState(false)
-  const [gitlabSearch, setGitlabSearch] = useState('')
-  const [gitlabEntryPoints, setGitlabEntryPoints] = useState<GitLabEntryPoint[]>([])
-  const [gitlabEntryPointPath, setGitlabEntryPointPath] = useState('')
-  const [gitlabSourcePaths, setGitlabSourcePaths] = useState<string[]>([])
-  const [gitlabSelectedPaths, setGitlabSelectedPaths] = useState<Set<string>>(new Set())
-  const [gitlabSourcesLoading, setGitlabSourcesLoading] = useState(false)
-  const [gitlabPreviewOpen, setGitlabPreviewOpen] = useState(false)
-  const [gitlabPreviewContent, setGitlabPreviewContent] = useState('')
-  const [gitlabPreviewWarnings, setGitlabPreviewWarnings] = useState<string[]>([])
-  const [gitlabPreviewLoading, setGitlabPreviewLoading] = useState(false)
-  const [specGenerating, setSpecGenerating] = useState(false)
   const [specCollapsed, setSpecCollapsed] = useState(false)
   const [codeCollapsed, setCodeCollapsed] = useState(false)
-
-  const { session, markdown, setMarkdown, versions, loading, error, setError, analyze, save, restore } =
-    useAnalysisSession()
-
-  function hasJxmlSource() {
-    return jxmlMode === 'text' ? !!jxmlText.trim() : !!gitlabProjectId
-  }
-
-  async function handleLoadGitlabProjects() {
-    setError(null)
-    setGitlabLoading(true)
-    try {
-      setGitlabProjects(await listGitlabProjects())
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Échec du chargement des projets GitLab — voir la console.')
-      console.error(e)
-    } finally {
-      setGitlabLoading(false)
-    }
-  }
-
-  async function handleSelectGitlabProject(projectId: string) {
-    setGitlabProjectId(projectId)
-    setGitlabSourcePaths([])
-    setGitlabSelectedPaths(new Set())
-    setGitlabEntryPoints([])
-    setGitlabEntryPointPath('')
-    if (!projectId) return
-
-    const project = gitlabProjects.find((p) => String(p.id) === projectId)
-    if (!project) return
-
-    setError(null)
-    setGitlabSourcesLoading(true)
-    try {
-      const listing = await listGitlabSources(project.groupKey, projectId)
-      setGitlabSourcePaths(listing.optionalPaths)
-      setGitlabSelectedPaths(new Set(listing.optionalPaths))
-      setGitlabEntryPoints(listing.entryPoints)
-      // Nothing to choose between when there's exactly one candidate démarche.
-      setGitlabEntryPointPath(listing.entryPoints.length === 1 ? listing.entryPoints[0].path : '')
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Échec du chargement des fichiers du projet — voir la console.')
-      console.error(e)
-    } finally {
-      setGitlabSourcesLoading(false)
-    }
-  }
-
-  function currentGitlabPreviewParams() {
-    const project = gitlabProjects.find((p) => String(p.id) === gitlabProjectId)
-    if (!project || !gitlabEntryPointPath) return null
-    return {
-      groupKey: project.groupKey,
-      projectId: gitlabProjectId,
-      entryPointPath: gitlabEntryPointPath,
-      selectedPaths: Array.from(gitlabSelectedPaths),
-    }
-  }
-
-  /** Opens the read-only modal showing the full resolved JXML that will be sent to the model. */
-  async function handlePreviewGitlabJxml() {
-    const params = currentGitlabPreviewParams()
-    if (!params) return
-
-    setError(null)
-    setGitlabPreviewOpen(true)
-    setGitlabPreviewLoading(true)
-    try {
-      const preview = await previewGitlabJxml(params)
-      setGitlabPreviewContent(preview.content)
-      setGitlabPreviewWarnings(preview.warnings)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Échec de la prévisualisation — voir la console.')
-      console.error(e)
-      setGitlabPreviewOpen(false)
-    } finally {
-      setGitlabPreviewLoading(false)
-    }
-  }
-
-  /**
-   * Generates the markdown spec from whichever single source is filled in (Word alone, or JXML
-   * alone) and drops it straight into the merge panel — no session created.
-   */
-  async function generateSpecFromSingleSource(hasWord: boolean) {
-    setSpecGenerating(true)
-    try {
-      if (hasWord) {
-        setMarkdown(await generateSpecFromWord(wordFile as File))
-      } else if (jxmlMode === 'gitlab') {
-        const params = currentGitlabPreviewParams()
-        if (!params) return
-        setMarkdown(await generateSpecFromGitlab(params))
-      } else {
-        setMarkdown(await generateSpecFromJxml(jxmlText))
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Échec de la génération de la doc — voir la console.')
-      console.error(e)
-    } finally {
-      setSpecGenerating(false)
-    }
-  }
-
-  /**
-   * The single top-level action, adaptive to what's filled in: exactly one source generates its
-   * spec straight into the merge panel; both sources fall back to the full session-based pipeline
-   * (DiffEngine, divergences, versions) until the diff-based reconciliation (#262) replaces it.
-   */
-  async function handleAnalyze() {
-    const hasWord = !!wordFile
-    const hasJxml = hasJxmlSource()
-    if (!hasWord && !hasJxml) {
-      setError('Fournis au moins une source : Word (.docx) ou JXML.')
-      return
-    }
-    if (jxmlMode === 'gitlab' && gitlabEntryPoints.length > 0 && !gitlabEntryPointPath) {
-      setError('Choisis la démarche à documenter parmi les points d’entrée trouvés dans FORMS.jxml.')
-      return
-    }
-
-    setError(null)
-    if (hasWord !== hasJxml) {
-      await generateSpecFromSingleSource(hasWord)
-      return
-    }
-
-    const selectedGitlabProject = gitlabProjects.find((p) => String(p.id) === gitlabProjectId)
-    await analyze({
-      title: title || undefined,
-      word: wordFile ?? undefined,
-      jxmlText: jxmlMode === 'text' ? jxmlText : undefined,
-      gitlabGroupKey: jxmlMode === 'gitlab' ? selectedGitlabProject?.groupKey : undefined,
-      gitlabProjectId: jxmlMode === 'gitlab' ? gitlabProjectId : undefined,
-      gitlabSelectedPaths: jxmlMode === 'gitlab' ? Array.from(gitlabSelectedPaths) : undefined,
-      gitlabEntryPointPath: jxmlMode === 'gitlab' ? gitlabEntryPointPath || undefined : undefined,
-    })
-  }
-
-  function handleToggleGitlabPath(path: string) {
-    setGitlabSelectedPaths((prev) => {
-      const next = new Set(prev)
-      if (next.has(path)) {
-        next.delete(path)
-      } else {
-        next.add(path)
-      }
-      return next
-    })
-  }
 
   // Retracted side panels free up their width so the merge panel (and the
   // remaining side panel, if any) can grow from a third of the screen to a half.
@@ -200,82 +20,27 @@ function App() {
           ? 'md:grid-cols-[1fr_1fr_3rem]'
           : 'md:grid-cols-[1fr_1.4fr_1fr]'
 
-  function handleDownload() {
-    const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${title || 'spec-fusion'}.md`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
   return (
-    <div className="min-h-screen flex flex-col">
-      <Header
-        title={title}
-        onTitleChange={setTitle}
-        onAnalyze={handleAnalyze}
-        loading={loading || specGenerating}
-        hasSession={!!session}
-        hasMarkdown={!!markdown}
-        onSave={save}
-        onDownload={handleDownload}
-      />
+    <div className="h-screen flex flex-col overflow-hidden">
+      <Header />
 
-      {error && (
-        <div className="px-4 py-2 bg-red-50 text-gl-danger text-sm border-b border-red-200">{error}</div>
-      )}
+      <div className="flex-1 min-h-0 flex flex-col overflow-y-auto">
+        <div className={`grid grid-cols-1 ${gridColsClass} gap-3 p-3 flex-1 min-h-0`}>
+          {specCollapsed ? (
+            <CollapsedPanel label="Spec Word" icon="▶" onExpand={() => setSpecCollapsed(false)} />
+          ) : (
+            <SpecPanel onCollapse={() => setSpecCollapsed(true)} />
+          )}
 
-      <div className={`grid grid-cols-1 ${gridColsClass} gap-3 p-3 flex-1`}>
-        {specCollapsed ? (
-          <CollapsedPanel label="Spec Word" icon="▶" onExpand={() => setSpecCollapsed(false)} />
-        ) : (
-          <SpecPanel
-            wordFile={wordFile}
-            onWordFileChange={setWordFile}
-            onCollapse={() => setSpecCollapsed(true)}
-          />
-        )}
+          <MergePanel />
 
-        <MergePanel markdown={markdown} onMarkdownChange={setMarkdown} versions={versions} onRestore={restore} />
-
-        {codeCollapsed ? (
-          <CollapsedPanel label="Spec JXML" icon="◀" onExpand={() => setCodeCollapsed(false)} />
-        ) : (
-          <CodePanel
-            jxmlMode={jxmlMode}
-            onJxmlModeChange={setJxmlMode}
-            jxmlText={jxmlText}
-            onJxmlTextChange={setJxmlText}
-            gitlabProjects={gitlabProjects}
-            gitlabProjectId={gitlabProjectId}
-            onSelectGitlabProject={handleSelectGitlabProject}
-            gitlabLoading={gitlabLoading}
-            onLoadGitlabProjects={handleLoadGitlabProjects}
-            gitlabSearch={gitlabSearch}
-            onGitlabSearchChange={setGitlabSearch}
-            gitlabEntryPoints={gitlabEntryPoints}
-            gitlabEntryPointPath={gitlabEntryPointPath}
-            onSelectGitlabEntryPoint={setGitlabEntryPointPath}
-            onPreviewGitlabJxml={handlePreviewGitlabJxml}
-            gitlabPreviewOpen={gitlabPreviewOpen}
-            gitlabPreviewContent={gitlabPreviewContent}
-            gitlabPreviewWarnings={gitlabPreviewWarnings}
-            gitlabPreviewLoading={gitlabPreviewLoading}
-            onCloseGitlabPreview={() => setGitlabPreviewOpen(false)}
-            gitlabSourcePaths={gitlabSourcePaths}
-            gitlabSelectedPaths={gitlabSelectedPaths}
-            onToggleGitlabPath={handleToggleGitlabPath}
-            onSelectAllGitlabPaths={() => setGitlabSelectedPaths(new Set(gitlabSourcePaths))}
-            onClearGitlabPaths={() => setGitlabSelectedPaths(new Set())}
-            gitlabSourcesLoading={gitlabSourcesLoading}
-            onCollapse={() => setCodeCollapsed(true)}
-          />
-        )}
+          {codeCollapsed ? (
+            <CollapsedPanel label="Spec JXML" icon="◀" onExpand={() => setCodeCollapsed(false)} />
+          ) : (
+            <CodePanel onCollapse={() => setCodeCollapsed(true)} />
+          )}
+        </div>
       </div>
-
-      {session && <DivergencesTable divergences={session.divergences} />}
     </div>
   )
 }
