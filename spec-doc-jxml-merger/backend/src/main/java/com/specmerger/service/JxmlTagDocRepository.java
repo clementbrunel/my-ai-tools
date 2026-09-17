@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -68,11 +69,11 @@ public class JxmlTagDocRepository {
     /**
      * Returns the content of the docs whose tag, Control Type or function name is
      * detected in the excerpt, already stripped of their XML examples and source
-     * footer (see {@link #compactForPrompt}), capped so the combined size stays
+     * footer (see {@link #compactForPrompt}) and ordered by how often they're matched
+     * in the excerpt (most-used tag first), capped so the combined size stays
      * reasonable in a prompt. If relevant docs still had to be left out to stay under
-     * the cap, logs a warning naming them — a recurring warning here means the
-     * selection needs to get smarter (e.g. prioritize by match frequency), not just a
-     * higher cap.
+     * the cap, logs a warning naming them — a recurring warning here means jxml-tags/
+     * itself needs trimming further, not just a higher cap.
      */
     public List<String> findRelevantDocs(String jxmlExcerpt, int maxDocs, int maxTotalChars) {
         if (jxmlExcerpt == null || jxmlExcerpt.isBlank()) {
@@ -84,6 +85,10 @@ public class JxmlTagDocRepository {
                 matched.add(doc);
             }
         }
+        // Prioritize docs whose tag/Control Type/function occurs most often in the excerpt,
+        // so a heavily-used tag doesn't lose its spot to one mentioned once just because it
+        // sorts earlier on the classpath.
+        matched.sort(Comparator.<Doc>comparingInt(doc -> doc.occurrences(jxmlExcerpt)).reversed());
 
         List<String> selected = new ArrayList<>();
         List<String> dropped = new ArrayList<>();
@@ -159,6 +164,17 @@ public class JxmlTagDocRepository {
                 }
             }
             return false;
+        }
+
+        int occurrences(String excerpt) {
+            int count = 0;
+            for (Pattern p : patterns) {
+                Matcher m = p.matcher(excerpt);
+                while (m.find()) {
+                    count++;
+                }
+            }
+            return count;
         }
     }
 }
