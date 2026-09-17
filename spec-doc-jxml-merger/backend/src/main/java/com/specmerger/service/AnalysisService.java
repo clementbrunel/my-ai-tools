@@ -90,11 +90,14 @@ public class AnalysisService {
         // Translation resources (.properties/.xlf) ride along with the JXML sources when they
         // come from GitLab (#266/#283) — they resolve trans(...) keys (#285) but aren't
         // themselves JXML content, so they're excluded from what's actually diffed/analyzed.
-        Map<String, String> translations = gitLabSourceService.resolveTranslations(jxmlFiles);
-        String concatenatedJxmlText = TranslationResolver.resolve(jxmlFiles.entrySet().stream()
+        // Each JXML document is resolved against only its own translation resources (see
+        // TranslationResolver#resolveAll) before being joined, since different documents number
+        // their trans(...) keys independently.
+        Map<String, String> translatedFiles = gitLabSourceService.resolveAllTranslations(jxmlFiles);
+        String concatenatedJxmlText = translatedFiles.entrySet().stream()
                 .filter(entry -> !TranslationResolver.isTranslationFile(entry.getKey()))
                 .map(Map.Entry::getValue)
-                .collect(Collectors.joining("\n")), translations);
+                .collect(Collectors.joining("\n"));
 
         AnalysisSession session = new AnalysisSession();
         session.setTitle(title);
