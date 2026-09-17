@@ -8,9 +8,14 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.function.Supplier;
 
 /**
  * Client for the internal mistral-vibe gateway (proxy in front of the Mistral
@@ -37,6 +42,25 @@ public class MistralVibeClient implements SpecResolutionAIProvider {
     // excerpt — give it a much bigger context budget.
     private static final int MAX_TAG_DOCS_SPEC_GENERATION = 20;
     private static final int MAX_TAG_DOCS_CHARS_SPEC_GENERATION = 40_000;
+
+    // Shared by generateSpecFromJxml and generateSpecFromWord so both sides of a démarche
+    // are structured the same way (see templates/documentation-template.md and issues
+    // #260/#263) — the screen-level diff only works if the two independently generated
+    // markdowns follow the same section/table shape. Static/stable, so it belongs in the
+    // system message alongside the JWAY tag context, not repeated per call in the user message.
+    private static final String DOCUMENTATION_TEMPLATE = loadDocumentationTemplate();
+
+    // Shared instruction for generateSpecFromJxml/generateSpecFromWord: both must always produce
+    // the whole gabarit (not a subset — see the "Un seul gabarit pour les deux sources" rule at
+    // the top of documentation-template.md), leaving what a given source can't fill as
+    // "Non renseigné" rather than omitting it, so the two independently generated markdowns stay
+    // structurally comparable however incomplete either one is. Kept in one place so both prompts
+    // stay in sync if this instruction changes.
+    private static final String TEMPLATE_FOLLOW_INSTRUCTION =
+            "en suivant IMPÉRATIVEMENT le gabarit ci-dessus, dans son intégralité et dans le même "
+            + "ordre : ne saute aucune section même si cette source ne permet pas de la remplir — "
+            + "indique alors « _Non renseigné dans la source._ » (ou une ligne de tableau vide) "
+            + "plutôt que de l'omettre, comme le gabarit le demande.";
 
     private final ChatModel chatModel;
     private final String apiKey;
@@ -66,14 +90,7 @@ public class MistralVibeClient implements SpecResolutionAIProvider {
                 wordExcerpt == null ? 0 : wordExcerpt.length(),
                 jxmlExcerpt == null ? 0 : jxmlExcerpt.length());
         Prompt prompt = new Prompt(List.of(new SystemMessage(system), new UserMessage(user)));
-        try {
-            ChatResponse response = chatModel.call(prompt);
-            String content = response.getResult() != null ? response.getResult().getOutput().getText() : null;
-            return content != null && !content.isBlank() ? content : fallback(wordExcerpt, jxmlExcerpt);
-        } catch (Exception e) {
-            log.error("mistral-vibe call failed (api-key \"{}\"): {}", maskedApiKey(), e.getMessage(), e);
-            return fallback(wordExcerpt, jxmlExcerpt);
-        }
+        return call(prompt, () -> fallback(wordExcerpt, jxmlExcerpt));
     }
 
     @Override
@@ -81,49 +98,48 @@ public class MistralVibeClient implements SpecResolutionAIProvider {
         Prompt prompt = buildJxmlSpecPrompt(resolvedJxml);
         log.debug("mistral-vibe generating spec from JXML: {} chars",
                 resolvedJxml == null ? 0 : resolvedJxml.length());
-        try {
-            ChatResponse response = chatModel.call(prompt);
-            String content = response.getResult() != null ? response.getResult().getOutput().getText() : null;
-            return content != null && !content.isBlank() ? content : jxmlSpecFallback(resolvedJxml);
-        } catch (Exception e) {
-            log.error("mistral-vibe call failed (api-key \"{}\"): {}", maskedApiKey(), e.getMessage(), e);
-            return jxmlSpecFallback(resolvedJxml);
-        }
+        return call(prompt, () -> jxmlSpecFallback(resolvedJxml));
     }
 
     @Override
     public String generateSpecFromWord(String wordText) {
         Prompt prompt = buildWordSpecPrompt(wordText);
         log.debug("mistral-vibe generating spec from Word: {} chars", wordText == null ? 0 : wordText.length());
+        return call(prompt, () -> wordSpecFallback(wordText));
+    }
+
+    /** Shared call/fallback path for the three prompt methods above: same retry-free error
+     * handling, only the prompt and the fallback message differ. */
+    private String call(Prompt prompt, Supplier<String> fallback) {
         try {
             ChatResponse response = chatModel.call(prompt);
             String content = response.getResult() != null ? response.getResult().getOutput().getText() : null;
-            return content != null && !content.isBlank() ? content : wordSpecFallback(wordText);
+            return content != null && !content.isBlank() ? content : fallback.get();
         } catch (Exception e) {
             log.error("mistral-vibe call failed (api-key \"{}\"): {}", maskedApiKey(), e.getMessage(), e);
-            return wordSpecFallback(wordText);
+            return fallback.get();
         }
     }
 
     Prompt buildJxmlSpecPrompt(String resolvedJxml) {
         String safeJxml = resolvedJxml == null ? "" : resolvedJxml;
-        List<String> docs = tagDocRepository.findRelevantDocs(
-                safeJxml, MAX_TAG_DOCS_SPEC_GENERATION, MAX_TAG_DOCS_CHARS_SPEC_GENERATION);
-        String tagContext = docs.isEmpty() ? "" : "Documentation des balises JWAY détectées dans ce JXML :\n"
-                + String.join("\n---\n", docs) + "\n\n";
+        String tagContext = buildSpecGenerationTagContext(safeJxml);
         String system = """
+                %s
+
                 %sTu es assisté par la documentation JWAY ci-dessus pour comprendre les balises propriétaires.
                 Génère la documentation markdown de ce formulaire à partir du JXML fourni (les fragments
-                <Include> ont déjà été résolus et intégrés).
-                Découpe le résultat par écran : un écran correspond à une <Section NewPage="screen"> de premier
-                niveau sous <JForm> ; les <Section NewPage="none"> imbriquées restent dans le même écran que leur
-                section parente.
-                Pour chaque écran, utilise un titre de niveau 2 (## Nom de l'écran, repris de sa balise <Title>),
-                puis décris les champs et leur comportement (obligatoire, visibilité conditionnelle, contrôles de
-                validation) en te basant sur les attributs réels du JXML plutôt que sur des suppositions.
+                <Include> ont déjà été résolus et intégrés), %s
+                Un écran correspond à une <Section NewPage="screen"> de premier niveau sous <JForm> ; les
+                <Section NewPage="none"> imbriquées restent dans le même écran que leur section parente.
+                Reprends le titre de chaque écran depuis sa balise <Title>.
+                Pour chaque champ, base la colonne Type/le comportement (obligatoire, visibilité conditionnelle,
+                contrôles de validation) sur les attributs réels du JXML plutôt que sur des suppositions, et
+                l'ID sur son libellé résolu comme l'exige le gabarit.
                 Les appels trans(...) référencent des clés de traduction externes non résolues ici : laisse-les
-                telles quelles plutôt que de deviner leur contenu.
-                """.formatted(tagContext);
+                telles quelles plutôt que de deviner leur contenu — y compris comme ID quand le libellé d'un
+                champ n'est qu'un appel trans(...) non résolu.
+                """.formatted(DOCUMENTATION_TEMPLATE, tagContext, TEMPLATE_FOLLOW_INSTRUCTION);
         String user = "JXML :\n" + safeJxml;
         return new Prompt(List.of(new SystemMessage(system), new UserMessage(user)));
     }
@@ -131,13 +147,23 @@ public class MistralVibeClient implements SpecResolutionAIProvider {
     Prompt buildWordSpecPrompt(String wordText) {
         String safeWord = wordText == null ? "" : wordText;
         String system = """
-                Restructure ce texte extrait d'une spécification Word/Excel en documentation markdown, découpée
-                par écran ou fonctionnalité dans le même ordre que le document d'origine.
-                Pour chaque écran, utilise un titre de niveau 2 (## Nom de l'écran) puis décris les champs et
-                comportements attendus tels que déclarés dans le texte, sans y ajouter d'information absente.
-                """;
+                %s
+
+                Restructure ce texte extrait d'une spécification Word/Excel en documentation markdown, %s
+                Respecte le même ordre d'apparition des sections/écrans que dans le document d'origine, et
+                décris les champs et comportements tels que déclarés dans le texte, sans y ajouter d'information
+                absente.
+                """.formatted(DOCUMENTATION_TEMPLATE, TEMPLATE_FOLLOW_INSTRUCTION);
         String user = "Texte extrait :\n" + safeWord;
         return new Prompt(List.of(new SystemMessage(system), new UserMessage(user)));
+    }
+
+    private static String loadDocumentationTemplate() {
+        try (InputStream is = new ClassPathResource("templates/documentation-template.md").getInputStream()) {
+            return new String(is.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new IllegalStateException("Impossible de charger templates/documentation-template.md", e);
+        }
     }
 
     private String jxmlSpecFallback(String resolvedJxml) {
@@ -156,6 +182,16 @@ public class MistralVibeClient implements SpecResolutionAIProvider {
             return "";
         }
         return "Documentation des balises JWAY détectées dans l'extrait JXML ci-dessous :\n"
+                + String.join("\n---\n", docs) + "\n\n";
+    }
+
+    private String buildSpecGenerationTagContext(String jxmlText) {
+        List<String> docs = tagDocRepository.findRelevantDocs(
+                jxmlText, MAX_TAG_DOCS_SPEC_GENERATION, MAX_TAG_DOCS_CHARS_SPEC_GENERATION);
+        if (docs.isEmpty()) {
+            return "";
+        }
+        return "Documentation des balises JWAY détectées dans ce JXML :\n"
                 + String.join("\n---\n", docs) + "\n\n";
     }
 

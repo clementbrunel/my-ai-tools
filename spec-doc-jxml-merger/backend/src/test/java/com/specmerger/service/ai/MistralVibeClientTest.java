@@ -29,6 +29,20 @@ class MistralVibeClientTest {
     }
 
     @Test
+    void generateSpecFromJxmlIncludesTheDocumentationTemplate() {
+        AtomicReference<Prompt> receivedPrompt = new AtomicReference<>();
+        MistralVibeClient client = clientRespondingWith(receivedPrompt, "spec");
+
+        client.generateSpecFromJxml("<JForm/>");
+
+        String prompt = promptText(receivedPrompt.get());
+        assertThat(prompt).contains("Gabarit de documentation fonctionnelle");
+        assertThat(prompt).contains("Contenu — détail par section et par écran");
+        assertThat(prompt).contains("Pièces jointes");
+        assertThat(prompt).contains("Appels de service web");
+    }
+
+    @Test
     void generateSpecFromJxmlPrependsMatchingTagDocs() {
         AtomicReference<Prompt> receivedPrompt = new AtomicReference<>();
         MistralVibeClient client = clientRespondingWith(receivedPrompt, "spec");
@@ -57,6 +71,20 @@ class MistralVibeClientTest {
 
         assertThat(result).isEqualTo("## Écran 1\n...");
         assertThat(promptText(receivedPrompt.get())).contains("Nom du champ: obligatoire");
+    }
+
+    @Test
+    void generateSpecFromWordIncludesTheDocumentationTemplate() {
+        AtomicReference<Prompt> receivedPrompt = new AtomicReference<>();
+        MistralVibeClient client = clientRespondingWith(receivedPrompt, "spec");
+
+        client.generateSpecFromWord("Texte source");
+
+        String prompt = promptText(receivedPrompt.get());
+        assertThat(prompt).contains("Gabarit de documentation fonctionnelle");
+        assertThat(prompt).contains("Contenu — détail par section et par écran");
+        assertThat(prompt).contains("Pièces jointes");
+        assertThat(prompt).contains("Appels de service web");
     }
 
     @Test
