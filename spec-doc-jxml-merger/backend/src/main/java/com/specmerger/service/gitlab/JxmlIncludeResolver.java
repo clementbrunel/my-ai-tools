@@ -17,7 +17,11 @@ import java.util.regex.Pattern;
  * FORMS.jxml's Hyperlinks (see {@link FormsEntryPointParser}) — the model shouldn't have to
  * mentally stitch several separate files back together (see issue #262). A missing target
  * or a circular Include chain leaves the tag in place, wrapped in a comment explaining why,
- * rather than failing the whole preview.
+ * rather than failing the whole preview. When the target is a full {@code IncludeDocument} file
+ * (XML declaration, DOCTYPE, {@code <IncludeDocument>} wrapper), only its first inner element —
+ * usually but not always {@code <Content>} — is substituted, see {@link #unwrapIncludeDocument},
+ * so the merged document stays a single valid XML document instead of one with a second prolog
+ * and DOCTYPE buried inside it.
  */
 public final class JxmlIncludeResolver {
 
@@ -38,6 +42,18 @@ public final class JxmlIncludeResolver {
 
     private static final Pattern UNRESOLVED_INCLUDE_COMMENT =
             Pattern.compile("<!--\\s*Include non résolu\\s*:\\s*(.*?)\\s*-->");
+
+    /** Real JWAY sources publish an Include's target as a whole {@code IncludeDocument} file —
+     * XML declaration, DOCTYPE and an {@code <IncludeDocument>} wrapper around the actual payload
+     * — rather than a bare fragment. {@link #unwrapIncludeDocument} matches this wrapper so only
+     * its first inner element gets substituted. */
+    private static final Pattern INCLUDE_DOCUMENT_WRAPPER =
+            Pattern.compile("<IncludeDocument\\b[^>]*>(.*)</IncludeDocument\\s*>", Pattern.DOTALL);
+
+    /** The first element (opening tag) inside an unwrapped {@code IncludeDocument}, whatever its
+     * name — usually {@code <Content>}, but nothing guarantees that. */
+    private static final Pattern FIRST_ELEMENT_TAG =
+            Pattern.compile("<([A-Za-z_][\\w.:-]*)\\b[^>]*?(/?)>");
 
     /** Opening, closing or self-closing tags — comments (which don't start with a letter) are
      * excluded naturally, same simplification as {@link #INCLUDE_TAG}. */
@@ -76,7 +92,7 @@ public final class JxmlIncludeResolver {
             } else {
                 Set<String> nextVisiting = new LinkedHashSet<>(visiting);
                 nextVisiting.add(documentId);
-                result.append(resolve(included, byDocumentId, nextVisiting));
+                result.append(resolve(unwrapIncludeDocument(included), byDocumentId, nextVisiting));
             }
             lastEnd = matcher.end();
         }
@@ -137,6 +153,36 @@ public final class JxmlIncludeResolver {
             issues.add("Balise <" + stillOpen + "> jamais refermée.");
         }
         return issues;
+    }
+
+    /**
+     * Strips an Include target down to its first inner element when it's a full
+     * {@code IncludeDocument} file, so substituting it inline doesn't nest a second XML
+     * declaration, DOCTYPE and {@code <IncludeDocument>} wrapper inside the merged document
+     * (which the outer document already has one of). That first element is usually
+     * {@code <Content>} but is taken as-is whatever its name, since nothing guarantees it's
+     * always {@code Content}. A target without the {@code IncludeDocument} wrapper — a bare
+     * fragment, as plenty of real Include targets are — is left untouched.
+     */
+    private static String unwrapIncludeDocument(String includedContent) {
+        Matcher wrapper = INCLUDE_DOCUMENT_WRAPPER.matcher(includedContent);
+        if (!wrapper.find()) {
+            return includedContent;
+        }
+        String inner = wrapper.group(1);
+        Matcher firstTag = FIRST_ELEMENT_TAG.matcher(inner);
+        if (!firstTag.find()) {
+            return includedContent;
+        }
+        if (!firstTag.group(2).isEmpty()) {
+            return firstTag.group();
+        }
+        String tagName = firstTag.group(1);
+        Pattern elementPattern = Pattern.compile(
+                "<" + Pattern.quote(tagName) + "\\b[^>]*?>.*?</" + Pattern.quote(tagName) + "\\s*>",
+                Pattern.DOTALL);
+        Matcher element = elementPattern.matcher(inner);
+        return element.find(firstTag.start()) ? element.group() : includedContent;
     }
 
     private static Map<String, String> indexByDocumentId(Map<String, String> filesByPath) {
