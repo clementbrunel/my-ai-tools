@@ -96,6 +96,42 @@ class MistralVibeClientTest {
         assertThat(result).contains("indisponible").contains("Texte source");
     }
 
+    @Test
+    void generateSpecFromJxmlEscapesUnescapedPipesInsideTableCellCodeSpans() {
+        String modelAnswer = "| Élément | Condition d'affichage |\n"
+                + "|---|---|\n"
+                + "| `Nom` | `$(data|demandePersonnelle)=='NON'` |\n";
+        MistralVibeClient client = clientRespondingWith(new AtomicReference<>(), modelAnswer);
+
+        String result = client.generateSpecFromJxml("<JForm/>");
+
+        assertThat(result).contains("`$(data\\|demandePersonnelle)=='NON'`");
+        assertThat(result).doesNotContain("`$(data|demandePersonnelle)=='NON'`");
+    }
+
+    @Test
+    void generateSpecFromJxmlLeavesAlreadyEscapedPipesUntouched() {
+        String modelAnswer = "| Élément | Condition d'affichage |\n"
+                + "|---|---|\n"
+                + "| `Nom` | `$(data\\|demandePersonnelle)=='NON'` |\n";
+        MistralVibeClient client = clientRespondingWith(new AtomicReference<>(), modelAnswer);
+
+        String result = client.generateSpecFromJxml("<JForm/>");
+
+        assertThat(result).contains("`$(data\\|demandePersonnelle)=='NON'`");
+        assertThat(result).doesNotContain("\\\\|");
+    }
+
+    @Test
+    void generateSpecFromJxmlDoesNotTouchPipesOutsideTableRows() {
+        String modelAnswer = "Texte libre avec un | qui n'est pas un tableau.\n";
+        MistralVibeClient client = clientRespondingWith(new AtomicReference<>(), modelAnswer);
+
+        String result = client.generateSpecFromJxml("<JForm/>");
+
+        assertThat(result).isEqualTo(modelAnswer);
+    }
+
     private static MistralVibeClient clientRespondingWith(AtomicReference<Prompt> receivedPrompt, String answer) {
         ChatModel fake = prompt -> {
             receivedPrompt.set(prompt);

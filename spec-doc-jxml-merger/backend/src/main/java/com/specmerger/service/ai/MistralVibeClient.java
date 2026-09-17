@@ -16,6 +16,8 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.function.Supplier;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Client for the internal mistral-vibe gateway (proxy in front of the Mistral
@@ -61,6 +63,14 @@ public class MistralVibeClient implements SpecResolutionAIProvider {
             + "ordre : ne saute aucune section même si cette source ne permet pas de la remplir — "
             + "indique alors « _Non renseigné dans la source._ » (ou une ligne de tableau vide) "
             + "plutôt que de l'omettre, comme le gabarit le demande.";
+
+    // The gabarit instructs the model to escape `|` inside JWAY expressions such as
+    // `$(data|demandePersonnelle)=='NON'` (see documentation-template.md), but that instruction
+    // alone isn't reliable enough — the model regularly forgets it, breaking the markdown table
+    // structure. Those expressions always land inside a backtick code span, so as a deterministic
+    // safety net, escape any unescaped `|` found inside a code span on a table row line, regardless
+    // of what the model actually did.
+    private static final Pattern CODE_SPAN = Pattern.compile("`[^`\n]*`");
 
     private final ChatModel chatModel;
     private final String apiKey;
@@ -114,11 +124,44 @@ public class MistralVibeClient implements SpecResolutionAIProvider {
         try {
             ChatResponse response = chatModel.call(prompt);
             String content = response.getResult() != null ? response.getResult().getOutput().getText() : null;
-            return content != null && !content.isBlank() ? content : fallback.get();
+            return content != null && !content.isBlank() ? escapeUnescapedPipesInTableCodeSpans(content) : fallback.get();
         } catch (Exception e) {
             log.error("mistral-vibe call failed (api-key \"{}\"): {}", maskedApiKey(), e.getMessage(), e);
             return fallback.get();
         }
+    }
+
+    /** See {@link #CODE_SPAN}. Package-private for direct unit testing. */
+    static String escapeUnescapedPipesInTableCodeSpans(String markdown) {
+        StringBuilder result = new StringBuilder(markdown.length());
+        String[] lines = markdown.split("\n", -1);
+        for (int i = 0; i < lines.length; i++) {
+            String line = lines[i];
+            result.append(isTableRow(line) ? escapePipesInCodeSpans(line) : line);
+            if (i < lines.length - 1) {
+                result.append('\n');
+            }
+        }
+        return result.toString();
+    }
+
+    private static boolean isTableRow(String line) {
+        String trimmed = line.strip();
+        return trimmed.length() > 1 && trimmed.startsWith("|") && trimmed.endsWith("|");
+    }
+
+    private static String escapePipesInCodeSpans(String line) {
+        Matcher matcher = CODE_SPAN.matcher(line);
+        StringBuilder sb = new StringBuilder();
+        int last = 0;
+        while (matcher.find()) {
+            sb.append(line, last, matcher.start());
+            // Unescape first so an already-correctly-escaped `\|` isn't turned into `\\|`.
+            sb.append(matcher.group().replace("\\|", "|").replace("|", "\\|"));
+            last = matcher.end();
+        }
+        sb.append(line.substring(last));
+        return sb.toString();
     }
 
     Prompt buildJxmlSpecPrompt(String resolvedJxml) {
