@@ -53,9 +53,8 @@ public class GitLabController {
 
     /**
      * Resolves the entry point's JXML (same as {@link #previewJxml}) and generates its markdown
-     * spec in the same request — one round trip instead of the frontend chaining {@code
-     * /preview} into {@link SpecGenerationController#generateFromJxml}. Read-only, no analysis
-     * session is created.
+     * spec in the same request — one round trip instead of the frontend chaining {@code /preview}
+     * into a separate generation call. Read-only, no analysis session is created.
      */
     @GetMapping("/generate-spec")
     public SpecGenerationResult generateSpec(@RequestParam String groupKey, @RequestParam String projectId,
