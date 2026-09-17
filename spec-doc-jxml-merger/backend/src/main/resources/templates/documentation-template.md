@@ -28,10 +28,9 @@
 >     `trans(...)` tel quel — comme demandé plus bas pour le JXML — et il sert alors
 >     d'ID brut, provisoirement pas comparable au libellé français du Word. C'est une
 >     limite connue et temporaire, à ne pas contourner en inventant une traduction.
->   - **Deux éléments avec le même libellé sur un même écran** (ex. un bloc
->     « Représentant » répété) : désambiguïser en suffixant l'ID par sa position
->     d'apparition parmi les éléments de même libellé sur cet écran (`Prénom (1)`,
->     `Prénom (2)`, …), jamais en inventant un identifiant technique.
+>   - Deux éléments peuvent légitimement partager le même libellé sur un même écran
+>     (ex. un bloc « Représentant » répété) : ne pas inventer de suffixe pour les
+>     distinguer — le rapprochement se fait alors par section/tableau, pas par ID seul.
 > - Aucune notion propre à une plateforme ou un back-office particulier ne doit
 >   apparaître : les intitulés ci-dessous sont volontairement génériques (« système
 >   cible », « canal », « écran ») à charge pour le contenu généré de rester neutre.
