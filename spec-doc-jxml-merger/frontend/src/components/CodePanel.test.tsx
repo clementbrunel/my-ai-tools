@@ -46,7 +46,7 @@ beforeEach(() => {
 async function goToGitlabModeWithProject() {
   listGitlabProjectsMock.mockResolvedValue(projects)
   listGitlabSourcesMock.mockResolvedValue(singleEntryPointListing)
-  const result = render(<CodePanel title="" />)
+  const result = render(<CodePanel />)
   await userEvent.click(screen.getByText('Projet GitLab'))
   await userEvent.click(screen.getByText('Charger les projets GitLab'))
   await screen.findByRole('combobox')
@@ -57,19 +57,19 @@ async function goToGitlabModeWithProject() {
 
 describe('CodePanel', () => {
   it('renders a textarea bound to jxmlText in text mode, on the Input tab by default', () => {
-    render(<CodePanel title="" />)
+    render(<CodePanel />)
     expect(screen.getByPlaceholderText('Colle ici le contenu JXML')).toHaveValue('')
   })
 
   it('switches to gitlab mode when its tab is clicked', async () => {
-    render(<CodePanel title="" />)
+    render(<CodePanel />)
     await userEvent.click(screen.getByText('Projet GitLab'))
     expect(screen.getByText('Charger les projets GitLab')).toBeDefined()
   })
 
   it('loads and lists GitLab projects when the load button is clicked', async () => {
     listGitlabProjectsMock.mockResolvedValue(projects)
-    render(<CodePanel title="" />)
+    render(<CodePanel />)
     await userEvent.click(screen.getByText('Projet GitLab'))
     await userEvent.click(screen.getByText('Charger les projets GitLab'))
     expect(await screen.findByText('[jway-forms] jway-forms/claims')).toBeDefined()
@@ -77,7 +77,7 @@ describe('CodePanel', () => {
 
   it('filters the project dropdown using the search field', async () => {
     listGitlabProjectsMock.mockResolvedValue(projects)
-    render(<CodePanel title="" />)
+    render(<CodePanel />)
     await userEvent.click(screen.getByText('Projet GitLab'))
     await userEvent.click(screen.getByText('Charger les projets GitLab'))
     await screen.findByText('[jway-forms] jway-forms/claims')
@@ -120,7 +120,7 @@ describe('CodePanel', () => {
   })
 
   it('disables Générer la doc until jxmlText is filled in text mode', async () => {
-    render(<CodePanel title="" />)
+    render(<CodePanel />)
     expect(screen.getByText('Générer la doc')).toBeDisabled()
     await userEvent.type(screen.getByPlaceholderText('Colle ici le contenu JXML'), '<jform/>')
     expect(screen.getByText('Générer la doc')).not.toBeDisabled()
@@ -128,7 +128,7 @@ describe('CodePanel', () => {
 
   it('generates the spec from pasted JXML text and switches to the Output tab', async () => {
     generateSpecFromJxmlMock.mockResolvedValue('# Doc JXML')
-    render(<CodePanel title="" />)
+    render(<CodePanel />)
     await userEvent.type(screen.getByPlaceholderText('Colle ici le contenu JXML'), '<jform/>')
     await userEvent.click(screen.getByText('Générer la doc'))
     expect(generateSpecFromJxmlMock).toHaveBeenCalledWith('<jform/>')
@@ -150,7 +150,7 @@ describe('CodePanel', () => {
 
   it('shows an error message when generation fails', async () => {
     generateSpecFromJxmlMock.mockRejectedValue(new Error('JXML invalide'))
-    render(<CodePanel title="" />)
+    render(<CodePanel />)
     await userEvent.type(screen.getByPlaceholderText('Colle ici le contenu JXML'), '<jform/>')
     await userEvent.click(screen.getByText('Générer la doc'))
     expect(await screen.findByText('JXML invalide')).toBeDefined()
@@ -158,7 +158,7 @@ describe('CodePanel', () => {
 
   it('calls onCollapse when the collapse button is clicked', async () => {
     const onCollapse = vi.fn()
-    render(<CodePanel title="" onCollapse={onCollapse} />)
+    render(<CodePanel onCollapse={onCollapse} />)
     await userEvent.click(screen.getByLabelText('Réduire le panneau Spec JXML'))
     expect(onCollapse).toHaveBeenCalledTimes(1)
   })

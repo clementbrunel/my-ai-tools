@@ -11,7 +11,6 @@ import MarkdownView from './MarkdownView'
 import XmlTreeView from './XmlTreeView'
 
 interface CodePanelProps {
-  title: string
   onCollapse?: () => void
 }
 
@@ -32,7 +31,7 @@ function downloadMarkdown(markdown: string, filename: string) {
   URL.revokeObjectURL(url)
 }
 
-function CodePanel({ title, onCollapse }: CodePanelProps) {
+function CodePanel({ onCollapse }: CodePanelProps) {
   const [tab, setTab] = useState<Tab>('input')
   const [jxmlMode, setJxmlMode] = useState<JxmlMode>('text')
   const [jxmlText, setJxmlText] = useState('')
@@ -434,7 +433,7 @@ function CodePanel({ title, onCollapse }: CodePanelProps) {
               <button
                 type="button"
                 className="btn-secondary"
-                onClick={() => downloadMarkdown(markdown, `${title || 'spec'}-jxml.md`)}
+                onClick={() => downloadMarkdown(markdown, 'spec-jxml.md')}
               >
                 Télécharger
               </button>

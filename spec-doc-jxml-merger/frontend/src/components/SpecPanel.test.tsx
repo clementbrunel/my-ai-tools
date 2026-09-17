@@ -16,18 +16,18 @@ beforeEach(() => {
 
 describe('SpecPanel', () => {
   it('renders the section label and starts on the Input tab with a file picker', () => {
-    const { container } = render(<SpecPanel title="" />)
+    const { container } = render(<SpecPanel />)
     expect(screen.getByText('Spec Word')).toBeDefined()
     expect(container.querySelector('input[type="file"]')).not.toBeNull()
   })
 
   it('does not show a filename when no file is selected', () => {
-    render(<SpecPanel title="" />)
+    render(<SpecPanel />)
     expect(screen.queryByText(/\.docx/)).toBeNull()
   })
 
   it('shows the filename once a file is picked, and enables Générer la doc', async () => {
-    const { container } = render(<SpecPanel title="" />)
+    const { container } = render(<SpecPanel />)
     const file = new File(['contenu'], 'spec.docx')
     const input = container.querySelector('input[type="file"]') as HTMLInputElement
     await userEvent.upload(input, file)
@@ -36,13 +36,13 @@ describe('SpecPanel', () => {
   })
 
   it('disables Générer la doc until a file is selected', () => {
-    render(<SpecPanel title="" />)
+    render(<SpecPanel />)
     expect(screen.getByText('Générer la doc')).toBeDisabled()
   })
 
   it('generates the spec and switches to the Output tab', async () => {
     generateSpecFromWordMock.mockResolvedValue('# Doc générée')
-    const { container } = render(<SpecPanel title="" />)
+    const { container } = render(<SpecPanel />)
     const file = new File(['contenu'], 'spec.docx')
     const input = container.querySelector('input[type="file"]') as HTMLInputElement
     await userEvent.upload(input, file)
@@ -53,7 +53,7 @@ describe('SpecPanel', () => {
 
   it('shows an error message when generation fails', async () => {
     generateSpecFromWordMock.mockRejectedValue(new Error('Échec du parsing'))
-    const { container } = render(<SpecPanel title="" />)
+    const { container } = render(<SpecPanel />)
     const file = new File(['contenu'], 'spec.docx')
     const input = container.querySelector('input[type="file"]') as HTMLInputElement
     await userEvent.upload(input, file)
@@ -63,7 +63,7 @@ describe('SpecPanel', () => {
 
   it('calls onCollapse when the collapse button is clicked', async () => {
     const onCollapse = vi.fn()
-    render(<SpecPanel title="" onCollapse={onCollapse} />)
+    render(<SpecPanel onCollapse={onCollapse} />)
     await userEvent.click(screen.getByLabelText('Réduire le panneau Spec Word'))
     expect(onCollapse).toHaveBeenCalledTimes(1)
   })

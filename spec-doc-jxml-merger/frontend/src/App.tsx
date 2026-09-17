@@ -6,7 +6,6 @@ import MergePanel from './components/MergePanel'
 import SpecPanel from './components/SpecPanel'
 
 function App() {
-  const [title, setTitle] = useState('')
   const [specCollapsed, setSpecCollapsed] = useState(false)
   const [codeCollapsed, setCodeCollapsed] = useState(false)
 
@@ -23,14 +22,14 @@ function App() {
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">
-      <Header title={title} onTitleChange={setTitle} />
+      <Header />
 
       <div className="flex-1 min-h-0 flex flex-col overflow-y-auto">
         <div className={`grid grid-cols-1 ${gridColsClass} gap-3 p-3 flex-1 min-h-0`}>
           {specCollapsed ? (
             <CollapsedPanel label="Spec Word" icon="▶" onExpand={() => setSpecCollapsed(false)} />
           ) : (
-            <SpecPanel title={title} onCollapse={() => setSpecCollapsed(true)} />
+            <SpecPanel onCollapse={() => setSpecCollapsed(true)} />
           )}
 
           <MergePanel />
@@ -38,7 +37,7 @@ function App() {
           {codeCollapsed ? (
             <CollapsedPanel label="Spec JXML" icon="◀" onExpand={() => setCodeCollapsed(false)} />
           ) : (
-            <CodePanel title={title} onCollapse={() => setCodeCollapsed(true)} />
+            <CodePanel onCollapse={() => setCodeCollapsed(true)} />
           )}
         </div>
       </div>

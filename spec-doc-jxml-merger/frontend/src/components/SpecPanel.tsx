@@ -3,7 +3,6 @@ import { generateSpecFromWord } from '../api/analysis'
 import MarkdownView from './MarkdownView'
 
 interface SpecPanelProps {
-  title: string
   onCollapse?: () => void
 }
 
@@ -19,7 +18,7 @@ function downloadMarkdown(markdown: string, filename: string) {
   URL.revokeObjectURL(url)
 }
 
-function SpecPanel({ title, onCollapse }: SpecPanelProps) {
+function SpecPanel({ onCollapse }: SpecPanelProps) {
   const [wordFile, setWordFile] = useState<File | null>(null)
   const [markdown, setMarkdown] = useState('')
   const [tab, setTab] = useState<Tab>('input')
@@ -97,7 +96,7 @@ function SpecPanel({ title, onCollapse }: SpecPanelProps) {
               <button
                 type="button"
                 className="btn-secondary"
-                onClick={() => downloadMarkdown(markdown, `${title || 'spec'}-word.md`)}
+                onClick={() => downloadMarkdown(markdown, 'spec-word.md')}
               >
                 Télécharger
               </button>
