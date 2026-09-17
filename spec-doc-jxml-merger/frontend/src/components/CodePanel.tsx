@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react'
 import {
   generateSpecFromGitlab,
-  generateSpecFromJxml,
   listGitlabProjects,
   listGitlabSources,
   previewGitlabJxml,
 } from '../api/analysis'
-import type { GitLabEntryPoint, GitLabProjectSummary, JxmlMode } from '../types'
+import type { GitLabEntryPoint, GitLabProjectSummary } from '../types'
 import MarkdownView from './MarkdownView'
 import XmlTreeView from './XmlTreeView'
 
@@ -15,11 +14,6 @@ interface CodePanelProps {
 }
 
 type Tab = 'input' | 'output'
-
-const JXML_MODES: Array<[JxmlMode, string]> = [
-  ['gitlab', 'Projet GitLab'],
-  ['text', 'Coller le texte'],
-]
 
 function downloadMarkdown(markdown: string, filename: string) {
   const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' })
@@ -33,8 +27,6 @@ function downloadMarkdown(markdown: string, filename: string) {
 
 function CodePanel({ onCollapse }: CodePanelProps) {
   const [tab, setTab] = useState<Tab>('input')
-  const [jxmlMode, setJxmlMode] = useState<JxmlMode>('text')
-  const [jxmlText, setJxmlText] = useState('')
   const [gitlabProjects, setGitlabProjects] = useState<GitLabProjectSummary[]>([])
   const [gitlabProjectId, setGitlabProjectId] = useState('')
   const [gitlabLoading, setGitlabLoading] = useState(false)
@@ -154,13 +146,9 @@ function CodePanel({ onCollapse }: CodePanelProps) {
     setError(null)
     setGenerating(true)
     try {
-      if (jxmlMode === 'gitlab') {
-        const params = currentGitlabPreviewParams()
-        if (!params) return
-        setMarkdown(await generateSpecFromGitlab(params))
-      } else {
-        setMarkdown(await generateSpecFromJxml(jxmlText))
-      }
+      const params = currentGitlabPreviewParams()
+      if (!params) return
+      setMarkdown(await generateSpecFromGitlab(params))
       setTab('output')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Échec de la génération de la doc — voir la console.')
@@ -170,7 +158,7 @@ function CodePanel({ onCollapse }: CodePanelProps) {
     }
   }
 
-  const canGenerate = jxmlMode === 'text' ? !!jxmlText.trim() : !!gitlabEntryPointPath
+  const canGenerate = !!gitlabEntryPointPath
 
   const gitlabSearchTerm = gitlabSearch.trim().toLowerCase()
   const filteredGitlabProjects = gitlabSearchTerm
@@ -214,231 +202,195 @@ function CodePanel({ onCollapse }: CodePanelProps) {
 
       {tab === 'input' ? (
         <div className="flex flex-col gap-3 min-h-0 flex-1 overflow-auto">
-          <div className="flex gap-4 border-b border-[#dcdcde] text-sm shrink-0">
-            {JXML_MODES.map(([mode, label]) => (
-              <label
-                key={mode}
-                className={`pb-2 -mb-px border-b-2 cursor-pointer ${
-                  jxmlMode === mode
-                    ? 'border-gl-orange text-[#303030] font-medium'
-                    : 'border-transparent text-gray-500 hover:text-[#303030]'
-                }`}
-              >
+          <div className="flex flex-col gap-3">
+            <button
+              type="button"
+              className="btn-secondary self-start"
+              onClick={handleLoadGitlabProjects}
+              disabled={gitlabLoading}
+            >
+              {gitlabLoading ? 'Chargement…' : 'Charger les projets GitLab'}
+            </button>
+            {gitlabProjects.length > 0 && (
+              <>
                 <input
-                  type="radio"
-                  className="sr-only"
-                  checked={jxmlMode === mode}
-                  onChange={() => setJxmlMode(mode)}
+                  type="text"
+                  value={gitlabSearch}
+                  onChange={(e) => setGitlabSearch(e.target.value)}
+                  placeholder="Rechercher un projet (groupe, chemin, nom)…"
+                  className="rounded border border-[#dcdcde] px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-gl-orange"
                 />
-                {label}
-              </label>
-            ))}
-          </div>
-          {jxmlMode === 'text' && (
-            <>
-              <textarea
-                value={jxmlText}
-                onChange={(e) => setJxmlText(e.target.value)}
-                placeholder="Colle ici le contenu JXML"
-                className="w-full min-h-[30vh] rounded border border-[#dcdcde] p-2 font-mono text-[13px] focus:outline-none focus:ring-2 focus:ring-gl-orange"
-              />
-              <p className="text-xs text-gray-500">
-                Doit être un JXML valide sans balise &lt;Include&gt; (non résolvable ici — utilise le mode GitLab
-                pour un JXML avec des Include).
-              </p>
-            </>
-          )}
-          {jxmlMode === 'gitlab' && (
-            <div className="flex flex-col gap-3">
+                <select
+                  value={gitlabProjectId}
+                  onChange={(e) => handleSelectGitlabProject(e.target.value)}
+                  className="rounded border border-[#dcdcde] px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-gl-orange"
+                >
+                  <option value="">
+                    {filteredGitlabProjects.length === 0 ? 'Aucun projet ne correspond' : '— Choisir un projet —'}
+                  </option>
+                  {filteredGitlabProjects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      [{p.groupKey}] {p.pathWithNamespace}
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
+            {gitlabSourcesLoading && <p className="text-sm text-gray-500">Chargement des fichiers…</p>}
+            {gitlabEntryPoints.length > 0 && (
+              <div className="border border-[#dcdcde] rounded">
+                <div className="px-2 py-1.5 border-b border-[#dcdcde] bg-[#fafafa] text-sm text-gray-600">
+                  Démarche à documenter (trouvée{gitlabEntryPoints.length > 1 ? 's' : ''} dans FORMS.jxml)
+                </div>
+                <ul className="text-sm divide-y divide-[#eee]">
+                  {gitlabEntryPoints.map((entryPoint) => (
+                    <li key={entryPoint.path} className="px-2 py-1">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="gitlab-entry-point"
+                          checked={gitlabEntryPointPath === entryPoint.path}
+                          onChange={() => setGitlabEntryPointPath(entryPoint.path)}
+                        />
+                        <span className="font-mono text-[13px] break-all">{entryPoint.documentId}</span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {gitlabEntryPointPath && (
               <button
                 type="button"
                 className="btn-secondary self-start"
-                onClick={handleLoadGitlabProjects}
-                disabled={gitlabLoading}
+                onClick={handlePreviewGitlabJxml}
+                disabled={gitlabPreviewLoading}
               >
-                {gitlabLoading ? 'Chargement…' : 'Charger les projets GitLab'}
+                {gitlabPreviewLoading ? 'Génération de la prévisualisation…' : 'Prévisualiser le JXML résolu'}
               </button>
-              {gitlabProjects.length > 0 && (
-                <>
-                  <input
-                    type="text"
-                    value={gitlabSearch}
-                    onChange={(e) => setGitlabSearch(e.target.value)}
-                    placeholder="Rechercher un projet (groupe, chemin, nom)…"
-                    className="rounded border border-[#dcdcde] px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-gl-orange"
-                  />
-                  <select
-                    value={gitlabProjectId}
-                    onChange={(e) => handleSelectGitlabProject(e.target.value)}
-                    className="rounded border border-[#dcdcde] px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-gl-orange"
-                  >
-                    <option value="">
-                      {filteredGitlabProjects.length === 0 ? 'Aucun projet ne correspond' : '— Choisir un projet —'}
-                    </option>
-                    {filteredGitlabProjects.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        [{p.groupKey}] {p.pathWithNamespace}
-                      </option>
-                    ))}
-                  </select>
-                </>
-              )}
-              {gitlabSourcesLoading && <p className="text-sm text-gray-500">Chargement des fichiers…</p>}
-              {gitlabEntryPoints.length > 0 && (
-                <div className="border border-[#dcdcde] rounded">
-                  <div className="px-2 py-1.5 border-b border-[#dcdcde] bg-[#fafafa] text-sm text-gray-600">
-                    Démarche à documenter (trouvée{gitlabEntryPoints.length > 1 ? 's' : ''} dans FORMS.jxml)
-                  </div>
-                  <ul className="text-sm divide-y divide-[#eee]">
-                    {gitlabEntryPoints.map((entryPoint) => (
-                      <li key={entryPoint.path} className="px-2 py-1">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="radio"
-                            name="gitlab-entry-point"
-                            checked={gitlabEntryPointPath === entryPoint.path}
-                            onChange={() => setGitlabEntryPointPath(entryPoint.path)}
-                          />
-                          <span className="font-mono text-[13px] break-all">{entryPoint.documentId}</span>
-                        </label>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {gitlabEntryPointPath && (
-                <button
-                  type="button"
-                  className="btn-secondary self-start"
-                  onClick={handlePreviewGitlabJxml}
-                  disabled={gitlabPreviewLoading}
-                >
-                  {gitlabPreviewLoading ? 'Génération de la prévisualisation…' : 'Prévisualiser le JXML résolu'}
-                </button>
-              )}
-              {gitlabPreviewOpen && (
+            )}
+            {gitlabPreviewOpen && (
+              <div
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+                onClick={() => setGitlabPreviewOpen(false)}
+              >
                 <div
-                  className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-                  onClick={() => setGitlabPreviewOpen(false)}
+                  className="bg-white rounded shadow-xl w-full max-w-5xl max-h-[85vh] flex flex-col"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  <div
-                    className="bg-white rounded shadow-xl w-full max-w-5xl max-h-[85vh] flex flex-col"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-[#dcdcde] bg-[#fafafa] text-sm shrink-0">
-                      <span className="text-gray-600">
-                        JXML envoyé au modèle (Include résolus, includes/traductions/Java non affichés ici)
-                      </span>
-                      <button
-                        type="button"
-                        className="text-gl-blue hover:text-gl-blue-dark hover:underline"
-                        onClick={() => setGitlabPreviewOpen(false)}
-                      >
-                        Fermer
-                      </button>
-                    </div>
-                    {gitlabPreviewLoading ? (
-                      <p className="text-sm text-gray-500 p-3">Chargement…</p>
-                    ) : (
-                      <>
-                        {gitlabPreviewWarnings.length > 0 && (
-                          <div className="px-3 py-2 border-b border-amber-200 bg-amber-50 text-sm shrink-0">
-                            <p className="font-medium text-amber-800 mb-1">
-                              {gitlabPreviewWarnings.length} problème(s) détecté(s) dans le JXML généré
-                            </p>
-                            <ul className="list-disc list-inside text-amber-800 space-y-0.5">
-                              {gitlabPreviewWarnings.map((warning, i) => (
-                                <li key={i}>{warning}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                        <div className="flex gap-4 px-3 pt-2 text-sm border-b border-[#dcdcde] shrink-0">
-                          {(['tree', 'raw'] as const).map((mode) => (
-                            <button
-                              key={mode}
-                              type="button"
-                              className={`pb-2 -mb-px border-b-2 ${
-                                previewViewMode === mode
-                                  ? 'border-gl-orange text-[#303030] font-medium'
-                                  : 'border-transparent text-gray-500 hover:text-[#303030]'
-                              }`}
-                              onClick={() => setPreviewViewMode(mode)}
-                            >
-                              {mode === 'tree' ? 'Arborescence' : 'Texte brut'}
-                            </button>
-                          ))}
-                        </div>
-                        <div className="overflow-auto p-3 flex-1">
-                          {previewViewMode === 'tree' ? (
-                            <XmlTreeView xml={gitlabPreviewContent} />
-                          ) : (
-                            <pre className="text-[12px] whitespace-pre-wrap break-all">{gitlabPreviewContent}</pre>
-                          )}
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-              )}
-              {gitlabMandatoryPaths.length > 0 && (
-                <div className="border border-[#dcdcde] rounded">
-                  <div className="px-2 py-1.5 border-b border-[#dcdcde] bg-[#fafafa] text-sm text-gray-600">
-                    Fichiers de traduction — toujours inclus (résolvent les clés trans(...) du JXML, #285)
-                  </div>
-                  <ul className="max-h-32 overflow-auto text-sm divide-y divide-[#eee]">
-                    {gitlabMandatoryPaths.map((path) => (
-                      <li key={path} className="px-2 py-1">
-                        <label className="flex items-center gap-2 text-gray-500">
-                          <input type="checkbox" checked disabled />
-                          <span className="font-mono text-[13px] break-all">{path}</span>
-                        </label>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {gitlabSourcePaths.length > 0 && (
-                <div className="border border-[#dcdcde] rounded">
-                  <div className="flex items-center justify-between gap-2 px-2 py-1.5 border-b border-[#dcdcde] bg-[#fafafa] text-sm">
+                  <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-[#dcdcde] bg-[#fafafa] text-sm shrink-0">
                     <span className="text-gray-600">
-                      {gitlabSelectedPaths.size} / {gitlabSourcePaths.length} fichier(s) inclus
+                      JXML envoyé au modèle (Include résolus, includes/traductions/Java non affichés ici)
                     </span>
-                    <span className="flex gap-3">
-                      <button
-                        type="button"
-                        className="text-gl-blue hover:text-gl-blue-dark hover:underline"
-                        onClick={() => setGitlabSelectedPaths(new Set(gitlabSourcePaths))}
-                      >
-                        Tout cocher
-                      </button>
-                      <button
-                        type="button"
-                        className="text-gl-blue hover:text-gl-blue-dark hover:underline"
-                        onClick={() => setGitlabSelectedPaths(new Set())}
-                      >
-                        Tout décocher
-                      </button>
-                    </span>
+                    <button
+                      type="button"
+                      className="text-gl-blue hover:text-gl-blue-dark hover:underline"
+                      onClick={() => setGitlabPreviewOpen(false)}
+                    >
+                      Fermer
+                    </button>
                   </div>
-                  <ul className="max-h-64 overflow-auto text-sm divide-y divide-[#eee]">
-                    {gitlabSourcePaths.map((path) => (
-                      <li key={path} className="px-2 py-1">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={gitlabSelectedPaths.has(path)}
-                            onChange={() => handleToggleGitlabPath(path)}
-                          />
-                          <span className="font-mono text-[13px] break-all">{path}</span>
-                        </label>
-                      </li>
-                    ))}
-                  </ul>
+                  {gitlabPreviewLoading ? (
+                    <p className="text-sm text-gray-500 p-3">Chargement…</p>
+                  ) : (
+                    <>
+                      {gitlabPreviewWarnings.length > 0 && (
+                        <div className="px-3 py-2 border-b border-amber-200 bg-amber-50 text-sm shrink-0">
+                          <p className="font-medium text-amber-800 mb-1">
+                            {gitlabPreviewWarnings.length} problème(s) détecté(s) dans le JXML généré
+                          </p>
+                          <ul className="list-disc list-inside text-amber-800 space-y-0.5">
+                            {gitlabPreviewWarnings.map((warning, i) => (
+                              <li key={i}>{warning}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      <div className="flex gap-4 px-3 pt-2 text-sm border-b border-[#dcdcde] shrink-0">
+                        {(['tree', 'raw'] as const).map((mode) => (
+                          <button
+                            key={mode}
+                            type="button"
+                            className={`pb-2 -mb-px border-b-2 ${
+                              previewViewMode === mode
+                                ? 'border-gl-orange text-[#303030] font-medium'
+                                : 'border-transparent text-gray-500 hover:text-[#303030]'
+                            }`}
+                            onClick={() => setPreviewViewMode(mode)}
+                          >
+                            {mode === 'tree' ? 'Arborescence' : 'Texte brut'}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="overflow-auto p-3 flex-1">
+                        {previewViewMode === 'tree' ? (
+                          <XmlTreeView xml={gitlabPreviewContent} />
+                        ) : (
+                          <pre className="text-[12px] whitespace-pre-wrap break-all">{gitlabPreviewContent}</pre>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
-              )}
-            </div>
-          )}
+              </div>
+            )}
+            {gitlabMandatoryPaths.length > 0 && (
+              <div className="border border-[#dcdcde] rounded">
+                <div className="px-2 py-1.5 border-b border-[#dcdcde] bg-[#fafafa] text-sm text-gray-600">
+                  Fichiers de traduction — toujours inclus (résolvent les clés trans(...) du JXML, #285)
+                </div>
+                <ul className="max-h-32 overflow-auto text-sm divide-y divide-[#eee]">
+                  {gitlabMandatoryPaths.map((path) => (
+                    <li key={path} className="px-2 py-1">
+                      <label className="flex items-center gap-2 text-gray-500">
+                        <input type="checkbox" checked disabled />
+                        <span className="font-mono text-[13px] break-all">{path}</span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {gitlabSourcePaths.length > 0 && (
+              <div className="border border-[#dcdcde] rounded">
+                <div className="flex items-center justify-between gap-2 px-2 py-1.5 border-b border-[#dcdcde] bg-[#fafafa] text-sm">
+                  <span className="text-gray-600">
+                    {gitlabSelectedPaths.size} / {gitlabSourcePaths.length} fichier(s) inclus
+                  </span>
+                  <span className="flex gap-3">
+                    <button
+                      type="button"
+                      className="text-gl-blue hover:text-gl-blue-dark hover:underline"
+                      onClick={() => setGitlabSelectedPaths(new Set(gitlabSourcePaths))}
+                    >
+                      Tout cocher
+                    </button>
+                    <button
+                      type="button"
+                      className="text-gl-blue hover:text-gl-blue-dark hover:underline"
+                      onClick={() => setGitlabSelectedPaths(new Set())}
+                    >
+                      Tout décocher
+                    </button>
+                  </span>
+                </div>
+                <ul className="max-h-64 overflow-auto text-sm divide-y divide-[#eee]">
+                  {gitlabSourcePaths.map((path) => (
+                    <li key={path} className="px-2 py-1">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={gitlabSelectedPaths.has(path)}
+                          onChange={() => handleToggleGitlabPath(path)}
+                        />
+                        <span className="font-mono text-[13px] break-all">{path}</span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
           <div className="mt-auto pt-3 border-t border-[#eee] flex items-center gap-3">
             <button type="button" className="btn-primary" onClick={handleGenerate} disabled={!canGenerate || generating}>
               {generating ? 'Génération…' : 'Générer la doc'}
