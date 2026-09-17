@@ -40,6 +40,19 @@ class TranslationResolverTest {
     }
 
     @Test
+    void resolvesAKeyContainingAQuestionMark() {
+        Map<String, String> files = Map.of(
+                "resources/fr.properties",
+                "label.71.quels.bulletins.souhaitez.vous.obtenir?=Quels bulletins souhaitez-vous obtenir?");
+
+        Map<String, String> translations = TranslationResolver.buildTranslations(files, "fr");
+        String resolved = TranslationResolver.resolve(
+                "<Label>trans(label.71.quels.bulletins.souhaitez.vous.obtenir?)</Label>", translations);
+
+        assertThat(resolved).isEqualTo("<Label>Quels bulletins souhaitez-vous obtenir?</Label>");
+    }
+
+    @Test
     void ignoresATranslationFileForAnotherLanguage() {
         Map<String, String> files = Map.of("resources/de.properties", "117=Standard / Liste (DE)");
 

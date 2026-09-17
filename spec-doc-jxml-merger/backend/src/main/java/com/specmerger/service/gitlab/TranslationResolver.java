@@ -36,7 +36,10 @@ import org.xml.sax.InputSource;
 @Slf4j
 public final class TranslationResolver {
 
-    private static final Pattern TRANS_CALL = Pattern.compile("trans\\(\\s*['\"]?([\\w.\\-]+)['\"]?\\s*\\)");
+    // Keys are whatever the .properties/.xlf source declares them as (see Properties/XLIFF
+    // parsing below) — punctuation like a trailing '?' is legal there, so this only excludes
+    // quotes/parens rather than whitelisting "word" characters.
+    private static final Pattern TRANS_CALL = Pattern.compile("trans\\(\\s*['\"]?([^'\"()]+?)['\"]?\\s*\\)");
 
     private TranslationResolver() {
     }
