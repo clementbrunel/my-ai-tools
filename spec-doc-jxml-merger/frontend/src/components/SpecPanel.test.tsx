@@ -1,31 +1,70 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import SpecPanel from './SpecPanel'
+import { generateSpecFromWord } from '../api/analysis'
+
+vi.mock('../api/analysis', () => ({
+  generateSpecFromWord: vi.fn(),
+}))
+
+const generateSpecFromWordMock = vi.mocked(generateSpecFromWord)
+
+beforeEach(() => {
+  generateSpecFromWordMock.mockReset()
+})
 
 describe('SpecPanel', () => {
-  it('renders the section label', () => {
-    render(<SpecPanel wordFile={null} onWordFileChange={vi.fn()} />)
-    expect(screen.getByText('Spec Word (optionnel)')).toBeDefined()
+  it('renders the section label and starts on the Input tab with a file picker', () => {
+    const { container } = render(<SpecPanel title="" />)
+    expect(screen.getByText('Spec Word')).toBeDefined()
+    expect(container.querySelector('input[type="file"]')).not.toBeNull()
   })
 
   it('does not show a filename when no file is selected', () => {
-    render(<SpecPanel wordFile={null} onWordFileChange={vi.fn()} />)
+    render(<SpecPanel title="" />)
     expect(screen.queryByText(/\.docx/)).toBeNull()
   })
 
-  it('shows the filename when a file is selected', () => {
-    const file = new File(['contenu'], 'KYC_v2.docx')
-    render(<SpecPanel wordFile={file} onWordFileChange={vi.fn()} />)
-    expect(screen.getByText('KYC_v2.docx')).toBeDefined()
-  })
-
-  it('calls onWordFileChange when a file is picked', async () => {
-    const onWordFileChange = vi.fn()
-    const { container } = render(<SpecPanel wordFile={null} onWordFileChange={onWordFileChange} />)
+  it('shows the filename once a file is picked, and enables Générer la doc', async () => {
+    const { container } = render(<SpecPanel title="" />)
     const file = new File(['contenu'], 'spec.docx')
     const input = container.querySelector('input[type="file"]') as HTMLInputElement
     await userEvent.upload(input, file)
-    expect(onWordFileChange).toHaveBeenCalledWith(file)
+    expect(screen.getByText('spec.docx')).toBeDefined()
+    expect(screen.getByText('Générer la doc')).not.toBeDisabled()
+  })
+
+  it('disables Générer la doc until a file is selected', () => {
+    render(<SpecPanel title="" />)
+    expect(screen.getByText('Générer la doc')).toBeDisabled()
+  })
+
+  it('generates the spec and switches to the Output tab', async () => {
+    generateSpecFromWordMock.mockResolvedValue('# Doc générée')
+    const { container } = render(<SpecPanel title="" />)
+    const file = new File(['contenu'], 'spec.docx')
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement
+    await userEvent.upload(input, file)
+    await userEvent.click(screen.getByText('Générer la doc'))
+    expect(generateSpecFromWordMock).toHaveBeenCalledWith(file)
+    expect(await screen.findByPlaceholderText(/apparaîtra ici/)).toHaveValue('# Doc générée')
+  })
+
+  it('shows an error message when generation fails', async () => {
+    generateSpecFromWordMock.mockRejectedValue(new Error('Échec du parsing'))
+    const { container } = render(<SpecPanel title="" />)
+    const file = new File(['contenu'], 'spec.docx')
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement
+    await userEvent.upload(input, file)
+    await userEvent.click(screen.getByText('Générer la doc'))
+    expect(await screen.findByText('Échec du parsing')).toBeDefined()
+  })
+
+  it('calls onCollapse when the collapse button is clicked', async () => {
+    const onCollapse = vi.fn()
+    render(<SpecPanel title="" onCollapse={onCollapse} />)
+    await userEvent.click(screen.getByLabelText('Réduire le panneau Spec Word'))
+    expect(onCollapse).toHaveBeenCalledTimes(1)
   })
 })
