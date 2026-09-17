@@ -182,7 +182,7 @@ function CodePanel({ onCollapse }: CodePanelProps) {
 
   return (
     <>
-      {generating && <FullPageLoader message="Génération de la doc depuis la source en cours…" />}
+      {generating && <FullPageLoader message="Génération de la doc depuis le code source en cours…" />}
       <section className="card p-4 overflow-auto min-h-0 flex flex-col">
         <div className="flex items-center justify-between gap-2 mb-3">
           <h2 className="field-label">Spec JXML</h2>
