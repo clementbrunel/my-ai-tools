@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { generateSpecFromWord } from '../api/analysis'
+import { useEffect, useState } from 'react'
+import { generateSpecFromWord, previewWord } from '../api/analysis'
 import FullPageLoader from './FullPageLoader'
 import MarkdownView from './MarkdownView'
 
@@ -8,6 +8,13 @@ interface SpecPanelProps {
 }
 
 type Tab = 'input' | 'output'
+
+const ACCEPTED_EXTENSIONS = ['.doc', '.docx']
+
+function hasAcceptedExtension(filename: string): boolean {
+  const lower = filename.toLowerCase()
+  return ACCEPTED_EXTENSIONS.some((ext) => lower.endsWith(ext))
+}
 
 function downloadMarkdown(markdown: string, filename: string) {
   const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' })
@@ -25,6 +32,28 @@ function SpecPanel({ onCollapse }: SpecPanelProps) {
   const [tab, setTab] = useState<Tab>('input')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [previewContent, setPreviewContent] = useState('')
+  const [previewLoading, setPreviewLoading] = useState(false)
+
+  useEffect(() => {
+    if (!previewOpen) return
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setPreviewOpen(false)
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [previewOpen])
+
+  function handleFileChange(file: File | null) {
+    if (file && !hasAcceptedExtension(file.name)) {
+      setError('Format non supporté — seuls les fichiers .doc et .docx sont acceptés.')
+      setWordFile(null)
+      return
+    }
+    setError(null)
+    setWordFile(file)
+  }
 
   async function handleGenerate() {
     if (!wordFile) return
@@ -38,6 +67,23 @@ function SpecPanel({ onCollapse }: SpecPanelProps) {
       console.error(e)
     } finally {
       setLoading(false)
+    }
+  }
+
+  /** Opens the read-only modal showing the text extracted from the Word file, before it's sent to the model. */
+  async function handlePreviewWord() {
+    if (!wordFile) return
+    setError(null)
+    setPreviewOpen(true)
+    setPreviewLoading(true)
+    try {
+      setPreviewContent(await previewWord(wordFile))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Échec de la prévisualisation — voir la console.')
+      console.error(e)
+      setPreviewOpen(false)
+    } finally {
+      setPreviewLoading(false)
     }
   }
 
@@ -88,12 +134,51 @@ function SpecPanel({ onCollapse }: SpecPanelProps) {
               <input
                 id="spec-word-file"
                 type="file"
-                accept=".docx"
-                onChange={(e) => setWordFile(e.target.files?.[0] ?? null)}
+                accept=".doc,.docx"
+                onChange={(e) => handleFileChange(e.target.files?.[0] ?? null)}
                 className="sr-only"
               />
               <span className="text-sm text-gray-500">{wordFile ? wordFile.name : 'Aucun fichier choisi'}</span>
             </div>
+            {wordFile && (
+              <button
+                type="button"
+                className="btn-secondary self-start"
+                onClick={handlePreviewWord}
+                disabled={previewLoading}
+              >
+                {previewLoading ? 'Extraction…' : 'Prévisualiser le texte extrait'}
+              </button>
+            )}
+            {previewOpen && (
+              <div
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+                onClick={() => setPreviewOpen(false)}
+              >
+                <div
+                  className="bg-white rounded shadow-xl w-full max-w-5xl max-h-[85vh] flex flex-col"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-[#dcdcde] bg-[#fafafa] text-sm shrink-0">
+                    <span className="text-gray-600">Texte extrait du Word, envoyé tel quel au modèle</span>
+                    <button
+                      type="button"
+                      className="text-gl-blue hover:text-gl-blue-dark hover:underline"
+                      onClick={() => setPreviewOpen(false)}
+                    >
+                      Fermer
+                    </button>
+                  </div>
+                  {previewLoading ? (
+                    <p className="text-sm text-gray-500 p-3">Chargement…</p>
+                  ) : (
+                    <div className="overflow-auto p-3 flex-1">
+                      <pre className="text-[12px] whitespace-pre-wrap break-all">{previewContent}</pre>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
             <div className="mt-auto pt-3 border-t border-[#eee] flex items-center gap-3">
               <button type="button" className="btn-primary" onClick={handleGenerate} disabled={!wordFile || loading}>
                 {loading ? 'Génération…' : 'Générer la doc'}

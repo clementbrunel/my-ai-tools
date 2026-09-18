@@ -6,6 +6,7 @@ import type {
   GitLabProjectSummary,
   GitLabSourceListing,
   SpecGenerationResult,
+  WordExtractionPreview,
 } from '../types'
 
 export async function createAnalysis(params: {
@@ -89,6 +90,19 @@ export async function generateSpecFromWord(word: File): Promise<string> {
     headers: { 'Content-Type': 'multipart/form-data' },
   })
   return data.markdown
+}
+
+/**
+ * The raw text extracted from the uploaded Word/.doc spec, exactly as it will be sent to the
+ * model — lets the user check the extraction before spending an AI call on it.
+ */
+export async function previewWord(word: File): Promise<string> {
+  const form = new FormData()
+  form.append('word', word)
+  const { data } = await client.post<WordExtractionPreview>('/spec/preview-word', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return data.content
 }
 
 /**

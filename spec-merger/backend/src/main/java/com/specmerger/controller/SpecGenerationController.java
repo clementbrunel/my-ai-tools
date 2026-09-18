@@ -1,6 +1,7 @@
 package com.specmerger.controller;
 
 import com.specmerger.dto.SpecGenerationResult;
+import com.specmerger.dto.WordExtractionPreview;
 import com.specmerger.service.WordSpecParser;
 import com.specmerger.service.ai.SpecResolutionAIProvider;
 import java.io.IOException;
@@ -36,5 +37,16 @@ public class SpecGenerationController {
             text = wordSpecParser.extractText(in);
         }
         return new SpecGenerationResult(aiProvider.generateSpecFromWord(text));
+    }
+
+    /**
+     * The raw text extracted from the uploaded Word/.doc spec, exactly as it will be sent to the
+     * model — read-only, no AI call and no analysis session is created.
+     */
+    @PostMapping(value = "/preview-word", consumes = "multipart/form-data")
+    public WordExtractionPreview previewWord(@RequestParam("word") MultipartFile word) throws IOException {
+        try (var in = word.getInputStream()) {
+            return new WordExtractionPreview(wordSpecParser.extractText(in));
+        }
     }
 }
