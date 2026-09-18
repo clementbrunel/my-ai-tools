@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { generateSpecFromWord, previewWord } from '../api/analysis'
+import { generateSpecFromWord, generateSpecFromWordSample, previewWord } from '../api/analysis'
 import { renderMarkdown } from '../markdown'
 import FullPageLoader from './FullPageLoader'
 import MarkdownView from './MarkdownView'
@@ -41,6 +41,7 @@ function SpecPanel({ onCollapse }: SpecPanelProps) {
   const [previewContent, setPreviewContent] = useState('')
   const [previewLoading, setPreviewLoading] = useState(false)
   const [previewViewMode, setPreviewViewMode] = useState<'rendered' | 'raw'>('rendered')
+  const [sampleLoading, setSampleLoading] = useState(false)
 
   const previewHtml = useMemo(() => renderMarkdown(previewContent), [previewContent])
 
@@ -78,6 +79,22 @@ function SpecPanel({ onCollapse }: SpecPanelProps) {
     }
   }
 
+  /** Generates from the bundled sample spec instead of an uploaded file — backend rejects this
+   * outside MISTRAL_MOCK=true (see generateFromWordSample). */
+  async function handleGenerateSample() {
+    setError(null)
+    setSampleLoading(true)
+    try {
+      setMarkdown(await generateSpecFromWordSample())
+      setTab('output')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Échec de la génération de l'exemple — voir la console.")
+      console.error(e)
+    } finally {
+      setSampleLoading(false)
+    }
+  }
+
   /** Opens the read-only modal showing the text extracted from the Word file, before it's sent to the model. */
   async function handlePreviewWord() {
     if (!wordFile) return
@@ -102,6 +119,7 @@ function SpecPanel({ onCollapse }: SpecPanelProps) {
           message={`Génération de la doc depuis ${wordFile && isExcelFile(wordFile.name) ? "l'Excel" : 'le Word'} en cours…`}
         />
       )}
+      {sampleLoading && <FullPageLoader message="Génération de la doc depuis l'exemple en cours…" />}
       <section className="card p-4 overflow-auto min-h-0 flex flex-col">
         <div className="flex items-center justify-between gap-2 mb-3">
           <h2 className="field-label">Spec Word / Excel</h2>
@@ -137,6 +155,15 @@ function SpecPanel({ onCollapse }: SpecPanelProps) {
         {tab === 'input' ? (
           <div className="flex flex-col gap-3 min-h-0 flex-1">
             <div className="flex items-center gap-3 justify-end">
+              <button
+                type="button"
+                className="btn-secondary text-sm py-1.5 px-3"
+                onClick={handleGenerateSample}
+                disabled={sampleLoading}
+                title="Génère la doc depuis un exemple bundlé, sans fichier — disponible en mode mock (MISTRAL_MOCK=true)"
+              >
+                {sampleLoading ? 'Génération…' : 'Charger un exemple'}
+              </button>
               <span className="text-sm text-gray-500">{wordFile ? wordFile.name : 'Aucun fichier choisi'}</span>
               <label
                 htmlFor="spec-word-file"

@@ -106,6 +106,15 @@ export async function previewWord(word: File): Promise<string> {
 }
 
 /**
+ * Same generation as generateSpecFromWord, but from a small bundled sample spec instead of an
+ * uploaded file — only available server-side while MISTRAL_MOCK=true (409 otherwise).
+ */
+export async function generateSpecFromWordSample(): Promise<string> {
+  const { data } = await client.get<SpecGenerationResult>('/spec/generate-from-word-sample')
+  return data.markdown
+}
+
+/**
  * The markdown spec the model generates from a GitLab entry point's JXML — Include chain resolved
  * and spec generated server-side in one request, instead of chaining previewGitlabJxml into a
  * separate generation call from the frontend.

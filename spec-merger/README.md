@@ -48,6 +48,12 @@ Copier `.env.example` → `.env`. Voir ce fichier pour le détail de chaque vari
 pour continuer à travailler sur le reste du pipeline (diff, édition/versioning du
 markdown, export) sans accès au réseau interne (ex. depuis chez soi).
 
+Le bouton « Charger un exemple » du panneau Spec Word/Excel génère depuis un petit spec
+bundlé (`backend/src/main/resources/samples/sample-demarche-word.md`, même démarche que
+`sample-demarche.jxml`) au lieu d'un fichier uploadé — `GET /api/spec/generate-from-word-sample`
+renvoie 409 tant que `MISTRAL_MOCK` n'est pas activé (un vrai appel Mistral sur ce texte
+placeholder ne servirait à rien).
+
 ## Gabarit de documentation attendue
 
 `backend/src/main/resources/templates/documentation-template.md` définit la forme que
