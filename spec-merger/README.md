@@ -1,4 +1,4 @@
-# spec-doc-jxml-merger
+# spec-merger
 
 Fusionne la spécification Word d'un projet JWAY avec son code JXML en un markdown unique, éditable et versionné.
 

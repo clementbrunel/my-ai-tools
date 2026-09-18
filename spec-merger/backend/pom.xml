@@ -12,9 +12,9 @@
     </parent>
 
     <groupId>com.specmerger</groupId>
-    <artifactId>spec-doc-jxml-merger</artifactId>
+    <artifactId>spec-merger</artifactId>
     <version>1.0.0</version>
-    <name>spec-doc-jxml-merger</name>
+    <name>spec-merger</name>
     <description>Fusionne les spécifications Word et le code JXML (JWAY) en un markdown unique et versionné</description>
 
     <properties>
