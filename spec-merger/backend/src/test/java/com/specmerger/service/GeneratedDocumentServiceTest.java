@@ -161,7 +161,7 @@ class GeneratedDocumentServiceTest {
     }
 
     @Test
-    void getSessionReturnsOnlyTheWordSlotForALoneWordDocument() {
+    void getSessionReturnsOnlyTheWordSlotForALoneUnlinkedWordDocument() {
         GeneratedDocumentService service = newService();
         UUID wordId = UUID.randomUUID();
         GeneratedDocument word = new GeneratedDocument();
@@ -185,7 +185,7 @@ class GeneratedDocumentServiceTest {
     }
 
     @Test
-    void getSessionReturnsOnlyTheJxmlSlotForALoneJxmlDocument() {
+    void getSessionReturnsOnlyTheJxmlSlotForALoneUnlinkedJxmlDocument() {
         GeneratedDocumentService service = newService();
         UUID jxmlId = UUID.randomUUID();
         GeneratedDocument jxml = new GeneratedDocument();
@@ -208,6 +208,62 @@ class GeneratedDocumentServiceTest {
     }
 
     @Test
+    void getSessionFromTheWordIdAlsoReturnsALinkedJxmlCounterpartWithNoMerge() {
+        GeneratedDocumentService service = newService();
+        UUID wordId = UUID.randomUUID();
+        UUID jxmlId = UUID.randomUUID();
+        GeneratedDocument word = new GeneratedDocument();
+        word.setId(wordId);
+        word.setSource(Source.WORD);
+        word.setJxmlDocumentId(jxmlId);
+        when(documentRepository.findById(wordId)).thenReturn(Optional.of(word));
+        DocumentRevision wordRevision = new DocumentRevision();
+        wordRevision.setContent("# Word");
+        DocumentRevision jxmlRevision = new DocumentRevision();
+        jxmlRevision.setContent("# JXML");
+        when(revisionRepository.findTopByDocumentIdOrderByRevisionNumberDesc(wordId))
+                .thenReturn(Optional.of(wordRevision));
+        when(revisionRepository.findTopByDocumentIdOrderByRevisionNumberDesc(jxmlId))
+                .thenReturn(Optional.of(jxmlRevision));
+
+        var session = service.getSession(wordId);
+
+        assertThat(session.wordDocumentId()).isEqualTo(wordId);
+        assertThat(session.wordMarkdown()).isEqualTo("# Word");
+        assertThat(session.jxmlDocumentId()).isEqualTo(jxmlId);
+        assertThat(session.jxmlMarkdown()).isEqualTo("# JXML");
+        assertThat(session.mergedDocumentId()).isNull();
+    }
+
+    @Test
+    void getSessionFromTheJxmlIdAlsoReturnsALinkedWordCounterpartWithNoMerge() {
+        GeneratedDocumentService service = newService();
+        UUID wordId = UUID.randomUUID();
+        UUID jxmlId = UUID.randomUUID();
+        GeneratedDocument jxml = new GeneratedDocument();
+        jxml.setId(jxmlId);
+        jxml.setSource(Source.JXML);
+        jxml.setWordDocumentId(wordId);
+        when(documentRepository.findById(jxmlId)).thenReturn(Optional.of(jxml));
+        DocumentRevision wordRevision = new DocumentRevision();
+        wordRevision.setContent("# Word");
+        DocumentRevision jxmlRevision = new DocumentRevision();
+        jxmlRevision.setContent("# JXML");
+        when(revisionRepository.findTopByDocumentIdOrderByRevisionNumberDesc(wordId))
+                .thenReturn(Optional.of(wordRevision));
+        when(revisionRepository.findTopByDocumentIdOrderByRevisionNumberDesc(jxmlId))
+                .thenReturn(Optional.of(jxmlRevision));
+
+        var session = service.getSession(jxmlId);
+
+        assertThat(session.jxmlDocumentId()).isEqualTo(jxmlId);
+        assertThat(session.jxmlMarkdown()).isEqualTo("# JXML");
+        assertThat(session.wordDocumentId()).isEqualTo(wordId);
+        assertThat(session.wordMarkdown()).isEqualTo("# Word");
+        assertThat(session.mergedDocumentId()).isNull();
+    }
+
+    @Test
     void getSessionThrowsForAnUnknownDocument() {
         GeneratedDocumentService service = newService();
         UUID documentId = UUID.randomUUID();
@@ -216,5 +272,62 @@ class GeneratedDocumentServiceTest {
         assertThatThrownBy(() -> service.getSession(documentId))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining(documentId.toString());
+    }
+
+    @Test
+    void linkCounterpartsSetsEachDocumentsPointerToTheOther() {
+        GeneratedDocumentService service = newService();
+        UUID wordId = UUID.randomUUID();
+        UUID jxmlId = UUID.randomUUID();
+        GeneratedDocument word = new GeneratedDocument();
+        word.setId(wordId);
+        word.setSource(Source.WORD);
+        GeneratedDocument jxml = new GeneratedDocument();
+        jxml.setId(jxmlId);
+        jxml.setSource(Source.JXML);
+        when(documentRepository.findById(wordId)).thenReturn(Optional.of(word));
+        when(documentRepository.findById(jxmlId)).thenReturn(Optional.of(jxml));
+
+        service.linkCounterparts(wordId, jxmlId);
+
+        assertThat(word.getJxmlDocumentId()).isEqualTo(jxmlId);
+        assertThat(jxml.getWordDocumentId()).isEqualTo(wordId);
+        verify(documentRepository).save(word);
+        verify(documentRepository).save(jxml);
+    }
+
+    @Test
+    void linkCounterpartsRejectsAWordIdThatIsNotAWordDocument() {
+        GeneratedDocumentService service = newService();
+        UUID notWordId = UUID.randomUUID();
+        UUID jxmlId = UUID.randomUUID();
+        GeneratedDocument notWord = new GeneratedDocument();
+        notWord.setId(notWordId);
+        notWord.setSource(Source.JXML);
+        when(documentRepository.findById(notWordId)).thenReturn(Optional.of(notWord));
+        when(documentRepository.findById(jxmlId)).thenReturn(Optional.of(new GeneratedDocument()));
+
+        assertThatThrownBy(() -> service.linkCounterparts(notWordId, jxmlId))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining(notWordId.toString());
+    }
+
+    @Test
+    void linkCounterpartsRejectsAJxmlIdThatIsNotAJxmlDocument() {
+        GeneratedDocumentService service = newService();
+        UUID wordId = UUID.randomUUID();
+        UUID notJxmlId = UUID.randomUUID();
+        GeneratedDocument word = new GeneratedDocument();
+        word.setId(wordId);
+        word.setSource(Source.WORD);
+        GeneratedDocument notJxml = new GeneratedDocument();
+        notJxml.setId(notJxmlId);
+        notJxml.setSource(Source.WORD);
+        when(documentRepository.findById(wordId)).thenReturn(Optional.of(word));
+        when(documentRepository.findById(notJxmlId)).thenReturn(Optional.of(notJxml));
+
+        assertThatThrownBy(() -> service.linkCounterparts(wordId, notJxmlId))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining(notJxmlId.toString());
     }
 }

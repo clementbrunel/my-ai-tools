@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { getDocument, getSession } from '../api/analysis'
+import { getDocument, getSession, linkDocuments } from '../api/analysis'
 import type { GitlabSelection } from '../types'
 import { usePersistedDoc } from './usePersistedDoc'
 
@@ -127,6 +127,19 @@ export function useGenerationSession() {
       // localStorage unavailable — the session just won't survive a reload.
     }
   }, [word.id, jxml.id, merged.id, gitlabSelection, restoring])
+
+  useEffect(() => {
+    // Pairs the Word and JXML documents server-side as soon as both exist, so the session becomes
+    // recoverable (see getSession) from either one's id alone even if the user never merges them.
+    // Runs again whenever either id changes (one side regenerated) — idempotent on the backend, so
+    // re-linking an already-current pair (e.g. right after a restore) is harmless. Skipped while
+    // restoring since that's just replaying an already-linked (or intentionally unlinked) pair.
+    if (restoring) return
+    if (!word.id || !jxml.id) return
+    linkDocuments(word.id, jxml.id).catch((e) => {
+      console.error('Échec du rattachement Word/JXML de la session', e)
+    })
+  }, [word.id, jxml.id, restoring])
 
   return {
     word,

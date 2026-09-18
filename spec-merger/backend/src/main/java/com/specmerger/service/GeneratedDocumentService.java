@@ -53,10 +53,11 @@ public class GeneratedDocumentService {
 
     /**
      * Everything needed to recover a session from another machine, from any one of its documents'
-     * id — not just a finished MERGED one: a lone WORD or JXML generation (no counterpart to merge
-     * with yet) is just as recoverable this way, with the other slots simply left null. On a
-     * MERGED document this also carries the two documents it was produced from (best-effort — see
-     * {@link GeneratedDocument}) and the GitLab selection it carries.
+     * id — not just a finished MERGED one: a lone WORD or JXML generation is just as recoverable
+     * this way, and if it's been {@link #linkCounterparts linked} to a counterpart, that one comes
+     * back too even though no merge ever happened. On a MERGED document this also carries the two
+     * documents it was produced from (best-effort — see {@link GeneratedDocument}) and the GitLab
+     * selection it carries.
      */
     @Transactional(readOnly = true)
     public SessionExport getSession(UUID documentId) {
@@ -72,9 +73,44 @@ public class GeneratedDocumentService {
                 yield new SessionExport(document.getId(), content, document.getWordDocumentId(), wordMarkdown,
                         document.getJxmlDocumentId(), jxmlMarkdown, document.getGitlabSelectionJson());
             }
-            case WORD -> new SessionExport(null, null, document.getId(), content, null, null, null);
-            case JXML -> new SessionExport(null, null, null, null, document.getId(), content, null);
+            case WORD -> {
+                String jxmlMarkdown = document.getJxmlDocumentId() == null ? null
+                        : latestRevision(document.getJxmlDocumentId()).getContent();
+                yield new SessionExport(null, null, document.getId(), content, document.getJxmlDocumentId(),
+                        jxmlMarkdown, null);
+            }
+            case JXML -> {
+                String wordMarkdown = document.getWordDocumentId() == null ? null
+                        : latestRevision(document.getWordDocumentId()).getContent();
+                yield new SessionExport(null, null, document.getWordDocumentId(), wordMarkdown, document.getId(),
+                        content, null);
+            }
         };
+    }
+
+    /**
+     * Pairs a WORD and a JXML document as belonging to the same in-progress session, before either
+     * has been merged — so {@link #getSession} can recover both from just one of their ids without
+     * an actual AI merge. Called again (overwriting the previous pairing) whenever one side is
+     * regenerated while the other still exists — best-effort, same spirit as a MERGED document's
+     * recorded source ids.
+     */
+    @Transactional
+    public void linkCounterparts(UUID wordDocumentId, UUID jxmlDocumentId) {
+        GeneratedDocument word = documentRepository.findById(wordDocumentId)
+                .orElseThrow(() -> new IllegalArgumentException("Document introuvable: " + wordDocumentId));
+        GeneratedDocument jxml = documentRepository.findById(jxmlDocumentId)
+                .orElseThrow(() -> new IllegalArgumentException("Document introuvable: " + jxmlDocumentId));
+        if (word.getSource() != Source.WORD) {
+            throw new IllegalArgumentException("Ce document n'est pas une doc Word: " + wordDocumentId);
+        }
+        if (jxml.getSource() != Source.JXML) {
+            throw new IllegalArgumentException("Ce document n'est pas une doc JXML: " + jxmlDocumentId);
+        }
+        word.setJxmlDocumentId(jxmlDocumentId);
+        jxml.setWordDocumentId(wordDocumentId);
+        documentRepository.save(word);
+        documentRepository.save(jxml);
     }
 
     /** Appends a new revision (never overwrites) — backs the debounced auto-save of manual edits. */

@@ -1,21 +1,25 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { importSession, resetSession, useGenerationSession } from './useGenerationSession'
-import { getDocument, getSession } from '../api/analysis'
+import { getDocument, getSession, linkDocuments } from '../api/analysis'
 
 vi.mock('../api/analysis', () => ({
   getDocument: vi.fn(),
   getSession: vi.fn(),
+  linkDocuments: vi.fn(),
   updateDocument: vi.fn(),
 }))
 
 const getDocumentMock = vi.mocked(getDocument)
 const getSessionMock = vi.mocked(getSession)
+const linkDocumentsMock = vi.mocked(linkDocuments)
 const STORAGE_KEY = 'spec-merger-session'
 
 beforeEach(() => {
   getDocumentMock.mockReset()
   getSessionMock.mockReset()
+  linkDocumentsMock.mockReset()
+  linkDocumentsMock.mockResolvedValue(undefined)
   localStorage.clear()
 })
 
@@ -80,6 +84,59 @@ describe('useGenerationSession', () => {
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}')
     expect(stored.wordDocumentId).toBe('word-1')
     expect(stored.jxmlDocumentId).toBeUndefined()
+  })
+
+  it('does not link while only one of the Word/JXML slots is filled', () => {
+    const { result } = renderHook(() => useGenerationSession())
+
+    act(() => result.current.word.onGenerated({ id: 'word-1', markdown: '# Word' }))
+
+    expect(linkDocumentsMock).not.toHaveBeenCalled()
+  })
+
+  it('links the Word and JXML documents once both slots are filled', async () => {
+    const { result } = renderHook(() => useGenerationSession())
+
+    act(() => result.current.word.onGenerated({ id: 'word-1', markdown: '# Word' }))
+    act(() => result.current.jxml.onGenerated({ id: 'jxml-1', markdown: '# JXML' }))
+
+    await waitFor(() => expect(linkDocumentsMock).toHaveBeenCalledWith('word-1', 'jxml-1'))
+  })
+
+  it('re-links when one side is regenerated while the other still exists', async () => {
+    const { result } = renderHook(() => useGenerationSession())
+
+    act(() => result.current.word.onGenerated({ id: 'word-1', markdown: '# Word' }))
+    act(() => result.current.jxml.onGenerated({ id: 'jxml-1', markdown: '# JXML' }))
+    await waitFor(() => expect(linkDocumentsMock).toHaveBeenCalledWith('word-1', 'jxml-1'))
+
+    act(() => result.current.word.onGenerated({ id: 'word-2', markdown: '# Word v2' }))
+
+    await waitFor(() => expect(linkDocumentsMock).toHaveBeenCalledWith('word-2', 'jxml-1'))
+  })
+
+  it('links only after a restore finishes, not while both ids are still resolving', async () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ wordDocumentId: 'word-1', jxmlDocumentId: 'jxml-1' }),
+    )
+    let resolveWord: (result: { id: string; markdown: string }) => void = () => {}
+    getDocumentMock.mockImplementation((id: string) => {
+      if (id === 'word-1') return new Promise((resolve) => { resolveWord = resolve })
+      return Promise.resolve({ id, markdown: `# ${id}` })
+    })
+
+    const { result } = renderHook(() => useGenerationSession())
+    await waitFor(() => expect(result.current.jxml.id).toBe('jxml-1'))
+    // word.id hasn't resolved yet (still restoring) — must not have linked prematurely.
+    expect(linkDocumentsMock).not.toHaveBeenCalled()
+
+    resolveWord({ id: 'word-1', markdown: '# Word' })
+    await waitFor(() => expect(result.current.restoring).toBe(false))
+
+    // Both slots came from a restore, not a fresh generation — linking still runs once restoring
+    // clears, re-affirming the pairing (harmless, since it's idempotent server-side).
+    expect(linkDocumentsMock).toHaveBeenCalledWith('word-1', 'jxml-1')
   })
 
   it('exposes a stored GitLab selection as initialGitlabSelection', () => {

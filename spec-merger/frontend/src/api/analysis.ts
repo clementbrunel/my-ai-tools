@@ -116,6 +116,15 @@ export async function mergeSpecs(
   return data
 }
 
+/**
+ * Pairs an already-generated Word document with an already-generated JXML document as the same
+ * in-progress session, before either is merged — so the session becomes recoverable from just one
+ * of their ids even if they're never actually merged. Called whenever both slots are filled.
+ */
+export async function linkDocuments(wordDocumentId: string, jxmlDocumentId: string): Promise<void> {
+  await client.put('/spec/link', { wordDocumentId, jxmlDocumentId })
+}
+
 /** A persisted document's latest content — used to recover a session from its id. */
 export async function getDocument(id: string): Promise<SpecGenerationResult> {
   const { data } = await client.get<SpecGenerationResult>(`/spec/documents/${id}`)

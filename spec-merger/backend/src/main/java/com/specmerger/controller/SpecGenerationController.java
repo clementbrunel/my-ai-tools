@@ -1,5 +1,6 @@
 package com.specmerger.controller;
 
+import com.specmerger.dto.LinkDocumentsRequest;
 import com.specmerger.dto.MergeSpecsRequest;
 import com.specmerger.dto.SessionExport;
 import com.specmerger.dto.SpecGenerationResult;
@@ -35,7 +36,9 @@ import org.springframework.web.server.ResponseStatusException;
  * resulting id (in localStorage) to recover a session instead of holding the markdown itself —
  * see issue #263. A session is recoverable as soon as the first document exists: {@link
  * #getSession} works from a lone Word or JXML document's id just as well as from a finished
- * merge's, for the case where there's nothing to merge with (no second doc to pair it with).
+ * merge's. And once both a Word and a JXML document exist, {@link #link} pairs them so that
+ * either one's id recovers both — the pairing an actual merge normally records, made available
+ * before (or instead of) ever merging.
  */
 @RestController
 @RequestMapping("/api/spec")
@@ -95,6 +98,17 @@ public class SpecGenerationController {
         GeneratedDocument document = documentService.createMerged(markdown, request.wordDocumentId(),
                 request.jxmlDocumentId(), request.gitlabSelectionJson());
         return new SpecGenerationResult(document.getId(), markdown);
+    }
+
+    /**
+     * Pairs an already-generated Word document with an already-generated JXML document as the
+     * same in-progress session, before either is merged — called by the frontend as soon as both
+     * slots are filled, so the session becomes recoverable as a pair from just one document's id
+     * even if the user never merges them.
+     */
+    @PutMapping("/link")
+    public void link(@RequestBody LinkDocumentsRequest request) {
+        documentService.linkCounterparts(request.wordDocumentId(), request.jxmlDocumentId());
     }
 
     /** A persisted document's latest content — used to recover a session from its id. */
