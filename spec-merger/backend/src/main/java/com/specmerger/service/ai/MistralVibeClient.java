@@ -8,6 +8,7 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 
@@ -35,6 +36,7 @@ import java.util.regex.Pattern;
  */
 @Slf4j
 @Component
+@ConditionalOnProperty(prefix = "app.ai", name = "mock", havingValue = "false", matchIfMissing = true)
 public class MistralVibeClient implements SpecResolutionAIProvider {
 
     private static final int MAX_TAG_DOCS = 5;

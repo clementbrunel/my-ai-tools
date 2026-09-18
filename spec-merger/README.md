@@ -40,6 +40,14 @@ cd frontend && npm install && npm run dev   # écoute sur :5173, proxy /api → 
 
 Copier `.env.example` → `.env`. Voir ce fichier pour le détail de chaque variable (credentials Postgres, URL frontend pour CORS, config mistral-vibe, config GitLab).
 
+### Mode mock (sans accès à mistral-vibe)
+
+`MISTRAL_MOCK=true` désactive tout appel réseau à mistral-vibe : `generateSpecFromJxml`/
+`generateSpecFromWord` renvoient le gabarit (`documentation-template.md`) tel quel, et
+`proposeResolution` renvoie les deux extraits en l'état, chacun préfixé `🧪 [MOCK]`. Utile
+pour continuer à travailler sur le reste du pipeline (diff, édition/versioning du
+markdown, export) sans accès au réseau interne (ex. depuis chez soi).
+
 ## Gabarit de documentation attendue
 
 `backend/src/main/resources/templates/documentation-template.md` définit la forme que
@@ -72,3 +80,14 @@ son chemin (`PATH`) et ses patterns Ant de fichiers à inclure.
    (toujours inclus), les ressources de traduction propres au groupe, et, si
    configuré, les classes Java d'appels métier vers l'extérieur — au lieu du reste
    du dépôt (build, tests, assets, ...).
+
+### Mode mock (sans accès à GitLab, ex. depuis chez soi)
+
+`GITLAB_MOCK=true` désactive tout appel réseau à GitLab, même principe que
+`MISTRAL_MOCK` : `GET /api/gitlab/projects` renvoie alors un unique projet
+« 🧪 Démarche d'exemple (mock, sans GitLab) » (`groupKey` `mock`) — le choisir dans
+le panneau Spec JXML fonctionne exactement comme un vrai projet (source listing,
+preview, génération), mais sert le JXML embarqué dans
+`backend/src/main/resources/samples/sample-demarche.jxml` au lieu d'appeler GitLab.
+Combiné à `MISTRAL_MOCK=true` ci-dessus, ça permet de tester tout le pipeline JXML
+sans rien à disposition.

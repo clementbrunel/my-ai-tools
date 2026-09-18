@@ -32,10 +32,19 @@ spring:
 
 app:
   frontend-url: ${FRONTEND_URL:http://localhost:5173}
+  ai:
+    # true : remplace l'appel mistral-vibe par un provider local qui renvoie le gabarit
+    # tel quel (placeholders non remplis) — pour avancer sur le reste du pipeline
+    # (diff, édition/versioning du markdown, export) sans accès réseau à mistral-vibe.
+    mock: ${MISTRAL_MOCK:false}
 
 gitlab:
   url: ${GITLAB_URL:}
   token: ${GITLAB_TOKEN:}
+  # true : expose un faux projet (JXML d'exemple bundlé) en plus des projets réels, sans
+  # jamais appeler GitLab pour lui — pour avancer sur le reste du pipeline sans accès à
+  # GitLab (ex. depuis chez soi), même principe que app.ai.mock ci-dessus.
+  mock: ${GITLAB_MOCK:false}
   # Langue utilisée pour résoudre les clés trans(...) du JXML à partir des fichiers de
   # traduction sélectionnés (.properties/.xlf) — voir #285. Code à 2 lettres, censé
   # correspondre au nom fixe d'un fichier .properties (ex. "fr.properties") ou à l'attribut

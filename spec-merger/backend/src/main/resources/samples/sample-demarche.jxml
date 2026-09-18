@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Exemple minimal de démarche JWAY — 2 écrans avec quelques champs représentatifs
+  (texte obligatoire, case à cocher, condition d'affichage). Sert à tester le
+  pipeline (génération de doc) sans dépendre d'un accès GitLab, en le collant
+  directement dans le panneau Spec JXML — voir README.
+-->
+<JForm>
+  <Section NewPage="screen" IsVisible="">
+    <Title>Coordonnées</Title>
+    <Content OutputMode="all" OutputTarget="all" NewPage="none">
+      <QuestionSet OutputMode="all" LabelHorizontalAlignment="left" LabelPosition="auto" Spacing="normal">
+        <Question>
+          <Label IsTooltipOnly="false">Nom</Label>
+          <TextBox Name="Coordonnees|Nom" DataType="string" NumberOfVisibleCharacters="30" IsRequired="true" />
+        </Question>
+        <Question>
+          <Label IsTooltipOnly="false">Prénom</Label>
+          <TextBox Name="Coordonnees|Prenom" DataType="string" NumberOfVisibleCharacters="30" IsRequired="true" />
+        </Question>
+        <Question>
+          <Label IsTooltipOnly="false">Email</Label>
+          <TextBox Name="Coordonnees|Email" DataType="string" NumberOfVisibleCharacters="40" IsRequired="true" />
+        </Question>
+        <Question IsVisible="$(data|Coordonnees|Email)!=''">
+          <Label IsTooltipOnly="false">J'accepte de recevoir des communications par email</Label>
+          <CheckBox Name="Coordonnees|AcceptCommunications" DataType="boolean" IsRequired="false"
+                     ValueWhenChecked="true" ValueWhenUnchecked="false" />
+        </Question>
+      </QuestionSet>
+    </Content>
+  </Section>
+  <Section NewPage="screen" IsVisible="">
+    <Title>Pièce justificative</Title>
+    <Content OutputMode="all" OutputTarget="all" NewPage="none">
+      <QuestionSet OutputMode="all" LabelHorizontalAlignment="left" LabelPosition="auto" Spacing="normal">
+        <Question>
+          <Label IsTooltipOnly="false">Justificatif de domicile</Label>
+          <AttachmentBox Name="PieceJustificative|Justificatif" IsRequired="true"
+                          AcceptedFileTypes="pdf,jpg,png" MaxFileSize="5" MaxNumberOfFiles="1" />
+        </Question>
+      </QuestionSet>
+    </Content>
+  </Section>
+</JForm>
