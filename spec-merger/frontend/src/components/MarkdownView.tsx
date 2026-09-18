@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
-import { marked } from 'marked'
-import DOMPurify from 'dompurify'
+import { renderMarkdown } from '../markdown'
 
 interface MarkdownViewProps {
   value: string
@@ -8,15 +7,13 @@ interface MarkdownViewProps {
   placeholder: string
 }
 
-marked.setOptions({ gfm: true, breaks: false })
-
 /** An Aperçu/Édition toggle over a markdown value — the Aperçu tab renders it (sanitized), the textarea edits it. Defaults to Aperçu so generated docs are read before being edited. */
 function MarkdownView({ value, onChange, placeholder }: MarkdownViewProps) {
   const [viewMode, setViewMode] = useState<'edit' | 'preview'>('preview')
 
   const previewHtml = useMemo(() => {
     if (viewMode !== 'preview') return ''
-    return DOMPurify.sanitize(marked.parse(value, { async: false }) as string)
+    return renderMarkdown(value)
   }, [viewMode, value])
 
   return (

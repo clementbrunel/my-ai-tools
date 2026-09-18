@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { generateSpecFromWord, previewWord } from '../api/analysis'
+import { renderMarkdown } from '../markdown'
 import FullPageLoader from './FullPageLoader'
 import MarkdownView from './MarkdownView'
 
@@ -35,6 +36,9 @@ function SpecPanel({ onCollapse }: SpecPanelProps) {
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewContent, setPreviewContent] = useState('')
   const [previewLoading, setPreviewLoading] = useState(false)
+  const [previewViewMode, setPreviewViewMode] = useState<'rendered' | 'raw'>('rendered')
+
+  const previewHtml = useMemo(() => renderMarkdown(previewContent), [previewContent])
 
   useEffect(() => {
     if (!previewOpen) return
@@ -160,7 +164,7 @@ function SpecPanel({ onCollapse }: SpecPanelProps) {
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-[#dcdcde] bg-[#fafafa] text-sm shrink-0">
-                    <span className="text-gray-600">Texte extrait du Word, envoyé tel quel au modèle</span>
+                    <span className="text-gray-600">Markdown extrait du Word, envoyé tel quel au modèle</span>
                     <button
                       type="button"
                       className="text-gl-blue hover:text-gl-blue-dark hover:underline"
@@ -172,9 +176,31 @@ function SpecPanel({ onCollapse }: SpecPanelProps) {
                   {previewLoading ? (
                     <p className="text-sm text-gray-500 p-3">Chargement…</p>
                   ) : (
-                    <div className="overflow-auto p-3 flex-1">
-                      <pre className="text-[12px] whitespace-pre-wrap break-all">{previewContent}</pre>
-                    </div>
+                    <>
+                      <div className="flex gap-4 px-3 pt-2 text-sm border-b border-[#dcdcde] shrink-0">
+                        {(['rendered', 'raw'] as const).map((mode) => (
+                          <button
+                            key={mode}
+                            type="button"
+                            className={`pb-2 -mb-px border-b-2 ${
+                              previewViewMode === mode
+                                ? 'border-gl-orange text-[#303030] font-medium'
+                                : 'border-transparent text-gray-500 hover:text-[#303030]'
+                            }`}
+                            onClick={() => setPreviewViewMode(mode)}
+                          >
+                            {mode === 'rendered' ? 'Aperçu' : 'Markdown brut'}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="overflow-auto p-3 flex-1">
+                        {previewViewMode === 'rendered' ? (
+                          <div className="markdown-preview text-sm" dangerouslySetInnerHTML={{ __html: previewHtml }} />
+                        ) : (
+                          <pre className="text-[12px] whitespace-pre-wrap break-all">{previewContent}</pre>
+                        )}
+                      </div>
+                    </>
                   )}
                 </div>
               </div>
