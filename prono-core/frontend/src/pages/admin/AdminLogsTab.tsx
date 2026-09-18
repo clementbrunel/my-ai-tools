@@ -19,12 +19,14 @@ const LEVEL_BADGE_CLASSES: Record<LogLevel, string> = {
   TRACE: 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500',
 };
 
-const formatLogTime = (iso: string): string => {
+const formatLogDate = (iso: string): string => {
   const d = new Date(iso);
-  return d.toLocaleString('fr-FR', {
-    day: '2-digit', month: '2-digit',
-    hour: '2-digit', minute: '2-digit', second: '2-digit',
-  });
+  return d.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit' });
+};
+
+const formatLogClock = (iso: string): string => {
+  const d = new Date(iso);
+  return d.toLocaleString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 };
 
 const AdminLogsTab: React.FC = () => {
@@ -131,8 +133,14 @@ const AdminLogsTab: React.FC = () => {
                     key={`${entry.timestamp}-${idx}`}
                     className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50"
                   >
-                    <td className="py-1.5 px-3 text-gray-400 whitespace-nowrap align-top">
-                      {formatLogTime(entry.timestamp)}
+                    <td className="py-1.5 px-3 text-gray-400 align-top">
+                      <span className="flex flex-col leading-tight text-[10px] sm:hidden">
+                        <span>{formatLogDate(entry.timestamp)}</span>
+                        <span>{formatLogClock(entry.timestamp)}</span>
+                      </span>
+                      <span className="hidden sm:inline whitespace-nowrap">
+                        {formatLogDate(entry.timestamp)} {formatLogClock(entry.timestamp)}
+                      </span>
                     </td>
                     <td className="py-1.5 px-3 align-top">
                       <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${LEVEL_BADGE_CLASSES[entry.level]}`}>
