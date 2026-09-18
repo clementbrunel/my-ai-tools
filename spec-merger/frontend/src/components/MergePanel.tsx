@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { mergeSpecs } from '../api/analysis'
 import type { SpecGenerationResult } from '../types'
 import FullPageLoader from './FullPageLoader'
@@ -45,13 +45,21 @@ function MergePanel({
   const hasResult = mergedDocumentId !== null
   const hasUnsavedEdits = hasResult && lastGenerated !== null && mergedMarkdown !== lastGenerated
 
+  // Re-seeds the "last generated" baseline whenever a new merged document appears — a fresh
+  // merge (below) or a session restore (App/useGenerationSession, which this component has no
+  // other visibility into). Keyed on the id rather than the markdown so it doesn't fire again
+  // on every keystroke while editing the same document.
+  useEffect(() => {
+    if (mergedDocumentId) setLastGenerated(mergedMarkdown)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mergedDocumentId])
+
   async function runMerge() {
     setError(null)
     setLoading(true)
     try {
       const result = await mergeSpecs(wordMarkdown, jxmlMarkdown, wordDocumentId, jxmlDocumentId)
       onGenerated(result)
-      setLastGenerated(result.markdown)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Échec de la fusion — voir la console.')
       console.error(e)

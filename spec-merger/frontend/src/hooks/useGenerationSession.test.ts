@@ -78,4 +78,39 @@ describe('useGenerationSession', () => {
     expect(stored.wordDocumentId).toBe('word-1')
     expect(stored.jxmlDocumentId).toBeUndefined()
   })
+
+  it('does not clobber the stored session with nulls while a restore is still in flight', async () => {
+    // Regression test: the persist effect used to fire on mount before the async getDocument
+    // calls resolved (word/jxml/merged ids were still null then), overwriting the very session
+    // being restored — permanently losing it if the tab closed before the restore finished.
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ wordDocumentId: 'word-1', jxmlDocumentId: 'jxml-1', mergedDocumentId: 'merged-1' }),
+    )
+    let resolveWord: (result: { id: string; markdown: string }) => void = () => {}
+    getDocumentMock.mockImplementation((id: string) => {
+      if (id === 'word-1') return new Promise((resolve) => { resolveWord = resolve })
+      return Promise.resolve({ id, markdown: `# ${id}` })
+    })
+
+    const { result } = renderHook(() => useGenerationSession())
+    expect(result.current.restoring).toBe(true)
+
+    // jxml/merged have already resolved, but word (and thus the whole restore) hasn't — the
+    // stored session must still be intact on disk at this point, not wiped to nulls.
+    await waitFor(() => expect(result.current.jxml.id).toBe('jxml-1'))
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}')).toEqual({
+      wordDocumentId: 'word-1',
+      jxmlDocumentId: 'jxml-1',
+      mergedDocumentId: 'merged-1',
+    })
+
+    resolveWord({ id: 'word-1', markdown: '# Word' })
+    await waitFor(() => expect(result.current.restoring).toBe(false))
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}')).toEqual({
+      wordDocumentId: 'word-1',
+      jxmlDocumentId: 'jxml-1',
+      mergedDocumentId: 'merged-1',
+    })
+  })
 })

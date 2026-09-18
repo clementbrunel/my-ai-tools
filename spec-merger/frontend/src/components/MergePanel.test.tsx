@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -24,12 +25,20 @@ interface RenderOptions {
   jxmlMarkdown?: string
   wordDocumentId?: string | null
   jxmlDocumentId?: string | null
+  /** Simulates useGenerationSession restoring a merged doc from localStorage on mount, rather
+   * than the user generating one by clicking the button in this render. */
+  restoredMerged?: { id: string; markdown: string }
 }
 
 /** MergePanel's merged doc is controlled by its parent — this harness stands in for App. */
 function renderMergePanel(options: RenderOptions = {}) {
   function Harness() {
     const merged = usePersistedDoc()
+    useEffect(() => {
+      if (options.restoredMerged) merged.restore(options.restoredMerged)
+      // Only ever meant to fire once, on mount, like the real session-restore effect.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
     return (
       <MergePanel
         wordMarkdown={options.wordMarkdown ?? ''}
@@ -110,5 +119,29 @@ describe('MergePanel', () => {
     expect(window.confirm).toHaveBeenCalled()
     expect(mergeSpecsMock).toHaveBeenCalledTimes(1)
     expect(screen.getByDisplayValue('# v1 édité à la main')).toBeDefined()
+  })
+
+  it('asks for confirmation before overwriting a manual edit made to a restored (not locally generated) result', async () => {
+    // Regression test: a session restore (useGenerationSession) sets the merged doc via the same
+    // path as a fresh generation, but earlier this component only tracked its "last generated"
+    // baseline from a merge run in this render — a reload made the confirmation guard a no-op.
+    renderMergePanel({
+      wordMarkdown: '# Word',
+      jxmlMarkdown: '# JXML',
+      restoredMerged: { id: 'merged-1', markdown: '# Restauré' },
+    })
+    await screen.findByText('Refusionner')
+
+    await userEvent.click(screen.getByText('Édition'))
+    const textarea = screen.getByPlaceholderText('') as HTMLTextAreaElement
+    await userEvent.clear(textarea)
+    await userEvent.type(textarea, '# Restauré, édité à la main')
+
+    vi.mocked(window.confirm).mockReturnValue(false)
+    await userEvent.click(screen.getByText('Refusionner'))
+
+    expect(window.confirm).toHaveBeenCalled()
+    expect(mergeSpecsMock).not.toHaveBeenCalled()
+    expect(screen.getByDisplayValue('# Restauré, édité à la main')).toBeDefined()
   })
 })

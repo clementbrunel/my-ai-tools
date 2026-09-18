@@ -67,6 +67,11 @@ export function useGenerationSession() {
   }, [])
 
   useEffect(() => {
+    // While a restore is in flight, word/jxml/merged ids are still null (the getDocument calls
+    // haven't resolved yet) — persisting now would clobber the very session being restored with
+    // nulls, before it's even had a chance to load. Wait for restoreAll() to finish (sets
+    // restoring to false) before this effect is allowed to write anything.
+    if (restoring) return
     const session: StoredSession = {
       wordDocumentId: word.id ?? undefined,
       jxmlDocumentId: jxml.id ?? undefined,
@@ -77,7 +82,7 @@ export function useGenerationSession() {
     } catch {
       // localStorage unavailable — the session just won't survive a reload.
     }
-  }, [word.id, jxml.id, merged.id])
+  }, [word.id, jxml.id, merged.id, restoring])
 
   return { word, jxml, merged, restoring }
 }

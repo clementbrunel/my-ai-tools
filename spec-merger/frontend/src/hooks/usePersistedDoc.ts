@@ -39,11 +39,9 @@ export function usePersistedDoc() {
     [id],
   )
 
-  /** Call when restoring a session from a persisted id (no auto-save triggered). */
-  const restore = useCallback((result: SpecGenerationResult) => {
-    setId(result.id)
-    setMarkdown(result.markdown)
-  }, [])
+  /** Call when restoring a session from a persisted id — same effect as onGenerated, named for
+   * clarity at the call site (no auto-save triggered either way). */
+  const restore = onGenerated
 
   return { id, markdown, onGenerated, onEdit, restore }
 }

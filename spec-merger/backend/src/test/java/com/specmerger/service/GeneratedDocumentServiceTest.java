@@ -37,6 +37,7 @@ class GeneratedDocumentServiceTest {
     void createWordPersistsTheDocumentAndItsFirstRevision() {
         GeneratedDocumentService service = newService();
         when(documentRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(documentRepository.lockById(any())).thenAnswer(invocation -> Optional.of(new GeneratedDocument()));
         when(revisionRepository.findTopByDocumentIdOrderByRevisionNumberDesc(any())).thenReturn(Optional.empty());
 
         GeneratedDocument document = service.createWord("# Doc Word");
@@ -56,6 +57,7 @@ class GeneratedDocumentServiceTest {
     void createMergedLinksTheTwoSourceDocumentIds() {
         GeneratedDocumentService service = newService();
         when(documentRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(documentRepository.lockById(any())).thenAnswer(invocation -> Optional.of(new GeneratedDocument()));
         when(revisionRepository.findTopByDocumentIdOrderByRevisionNumberDesc(any())).thenReturn(Optional.empty());
         UUID wordId = UUID.randomUUID();
         UUID jxmlId = UUID.randomUUID();
@@ -93,7 +95,7 @@ class GeneratedDocumentServiceTest {
     void addRevisionAppendsRatherThanOverwritingTheExistingRevision() {
         GeneratedDocumentService service = newService();
         UUID documentId = UUID.randomUUID();
-        when(documentRepository.existsById(documentId)).thenReturn(true);
+        when(documentRepository.lockById(documentId)).thenReturn(Optional.of(new GeneratedDocument()));
         DocumentRevision existing = new DocumentRevision();
         existing.setRevisionNumber(1);
         when(revisionRepository.findTopByDocumentIdOrderByRevisionNumberDesc(documentId)).thenReturn(Optional.of(existing));
@@ -110,7 +112,7 @@ class GeneratedDocumentServiceTest {
     void addRevisionThrowsForAnUnknownDocumentWithoutSavingAnything() {
         GeneratedDocumentService service = newService();
         UUID documentId = UUID.randomUUID();
-        when(documentRepository.existsById(documentId)).thenReturn(false);
+        when(documentRepository.lockById(documentId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.addRevision(documentId, "content"))
                 .isInstanceOf(IllegalArgumentException.class)

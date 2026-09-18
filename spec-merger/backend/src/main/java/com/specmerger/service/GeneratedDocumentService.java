@@ -52,9 +52,6 @@ public class GeneratedDocumentService {
     /** Appends a new revision (never overwrites) — backs the debounced auto-save of manual edits. */
     @Transactional
     public void addRevision(UUID documentId, String content) {
-        if (!documentRepository.existsById(documentId)) {
-            throw new IllegalArgumentException("Document introuvable: " + documentId);
-        }
         saveNextRevision(documentId, content);
     }
 
@@ -69,6 +66,8 @@ public class GeneratedDocumentService {
     }
 
     private void saveNextRevision(UUID documentId, String content) {
+        documentRepository.lockById(documentId)
+                .orElseThrow(() -> new IllegalArgumentException("Document introuvable: " + documentId));
         int nextRevisionNumber = revisionRepository.findTopByDocumentIdOrderByRevisionNumberDesc(documentId)
                 .map(r -> r.getRevisionNumber() + 1)
                 .orElse(1);
