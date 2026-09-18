@@ -30,7 +30,7 @@ public class AnalysisService {
     private final AnalysisSessionRepository sessionRepository;
     private final DocumentVersionRepository versionRepository;
     private final DivergenceRepository divergenceRepository;
-    private final WordSpecParser wordSpecParser;
+    private final HumanSpecParser humanSpecParser;
     private final JxmlSpecParser jxmlSpecParser;
     private final GitLabSourceService gitLabSourceService;
     private final DiffEngine diffEngine;
@@ -40,7 +40,7 @@ public class AnalysisService {
     public AnalysisService(AnalysisSessionRepository sessionRepository,
                             DocumentVersionRepository versionRepository,
                             DivergenceRepository divergenceRepository,
-                            WordSpecParser wordSpecParser,
+                            HumanSpecParser humanSpecParser,
                             JxmlSpecParser jxmlSpecParser,
                             GitLabSourceService gitLabSourceService,
                             DiffEngine diffEngine,
@@ -49,7 +49,7 @@ public class AnalysisService {
         this.sessionRepository = sessionRepository;
         this.versionRepository = versionRepository;
         this.divergenceRepository = divergenceRepository;
-        this.wordSpecParser = wordSpecParser;
+        this.humanSpecParser = humanSpecParser;
         this.jxmlSpecParser = jxmlSpecParser;
         this.gitLabSourceService = gitLabSourceService;
         this.diffEngine = diffEngine;
@@ -72,7 +72,9 @@ public class AnalysisService {
             throw new IllegalArgumentException("gitlabGroupKey est requis avec gitlabProjectId.");
         }
 
-        String wordText = hasWord ? wordSpecParser.extractText(wordFile.getInputStream()) : "";
+        String wordText = hasWord
+                ? humanSpecParser.extractText(wordFile.getOriginalFilename(), wordFile.getInputStream())
+                : "";
 
         Map<String, String> jxmlFiles;
         AnalysisSession.JxmlSourceType sourceType;

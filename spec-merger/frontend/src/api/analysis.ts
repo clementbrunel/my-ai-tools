@@ -93,8 +93,8 @@ export async function generateSpecFromWord(word: File): Promise<string> {
 }
 
 /**
- * The raw text extracted from the uploaded Word/.doc spec, exactly as it will be sent to the
- * model — lets the user check the extraction before spending an AI call on it.
+ * The raw text extracted from the uploaded Word/.doc/.xlsx spec, exactly as it will be sent to
+ * the model — lets the user check the extraction before spending an AI call on it.
  */
 export async function previewWord(word: File): Promise<string> {
   const form = new FormData()

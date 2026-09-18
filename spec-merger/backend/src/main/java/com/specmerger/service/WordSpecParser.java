@@ -30,7 +30,9 @@ import java.util.stream.Collectors;
  * the legacy OLE2 (.doc) format. Which one it is gets detected from the file's own content
  * (magic bytes) rather than trusted from its name/extension, since the two need different POI
  * readers. Splitting the extracted text into logical sections (screens, features...) is not
- * implemented yet — see issues #260 and #261.
+ * implemented yet — see issues #260 and #261. {@link ExcelSpecParser} is the equivalent for
+ * specs written as an Excel workbook instead (#267); the GFM table plumbing the two share lives
+ * in {@link SpecTextUtils}.
  */
 @Component
 public class WordSpecParser {
@@ -64,11 +66,11 @@ public class WordSpecParser {
             List<String> blocks = new ArrayList<>();
             for (IBodyElement element : document.getBodyElements()) {
                 if (element instanceof XWPFParagraph paragraph) {
-                    addIfNotBlank(blocks, formatParagraph(paragraph, document.getStyles()));
+                    SpecTextUtils.addIfNotBlank(blocks, formatParagraph(paragraph, document.getStyles()));
                 } else if (element instanceof XWPFTable table) {
-                    addIfNotBlank(blocks, formatTable(table));
+                    SpecTextUtils.addIfNotBlank(blocks, formatTable(table));
                 } else if (element instanceof XWPFSDT sdt) {
-                    addIfNotBlank(blocks, sdt.getContent().getText());
+                    SpecTextUtils.addIfNotBlank(blocks, sdt.getContent().getText());
                 }
             }
             return String.join("\n\n", blocks).strip();
@@ -114,28 +116,10 @@ public class WordSpecParser {
      */
     private String formatTable(XWPFTable table) {
         List<List<String>> rows = new ArrayList<>();
-        int columnCount = 0;
         for (XWPFTableRow row : table.getRows()) {
-            List<String> cells = row.getTableICells().stream()
-                    .map(this::cellText)
-                    .map(WordSpecParser::sanitizeCell)
-                    .toList();
-            columnCount = Math.max(columnCount, cells.size());
-            rows.add(cells);
+            rows.add(row.getTableICells().stream().map(this::cellText).toList());
         }
-        if (rows.isEmpty() || columnCount == 0) {
-            return "";
-        }
-        StringBuilder markdown = new StringBuilder();
-        for (int i = 0; i < rows.size(); i++) {
-            markdown.append(formatRow(rows.get(i), columnCount)).append('\n');
-            if (i == 0) {
-                // GFM tables have no separate "this is a data table without a header" syntax —
-                // the first row must double as the header for the table to render at all.
-                markdown.append(formatSeparatorRow(columnCount)).append('\n');
-            }
-        }
-        return markdown.toString().stripTrailing();
+        return SpecTextUtils.formatMarkdownTable(rows);
     }
 
     private String cellText(ICell cell) {
@@ -146,33 +130,6 @@ public class WordSpecParser {
             return sdtCell.getContent().getText();
         }
         return "";
-    }
-
-    /**
-     * Markdown table cells can't contain a raw {@code |} or a line break — and
-     * {@link XWPFTableCell#getTextRecursively()} joins a cell's own multiple paragraphs with a
-     * tab, not a newline, so both need collapsing.
-     */
-    private static String sanitizeCell(String text) {
-        return text.strip().replace("|", "\\|").replaceAll("[\\t\\r\\n]+", " ");
-    }
-
-    private static String formatRow(List<String> cells, int columnCount) {
-        StringBuilder row = new StringBuilder("|");
-        for (int i = 0; i < columnCount; i++) {
-            row.append(' ').append(i < cells.size() ? cells.get(i) : "").append(" |");
-        }
-        return row.toString();
-    }
-
-    private static String formatSeparatorRow(int columnCount) {
-        return "|" + " --- |".repeat(columnCount);
-    }
-
-    private static void addIfNotBlank(List<String> blocks, String value) {
-        if (value != null && !value.isBlank()) {
-            blocks.add(value.strip());
-        }
     }
 
     /**

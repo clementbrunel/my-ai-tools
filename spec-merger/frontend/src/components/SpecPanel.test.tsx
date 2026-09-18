@@ -20,7 +20,7 @@ beforeEach(() => {
 describe('SpecPanel', () => {
   it('renders the section label and starts on the Input tab with a file picker', () => {
     const { container } = render(<SpecPanel />)
-    expect(screen.getByText('Spec Word')).toBeDefined()
+    expect(screen.getByText('Spec Word / Excel')).toBeDefined()
     expect(container.querySelector('input[type="file"]')).not.toBeNull()
   })
 
@@ -73,7 +73,7 @@ describe('SpecPanel', () => {
   it('calls onCollapse when the collapse button is clicked', async () => {
     const onCollapse = vi.fn()
     render(<SpecPanel onCollapse={onCollapse} />)
-    await userEvent.click(screen.getByLabelText('Réduire le panneau Spec Word'))
+    await userEvent.click(screen.getByLabelText('Réduire le panneau Spec Word / Excel'))
     expect(onCollapse).toHaveBeenCalledTimes(1)
   })
 
@@ -86,6 +86,15 @@ describe('SpecPanel', () => {
     expect(screen.getByText('Générer la doc')).not.toBeDisabled()
   })
 
+  it('accepts an .xlsx file', async () => {
+    const { container } = render(<SpecPanel />)
+    const file = new File(['contenu'], 'spec.xlsx')
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement
+    await userEvent.upload(input, file)
+    expect(screen.getByText('spec.xlsx')).toBeDefined()
+    expect(screen.getByText('Générer la doc')).not.toBeDisabled()
+  })
+
   it('rejects a file with an unsupported extension', async () => {
     const { container } = render(<SpecPanel />)
     // A malicious or misconfigured OS file picker can still bypass the input's `accept` filter,
@@ -93,7 +102,7 @@ describe('SpecPanel', () => {
     const file = new File(['contenu'], 'spec.pdf')
     const input = container.querySelector('input[type="file"]') as HTMLInputElement
     await userEvent.upload(input, file, { applyAccept: false })
-    expect(screen.getByText(/seuls les fichiers \.doc et \.docx sont acceptés/)).toBeDefined()
+    expect(screen.getByText(/seuls les fichiers \.doc, \.docx et \.xlsx sont acceptés/)).toBeDefined()
     expect(screen.queryByText('spec.pdf')).toBeNull()
     expect(screen.getByText('Générer la doc')).toBeDisabled()
   })

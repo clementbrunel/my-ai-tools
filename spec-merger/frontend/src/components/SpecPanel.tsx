@@ -10,7 +10,7 @@ interface SpecPanelProps {
 
 type Tab = 'input' | 'output'
 
-const ACCEPTED_EXTENSIONS = ['.doc', '.docx']
+const ACCEPTED_EXTENSIONS = ['.doc', '.docx', '.xlsx']
 
 function hasAcceptedExtension(filename: string): boolean {
   const lower = filename.toLowerCase()
@@ -51,7 +51,7 @@ function SpecPanel({ onCollapse }: SpecPanelProps) {
 
   function handleFileChange(file: File | null) {
     if (file && !hasAcceptedExtension(file.name)) {
-      setError('Format non supporté — seuls les fichiers .doc et .docx sont acceptés.')
+      setError('Format non supporté — seuls les fichiers .doc, .docx et .xlsx sont acceptés.')
       setWordFile(null)
       return
     }
@@ -96,13 +96,13 @@ function SpecPanel({ onCollapse }: SpecPanelProps) {
       {loading && <FullPageLoader message="Génération de la doc depuis le Word en cours…" />}
       <section className="card p-4 overflow-auto min-h-0 flex flex-col">
         <div className="flex items-center justify-between gap-2 mb-3">
-          <h2 className="field-label">Spec Word</h2>
+          <h2 className="field-label">Spec Word / Excel</h2>
           {onCollapse && (
             <button
               type="button"
               onClick={onCollapse}
               title="Réduire le panneau"
-              aria-label="Réduire le panneau Spec Word"
+              aria-label="Réduire le panneau Spec Word / Excel"
               className="text-gray-400 hover:text-gl-blue leading-none px-1 shrink-0"
             >
               ◀
@@ -138,7 +138,7 @@ function SpecPanel({ onCollapse }: SpecPanelProps) {
               <input
                 id="spec-word-file"
                 type="file"
-                accept=".doc,.docx"
+                accept=".doc,.docx,.xlsx"
                 onChange={(e) => handleFileChange(e.target.files?.[0] ?? null)}
                 className="sr-only"
               />
@@ -164,7 +164,7 @@ function SpecPanel({ onCollapse }: SpecPanelProps) {
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-[#dcdcde] bg-[#fafafa] text-sm shrink-0">
-                    <span className="text-gray-600">Markdown extrait du Word, envoyé tel quel au modèle</span>
+                    <span className="text-gray-600">Markdown extrait du Word/Excel, envoyé tel quel au modèle</span>
                     <button
                       type="button"
                       className="text-gl-blue hover:text-gl-blue-dark hover:underline"
