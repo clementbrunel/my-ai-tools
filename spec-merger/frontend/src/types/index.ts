@@ -33,6 +33,11 @@ export interface SpecGenerationResult {
   markdown: string
 }
 
+/** The raw text extracted from an uploaded Word/.doc spec, exactly as it will be sent to the model. */
+export interface WordExtractionPreview {
+  content: string
+}
+
 export interface Divergence {
   id: string
   sectionRef: string
