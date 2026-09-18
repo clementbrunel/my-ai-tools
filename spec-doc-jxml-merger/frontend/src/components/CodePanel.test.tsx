@@ -2,25 +2,17 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import CodePanel from './CodePanel'
-import {
-  generateSpecFromGitlab,
-  generateSpecFromJxml,
-  listGitlabProjects,
-  listGitlabSources,
-  previewGitlabJxml,
-} from '../api/analysis'
+import { generateSpecFromGitlab, listGitlabProjects, listGitlabSources, previewGitlabJxml } from '../api/analysis'
 import type { GitLabProjectSummary, GitLabSourceListing } from '../types'
 
 vi.mock('../api/analysis', () => ({
   generateSpecFromGitlab: vi.fn(),
-  generateSpecFromJxml: vi.fn(),
   listGitlabProjects: vi.fn(),
   listGitlabSources: vi.fn(),
   previewGitlabJxml: vi.fn(),
 }))
 
 const generateSpecFromGitlabMock = vi.mocked(generateSpecFromGitlab)
-const generateSpecFromJxmlMock = vi.mocked(generateSpecFromJxml)
 const listGitlabProjectsMock = vi.mocked(listGitlabProjects)
 const listGitlabSourcesMock = vi.mocked(listGitlabSources)
 const previewGitlabJxmlMock = vi.mocked(previewGitlabJxml)
@@ -38,7 +30,6 @@ const singleEntryPointListing: GitLabSourceListing = {
 
 beforeEach(() => {
   generateSpecFromGitlabMock.mockReset()
-  generateSpecFromJxmlMock.mockReset()
   listGitlabProjectsMock.mockReset()
   listGitlabSourcesMock.mockReset()
   previewGitlabJxmlMock.mockReset()
@@ -48,7 +39,6 @@ async function goToGitlabModeWithProject() {
   listGitlabProjectsMock.mockResolvedValue(projects)
   listGitlabSourcesMock.mockResolvedValue(singleEntryPointListing)
   const result = render(<CodePanel />)
-  await userEvent.click(screen.getByText('Projet GitLab'))
   await userEvent.click(screen.getByText('Charger les projets GitLab'))
   await screen.findByRole('combobox')
   await userEvent.selectOptions(screen.getByRole('combobox'), '1')
@@ -57,21 +47,14 @@ async function goToGitlabModeWithProject() {
 }
 
 describe('CodePanel', () => {
-  it('renders a textarea bound to jxmlText in text mode, on the Input tab by default', () => {
+  it('renders the GitLab project loader on the Input tab by default', () => {
     render(<CodePanel />)
-    expect(screen.getByPlaceholderText('Colle ici le contenu JXML')).toHaveValue('')
-  })
-
-  it('switches to gitlab mode when its tab is clicked', async () => {
-    render(<CodePanel />)
-    await userEvent.click(screen.getByText('Projet GitLab'))
     expect(screen.getByText('Charger les projets GitLab')).toBeDefined()
   })
 
   it('loads and lists GitLab projects when the load button is clicked', async () => {
     listGitlabProjectsMock.mockResolvedValue(projects)
     render(<CodePanel />)
-    await userEvent.click(screen.getByText('Projet GitLab'))
     await userEvent.click(screen.getByText('Charger les projets GitLab'))
     expect(await screen.findByText('[jway-forms] jway-forms/claims')).toBeDefined()
   })
@@ -79,7 +62,6 @@ describe('CodePanel', () => {
   it('filters the project dropdown using the search field', async () => {
     listGitlabProjectsMock.mockResolvedValue(projects)
     render(<CodePanel />)
-    await userEvent.click(screen.getByText('Projet GitLab'))
     await userEvent.click(screen.getByText('Charger les projets GitLab'))
     await screen.findByText('[jway-forms] jway-forms/claims')
     await userEvent.type(screen.getByPlaceholderText(/Rechercher un projet/), 'claims')
@@ -128,20 +110,9 @@ describe('CodePanel', () => {
     expect(screen.getByText('2 / 2 fichier(s) inclus')).toBeDefined()
   })
 
-  it('disables Générer la doc until jxmlText is filled in text mode', async () => {
+  it('disables Générer la doc until an entry point is selected', async () => {
     render(<CodePanel />)
     expect(screen.getByText('Générer la doc')).toBeDisabled()
-    await userEvent.type(screen.getByPlaceholderText('Colle ici le contenu JXML'), '<jform/>')
-    expect(screen.getByText('Générer la doc')).not.toBeDisabled()
-  })
-
-  it('generates the spec from pasted JXML text and switches to the Output tab', async () => {
-    generateSpecFromJxmlMock.mockResolvedValue('# Doc JXML')
-    render(<CodePanel />)
-    await userEvent.type(screen.getByPlaceholderText('Colle ici le contenu JXML'), '<jform/>')
-    await userEvent.click(screen.getByText('Générer la doc'))
-    expect(generateSpecFromJxmlMock).toHaveBeenCalledWith('<jform/>')
-    expect(await screen.findByRole('heading', { level: 1, name: 'Doc JXML' })).toBeDefined()
   })
 
   it('generates the spec from the GitLab entry point once one is selected', async () => {
@@ -158,11 +129,10 @@ describe('CodePanel', () => {
   })
 
   it('shows an error message when generation fails', async () => {
-    generateSpecFromJxmlMock.mockRejectedValue(new Error('JXML invalide'))
-    render(<CodePanel />)
-    await userEvent.type(screen.getByPlaceholderText('Colle ici le contenu JXML'), '<jform/>')
+    generateSpecFromGitlabMock.mockRejectedValue(new Error('Échec GitLab'))
+    await goToGitlabModeWithProject()
     await userEvent.click(screen.getByText('Générer la doc'))
-    expect(await screen.findByText('JXML invalide')).toBeDefined()
+    expect(await screen.findByText('Échec GitLab')).toBeDefined()
   })
 
   it('calls onCollapse when the collapse button is clicked', async () => {

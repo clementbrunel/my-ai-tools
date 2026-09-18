@@ -92,19 +92,9 @@ export async function generateSpecFromWord(word: File): Promise<string> {
 }
 
 /**
- * The markdown spec the model generates from a JXML text alone — must be well-formed XML with
- * no <Include> tags (unresolvable without the rest of the project's files). For a GitLab source,
- * use {@link generateSpecFromGitlab} instead, which resolves Include fragments server-side.
- */
-export async function generateSpecFromJxml(jxmlText: string): Promise<string> {
-  const { data } = await client.post<SpecGenerationResult>('/spec/generate-from-jxml', { jxmlText })
-  return data.markdown
-}
-
-/**
  * The markdown spec the model generates from a GitLab entry point's JXML — Include chain resolved
- * and spec generated server-side in one request, instead of chaining previewGitlabJxml into
- * generateSpecFromJxml from the frontend.
+ * and spec generated server-side in one request, instead of chaining previewGitlabJxml into a
+ * separate generation call from the frontend.
  */
 export async function generateSpecFromGitlab(params: GitlabPreviewParams): Promise<string> {
   const { data } = await client.get<SpecGenerationResult>('/gitlab/generate-spec', {
