@@ -8,6 +8,8 @@ import jakarta.annotation.PostConstruct;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -16,12 +18,15 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.gitlab4j.api.GitLabApi;
 import org.gitlab4j.api.GitLabApiException;
 import org.gitlab4j.api.models.Project;
 import org.gitlab4j.api.models.TreeItem;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
 /**
@@ -34,12 +39,35 @@ import org.springframework.stereotype.Service;
 @Service
 public class GitLabSourceService {
 
+    private static final Duration PROJECTS_CACHE_TTL = Duration.ofHours(1);
+
     private final GitLabApiFactory apiFactory;
     private final GitLabProperties properties;
+
+    /** Cached result of {@link #fetchAllProjects()} — see {@link #listAllProjects()}. */
+    private volatile List<GitLabProjectSummary> cachedProjects;
+    private volatile Instant cachedProjectsAt;
 
     public GitLabSourceService(GitLabApiFactory apiFactory, GitLabProperties properties) {
         this.apiFactory = apiFactory;
         this.properties = properties;
+    }
+
+    /**
+     * Pre-warms the projects cache as soon as the app is up, in the background, so the
+     * frontend's first "load projects" call already finds a warm cache instead of waiting
+     * on GitLab (see #listAllProjects()).
+     */
+    @EventListener(ApplicationReadyEvent.class)
+    void warmProjectsCacheOnStartup() {
+        CompletableFuture.runAsync(() -> {
+            try {
+                refreshProjectsCache();
+            } catch (GitLabApiException e) {
+                log.warn("GitLab: échec du préchargement des projets au démarrage, "
+                        + "il sera retenté au premier appel : {}", e.getMessage());
+            }
+        });
     }
 
     @PostConstruct
@@ -57,8 +85,34 @@ public class GitLabSourceService {
         }
     }
 
-    /** Lists the projects of every configured group, tagged with the group's key. */
+    /**
+     * Lists the projects of every configured group, tagged with the group's key. Served from
+     * a cache refreshed at most once an hour ({@link #PROJECTS_CACHE_TTL}) — GitLab's group
+     * listing barely changes minute to minute, and re-fetching it on every frontend load made
+     * the app feel slow for no benefit. The cache is pre-warmed at startup (see
+     * {@link #warmProjectsCacheOnStartup()}); this method only re-fetches when it's missing or
+     * stale.
+     */
     public List<GitLabProjectSummary> listAllProjects() throws GitLabApiException {
+        List<GitLabProjectSummary> cached = cachedProjects;
+        if (cached != null && Instant.now().isBefore(cachedProjectsAt.plus(PROJECTS_CACHE_TTL))) {
+            return cached;
+        }
+        return refreshProjectsCache();
+    }
+
+    private synchronized List<GitLabProjectSummary> refreshProjectsCache() throws GitLabApiException {
+        List<GitLabProjectSummary> cached = cachedProjects;
+        if (cached != null && Instant.now().isBefore(cachedProjectsAt.plus(PROJECTS_CACHE_TTL))) {
+            return cached;
+        }
+        List<GitLabProjectSummary> fetched = fetchAllProjects();
+        cachedProjects = fetched;
+        cachedProjectsAt = Instant.now();
+        return fetched;
+    }
+
+    private List<GitLabProjectSummary> fetchAllProjects() throws GitLabApiException {
         try (GitLabApi api = apiFactory.create()) {
             List<GitLabProjectSummary> summaries = new ArrayList<>();
             for (GitLabProperties.Group group : properties.groups()) {
