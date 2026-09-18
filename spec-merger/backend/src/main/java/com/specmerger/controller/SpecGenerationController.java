@@ -33,7 +33,9 @@ import org.springframework.web.server.ResponseStatusException;
  * server-side in one request) — and merges the two into one once both exist. Every generation and
  * merge is persisted ({@link GeneratedDocumentService}) so the frontend can keep just the
  * resulting id (in localStorage) to recover a session instead of holding the markdown itself —
- * see issue #263.
+ * see issue #263. A session is recoverable as soon as the first document exists: {@link
+ * #getSession} works from a lone Word or JXML document's id just as well as from a finished
+ * merge's, for the case where there's nothing to merge with (no second doc to pair it with).
  */
 @RestController
 @RequestMapping("/api/spec")
@@ -102,12 +104,13 @@ public class SpecGenerationController {
     }
 
     /**
-     * Everything needed to recover a finished merge on another machine from just its document id
-     * — the navbar's session export/import.
+     * Everything needed to recover a session on another machine from just one document id — a
+     * finished merge, or a lone Word/JXML generation with no counterpart to merge with yet — the
+     * navbar's session export/import.
      */
-    @GetMapping("/session/{mergedDocumentId}")
-    public SessionExport getSession(@PathVariable UUID mergedDocumentId) {
-        return documentService.getSession(mergedDocumentId);
+    @GetMapping("/session/{documentId}")
+    public SessionExport getSession(@PathVariable UUID documentId) {
+        return documentService.getSession(documentId);
     }
 
     /** Auto-saves a manual edit as a new revision (debounced on the frontend) — never overwrites. */

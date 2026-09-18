@@ -161,16 +161,60 @@ class GeneratedDocumentServiceTest {
     }
 
     @Test
-    void getSessionThrowsForADocumentThatIsNotAMerge() {
+    void getSessionReturnsOnlyTheWordSlotForALoneWordDocument() {
         GeneratedDocumentService service = newService();
         UUID wordId = UUID.randomUUID();
         GeneratedDocument word = new GeneratedDocument();
         word.setId(wordId);
         word.setSource(Source.WORD);
         when(documentRepository.findById(wordId)).thenReturn(Optional.of(word));
+        DocumentRevision wordRevision = new DocumentRevision();
+        wordRevision.setContent("# Word");
+        when(revisionRepository.findTopByDocumentIdOrderByRevisionNumberDesc(wordId))
+                .thenReturn(Optional.of(wordRevision));
 
-        assertThatThrownBy(() -> service.getSession(wordId))
+        var session = service.getSession(wordId);
+
+        assertThat(session.wordDocumentId()).isEqualTo(wordId);
+        assertThat(session.wordMarkdown()).isEqualTo("# Word");
+        assertThat(session.mergedDocumentId()).isNull();
+        assertThat(session.mergedMarkdown()).isNull();
+        assertThat(session.jxmlDocumentId()).isNull();
+        assertThat(session.jxmlMarkdown()).isNull();
+        assertThat(session.gitlabSelectionJson()).isNull();
+    }
+
+    @Test
+    void getSessionReturnsOnlyTheJxmlSlotForALoneJxmlDocument() {
+        GeneratedDocumentService service = newService();
+        UUID jxmlId = UUID.randomUUID();
+        GeneratedDocument jxml = new GeneratedDocument();
+        jxml.setId(jxmlId);
+        jxml.setSource(Source.JXML);
+        when(documentRepository.findById(jxmlId)).thenReturn(Optional.of(jxml));
+        DocumentRevision jxmlRevision = new DocumentRevision();
+        jxmlRevision.setContent("# JXML");
+        when(revisionRepository.findTopByDocumentIdOrderByRevisionNumberDesc(jxmlId))
+                .thenReturn(Optional.of(jxmlRevision));
+
+        var session = service.getSession(jxmlId);
+
+        assertThat(session.jxmlDocumentId()).isEqualTo(jxmlId);
+        assertThat(session.jxmlMarkdown()).isEqualTo("# JXML");
+        assertThat(session.mergedDocumentId()).isNull();
+        assertThat(session.mergedMarkdown()).isNull();
+        assertThat(session.wordDocumentId()).isNull();
+        assertThat(session.wordMarkdown()).isNull();
+    }
+
+    @Test
+    void getSessionThrowsForAnUnknownDocument() {
+        GeneratedDocumentService service = newService();
+        UUID documentId = UUID.randomUUID();
+        when(documentRepository.findById(documentId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.getSession(documentId))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining(wordId.toString());
+                .hasMessageContaining(documentId.toString());
     }
 }

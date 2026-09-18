@@ -260,6 +260,26 @@ describe('importSession', () => {
     await expect(importSession('unknown')).rejects.toThrow('Document introuvable')
     expect(localStorage.getItem(STORAGE_KEY)).toBeNull()
   })
+
+  it('restores only the Word slot when importing a lone Word document (no merge yet)', async () => {
+    stubLocationReload()
+    getSessionMock.mockResolvedValue({
+      mergedDocumentId: null,
+      mergedMarkdown: null,
+      wordDocumentId: 'word-1',
+      wordMarkdown: '# Word',
+      jxmlDocumentId: null,
+      jxmlMarkdown: null,
+      gitlabSelectionJson: null,
+    })
+
+    await importSession('word-1')
+
+    expect(getSessionMock).toHaveBeenCalledWith('word-1')
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}')).toEqual({
+      wordDocumentId: 'word-1',
+    })
+  })
 })
 
 describe('resetSession', () => {

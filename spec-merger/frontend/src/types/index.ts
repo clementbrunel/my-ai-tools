@@ -52,14 +52,15 @@ export interface WordExtractionPreview {
 }
 
 /**
- * Everything needed to recover a finished merge from another machine, fetched by just the merged
- * document's id — backs the navbar's session export/import. `wordDocumentId`/`jxmlDocumentId`
- * (and their markdown) are best-effort: null when the merge wasn't recorded with them (older
- * data) or the source document is gone.
+ * Everything needed to recover a session from another machine, fetched by just one of its
+ * documents' id — a finished merge, or a lone Word/JXML generation with no counterpart to merge
+ * with yet. Backs the navbar's session export/import. All three slots are nullable: only the
+ * fetched document's own slot (and, for a merge, its two source documents — best-effort, null
+ * when the merge wasn't recorded with them or the source document is gone) is filled in.
  */
 export interface SessionExport {
-  mergedDocumentId: string
-  mergedMarkdown: string
+  mergedDocumentId: string | null
+  mergedMarkdown: string | null
   wordDocumentId: string | null
   wordMarkdown: string | null
   jxmlDocumentId: string | null

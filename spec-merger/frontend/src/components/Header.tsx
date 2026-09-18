@@ -2,31 +2,33 @@ import { useEffect, useState } from 'react'
 import ConfirmDialog from './ConfirmDialog'
 
 interface HeaderProps {
-  /** The merged document's id, once a merge has completed — kept in sync with the session-id
-   * field below (including right after `onImportSession` reloads the page with a different one). */
-  mergedDocumentId: string | null
+  /** The current session's id, from whichever document slot exists — a finished merge, or a lone
+   * Word/JXML generation with no counterpart to merge with yet — kept in sync with the
+   * session-id field below (including right after `onImportSession` reloads the page with a
+   * different one). */
+  currentSessionId: string | null
   /** Whether any of the 3 document slots currently holds something — shows "Nouvelle session". */
   hasSession: boolean
-  /** Loads a session (the 3 documents + the GitLab project selection) exported from another
-   * machine, given the merged document id it was exported as. Throws on failure. */
-  onImportSession: (mergedDocumentId: string) => Promise<void>
+  /** Loads a session (its documents + the GitLab project selection, if any) exported from
+   * another machine, given any one of its document ids. Throws on failure. */
+  onImportSession: (documentId: string) => Promise<void>
   /** Clears the current session for a clean slate — see `resetSession`. */
   onReset: () => void
 }
 
-function Header({ mergedDocumentId, hasSession, onImportSession, onReset }: HeaderProps) {
-  // Always mirrors mergedDocumentId — a merge, or loading a different session (which reloads the
-  // page with the new id), both flow back here — but stays freely editable so the user can paste
-  // a different session's id to load in its place.
-  const [sessionId, setSessionId] = useState(mergedDocumentId ?? '')
+function Header({ currentSessionId, hasSession, onImportSession, onReset }: HeaderProps) {
+  // Always mirrors currentSessionId — a new generation/merge, or loading a different session
+  // (which reloads the page with the new id), both flow back here — but stays freely editable so
+  // the user can paste a different session's id to load in its place.
+  const [sessionId, setSessionId] = useState(currentSessionId ?? '')
   const [copied, setCopied] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [confirmingReset, setConfirmingReset] = useState(false)
 
   useEffect(() => {
-    setSessionId(mergedDocumentId ?? '')
-  }, [mergedDocumentId])
+    setSessionId(currentSessionId ?? '')
+  }, [currentSessionId])
 
   async function handleCopy() {
     const id = sessionId.trim()
@@ -44,7 +46,7 @@ function Header({ mergedDocumentId, hasSession, onImportSession, onReset }: Head
   async function handleLoad() {
     const id = sessionId.trim()
     // Also guards Enter-key submission, which the disabled submit button alone doesn't block.
-    if (!id || id === (mergedDocumentId ?? '')) return
+    if (!id || id === (currentSessionId ?? '')) return
     setError(null)
     setLoading(true)
     try {
@@ -88,7 +90,7 @@ function Header({ mergedDocumentId, hasSession, onImportSession, onReset }: Head
             value={sessionId}
             onChange={(e) => setSessionId(e.target.value)}
             placeholder="ID de session…"
-            title="L'identifiant de la fusion en cours — modifiez-le et cliquez sur Charger pour reprendre une autre session"
+            title="L'identifiant de la session en cours — modifiez-le et cliquez sur Charger pour reprendre une autre session"
             className="w-56 rounded border border-white/20 bg-white/5 px-2 py-1.5 text-xs text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gl-orange"
           />
           <button
@@ -103,7 +105,7 @@ function Header({ mergedDocumentId, hasSession, onImportSession, onReset }: Head
           <button
             type="submit"
             className="text-xs text-gray-300 hover:text-white border border-white/20 hover:border-white/40 rounded px-2 py-1.5 transition-colors disabled:opacity-50"
-            disabled={loading || !sessionId.trim() || sessionId.trim() === (mergedDocumentId ?? '')}
+            disabled={loading || !sessionId.trim() || sessionId.trim() === (currentSessionId ?? '')}
           >
             {loading ? 'Chargement…' : 'Charger'}
           </button>

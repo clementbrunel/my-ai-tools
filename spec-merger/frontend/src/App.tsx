@@ -28,7 +28,7 @@ function App() {
     <div className="h-screen flex flex-col overflow-hidden">
       {restoring && <FullPageLoader message="Récupération de la session en cours…" />}
       <Header
-        mergedDocumentId={merged.id}
+        currentSessionId={merged.id ?? jxml.id ?? word.id}
         hasSession={Boolean(word.id || jxml.id || merged.id)}
         onImportSession={importSession}
         onReset={resetSession}

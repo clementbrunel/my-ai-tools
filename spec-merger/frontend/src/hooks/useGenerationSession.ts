@@ -23,18 +23,19 @@ function loadStoredSession(): StoredSession {
 }
 
 /**
- * Loads a finished merge exported from another machine (by its merged document id — see the
- * navbar's "Exporter"/"Charger une session" controls) and reloads the page. Writing the ids to
+ * Loads a session exported from another machine — by any one of its document ids: a finished
+ * merge, or a lone Word/JXML generation with no counterpart to merge with yet (see the navbar's
+ * "Exporter"/"Charger une session" controls) — and reloads the page. Writing the ids to
  * localStorage and reloading, rather than pushing the fetched state into this hook directly,
  * reuses the exact same restore path a normal reload takes — including CodePanel's GitLab
  * selection replay — instead of duplicating that logic here for a one-off case.
  */
-export async function importSession(mergedDocumentId: string): Promise<void> {
-  const session = await getSession(mergedDocumentId)
+export async function importSession(documentId: string): Promise<void> {
+  const session = await getSession(documentId)
   const stored: StoredSession = {
     wordDocumentId: session.wordDocumentId ?? undefined,
     jxmlDocumentId: session.jxmlDocumentId ?? undefined,
-    mergedDocumentId: session.mergedDocumentId,
+    mergedDocumentId: session.mergedDocumentId ?? undefined,
     gitlabSelection: session.gitlabSelectionJson
       ? (JSON.parse(session.gitlabSelectionJson) as GitlabSelection)
       : undefined,

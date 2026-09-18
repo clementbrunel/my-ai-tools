@@ -52,24 +52,29 @@ public class GeneratedDocumentService {
     }
 
     /**
-     * Everything needed to recover a MERGED document's whole session from another machine: its
-     * own content, the two documents it was produced from (best-effort — see {@link
-     * GeneratedDocument}), and the GitLab selection it carries.
+     * Everything needed to recover a session from another machine, from any one of its documents'
+     * id — not just a finished MERGED one: a lone WORD or JXML generation (no counterpart to merge
+     * with yet) is just as recoverable this way, with the other slots simply left null. On a
+     * MERGED document this also carries the two documents it was produced from (best-effort — see
+     * {@link GeneratedDocument}) and the GitLab selection it carries.
      */
     @Transactional(readOnly = true)
-    public SessionExport getSession(UUID mergedDocumentId) {
-        GeneratedDocument merged = documentRepository.findById(mergedDocumentId)
-                .orElseThrow(() -> new IllegalArgumentException("Document introuvable: " + mergedDocumentId));
-        if (merged.getSource() != Source.MERGED) {
-            throw new IllegalArgumentException("Ce document n'est pas une fusion: " + mergedDocumentId);
-        }
-        String mergedMarkdown = latestRevision(mergedDocumentId).getContent();
-        String wordMarkdown = merged.getWordDocumentId() == null ? null
-                : latestRevision(merged.getWordDocumentId()).getContent();
-        String jxmlMarkdown = merged.getJxmlDocumentId() == null ? null
-                : latestRevision(merged.getJxmlDocumentId()).getContent();
-        return new SessionExport(merged.getId(), mergedMarkdown, merged.getWordDocumentId(), wordMarkdown,
-                merged.getJxmlDocumentId(), jxmlMarkdown, merged.getGitlabSelectionJson());
+    public SessionExport getSession(UUID documentId) {
+        GeneratedDocument document = documentRepository.findById(documentId)
+                .orElseThrow(() -> new IllegalArgumentException("Document introuvable: " + documentId));
+        String content = latestRevision(documentId).getContent();
+        return switch (document.getSource()) {
+            case MERGED -> {
+                String wordMarkdown = document.getWordDocumentId() == null ? null
+                        : latestRevision(document.getWordDocumentId()).getContent();
+                String jxmlMarkdown = document.getJxmlDocumentId() == null ? null
+                        : latestRevision(document.getJxmlDocumentId()).getContent();
+                yield new SessionExport(document.getId(), content, document.getWordDocumentId(), wordMarkdown,
+                        document.getJxmlDocumentId(), jxmlMarkdown, document.getGitlabSelectionJson());
+            }
+            case WORD -> new SessionExport(null, null, document.getId(), content, null, null, null);
+            case JXML -> new SessionExport(null, null, null, null, document.getId(), content, null);
+        };
     }
 
     /** Appends a new revision (never overwrites) — backs the debounced auto-save of manual edits. */
