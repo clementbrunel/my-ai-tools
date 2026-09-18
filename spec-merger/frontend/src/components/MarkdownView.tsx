@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { renderMarkdown } from '../markdown'
+import { normalizeMarkdown, renderMarkdown } from '../markdown'
 import RichMarkdownEditor from './RichMarkdownEditor'
 
 interface MarkdownViewProps {
@@ -28,6 +28,11 @@ function MarkdownView({ value, onChange, placeholder }: MarkdownViewProps) {
     return renderMarkdown(value)
   }, [viewMode, value])
 
+  // MDXEditor parses `value` itself (it doesn't go through renderMarkdown), so it needs the
+  // same defencing the Aperçu tab gets — otherwise a whole-document ```markdown fence renders
+  // as one uneditable code block there too.
+  const richEditValue = useMemo(() => normalizeMarkdown(value), [value])
+
   return (
     <div className="flex flex-col min-h-0 flex-1">
       <div className="flex gap-3 text-sm border-b border-[#dcdcde] mb-2 shrink-0">
@@ -47,7 +52,7 @@ function MarkdownView({ value, onChange, placeholder }: MarkdownViewProps) {
         ))}
       </div>
       {viewMode === 'richEdit' ? (
-        <RichMarkdownEditor value={value} onChange={onChange} placeholder={placeholder} />
+        <RichMarkdownEditor value={richEditValue} onChange={onChange} placeholder={placeholder} />
       ) : viewMode === 'edit' ? (
         <textarea
           value={value}

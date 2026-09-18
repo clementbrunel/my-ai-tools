@@ -31,6 +31,18 @@ describe('MarkdownView', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Titre' })).toBeDefined()
   })
 
+  it('unwraps a whole-document ```markdown fence in Édition Markdown too, not just Aperçu', async () => {
+    render(
+      <MarkdownView
+        value={'```markdown\n# Titre\n```'}
+        onChange={vi.fn()}
+        placeholder="placeholder text"
+      />,
+    )
+    await userEvent.click(screen.getByText('Édition Markdown'))
+    expect(screen.getByRole('heading', { level: 1, name: 'Titre' })).toBeDefined()
+  })
+
   it('sanitizes raw HTML embedded in the markdown before rendering', () => {
     render(
       <MarkdownView
