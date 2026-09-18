@@ -70,21 +70,21 @@ describe('Header', () => {
 
   it('resets after confirmation once a session exists', async () => {
     const onReset = vi.fn()
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
     renderHeader({ hasSession: true, onReset })
 
     await userEvent.click(screen.getByText('Nouvelle session'))
+    expect(onReset).not.toHaveBeenCalled()
+    await userEvent.click(screen.getByText('Repartir de zéro'))
 
-    expect(window.confirm).toHaveBeenCalled()
     expect(onReset).toHaveBeenCalled()
   })
 
   it('does not reset when the confirmation is declined', async () => {
     const onReset = vi.fn()
-    vi.spyOn(window, 'confirm').mockReturnValue(false)
     renderHeader({ hasSession: true, onReset })
 
     await userEvent.click(screen.getByText('Nouvelle session'))
+    await userEvent.click(screen.getByText('Annuler'))
 
     expect(onReset).not.toHaveBeenCalled()
   })
