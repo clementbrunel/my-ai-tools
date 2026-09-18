@@ -132,7 +132,7 @@ describe('MergePanel', () => {
     await userEvent.click(screen.getByText('Fusionner Word ⇄ JXML'))
     await screen.findByText('Refusionner')
 
-    await userEvent.click(screen.getByText('Édition'))
+    await userEvent.click(screen.getByText('Édition Libre'))
     const textarea = screen.getByPlaceholderText('') as HTMLTextAreaElement
     await userEvent.clear(textarea)
     await userEvent.type(textarea, '# v1 édité à la main')
@@ -157,7 +157,7 @@ describe('MergePanel', () => {
     })
     await screen.findByText('Refusionner')
 
-    await userEvent.click(screen.getByText('Édition'))
+    await userEvent.click(screen.getByText('Édition Libre'))
     const textarea = screen.getByPlaceholderText('') as HTMLTextAreaElement
     await userEvent.clear(textarea)
     await userEvent.type(textarea, '# Restauré, édité à la main')
@@ -186,7 +186,7 @@ describe('MergePanel', () => {
     await userEvent.click(screen.getByText('Fusionner Word ⇄ JXML'))
     await screen.findByText('Refusionner')
 
-    await userEvent.click(screen.getByText('Édition'))
+    await userEvent.click(screen.getByText('Édition Libre'))
     const textarea = screen.getByPlaceholderText('') as HTMLTextAreaElement
     await userEvent.clear(textarea)
     await userEvent.type(textarea, '# v1 édité')
@@ -206,7 +206,7 @@ describe('MergePanel', () => {
     await userEvent.click(screen.getByText('Fusionner Word ⇄ JXML'))
     await screen.findByText('Refusionner')
 
-    await userEvent.click(screen.getByText('Édition'))
+    await userEvent.click(screen.getByText('Édition Libre'))
     const textarea = screen.getByPlaceholderText('') as HTMLTextAreaElement
     await userEvent.clear(textarea)
     await userEvent.type(textarea, '# v1 édité')
