@@ -18,13 +18,15 @@ import java.util.stream.StreamSupport;
 
 /**
  * Extracts raw text from an Excel specification (.xlsx). Unlike the Word canevas, a spec
- * workbook already segments itself along a natural boundary — one sheet for the démarche's
- * general information, then one sheet per screen — so each non-empty sheet's rows are emitted
- * under a "## &lt;nom de la feuille&gt;" heading. That already gives the same kind of per-screen
- * granularity that {@link WordSpecParser} still has to derive with an as-yet-undefined
- * heuristic (#260/#261); it produces plain text rather than {@link WordSpecParser}'s exact
- * output shape, but both feed the same downstream pipeline (diff, markdown generation) as
- * unstructured spec text.
+ * workbook already segments itself along a natural boundary — one sheet per section — so each
+ * non-empty sheet's rows are emitted under its own "## &lt;nom de la feuille&gt;" heading, in
+ * sheet order. A real sample workbook has a handful of general/démarche-level sheets before the
+ * per-screen ones start, and that count isn't fixed across workbooks, so this deliberately does
+ * not try to tell a "general" sheet from a "screen" sheet — every sheet just becomes its own
+ * section, uniformly. That already gives the same kind of per-section granularity that
+ * {@link WordSpecParser} still has to derive with an as-yet-undefined heuristic (#260/#261); it
+ * produces plain text rather than {@link WordSpecParser}'s exact output shape, but both feed the
+ * same downstream pipeline (diff, markdown generation) as unstructured spec text.
  * <p>
  * Splitting a screen's own rows further into fields/business rules (the Word canevas'
  * "Eléments" table) is not attempted — the real column layout of a spec workbook needs

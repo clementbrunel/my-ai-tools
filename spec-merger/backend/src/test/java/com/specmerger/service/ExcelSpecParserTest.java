@@ -54,6 +54,30 @@ class ExcelSpecParserTest {
     }
 
     @Test
+    void doesNotTryToTellHowManyGeneralSheetsPrecedeTheScreens() throws IOException {
+        // A real spec workbook has been seen with 5 general/démarche-level sheets before the
+        // screens start, and that count isn't fixed across workbooks — so every sheet just
+        // becomes its own section, whatever comes before or after it.
+        byte[] bytes = workbook(workbook -> {
+            for (int i = 1; i <= 5; i++) {
+                setRow(workbook.createSheet("Général " + i).createRow(0), "Clé " + i, "Valeur " + i);
+            }
+            Sheet screen = workbook.createSheet("Ecran 1");
+            setRow(screen.createRow(0), "Champ", "Libellé");
+        });
+
+        String text = parser.extractText(new ByteArrayInputStream(bytes));
+
+        assertThat(text).isEqualTo(String.join("\n",
+                "## Général 1", "Clé 1 | Valeur 1", "",
+                "## Général 2", "Clé 2 | Valeur 2", "",
+                "## Général 3", "Clé 3 | Valeur 3", "",
+                "## Général 4", "Clé 4 | Valeur 4", "",
+                "## Général 5", "Clé 5 | Valeur 5", "",
+                "## Ecran 1", "Champ | Libellé"));
+    }
+
+    @Test
     void skipsRowsThatAreBlankOnceTrimmed() throws IOException {
         byte[] bytes = workbook(workbook -> {
             Sheet sheet = workbook.createSheet("Ecran 1");
