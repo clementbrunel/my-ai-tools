@@ -1,42 +1,11 @@
 import { client } from './client'
 import type {
-  AnalysisSessionResponse,
-  DocumentVersion,
   GitLabJxmlPreview,
   GitLabProjectSummary,
   GitLabSourceListing,
   SpecGenerationResult,
   WordExtractionPreview,
 } from '../types'
-
-export async function createAnalysis(params: {
-  title?: string
-  word?: File
-  jxmlText?: string
-  gitlabGroupKey?: string
-  gitlabProjectId?: string
-  gitlabSelectedPaths?: string[]
-  gitlabEntryPointPath?: string
-}): Promise<AnalysisSessionResponse> {
-  const form = new FormData()
-  if (params.title) form.append('title', params.title)
-  if (params.word) form.append('word', params.word)
-  if (params.jxmlText) form.append('jxmlText', params.jxmlText)
-  if (params.gitlabGroupKey) form.append('gitlabGroupKey', params.gitlabGroupKey)
-  if (params.gitlabProjectId) form.append('gitlabProjectId', params.gitlabProjectId)
-  if (params.gitlabEntryPointPath) form.append('gitlabEntryPointPath', params.gitlabEntryPointPath)
-  if (params.gitlabSelectedPaths !== undefined) {
-    // A multipart form can't represent "field present but empty" any other way — an
-    // unchecked-everything selection must still be distinguishable from "not provided".
-    form.append('gitlabSelectedPathsProvided', 'true')
-    params.gitlabSelectedPaths.forEach((path) => form.append('gitlabSelectedPaths', path))
-  }
-
-  const { data } = await client.post<AnalysisSessionResponse>('/analysis', form, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  })
-  return data
-}
 
 export async function listGitlabProjects(): Promise<GitLabProjectSummary[]> {
   const { data } = await client.get<GitLabProjectSummary[]>('/gitlab/projects')
@@ -88,13 +57,13 @@ export async function previewGitlabJxml(params: GitlabPreviewParams): Promise<Gi
  * back to a bundled sample spec server-side instead of requiring a real file (400 otherwise) —
  * same idea as the mock GitLab project, no dedicated mock endpoint needed.
  */
-export async function generateSpecFromWord(word?: File): Promise<string> {
+export async function generateSpecFromWord(word?: File): Promise<SpecGenerationResult> {
   const form = new FormData()
   if (word) form.append('word', word)
   const { data } = await client.post<SpecGenerationResult>('/spec/generate-from-word', form, {
     headers: { 'Content-Type': 'multipart/form-data' },
   })
-  return data.markdown
+  return data
 }
 
 /**
@@ -115,29 +84,41 @@ export async function previewWord(word: File): Promise<string> {
  * and spec generated server-side in one request, instead of chaining previewGitlabJxml into a
  * separate generation call from the frontend.
  */
-export async function generateSpecFromGitlab(params: GitlabPreviewParams): Promise<string> {
+export async function generateSpecFromGitlab(params: GitlabPreviewParams): Promise<SpecGenerationResult> {
   const { data } = await client.get<SpecGenerationResult>('/gitlab/generate-spec', {
     params: buildGitlabPreviewQuery(params),
   })
-  return data.markdown
-}
-
-export async function getAnalysis(sessionId: string): Promise<AnalysisSessionResponse> {
-  const { data } = await client.get<AnalysisSessionResponse>(`/analysis/${sessionId}`)
   return data
 }
 
-export async function listVersions(sessionId: string): Promise<DocumentVersion[]> {
-  const { data } = await client.get<DocumentVersion[]>(`/analysis/${sessionId}/versions`)
+/**
+ * Merges the Word-generated and JXML-generated markdown specs (as currently held by the
+ * frontend, including any manual edit) into a single reconciled document. The source document
+ * ids, when known, are recorded on the merge for traceability (best-effort — see backend).
+ */
+export async function mergeSpecs(
+  wordMarkdown: string,
+  jxmlMarkdown: string,
+  wordDocumentId?: string | null,
+  jxmlDocumentId?: string | null,
+): Promise<SpecGenerationResult> {
+  const { data } = await client.post<SpecGenerationResult>('/spec/merge', {
+    wordMarkdown,
+    jxmlMarkdown,
+    wordDocumentId: wordDocumentId ?? undefined,
+    jxmlDocumentId: jxmlDocumentId ?? undefined,
+  })
   return data
 }
 
-export async function saveVersion(sessionId: string, content: string): Promise<DocumentVersion> {
-  const { data } = await client.post<DocumentVersion>(`/analysis/${sessionId}/versions`, { content })
+/** A persisted document's latest content — used to recover a session from its id. */
+export async function getDocument(id: string): Promise<SpecGenerationResult> {
+  const { data } = await client.get<SpecGenerationResult>(`/spec/documents/${id}`)
   return data
 }
 
-export async function restoreVersion(sessionId: string, versionId: string): Promise<DocumentVersion> {
-  const { data } = await client.post<DocumentVersion>(`/analysis/${sessionId}/versions/${versionId}/restore`)
+/** Auto-saves a manual edit as a new revision of an existing document (debounced by the caller). */
+export async function updateDocument(id: string, content: string): Promise<SpecGenerationResult> {
+  const { data } = await client.put<SpecGenerationResult>(`/spec/documents/${id}`, { content })
   return data
 }

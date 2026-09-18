@@ -28,37 +28,17 @@ export interface GitLabJxmlPreview {
   warnings: string[]
 }
 
-/** The markdown a spec-generation call produced from a single source. */
+/**
+ * A persisted document's id and current markdown — returned by generation, merge, fetch, and
+ * auto-save calls alike. The id is what the frontend keeps (in localStorage) to recover a
+ * session, instead of holding the markdown itself across reloads.
+ */
 export interface SpecGenerationResult {
+  id: string
   markdown: string
 }
 
 /** The raw text extracted from an uploaded Word/.doc/.xlsx spec, exactly as it will be sent to the model. */
 export interface WordExtractionPreview {
   content: string
-}
-
-export interface Divergence {
-  id: string
-  sectionRef: string
-  wordExcerpt: string | null
-  jxmlExcerpt: string | null
-  aiProposal: string | null
-  resolutionStatus: 'PENDING' | 'ACCEPTED' | 'EDITED' | 'REJECTED'
-  resolvedValue: string | null
-}
-
-export interface AnalysisSessionResponse {
-  id: string
-  title: string | null
-  status: string
-  markdown: string
-  divergences: Divergence[]
-}
-
-export interface DocumentVersion {
-  id: string
-  versionNumber: number
-  source: 'GENERATED' | 'MANUAL_EDIT' | 'RESTORED'
-  createdAt: string
 }

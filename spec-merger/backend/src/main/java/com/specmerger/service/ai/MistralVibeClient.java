@@ -25,25 +25,20 @@ import java.util.regex.Pattern;
  * chat-completions API). Uses Spring AI's Mistral integration, autoconfigured
  * from spring.ai.mistralai.* — see application.yml. The raw HTTP exchange is
  * logged by {@link MistralHttpLoggingConfig}; this class only adds business
- * context (which excerpt is being resolved) to avoid logging the same
+ * context (which source is being processed) to avoid logging the same
  * request/response content twice.
  *
  * <p>Each call sends a {@link SystemMessage} carrying the stable task instructions and
- * JWAY tag documentation, and a {@link UserMessage} carrying only the excerpt being
- * processed (JXML or Word text) — separating the two mirrors how the chat-completions
- * API is meant to be used and keeps the door open for the gateway to cache the mostly
- * static system content across calls.
+ * JWAY tag documentation, and a {@link UserMessage} carrying only the source content being
+ * processed (JXML, Word text, or both markdowns to merge) — separating the two mirrors how
+ * the chat-completions API is meant to be used and keeps the door open for the gateway to
+ * cache the mostly static system content across calls.
  */
 @Slf4j
 @Component
 @ConditionalOnProperty(prefix = "app.ai", name = "mock", havingValue = "false", matchIfMissing = true)
 public class MistralVibeClient implements SpecResolutionAIProvider {
 
-    private static final int MAX_TAG_DOCS = 5;
-    private static final int MAX_TAG_DOCS_CHARS = 6000;
-
-    // A full-démarche generation call covers many more tags at once than a single divergence
-    // excerpt — give it a much bigger context budget.
     private static final int MAX_TAG_DOCS_SPEC_GENERATION = 20;
     private static final int MAX_TAG_DOCS_CHARS_SPEC_GENERATION = 40_000;
 
@@ -86,26 +81,6 @@ public class MistralVibeClient implements SpecResolutionAIProvider {
     }
 
     @Override
-    public String proposeResolution(String wordExcerpt, String jxmlExcerpt) {
-        String system = """
-                %sCompare ces deux extraits de spécification pour le même écran/fonctionnalité.
-                Propose la version à retenir dans le markdown final, avec une courte justification.
-                """.formatted(buildTagContext(jxmlExcerpt));
-        String user = """
-                Word (spec fonctionnelle déclarée) : %s
-                JXML (code réel) : %s
-                """.formatted(
-                wordExcerpt == null ? "(absent)" : wordExcerpt,
-                jxmlExcerpt == null ? "(absent)" : jxmlExcerpt);
-
-        log.debug("mistral-vibe resolving divergence: word={} chars, jxml={} chars",
-                wordExcerpt == null ? 0 : wordExcerpt.length(),
-                jxmlExcerpt == null ? 0 : jxmlExcerpt.length());
-        Prompt prompt = new Prompt(List.of(new SystemMessage(system), new UserMessage(user)));
-        return call(prompt, () -> fallback(wordExcerpt, jxmlExcerpt));
-    }
-
-    @Override
     public String generateSpecFromJxml(String resolvedJxml) {
         Prompt prompt = buildJxmlSpecPrompt(resolvedJxml);
         log.debug("mistral-vibe generating spec from JXML: {} chars",
@@ -118,6 +93,15 @@ public class MistralVibeClient implements SpecResolutionAIProvider {
         Prompt prompt = buildWordSpecPrompt(wordText);
         log.debug("mistral-vibe generating spec from Word: {} chars", wordText == null ? 0 : wordText.length());
         return call(prompt, () -> wordSpecFallback(wordText));
+    }
+
+    @Override
+    public String mergeSpecs(String wordMarkdown, String jxmlMarkdown) {
+        Prompt prompt = buildMergeSpecsPrompt(wordMarkdown, jxmlMarkdown);
+        log.debug("mistral-vibe merging specs: word={} chars, jxml={} chars",
+                wordMarkdown == null ? 0 : wordMarkdown.length(),
+                jxmlMarkdown == null ? 0 : jxmlMarkdown.length());
+        return call(prompt, () -> mergeSpecsFallback(wordMarkdown, jxmlMarkdown));
     }
 
     /** Shared call/fallback path for the three prompt methods above: same retry-free error
@@ -207,6 +191,45 @@ public class MistralVibeClient implements SpecResolutionAIProvider {
         return new Prompt(List.of(new SystemMessage(system), new UserMessage(user)));
     }
 
+    Prompt buildMergeSpecsPrompt(String wordMarkdown, String jxmlMarkdown) {
+        String safeWord = wordMarkdown == null ? "" : wordMarkdown;
+        String safeJxml = jxmlMarkdown == null ? "" : jxmlMarkdown;
+        String system = """
+                %s
+
+                Ces deux documents ont été générés indépendamment à partir du même gabarit ci-dessus
+                (l'un depuis la spec Word/Excel, l'autre depuis le JXML) et documentent la même démarche.
+                Fusionne-les en un seul document markdown final, en suivant IMPÉRATIVEMENT ce même
+                gabarit dans son intégralité et dans le même ordre — ne saute aucune section.
+
+                Règles d'arbitrage quand les deux sources se recoupent ou divergent :
+                - Section 4 (découpage par section et par écran, y compris les bornes de chaque écran,
+                  l'ordre des sections/écrans et la colonne `ID`) : privilégie la structure et le
+                  découpage du JXML — c'est le code source qui reflète le plus fidèlement le
+                  fonctionnement réel de l'application, le Word peut regrouper ou découper les écrans
+                  différemment. Utilise le JXML comme squelette de cette section, et viens y rattacher
+                  le contenu correspondant du Word (libellés métier, aides, règles de gestion) sur
+                  l'écran JXML dont il se rapproche le plus.
+                - Sous-section « Pièces jointes » et section 5 (Méta-données échangées) : à l'inverse,
+                  ces informations ne se déduisent pas du JXML (voir le gabarit) — proviens-les
+                  exclusivement du document Word, telles quelles.
+                - Pour tout le reste (libellés, valeurs, conditions, règles de gestion, appels de
+                  service) : combine les deux sources sans perdre d'information — si l'une des deux
+                  documente un élément que l'autre a laissé à `_Non renseigné dans la source._` ou
+                  absent, reprends la version renseignée. Si les deux sources renseignent la même
+                  information de façon cohérente, ne la duplique pas. Si elles se contredisent
+                  réellement sur un même élément (pas juste une absence d'un côté), retiens la version
+                  la plus probable et signale le désaccord entre parenthèses juste après la valeur
+                  retenue, en citant brièvement l'autre source (ex. « (Word indique <autre valeur>) »).
+                - Ne laisse `_Non renseigné dans la source._` que lorsque NI le Word NI le JXML ne
+                  renseignent l'information — les deux entrées couvrent ensemble davantage que chacune
+                  séparément.
+                """.formatted(DOCUMENTATION_TEMPLATE);
+        String user = "Document généré depuis le Word/Excel :\n%s\n\nDocument généré depuis le JXML :\n%s"
+                .formatted(safeWord, safeJxml);
+        return new Prompt(List.of(new SystemMessage(system), new UserMessage(user)));
+    }
+
     private static String loadDocumentationTemplate() {
         try (InputStream is = new ClassPathResource("templates/documentation-template.md").getInputStream()) {
             return new String(is.readAllBytes(), StandardCharsets.UTF_8);
@@ -225,13 +248,10 @@ public class MistralVibeClient implements SpecResolutionAIProvider {
                 + (wordText == null ? "(absent)" : wordText);
     }
 
-    private String buildTagContext(String jxmlExcerpt) {
-        List<String> docs = tagDocRepository.findRelevantDocs(jxmlExcerpt, MAX_TAG_DOCS, MAX_TAG_DOCS_CHARS);
-        if (docs.isEmpty()) {
-            return "";
-        }
-        return "Documentation des balises JWAY détectées dans l'extrait JXML ci-dessous :\n"
-                + String.join("\n---\n", docs) + "\n\n";
+    private String mergeSpecsFallback(String wordMarkdown, String jxmlMarkdown) {
+        return "⚠️ Fusion IA indisponible — à fusionner manuellement.\n\n"
+                + "## Document Word/Excel\n\n" + (wordMarkdown == null ? "(absent)" : wordMarkdown)
+                + "\n\n## Document JXML\n\n" + (jxmlMarkdown == null ? "(absent)" : jxmlMarkdown);
     }
 
     private String buildSpecGenerationTagContext(String jxmlText) {
@@ -252,10 +272,4 @@ public class MistralVibeClient implements SpecResolutionAIProvider {
         return "?".repeat(apiKey.length() - visible) + apiKey.substring(apiKey.length() - visible);
     }
 
-    private String fallback(String wordExcerpt, String jxmlExcerpt) {
-        return "⚠️ Résolution IA indisponible — à trancher manuellement. Word: "
-                + (wordExcerpt == null ? "(absent)" : wordExcerpt)
-                + " | JXML: "
-                + (jxmlExcerpt == null ? "(absent)" : jxmlExcerpt);
-    }
 }

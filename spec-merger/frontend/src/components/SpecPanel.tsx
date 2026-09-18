@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { generateSpecFromWord, previewWord } from '../api/analysis'
+import type { PersistedDoc } from '../hooks/usePersistedDoc'
 import { renderMarkdown } from '../markdown'
 import FullPageLoader from './FullPageLoader'
 import MarkdownView from './MarkdownView'
 
 interface SpecPanelProps {
   onCollapse?: () => void
+  doc: PersistedDoc
 }
 
 type Tab = 'input' | 'output'
@@ -31,9 +33,9 @@ function downloadMarkdown(markdown: string, filename: string) {
   URL.revokeObjectURL(url)
 }
 
-function SpecPanel({ onCollapse }: SpecPanelProps) {
+function SpecPanel({ onCollapse, doc }: SpecPanelProps) {
+  const { markdown, isDirty, saving, onGenerated, onEdit, save } = doc
   const [wordFile, setWordFile] = useState<File | null>(null)
-  const [markdown, setMarkdown] = useState('')
   const [tab, setTab] = useState<Tab>('input')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -43,6 +45,14 @@ function SpecPanel({ onCollapse }: SpecPanelProps) {
   const [previewViewMode, setPreviewViewMode] = useState<'rendered' | 'raw'>('rendered')
 
   const previewHtml = useMemo(() => renderMarkdown(previewContent), [previewContent])
+
+  // Switches to the Output tab whenever markdown appears from outside a local handleGenerate
+  // call — namely, a session restore, which sets it asynchronously after mount and wouldn't
+  // otherwise be reflected here. A no-op for the local-generate path, which already switches
+  // tabs itself, and never fights a manual switch back to Input since markdown doesn't change then.
+  useEffect(() => {
+    if (markdown) setTab('output')
+  }, [markdown])
 
   useEffect(() => {
     if (!previewOpen) return
@@ -70,13 +80,23 @@ function SpecPanel({ onCollapse }: SpecPanelProps) {
     setError(null)
     setLoading(true)
     try {
-      setMarkdown(await generateSpecFromWord(wordFile ?? undefined))
+      onGenerated(await generateSpecFromWord(wordFile ?? undefined))
       setTab('output')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Échec de la génération — voir la console.')
       console.error(e)
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleSave() {
+    setError(null)
+    try {
+      await save()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Échec de l'enregistrement — voir la console.")
+      console.error(e)
     }
   }
 
@@ -229,7 +249,13 @@ function SpecPanel({ onCollapse }: SpecPanelProps) {
         ) : (
           <div className="flex flex-col min-h-0 flex-1 gap-2">
             {markdown && (
-              <div className="flex justify-end shrink-0">
+              <div className="flex items-center justify-end gap-3 shrink-0">
+                {error && <span className="text-sm text-gl-danger">{error}</span>}
+                {isDirty && (
+                  <button type="button" className="btn-primary" onClick={handleSave} disabled={saving}>
+                    {saving ? 'Enregistrement…' : 'Enregistrer'}
+                  </button>
+                )}
                 <button
                   type="button"
                   className="btn-secondary"
@@ -241,7 +267,7 @@ function SpecPanel({ onCollapse }: SpecPanelProps) {
             )}
             <MarkdownView
               value={markdown}
-              onChange={setMarkdown}
+              onChange={onEdit}
               placeholder="La doc générée depuis le Word apparaîtra ici après génération."
             />
           </div>

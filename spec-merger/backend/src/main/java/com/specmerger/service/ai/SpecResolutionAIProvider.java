@@ -2,12 +2,9 @@ package com.specmerger.service.ai;
 
 /**
  * Abstraction over the AI backend used to turn Word/JXML sources into markdown spec, and to
- * propose a resolution for a divergence between two such specs — so the pipeline doesn't
- * couple to mistral-vibe specifically.
+ * merge two such specs into one — so the pipeline doesn't couple to mistral-vibe specifically.
  */
 public interface SpecResolutionAIProvider {
-
-    String proposeResolution(String wordExcerpt, String jxmlExcerpt);
 
     /**
      * Generates a markdown spec from a démarche's resolved JXML (Include fragments already
@@ -18,4 +15,10 @@ public interface SpecResolutionAIProvider {
 
     /** Restructures the raw text extracted from a Word/Excel spec into the same markdown shape. */
     String generateSpecFromWord(String wordText);
+
+    /**
+     * Merges the two independently generated markdown specs (same gabarit — see
+     * documentation-template.md) into a single reconciled one, screen by screen.
+     */
+    String mergeSpecs(String wordMarkdown, String jxmlMarkdown);
 }

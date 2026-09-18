@@ -28,13 +28,6 @@ public class MockSpecResolutionAIProvider implements SpecResolutionAIProvider {
     }
 
     @Override
-    public String proposeResolution(String wordExcerpt, String jxmlExcerpt) {
-        return "🧪 [MOCK] Résolution IA simulée (app.ai.mock=true) — à valider manuellement une fois "
-                + "mistral-vibe accessible.\n\nWord : " + (wordExcerpt == null ? "(absent)" : wordExcerpt)
-                + "\n\nJXML : " + (jxmlExcerpt == null ? "(absent)" : jxmlExcerpt);
-    }
-
-    @Override
     public String generateSpecFromJxml(String resolvedJxml) {
         return mockHeader("JXML", resolvedJxml) + DOCUMENTATION_TEMPLATE;
     }
@@ -42,6 +35,19 @@ public class MockSpecResolutionAIProvider implements SpecResolutionAIProvider {
     @Override
     public String generateSpecFromWord(String wordText) {
         return mockHeader("Word", wordText) + DOCUMENTATION_TEMPLATE;
+    }
+
+    @Override
+    public String mergeSpecs(String wordMarkdown, String jxmlMarkdown) {
+        return """
+                > 🧪 **[MOCK]** Fusion simulée (app.ai.mock=true, mistral-vibe non appelé) — le gabarit
+                > ci-dessous est renvoyé tel quel, placeholders `<...>` non remplis. Word reçu : %d
+                > caractères, JXML reçu : %d caractères.
+
+                """.formatted(
+                wordMarkdown == null ? 0 : wordMarkdown.length(),
+                jxmlMarkdown == null ? 0 : jxmlMarkdown.length())
+                + DOCUMENTATION_TEMPLATE;
     }
 
     private String mockHeader(String sourceLabel, String source) {

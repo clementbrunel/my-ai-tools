@@ -25,8 +25,7 @@ import org.xml.sax.InputSource;
  * {@code en}/{@code fr}, one language per file, shared project-wide) and {@code .xlf} (XLIFF)
  * files, both selected and downloaded alongside the JXML sources by {@link GitLabSourceService}
  * (see #266/#283). The JXML format only exposes these keys, never the literal text (see #285) —
- * without this step, neither the model nor {@code DiffEngine} ever sees what a screen actually
- * displays.
+ * without this step, the model never sees what a screen actually displays.
  *
  * <p>Unlike the project-wide {@code .properties} files, {@code .xlf} resources are published
  * per JXML document, following a fixed {@code <document>.jxml} → {@code <document>_<lang>.xlf}
