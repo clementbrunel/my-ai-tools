@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { renderMarkdown } from '../markdown'
+import RichMarkdownEditor from './RichMarkdownEditor'
 
 interface MarkdownViewProps {
   value: string
@@ -7,9 +8,20 @@ interface MarkdownViewProps {
   placeholder: string
 }
 
-/** An Aperçu/Édition toggle over a markdown value — the Aperçu tab renders it (sanitized), the textarea edits it. Defaults to Aperçu so generated docs are read before being edited. */
+const TABS = [
+  { key: 'preview', label: 'Aperçu' },
+  { key: 'richEdit', label: 'Édition Markdown' },
+  { key: 'edit', label: 'Édition Libre' },
+] as const
+
+type ViewMode = (typeof TABS)[number]['key']
+
+/** An Aperçu/Édition Markdown/Édition Libre toggle over a markdown value — Aperçu renders it
+ * (sanitized) read-only, Édition Markdown edits it through a rich-text (WYSIWYG) editor, and
+ * Édition Libre exposes the raw markdown textarea for cases the rich editor can't express.
+ * Defaults to Aperçu so generated docs are read before being edited. */
 function MarkdownView({ value, onChange, placeholder }: MarkdownViewProps) {
-  const [viewMode, setViewMode] = useState<'edit' | 'preview'>('preview')
+  const [viewMode, setViewMode] = useState<ViewMode>('preview')
 
   const previewHtml = useMemo(() => {
     if (viewMode !== 'preview') return ''
@@ -19,22 +31,24 @@ function MarkdownView({ value, onChange, placeholder }: MarkdownViewProps) {
   return (
     <div className="flex flex-col min-h-0 flex-1">
       <div className="flex gap-3 text-sm border-b border-[#dcdcde] mb-2 shrink-0">
-        {(['preview', 'edit'] as const).map((mode) => (
+        {TABS.map(({ key, label }) => (
           <button
-            key={mode}
+            key={key}
             type="button"
             className={`pb-2 -mb-px border-b-2 ${
-              viewMode === mode
+              viewMode === key
                 ? 'border-gl-orange text-[#303030] font-medium'
                 : 'border-transparent text-gray-500 hover:text-[#303030]'
             }`}
-            onClick={() => setViewMode(mode)}
+            onClick={() => setViewMode(key)}
           >
-            {mode === 'edit' ? 'Édition' : 'Aperçu'}
+            {label}
           </button>
         ))}
       </div>
-      {viewMode === 'edit' ? (
+      {viewMode === 'richEdit' ? (
+        <RichMarkdownEditor value={value} onChange={onChange} placeholder={placeholder} />
+      ) : viewMode === 'edit' ? (
         <textarea
           value={value}
           onChange={(e) => onChange(e.target.value)}

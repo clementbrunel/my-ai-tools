@@ -11,6 +11,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@mdxeditor/editor": "^4.2.5",
     "axios": "^1.7.9",
     "dompurify": "^3.4.15",
     "marked": "^18.0.13",
