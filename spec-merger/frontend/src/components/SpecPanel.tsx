@@ -63,12 +63,14 @@ function SpecPanel({ onCollapse }: SpecPanelProps) {
     setWordFile(file)
   }
 
+  /** wordFile is optional: without one, the backend falls back to a bundled sample spec while
+   * MISTRAL_MOCK=true (400 otherwise) — same "Générer la doc" action either way, no dedicated
+   * mock flow needed. */
   async function handleGenerate() {
-    if (!wordFile) return
     setError(null)
     setLoading(true)
     try {
-      setMarkdown(await generateSpecFromWord(wordFile))
+      setMarkdown(await generateSpecFromWord(wordFile ?? undefined))
       setTab('output')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Échec de la génération — voir la console.')
@@ -99,7 +101,9 @@ function SpecPanel({ onCollapse }: SpecPanelProps) {
     <>
       {loading && (
         <FullPageLoader
-          message={`Génération de la doc depuis ${wordFile && isExcelFile(wordFile.name) ? "l'Excel" : 'le Word'} en cours…`}
+          message={`Génération de la doc depuis ${
+            !wordFile ? "l'exemple" : isExcelFile(wordFile.name) ? "l'Excel" : 'le Word'
+          } en cours…`}
         />
       )}
       <section className="card p-4 overflow-auto min-h-0 flex flex-col">
@@ -137,7 +141,9 @@ function SpecPanel({ onCollapse }: SpecPanelProps) {
         {tab === 'input' ? (
           <div className="flex flex-col gap-3 min-h-0 flex-1">
             <div className="flex items-center gap-3 justify-end">
-              <span className="text-sm text-gray-500">{wordFile ? wordFile.name : 'Aucun fichier choisi'}</span>
+              <span className="text-sm text-gray-500">
+                {wordFile ? wordFile.name : 'Aucun fichier choisi (génère depuis un exemple en mode mock)'}
+              </span>
               <label
                 htmlFor="spec-word-file"
                 className="btn-primary cursor-pointer text-sm py-1.5 px-3"
@@ -215,7 +221,7 @@ function SpecPanel({ onCollapse }: SpecPanelProps) {
             )}
             <div className="mt-auto pt-3 border-t border-[#eee] flex items-center gap-3 justify-end">
               {error && <span className="text-sm text-gl-danger">{error}</span>}
-              <button type="button" className="btn-primary" onClick={handleGenerate} disabled={!wordFile || loading}>
+              <button type="button" className="btn-primary" onClick={handleGenerate} disabled={loading}>
                 {loading ? 'Génération…' : 'Générer la doc'}
               </button>
             </div>

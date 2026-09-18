@@ -48,6 +48,12 @@ Copier `.env.example` → `.env`. Voir ce fichier pour le détail de chaque vari
 pour continuer à travailler sur le reste du pipeline (diff, édition/versioning du
 markdown, export) sans accès au réseau interne (ex. depuis chez soi).
 
+Dans le panneau Spec Word/Excel, le fichier est optionnel : cliquer « Générer la doc » sans
+fichier choisi utilise un petit spec bundlé (`backend/src/main/resources/samples/
+sample-demarche-word.md`, même démarche que `sample-demarche.jxml`) tant que `MISTRAL_MOCK`
+est activé (400 sinon) — même bouton, même endpoint `POST /api/spec/generate-from-word` que
+pour un vrai fichier, pas de flux dédié au mock.
+
 ## Gabarit de documentation attendue
 
 `backend/src/main/resources/templates/documentation-template.md` définit la forme que
