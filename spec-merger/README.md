@@ -81,14 +81,13 @@ son chemin (`PATH`) et ses patterns Ant de fichiers à inclure.
    configuré, les classes Java d'appels métier vers l'extérieur — au lieu du reste
    du dépôt (build, tests, assets, ...).
 
-### Projet mock (sans accès à GitLab, ex. depuis chez soi)
+### Mode mock (sans accès à GitLab, ex. depuis chez soi)
 
-`GET /api/gitlab/projects` renvoie toujours, en plus des projets réels, un projet
-« 🧪 Démarche d'exemple (mock, sans GitLab) » (`groupKey` `mock`) — le choisir dans le
-panneau Spec JXML fonctionne exactement comme un vrai projet (source listing, preview,
-génération), mais sert le JXML embarqué dans
+`GITLAB_MOCK=true` désactive tout appel réseau à GitLab, même principe que
+`MISTRAL_MOCK` : `GET /api/gitlab/projects` renvoie alors un unique projet
+« 🧪 Démarche d'exemple (mock, sans GitLab) » (`groupKey` `mock`) — le choisir dans
+le panneau Spec JXML fonctionne exactement comme un vrai projet (source listing,
+preview, génération), mais sert le JXML embarqué dans
 `backend/src/main/resources/samples/sample-demarche.jxml` au lieu d'appeler GitLab.
-Si les groupes réels sont injoignables (`GITLAB_URL`/`GITLAB_TOKEN` absents ou GitLab
-inaccessible depuis le réseau courant), l'échec est loggé et seul ce projet mock reste
-proposé plutôt que de faire échouer tout le listing. Combiné à `MISTRAL_MOCK=true`
-ci-dessus, ça permet de tester tout le pipeline JXML sans rien à disposition.
+Combiné à `MISTRAL_MOCK=true` ci-dessus, ça permet de tester tout le pipeline JXML
+sans rien à disposition.

@@ -36,12 +36,11 @@ import org.springframework.stereotype.Service;
  * flow. Each group has its own translation/Java filter patterns (see
  * {@link GitLabProperties.Group}).
  *
- * <p>Always exposes one extra, fake project ({@link #MOCK_GROUP_KEY}) backed by a small
- * bundled JXML sample instead of a real GitLab call — picking it from the same project list
- * lets the rest of the pipeline (source listing, preview, génération) be exercised without
- * GitLab being reachable at all (e.g. working from outside the office network). Real project
- * listing failures are logged and degrade to "only the mock project" rather than failing the
- * whole {@code GET /api/gitlab/projects} call — see {@link #fetchRealProjects()}.
+ * <p>When {@link GitLabProperties#mock()} is set ({@code GITLAB_MOCK=true}, same idea as
+ * {@code app.ai.mock}), GitLab is never called: the only project offered is one fake entry
+ * ({@link #MOCK_GROUP_KEY}) backed by a small bundled JXML sample, so the rest of the
+ * pipeline (source listing, preview, génération) can be exercised without GitLab being
+ * reachable at all (e.g. working from outside the office network).
  */
 @Slf4j
 @Service
@@ -127,22 +126,12 @@ public class GitLabSourceService {
         return fetched;
     }
 
-    private List<GitLabProjectSummary> fetchAllProjects() {
-        List<GitLabProjectSummary> summaries = new ArrayList<>();
-        summaries.add(MOCK_PROJECT);
-        summaries.addAll(fetchRealProjects());
-        summaries.sort(Comparator.comparing(GitLabProjectSummary::groupKey, String.CASE_INSENSITIVE_ORDER)
-                .thenComparing(GitLabProjectSummary::name, String.CASE_INSENSITIVE_ORDER));
-        return summaries;
-    }
-
-    /**
-     * The real GitLab-backed part of {@link #fetchAllProjects()} — failures here (GitLab
-     * unreachable, wrong credentials, ...) are logged and degrade to an empty list instead of
-     * failing the whole projects listing, so {@link #MOCK_PROJECT} is still returned and usable
-     * even when GitLab itself isn't.
-     */
-    private List<GitLabProjectSummary> fetchRealProjects() {
+    /** When {@link GitLabProperties#mock()} is set, only {@link #MOCK_PROJECT} is returned and
+     * GitLab is never called — same all-or-nothing switch as {@code app.ai.mock}. */
+    private List<GitLabProjectSummary> fetchAllProjects() throws GitLabApiException {
+        if (properties.mock()) {
+            return List.of(MOCK_PROJECT);
+        }
         try (GitLabApi api = apiFactory.create()) {
             List<GitLabProjectSummary> summaries = new ArrayList<>();
             for (GitLabProperties.Group group : properties.groups()) {
@@ -152,7 +141,15 @@ public class GitLabSourceService {
                 Object identifier = resolveIdentifier(group.path());
                 log.debug("GitLab: listing des projets du groupe '{}' (identifiant résolu='{}')",
                         group.key(), identifier);
-                List<Project> projects = api.getGroupApi().getProjects(identifier);
+                List<Project> projects;
+                try {
+                    projects = api.getGroupApi().getProjects(identifier);
+                } catch (GitLabApiException e) {
+                    log.error("GitLab: échec du listing des projets pour le groupe '{}' (GITLAB_GROUP path='{}', "
+                                    + "identifiant résolu='{}') : HTTP {} {} — {}",
+                            group.key(), group.path(), identifier, e.getHttpStatus(), e.getReason(), e.getMessage());
+                    throw e;
+                }
                 log.info("GitLab: {} projet(s) trouvé(s) pour le groupe '{}'", projects.size(), group.key());
                 for (Project p : projects) {
                     summaries.add(new GitLabProjectSummary(
@@ -160,11 +157,9 @@ public class GitLabSourceService {
                             group.key()));
                 }
             }
+            summaries.sort(Comparator.comparing(GitLabProjectSummary::groupKey, String.CASE_INSENSITIVE_ORDER)
+                    .thenComparing(GitLabProjectSummary::name, String.CASE_INSENSITIVE_ORDER));
             return summaries;
-        } catch (GitLabApiException | RuntimeException e) {
-            log.warn("GitLab: injoignable ou en échec, seul le projet d'exemple (mock) sera proposé : {}",
-                    e.getMessage());
-            return List.of();
         }
     }
 
@@ -179,7 +174,7 @@ public class GitLabSourceService {
      * trans(...)} keys unresolved (#285) — only includes/Java remain freely checkable.
      */
     public GitLabSourceListing listRelevantSourcePaths(String groupKey, String projectIdOrPath) throws GitLabApiException {
-        if (MOCK_GROUP_KEY.equals(groupKey)) {
+        if (properties.mock() && MOCK_GROUP_KEY.equals(groupKey)) {
             return new GitLabSourceListing(List.of(new GitLabEntryPoint(MOCK_DOCUMENT_ID, MOCK_ENTRY_POINT_PATH)),
                     List.of(), List.of());
         }
@@ -265,7 +260,7 @@ public class GitLabSourceService {
      */
     public Map<String, String> fetchRelevantSources(String groupKey, String projectIdOrPath,
             Collection<String> selectedPaths, String entryPointPath) throws GitLabApiException, IOException {
-        if (MOCK_GROUP_KEY.equals(groupKey)) {
+        if (properties.mock() && MOCK_GROUP_KEY.equals(groupKey)) {
             return Map.of(MOCK_ENTRY_POINT_PATH, MOCK_JXML_CONTENT);
         }
         Collection<String> effectivePaths = withEntryPoint(selectedPaths, entryPointPath);

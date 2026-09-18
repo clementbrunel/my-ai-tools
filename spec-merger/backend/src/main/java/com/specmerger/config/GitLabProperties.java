@@ -15,9 +15,14 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  *                            and issue #285) — an ISO-639-1 code matching either a translation
  *                            file's fixed name (e.g. {@code fr.properties}) or an XLIFF file's
  *                            {@code source-language}/{@code target-language} attribute.
+ * @param mock                true : {@link com.specmerger.service.gitlab.GitLabSourceService} exposes
+ *                            a fake project backed by a bundled JXML sample instead of ever calling
+ *                            GitLab — for working on the rest of the pipeline without GitLab reachable
+ *                            (e.g. from outside the office network), same idea as {@code app.ai.mock}.
  */
 @ConfigurationProperties(prefix = "gitlab")
-public record GitLabProperties(String url, String token, List<Group> groups, String translationLanguage) {
+public record GitLabProperties(String url, String token, List<Group> groups, String translationLanguage,
+        boolean mock) {
 
     public GitLabProperties {
         groups = groups == null ? List.of() : groups;
