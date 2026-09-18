@@ -50,3 +50,19 @@ export interface SpecGenerationResult {
 export interface WordExtractionPreview {
   content: string
 }
+
+/**
+ * Everything needed to recover a finished merge from another machine, fetched by just the merged
+ * document's id — backs the navbar's session export/import. `wordDocumentId`/`jxmlDocumentId`
+ * (and their markdown) are best-effort: null when the merge wasn't recorded with them (older
+ * data) or the source document is gone.
+ */
+export interface SessionExport {
+  mergedDocumentId: string
+  mergedMarkdown: string
+  wordDocumentId: string | null
+  wordMarkdown: string | null
+  jxmlDocumentId: string | null
+  jxmlMarkdown: string | null
+  gitlabSelectionJson: string | null
+}

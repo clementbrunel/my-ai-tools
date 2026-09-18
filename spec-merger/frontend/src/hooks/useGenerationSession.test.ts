@@ -1,18 +1,21 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { useGenerationSession } from './useGenerationSession'
-import { getDocument } from '../api/analysis'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { importSession, useGenerationSession } from './useGenerationSession'
+import { getDocument, getSession } from '../api/analysis'
 
 vi.mock('../api/analysis', () => ({
   getDocument: vi.fn(),
+  getSession: vi.fn(),
   updateDocument: vi.fn(),
 }))
 
 const getDocumentMock = vi.mocked(getDocument)
+const getSessionMock = vi.mocked(getSession)
 const STORAGE_KEY = 'spec-merger-session'
 
 beforeEach(() => {
   getDocumentMock.mockReset()
+  getSessionMock.mockReset()
   localStorage.clear()
 })
 
@@ -161,5 +164,100 @@ describe('useGenerationSession', () => {
       jxmlDocumentId: 'jxml-1',
       mergedDocumentId: 'merged-1',
     })
+  })
+
+  it('exposes the live GitLab selection, not just the one read from storage at mount', () => {
+    const { result } = renderHook(() => useGenerationSession())
+    expect(result.current.gitlabSelection).toBeNull()
+
+    const gitlabSelection = {
+      groupKey: 'jway-forms',
+      projectId: '1',
+      entryPointPath: 'forms/demarche_un.jxml',
+      selectedPaths: [],
+    }
+    act(() => result.current.setGitlabSelection(gitlabSelection))
+
+    expect(result.current.gitlabSelection).toEqual(gitlabSelection)
+  })
+})
+
+// jsdom's window.location.reload is non-configurable, so vi.spyOn can't touch it directly —
+// replace the whole `location` object instead (its own property on window is configurable).
+function stubLocationReload(): ReturnType<typeof vi.fn> {
+  const reloadSpy = vi.fn()
+  Object.defineProperty(window, 'location', {
+    configurable: true,
+    value: { ...window.location, reload: reloadSpy },
+  })
+  return reloadSpy
+}
+
+describe('importSession', () => {
+  const originalLocation = window.location
+
+  beforeEach(() => {
+    getSessionMock.mockReset()
+    localStorage.clear()
+  })
+
+  afterEach(() => {
+    Object.defineProperty(window, 'location', { configurable: true, value: originalLocation })
+  })
+
+  it('stores the fetched session (documents + GitLab selection) and reloads the page', async () => {
+    const reloadSpy = stubLocationReload()
+    const gitlabSelection = {
+      groupKey: 'jway-forms',
+      projectId: '1',
+      entryPointPath: 'forms/demarche_un.jxml',
+      selectedPaths: ['forms/kyc.jxml'],
+    }
+    getSessionMock.mockResolvedValue({
+      mergedDocumentId: 'merged-1',
+      mergedMarkdown: '# Fusionné',
+      wordDocumentId: 'word-1',
+      wordMarkdown: '# Word',
+      jxmlDocumentId: 'jxml-1',
+      jxmlMarkdown: '# JXML',
+      gitlabSelectionJson: JSON.stringify(gitlabSelection),
+    })
+
+    await importSession('merged-1')
+
+    expect(getSessionMock).toHaveBeenCalledWith('merged-1')
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}')).toEqual({
+      wordDocumentId: 'word-1',
+      jxmlDocumentId: 'jxml-1',
+      mergedDocumentId: 'merged-1',
+      gitlabSelection,
+    })
+    expect(reloadSpy).toHaveBeenCalled()
+  })
+
+  it('omits the GitLab selection when the exported session had none', async () => {
+    stubLocationReload()
+    getSessionMock.mockResolvedValue({
+      mergedDocumentId: 'merged-1',
+      mergedMarkdown: '# Fusionné',
+      wordDocumentId: null,
+      wordMarkdown: null,
+      jxmlDocumentId: null,
+      jxmlMarkdown: null,
+      gitlabSelectionJson: null,
+    })
+
+    await importSession('merged-1')
+
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}')).toEqual({
+      mergedDocumentId: 'merged-1',
+    })
+  })
+
+  it('propagates the error and does not touch localStorage when the fetch fails', async () => {
+    getSessionMock.mockRejectedValue(new Error('Document introuvable'))
+
+    await expect(importSession('unknown')).rejects.toThrow('Document introuvable')
+    expect(localStorage.getItem(STORAGE_KEY)).toBeNull()
   })
 })

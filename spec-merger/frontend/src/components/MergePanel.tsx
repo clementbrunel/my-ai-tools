@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { mergeSpecs } from '../api/analysis'
 import type { PersistedDoc } from '../hooks/usePersistedDoc'
+import type { GitlabSelection } from '../types'
 import FullPageLoader from './FullPageLoader'
 import MarkdownView from './MarkdownView'
 
@@ -8,6 +9,9 @@ interface MergePanelProps {
   wordDoc: PersistedDoc
   jxmlDoc: PersistedDoc
   mergedDoc: PersistedDoc
+  /** The currently selected GitLab project, if any — recorded on the merge so a single merged
+   * document id is enough to export/import the whole session (see the navbar). */
+  gitlabSelection: GitlabSelection | null
 }
 
 function downloadMarkdown(markdown: string, filename: string) {
@@ -20,7 +24,7 @@ function downloadMarkdown(markdown: string, filename: string) {
   URL.revokeObjectURL(url)
 }
 
-function MergePanel({ wordDoc, jxmlDoc, mergedDoc }: MergePanelProps) {
+function MergePanel({ wordDoc, jxmlDoc, mergedDoc, gitlabSelection }: MergePanelProps) {
   const { markdown: wordMarkdown, id: wordDocumentId } = wordDoc
   const { markdown: jxmlMarkdown, id: jxmlDocumentId } = jxmlDoc
   const { markdown: mergedMarkdown, id: mergedDocumentId, isDirty, saving, onGenerated, onEdit, save } = mergedDoc
@@ -50,7 +54,13 @@ function MergePanel({ wordDoc, jxmlDoc, mergedDoc }: MergePanelProps) {
     setError(null)
     setLoading(true)
     try {
-      const result = await mergeSpecs(wordMarkdown, jxmlMarkdown, wordDocumentId, jxmlDocumentId)
+      const result = await mergeSpecs(
+        wordMarkdown,
+        jxmlMarkdown,
+        wordDocumentId,
+        jxmlDocumentId,
+        gitlabSelection ? JSON.stringify(gitlabSelection) : null,
+      )
       onGenerated(result)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Échec de la fusion — voir la console.')

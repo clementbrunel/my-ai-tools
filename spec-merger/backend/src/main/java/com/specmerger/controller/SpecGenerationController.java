@@ -1,6 +1,7 @@
 package com.specmerger.controller;
 
 import com.specmerger.dto.MergeSpecsRequest;
+import com.specmerger.dto.SessionExport;
 import com.specmerger.dto.SpecGenerationResult;
 import com.specmerger.dto.UpdateDocumentContentRequest;
 import com.specmerger.dto.WordExtractionPreview;
@@ -89,8 +90,8 @@ public class SpecGenerationController {
     @PostMapping("/merge")
     public SpecGenerationResult merge(@RequestBody MergeSpecsRequest request) {
         String markdown = aiProvider.mergeSpecs(request.wordMarkdown(), request.jxmlMarkdown());
-        GeneratedDocument document =
-                documentService.createMerged(markdown, request.wordDocumentId(), request.jxmlDocumentId());
+        GeneratedDocument document = documentService.createMerged(markdown, request.wordDocumentId(),
+                request.jxmlDocumentId(), request.gitlabSelectionJson());
         return new SpecGenerationResult(document.getId(), markdown);
     }
 
@@ -98,6 +99,15 @@ public class SpecGenerationController {
     @GetMapping("/documents/{id}")
     public SpecGenerationResult getDocument(@PathVariable UUID id) {
         return new SpecGenerationResult(id, documentService.getLatestContent(id));
+    }
+
+    /**
+     * Everything needed to recover a finished merge on another machine from just its document id
+     * — the navbar's session export/import.
+     */
+    @GetMapping("/session/{mergedDocumentId}")
+    public SessionExport getSession(@PathVariable UUID mergedDocumentId) {
+        return documentService.getSession(mergedDocumentId);
     }
 
     /** Auto-saves a manual edit as a new revision (debounced on the frontend) — never overwrites. */

@@ -54,7 +54,7 @@ class GeneratedDocumentServiceTest {
     }
 
     @Test
-    void createMergedLinksTheTwoSourceDocumentIds() {
+    void createMergedLinksTheTwoSourceDocumentIdsAndTheGitlabSelection() {
         GeneratedDocumentService service = newService();
         when(documentRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(documentRepository.lockById(any())).thenAnswer(invocation -> Optional.of(new GeneratedDocument()));
@@ -62,11 +62,12 @@ class GeneratedDocumentServiceTest {
         UUID wordId = UUID.randomUUID();
         UUID jxmlId = UUID.randomUUID();
 
-        GeneratedDocument document = service.createMerged("# Fusionné", wordId, jxmlId);
+        GeneratedDocument document = service.createMerged("# Fusionné", wordId, jxmlId, "{\"projectId\":\"1\"}");
 
         assertThat(document.getSource()).isEqualTo(Source.MERGED);
         assertThat(document.getWordDocumentId()).isEqualTo(wordId);
         assertThat(document.getJxmlDocumentId()).isEqualTo(jxmlId);
+        assertThat(document.getGitlabSelectionJson()).isEqualTo("{\"projectId\":\"1\"}");
     }
 
     @Test
@@ -118,5 +119,58 @@ class GeneratedDocumentServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining(documentId.toString());
         verify(revisionRepository, never()).save(any());
+    }
+
+    @Test
+    void getSessionReturnsTheMergeAndBothSourceDocumentsAndTheGitlabSelection() {
+        GeneratedDocumentService service = newService();
+        UUID wordId = UUID.randomUUID();
+        UUID jxmlId = UUID.randomUUID();
+        UUID mergedId = UUID.randomUUID();
+
+        GeneratedDocument merged = new GeneratedDocument();
+        merged.setId(mergedId);
+        merged.setSource(Source.MERGED);
+        merged.setWordDocumentId(wordId);
+        merged.setJxmlDocumentId(jxmlId);
+        merged.setGitlabSelectionJson("{\"projectId\":\"1\"}");
+        when(documentRepository.findById(mergedId)).thenReturn(Optional.of(merged));
+
+        DocumentRevision mergedRevision = new DocumentRevision();
+        mergedRevision.setContent("# Fusionné");
+        DocumentRevision wordRevision = new DocumentRevision();
+        wordRevision.setContent("# Word");
+        DocumentRevision jxmlRevision = new DocumentRevision();
+        jxmlRevision.setContent("# JXML");
+        when(revisionRepository.findTopByDocumentIdOrderByRevisionNumberDesc(mergedId))
+                .thenReturn(Optional.of(mergedRevision));
+        when(revisionRepository.findTopByDocumentIdOrderByRevisionNumberDesc(wordId))
+                .thenReturn(Optional.of(wordRevision));
+        when(revisionRepository.findTopByDocumentIdOrderByRevisionNumberDesc(jxmlId))
+                .thenReturn(Optional.of(jxmlRevision));
+
+        var session = service.getSession(mergedId);
+
+        assertThat(session.mergedDocumentId()).isEqualTo(mergedId);
+        assertThat(session.mergedMarkdown()).isEqualTo("# Fusionné");
+        assertThat(session.wordDocumentId()).isEqualTo(wordId);
+        assertThat(session.wordMarkdown()).isEqualTo("# Word");
+        assertThat(session.jxmlDocumentId()).isEqualTo(jxmlId);
+        assertThat(session.jxmlMarkdown()).isEqualTo("# JXML");
+        assertThat(session.gitlabSelectionJson()).isEqualTo("{\"projectId\":\"1\"}");
+    }
+
+    @Test
+    void getSessionThrowsForADocumentThatIsNotAMerge() {
+        GeneratedDocumentService service = newService();
+        UUID wordId = UUID.randomUUID();
+        GeneratedDocument word = new GeneratedDocument();
+        word.setId(wordId);
+        word.setSource(Source.WORD);
+        when(documentRepository.findById(wordId)).thenReturn(Optional.of(word));
+
+        assertThatThrownBy(() -> service.getSession(wordId))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining(wordId.toString());
     }
 }

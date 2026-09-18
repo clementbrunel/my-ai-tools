@@ -3,6 +3,7 @@ import type {
   GitLabJxmlPreview,
   GitLabProjectSummary,
   GitLabSourceListing,
+  SessionExport,
   SpecGenerationResult,
   WordExtractionPreview,
 } from '../types'
@@ -94,19 +95,23 @@ export async function generateSpecFromGitlab(params: GitlabPreviewParams): Promi
 /**
  * Merges the Word-generated and JXML-generated markdown specs (as currently held by the
  * frontend, including any manual edit) into a single reconciled document. The source document
- * ids, when known, are recorded on the merge for traceability (best-effort — see backend).
+ * ids, when known, are recorded on the merge for traceability (best-effort — see backend), as is
+ * the current GitLab project selection (JSON-encoded, opaque to the backend), so the resulting
+ * merged document's id alone is enough to export/import the whole session.
  */
 export async function mergeSpecs(
   wordMarkdown: string,
   jxmlMarkdown: string,
   wordDocumentId?: string | null,
   jxmlDocumentId?: string | null,
+  gitlabSelectionJson?: string | null,
 ): Promise<SpecGenerationResult> {
   const { data } = await client.post<SpecGenerationResult>('/spec/merge', {
     wordMarkdown,
     jxmlMarkdown,
     wordDocumentId: wordDocumentId ?? undefined,
     jxmlDocumentId: jxmlDocumentId ?? undefined,
+    gitlabSelectionJson: gitlabSelectionJson ?? undefined,
   })
   return data
 }
@@ -114,6 +119,15 @@ export async function mergeSpecs(
 /** A persisted document's latest content — used to recover a session from its id. */
 export async function getDocument(id: string): Promise<SpecGenerationResult> {
   const { data } = await client.get<SpecGenerationResult>(`/spec/documents/${id}`)
+  return data
+}
+
+/**
+ * Everything needed to recover a finished merge on another machine, from just its document id —
+ * backs the navbar's session export/import.
+ */
+export async function getSession(mergedDocumentId: string): Promise<SessionExport> {
+  const { data } = await client.get<SessionExport>(`/spec/session/${mergedDocumentId}`)
   return data
 }
 
