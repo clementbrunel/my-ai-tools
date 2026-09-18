@@ -10,18 +10,25 @@ describe('MarkdownView', () => {
     expect(screen.getByText('gras').tagName).toBe('STRONG')
   })
 
-  it('shows the textarea after switching to Édition', async () => {
+  it('shows the textarea after switching to Édition Libre', async () => {
     render(<MarkdownView value="# Titre" onChange={vi.fn()} placeholder="placeholder text" />)
-    await userEvent.click(screen.getByText('Édition'))
+    await userEvent.click(screen.getByText('Édition Libre'))
     expect(screen.getByPlaceholderText('placeholder text')).toHaveValue('# Titre')
   })
 
-  it('calls onChange when edited', async () => {
+  it('calls onChange when edited in Édition Libre', async () => {
     const onChange = vi.fn()
     render(<MarkdownView value="" onChange={onChange} placeholder="placeholder text" />)
-    await userEvent.click(screen.getByText('Édition'))
+    await userEvent.click(screen.getByText('Édition Libre'))
     await userEvent.type(screen.getByPlaceholderText('placeholder text'), 'x')
     expect(onChange).toHaveBeenCalledWith('x')
+  })
+
+  it('shows the rich-text editor after switching to Édition Markdown', async () => {
+    render(<MarkdownView value="# Titre" onChange={vi.fn()} placeholder="placeholder text" />)
+    await userEvent.click(screen.getByText('Édition Markdown'))
+    expect(document.querySelector('.rich-markdown-editor')).not.toBeNull()
+    expect(screen.getByRole('heading', { level: 1, name: 'Titre' })).toBeDefined()
   })
 
   it('sanitizes raw HTML embedded in the markdown before rendering', () => {

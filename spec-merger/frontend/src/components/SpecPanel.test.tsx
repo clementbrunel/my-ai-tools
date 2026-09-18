@@ -209,7 +209,7 @@ describe('SpecPanel', () => {
     await userEvent.click(screen.getByText('Générer la doc'))
     await screen.findByRole('heading', { level: 1, name: 'Doc générée' })
 
-    await userEvent.click(screen.getByText('Édition'))
+    await userEvent.click(screen.getByText('Édition Libre'))
     const textarea = screen.getByPlaceholderText('La doc générée depuis le Word apparaîtra ici après génération.')
     await userEvent.clear(textarea)
     await userEvent.type(textarea, '# Doc éditée')
@@ -228,7 +228,7 @@ describe('SpecPanel', () => {
     await userEvent.click(screen.getByText('Générer la doc'))
     await screen.findByRole('heading', { level: 1, name: 'Doc générée' })
 
-    await userEvent.click(screen.getByText('Édition'))
+    await userEvent.click(screen.getByText('Édition Libre'))
     const textarea = screen.getByPlaceholderText('La doc générée depuis le Word apparaîtra ici après génération.')
     await userEvent.clear(textarea)
     await userEvent.type(textarea, '# Doc éditée')
