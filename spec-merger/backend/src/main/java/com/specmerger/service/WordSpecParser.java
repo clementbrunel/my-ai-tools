@@ -3,8 +3,11 @@ package com.specmerger.service;
 import org.apache.poi.hwpf.extractor.WordExtractor;
 import org.apache.poi.poifs.filesystem.FileMagic;
 import org.apache.poi.xwpf.usermodel.IBodyElement;
+import org.apache.poi.xwpf.usermodel.ICell;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
+import org.apache.poi.xwpf.usermodel.XWPFSDT;
+import org.apache.poi.xwpf.usermodel.XWPFSDTCell;
 import org.apache.poi.xwpf.usermodel.XWPFTable;
 import org.apache.poi.xwpf.usermodel.XWPFTableCell;
 import org.apache.poi.xwpf.usermodel.XWPFTableRow;
@@ -40,7 +43,8 @@ public class WordSpecParser {
      * {@link XWPFDocument#getParagraphs()} only returns top-level body paragraphs — text inside
      * tables (e.g. the CTIE canevas' "Eléments" table) lives in a separate structure and is
      * silently dropped if read that way. Walking the body elements in document order instead
-     * picks up both, interleaved as they actually appear.
+     * picks up both, interleaved as they actually appear — plus content controls (SDT), which
+     * some templates use to bind fields such as the cover page's organisation name.
      */
     private String extractFromDocx(InputStream docxStream) throws IOException {
         try (XWPFDocument document = new XWPFDocument(docxStream)) {
@@ -50,20 +54,38 @@ public class WordSpecParser {
                     appendIfNotBlank(text, paragraph.getText());
                 } else if (element instanceof XWPFTable table) {
                     appendTable(text, table);
+                } else if (element instanceof XWPFSDT sdt) {
+                    appendIfNotBlank(text, sdt.getContent().getText());
                 }
             }
             return text.toString().strip();
         }
     }
 
+    /**
+     * A content-control cell (e.g. a "Company" field bound to a document property) is a
+     * sibling of the plain {@code <w:tc>} cells in the row's XML, not one of them —
+     * {@link XWPFTableRow#getTableCells()} silently skips it. {@link XWPFTableRow#getTableICells()}
+     * returns both cell kinds in their actual column order, so every cell of the row makes it in.
+     */
     private void appendTable(StringBuilder text, XWPFTable table) {
         for (XWPFTableRow row : table.getRows()) {
-            String rowText = row.getTableCells().stream()
-                    .map(XWPFTableCell::getTextRecursively)
+            String rowText = row.getTableICells().stream()
+                    .map(this::cellText)
                     .map(String::strip)
                     .collect(Collectors.joining(" | "));
             appendIfNotBlank(text, rowText);
         }
+    }
+
+    private String cellText(ICell cell) {
+        if (cell instanceof XWPFTableCell tableCell) {
+            return tableCell.getTextRecursively();
+        }
+        if (cell instanceof XWPFSDTCell sdtCell) {
+            return sdtCell.getContent().getText();
+        }
+        return "";
     }
 
     private void appendIfNotBlank(StringBuilder text, String value) {
