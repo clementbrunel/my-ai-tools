@@ -2,14 +2,17 @@ package com.specmerger.service;
 
 import org.apache.poi.hwpf.extractor.WordExtractor;
 import org.apache.poi.poifs.filesystem.FileMagic;
+import org.apache.poi.xwpf.usermodel.IBodyElement;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
+import org.apache.poi.xwpf.usermodel.XWPFTable;
+import org.apache.poi.xwpf.usermodel.XWPFTableCell;
+import org.apache.poi.xwpf.usermodel.XWPFTableRow;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
-import java.util.List;
 import java.util.stream.Collectors;
 
 /**
@@ -33,13 +36,39 @@ public class WordSpecParser {
         };
     }
 
+    /**
+     * {@link XWPFDocument#getParagraphs()} only returns top-level body paragraphs — text inside
+     * tables (e.g. the CTIE canevas' "Eléments" table) lives in a separate structure and is
+     * silently dropped if read that way. Walking the body elements in document order instead
+     * picks up both, interleaved as they actually appear.
+     */
     private String extractFromDocx(InputStream docxStream) throws IOException {
         try (XWPFDocument document = new XWPFDocument(docxStream)) {
-            List<XWPFParagraph> paragraphs = document.getParagraphs();
-            return paragraphs.stream()
-                    .map(XWPFParagraph::getText)
-                    .filter(text -> !text.isBlank())
-                    .collect(Collectors.joining("\n"));
+            StringBuilder text = new StringBuilder();
+            for (IBodyElement element : document.getBodyElements()) {
+                if (element instanceof XWPFParagraph paragraph) {
+                    appendIfNotBlank(text, paragraph.getText());
+                } else if (element instanceof XWPFTable table) {
+                    appendTable(text, table);
+                }
+            }
+            return text.toString().strip();
+        }
+    }
+
+    private void appendTable(StringBuilder text, XWPFTable table) {
+        for (XWPFTableRow row : table.getRows()) {
+            String rowText = row.getTableCells().stream()
+                    .map(XWPFTableCell::getTextRecursively)
+                    .map(String::strip)
+                    .collect(Collectors.joining(" | "));
+            appendIfNotBlank(text, rowText);
+        }
+    }
+
+    private void appendIfNotBlank(StringBuilder text, String value) {
+        if (value != null && !value.isBlank()) {
+            text.append(value).append('\n');
         }
     }
 
