@@ -1,9 +1,15 @@
-import { useState } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import CodePanel from './CodePanel'
-import { generateSpecFromGitlab, listGitlabProjects, listGitlabSources, previewGitlabJxml } from '../api/analysis'
+import {
+  generateSpecFromGitlab,
+  listGitlabProjects,
+  listGitlabSources,
+  previewGitlabJxml,
+  updateDocument,
+} from '../api/analysis'
+import { usePersistedDoc } from '../hooks/usePersistedDoc'
 import type { GitLabProjectSummary, GitLabSourceListing } from '../types'
 
 vi.mock('../api/analysis', () => ({
@@ -11,12 +17,14 @@ vi.mock('../api/analysis', () => ({
   listGitlabProjects: vi.fn(),
   listGitlabSources: vi.fn(),
   previewGitlabJxml: vi.fn(),
+  updateDocument: vi.fn(),
 }))
 
 const generateSpecFromGitlabMock = vi.mocked(generateSpecFromGitlab)
 const listGitlabProjectsMock = vi.mocked(listGitlabProjects)
 const listGitlabSourcesMock = vi.mocked(listGitlabSources)
 const previewGitlabJxmlMock = vi.mocked(previewGitlabJxml)
+const updateDocumentMock = vi.mocked(updateDocument)
 
 const projects: GitLabProjectSummary[] = [
   { id: 1, name: 'onboarding-kyc', pathWithNamespace: 'jway-forms/onboarding-kyc', defaultBranch: 'main', webUrl: '', groupKey: 'jway-forms' },
@@ -34,13 +42,14 @@ beforeEach(() => {
   listGitlabProjectsMock.mockReset()
   listGitlabSourcesMock.mockReset()
   previewGitlabJxmlMock.mockReset()
+  updateDocumentMock.mockReset()
 })
 
 /** CodePanel's markdown is controlled by its parent — this harness stands in for App. */
 function renderCodePanel(onCollapse?: () => void) {
   function Harness() {
-    const [markdown, setMarkdown] = useState('')
-    return <CodePanel onCollapse={onCollapse} markdown={markdown} onMarkdownChange={setMarkdown} />
+    const doc = usePersistedDoc()
+    return <CodePanel onCollapse={onCollapse} markdown={doc.markdown} onGenerated={doc.onGenerated} onEdit={doc.onEdit} />
   }
   return render(<Harness />)
 }
@@ -127,7 +136,7 @@ describe('CodePanel', () => {
 
   it('generates the spec from the GitLab entry point once one is selected', async () => {
     await goToGitlabModeWithProject()
-    generateSpecFromGitlabMock.mockResolvedValue('# Doc GitLab')
+    generateSpecFromGitlabMock.mockResolvedValue({ id: 'jxml-1', markdown: '# Doc GitLab' })
     await userEvent.click(screen.getByText('Générer la doc'))
     expect(generateSpecFromGitlabMock).toHaveBeenCalledWith({
       groupKey: 'jway-forms',

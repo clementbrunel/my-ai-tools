@@ -52,13 +52,13 @@ export async function previewGitlabJxml(params: GitlabPreviewParams): Promise<Gi
 }
 
 /** The markdown spec the model generates from the Word/Excel spec alone (no JXML/diff yet). */
-export async function generateSpecFromWord(word: File): Promise<string> {
+export async function generateSpecFromWord(word: File): Promise<SpecGenerationResult> {
   const form = new FormData()
   form.append('word', word)
   const { data } = await client.post<SpecGenerationResult>('/spec/generate-from-word', form, {
     headers: { 'Content-Type': 'multipart/form-data' },
   })
-  return data.markdown
+  return data
 }
 
 /**
@@ -79,18 +79,41 @@ export async function previewWord(word: File): Promise<string> {
  * and spec generated server-side in one request, instead of chaining previewGitlabJxml into a
  * separate generation call from the frontend.
  */
-export async function generateSpecFromGitlab(params: GitlabPreviewParams): Promise<string> {
+export async function generateSpecFromGitlab(params: GitlabPreviewParams): Promise<SpecGenerationResult> {
   const { data } = await client.get<SpecGenerationResult>('/gitlab/generate-spec', {
     params: buildGitlabPreviewQuery(params),
   })
-  return data.markdown
+  return data
 }
 
 /**
  * Merges the Word-generated and JXML-generated markdown specs (as currently held by the
- * frontend, including any manual edit) into a single reconciled document.
+ * frontend, including any manual edit) into a single reconciled document. The source document
+ * ids, when known, are recorded on the merge for traceability (best-effort — see backend).
  */
-export async function mergeSpecs(wordMarkdown: string, jxmlMarkdown: string): Promise<string> {
-  const { data } = await client.post<SpecGenerationResult>('/spec/merge', { wordMarkdown, jxmlMarkdown })
-  return data.markdown
+export async function mergeSpecs(
+  wordMarkdown: string,
+  jxmlMarkdown: string,
+  wordDocumentId?: string | null,
+  jxmlDocumentId?: string | null,
+): Promise<SpecGenerationResult> {
+  const { data } = await client.post<SpecGenerationResult>('/spec/merge', {
+    wordMarkdown,
+    jxmlMarkdown,
+    wordDocumentId: wordDocumentId ?? undefined,
+    jxmlDocumentId: jxmlDocumentId ?? undefined,
+  })
+  return data
+}
+
+/** A persisted document's latest content — used to recover a session from its id. */
+export async function getDocument(id: string): Promise<SpecGenerationResult> {
+  const { data } = await client.get<SpecGenerationResult>(`/spec/documents/${id}`)
+  return data
+}
+
+/** Auto-saves a manual edit as a new revision of an existing document (debounced by the caller). */
+export async function updateDocument(id: string, content: string): Promise<SpecGenerationResult> {
+  const { data } = await client.put<SpecGenerationResult>(`/spec/documents/${id}`, { content })
+  return data
 }

@@ -1,15 +1,16 @@
 import { useState } from 'react'
 import CodePanel from './components/CodePanel'
 import CollapsedPanel from './components/CollapsedPanel'
+import FullPageLoader from './components/FullPageLoader'
 import Header from './components/Header'
 import MergePanel from './components/MergePanel'
 import SpecPanel from './components/SpecPanel'
+import { useGenerationSession } from './hooks/useGenerationSession'
 
 function App() {
   const [specCollapsed, setSpecCollapsed] = useState(false)
   const [codeCollapsed, setCodeCollapsed] = useState(false)
-  const [wordMarkdown, setWordMarkdown] = useState('')
-  const [jxmlMarkdown, setJxmlMarkdown] = useState('')
+  const { word, jxml, merged, restoring } = useGenerationSession()
 
   // Retracted side panels free up their width so the merge panel (and the
   // remaining side panel, if any) can grow from a third of the screen to a half.
@@ -24,6 +25,7 @@ function App() {
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">
+      {restoring && <FullPageLoader message="Récupération de la session en cours…" />}
       <Header />
 
       <div className="flex-1 min-h-0 flex flex-col overflow-y-auto">
@@ -33,20 +35,31 @@ function App() {
           ) : (
             <SpecPanel
               onCollapse={() => setSpecCollapsed(true)}
-              markdown={wordMarkdown}
-              onMarkdownChange={setWordMarkdown}
+              markdown={word.markdown}
+              onGenerated={word.onGenerated}
+              onEdit={word.onEdit}
             />
           )}
 
-          <MergePanel wordMarkdown={wordMarkdown} jxmlMarkdown={jxmlMarkdown} />
+          <MergePanel
+            wordMarkdown={word.markdown}
+            jxmlMarkdown={jxml.markdown}
+            wordDocumentId={word.id}
+            jxmlDocumentId={jxml.id}
+            mergedMarkdown={merged.markdown}
+            mergedDocumentId={merged.id}
+            onGenerated={merged.onGenerated}
+            onEdit={merged.onEdit}
+          />
 
           {codeCollapsed ? (
             <CollapsedPanel label="Spec JXML" icon="◀" onExpand={() => setCodeCollapsed(false)} />
           ) : (
             <CodePanel
               onCollapse={() => setCodeCollapsed(true)}
-              markdown={jxmlMarkdown}
-              onMarkdownChange={setJxmlMarkdown}
+              markdown={jxml.markdown}
+              onGenerated={jxml.onGenerated}
+              onEdit={jxml.onEdit}
             />
           )}
         </div>

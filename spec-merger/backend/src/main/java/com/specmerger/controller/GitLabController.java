@@ -4,6 +4,8 @@ import com.specmerger.dto.GitLabJxmlPreview;
 import com.specmerger.dto.GitLabProjectSummary;
 import com.specmerger.dto.GitLabSourceListing;
 import com.specmerger.dto.SpecGenerationResult;
+import com.specmerger.entity.GeneratedDocument;
+import com.specmerger.service.GeneratedDocumentService;
 import com.specmerger.service.ai.SpecResolutionAIProvider;
 import com.specmerger.service.gitlab.GitLabSourceService;
 import java.io.IOException;
@@ -20,10 +22,13 @@ public class GitLabController {
 
     private final GitLabSourceService gitLabSourceService;
     private final SpecResolutionAIProvider aiProvider;
+    private final GeneratedDocumentService documentService;
 
-    public GitLabController(GitLabSourceService gitLabSourceService, SpecResolutionAIProvider aiProvider) {
+    public GitLabController(GitLabSourceService gitLabSourceService, SpecResolutionAIProvider aiProvider,
+                             GeneratedDocumentService documentService) {
         this.gitLabSourceService = gitLabSourceService;
         this.aiProvider = aiProvider;
+        this.documentService = documentService;
     }
 
     @GetMapping("/projects")
@@ -54,7 +59,7 @@ public class GitLabController {
     /**
      * Resolves the entry point's JXML (same as {@link #previewJxml}) and generates its markdown
      * spec in the same request — one round trip instead of the frontend chaining {@code /preview}
-     * into a separate generation call. Read-only, no analysis session is created.
+     * into a separate generation call. The result is persisted (see {@link GeneratedDocumentService}).
      */
     @GetMapping("/generate-spec")
     public SpecGenerationResult generateSpec(@RequestParam String groupKey, @RequestParam String projectId,
@@ -63,7 +68,9 @@ public class GitLabController {
             @RequestParam(required = false) Boolean selectedPathsProvided) throws GitLabApiException, IOException {
         GitLabSourceService.JxmlPreviewResult resolved =
                 resolveJxml(groupKey, projectId, entryPointPath, selectedPaths, selectedPathsProvided);
-        return new SpecGenerationResult(aiProvider.generateSpecFromJxml(resolved.content()));
+        String markdown = aiProvider.generateSpecFromJxml(resolved.content());
+        GeneratedDocument document = documentService.createJxml(markdown);
+        return new SpecGenerationResult(document.getId(), markdown);
     }
 
     private GitLabSourceService.JxmlPreviewResult resolveJxml(String groupKey, String projectId,

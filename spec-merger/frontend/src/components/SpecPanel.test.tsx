@@ -1,28 +1,31 @@
-import { useState } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import SpecPanel from './SpecPanel'
-import { generateSpecFromWord, previewWord } from '../api/analysis'
+import { generateSpecFromWord, previewWord, updateDocument } from '../api/analysis'
+import { usePersistedDoc } from '../hooks/usePersistedDoc'
 
 vi.mock('../api/analysis', () => ({
   generateSpecFromWord: vi.fn(),
   previewWord: vi.fn(),
+  updateDocument: vi.fn(),
 }))
 
 const generateSpecFromWordMock = vi.mocked(generateSpecFromWord)
 const previewWordMock = vi.mocked(previewWord)
+const updateDocumentMock = vi.mocked(updateDocument)
 
 beforeEach(() => {
   generateSpecFromWordMock.mockReset()
   previewWordMock.mockReset()
+  updateDocumentMock.mockReset()
 })
 
 /** SpecPanel's markdown is controlled by its parent — this harness stands in for App. */
 function renderSpecPanel(onCollapse?: () => void) {
   function Harness() {
-    const [markdown, setMarkdown] = useState('')
-    return <SpecPanel onCollapse={onCollapse} markdown={markdown} onMarkdownChange={setMarkdown} />
+    const doc = usePersistedDoc()
+    return <SpecPanel onCollapse={onCollapse} markdown={doc.markdown} onGenerated={doc.onGenerated} onEdit={doc.onEdit} />
   }
   return render(<Harness />)
 }
@@ -60,7 +63,7 @@ describe('SpecPanel', () => {
   })
 
   it('generates the spec and switches to the Output tab', async () => {
-    generateSpecFromWordMock.mockResolvedValue('# Doc générée')
+    generateSpecFromWordMock.mockResolvedValue({ id: 'word-1', markdown: '# Doc générée' })
     const { container } = renderSpecPanel()
     const file = new File(['contenu'], 'spec.docx')
     const input = container.querySelector('input[type="file"]') as HTMLInputElement

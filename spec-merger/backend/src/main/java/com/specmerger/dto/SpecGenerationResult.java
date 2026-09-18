@@ -1,5 +1,10 @@
 package com.specmerger.dto;
 
-/** The markdown spec the model generated from a single source (JXML alone or Word/Excel alone). */
-public record SpecGenerationResult(String markdown) {
+import java.util.UUID;
+
+/**
+ * A persisted document's id and current markdown — returned by generation, merge, fetch, and
+ * auto-save calls alike so the frontend always has an id to keep (localStorage) for recovery.
+ */
+public record SpecGenerationResult(UUID id, String markdown) {
 }

@@ -5,7 +5,7 @@ import {
   listGitlabSources,
   previewGitlabJxml,
 } from '../api/analysis'
-import type { GitLabEntryPoint, GitLabProjectSummary } from '../types'
+import type { GitLabEntryPoint, GitLabProjectSummary, SpecGenerationResult } from '../types'
 import FullPageLoader from './FullPageLoader'
 import MarkdownView from './MarkdownView'
 import XmlTreeView from './XmlTreeView'
@@ -13,7 +13,8 @@ import XmlTreeView from './XmlTreeView'
 interface CodePanelProps {
   onCollapse?: () => void
   markdown: string
-  onMarkdownChange: (markdown: string) => void
+  onGenerated: (result: SpecGenerationResult) => void
+  onEdit: (markdown: string) => void
 }
 
 type Tab = 'input' | 'output'
@@ -28,7 +29,7 @@ function downloadMarkdown(markdown: string, filename: string) {
   URL.revokeObjectURL(url)
 }
 
-function CodePanel({ onCollapse, markdown, onMarkdownChange }: CodePanelProps) {
+function CodePanel({ onCollapse, markdown, onGenerated, onEdit }: CodePanelProps) {
   const [tab, setTab] = useState<Tab>('input')
   const [gitlabProjects, setGitlabProjects] = useState<GitLabProjectSummary[]>([])
   const [gitlabProjectId, setGitlabProjectId] = useState('')
@@ -47,6 +48,14 @@ function CodePanel({ onCollapse, markdown, onMarkdownChange }: CodePanelProps) {
   const [previewViewMode, setPreviewViewMode] = useState<'tree' | 'raw'>('tree')
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Switches to the Output tab whenever markdown appears from outside a local handleGenerate
+  // call — namely, a session restore, which sets it asynchronously after mount and wouldn't
+  // otherwise be reflected here. A no-op for the local-generate path, which already switches
+  // tabs itself, and never fights a manual switch back to Input since markdown doesn't change then.
+  useEffect(() => {
+    if (markdown) setTab('output')
+  }, [markdown])
 
   useEffect(() => {
     if (!gitlabPreviewOpen) return
@@ -150,7 +159,7 @@ function CodePanel({ onCollapse, markdown, onMarkdownChange }: CodePanelProps) {
     try {
       const params = currentGitlabPreviewParams()
       if (!params) return
-      onMarkdownChange(await generateSpecFromGitlab(params))
+      onGenerated(await generateSpecFromGitlab(params))
       setTab('output')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Échec de la génération de la doc — voir la console.')
@@ -417,7 +426,7 @@ function CodePanel({ onCollapse, markdown, onMarkdownChange }: CodePanelProps) {
             )}
             <MarkdownView
               value={markdown}
-              onChange={onMarkdownChange}
+              onChange={onEdit}
               placeholder="La doc générée depuis le JXML apparaîtra ici après génération."
             />
           </div>

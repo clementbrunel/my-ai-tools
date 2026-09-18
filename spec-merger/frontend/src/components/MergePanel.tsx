@@ -1,11 +1,18 @@
 import { useState } from 'react'
 import { mergeSpecs } from '../api/analysis'
+import type { SpecGenerationResult } from '../types'
 import FullPageLoader from './FullPageLoader'
 import MarkdownView from './MarkdownView'
 
 interface MergePanelProps {
   wordMarkdown: string
   jxmlMarkdown: string
+  wordDocumentId: string | null
+  jxmlDocumentId: string | null
+  mergedMarkdown: string
+  mergedDocumentId: string | null
+  onGenerated: (result: SpecGenerationResult) => void
+  onEdit: (markdown: string) => void
 }
 
 function downloadMarkdown(markdown: string, filename: string) {
@@ -18,27 +25,33 @@ function downloadMarkdown(markdown: string, filename: string) {
   URL.revokeObjectURL(url)
 }
 
-function MergePanel({ wordMarkdown, jxmlMarkdown }: MergePanelProps) {
-  const [merged, setMerged] = useState('')
+function MergePanel({
+  wordMarkdown,
+  jxmlMarkdown,
+  wordDocumentId,
+  jxmlDocumentId,
+  mergedMarkdown,
+  mergedDocumentId,
+  onGenerated,
+  onEdit,
+}: MergePanelProps) {
   // Tracks the last AI-generated result so a re-merge can tell whether the user has since
-  // hand-edited it, and only then ask for confirmation before overwriting.
+  // hand-edited it (auto-saved separately), and only then ask for confirmation before overwriting.
   const [lastGenerated, setLastGenerated] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const bothReady = wordMarkdown.trim() !== '' && jxmlMarkdown.trim() !== ''
-  // Whether a merge has ever succeeded — distinct from `merged` being non-empty, since the user
-  // can legitimately clear the editable result down to an empty string while editing it.
-  const hasResult = lastGenerated !== null
-  const hasUnsavedEdits = hasResult && merged !== lastGenerated
+  const hasResult = mergedDocumentId !== null
+  const hasUnsavedEdits = hasResult && lastGenerated !== null && mergedMarkdown !== lastGenerated
 
   async function runMerge() {
     setError(null)
     setLoading(true)
     try {
-      const result = await mergeSpecs(wordMarkdown, jxmlMarkdown)
-      setMerged(result)
-      setLastGenerated(result)
+      const result = await mergeSpecs(wordMarkdown, jxmlMarkdown, wordDocumentId, jxmlDocumentId)
+      onGenerated(result)
+      setLastGenerated(result.markdown)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Échec de la fusion — voir la console.')
       console.error(e)
@@ -65,7 +78,11 @@ function MergePanel({ wordMarkdown, jxmlMarkdown }: MergePanelProps) {
           <h2 className="field-label">Fusion</h2>
           {hasResult && (
             <div className="flex items-center gap-3">
-              <button type="button" className="btn-secondary" onClick={() => downloadMarkdown(merged, 'spec-fusion.md')}>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => downloadMarkdown(mergedMarkdown, 'spec-fusion.md')}
+              >
                 Télécharger
               </button>
               <button type="button" className="btn-secondary" onClick={handleMergeClick} disabled={!bothReady}>
@@ -99,7 +116,7 @@ function MergePanel({ wordMarkdown, jxmlMarkdown }: MergePanelProps) {
         ) : (
           <div className="flex flex-col min-h-0 flex-1 gap-2">
             {error && <span className="text-sm text-gl-danger shrink-0">{error}</span>}
-            <MarkdownView value={merged} onChange={setMerged} placeholder="" />
+            <MarkdownView value={mergedMarkdown} onChange={onEdit} placeholder="" />
           </div>
         )}
       </section>

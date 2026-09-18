@@ -28,8 +28,13 @@ export interface GitLabJxmlPreview {
   warnings: string[]
 }
 
-/** The markdown a spec-generation call produced from a single source. */
+/**
+ * A persisted document's id and current markdown — returned by generation, merge, fetch, and
+ * auto-save calls alike. The id is what the frontend keeps (in localStorage) to recover a
+ * session, instead of holding the markdown itself across reloads.
+ */
 export interface SpecGenerationResult {
+  id: string
   markdown: string
 }
 
