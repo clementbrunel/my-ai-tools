@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 interface HeaderProps {
-  /** The merged document's id, once a merge has completed — what "Exporter" hands out. */
+  /** The merged document's id, once a merge has completed — kept in sync with the session-id
+   * field below (including right after `onImportSession` reloads the page with a different one). */
   mergedDocumentId: string | null
   /** Whether any of the 3 document slots currently holds something — shows "Nouvelle session". */
   hasSession: boolean
@@ -13,42 +14,51 @@ interface HeaderProps {
 }
 
 function Header({ mergedDocumentId, hasSession, onImportSession, onReset }: HeaderProps) {
+  // Always mirrors mergedDocumentId — a merge, or loading a different session (which reloads the
+  // page with the new id), both flow back here — but stays freely editable so the user can paste
+  // a different session's id to load in its place.
+  const [sessionId, setSessionId] = useState(mergedDocumentId ?? '')
   const [copied, setCopied] = useState(false)
-  const [importId, setImportId] = useState('')
-  const [importing, setImporting] = useState(false)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  useEffect(() => {
+    setSessionId(mergedDocumentId ?? '')
+  }, [mergedDocumentId])
+
   async function handleCopy() {
-    if (!mergedDocumentId) return
+    const id = sessionId.trim()
+    if (!id) return
     try {
-      await navigator.clipboard.writeText(mergedDocumentId)
+      await navigator.clipboard.writeText(id)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch (e) {
-      setError("Échec de la copie — l'identifiant est affiché ci-dessus.")
+      setError('Échec de la copie — voir la console.')
       console.error(e)
     }
   }
 
-  async function handleImport() {
-    const id = importId.trim()
-    if (!id) return
+  async function handleLoad() {
+    const id = sessionId.trim()
+    // Also guards Enter-key submission, which the disabled submit button alone doesn't block.
+    if (!id || id === (mergedDocumentId ?? '')) return
     setError(null)
-    setImporting(true)
+    setLoading(true)
     try {
       await onImportSession(id)
-      // No need to reset importId/importing on success — onImportSession reloads the page.
+      // No need to reset loading on success — onImportSession reloads the page.
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Échec du chargement de la session — voir la console.')
       console.error(e)
-      setImporting(false)
+      setLoading(false)
     }
   }
 
   function handleReset() {
     const confirmed = window.confirm(
       "Repartir d'une session vierge ? Les documents actuels resteront accessibles avec leur " +
-        "identifiant si vous l'avez exporté, mais disparaîtront de l'interface.",
+        "identifiant si vous l'avez copié, mais disparaîtront de l'interface.",
     )
     if (confirmed) onReset()
   }
@@ -63,36 +73,36 @@ function Header({ mergedDocumentId, hasSession, onImportSession, onReset }: Head
       <div className="flex-1" />
 
       <div className="flex items-center gap-3 shrink-0">
-        {mergedDocumentId && (
-          <button
-            type="button"
-            onClick={handleCopy}
-            title="Copier l'identifiant de cette session — à recharger depuis un autre poste via « Charger une session »"
-            className="text-xs text-gray-300 hover:text-white border border-white/20 hover:border-white/40 rounded px-2 py-1.5 transition-colors"
-          >
-            {copied ? 'ID de session copié ✓' : "Exporter l'ID de session"}
-          </button>
-        )}
         <form
           className="flex items-center gap-1.5"
           onSubmit={(e) => {
             e.preventDefault()
-            void handleImport()
+            void handleLoad()
           }}
         >
           <input
             type="text"
-            value={importId}
-            onChange={(e) => setImportId(e.target.value)}
-            placeholder="Coller un ID de session…"
-            className="w-52 rounded border border-white/20 bg-white/5 px-2 py-1.5 text-xs text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gl-orange"
+            value={sessionId}
+            onChange={(e) => setSessionId(e.target.value)}
+            placeholder="ID de session…"
+            title="L'identifiant de la fusion en cours — modifiez-le et cliquez sur Charger pour reprendre une autre session"
+            className="w-56 rounded border border-white/20 bg-white/5 px-2 py-1.5 text-xs text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gl-orange"
           />
+          <button
+            type="button"
+            onClick={handleCopy}
+            title="Copier l'identifiant dans le presse-papier"
+            className="text-xs text-gray-300 hover:text-white border border-white/20 hover:border-white/40 rounded px-2 py-1.5 transition-colors disabled:opacity-40"
+            disabled={!sessionId.trim()}
+          >
+            {copied ? 'Copié ✓' : 'Copier'}
+          </button>
           <button
             type="submit"
             className="text-xs text-gray-300 hover:text-white border border-white/20 hover:border-white/40 rounded px-2 py-1.5 transition-colors disabled:opacity-50"
-            disabled={importing || !importId.trim()}
+            disabled={loading || !sessionId.trim() || sessionId.trim() === (mergedDocumentId ?? '')}
           >
-            {importing ? 'Chargement…' : 'Charger une session'}
+            {loading ? 'Chargement…' : 'Charger'}
           </button>
         </form>
         {error && (

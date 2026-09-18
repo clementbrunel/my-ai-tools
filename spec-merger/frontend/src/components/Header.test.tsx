@@ -31,24 +31,53 @@ describe('Header', () => {
     expect(screen.getByText('Spec Doc/JXML Merger')).toBeDefined()
   })
 
-  it('shows no export button until a merge exists', () => {
+  it('starts with an empty session-id field when there is no merge yet', () => {
     renderHeader()
-    expect(screen.queryByText("Exporter l'ID de session")).toBeNull()
+    expect(screen.getByPlaceholderText('ID de session…')).toHaveValue('')
   })
 
-  it('copies the merged document id to the clipboard when exporting', async () => {
+  it('keeps the session-id field in sync with the merged document id', () => {
+    const { rerender } = renderHeader({ mergedDocumentId: null })
+    expect(screen.getByPlaceholderText('ID de session…')).toHaveValue('')
+
+    rerender(
+      <Header mergedDocumentId="merged-1" hasSession onImportSession={vi.fn()} onReset={vi.fn()} />,
+    )
+    expect(screen.getByPlaceholderText('ID de session…')).toHaveValue('merged-1')
+  })
+
+  it('copies the session id to the clipboard', async () => {
     renderHeader({ mergedDocumentId: 'merged-1' })
-    await userEvent.click(screen.getByText("Exporter l'ID de session"))
+    await userEvent.click(screen.getByText('Copier'))
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith('merged-1')
-    expect(await screen.findByText('ID de session copié ✓')).toBeDefined()
+    expect(await screen.findByText('Copié ✓')).toBeDefined()
+  })
+
+  it('disables Copier while the field is empty', () => {
+    renderHeader()
+    expect(screen.getByText('Copier')).toBeDisabled()
+  })
+
+  it('disables Charger while the field matches the current session (nothing new to load)', () => {
+    renderHeader({ mergedDocumentId: 'merged-1' })
+    expect(screen.getByPlaceholderText('ID de session…')).toHaveValue('merged-1')
+    expect(screen.getByText('Charger')).toBeDisabled()
+  })
+
+  it('enables Charger once a different id is typed', async () => {
+    renderHeader({ mergedDocumentId: 'merged-1' })
+    const input = screen.getByPlaceholderText('ID de session…')
+    await userEvent.clear(input)
+    await userEvent.type(input, 'merged-2')
+    expect(screen.getByText('Charger')).not.toBeDisabled()
   })
 
   it('loads a pasted session id', async () => {
     const onImportSession = vi.fn().mockResolvedValue(undefined)
     renderHeader({ onImportSession })
 
-    await userEvent.type(screen.getByPlaceholderText('Coller un ID de session…'), 'merged-2')
-    await userEvent.click(screen.getByText('Charger une session'))
+    await userEvent.type(screen.getByPlaceholderText('ID de session…'), 'merged-2')
+    await userEvent.click(screen.getByText('Charger'))
 
     expect(onImportSession).toHaveBeenCalledWith('merged-2')
   })
@@ -57,8 +86,8 @@ describe('Header', () => {
     const onImportSession = vi.fn().mockRejectedValue(new Error('Document introuvable'))
     renderHeader({ onImportSession })
 
-    await userEvent.type(screen.getByPlaceholderText('Coller un ID de session…'), 'unknown')
-    await userEvent.click(screen.getByText('Charger une session'))
+    await userEvent.type(screen.getByPlaceholderText('ID de session…'), 'unknown')
+    await userEvent.click(screen.getByText('Charger'))
 
     expect(await screen.findByText('Document introuvable')).toBeDefined()
   })
