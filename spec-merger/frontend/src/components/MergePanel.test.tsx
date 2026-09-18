@@ -18,7 +18,6 @@ const updateDocumentMock = vi.mocked(updateDocument)
 beforeEach(() => {
   mergeSpecsMock.mockReset()
   updateDocumentMock.mockReset()
-  vi.spyOn(window, 'confirm').mockReturnValue(true)
 })
 
 interface RenderOptions {
@@ -122,7 +121,7 @@ describe('MergePanel', () => {
     mergeSpecsMock.mockResolvedValue({ id: 'merged-1', markdown: '# v2' })
     await userEvent.click(screen.getByText('Refusionner'))
 
-    expect(window.confirm).not.toHaveBeenCalled()
+    expect(screen.queryByText('Le document fusionné a été modifié manuellement. Relancer la fusion écrasera ces modifications. Continuer ?')).toBeNull()
     expect(await screen.findByRole('heading', { level: 1, name: 'v2' })).toBeDefined()
   })
 
@@ -137,13 +136,31 @@ describe('MergePanel', () => {
     await userEvent.clear(textarea)
     await userEvent.type(textarea, '# v1 édité à la main')
 
-    vi.mocked(window.confirm).mockReturnValue(false)
     mergeSpecsMock.mockResolvedValue({ id: 'merged-1', markdown: '# v2' })
     await userEvent.click(screen.getByText('Refusionner'))
+    await screen.findByRole('alertdialog')
+    await userEvent.click(screen.getByText('Annuler'))
 
-    expect(window.confirm).toHaveBeenCalled()
     expect(mergeSpecsMock).toHaveBeenCalledTimes(1)
     expect(screen.getByDisplayValue('# v1 édité à la main')).toBeDefined()
+  })
+
+  it('re-merges after confirming the overwrite of a manually edited result', async () => {
+    mergeSpecsMock.mockResolvedValue({ id: 'merged-1', markdown: '# v1' })
+    renderMergePanel({ wordMarkdown: '# Word', jxmlMarkdown: '# JXML' })
+    await userEvent.click(screen.getByText('Fusionner Word ⇄ JXML'))
+    await screen.findByText('Refusionner')
+
+    await userEvent.click(screen.getByText('Édition Libre'))
+    const textarea = screen.getByPlaceholderText('') as HTMLTextAreaElement
+    await userEvent.clear(textarea)
+    await userEvent.type(textarea, '# v1 édité à la main')
+
+    mergeSpecsMock.mockResolvedValue({ id: 'merged-1', markdown: '# v2' })
+    await userEvent.click(screen.getByText('Refusionner'))
+    await userEvent.click(await screen.findByText('Continuer'))
+
+    expect(await screen.findByDisplayValue('# v2')).toBeDefined()
   })
 
   it('asks for confirmation before overwriting a manual edit made to a restored (not locally generated) result', async () => {
@@ -162,10 +179,10 @@ describe('MergePanel', () => {
     await userEvent.clear(textarea)
     await userEvent.type(textarea, '# Restauré, édité à la main')
 
-    vi.mocked(window.confirm).mockReturnValue(false)
     await userEvent.click(screen.getByText('Refusionner'))
+    await screen.findByRole('alertdialog')
+    await userEvent.click(screen.getByText('Annuler'))
 
-    expect(window.confirm).toHaveBeenCalled()
     expect(mergeSpecsMock).not.toHaveBeenCalled()
     expect(screen.getByDisplayValue('# Restauré, édité à la main')).toBeDefined()
   })

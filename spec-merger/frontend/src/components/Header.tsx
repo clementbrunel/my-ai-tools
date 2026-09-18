@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import ConfirmDialog from './ConfirmDialog'
 
 interface HeaderProps {
   /** The merged document's id, once a merge has completed — kept in sync with the session-id
@@ -21,6 +22,7 @@ function Header({ mergedDocumentId, hasSession, onImportSession, onReset }: Head
   const [copied, setCopied] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [confirmingReset, setConfirmingReset] = useState(false)
 
   useEffect(() => {
     setSessionId(mergedDocumentId ?? '')
@@ -56,11 +58,12 @@ function Header({ mergedDocumentId, hasSession, onImportSession, onReset }: Head
   }
 
   function handleReset() {
-    const confirmed = window.confirm(
-      "Repartir d'une session vierge ? Les documents actuels resteront accessibles avec leur " +
-        "identifiant si vous l'avez copié, mais disparaîtront de l'interface.",
-    )
-    if (confirmed) onReset()
+    setConfirmingReset(true)
+  }
+
+  function handleConfirmReset() {
+    setConfirmingReset(false)
+    onReset()
   }
 
   return (
@@ -121,6 +124,15 @@ function Header({ mergedDocumentId, hasSession, onImportSession, onReset }: Head
           </button>
         )}
       </div>
+      <ConfirmDialog
+        open={confirmingReset}
+        title="Nouvelle session"
+        message="Repartir d'une session vierge ? Les documents actuels resteront accessibles avec leur identifiant si vous l'avez copié, mais disparaîtront de l'interface."
+        confirmLabel="Repartir de zéro"
+        danger
+        onConfirm={handleConfirmReset}
+        onCancel={() => setConfirmingReset(false)}
+      />
     </header>
   )
 }
