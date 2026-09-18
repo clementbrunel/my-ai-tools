@@ -3,12 +3,16 @@ import { useState } from 'react'
 interface HeaderProps {
   /** The merged document's id, once a merge has completed — what "Exporter" hands out. */
   mergedDocumentId: string | null
+  /** Whether any of the 3 document slots currently holds something — shows "Nouvelle session". */
+  hasSession: boolean
   /** Loads a session (the 3 documents + the GitLab project selection) exported from another
    * machine, given the merged document id it was exported as. Throws on failure. */
   onImportSession: (mergedDocumentId: string) => Promise<void>
+  /** Clears the current session for a clean slate — see `resetSession`. */
+  onReset: () => void
 }
 
-function Header({ mergedDocumentId, onImportSession }: HeaderProps) {
+function Header({ mergedDocumentId, hasSession, onImportSession, onReset }: HeaderProps) {
   const [copied, setCopied] = useState(false)
   const [importId, setImportId] = useState('')
   const [importing, setImporting] = useState(false)
@@ -39,6 +43,14 @@ function Header({ mergedDocumentId, onImportSession }: HeaderProps) {
       console.error(e)
       setImporting(false)
     }
+  }
+
+  function handleReset() {
+    const confirmed = window.confirm(
+      "Repartir d'une session vierge ? Les documents actuels resteront accessibles avec leur " +
+        "identifiant si vous l'avez exporté, mais disparaîtront de l'interface.",
+    )
+    if (confirmed) onReset()
   }
 
   return (
@@ -87,6 +99,16 @@ function Header({ mergedDocumentId, onImportSession }: HeaderProps) {
           <span className="text-xs text-gl-danger max-w-xs truncate" title={error}>
             {error}
           </span>
+        )}
+        {hasSession && (
+          <button
+            type="button"
+            onClick={handleReset}
+            title="Effacer la session en cours et repartir de zéro"
+            className="text-xs text-gray-300 hover:text-gl-danger border border-white/20 hover:border-gl-danger rounded px-2 py-1.5 transition-colors"
+          >
+            Nouvelle session
+          </button>
         )}
       </div>
     </header>

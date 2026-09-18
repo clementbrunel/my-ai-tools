@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { importSession, useGenerationSession } from './useGenerationSession'
+import { importSession, resetSession, useGenerationSession } from './useGenerationSession'
 import { getDocument, getSession } from '../api/analysis'
 
 vi.mock('../api/analysis', () => ({
@@ -259,5 +259,30 @@ describe('importSession', () => {
 
     await expect(importSession('unknown')).rejects.toThrow('Document introuvable')
     expect(localStorage.getItem(STORAGE_KEY)).toBeNull()
+  })
+})
+
+describe('resetSession', () => {
+  const originalLocation = window.location
+
+  beforeEach(() => {
+    localStorage.clear()
+  })
+
+  afterEach(() => {
+    Object.defineProperty(window, 'location', { configurable: true, value: originalLocation })
+  })
+
+  it('clears the stored session and reloads the page', () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ wordDocumentId: 'word-1', jxmlDocumentId: 'jxml-1', mergedDocumentId: 'merged-1' }),
+    )
+    const reloadSpy = stubLocationReload()
+
+    resetSession()
+
+    expect(localStorage.getItem(STORAGE_KEY)).toBeNull()
+    expect(reloadSpy).toHaveBeenCalled()
   })
 })

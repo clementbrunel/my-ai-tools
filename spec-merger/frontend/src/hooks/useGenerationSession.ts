@@ -44,6 +44,21 @@ export async function importSession(mergedDocumentId: string): Promise<void> {
 }
 
 /**
+ * Clears the current session (the 3 document slots + the GitLab selection) and reloads, for a
+ * clean slate once the user is done working — the navbar's "Nouvelle session" control. The
+ * underlying documents are never deleted server-side (their revisions stay reachable by id, or
+ * via a previously exported session id) — this only drops the local pointers to them.
+ */
+export function resetSession(): void {
+  try {
+    localStorage.removeItem(STORAGE_KEY)
+  } catch {
+    // localStorage unavailable — nothing was persisted to begin with.
+  }
+  window.location.reload()
+}
+
+/**
  * The cross-cutting session state: the three document slots (Word spec, JXML spec, merge) and
  * their persisted ids, restored from localStorage on mount by fetching each document's latest
  * content back from the backend — see #263. The GitLab source-selection fields (repo, entry

@@ -5,7 +5,7 @@ import FullPageLoader from './components/FullPageLoader'
 import Header from './components/Header'
 import MergePanel from './components/MergePanel'
 import SpecPanel from './components/SpecPanel'
-import { importSession, useGenerationSession } from './hooks/useGenerationSession'
+import { importSession, resetSession, useGenerationSession } from './hooks/useGenerationSession'
 
 function App() {
   const [specCollapsed, setSpecCollapsed] = useState(false)
@@ -27,7 +27,12 @@ function App() {
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       {restoring && <FullPageLoader message="Récupération de la session en cours…" />}
-      <Header mergedDocumentId={merged.id} onImportSession={importSession} />
+      <Header
+        mergedDocumentId={merged.id}
+        hasSession={Boolean(word.id || jxml.id || merged.id)}
+        onImportSession={importSession}
+        onReset={resetSession}
+      />
 
       <div className="flex-1 min-h-0 flex flex-col overflow-y-auto">
         <div className={`grid grid-cols-1 ${gridColsClass} gap-3 p-3 flex-1 min-h-0`}>
