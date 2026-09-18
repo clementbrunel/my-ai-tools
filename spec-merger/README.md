@@ -80,3 +80,12 @@ son chemin (`PATH`) et ses patterns Ant de fichiers à inclure.
    (toujours inclus), les ressources de traduction propres au groupe, et, si
    configuré, les classes Java d'appels métier vers l'extérieur — au lieu du reste
    du dépôt (build, tests, assets, ...).
+
+### Sans accès à GitLab (ex. depuis chez soi)
+
+Le panneau « Spec JXML » propose un mode « Coller du JXML » à côté de « Depuis
+GitLab » : coller directement le JXML d'une démarche (bouton « Charger un exemple »
+pour partir d'un `backend/src/main/resources/samples/sample-demarche.jxml` prêt à
+l'emploi) génère la doc via `POST /api/spec/generate-from-jxml`, sans passer par un
+projet GitLab. Combiné à `MISTRAL_MOCK=true` ci-dessus, ça permet de tester tout le
+pipeline (génération Word + JXML) sans accès réseau au bureau.
