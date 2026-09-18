@@ -59,12 +59,12 @@ function SpecPanel({ onCollapse }: SpecPanelProps) {
             </button>
           )}
         </div>
-        <div className="flex gap-4 mb-3 border-b border-[#dcdcde] text-sm shrink-0">
+        <div className="flex mb-3 border-b border-[#dcdcde] text-sm shrink-0">
           {(['input', 'output'] as const).map((t) => (
             <button
               key={t}
               type="button"
-              className={`pb-2 -mb-px border-b-2 ${
+              className={`flex-1 basis-1/2 text-center pb-2 -mb-px border-b-2 ${
                 tab === t
                   ? 'border-gl-orange text-[#303030] font-medium'
                   : 'border-transparent text-gray-500 hover:text-[#303030]'
