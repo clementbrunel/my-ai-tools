@@ -128,7 +128,8 @@ function SpecPanel({ onCollapse }: SpecPanelProps) {
 
         {tab === 'input' ? (
           <div className="flex flex-col gap-3 min-h-0 flex-1">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 justify-end">
+              <span className="text-sm text-gray-500">{wordFile ? wordFile.name : 'Aucun fichier choisi'}</span>
               <label
                 htmlFor="spec-word-file"
                 className="btn-primary cursor-pointer text-sm py-1.5 px-3"
@@ -142,12 +143,11 @@ function SpecPanel({ onCollapse }: SpecPanelProps) {
                 onChange={(e) => handleFileChange(e.target.files?.[0] ?? null)}
                 className="sr-only"
               />
-              <span className="text-sm text-gray-500">{wordFile ? wordFile.name : 'Aucun fichier choisi'}</span>
             </div>
             {wordFile && (
               <button
                 type="button"
-                className="btn-secondary self-start"
+                className="btn-secondary self-end"
                 onClick={handlePreviewWord}
                 disabled={previewLoading}
               >
@@ -205,11 +205,11 @@ function SpecPanel({ onCollapse }: SpecPanelProps) {
                 </div>
               </div>
             )}
-            <div className="mt-auto pt-3 border-t border-[#eee] flex items-center gap-3">
+            <div className="mt-auto pt-3 border-t border-[#eee] flex items-center gap-3 justify-end">
+              {error && <span className="text-sm text-gl-danger">{error}</span>}
               <button type="button" className="btn-primary" onClick={handleGenerate} disabled={!wordFile || loading}>
                 {loading ? 'Génération…' : 'Générer la doc'}
               </button>
-              {error && <span className="text-sm text-gl-danger">{error}</span>}
             </div>
           </div>
         ) : (
