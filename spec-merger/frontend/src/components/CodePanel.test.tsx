@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -35,10 +36,19 @@ beforeEach(() => {
   previewGitlabJxmlMock.mockReset()
 })
 
+/** CodePanel's markdown is controlled by its parent — this harness stands in for App. */
+function renderCodePanel(onCollapse?: () => void) {
+  function Harness() {
+    const [markdown, setMarkdown] = useState('')
+    return <CodePanel onCollapse={onCollapse} markdown={markdown} onMarkdownChange={setMarkdown} />
+  }
+  return render(<Harness />)
+}
+
 async function goToGitlabModeWithProject() {
   listGitlabProjectsMock.mockResolvedValue(projects)
   listGitlabSourcesMock.mockResolvedValue(singleEntryPointListing)
-  const result = render(<CodePanel />)
+  const result = renderCodePanel()
   await userEvent.click(screen.getByText('Charger les projets GitLab'))
   await screen.findByRole('combobox')
   await userEvent.selectOptions(screen.getByRole('combobox'), '1')
@@ -48,20 +58,20 @@ async function goToGitlabModeWithProject() {
 
 describe('CodePanel', () => {
   it('renders the GitLab project loader on the Input tab by default', () => {
-    render(<CodePanel />)
+    renderCodePanel()
     expect(screen.getByText('Charger les projets GitLab')).toBeDefined()
   })
 
   it('loads and lists GitLab projects when the load button is clicked', async () => {
     listGitlabProjectsMock.mockResolvedValue(projects)
-    render(<CodePanel />)
+    renderCodePanel()
     await userEvent.click(screen.getByText('Charger les projets GitLab'))
     expect(await screen.findByText('[jway-forms] jway-forms/claims')).toBeDefined()
   })
 
   it('filters the project dropdown using the search field', async () => {
     listGitlabProjectsMock.mockResolvedValue(projects)
-    render(<CodePanel />)
+    renderCodePanel()
     await userEvent.click(screen.getByText('Charger les projets GitLab'))
     await screen.findByText('[jway-forms] jway-forms/claims')
     await userEvent.type(screen.getByPlaceholderText(/Rechercher un projet/), 'claims')
@@ -111,7 +121,7 @@ describe('CodePanel', () => {
   })
 
   it('disables Générer la doc until an entry point is selected', async () => {
-    render(<CodePanel />)
+    renderCodePanel()
     expect(screen.getByText('Générer la doc')).toBeDisabled()
   })
 
@@ -137,7 +147,7 @@ describe('CodePanel', () => {
 
   it('calls onCollapse when the collapse button is clicked', async () => {
     const onCollapse = vi.fn()
-    render(<CodePanel onCollapse={onCollapse} />)
+    renderCodePanel(onCollapse)
     await userEvent.click(screen.getByLabelText('Réduire le panneau Spec JXML'))
     expect(onCollapse).toHaveBeenCalledTimes(1)
   })

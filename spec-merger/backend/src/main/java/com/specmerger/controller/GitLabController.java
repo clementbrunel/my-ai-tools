@@ -69,8 +69,9 @@ public class GitLabController {
     private GitLabSourceService.JxmlPreviewResult resolveJxml(String groupKey, String projectId,
             String entryPointPath, List<String> selectedPaths, Boolean selectedPathsProvided)
             throws GitLabApiException, IOException {
-        // Same null-vs-empty-list disambiguation as AnalysisController: a GET request can't
-        // tell "no restriction" from "the user unchecked everything" any other way.
+        // A GET request can't send an explicitly-empty list any other way: "no restriction" and
+        // "the user unchecked everything" both arrive as no selectedPaths entries, so the
+        // frontend also sends selectedPathsProvided to tell them apart.
         List<String> effectiveSelectedPaths = Boolean.TRUE.equals(selectedPathsProvided)
                 ? (selectedPaths == null ? List.of() : selectedPaths)
                 : null;

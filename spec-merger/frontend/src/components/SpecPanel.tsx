@@ -6,6 +6,8 @@ import MarkdownView from './MarkdownView'
 
 interface SpecPanelProps {
   onCollapse?: () => void
+  markdown: string
+  onMarkdownChange: (markdown: string) => void
 }
 
 type Tab = 'input' | 'output'
@@ -27,9 +29,8 @@ function downloadMarkdown(markdown: string, filename: string) {
   URL.revokeObjectURL(url)
 }
 
-function SpecPanel({ onCollapse }: SpecPanelProps) {
+function SpecPanel({ onCollapse, markdown, onMarkdownChange }: SpecPanelProps) {
   const [wordFile, setWordFile] = useState<File | null>(null)
-  const [markdown, setMarkdown] = useState('')
   const [tab, setTab] = useState<Tab>('input')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -64,7 +65,7 @@ function SpecPanel({ onCollapse }: SpecPanelProps) {
     setError(null)
     setLoading(true)
     try {
-      setMarkdown(await generateSpecFromWord(wordFile))
+      onMarkdownChange(await generateSpecFromWord(wordFile))
       setTab('output')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Échec de la génération — voir la console.')
@@ -227,7 +228,7 @@ function SpecPanel({ onCollapse }: SpecPanelProps) {
             )}
             <MarkdownView
               value={markdown}
-              onChange={setMarkdown}
+              onChange={onMarkdownChange}
               placeholder="La doc générée depuis le Word apparaîtra ici après génération."
             />
           </div>

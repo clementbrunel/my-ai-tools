@@ -8,6 +8,8 @@ import SpecPanel from './components/SpecPanel'
 function App() {
   const [specCollapsed, setSpecCollapsed] = useState(false)
   const [codeCollapsed, setCodeCollapsed] = useState(false)
+  const [wordMarkdown, setWordMarkdown] = useState('')
+  const [jxmlMarkdown, setJxmlMarkdown] = useState('')
 
   // Retracted side panels free up their width so the merge panel (and the
   // remaining side panel, if any) can grow from a third of the screen to a half.
@@ -29,15 +31,23 @@ function App() {
           {specCollapsed ? (
             <CollapsedPanel label="Spec Word / Excel" icon="▶" onExpand={() => setSpecCollapsed(false)} />
           ) : (
-            <SpecPanel onCollapse={() => setSpecCollapsed(true)} />
+            <SpecPanel
+              onCollapse={() => setSpecCollapsed(true)}
+              markdown={wordMarkdown}
+              onMarkdownChange={setWordMarkdown}
+            />
           )}
 
-          <MergePanel />
+          <MergePanel wordMarkdown={wordMarkdown} jxmlMarkdown={jxmlMarkdown} />
 
           {codeCollapsed ? (
             <CollapsedPanel label="Spec JXML" icon="◀" onExpand={() => setCodeCollapsed(false)} />
           ) : (
-            <CodePanel onCollapse={() => setCodeCollapsed(true)} />
+            <CodePanel
+              onCollapse={() => setCodeCollapsed(true)}
+              markdown={jxmlMarkdown}
+              onMarkdownChange={setJxmlMarkdown}
+            />
           )}
         </div>
       </div>

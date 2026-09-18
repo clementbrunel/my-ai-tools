@@ -37,28 +37,3 @@ export interface SpecGenerationResult {
 export interface WordExtractionPreview {
   content: string
 }
-
-export interface Divergence {
-  id: string
-  sectionRef: string
-  wordExcerpt: string | null
-  jxmlExcerpt: string | null
-  aiProposal: string | null
-  resolutionStatus: 'PENDING' | 'ACCEPTED' | 'EDITED' | 'REJECTED'
-  resolvedValue: string | null
-}
-
-export interface AnalysisSessionResponse {
-  id: string
-  title: string | null
-  status: string
-  markdown: string
-  divergences: Divergence[]
-}
-
-export interface DocumentVersion {
-  id: string
-  versionNumber: number
-  source: 'GENERATED' | 'MANUAL_EDIT' | 'RESTORED'
-  createdAt: string
-}

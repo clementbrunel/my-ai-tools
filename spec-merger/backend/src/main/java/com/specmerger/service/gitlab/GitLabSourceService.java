@@ -11,9 +11,8 @@ import org.gitlab4j.api.GitLabApiException;
 
 /**
  * Abstraction over how JXML démarche sources are browsed and fetched (#266) — decouples
- * {@link com.specmerger.controller.GitLabController} and {@link
- * com.specmerger.service.AnalysisService} from GitLab specifically, same idea as {@link
- * com.specmerger.service.ai.SpecResolutionAIProvider} for mistral-vibe. {@link
+ * {@link com.specmerger.controller.GitLabController} from GitLab specifically, same idea as
+ * {@link com.specmerger.service.ai.SpecResolutionAIProvider} for mistral-vibe. {@link
  * GitLabApiSourceService} is the real, GitLab-backed implementation; {@link
  * MockGitLabSourceService} (selected instead when {@code gitlab.mock}/{@code GITLAB_MOCK=true})
  * exposes a single fake project backed by a bundled JXML sample, so the pipeline can be

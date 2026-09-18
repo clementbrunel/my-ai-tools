@@ -12,6 +12,8 @@ import XmlTreeView from './XmlTreeView'
 
 interface CodePanelProps {
   onCollapse?: () => void
+  markdown: string
+  onMarkdownChange: (markdown: string) => void
 }
 
 type Tab = 'input' | 'output'
@@ -26,7 +28,7 @@ function downloadMarkdown(markdown: string, filename: string) {
   URL.revokeObjectURL(url)
 }
 
-function CodePanel({ onCollapse }: CodePanelProps) {
+function CodePanel({ onCollapse, markdown, onMarkdownChange }: CodePanelProps) {
   const [tab, setTab] = useState<Tab>('input')
   const [gitlabProjects, setGitlabProjects] = useState<GitLabProjectSummary[]>([])
   const [gitlabProjectId, setGitlabProjectId] = useState('')
@@ -43,7 +45,6 @@ function CodePanel({ onCollapse }: CodePanelProps) {
   const [gitlabPreviewWarnings, setGitlabPreviewWarnings] = useState<string[]>([])
   const [gitlabPreviewLoading, setGitlabPreviewLoading] = useState(false)
   const [previewViewMode, setPreviewViewMode] = useState<'tree' | 'raw'>('tree')
-  const [markdown, setMarkdown] = useState('')
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -149,7 +150,7 @@ function CodePanel({ onCollapse }: CodePanelProps) {
     try {
       const params = currentGitlabPreviewParams()
       if (!params) return
-      setMarkdown(await generateSpecFromGitlab(params))
+      onMarkdownChange(await generateSpecFromGitlab(params))
       setTab('output')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Échec de la génération de la doc — voir la console.')
@@ -416,7 +417,7 @@ function CodePanel({ onCollapse }: CodePanelProps) {
             )}
             <MarkdownView
               value={markdown}
-              onChange={setMarkdown}
+              onChange={onMarkdownChange}
               placeholder="La doc générée depuis le JXML apparaîtra ici après génération."
             />
           </div>

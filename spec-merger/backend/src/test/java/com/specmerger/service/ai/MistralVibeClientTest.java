@@ -147,6 +147,44 @@ class MistralVibeClientTest {
         assertThat(result).isEqualTo(modelAnswer);
     }
 
+    @Test
+    void mergeSpecsReturnsTheModelsAnswer() {
+        AtomicReference<Prompt> receivedPrompt = new AtomicReference<>();
+        MistralVibeClient client = clientRespondingWith(receivedPrompt, "# Fusionné\n...");
+
+        String result = client.mergeSpecs("## Écran 1 (Word)", "## Écran 1 (JXML)");
+
+        assertThat(result).isEqualTo("# Fusionné\n...");
+        String prompt = promptText(receivedPrompt.get());
+        assertThat(prompt).contains("## Écran 1 (Word)");
+        assertThat(prompt).contains("## Écran 1 (JXML)");
+    }
+
+    @Test
+    void mergeSpecsIncludesTheDocumentationTemplateAndTheArbitrationRules() {
+        AtomicReference<Prompt> receivedPrompt = new AtomicReference<>();
+        MistralVibeClient client = clientRespondingWith(receivedPrompt, "spec");
+
+        client.mergeSpecs("Word", "JXML");
+
+        String prompt = promptText(receivedPrompt.get()).replaceAll("\\s+", " ");
+        assertThat(prompt).contains("Gabarit de documentation fonctionnelle");
+        // Screen/section structure must come from the JXML side.
+        assertThat(prompt).contains("privilégie la structure et le découpage du JXML");
+        // Attachments and exchanged metadata must come from the Word side only.
+        assertThat(prompt).contains("proviens-les exclusivement du document Word");
+    }
+
+    @Test
+    void mergeSpecsFallsBackWhenTheModelCallFails() {
+        MistralVibeClient client = new MistralVibeClient(
+                prompt -> { throw new RuntimeException("boom"); }, "", TAG_DOCS);
+
+        String result = client.mergeSpecs("Word content", "JXML content");
+
+        assertThat(result).contains("indisponible").contains("Word content").contains("JXML content");
+    }
+
     private static MistralVibeClient clientRespondingWith(AtomicReference<Prompt> receivedPrompt, String answer) {
         ChatModel fake = prompt -> {
             receivedPrompt.set(prompt);
