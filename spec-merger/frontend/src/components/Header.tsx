@@ -69,7 +69,13 @@ function Header({ mergedDocumentId, hasSession, onImportSession, onReset }: Head
   return (
     <header className="flex items-center gap-3 px-4 py-3 bg-gl-dark shadow-sm">
       <div className="flex items-center gap-2 shrink-0">
-        <span className="h-6 w-6 rounded-sm bg-gradient-to-br from-gl-orange to-gl-orange-dark" />
+        <svg className="h-6 w-6 shrink-0" viewBox="0 0 32 32" aria-hidden="true">
+          <rect x="4" y="4" width="20" height="20" rx="3" fill="#fc6d26" />
+          <rect x="10" y="10" width="20" height="20" rx="3" fill="#1f75cb" />
+          <rect x="10" y="10" width="14" height="14" fill="#6e49cb" />
+          <line x1="17" y1="12.5" x2="17" y2="18.5" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" />
+          <polyline points="13.8,17 17,20.3 20.2,17" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
         <span className="text-white font-semibold text-sm">Spec Doc/JXML Merger</span>
       </div>
 
