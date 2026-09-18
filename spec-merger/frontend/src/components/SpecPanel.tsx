@@ -17,6 +17,10 @@ function hasAcceptedExtension(filename: string): boolean {
   return ACCEPTED_EXTENSIONS.some((ext) => lower.endsWith(ext))
 }
 
+function isExcelFile(filename: string): boolean {
+  return filename.toLowerCase().endsWith('.xlsx')
+}
+
 function downloadMarkdown(markdown: string, filename: string) {
   const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' })
   const url = URL.createObjectURL(blob)
@@ -93,7 +97,11 @@ function SpecPanel({ onCollapse }: SpecPanelProps) {
 
   return (
     <>
-      {loading && <FullPageLoader message="Génération de la doc depuis le Word en cours…" />}
+      {loading && (
+        <FullPageLoader
+          message={`Génération de la doc depuis ${wordFile && isExcelFile(wordFile.name) ? "l'Excel" : 'le Word'} en cours…`}
+        />
+      )}
       <section className="card p-4 overflow-auto min-h-0 flex flex-col">
         <div className="flex items-center justify-between gap-2 mb-3">
           <h2 className="field-label">Spec Word / Excel</h2>
