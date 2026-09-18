@@ -82,10 +82,15 @@ export async function previewGitlabJxml(params: GitlabPreviewParams): Promise<Gi
   return data
 }
 
-/** The markdown spec the model generates from the Word/Excel spec alone (no JXML/diff yet). */
-export async function generateSpecFromWord(word: File): Promise<string> {
+/**
+ * The markdown spec the model generates from the Word/Excel spec alone (no JXML/diff yet).
+ * `word` is optional: while the backend is running with MISTRAL_MOCK=true, omitting it falls
+ * back to a bundled sample spec server-side instead of requiring a real file (400 otherwise) —
+ * same idea as the mock GitLab project, no dedicated mock endpoint needed.
+ */
+export async function generateSpecFromWord(word?: File): Promise<string> {
   const form = new FormData()
-  form.append('word', word)
+  if (word) form.append('word', word)
   const { data } = await client.post<SpecGenerationResult>('/spec/generate-from-word', form, {
     headers: { 'Content-Type': 'multipart/form-data' },
   })
@@ -103,15 +108,6 @@ export async function previewWord(word: File): Promise<string> {
     headers: { 'Content-Type': 'multipart/form-data' },
   })
   return data.content
-}
-
-/**
- * Same generation as generateSpecFromWord, but from a small bundled sample spec instead of an
- * uploaded file — only available server-side while MISTRAL_MOCK=true (409 otherwise).
- */
-export async function generateSpecFromWordSample(): Promise<string> {
-  const { data } = await client.get<SpecGenerationResult>('/spec/generate-from-word-sample')
-  return data.markdown
 }
 
 /**

@@ -32,10 +32,10 @@ describe('SpecPanel', () => {
   it('labels the picker in French instead of the native "Choose File" button', () => {
     render(<SpecPanel />)
     expect(screen.getByText('Choisir un fichier')).toBeDefined()
-    expect(screen.getByText('Aucun fichier choisi')).toBeDefined()
+    expect(screen.getByText(/Aucun fichier choisi/)).toBeDefined()
   })
 
-  it('shows the filename once a file is picked, and enables Générer la doc', async () => {
+  it('shows the filename once a file is picked, and keeps Générer la doc enabled', async () => {
     const { container } = render(<SpecPanel />)
     const file = new File(['contenu'], 'spec.docx')
     const input = container.querySelector('input[type="file"]') as HTMLInputElement
@@ -44,9 +44,16 @@ describe('SpecPanel', () => {
     expect(screen.getByText('Générer la doc')).not.toBeDisabled()
   })
 
-  it('disables Générer la doc until a file is selected', () => {
+  it('leaves Générer la doc enabled without a file — falls back to the mock sample server-side', () => {
     render(<SpecPanel />)
-    expect(screen.getByText('Générer la doc')).toBeDisabled()
+    expect(screen.getByText('Générer la doc')).not.toBeDisabled()
+  })
+
+  it('generates without a file, passing undefined through', async () => {
+    generateSpecFromWordMock.mockResolvedValue('# Doc générée')
+    render(<SpecPanel />)
+    await userEvent.click(screen.getByText('Générer la doc'))
+    expect(generateSpecFromWordMock).toHaveBeenCalledWith(undefined)
   })
 
   it('generates the spec and switches to the Output tab', async () => {
@@ -81,6 +88,15 @@ describe('SpecPanel', () => {
     await userEvent.upload(input, file)
     await userEvent.click(screen.getByText('Générer la doc'))
     expect(await screen.findByText("Génération de la doc depuis l'Excel en cours…")).toBeDefined()
+    resolveGeneration('# Doc générée')
+  })
+
+  it('names the sample in the loader while generating without a file', async () => {
+    let resolveGeneration: (markdown: string) => void = () => {}
+    generateSpecFromWordMock.mockReturnValue(new Promise((resolve) => { resolveGeneration = resolve }))
+    render(<SpecPanel />)
+    await userEvent.click(screen.getByText('Générer la doc'))
+    expect(await screen.findByText("Génération de la doc depuis l'exemple en cours…")).toBeDefined()
     resolveGeneration('# Doc générée')
   })
 
@@ -128,7 +144,6 @@ describe('SpecPanel', () => {
     await userEvent.upload(input, file, { applyAccept: false })
     expect(screen.getByText(/seuls les fichiers \.doc, \.docx et \.xlsx sont acceptés/)).toBeDefined()
     expect(screen.queryByText('spec.pdf')).toBeNull()
-    expect(screen.getByText('Générer la doc')).toBeDisabled()
   })
 
   it('previews the extracted text before generating', async () => {
