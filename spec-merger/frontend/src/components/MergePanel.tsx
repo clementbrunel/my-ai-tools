@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { mergeSpecs } from '../api/analysis'
 import type { PersistedDoc } from '../hooks/usePersistedDoc'
 import type { GitlabSelection } from '../types'
+import ConfirmDialog from './ConfirmDialog'
 import FullPageLoader from './FullPageLoader'
 import MarkdownView from './MarkdownView'
 
@@ -36,6 +37,7 @@ function MergePanel({ wordDoc, jxmlDoc, mergedDoc, gitlabSelection }: MergePanel
   const [lastGenerated, setLastGenerated] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [confirmingRemerge, setConfirmingRemerge] = useState(false)
 
   const bothReady = wordMarkdown.trim() !== '' && jxmlMarkdown.trim() !== ''
   const hasResult = mergedDocumentId !== null
@@ -72,11 +74,14 @@ function MergePanel({ wordDoc, jxmlDoc, mergedDoc, gitlabSelection }: MergePanel
 
   function handleMergeClick() {
     if (hasUnsavedEdits) {
-      const confirmed = window.confirm(
-        'Le document fusionné a été modifié manuellement. Relancer la fusion écrasera ces modifications. Continuer ?',
-      )
-      if (!confirmed) return
+      setConfirmingRemerge(true)
+      return
     }
+    void runMerge()
+  }
+
+  function handleConfirmRemerge() {
+    setConfirmingRemerge(false)
     void runMerge()
   }
 
@@ -145,6 +150,15 @@ function MergePanel({ wordDoc, jxmlDoc, mergedDoc, gitlabSelection }: MergePanel
           </div>
         )}
       </section>
+      <ConfirmDialog
+        open={confirmingRemerge}
+        title="Refusionner"
+        message="Le document fusionné a été modifié manuellement. Relancer la fusion écrasera ces modifications. Continuer ?"
+        confirmLabel="Continuer"
+        danger
+        onConfirm={handleConfirmRemerge}
+        onCancel={() => setConfirmingRemerge(false)}
+      />
     </>
   )
 }
