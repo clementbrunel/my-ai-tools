@@ -24,7 +24,13 @@ spring:
       max-request-size: 50MB
   ai:
     mistralai:
-      api-key: ${MISTRAL_API_KEY:}
+      # Spring AI's own autoconfiguration requires a non-blank key to even build the ChatModel
+      # bean (Assert.hasText, regardless of app.ai.mock or whether anything ends up calling it) —
+      # an empty default here fails the whole app at startup instead of the graceful fallback
+      # MistralVibeClient/MockSpecResolutionAIProvider are meant to provide. "disabled" is a
+      # deliberately invalid placeholder, same idea as base-url/model below : real calls with it
+      # fail (caught by MistralVibeClient's fallback) rather than the context refusing to start.
+      api-key: ${MISTRAL_API_KEY:disabled}
       chat:
         base-url: ${MISTRAL_BASE_URL:https://mistral.invalid}
         options:
