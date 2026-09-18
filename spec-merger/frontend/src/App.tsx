@@ -10,7 +10,7 @@ import { useGenerationSession } from './hooks/useGenerationSession'
 function App() {
   const [specCollapsed, setSpecCollapsed] = useState(false)
   const [codeCollapsed, setCodeCollapsed] = useState(false)
-  const { word, jxml, merged, restoring } = useGenerationSession()
+  const { word, jxml, merged, restoring, initialGitlabSelection, setGitlabSelection } = useGenerationSession()
 
   // Retracted side panels free up their width so the merge panel (and the
   // remaining side panel, if any) can grow from a third of the screen to a half.
@@ -41,7 +41,12 @@ function App() {
           {codeCollapsed ? (
             <CollapsedPanel label="Spec JXML" icon="◀" onExpand={() => setCodeCollapsed(false)} />
           ) : (
-            <CodePanel onCollapse={() => setCodeCollapsed(true)} doc={jxml} />
+            <CodePanel
+              onCollapse={() => setCodeCollapsed(true)}
+              doc={jxml}
+              initialGitlabSelection={initialGitlabSelection}
+              onGitlabSelectionChange={setGitlabSelection}
+            />
           )}
         </div>
       </div>

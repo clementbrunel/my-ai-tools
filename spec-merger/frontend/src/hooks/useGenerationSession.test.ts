@@ -79,6 +79,55 @@ describe('useGenerationSession', () => {
     expect(stored.jxmlDocumentId).toBeUndefined()
   })
 
+  it('exposes a stored GitLab selection as initialGitlabSelection', () => {
+    const gitlabSelection = {
+      groupKey: 'jway-forms',
+      projectId: '1',
+      entryPointPath: 'forms/demarche_un.jxml',
+      selectedPaths: ['forms/kyc.jxml'],
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ gitlabSelection }))
+
+    const { result } = renderHook(() => useGenerationSession())
+
+    expect(result.current.initialGitlabSelection).toEqual(gitlabSelection)
+  })
+
+  it('persists the GitLab selection reported via setGitlabSelection', () => {
+    const { result } = renderHook(() => useGenerationSession())
+
+    const gitlabSelection = {
+      groupKey: 'jway-forms',
+      projectId: '1',
+      entryPointPath: 'forms/demarche_un.jxml',
+      selectedPaths: ['forms/kyc.jxml'],
+    }
+    act(() => result.current.setGitlabSelection(gitlabSelection))
+
+    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}')
+    expect(stored.gitlabSelection).toEqual(gitlabSelection)
+  })
+
+  it('clears the persisted GitLab selection when setGitlabSelection(null) is reported', () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        gitlabSelection: {
+          groupKey: 'jway-forms',
+          projectId: '1',
+          entryPointPath: 'forms/demarche_un.jxml',
+          selectedPaths: [],
+        },
+      }),
+    )
+    const { result } = renderHook(() => useGenerationSession())
+
+    act(() => result.current.setGitlabSelection(null))
+
+    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}')
+    expect(stored.gitlabSelection).toBeUndefined()
+  })
+
   it('does not clobber the stored session with nulls while a restore is still in flight', async () => {
     // Regression test: the persist effect used to fire on mount before the async getDocument
     // calls resolved (word/jxml/merged ids were still null then), overwriting the very session

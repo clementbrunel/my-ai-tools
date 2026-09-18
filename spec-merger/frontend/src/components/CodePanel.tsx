@@ -6,7 +6,7 @@ import {
   previewGitlabJxml,
 } from '../api/analysis'
 import type { PersistedDoc } from '../hooks/usePersistedDoc'
-import type { GitLabEntryPoint, GitLabProjectSummary } from '../types'
+import type { GitLabEntryPoint, GitLabProjectSummary, GitlabSelection } from '../types'
 import FullPageLoader from './FullPageLoader'
 import MarkdownView from './MarkdownView'
 import XmlTreeView from './XmlTreeView'
@@ -14,6 +14,10 @@ import XmlTreeView from './XmlTreeView'
 interface CodePanelProps {
   onCollapse?: () => void
   doc: PersistedDoc
+  /** The GitLab selection read from a persisted session at mount, replayed once below — see #326. */
+  initialGitlabSelection?: GitlabSelection | null
+  /** Called with the current selection whenever it changes, so the parent can persist it. */
+  onGitlabSelectionChange?: (selection: GitlabSelection | null) => void
 }
 
 type Tab = 'input' | 'output'
@@ -28,7 +32,7 @@ function downloadMarkdown(markdown: string, filename: string) {
   URL.revokeObjectURL(url)
 }
 
-function CodePanel({ onCollapse, doc }: CodePanelProps) {
+function CodePanel({ onCollapse, doc, initialGitlabSelection, onGitlabSelectionChange }: CodePanelProps) {
   const { markdown, isDirty, saving, onGenerated, onEdit, save } = doc
   const [tab, setTab] = useState<Tab>('input')
   const [gitlabProjects, setGitlabProjects] = useState<GitLabProjectSummary[]>([])
@@ -48,6 +52,12 @@ function CodePanel({ onCollapse, doc }: CodePanelProps) {
   const [previewViewMode, setPreviewViewMode] = useState<'tree' | 'raw'>('tree')
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // While true, the effect that reports selection changes upward stays silent — otherwise the
+  // intermediate states hit while replaying a restored selection (project set before its sources
+  // resolve, etc.) would overwrite the persisted selection before the replay has finished.
+  const [restoringGitlabSelection, setRestoringGitlabSelection] = useState(
+    Boolean(initialGitlabSelection),
+  )
 
   // Switches to the Output tab whenever markdown appears from outside a local handleGenerate
   // call — namely, a session restore, which sets it asynchronously after mount and wouldn't
@@ -65,6 +75,98 @@ function CodePanel({ onCollapse, doc }: CodePanelProps) {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [gitlabPreviewOpen])
+
+  // Replays the GitLab loading flow once, from whatever selection the session was restored with:
+  // load the projects, pick the stored one (which fetches its sources), then apply the stored
+  // entry point and checked files — overriding the defaults handleSelectGitlabProject would apply.
+  useEffect(() => {
+    const selection = initialGitlabSelection
+    if (!selection) return
+
+    let cancelled = false
+
+    async function restoreSelection(selection: GitlabSelection) {
+      setError(null)
+      setGitlabLoading(true)
+      try {
+        const projects = await listGitlabProjects()
+        if (cancelled) return
+        setGitlabProjects(projects)
+        setGitlabProjectId(selection.projectId)
+
+        setGitlabSourcesLoading(true)
+        try {
+          const listing = await listGitlabSources(selection.groupKey, selection.projectId)
+          if (cancelled) return
+          setGitlabMandatoryPaths(listing.mandatoryPaths)
+          setGitlabSourcePaths(listing.optionalPaths)
+          setGitlabEntryPoints(listing.entryPoints)
+          setGitlabSelectedPaths(
+            new Set(selection.selectedPaths.filter((path) => listing.optionalPaths.includes(path))),
+          )
+          const restoredEntryPointStillExists = listing.entryPoints.some(
+            (entryPoint) => entryPoint.path === selection.entryPointPath,
+          )
+          setGitlabEntryPointPath(
+            restoredEntryPointStillExists
+              ? selection.entryPointPath
+              : listing.entryPoints.length === 1
+                ? listing.entryPoints[0].path
+                : '',
+          )
+        } finally {
+          if (!cancelled) setGitlabSourcesLoading(false)
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setError(
+            e instanceof Error ? e.message : 'Échec de la restauration de la sélection GitLab — voir la console.',
+          )
+          console.error(e)
+        }
+      } finally {
+        if (!cancelled) {
+          setGitlabLoading(false)
+          setRestoringGitlabSelection(false)
+        }
+      }
+    }
+
+    void restoreSelection(selection)
+    return () => {
+      cancelled = true
+    }
+    // Runs once on mount only — replays whatever GitLab selection the session held at load time.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Reports the current selection upward (for persistence) whenever it settles on something new —
+  // skipped while the restore replay above is still in flight, and cleared to null once there's
+  // no project selected.
+  useEffect(() => {
+    if (restoringGitlabSelection) return
+    if (!onGitlabSelectionChange) return
+
+    const project = gitlabProjects.find((p) => String(p.id) === gitlabProjectId)
+    if (!project) {
+      onGitlabSelectionChange(null)
+      return
+    }
+
+    onGitlabSelectionChange({
+      groupKey: project.groupKey,
+      projectId: gitlabProjectId,
+      entryPointPath: gitlabEntryPointPath,
+      selectedPaths: Array.from(gitlabSelectedPaths),
+    })
+  }, [
+    gitlabProjects,
+    gitlabProjectId,
+    gitlabEntryPointPath,
+    gitlabSelectedPaths,
+    restoringGitlabSelection,
+    onGitlabSelectionChange,
+  ])
 
   async function handleLoadGitlabProjects() {
     setError(null)
