@@ -52,6 +52,11 @@
 > - Les valeurs entre chevrons (`<comme ceci>`) sont des placeholders à remplacer par
 >   le contenu réel ; s'ils ne peuvent pas être renseignés, les laisser tels quels
 >   plutôt que d'inventer une valeur.
+> - Colonne `Valeur par défaut` du tableau des éléments : indiquer la valeur elle-même
+>   (ex. `0`, `France`, `$(data|dateDuJour)`, la valeur issue de `DefaultValue` côté
+>   JXML ou de la spec Word) — jamais un terme générique du type `Préremplie` ou
+>   `Pré-rempli` qui ne dit pas avec quoi le champ est rempli. Si le champ n'a pas de
+>   valeur par défaut, laisser la cellule vide plutôt que d'y mettre un mot générique.
 > - Dans une cellule de tableau, échappe tout caractère `|` en `\|` — en particulier
 >   dans les valeurs/conditions JWAY telles que `$(data|demandePersonnelle)=='NON'`,
 >   dont la profondeur (et donc le nombre de `|`) varie — sous peine de casser la

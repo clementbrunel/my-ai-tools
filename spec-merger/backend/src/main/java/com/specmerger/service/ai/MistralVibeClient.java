@@ -39,7 +39,7 @@ import java.util.regex.Pattern;
 @ConditionalOnProperty(prefix = "app.ai", name = "mock", havingValue = "false", matchIfMissing = true)
 public class MistralVibeClient implements SpecResolutionAIProvider {
 
-    private static final int MAX_TAG_DOCS_SPEC_GENERATION = 20;
+    private static final int MAX_TAG_DOCS_SPEC_GENERATION = 30;
     private static final int MAX_TAG_DOCS_CHARS_SPEC_GENERATION = 40_000;
 
     // Shared by generateSpecFromJxml and generateSpecFromWord so both sides of a démarche
