@@ -21,6 +21,10 @@ function hasAcceptedExtension(filename: string): boolean {
   return ACCEPTED_EXTENSIONS.some((ext) => lower.endsWith(ext))
 }
 
+function isExcelFile(filename: string): boolean {
+  return filename.toLowerCase().endsWith('.xlsx')
+}
+
 function downloadMarkdown(markdown: string, filename: string) {
   const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' })
   const url = URL.createObjectURL(blob)
@@ -70,12 +74,14 @@ function SpecPanel({ onCollapse, markdown, onGenerated, onEdit }: SpecPanelProps
     setWordFile(file)
   }
 
+  /** wordFile is optional: without one, the backend falls back to a bundled sample spec while
+   * MISTRAL_MOCK=true (400 otherwise) — same "Générer la doc" action either way, no dedicated
+   * mock flow needed. */
   async function handleGenerate() {
-    if (!wordFile) return
     setError(null)
     setLoading(true)
     try {
-      onGenerated(await generateSpecFromWord(wordFile))
+      onGenerated(await generateSpecFromWord(wordFile ?? undefined))
       setTab('output')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Échec de la génération — voir la console.')
@@ -104,7 +110,13 @@ function SpecPanel({ onCollapse, markdown, onGenerated, onEdit }: SpecPanelProps
 
   return (
     <>
-      {loading && <FullPageLoader message="Génération de la doc depuis le Word en cours…" />}
+      {loading && (
+        <FullPageLoader
+          message={`Génération de la doc depuis ${
+            !wordFile ? "l'exemple" : isExcelFile(wordFile.name) ? "l'Excel" : 'le Word'
+          } en cours…`}
+        />
+      )}
       <section className="card p-4 overflow-auto min-h-0 flex flex-col">
         <div className="flex items-center justify-between gap-2 mb-3">
           <h2 className="field-label">Spec Word / Excel</h2>
@@ -140,7 +152,9 @@ function SpecPanel({ onCollapse, markdown, onGenerated, onEdit }: SpecPanelProps
         {tab === 'input' ? (
           <div className="flex flex-col gap-3 min-h-0 flex-1">
             <div className="flex items-center gap-3 justify-end">
-              <span className="text-sm text-gray-500">{wordFile ? wordFile.name : 'Aucun fichier choisi'}</span>
+              <span className="text-sm text-gray-500">
+                {wordFile ? wordFile.name : 'Aucun fichier choisi (génère depuis un exemple en mode mock)'}
+              </span>
               <label
                 htmlFor="spec-word-file"
                 className="btn-primary cursor-pointer text-sm py-1.5 px-3"
@@ -218,7 +232,7 @@ function SpecPanel({ onCollapse, markdown, onGenerated, onEdit }: SpecPanelProps
             )}
             <div className="mt-auto pt-3 border-t border-[#eee] flex items-center gap-3 justify-end">
               {error && <span className="text-sm text-gl-danger">{error}</span>}
-              <button type="button" className="btn-primary" onClick={handleGenerate} disabled={!wordFile || loading}>
+              <button type="button" className="btn-primary" onClick={handleGenerate} disabled={loading}>
                 {loading ? 'Génération…' : 'Générer la doc'}
               </button>
             </div>
