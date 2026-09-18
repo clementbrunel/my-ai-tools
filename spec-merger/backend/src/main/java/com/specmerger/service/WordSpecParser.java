@@ -23,7 +23,9 @@ import java.util.stream.Collectors;
  * legacy OLE2 (.doc) format. Which one it is gets detected from the file's own content (magic
  * bytes) rather than trusted from its name/extension, since the two need different POI readers.
  * Splitting the extracted text into logical sections (screens, features...) is not implemented
- * yet — see issues #260 and #261.
+ * yet — see issues #260 and #261. {@link ExcelSpecParser} is the equivalent for specs written
+ * as an Excel workbook instead (#267); the row-flattening plumbing the two share lives in
+ * {@link SpecTextUtils}.
  */
 @Component
 public class WordSpecParser {
@@ -51,11 +53,11 @@ public class WordSpecParser {
             StringBuilder text = new StringBuilder();
             for (IBodyElement element : document.getBodyElements()) {
                 if (element instanceof XWPFParagraph paragraph) {
-                    appendIfNotBlank(text, paragraph.getText());
+                    SpecTextUtils.appendIfNotBlank(text, paragraph.getText());
                 } else if (element instanceof XWPFTable table) {
                     appendTable(text, table);
                 } else if (element instanceof XWPFSDT sdt) {
-                    appendIfNotBlank(text, sdt.getContent().getText());
+                    SpecTextUtils.appendIfNotBlank(text, sdt.getContent().getText());
                 }
             }
             return text.toString().strip();
@@ -70,11 +72,8 @@ public class WordSpecParser {
      */
     private void appendTable(StringBuilder text, XWPFTable table) {
         for (XWPFTableRow row : table.getRows()) {
-            String rowText = row.getTableICells().stream()
-                    .map(this::cellText)
-                    .map(String::strip)
-                    .collect(Collectors.joining(" | "));
-            appendIfNotBlank(text, rowText);
+            String rowText = SpecTextUtils.joinRow(row.getTableICells().stream().map(this::cellText));
+            SpecTextUtils.appendIfNotBlank(text, rowText);
         }
     }
 
@@ -86,12 +85,6 @@ public class WordSpecParser {
             return sdtCell.getContent().getText();
         }
         return "";
-    }
-
-    private void appendIfNotBlank(StringBuilder text, String value) {
-        if (value != null && !value.isBlank()) {
-            text.append(value).append('\n');
-        }
     }
 
     private String extractFromDoc(InputStream docStream) throws IOException {

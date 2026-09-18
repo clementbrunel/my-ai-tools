@@ -32,8 +32,8 @@ cd frontend && npm install && npm run dev   # écoute sur :5173, proxy /api → 
 
 | Dossier | Rôle |
 |---|---|
-| `backend/` | Spring Boot — parsing Word/JXML, accès sources GitLab (gitlab4j-api), diff, résolution IA (mistral-vibe), génération markdown, historique des versions (migrations Flyway dans `db/migration/`) |
-| `frontend/` | React — 3 panneaux (Word / markdown éditable / JXML), historique des versions, export markdown |
+| `backend/` | Spring Boot — parsing Word/Excel/JXML, accès sources GitLab (gitlab4j-api), diff, résolution IA (mistral-vibe), génération markdown, historique des versions (migrations Flyway dans `db/migration/`) |
+| `frontend/` | React — 3 panneaux (Word/Excel / markdown éditable / JXML), historique des versions, export markdown |
 | `docker-compose.yml` | Stack dev complète (backend + frontend + postgres) |
 
 ## Variables d'environnement
@@ -55,8 +55,8 @@ doit toujours prendre la documentation produite par l'IA — côté Word (spec d
 comme côté JXML (code réel) — afin que les deux versions restent structurellement
 comparables et diffable section par section, écran par écran, élément par élément.
 À utiliser comme contexte de génération dès que l'IA produit ou reformule de la
-documentation fonctionnelle (aujourd'hui la résolution des divergences Word/JXML,
-demain la génération depuis PowerPoint/Word/Excel).
+documentation fonctionnelle (aujourd'hui la résolution des divergences Word/Excel/JXML,
+demain la génération depuis PowerPoint).
 
 ## Source JXML via GitLab (#266)
 

@@ -27,7 +27,7 @@ function App() {
       <div className="flex-1 min-h-0 flex flex-col overflow-y-auto">
         <div className={`grid grid-cols-1 ${gridColsClass} gap-3 p-3 flex-1 min-h-0`}>
           {specCollapsed ? (
-            <CollapsedPanel label="Spec Word" icon="▶" onExpand={() => setSpecCollapsed(false)} />
+            <CollapsedPanel label="Spec Word / Excel" icon="▶" onExpand={() => setSpecCollapsed(false)} />
           ) : (
             <SpecPanel onCollapse={() => setSpecCollapsed(true)} />
           )}
