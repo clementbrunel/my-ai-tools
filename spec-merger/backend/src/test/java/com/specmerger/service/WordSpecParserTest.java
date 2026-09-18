@@ -1,6 +1,7 @@
 package com.specmerger.service;
 
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
+import org.apache.poi.xwpf.usermodel.XWPFParagraph;
 import org.apache.poi.xwpf.usermodel.XWPFTable;
 import org.apache.poi.xwpf.usermodel.XWPFTableRow;
 import org.junit.jupiter.api.Test;
@@ -10,6 +11,7 @@ import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTTc;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -48,10 +50,12 @@ class WordSpecParserTest {
 
         String text = parser.extractText(new ByteArrayInputStream(bytes.toByteArray()));
 
-        assertThat(text).isEqualTo(String.join("\n",
+        assertThat(text).isEqualTo(String.join("\n\n",
                 "Ecran de connexion",
-                "ID | Libellé",
-                "login | Identifiant",
+                String.join("\n",
+                        "| ID | Libellé |",
+                        "| --- | --- |",
+                        "| login | Identifiant |"),
                 "Règles de gestion"));
     }
 
@@ -73,7 +77,51 @@ class WordSpecParserTest {
 
         String text = parser.extractText(new ByteArrayInputStream(bytes.toByteArray()));
 
-        assertThat(text).isEqualTo("Champ | Valeur");
+        assertThat(text).isEqualTo(String.join("\n", "| Champ | Valeur |", "| --- | --- |"));
+    }
+
+    @Test
+    void emitsMarkdownHeadingsForOutlineLevels() throws IOException {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (XWPFDocument document = new XWPFDocument()) {
+            XWPFParagraph section = document.createParagraph();
+            section.createRun().setText("Section : Connexion");
+            section.getCTP().addNewPPr().addNewOutlineLvl().setVal(BigInteger.ONE); // outlineLvl 1 -> H2
+
+            XWPFParagraph screen = document.createParagraph();
+            screen.createRun().setText("Ecran : Login");
+            screen.getCTP().addNewPPr().addNewOutlineLvl().setVal(BigInteger.valueOf(2)); // outlineLvl 2 -> H3
+
+            document.createParagraph().createRun().setText("Texte normal, sans style de titre.");
+            document.write(bytes);
+        }
+
+        String text = parser.extractText(new ByteArrayInputStream(bytes.toByteArray()));
+
+        assertThat(text).isEqualTo(String.join("\n\n",
+                "## Section : Connexion",
+                "### Ecran : Login",
+                "Texte normal, sans style de titre."));
+    }
+
+    @Test
+    void escapesPipesAndCollapsesLineBreaksInTableCells() throws IOException {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (XWPFDocument document = new XWPFDocument()) {
+            XWPFTable table = document.createTable(1, 2);
+            XWPFTableRow row = table.getRow(0);
+            row.getCell(0).setText("Choix A | Choix B");
+            XWPFParagraph secondLine = row.getCell(1).addParagraph();
+            row.getCell(1).getParagraphs().get(0).createRun().setText("Première ligne");
+            secondLine.createRun().setText("Deuxième ligne");
+            document.write(bytes);
+        }
+
+        String text = parser.extractText(new ByteArrayInputStream(bytes.toByteArray()));
+
+        assertThat(text).isEqualTo(String.join("\n",
+                "| Choix A \\| Choix B | Première ligne Deuxième ligne |",
+                "| --- | --- |"));
     }
 
     @Test
