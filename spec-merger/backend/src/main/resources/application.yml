@@ -32,6 +32,11 @@ spring:
 
 app:
   frontend-url: ${FRONTEND_URL:http://localhost:5173}
+  ai:
+    # true : remplace l'appel mistral-vibe par un provider local qui renvoie le gabarit
+    # tel quel (placeholders non remplis) — pour avancer sur le reste du pipeline
+    # (diff, édition/versioning du markdown, export) sans accès réseau à mistral-vibe.
+    mock: ${MISTRAL_MOCK:false}
 
 gitlab:
   url: ${GITLAB_URL:}

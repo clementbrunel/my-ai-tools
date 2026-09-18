@@ -40,6 +40,14 @@ cd frontend && npm install && npm run dev   # écoute sur :5173, proxy /api → 
 
 Copier `.env.example` → `.env`. Voir ce fichier pour le détail de chaque variable (credentials Postgres, URL frontend pour CORS, config mistral-vibe, config GitLab).
 
+### Mode mock (sans accès à mistral-vibe)
+
+`MISTRAL_MOCK=true` désactive tout appel réseau à mistral-vibe : `generateSpecFromJxml`/
+`generateSpecFromWord` renvoient le gabarit (`documentation-template.md`) tel quel, et
+`proposeResolution` renvoie les deux extraits en l'état, chacun préfixé `🧪 [MOCK]`. Utile
+pour continuer à travailler sur le reste du pipeline (diff, édition/versioning du
+markdown, export) sans accès au réseau interne (ex. depuis chez soi).
+
 ## Gabarit de documentation attendue
 
 `backend/src/main/resources/templates/documentation-template.md` définit la forme que
