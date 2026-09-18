@@ -45,11 +45,11 @@ beforeEach(() => {
   updateDocumentMock.mockReset()
 })
 
-/** CodePanel's markdown is controlled by its parent — this harness stands in for App. */
+/** CodePanel's doc is controlled by its parent — this harness stands in for App. */
 function renderCodePanel(onCollapse?: () => void) {
   function Harness() {
     const doc = usePersistedDoc()
-    return <CodePanel onCollapse={onCollapse} markdown={doc.markdown} onGenerated={doc.onGenerated} onEdit={doc.onEdit} />
+    return <CodePanel onCollapse={onCollapse} doc={doc} />
   }
   return render(<Harness />)
 }
@@ -159,5 +159,50 @@ describe('CodePanel', () => {
     renderCodePanel(onCollapse)
     await userEvent.click(screen.getByLabelText('Réduire le panneau Spec JXML'))
     expect(onCollapse).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows no save button until the generated doc is edited', async () => {
+    await goToGitlabModeWithProject()
+    generateSpecFromGitlabMock.mockResolvedValue({ id: 'jxml-1', markdown: '# Doc GitLab' })
+    await userEvent.click(screen.getByText('Générer la doc'))
+    await screen.findByRole('heading', { level: 1, name: 'Doc GitLab' })
+
+    expect(screen.queryByText('Enregistrer')).toBeNull()
+  })
+
+  it('shows a save button after editing, and saves on click without any debounce', async () => {
+    await goToGitlabModeWithProject()
+    generateSpecFromGitlabMock.mockResolvedValue({ id: 'jxml-1', markdown: '# Doc GitLab' })
+    updateDocumentMock.mockResolvedValue({ id: 'jxml-1', markdown: '# Doc éditée' })
+    await userEvent.click(screen.getByText('Générer la doc'))
+    await screen.findByRole('heading', { level: 1, name: 'Doc GitLab' })
+
+    await userEvent.click(screen.getByText('Édition'))
+    const textarea = screen.getByPlaceholderText('La doc générée depuis le JXML apparaîtra ici après génération.')
+    await userEvent.clear(textarea)
+    await userEvent.type(textarea, '# Doc éditée')
+
+    expect(updateDocumentMock).not.toHaveBeenCalled()
+    await userEvent.click(await screen.findByText('Enregistrer'))
+
+    expect(updateDocumentMock).toHaveBeenCalledWith('jxml-1', '# Doc éditée')
+    expect(screen.queryByText('Enregistrer')).toBeNull()
+  })
+
+  it('shows an error message when saving fails', async () => {
+    await goToGitlabModeWithProject()
+    generateSpecFromGitlabMock.mockResolvedValue({ id: 'jxml-1', markdown: '# Doc GitLab' })
+    updateDocumentMock.mockRejectedValue(new Error("Échec de l'enregistrement"))
+    await userEvent.click(screen.getByText('Générer la doc'))
+    await screen.findByRole('heading', { level: 1, name: 'Doc GitLab' })
+
+    await userEvent.click(screen.getByText('Édition'))
+    const textarea = screen.getByPlaceholderText('La doc générée depuis le JXML apparaîtra ici après génération.')
+    await userEvent.clear(textarea)
+    await userEvent.type(textarea, '# Doc éditée')
+    await userEvent.click(await screen.findByText('Enregistrer'))
+
+    expect(await screen.findByText("Échec de l'enregistrement")).toBeDefined()
+    expect(screen.getByText('Enregistrer')).toBeDefined()
   })
 })

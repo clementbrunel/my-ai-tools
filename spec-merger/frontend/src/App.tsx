@@ -33,34 +33,15 @@ function App() {
           {specCollapsed ? (
             <CollapsedPanel label="Spec Word / Excel" icon="▶" onExpand={() => setSpecCollapsed(false)} />
           ) : (
-            <SpecPanel
-              onCollapse={() => setSpecCollapsed(true)}
-              markdown={word.markdown}
-              onGenerated={word.onGenerated}
-              onEdit={word.onEdit}
-            />
+            <SpecPanel onCollapse={() => setSpecCollapsed(true)} doc={word} />
           )}
 
-          <MergePanel
-            wordMarkdown={word.markdown}
-            jxmlMarkdown={jxml.markdown}
-            wordDocumentId={word.id}
-            jxmlDocumentId={jxml.id}
-            mergedMarkdown={merged.markdown}
-            mergedDocumentId={merged.id}
-            onGenerated={merged.onGenerated}
-            onEdit={merged.onEdit}
-          />
+          <MergePanel wordDoc={word} jxmlDoc={jxml} mergedDoc={merged} />
 
           {codeCollapsed ? (
             <CollapsedPanel label="Spec JXML" icon="◀" onExpand={() => setCodeCollapsed(false)} />
           ) : (
-            <CodePanel
-              onCollapse={() => setCodeCollapsed(true)}
-              markdown={jxml.markdown}
-              onGenerated={jxml.onGenerated}
-              onEdit={jxml.onEdit}
-            />
+            <CodePanel onCollapse={() => setCodeCollapsed(true)} doc={jxml} />
           )}
         </div>
       </div>

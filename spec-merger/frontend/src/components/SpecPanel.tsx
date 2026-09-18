@@ -1,15 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { generateSpecFromWord, previewWord } from '../api/analysis'
+import type { PersistedDoc } from '../hooks/usePersistedDoc'
 import { renderMarkdown } from '../markdown'
-import type { SpecGenerationResult } from '../types'
 import FullPageLoader from './FullPageLoader'
 import MarkdownView from './MarkdownView'
 
 interface SpecPanelProps {
   onCollapse?: () => void
-  markdown: string
-  onGenerated: (result: SpecGenerationResult) => void
-  onEdit: (markdown: string) => void
+  doc: PersistedDoc
 }
 
 type Tab = 'input' | 'output'
@@ -35,7 +33,8 @@ function downloadMarkdown(markdown: string, filename: string) {
   URL.revokeObjectURL(url)
 }
 
-function SpecPanel({ onCollapse, markdown, onGenerated, onEdit }: SpecPanelProps) {
+function SpecPanel({ onCollapse, doc }: SpecPanelProps) {
+  const { markdown, isDirty, saving, onGenerated, onEdit, save } = doc
   const [wordFile, setWordFile] = useState<File | null>(null)
   const [tab, setTab] = useState<Tab>('input')
   const [loading, setLoading] = useState(false)
@@ -88,6 +87,16 @@ function SpecPanel({ onCollapse, markdown, onGenerated, onEdit }: SpecPanelProps
       console.error(e)
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleSave() {
+    setError(null)
+    try {
+      await save()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Échec de l'enregistrement — voir la console.")
+      console.error(e)
     }
   }
 
@@ -240,7 +249,13 @@ function SpecPanel({ onCollapse, markdown, onGenerated, onEdit }: SpecPanelProps
         ) : (
           <div className="flex flex-col min-h-0 flex-1 gap-2">
             {markdown && (
-              <div className="flex justify-end shrink-0">
+              <div className="flex items-center justify-end gap-3 shrink-0">
+                {error && <span className="text-sm text-gl-danger">{error}</span>}
+                {isDirty && (
+                  <button type="button" className="btn-primary" onClick={handleSave} disabled={saving}>
+                    {saving ? 'Enregistrement…' : 'Enregistrer'}
+                  </button>
+                )}
                 <button
                   type="button"
                   className="btn-secondary"

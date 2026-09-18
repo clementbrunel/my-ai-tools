@@ -5,16 +5,15 @@ import {
   listGitlabSources,
   previewGitlabJxml,
 } from '../api/analysis'
-import type { GitLabEntryPoint, GitLabProjectSummary, SpecGenerationResult } from '../types'
+import type { PersistedDoc } from '../hooks/usePersistedDoc'
+import type { GitLabEntryPoint, GitLabProjectSummary } from '../types'
 import FullPageLoader from './FullPageLoader'
 import MarkdownView from './MarkdownView'
 import XmlTreeView from './XmlTreeView'
 
 interface CodePanelProps {
   onCollapse?: () => void
-  markdown: string
-  onGenerated: (result: SpecGenerationResult) => void
-  onEdit: (markdown: string) => void
+  doc: PersistedDoc
 }
 
 type Tab = 'input' | 'output'
@@ -29,7 +28,8 @@ function downloadMarkdown(markdown: string, filename: string) {
   URL.revokeObjectURL(url)
 }
 
-function CodePanel({ onCollapse, markdown, onGenerated, onEdit }: CodePanelProps) {
+function CodePanel({ onCollapse, doc }: CodePanelProps) {
+  const { markdown, isDirty, saving, onGenerated, onEdit, save } = doc
   const [tab, setTab] = useState<Tab>('input')
   const [gitlabProjects, setGitlabProjects] = useState<GitLabProjectSummary[]>([])
   const [gitlabProjectId, setGitlabProjectId] = useState('')
@@ -166,6 +166,16 @@ function CodePanel({ onCollapse, markdown, onGenerated, onEdit }: CodePanelProps
       console.error(e)
     } finally {
       setGenerating(false)
+    }
+  }
+
+  async function handleSave() {
+    setError(null)
+    try {
+      await save()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Échec de l'enregistrement — voir la console.")
+      console.error(e)
     }
   }
 
@@ -414,7 +424,13 @@ function CodePanel({ onCollapse, markdown, onGenerated, onEdit }: CodePanelProps
         ) : (
           <div className="flex flex-col min-h-0 flex-1 gap-2">
             {markdown && (
-              <div className="flex justify-end shrink-0">
+              <div className="flex items-center justify-end gap-3 shrink-0">
+                {error && <span className="text-sm text-gl-danger">{error}</span>}
+                {isDirty && (
+                  <button type="button" className="btn-primary" onClick={handleSave} disabled={saving}>
+                    {saving ? 'Enregistrement…' : 'Enregistrer'}
+                  </button>
+                )}
                 <button
                   type="button"
                   className="btn-secondary"
