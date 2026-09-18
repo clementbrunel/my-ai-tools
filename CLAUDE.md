@@ -14,7 +14,7 @@ Each tool lives in its own subdirectory with its own `package.json`, `src/`, and
 | `prono-core/`      | `prono-core`      | Full-stack World Cup 2026 betting app (Java/Spring + React)              |
 | `my-house/`        | `my-house`        | Home Assistant setup (NAS Docker or Pi 3B+ HAOS) + Somfy RTS/Zigbee      |
 | `my-money-hub/`    | `my-money-hub`    | Personal multi-bank/insurance account aggregator (Java/Spring + React), self-hosted alternative to Linxo |
-| `spec-doc-jxml-merger/` | `spec-doc-jxml-merger` | Merges a project's Word spec with its JWAY JXML source into a single editable, version-tracked markdown (Java/Spring Boot + React + Postgres) |
+| `spec-merger/` | `spec-merger` | Merges a project's Word spec with its JWAY JXML source into a single editable, version-tracked markdown (Java/Spring Boot + React + Postgres) |
 
 ## Adding a new tool
 
