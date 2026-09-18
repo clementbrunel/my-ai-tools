@@ -103,24 +103,6 @@ export async function generateSpecFromGitlab(params: GitlabPreviewParams): Promi
   return data.markdown
 }
 
-/** Same generation as generateSpecFromGitlab, but from JXML pasted directly — no GitLab project needed. */
-export async function generateSpecFromJxmlText(jxmlText: string): Promise<string> {
-  const form = new FormData()
-  form.append('jxmlText', jxmlText)
-  const { data } = await client.post<SpecGenerationResult>('/spec/generate-from-jxml', form, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  })
-  return data.markdown
-}
-
-/** A small sample démarche to paste in — lets the JXML side be tested without a GitLab project. */
-export async function fetchSampleJxml(): Promise<string> {
-  const { data } = await client.get<string>('/spec/sample-jxml', {
-    headers: { Accept: 'text/plain' },
-  })
-  return data
-}
-
 export async function getAnalysis(sessionId: string): Promise<AnalysisSessionResponse> {
   const { data } = await client.get<AnalysisSessionResponse>(`/analysis/${sessionId}`)
   return data

@@ -27,6 +27,7 @@ import org.gitlab4j.api.models.Project;
 import org.gitlab4j.api.models.TreeItem;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
 /**
@@ -34,12 +35,26 @@ import org.springframework.stereotype.Service;
  * only the files worth sending to the model, replacing the manual zip/paste upload
  * flow. Each group has its own translation/Java filter patterns (see
  * {@link GitLabProperties.Group}).
+ *
+ * <p>Always exposes one extra, fake project ({@link #MOCK_GROUP_KEY}) backed by a small
+ * bundled JXML sample instead of a real GitLab call — picking it from the same project list
+ * lets the rest of the pipeline (source listing, preview, génération) be exercised without
+ * GitLab being reachable at all (e.g. working from outside the office network). Real project
+ * listing failures are logged and degrade to "only the mock project" rather than failing the
+ * whole {@code GET /api/gitlab/projects} call — see {@link #fetchRealProjects()}.
  */
 @Slf4j
 @Service
 public class GitLabSourceService {
 
     private static final Duration PROJECTS_CACHE_TTL = Duration.ofHours(1);
+
+    private static final String MOCK_GROUP_KEY = "mock";
+    private static final String MOCK_ENTRY_POINT_PATH = "sample-demarche.jxml";
+    private static final String MOCK_DOCUMENT_ID = "sample-demarche";
+    private static final GitLabProjectSummary MOCK_PROJECT = new GitLabProjectSummary(
+            0L, "🧪 Démarche d'exemple (mock, sans GitLab)", "mock/sample-demarche", "main", "", MOCK_GROUP_KEY);
+    private static final String MOCK_JXML_CONTENT = loadMockJxml();
 
     private final GitLabApiFactory apiFactory;
     private final GitLabProperties properties;
@@ -112,7 +127,22 @@ public class GitLabSourceService {
         return fetched;
     }
 
-    private List<GitLabProjectSummary> fetchAllProjects() throws GitLabApiException {
+    private List<GitLabProjectSummary> fetchAllProjects() {
+        List<GitLabProjectSummary> summaries = new ArrayList<>();
+        summaries.add(MOCK_PROJECT);
+        summaries.addAll(fetchRealProjects());
+        summaries.sort(Comparator.comparing(GitLabProjectSummary::groupKey, String.CASE_INSENSITIVE_ORDER)
+                .thenComparing(GitLabProjectSummary::name, String.CASE_INSENSITIVE_ORDER));
+        return summaries;
+    }
+
+    /**
+     * The real GitLab-backed part of {@link #fetchAllProjects()} — failures here (GitLab
+     * unreachable, wrong credentials, ...) are logged and degrade to an empty list instead of
+     * failing the whole projects listing, so {@link #MOCK_PROJECT} is still returned and usable
+     * even when GitLab itself isn't.
+     */
+    private List<GitLabProjectSummary> fetchRealProjects() {
         try (GitLabApi api = apiFactory.create()) {
             List<GitLabProjectSummary> summaries = new ArrayList<>();
             for (GitLabProperties.Group group : properties.groups()) {
@@ -122,15 +152,7 @@ public class GitLabSourceService {
                 Object identifier = resolveIdentifier(group.path());
                 log.debug("GitLab: listing des projets du groupe '{}' (identifiant résolu='{}')",
                         group.key(), identifier);
-                List<Project> projects;
-                try {
-                    projects = api.getGroupApi().getProjects(identifier);
-                } catch (GitLabApiException e) {
-                    log.error("GitLab: échec du listing des projets pour le groupe '{}' (GITLAB_GROUP path='{}', "
-                                    + "identifiant résolu='{}') : HTTP {} {} — {}",
-                            group.key(), group.path(), identifier, e.getHttpStatus(), e.getReason(), e.getMessage());
-                    throw e;
-                }
+                List<Project> projects = api.getGroupApi().getProjects(identifier);
                 log.info("GitLab: {} projet(s) trouvé(s) pour le groupe '{}'", projects.size(), group.key());
                 for (Project p : projects) {
                     summaries.add(new GitLabProjectSummary(
@@ -138,9 +160,11 @@ public class GitLabSourceService {
                             group.key()));
                 }
             }
-            summaries.sort(Comparator.comparing(GitLabProjectSummary::groupKey, String.CASE_INSENSITIVE_ORDER)
-                    .thenComparing(GitLabProjectSummary::name, String.CASE_INSENSITIVE_ORDER));
             return summaries;
+        } catch (GitLabApiException | RuntimeException e) {
+            log.warn("GitLab: injoignable ou en échec, seul le projet d'exemple (mock) sera proposé : {}",
+                    e.getMessage());
+            return List.of();
         }
     }
 
@@ -155,6 +179,10 @@ public class GitLabSourceService {
      * trans(...)} keys unresolved (#285) — only includes/Java remain freely checkable.
      */
     public GitLabSourceListing listRelevantSourcePaths(String groupKey, String projectIdOrPath) throws GitLabApiException {
+        if (MOCK_GROUP_KEY.equals(groupKey)) {
+            return new GitLabSourceListing(List.of(new GitLabEntryPoint(MOCK_DOCUMENT_ID, MOCK_ENTRY_POINT_PATH)),
+                    List.of(), List.of());
+        }
         try (GitLabApi api = apiFactory.create()) {
             ResolvedTree resolved = resolveTree(api, groupKey, projectIdOrPath);
             List<String> allPaths = resolved.tree().stream()
@@ -237,6 +265,9 @@ public class GitLabSourceService {
      */
     public Map<String, String> fetchRelevantSources(String groupKey, String projectIdOrPath,
             Collection<String> selectedPaths, String entryPointPath) throws GitLabApiException, IOException {
+        if (MOCK_GROUP_KEY.equals(groupKey)) {
+            return Map.of(MOCK_ENTRY_POINT_PATH, MOCK_JXML_CONTENT);
+        }
         Collection<String> effectivePaths = withEntryPoint(selectedPaths, entryPointPath);
         try (GitLabApi api = apiFactory.create()) {
             ResolvedTree resolved = resolveTree(api, groupKey, projectIdOrPath);
@@ -369,5 +400,13 @@ public class GitLabSourceService {
         }
         int visible = Math.min(3, token.length());
         return "?".repeat(token.length() - visible) + token.substring(token.length() - visible);
+    }
+
+    private static String loadMockJxml() {
+        try (InputStream is = new ClassPathResource("samples/sample-demarche.jxml").getInputStream()) {
+            return new String(is.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new IllegalStateException("Impossible de charger samples/sample-demarche.jxml", e);
+        }
     }
 }
