@@ -40,6 +40,13 @@ public class GeneratedDocument {
     @Column(name = "jxml_document_id")
     private UUID jxmlDocumentId;
 
+    // Set only on a MERGED document — the GitLab project selection (repo, entry point, selected
+    // files) it was generated from, opaque JSON as far as the backend is concerned. Lets the
+    // frontend export/import a whole session (the 3 documents + the GitLab project) to/from
+    // another machine using just this document's id.
+    @Column(name = "gitlab_selection_json", columnDefinition = "TEXT")
+    private String gitlabSelectionJson;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 

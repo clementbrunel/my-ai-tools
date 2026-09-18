@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { getDocument } from '../api/analysis'
+import { getDocument, getSession } from '../api/analysis'
 import type { GitlabSelection } from '../types'
 import { usePersistedDoc } from './usePersistedDoc'
 
@@ -20,6 +20,27 @@ function loadStoredSession(): StoredSession {
     // Private browsing, cleared/blocked site data, etc. — start with an empty session.
     return {}
   }
+}
+
+/**
+ * Loads a finished merge exported from another machine (by its merged document id — see the
+ * navbar's "Exporter"/"Charger une session" controls) and reloads the page. Writing the ids to
+ * localStorage and reloading, rather than pushing the fetched state into this hook directly,
+ * reuses the exact same restore path a normal reload takes — including CodePanel's GitLab
+ * selection replay — instead of duplicating that logic here for a one-off case.
+ */
+export async function importSession(mergedDocumentId: string): Promise<void> {
+  const session = await getSession(mergedDocumentId)
+  const stored: StoredSession = {
+    wordDocumentId: session.wordDocumentId ?? undefined,
+    jxmlDocumentId: session.jxmlDocumentId ?? undefined,
+    mergedDocumentId: session.mergedDocumentId,
+    gitlabSelection: session.gitlabSelectionJson
+      ? (JSON.parse(session.gitlabSelectionJson) as GitlabSelection)
+      : undefined,
+  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(stored))
+  window.location.reload()
 }
 
 /**
@@ -96,6 +117,7 @@ export function useGenerationSession() {
     jxml,
     merged,
     restoring,
+    gitlabSelection,
     initialGitlabSelection: stored.gitlabSelection ?? null,
     setGitlabSelection,
   }

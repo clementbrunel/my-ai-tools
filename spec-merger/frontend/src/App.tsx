@@ -5,12 +5,13 @@ import FullPageLoader from './components/FullPageLoader'
 import Header from './components/Header'
 import MergePanel from './components/MergePanel'
 import SpecPanel from './components/SpecPanel'
-import { useGenerationSession } from './hooks/useGenerationSession'
+import { importSession, useGenerationSession } from './hooks/useGenerationSession'
 
 function App() {
   const [specCollapsed, setSpecCollapsed] = useState(false)
   const [codeCollapsed, setCodeCollapsed] = useState(false)
-  const { word, jxml, merged, restoring, initialGitlabSelection, setGitlabSelection } = useGenerationSession()
+  const { word, jxml, merged, restoring, gitlabSelection, initialGitlabSelection, setGitlabSelection } =
+    useGenerationSession()
 
   // Retracted side panels free up their width so the merge panel (and the
   // remaining side panel, if any) can grow from a third of the screen to a half.
@@ -26,7 +27,7 @@ function App() {
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       {restoring && <FullPageLoader message="Récupération de la session en cours…" />}
-      <Header />
+      <Header mergedDocumentId={merged.id} onImportSession={importSession} />
 
       <div className="flex-1 min-h-0 flex flex-col overflow-y-auto">
         <div className={`grid grid-cols-1 ${gridColsClass} gap-3 p-3 flex-1 min-h-0`}>
@@ -36,7 +37,7 @@ function App() {
             <SpecPanel onCollapse={() => setSpecCollapsed(true)} doc={word} />
           )}
 
-          <MergePanel wordDoc={word} jxmlDoc={jxml} mergedDoc={merged} />
+          <MergePanel wordDoc={word} jxmlDoc={jxml} mergedDoc={merged} gitlabSelection={gitlabSelection} />
 
           {codeCollapsed ? (
             <CollapsedPanel label="Spec JXML" icon="◀" onExpand={() => setCodeCollapsed(false)} />

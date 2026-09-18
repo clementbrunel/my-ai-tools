@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event'
 import MergePanel from './MergePanel'
 import { mergeSpecs, updateDocument } from '../api/analysis'
 import { usePersistedDoc } from '../hooks/usePersistedDoc'
+import type { GitlabSelection } from '../types'
 
 vi.mock('../api/analysis', () => ({
   mergeSpecs: vi.fn(),
@@ -28,6 +29,7 @@ interface RenderOptions {
   /** Simulates useGenerationSession restoring a merged doc from localStorage on mount, rather
    * than the user generating one by clicking the button in this render. */
   restoredMerged?: { id: string; markdown: string }
+  gitlabSelection?: GitlabSelection | null
 }
 
 /** MergePanel's three docs are controlled by its parent — this harness stands in for App. */
@@ -47,7 +49,14 @@ function renderMergePanel(options: RenderOptions = {}) {
       // Only ever meant to fire once, on mount, like the real session-restore effect.
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
-    return <MergePanel wordDoc={wordDoc} jxmlDoc={jxmlDoc} mergedDoc={mergedDoc} />
+    return (
+      <MergePanel
+        wordDoc={wordDoc}
+        jxmlDoc={jxmlDoc}
+        mergedDoc={mergedDoc}
+        gitlabSelection={options.gitlabSelection ?? null}
+      />
+    )
   }
   return render(<Harness />)
 }
@@ -73,9 +82,28 @@ describe('MergePanel', () => {
     mergeSpecsMock.mockResolvedValue({ id: 'merged-1', markdown: '# Document fusionné' })
     renderMergePanel({ wordMarkdown: '# Word', jxmlMarkdown: '# JXML', wordDocumentId: 'word-1', jxmlDocumentId: 'jxml-1' })
     await userEvent.click(screen.getByText('Fusionner Word ⇄ JXML'))
-    expect(mergeSpecsMock).toHaveBeenCalledWith('# Word', '# JXML', 'word-1', 'jxml-1')
+    expect(mergeSpecsMock).toHaveBeenCalledWith('# Word', '# JXML', 'word-1', 'jxml-1', null)
     expect(await screen.findByRole('heading', { level: 1, name: 'Document fusionné' })).toBeDefined()
     expect(screen.getByText('Télécharger')).toBeDefined()
+  })
+
+  it('sends the current GitLab selection (JSON-encoded) with the merge, when one is set', async () => {
+    mergeSpecsMock.mockResolvedValue({ id: 'merged-1', markdown: '# Document fusionné' })
+    const gitlabSelection: GitlabSelection = {
+      groupKey: 'jway-forms',
+      projectId: '1',
+      entryPointPath: 'forms/demarche_un.jxml',
+      selectedPaths: ['forms/kyc.jxml'],
+    }
+    renderMergePanel({ wordMarkdown: '# Word', jxmlMarkdown: '# JXML', gitlabSelection })
+    await userEvent.click(screen.getByText('Fusionner Word ⇄ JXML'))
+    expect(mergeSpecsMock).toHaveBeenCalledWith(
+      '# Word',
+      '# JXML',
+      'word-1',
+      'jxml-1',
+      JSON.stringify(gitlabSelection),
+    )
   })
 
   it('shows an error message when the merge fails', async () => {
