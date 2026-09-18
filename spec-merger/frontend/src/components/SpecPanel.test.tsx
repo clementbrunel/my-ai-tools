@@ -60,6 +60,30 @@ describe('SpecPanel', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Doc générée' })).toBeDefined()
   })
 
+  it('names the Word file in the loader while generating', async () => {
+    let resolveGeneration: (markdown: string) => void = () => {}
+    generateSpecFromWordMock.mockReturnValue(new Promise((resolve) => { resolveGeneration = resolve }))
+    const { container } = render(<SpecPanel />)
+    const file = new File(['contenu'], 'spec.docx')
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement
+    await userEvent.upload(input, file)
+    await userEvent.click(screen.getByText('Générer la doc'))
+    expect(await screen.findByText('Génération de la doc depuis le Word en cours…')).toBeDefined()
+    resolveGeneration('# Doc générée')
+  })
+
+  it('names the Excel file in the loader while generating', async () => {
+    let resolveGeneration: (markdown: string) => void = () => {}
+    generateSpecFromWordMock.mockReturnValue(new Promise((resolve) => { resolveGeneration = resolve }))
+    const { container } = render(<SpecPanel />)
+    const file = new File(['contenu'], 'spec.xlsx')
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement
+    await userEvent.upload(input, file)
+    await userEvent.click(screen.getByText('Générer la doc'))
+    expect(await screen.findByText("Génération de la doc depuis l'Excel en cours…")).toBeDefined()
+    resolveGeneration('# Doc générée')
+  })
+
   it('shows an error message when generation fails', async () => {
     generateSpecFromWordMock.mockRejectedValue(new Error('Échec du parsing'))
     const { container } = render(<SpecPanel />)

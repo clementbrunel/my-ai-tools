@@ -13,8 +13,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
 /**
  * Extracts an Excel specification (.xlsx) as Markdown, the same output shape
@@ -29,8 +27,11 @@ import java.util.stream.StreamSupport;
  * with an as-yet-undefined heuristic (#260/#261).
  * <p>
  * Splitting a screen's own rows further into fields/business rules (the Word canevas'
- * "Eléments" table) is not attempted — the real column layout of a spec workbook needs
- * confirming against actual sample files first (see #267). Images are ignored for now, same as
+ * "Eléments" table) is not attempted — verified against a real sample workbook (#267), most
+ * "screen" sheets turn out to be a sparse outline (step/field hierarchy spread across many
+ * mostly-empty columns, occasionally a small real sub-table) rather than one clean table with a
+ * meaningful header row, so the GFM table this produces is a faithful but unglamorous rendering
+ * of that outline, not a redesign of it. Images are ignored for now, same as
  * {@link WordSpecParser} — they may get OCR'd later alongside the PowerPoint work.
  */
 @Component
@@ -58,30 +59,66 @@ public class ExcelSpecParser {
         }
     }
 
+    /**
+     * Reads every row across the same fixed column range (0 up to the sheet's widest row) rather
+     * than only the cells POI happens to have materialized for each particular row — a row
+     * that's missing a leading styled-but-empty cell would otherwise have its real content
+     * silently shift left relative to its siblings, so the same spreadsheet column would land in
+     * different output columns depending on the row (confirmed against a real spec workbook,
+     * #267: a field's row number sits in the same column for every field except where an earlier
+     * row happened to have fewer materialized cells). Blank spacer rows are dropped, and any
+     * column that comes out blank across every kept row is dropped too — it carries no
+     * information but would otherwise pad every remaining row with noise.
+     */
     private List<List<String>> sheetRows(Sheet sheet, DataFormatter formatter, FormulaEvaluator evaluator) {
+        int columnCount = 0;
+        for (Row row : sheet) {
+            columnCount = Math.max(columnCount, row.getLastCellNum());
+        }
         List<List<String>> rows = new ArrayList<>();
         for (Row row : sheet) {
-            List<String> cells = rowCells(row, formatter, evaluator);
-            if (!cells.isEmpty()) {
+            List<String> cells = rowCells(row, columnCount, formatter, evaluator);
+            if (!isBlank(cells)) {
                 rows.add(cells);
             }
         }
-        return rows;
+        return dropBlankColumns(rows);
     }
 
-    /**
-     * A sheet's rows are sparse by nature — styled-but-empty cells and trailing empty columns
-     * are routine — so trailing blank cells are trimmed off, and a row that comes out empty
-     * altogether is dropped rather than surfacing as an empty table row.
-     */
-    private List<String> rowCells(Row row, DataFormatter formatter, FormulaEvaluator evaluator) {
-        List<String> cells = StreamSupport.stream(row.spliterator(), false)
-                .map(cell -> cellText(cell, formatter, evaluator))
-                .collect(Collectors.toCollection(ArrayList::new));
-        while (!cells.isEmpty() && cells.get(cells.size() - 1).isBlank()) {
-            cells.remove(cells.size() - 1);
+    private List<String> rowCells(Row row, int columnCount, DataFormatter formatter, FormulaEvaluator evaluator) {
+        List<String> cells = new ArrayList<>(columnCount);
+        for (int i = 0; i < columnCount; i++) {
+            Cell cell = row.getCell(i, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL);
+            cells.add(cell == null ? "" : cellText(cell, formatter, evaluator));
         }
-        return cells.stream().allMatch(String::isBlank) ? List.of() : cells;
+        return cells;
+    }
+
+    private boolean isBlank(List<String> cells) {
+        return cells.stream().allMatch(String::isBlank);
+    }
+
+    private List<List<String>> dropBlankColumns(List<List<String>> rows) {
+        if (rows.isEmpty()) {
+            return rows;
+        }
+        List<Integer> keptColumns = new ArrayList<>();
+        int columnCount = rows.get(0).size();
+        for (int c = 0; c < columnCount; c++) {
+            int column = c;
+            if (rows.stream().anyMatch(row -> !row.get(column).isBlank())) {
+                keptColumns.add(c);
+            }
+        }
+        List<List<String>> compacted = new ArrayList<>(rows.size());
+        for (List<String> row : rows) {
+            List<String> compactedRow = new ArrayList<>(keptColumns.size());
+            for (int column : keptColumns) {
+                compactedRow.add(row.get(column));
+            }
+            compacted.add(compactedRow);
+        }
+        return compacted;
     }
 
     private String cellText(Cell cell, DataFormatter formatter, FormulaEvaluator evaluator) {
