@@ -28,6 +28,14 @@ export interface GitLabJxmlPreview {
   warnings: string[]
 }
 
+/** CodePanel's live GitLab source selection — persisted so a reload can replay it (see #326). */
+export interface GitlabSelection {
+  groupKey: string
+  projectId: string
+  entryPointPath: string
+  selectedPaths: string[]
+}
+
 /**
  * A persisted document's id and current markdown — returned by generation, merge, fetch, and
  * auto-save calls alike. The id is what the frontend keeps (in localStorage) to recover a

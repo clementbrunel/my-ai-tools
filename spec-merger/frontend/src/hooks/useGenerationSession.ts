@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { getDocument } from '../api/analysis'
+import type { GitlabSelection } from '../types'
 import { usePersistedDoc } from './usePersistedDoc'
 
 const STORAGE_KEY = 'spec-merger-session'
@@ -8,6 +9,7 @@ interface StoredSession {
   wordDocumentId?: string
   jxmlDocumentId?: string
   mergedDocumentId?: string
+  gitlabSelection?: GitlabSelection
 }
 
 function loadStoredSession(): StoredSession {
@@ -23,9 +25,10 @@ function loadStoredSession(): StoredSession {
 /**
  * The cross-cutting session state: the three document slots (Word spec, JXML spec, merge) and
  * their persisted ids, restored from localStorage on mount by fetching each document's latest
- * content back from the backend — see #263. GitLab source-selection fields (repo, entry point,
- * selected paths) are intentionally not restored yet; that needs CodePanel to re-run its GitLab
- * loading flow on mount and is tracked separately so this hook stays reviewable.
+ * content back from the backend — see #263. The GitLab source-selection fields (repo, entry
+ * point, selected paths) are persisted the same way; `initialGitlabSelection` is the value read
+ * from storage at mount, for CodePanel to replay its GitLab loading flow with, and
+ * `setGitlabSelection` is how CodePanel reports the selection back as it changes — see #326.
  */
 export function useGenerationSession() {
   const word = usePersistedDoc()
@@ -34,6 +37,9 @@ export function useGenerationSession() {
   const stored = useRef(loadStoredSession()).current
   const [restoring, setRestoring] = useState(
     Boolean(stored.wordDocumentId || stored.jxmlDocumentId || stored.mergedDocumentId),
+  )
+  const [gitlabSelection, setGitlabSelection] = useState<GitlabSelection | null>(
+    stored.gitlabSelection ?? null,
   )
 
   useEffect(() => {
@@ -76,13 +82,21 @@ export function useGenerationSession() {
       wordDocumentId: word.id ?? undefined,
       jxmlDocumentId: jxml.id ?? undefined,
       mergedDocumentId: merged.id ?? undefined,
+      gitlabSelection: gitlabSelection ?? undefined,
     }
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(session))
     } catch {
       // localStorage unavailable — the session just won't survive a reload.
     }
-  }, [word.id, jxml.id, merged.id, restoring])
+  }, [word.id, jxml.id, merged.id, gitlabSelection, restoring])
 
-  return { word, jxml, merged, restoring }
+  return {
+    word,
+    jxml,
+    merged,
+    restoring,
+    initialGitlabSelection: stored.gitlabSelection ?? null,
+    setGitlabSelection,
+  }
 }
