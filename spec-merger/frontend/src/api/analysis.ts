@@ -61,9 +61,7 @@ export async function previewGitlabJxml(params: GitlabPreviewParams): Promise<Gi
 export async function generateSpecFromWord(word?: File): Promise<SpecGenerationResult> {
   const form = new FormData()
   if (word) form.append('word', word)
-  const { data } = await client.post<SpecGenerationResult>('/spec/generate-from-word', form, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  })
+  const { data } = await client.post<SpecGenerationResult>('/spec/generate-from-word', form)
   return data
 }
 
@@ -74,9 +72,7 @@ export async function generateSpecFromWord(word?: File): Promise<SpecGenerationR
 export async function previewWord(word: File): Promise<string> {
   const form = new FormData()
   form.append('word', word)
-  const { data } = await client.post<WordExtractionPreview>('/spec/preview-word', form, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  })
+  const { data } = await client.post<WordExtractionPreview>('/spec/preview-word', form)
   return data.content
 }
 
