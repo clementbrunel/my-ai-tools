@@ -29,9 +29,16 @@ services:
       FRONTEND_URL: ${FRONTEND_URL}
       MISTRAL_BASE_URL: ${MISTRAL_BASE_URL:-}
       MISTRAL_MODEL: ${MISTRAL_MODEL:-}
-      MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
+      # Compose's ${VAR:-default} falls back on an empty .env value too (unlike Spring's own
+      # ${VAR:default} placeholders, which only fall back when the variable is absent) — an
+      # empty MISTRAL_API_KEY in .env must still reach the container as a non-blank value, or
+      # Spring AI's own startup validation crashes the app regardless of application.yml's
+      # default. See spec-merger/backend/.../application.yml for why "disabled" specifically.
+      MISTRAL_API_KEY: ${MISTRAL_API_KEY:-disabled}
+      MISTRAL_MOCK: ${MISTRAL_MOCK:-false}
       GITLAB_URL: ${GITLAB_URL:-}
       GITLAB_TOKEN: ${GITLAB_TOKEN:-}
+      GITLAB_MOCK: ${GITLAB_MOCK:-false}
       GITLAB_GROUP_1_KEY: ${GITLAB_GROUP_1_KEY:-}
       GITLAB_GROUP_1_PATH: ${GITLAB_GROUP_1_PATH:-}
       GITLAB_GROUP_1_TRANSLATION_PATTERNS: ${GITLAB_GROUP_1_TRANSLATION_PATTERNS:-}
