@@ -117,4 +117,27 @@ describe('SpecPanel', () => {
     expect(previewWordMock).toHaveBeenCalledWith(file)
     expect(await screen.findByText('Ecran de connexion')).toBeDefined()
   })
+
+  it('renders the preview as formatted markdown — headings and tables, not raw pipe characters', async () => {
+    previewWordMock.mockResolvedValue('## Ecran de connexion\n\n| Champ | Valeur |\n| --- | --- |\n| Login | jdupont |')
+    const { container } = render(<SpecPanel />)
+    const file = new File(['contenu'], 'spec.docx')
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement
+    await userEvent.upload(input, file)
+    await userEvent.click(screen.getByText('Prévisualiser le texte extrait'))
+    expect(await screen.findByRole('heading', { level: 2, name: 'Ecran de connexion' })).toBeDefined()
+    expect(screen.getByRole('cell', { name: 'jdupont' })).toBeDefined()
+  })
+
+  it('shows the raw markdown source via the Markdown brut tab', async () => {
+    previewWordMock.mockResolvedValue('| Champ | Valeur |\n| --- | --- |\n| Login | jdupont |')
+    const { container } = render(<SpecPanel />)
+    const file = new File(['contenu'], 'spec.docx')
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement
+    await userEvent.upload(input, file)
+    await userEvent.click(screen.getByText('Prévisualiser le texte extrait'))
+    await screen.findByRole('cell', { name: 'jdupont' })
+    await userEvent.click(screen.getByText('Markdown brut'))
+    expect(screen.getByText(/\| Champ \| Valeur \|/)).toBeDefined()
+  })
 })

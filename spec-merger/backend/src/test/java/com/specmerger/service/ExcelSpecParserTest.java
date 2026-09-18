@@ -18,7 +18,7 @@ class ExcelSpecParserTest {
     private final ExcelSpecParser parser = new ExcelSpecParser();
 
     @Test
-    void extractsASingleSheetAsASection() throws IOException {
+    void extractsASingleSheetAsAHeadingAndAGfmTable() throws IOException {
         byte[] bytes = workbook(workbook -> {
             Sheet sheet = workbook.createSheet("Informations générales");
             setRow(sheet.createRow(0), "Nom", "Démarche X");
@@ -26,9 +26,11 @@ class ExcelSpecParserTest {
 
         String text = parser.extractText(new ByteArrayInputStream(bytes));
 
-        assertThat(text).isEqualTo(String.join("\n",
+        assertThat(text).isEqualTo(String.join("\n\n",
                 "## Informations générales",
-                "Nom | Démarche X"));
+                String.join("\n",
+                        "| Nom | Démarche X |",
+                        "| --- | --- |")));
     }
 
     @Test
@@ -44,13 +46,52 @@ class ExcelSpecParserTest {
 
         String text = parser.extractText(new ByteArrayInputStream(bytes));
 
-        assertThat(text).isEqualTo(String.join("\n",
+        assertThat(text).isEqualTo(String.join("\n\n",
                 "## Général",
-                "Nom | Démarche X",
-                "",
+                String.join("\n",
+                        "| Nom | Démarche X |",
+                        "| --- | --- |"),
                 "## Ecran 1",
-                "Champ | Libellé",
-                "login | Identifiant"));
+                String.join("\n",
+                        "| Champ | Libellé |",
+                        "| --- | --- |",
+                        "| login | Identifiant |")));
+    }
+
+    @Test
+    void skipsRowsThatAreBlankOnceTrimmed() throws IOException {
+        byte[] bytes = workbook(workbook -> {
+            Sheet sheet = workbook.createSheet("Ecran 1");
+            setRow(sheet.createRow(0), "Champ", "Libellé");
+            setRow(sheet.createRow(1), "", "");
+            setRow(sheet.createRow(2), "login", "Identifiant");
+        });
+
+        String text = parser.extractText(new ByteArrayInputStream(bytes));
+
+        assertThat(text).isEqualTo(String.join("\n\n",
+                "## Ecran 1",
+                String.join("\n",
+                        "| Champ | Libellé |",
+                        "| --- | --- |",
+                        "| login | Identifiant |")));
+    }
+
+    @Test
+    void omitsSheetsThatHaveNoContent() throws IOException {
+        byte[] bytes = workbook(workbook -> {
+            workbook.createSheet("Notes");
+            Sheet screen = workbook.createSheet("Ecran 1");
+            setRow(screen.createRow(0), "Champ", "Libellé");
+        });
+
+        String text = parser.extractText(new ByteArrayInputStream(bytes));
+
+        assertThat(text).isEqualTo(String.join("\n\n",
+                "## Ecran 1",
+                String.join("\n",
+                        "| Champ | Libellé |",
+                        "| --- | --- |")));
     }
 
     @Test
@@ -68,45 +109,31 @@ class ExcelSpecParserTest {
 
         String text = parser.extractText(new ByteArrayInputStream(bytes));
 
-        assertThat(text).isEqualTo(String.join("\n",
-                "## Général 1", "Clé 1 | Valeur 1", "",
-                "## Général 2", "Clé 2 | Valeur 2", "",
-                "## Général 3", "Clé 3 | Valeur 3", "",
-                "## Général 4", "Clé 4 | Valeur 4", "",
-                "## Général 5", "Clé 5 | Valeur 5", "",
-                "## Ecran 1", "Champ | Libellé"));
+        assertThat(text).isEqualTo(String.join("\n\n",
+                "## Général 1", String.join("\n", "| Clé 1 | Valeur 1 |", "| --- | --- |"),
+                "## Général 2", String.join("\n", "| Clé 2 | Valeur 2 |", "| --- | --- |"),
+                "## Général 3", String.join("\n", "| Clé 3 | Valeur 3 |", "| --- | --- |"),
+                "## Général 4", String.join("\n", "| Clé 4 | Valeur 4 |", "| --- | --- |"),
+                "## Général 5", String.join("\n", "| Clé 5 | Valeur 5 |", "| --- | --- |"),
+                "## Ecran 1", String.join("\n", "| Champ | Libellé |", "| --- | --- |")));
     }
 
     @Test
-    void skipsRowsThatAreBlankOnceTrimmed() throws IOException {
+    void escapesPipesAndCollapsesInternalLineBreaksInCells() throws IOException {
         byte[] bytes = workbook(workbook -> {
             Sheet sheet = workbook.createSheet("Ecran 1");
-            setRow(sheet.createRow(0), "Champ", "Libellé");
-            setRow(sheet.createRow(1), "", "");
-            setRow(sheet.createRow(2), "login", "Identifiant");
+            setRow(sheet.createRow(0), "Champ", "Contrainte");
+            setRow(sheet.createRow(1), "login", "Requis | unique\nformat email");
         });
 
         String text = parser.extractText(new ByteArrayInputStream(bytes));
 
-        assertThat(text).isEqualTo(String.join("\n",
+        assertThat(text).isEqualTo(String.join("\n\n",
                 "## Ecran 1",
-                "Champ | Libellé",
-                "login | Identifiant"));
-    }
-
-    @Test
-    void omitsSheetsThatHaveNoContent() throws IOException {
-        byte[] bytes = workbook(workbook -> {
-            workbook.createSheet("Notes");
-            Sheet screen = workbook.createSheet("Ecran 1");
-            setRow(screen.createRow(0), "Champ", "Libellé");
-        });
-
-        String text = parser.extractText(new ByteArrayInputStream(bytes));
-
-        assertThat(text).isEqualTo(String.join("\n",
-                "## Ecran 1",
-                "Champ | Libellé"));
+                String.join("\n",
+                        "| Champ | Contrainte |",
+                        "| --- | --- |",
+                        "| login | Requis \\| unique format email |")));
     }
 
     @Test

@@ -24,7 +24,7 @@ class HumanSpecParserTest {
 
         String text = parser.extractText("spec.xlsx", new ByteArrayInputStream(bytes.toByteArray()));
 
-        assertThat(text).isEqualTo("## Ecran 1\nChamp");
+        assertThat(text).isEqualTo("## Ecran 1\n\n| Champ |\n| --- |");
     }
 
     @Test
@@ -37,7 +37,7 @@ class HumanSpecParserTest {
 
         String text = parser.extractText("SPEC.XLSX", new ByteArrayInputStream(bytes.toByteArray()));
 
-        assertThat(text).isEqualTo("## Ecran 1\nChamp");
+        assertThat(text).isEqualTo("## Ecran 1\n\n| Champ |\n| --- |");
     }
 
     @Test
