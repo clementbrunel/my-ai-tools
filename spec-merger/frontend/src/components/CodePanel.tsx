@@ -296,8 +296,9 @@ function CodePanel({ onCollapse, doc, initialGitlabSelection, onGitlabSelectionC
     <>
       {generating && <FullPageLoader message="Génération de la doc depuis le code source en cours…" />}
       <section className="card p-4 overflow-auto min-h-0 flex flex-col">
+        {/* Button before the title (mirrored from SpecPanel/MergePanel) so the collapse control
+            sits on the inner edge, next to the Fusion panel, on both sides symmetrically. */}
         <div className="flex items-center justify-between gap-2 mb-3">
-          <h2 className="field-label">Spec JXML</h2>
           {onCollapse && (
             <button
               type="button"
@@ -309,6 +310,7 @@ function CodePanel({ onCollapse, doc, initialGitlabSelection, onGitlabSelectionC
               ▶
             </button>
           )}
+          <h2 className="field-label">Spec JXML</h2>
         </div>
         <div className="flex mb-3 border-b border-[#dcdcde] text-sm shrink-0">
           {(['input', 'output'] as const).map((t) => (
