@@ -85,14 +85,14 @@ public class MistralVibeClient implements SpecResolutionAIProvider {
         Prompt prompt = buildJxmlSpecPrompt(resolvedJxml);
         log.debug("mistral-vibe generating spec from JXML: {} chars",
                 resolvedJxml == null ? 0 : resolvedJxml.length());
-        return call(prompt, () -> jxmlSpecFallback(resolvedJxml));
+        return call("generateSpecFromJxml", prompt, () -> jxmlSpecFallback(resolvedJxml));
     }
 
     @Override
     public String generateSpecFromWord(String wordText) {
         Prompt prompt = buildWordSpecPrompt(wordText);
         log.debug("mistral-vibe generating spec from Word: {} chars", wordText == null ? 0 : wordText.length());
-        return call(prompt, () -> wordSpecFallback(wordText));
+        return call("generateSpecFromWord", prompt, () -> wordSpecFallback(wordText));
     }
 
     @Override
@@ -101,18 +101,23 @@ public class MistralVibeClient implements SpecResolutionAIProvider {
         log.debug("mistral-vibe merging specs: word={} chars, jxml={} chars",
                 wordMarkdown == null ? 0 : wordMarkdown.length(),
                 jxmlMarkdown == null ? 0 : jxmlMarkdown.length());
-        return call(prompt, () -> mergeSpecsFallback(wordMarkdown, jxmlMarkdown));
+        return call("mergeSpecs", prompt, () -> mergeSpecsFallback(wordMarkdown, jxmlMarkdown));
     }
 
     /** Shared call/fallback path for the three prompt methods above: same retry-free error
-     * handling, only the prompt and the fallback message differ. */
-    private String call(Prompt prompt, Supplier<String> fallback) {
+     * handling and elapsed-time logging, only the prompt and the fallback message differ. */
+    private String call(String operation, Prompt prompt, Supplier<String> fallback) {
+        long start = System.currentTimeMillis();
         try {
             ChatResponse response = chatModel.call(prompt);
+            long elapsedMs = System.currentTimeMillis() - start;
+            log.info("mistral-vibe {} took {} ms", operation, elapsedMs);
             String content = response.getResult() != null ? response.getResult().getOutput().getText() : null;
             return content != null && !content.isBlank() ? escapeUnescapedPipesInTableCodeSpans(content) : fallback.get();
         } catch (Exception e) {
-            log.error("mistral-vibe call failed (api-key \"{}\"): {}", maskedApiKey(), e.getMessage(), e);
+            long elapsedMs = System.currentTimeMillis() - start;
+            log.error("mistral-vibe {} failed after {} ms (api-key \"{}\"): {}",
+                    operation, elapsedMs, maskedApiKey(), e.getMessage(), e);
             return fallback.get();
         }
     }

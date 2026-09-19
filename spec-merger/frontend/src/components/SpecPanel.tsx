@@ -79,9 +79,11 @@ function SpecPanel({ onCollapse, doc }: SpecPanelProps) {
   async function handleGenerate() {
     setError(null)
     setLoading(true)
+    const start = performance.now()
     try {
       onGenerated(await generateSpecFromWord(wordFile ?? undefined))
       setTab('output')
+      console.info(`Génération de la doc Word terminée en ${((performance.now() - start) / 1000).toFixed(1)} s`)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Échec de la génération — voir la console.')
       console.error(e)

@@ -258,11 +258,13 @@ function CodePanel({ onCollapse, doc, initialGitlabSelection, onGitlabSelectionC
   async function handleGenerate() {
     setError(null)
     setGenerating(true)
+    const start = performance.now()
     try {
       const params = currentGitlabPreviewParams()
       if (!params) return
       onGenerated(await generateSpecFromGitlab(params))
       setTab('output')
+      console.info(`Génération de la doc JXML terminée en ${((performance.now() - start) / 1000).toFixed(1)} s`)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Échec de la génération de la doc — voir la console.')
       console.error(e)

@@ -55,6 +55,7 @@ function MergePanel({ wordDoc, jxmlDoc, mergedDoc, gitlabSelection }: MergePanel
   async function runMerge() {
     setError(null)
     setLoading(true)
+    const start = performance.now()
     try {
       const result = await mergeSpecs(
         wordMarkdown,
@@ -64,6 +65,7 @@ function MergePanel({ wordDoc, jxmlDoc, mergedDoc, gitlabSelection }: MergePanel
         gitlabSelection ? JSON.stringify(gitlabSelection) : null,
       )
       onGenerated(result)
+      console.info(`Fusion des deux documentations terminée en ${((performance.now() - start) / 1000).toFixed(1)} s`)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Échec de la fusion — voir la console.')
       console.error(e)
