@@ -88,13 +88,18 @@ export async function previewWord(word: File): Promise<string> {
  * and spec generated server-side in one request, instead of chaining previewGitlabJxml into a
  * separate generation call from the frontend. `sessionId` is the frontend's current session, if
  * it already has one (e.g. a Word doc was generated first) — omitted to start a brand new session.
+ * `gitlabSelectionJson` (JSON-encoded, opaque to the backend), if given, is recorded on that
+ * session right away, so the current GitLab project selection survives a reload even before
+ * there's a second document to merge with.
  */
 export async function generateSpecFromGitlab(
   params: GitlabPreviewParams,
   sessionId?: string | null,
+  gitlabSelectionJson?: string | null,
 ): Promise<SpecGenerationResult> {
   const query = buildGitlabPreviewQuery(params)
   if (sessionId) query.set('sessionId', sessionId)
+  if (gitlabSelectionJson) query.set('gitlabSelectionJson', gitlabSelectionJson)
   const { data } = await client.get<SpecGenerationResult>('/gitlab/generate-spec', { params: query })
   return data
 }

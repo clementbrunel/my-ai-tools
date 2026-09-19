@@ -25,7 +25,7 @@ beforeEach(() => {
 function renderSpecPanel(onCollapse?: () => void, sessionId?: string | null) {
   function Harness() {
     const doc = usePersistedDoc()
-    return <SpecPanel onCollapse={onCollapse} doc={doc} sessionId={sessionId} />
+    return <SpecPanel onCollapse={onCollapse} doc={doc} claimSessionId={sessionId ? () => sessionId : undefined} />
   }
   return render(<Harness />)
 }

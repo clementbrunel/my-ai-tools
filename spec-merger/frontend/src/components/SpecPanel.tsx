@@ -8,9 +8,12 @@ import MarkdownView from './MarkdownView'
 interface SpecPanelProps {
   onCollapse?: () => void
   doc: PersistedDoc
-  /** The current session, if one already exists (e.g. a JXML doc was generated first) — passed
-   * along so this generation attaches to it instead of starting a new one. */
-  sessionId?: string | null
+  /** Returns the session id to send with this generation — reuses the current session if one
+   * already exists (e.g. a JXML doc was generated first), or mints a new one on first use.
+   * Minting it here rather than leaving the backend to do so once the request lands means a Word
+   * and a JXML generation fired close together always land on the same session — see
+   * useGenerationSession's claimSessionId. */
+  claimSessionId?: () => string
 }
 
 type Tab = 'input' | 'output'
@@ -36,7 +39,7 @@ function downloadMarkdown(markdown: string, filename: string) {
   URL.revokeObjectURL(url)
 }
 
-function SpecPanel({ onCollapse, doc, sessionId }: SpecPanelProps) {
+function SpecPanel({ onCollapse, doc, claimSessionId }: SpecPanelProps) {
   const { markdown, isDirty, saving, onGenerated, onEdit, save } = doc
   const [wordFile, setWordFile] = useState<File | null>(null)
   const [tab, setTab] = useState<Tab>('input')
@@ -83,7 +86,7 @@ function SpecPanel({ onCollapse, doc, sessionId }: SpecPanelProps) {
     setError(null)
     setLoading(true)
     try {
-      onGenerated(await generateSpecFromWord(wordFile ?? undefined, sessionId))
+      onGenerated(await generateSpecFromWord(wordFile ?? undefined, claimSessionId?.()))
       setTab('output')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Échec de la génération — voir la console.')

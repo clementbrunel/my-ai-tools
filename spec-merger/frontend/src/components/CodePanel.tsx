@@ -14,9 +14,12 @@ import XmlTreeView from './XmlTreeView'
 interface CodePanelProps {
   onCollapse?: () => void
   doc: PersistedDoc
-  /** The current session, if one already exists (e.g. a Word doc was generated first) — passed
-   * along so this generation attaches to it instead of starting a new one. */
-  sessionId?: string | null
+  /** Returns the session id to send with this generation — reuses the current session if one
+   * already exists (e.g. a Word doc was generated first), or mints a new one on first use.
+   * Minting it here rather than leaving the backend to do so once the request lands means a Word
+   * and a JXML generation fired close together always land on the same session — see
+   * useGenerationSession's claimSessionId. */
+  claimSessionId?: () => string
   /** The GitLab selection read from a persisted session at mount, replayed once below — see #326. */
   initialGitlabSelection?: GitlabSelection | null
   /** Called with the current selection whenever it changes, so the parent can persist it. */
@@ -35,7 +38,7 @@ function downloadMarkdown(markdown: string, filename: string) {
   URL.revokeObjectURL(url)
 }
 
-function CodePanel({ onCollapse, doc, sessionId, initialGitlabSelection, onGitlabSelectionChange }: CodePanelProps) {
+function CodePanel({ onCollapse, doc, claimSessionId, initialGitlabSelection, onGitlabSelectionChange }: CodePanelProps) {
   const { markdown, isDirty, saving, onGenerated, onEdit, save } = doc
   const [tab, setTab] = useState<Tab>('input')
   const [gitlabProjects, setGitlabProjects] = useState<GitLabProjectSummary[]>([])
@@ -264,7 +267,10 @@ function CodePanel({ onCollapse, doc, sessionId, initialGitlabSelection, onGitla
     try {
       const params = currentGitlabPreviewParams()
       if (!params) return
-      onGenerated(await generateSpecFromGitlab(params, sessionId))
+      // The selection is recorded on the session right away (not only at merge time) so it
+      // survives a reload even before there's a second document to merge with — see #326's
+      // follow-up. `params` already has exactly the GitlabSelection shape.
+      onGenerated(await generateSpecFromGitlab(params, claimSessionId?.(), JSON.stringify(params)))
       setTab('output')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Échec de la génération de la doc — voir la console.')

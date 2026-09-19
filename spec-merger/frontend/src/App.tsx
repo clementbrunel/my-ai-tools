@@ -10,8 +10,17 @@ import { importSession, resetSession, useGenerationSession } from './hooks/useGe
 function App() {
   const [specCollapsed, setSpecCollapsed] = useState(false)
   const [codeCollapsed, setCodeCollapsed] = useState(false)
-  const { word, jxml, merged, sessionId, restoring, gitlabSelection, initialGitlabSelection, setGitlabSelection } =
-    useGenerationSession()
+  const {
+    word,
+    jxml,
+    merged,
+    sessionId,
+    claimSessionId,
+    restoring,
+    gitlabSelection,
+    initialGitlabSelection,
+    setGitlabSelection,
+  } = useGenerationSession()
 
   // Retracted side panels free up their width so the merge panel (and the
   // remaining side panel, if any) can grow from a third of the screen to a half.
@@ -42,7 +51,7 @@ function App() {
             {specCollapsed ? (
               <CollapsedPanel label="Spec Word / Excel" icon="▶" onExpand={() => setSpecCollapsed(false)} />
             ) : (
-              <SpecPanel onCollapse={() => setSpecCollapsed(true)} doc={word} sessionId={sessionId} />
+              <SpecPanel onCollapse={() => setSpecCollapsed(true)} doc={word} claimSessionId={claimSessionId} />
             )}
 
             <MergePanel
@@ -59,7 +68,7 @@ function App() {
               <CodePanel
                 onCollapse={() => setCodeCollapsed(true)}
                 doc={jxml}
-                sessionId={sessionId}
+                claimSessionId={claimSessionId}
                 initialGitlabSelection={initialGitlabSelection}
                 onGitlabSelectionChange={setGitlabSelection}
               />

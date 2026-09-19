@@ -60,7 +60,7 @@ function renderCodePanel(
       <CodePanel
         onCollapse={onCollapse}
         doc={doc}
-        sessionId={options?.sessionId}
+        claimSessionId={options?.sessionId ? () => options.sessionId as string : undefined}
         initialGitlabSelection={options?.initialGitlabSelection}
         onGitlabSelectionChange={options?.onGitlabSelectionChange}
       />
@@ -149,7 +149,7 @@ describe('CodePanel', () => {
     expect(screen.getByText('Générer la doc')).toBeDisabled()
   })
 
-  it('generates the spec from the GitLab entry point once one is selected, passing the current session id through', async () => {
+  it('generates the spec from the GitLab entry point once one is selected, passing the current session id and selection through', async () => {
     listGitlabProjectsMock.mockResolvedValue(projects)
     listGitlabSourcesMock.mockResolvedValue(singleEntryPointListing)
     renderCodePanel(undefined, { sessionId: 'session-1' })
@@ -159,14 +159,16 @@ describe('CodePanel', () => {
     await screen.findByText('demarche_un')
     generateSpecFromGitlabMock.mockResolvedValue({ id: 'jxml-1', markdown: '# Doc GitLab', sessionId: 'session-1' })
     await userEvent.click(screen.getByText('Générer la doc'))
+    const expectedSelection = {
+      groupKey: 'jway-forms',
+      projectId: '1',
+      entryPointPath: 'forms/demarche_un.jxml',
+      selectedPaths: ['forms/kyc.jxml', 'forms/claims.jxml'],
+    }
     expect(generateSpecFromGitlabMock).toHaveBeenCalledWith(
-      {
-        groupKey: 'jway-forms',
-        projectId: '1',
-        entryPointPath: 'forms/demarche_un.jxml',
-        selectedPaths: ['forms/kyc.jxml', 'forms/claims.jxml'],
-      },
+      expectedSelection,
       'session-1',
+      JSON.stringify(expectedSelection),
     )
     expect(await screen.findByRole('heading', { level: 1, name: 'Doc GitLab' })).toBeDefined()
   })

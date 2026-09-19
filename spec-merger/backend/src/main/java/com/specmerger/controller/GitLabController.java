@@ -65,19 +65,22 @@ public class GitLabController {
      * spec in the same request — one round trip instead of the frontend chaining {@code /preview}
      * into a separate generation call. The result is persisted (see {@link GeneratedDocumentService})
      * and attached to {@code sessionId}'s session, if the frontend already has one (e.g. a Word doc
-     * was generated first) — omitted to start a brand new session.
+     * was generated first) — omitted to start a brand new session. {@code gitlabSelectionJson}, the
+     * current GitLab project selection (opaque to the backend), is recorded on that session right
+     * away, so it survives a reload even before there's a second document to merge with.
      */
     @GetMapping("/generate-spec")
     public SpecGenerationResult generateSpec(@RequestParam String groupKey, @RequestParam String projectId,
             @RequestParam String entryPointPath,
             @RequestParam(required = false) List<String> selectedPaths,
             @RequestParam(required = false) Boolean selectedPathsProvided,
-            @RequestParam(required = false) UUID sessionId) throws GitLabApiException, IOException {
+            @RequestParam(required = false) UUID sessionId,
+            @RequestParam(required = false) String gitlabSelectionJson) throws GitLabApiException, IOException {
         GitLabSourceService.JxmlPreviewResult resolved =
                 resolveJxml(groupKey, projectId, entryPointPath, selectedPaths, selectedPathsProvided);
         String markdown = aiProvider.generateSpecFromJxml(resolved.content());
         GeneratedDocument document = documentService.createJxml(markdown);
-        UUID resultingSessionId = sessionService.attachJxmlDocument(sessionId, document.getId());
+        UUID resultingSessionId = sessionService.attachJxmlDocument(sessionId, document.getId(), gitlabSelectionJson);
         return new SpecGenerationResult(document.getId(), markdown, resultingSessionId);
     }
 

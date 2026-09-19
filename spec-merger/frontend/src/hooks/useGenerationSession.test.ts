@@ -112,6 +112,49 @@ describe('useGenerationSession', () => {
     expect(result.current.jxml.id).toBe('jxml-1')
   })
 
+  it('claimSessionId mints a new id once and returns the same one on later calls', () => {
+    const { result } = renderHook(() => useGenerationSession())
+
+    let claimed1 = ''
+    let claimed2 = ''
+    act(() => {
+      claimed1 = result.current.claimSessionId()
+      claimed2 = result.current.claimSessionId()
+    })
+
+    expect(claimed1).toBe(claimed2)
+    expect(result.current.sessionId).toBe(claimed1)
+  })
+
+  it('claimSessionId lets two near-simultaneous first generations share one session id', () => {
+    // Regression test: Word and JXML generation used to each omit sessionId until their own
+    // response came back, so firing both before either resolved raced into two separate backend
+    // sessions. claimSessionId mints the id up front (synchronously) so both requests carry it.
+    const { result } = renderHook(() => useGenerationSession())
+
+    let wordSessionId = ''
+    let jxmlSessionId = ''
+    act(() => {
+      wordSessionId = result.current.claimSessionId()
+      jxmlSessionId = result.current.claimSessionId()
+    })
+
+    expect(wordSessionId).toBe(jxmlSessionId)
+  })
+
+  it('claimSessionId reuses the session id already known from a prior generation', () => {
+    const { result } = renderHook(() => useGenerationSession())
+
+    act(() => result.current.word.onGenerated({ id: 'word-1', markdown: '# Word', sessionId: 'session-1' }))
+
+    let claimed = ''
+    act(() => {
+      claimed = result.current.claimSessionId()
+    })
+
+    expect(claimed).toBe('session-1')
+  })
+
   it('exposes a stored GitLab selection as initialGitlabSelection once restored', async () => {
     localStorage.setItem(STORAGE_KEY, 'session-1')
     const gitlabSelection = {

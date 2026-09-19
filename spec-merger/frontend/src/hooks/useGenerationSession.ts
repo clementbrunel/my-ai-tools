@@ -118,13 +118,39 @@ export function useGenerationSession() {
     storeSessionId(sessionId)
   }, [sessionId])
 
+  // Mirrors `sessionId` but as a ref, so `claimSessionId` below can mint (and immediately see) a
+  // new id synchronously, without waiting for React to commit the corresponding state update —
+  // see `claimSessionId`'s own comment for why that matters.
+  const sessionIdRef = useRef(sessionId)
+
   /** Wraps a document slot's onGenerated so every generation also tracks the session it belongs
    * to — the id the frontend actually keeps (see storeSessionId above). */
   function trackingOnGenerated(doc: typeof word) {
     return (result: GeneratedDocWithSession) => {
       doc.onGenerated(result)
-      if (result.sessionId) setSessionId(result.sessionId)
+      if (result.sessionId) {
+        sessionIdRef.current = result.sessionId
+        setSessionId(result.sessionId)
+      }
     }
+  }
+
+  /**
+   * Returns the session id to send with a Word or JXML generation request, minting one
+   * client-side on first use instead of leaving the backend to mint one once the request lands.
+   * This matters because two generations (Word and JXML) can be fired one right after the other,
+   * before either response comes back — if both requests went out with no session id, the backend
+   * would create two separate sessions and whichever response arrives last would silently win,
+   * orphaning the other document. Claiming the id here — a synchronous ref read-then-write, not
+   * React state — means the second call sees the first's claim immediately, so both requests
+   * always carry the same id and land on the same session.
+   */
+  function claimSessionId(): string {
+    if (!sessionIdRef.current) {
+      sessionIdRef.current = crypto.randomUUID()
+      setSessionId(sessionIdRef.current)
+    }
+    return sessionIdRef.current
   }
 
   return {
@@ -136,5 +162,6 @@ export function useGenerationSession() {
     initialGitlabSelection: initialGitlabSelection.current,
     setGitlabSelection,
     sessionId,
+    claimSessionId,
   }
 }

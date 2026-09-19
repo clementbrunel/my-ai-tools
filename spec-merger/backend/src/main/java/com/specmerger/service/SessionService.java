@@ -25,22 +25,34 @@ public class SessionService {
     }
 
     /**
-     * Attaches a freshly generated Word document to a session, creating that session first if
-     * {@code sessionId} is null — the case for the very first generation of a brand new session.
-     * Returns the session's id either way, for the frontend to keep.
+     * Attaches a freshly generated Word document to a session. {@code sessionId} is null for the
+     * very first generation of a brand new session — the frontend now pre-allocates that id
+     * client-side (rather than leaving the backend to mint one) precisely so that a Word
+     * generation and a JXML generation fired at the same time, before either has returned, both
+     * carry the same id and land on the same session instead of racing into two separate ones; a
+     * null id here only still happens for a caller that doesn't pre-allocate. Either way, if the
+     * given id doesn't exist yet, it's created with exactly that id — never a different one — so
+     * the caller's id is always the one that ends up owning the session. Returns the session's id
+     * either way, for the frontend to keep.
      */
     @Transactional
     public UUID attachWordDocument(UUID sessionId, UUID wordDocumentId) {
-        Session session = sessionOrNew(sessionId);
+        Session session = findOrCreate(sessionId);
         session.setWordDocumentId(wordDocumentId);
         return sessionRepository.save(session).getId();
     }
 
-    /** Same as {@link #attachWordDocument}, for the JXML slot. */
+    /** Same as {@link #attachWordDocument}, for the JXML slot — {@code gitlabSelectionJson}, if
+     * the frontend has a GitLab project selected, is recorded on the session right away (rather
+     * than only once a merge happens) so it survives a reload even before there's anything to
+     * merge with; null leaves the session's existing value (if any) untouched. */
     @Transactional
-    public UUID attachJxmlDocument(UUID sessionId, UUID jxmlDocumentId) {
-        Session session = sessionOrNew(sessionId);
+    public UUID attachJxmlDocument(UUID sessionId, UUID jxmlDocumentId, String gitlabSelectionJson) {
+        Session session = findOrCreate(sessionId);
         session.setJxmlDocumentId(jxmlDocumentId);
+        if (gitlabSelectionJson != null) {
+            session.setGitlabSelectionJson(gitlabSelectionJson);
+        }
         return sessionRepository.save(session).getId();
     }
 
@@ -51,8 +63,7 @@ public class SessionService {
      */
     @Transactional
     public UUID attachMergedDocument(UUID sessionId, UUID mergedDocumentId, String gitlabSelectionJson) {
-        Session session = sessionRepository.findById(sessionId)
-                .orElseThrow(() -> new IllegalArgumentException("Session introuvable: " + sessionId));
+        Session session = requireExisting(sessionId);
         session.setMergedDocumentId(mergedDocumentId);
         session.setGitlabSelectionJson(gitlabSelectionJson);
         return sessionRepository.save(session).getId();
@@ -64,8 +75,7 @@ public class SessionService {
      */
     @Transactional(readOnly = true)
     public SessionExport getSession(UUID sessionId) {
-        Session session = sessionRepository.findById(sessionId)
-                .orElseThrow(() -> new IllegalArgumentException("Session introuvable: " + sessionId));
+        Session session = requireExisting(sessionId);
         String wordMarkdown = session.getWordDocumentId() == null ? null
                 : documentService.getLatestContent(session.getWordDocumentId());
         String jxmlMarkdown = session.getJxmlDocumentId() == null ? null
@@ -77,11 +87,28 @@ public class SessionService {
                 session.getGitlabSelectionJson());
     }
 
-    private Session sessionOrNew(UUID sessionId) {
+    /** A null or unknown id is always a caller mistake here — an existing session is required. */
+    private Session requireExisting(UUID sessionId) {
         if (sessionId == null) {
-            return new Session();
+            throw new IllegalArgumentException("Session introuvable: null");
         }
         return sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new IllegalArgumentException("Session introuvable: " + sessionId));
+    }
+
+    /**
+     * A null id creates a brand new session (with a fresh random id). A non-null id that doesn't
+     * exist yet is created WITH that exact id, rather than rejected — see {@link
+     * #attachWordDocument}'s note on why the frontend pre-allocates one.
+     */
+    private Session findOrCreate(UUID sessionId) {
+        if (sessionId == null) {
+            return new Session();
+        }
+        return sessionRepository.findById(sessionId).orElseGet(() -> {
+            Session session = new Session();
+            session.setId(sessionId);
+            return session;
+        });
     }
 }
