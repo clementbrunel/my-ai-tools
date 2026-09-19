@@ -49,6 +49,7 @@ beforeEach(() => {
 function renderCodePanel(
   onCollapse?: () => void,
   options?: {
+    sessionId?: string | null
     initialGitlabSelection?: GitlabSelection | null
     onGitlabSelectionChange?: (selection: GitlabSelection | null) => void
   },
@@ -59,6 +60,7 @@ function renderCodePanel(
       <CodePanel
         onCollapse={onCollapse}
         doc={doc}
+        sessionId={options?.sessionId}
         initialGitlabSelection={options?.initialGitlabSelection}
         onGitlabSelectionChange={options?.onGitlabSelectionChange}
       />
@@ -147,16 +149,25 @@ describe('CodePanel', () => {
     expect(screen.getByText('Générer la doc')).toBeDisabled()
   })
 
-  it('generates the spec from the GitLab entry point once one is selected', async () => {
-    await goToGitlabModeWithProject()
-    generateSpecFromGitlabMock.mockResolvedValue({ id: 'jxml-1', markdown: '# Doc GitLab' })
+  it('generates the spec from the GitLab entry point once one is selected, passing the current session id through', async () => {
+    listGitlabProjectsMock.mockResolvedValue(projects)
+    listGitlabSourcesMock.mockResolvedValue(singleEntryPointListing)
+    renderCodePanel(undefined, { sessionId: 'session-1' })
+    await userEvent.click(screen.getByText('Charger les projets GitLab'))
+    await screen.findByRole('combobox')
+    await userEvent.selectOptions(screen.getByRole('combobox'), '1')
+    await screen.findByText('demarche_un')
+    generateSpecFromGitlabMock.mockResolvedValue({ id: 'jxml-1', markdown: '# Doc GitLab', sessionId: 'session-1' })
     await userEvent.click(screen.getByText('Générer la doc'))
-    expect(generateSpecFromGitlabMock).toHaveBeenCalledWith({
-      groupKey: 'jway-forms',
-      projectId: '1',
-      entryPointPath: 'forms/demarche_un.jxml',
-      selectedPaths: ['forms/kyc.jxml', 'forms/claims.jxml'],
-    })
+    expect(generateSpecFromGitlabMock).toHaveBeenCalledWith(
+      {
+        groupKey: 'jway-forms',
+        projectId: '1',
+        entryPointPath: 'forms/demarche_un.jxml',
+        selectedPaths: ['forms/kyc.jxml', 'forms/claims.jxml'],
+      },
+      'session-1',
+    )
     expect(await screen.findByRole('heading', { level: 1, name: 'Doc GitLab' })).toBeDefined()
   })
 
@@ -176,7 +187,7 @@ describe('CodePanel', () => {
 
   it('shows no save button until the generated doc is edited', async () => {
     await goToGitlabModeWithProject()
-    generateSpecFromGitlabMock.mockResolvedValue({ id: 'jxml-1', markdown: '# Doc GitLab' })
+    generateSpecFromGitlabMock.mockResolvedValue({ id: 'jxml-1', markdown: '# Doc GitLab', sessionId: 'session-1' })
     await userEvent.click(screen.getByText('Générer la doc'))
     await screen.findByRole('heading', { level: 1, name: 'Doc GitLab' })
 
@@ -185,8 +196,8 @@ describe('CodePanel', () => {
 
   it('shows a save button after editing, and saves on click without any debounce', async () => {
     await goToGitlabModeWithProject()
-    generateSpecFromGitlabMock.mockResolvedValue({ id: 'jxml-1', markdown: '# Doc GitLab' })
-    updateDocumentMock.mockResolvedValue({ id: 'jxml-1', markdown: '# Doc éditée' })
+    generateSpecFromGitlabMock.mockResolvedValue({ id: 'jxml-1', markdown: '# Doc GitLab', sessionId: 'session-1' })
+    updateDocumentMock.mockResolvedValue({ id: 'jxml-1', markdown: '# Doc éditée', sessionId: null })
     await userEvent.click(screen.getByText('Générer la doc'))
     await screen.findByRole('heading', { level: 1, name: 'Doc GitLab' })
 
@@ -204,7 +215,7 @@ describe('CodePanel', () => {
 
   it('shows an error message when saving fails', async () => {
     await goToGitlabModeWithProject()
-    generateSpecFromGitlabMock.mockResolvedValue({ id: 'jxml-1', markdown: '# Doc GitLab' })
+    generateSpecFromGitlabMock.mockResolvedValue({ id: 'jxml-1', markdown: '# Doc GitLab', sessionId: 'session-1' })
     updateDocumentMock.mockRejectedValue(new Error("Échec de l'enregistrement"))
     await userEvent.click(screen.getByText('Générer la doc'))
     await screen.findByRole('heading', { level: 1, name: 'Doc GitLab' })

@@ -10,7 +10,7 @@ import { importSession, resetSession, useGenerationSession } from './hooks/useGe
 function App() {
   const [specCollapsed, setSpecCollapsed] = useState(false)
   const [codeCollapsed, setCodeCollapsed] = useState(false)
-  const { word, jxml, merged, restoring, gitlabSelection, initialGitlabSelection, setGitlabSelection } =
+  const { word, jxml, merged, sessionId, restoring, gitlabSelection, initialGitlabSelection, setGitlabSelection } =
     useGenerationSession()
 
   // Retracted side panels free up their width so the merge panel (and the
@@ -28,34 +28,45 @@ function App() {
     <div className="h-screen flex flex-col overflow-hidden">
       {restoring && <FullPageLoader message="Récupération de la session en cours…" />}
       <Header
-        currentSessionId={merged.id ?? jxml.id ?? word.id}
+        activeSessionId={sessionId}
         hasSession={Boolean(word.id || jxml.id || merged.id)}
         onImportSession={importSession}
         onReset={resetSession}
       />
 
-      <div className="flex-1 min-h-0 flex flex-col overflow-y-auto">
-        <div className={`grid grid-cols-1 ${gridColsClass} gap-3 p-3 flex-1 min-h-0`}>
-          {specCollapsed ? (
-            <CollapsedPanel label="Spec Word / Excel" icon="▶" onExpand={() => setSpecCollapsed(false)} />
-          ) : (
-            <SpecPanel onCollapse={() => setSpecCollapsed(true)} doc={word} />
-          )}
+      {/* Not rendered until any restore has finished, so CodePanel's initialGitlabSelection is
+          already final at its first mount instead of arriving asynchronously after. */}
+      {!restoring && (
+        <div className="flex-1 min-h-0 flex flex-col overflow-y-auto">
+          <div className={`grid grid-cols-1 ${gridColsClass} gap-3 p-3 flex-1 min-h-0`}>
+            {specCollapsed ? (
+              <CollapsedPanel label="Spec Word / Excel" icon="▶" onExpand={() => setSpecCollapsed(false)} />
+            ) : (
+              <SpecPanel onCollapse={() => setSpecCollapsed(true)} doc={word} sessionId={sessionId} />
+            )}
 
-          <MergePanel wordDoc={word} jxmlDoc={jxml} mergedDoc={merged} gitlabSelection={gitlabSelection} />
-
-          {codeCollapsed ? (
-            <CollapsedPanel label="Spec JXML" icon="◀" onExpand={() => setCodeCollapsed(false)} />
-          ) : (
-            <CodePanel
-              onCollapse={() => setCodeCollapsed(true)}
-              doc={jxml}
-              initialGitlabSelection={initialGitlabSelection}
-              onGitlabSelectionChange={setGitlabSelection}
+            <MergePanel
+              wordDoc={word}
+              jxmlDoc={jxml}
+              mergedDoc={merged}
+              sessionId={sessionId}
+              gitlabSelection={gitlabSelection}
             />
-          )}
+
+            {codeCollapsed ? (
+              <CollapsedPanel label="Spec JXML" icon="◀" onExpand={() => setCodeCollapsed(false)} />
+            ) : (
+              <CodePanel
+                onCollapse={() => setCodeCollapsed(true)}
+                doc={jxml}
+                sessionId={sessionId}
+                initialGitlabSelection={initialGitlabSelection}
+                onGitlabSelectionChange={setGitlabSelection}
+              />
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }

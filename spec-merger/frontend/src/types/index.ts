@@ -37,13 +37,16 @@ export interface GitlabSelection {
 }
 
 /**
- * A persisted document's id and current markdown — returned by generation, merge, fetch, and
- * auto-save calls alike. The id is what the frontend keeps (in localStorage) to recover a
- * session, instead of holding the markdown itself across reloads.
+ * A persisted document's id and current markdown — returned by generation, merge, and auto-save
+ * calls alike. `sessionId` is the session (created on the first generation of a session, unchanged
+ * after) it was attached to — what the frontend actually keeps (in localStorage) to recover a
+ * session, instead of holding the markdown itself across reloads or juggling several document ids.
+ * Only an auto-save (which doesn't touch the session) leaves it null.
  */
 export interface SpecGenerationResult {
   id: string
   markdown: string
+  sessionId: string | null
 }
 
 /** The raw text extracted from an uploaded Word/.doc/.xlsx spec, exactly as it will be sent to the model. */
@@ -52,18 +55,19 @@ export interface WordExtractionPreview {
 }
 
 /**
- * Everything needed to recover a session from another machine, fetched by just one of its
- * documents' id — a finished merge, or a lone Word/JXML generation with no counterpart to merge
- * with yet. Backs the navbar's session export/import. All three slots are nullable: only the
- * fetched document's own slot (and, for a merge, its two source documents — best-effort, null
- * when the merge wasn't recorded with them or the source document is gone) is filled in.
+ * A session's id and the current content of whichever of its three slots (Word spec, JXML spec,
+ * their merge) exist so far, plus the GitLab project selection it carries, if any — fetched by
+ * just the session id. Backs the navbar's session export/import. An unfinished session (no merge
+ * yet, or only one of the two source docs generated) comes back the same way, with the missing
+ * slots simply left null.
  */
 export interface SessionExport {
-  mergedDocumentId: string | null
-  mergedMarkdown: string | null
+  sessionId: string
   wordDocumentId: string | null
   wordMarkdown: string | null
   jxmlDocumentId: string | null
   jxmlMarkdown: string | null
+  mergedDocumentId: string | null
+  mergedMarkdown: string | null
   gitlabSelectionJson: string | null
 }

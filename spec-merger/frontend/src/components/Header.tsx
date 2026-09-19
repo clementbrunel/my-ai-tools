@@ -2,33 +2,32 @@ import { useEffect, useState } from 'react'
 import ConfirmDialog from './ConfirmDialog'
 
 interface HeaderProps {
-  /** The current session's id, from whichever document slot exists — a finished merge, or a lone
-   * Word/JXML generation with no counterpart to merge with yet — kept in sync with the
-   * session-id field below (including right after `onImportSession` reloads the page with a
-   * different one). */
-  currentSessionId: string | null
+  /** The current session's id, created server-side on the first generation of a new session —
+   * kept in sync with the session-id field below (including right after `onImportSession`
+   * reloads the page with a different one). */
+  activeSessionId: string | null
   /** Whether any of the 3 document slots currently holds something — shows "Nouvelle session". */
   hasSession: boolean
   /** Loads a session (its documents + the GitLab project selection, if any) exported from
-   * another machine, given any one of its document ids. Throws on failure. */
-  onImportSession: (documentId: string) => Promise<void>
+   * another machine, given its id. Throws on failure. */
+  onImportSession: (sessionId: string) => Promise<void>
   /** Clears the current session for a clean slate — see `resetSession`. */
   onReset: () => void
 }
 
-function Header({ currentSessionId, hasSession, onImportSession, onReset }: HeaderProps) {
-  // Always mirrors currentSessionId — a new generation/merge, or loading a different session
+function Header({ activeSessionId, hasSession, onImportSession, onReset }: HeaderProps) {
+  // Always mirrors activeSessionId — a new generation/merge, or loading a different session
   // (which reloads the page with the new id), both flow back here — but stays freely editable so
   // the user can paste a different session's id to load in its place.
-  const [sessionId, setSessionId] = useState(currentSessionId ?? '')
+  const [sessionId, setSessionId] = useState(activeSessionId ?? '')
   const [copied, setCopied] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [confirmingReset, setConfirmingReset] = useState(false)
 
   useEffect(() => {
-    setSessionId(currentSessionId ?? '')
-  }, [currentSessionId])
+    setSessionId(activeSessionId ?? '')
+  }, [activeSessionId])
 
   async function handleCopy() {
     const id = sessionId.trim()
@@ -46,7 +45,7 @@ function Header({ currentSessionId, hasSession, onImportSession, onReset }: Head
   async function handleLoad() {
     const id = sessionId.trim()
     // Also guards Enter-key submission, which the disabled submit button alone doesn't block.
-    if (!id || id === (currentSessionId ?? '')) return
+    if (!id || id === (activeSessionId ?? '')) return
     setError(null)
     setLoading(true)
     try {
@@ -105,7 +104,7 @@ function Header({ currentSessionId, hasSession, onImportSession, onReset }: Head
           <button
             type="submit"
             className="text-xs text-gray-300 hover:text-white border border-white/20 hover:border-white/40 rounded px-2 py-1.5 transition-colors disabled:opacity-50"
-            disabled={loading || !sessionId.trim() || sessionId.trim() === (currentSessionId ?? '')}
+            disabled={loading || !sessionId.trim() || sessionId.trim() === (activeSessionId ?? '')}
           >
             {loading ? 'Chargement…' : 'Charger'}
           </button>

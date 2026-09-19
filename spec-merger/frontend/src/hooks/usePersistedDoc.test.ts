@@ -56,7 +56,7 @@ describe('usePersistedDoc', () => {
   })
 
   it('save persists the current markdown and clears the dirty flag', async () => {
-    updateDocumentMock.mockResolvedValue({ id: 'doc-1', markdown: '# Doc édité' })
+    updateDocumentMock.mockResolvedValue({ id: 'doc-1', markdown: '# Doc édité', sessionId: null })
     const { result } = renderHook(() => usePersistedDoc())
     act(() => result.current.onGenerated({ id: 'doc-1', markdown: '# Doc' }))
     act(() => result.current.onEdit('# Doc édité'))
@@ -68,7 +68,7 @@ describe('usePersistedDoc', () => {
   })
 
   it('sets saving while the save call is in flight', async () => {
-    let resolveSave: (result: { id: string; markdown: string }) => void = () => {}
+    let resolveSave: (result: { id: string; markdown: string; sessionId: string | null }) => void = () => {}
     updateDocumentMock.mockReturnValue(new Promise((resolve) => { resolveSave = resolve }))
     const { result } = renderHook(() => usePersistedDoc())
     act(() => result.current.onGenerated({ id: 'doc-1', markdown: '# Doc' }))
@@ -81,7 +81,7 @@ describe('usePersistedDoc', () => {
     expect(result.current.saving).toBe(true)
 
     await act(async () => {
-      resolveSave({ id: 'doc-1', markdown: '# Doc édité' })
+      resolveSave({ id: 'doc-1', markdown: '# Doc édité', sessionId: null })
       await savePromise
     })
     expect(result.current.saving).toBe(false)

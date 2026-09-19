@@ -6,10 +6,12 @@ import com.specmerger.dto.GitLabSourceListing;
 import com.specmerger.dto.SpecGenerationResult;
 import com.specmerger.entity.GeneratedDocument;
 import com.specmerger.service.GeneratedDocumentService;
+import com.specmerger.service.SessionService;
 import com.specmerger.service.ai.SpecResolutionAIProvider;
 import com.specmerger.service.gitlab.GitLabSourceService;
 import java.io.IOException;
 import java.util.List;
+import java.util.UUID;
 import org.gitlab4j.api.GitLabApiException;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -23,12 +25,14 @@ public class GitLabController {
     private final GitLabSourceService gitLabSourceService;
     private final SpecResolutionAIProvider aiProvider;
     private final GeneratedDocumentService documentService;
+    private final SessionService sessionService;
 
     public GitLabController(GitLabSourceService gitLabSourceService, SpecResolutionAIProvider aiProvider,
-                             GeneratedDocumentService documentService) {
+                             GeneratedDocumentService documentService, SessionService sessionService) {
         this.gitLabSourceService = gitLabSourceService;
         this.aiProvider = aiProvider;
         this.documentService = documentService;
+        this.sessionService = sessionService;
     }
 
     @GetMapping("/projects")
@@ -59,18 +63,22 @@ public class GitLabController {
     /**
      * Resolves the entry point's JXML (same as {@link #previewJxml}) and generates its markdown
      * spec in the same request — one round trip instead of the frontend chaining {@code /preview}
-     * into a separate generation call. The result is persisted (see {@link GeneratedDocumentService}).
+     * into a separate generation call. The result is persisted (see {@link GeneratedDocumentService})
+     * and attached to {@code sessionId}'s session, if the frontend already has one (e.g. a Word doc
+     * was generated first) — omitted to start a brand new session.
      */
     @GetMapping("/generate-spec")
     public SpecGenerationResult generateSpec(@RequestParam String groupKey, @RequestParam String projectId,
             @RequestParam String entryPointPath,
             @RequestParam(required = false) List<String> selectedPaths,
-            @RequestParam(required = false) Boolean selectedPathsProvided) throws GitLabApiException, IOException {
+            @RequestParam(required = false) Boolean selectedPathsProvided,
+            @RequestParam(required = false) UUID sessionId) throws GitLabApiException, IOException {
         GitLabSourceService.JxmlPreviewResult resolved =
                 resolveJxml(groupKey, projectId, entryPointPath, selectedPaths, selectedPathsProvided);
         String markdown = aiProvider.generateSpecFromJxml(resolved.content());
         GeneratedDocument document = documentService.createJxml(markdown);
-        return new SpecGenerationResult(document.getId(), markdown);
+        UUID resultingSessionId = sessionService.attachJxmlDocument(sessionId, document.getId());
+        return new SpecGenerationResult(document.getId(), markdown, resultingSessionId);
     }
 
     private GitLabSourceService.JxmlPreviewResult resolveJxml(String groupKey, String projectId,

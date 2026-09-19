@@ -56,11 +56,14 @@ export async function previewGitlabJxml(params: GitlabPreviewParams): Promise<Gi
  * The markdown spec the model generates from the Word/Excel spec alone (no JXML/diff yet).
  * `word` is optional: while the backend is running with MISTRAL_MOCK=true, omitting it falls
  * back to a bundled sample spec server-side instead of requiring a real file (400 otherwise) —
- * same idea as the mock GitLab project, no dedicated mock endpoint needed.
+ * same idea as the mock GitLab project, no dedicated mock endpoint needed. `sessionId` is the
+ * frontend's current session, if it already has one (e.g. a JXML doc was generated first) —
+ * omitted to start a brand new session.
  */
-export async function generateSpecFromWord(word?: File): Promise<SpecGenerationResult> {
+export async function generateSpecFromWord(word?: File, sessionId?: string | null): Promise<SpecGenerationResult> {
   const form = new FormData()
   if (word) form.append('word', word)
+  if (sessionId) form.append('sessionId', sessionId)
   const { data } = await client.post<SpecGenerationResult>('/spec/generate-from-word', form, {
     headers: { 'Content-Type': 'multipart/form-data' },
   })
@@ -83,60 +86,47 @@ export async function previewWord(word: File): Promise<string> {
 /**
  * The markdown spec the model generates from a GitLab entry point's JXML — Include chain resolved
  * and spec generated server-side in one request, instead of chaining previewGitlabJxml into a
- * separate generation call from the frontend.
+ * separate generation call from the frontend. `sessionId` is the frontend's current session, if
+ * it already has one (e.g. a Word doc was generated first) — omitted to start a brand new session.
  */
-export async function generateSpecFromGitlab(params: GitlabPreviewParams): Promise<SpecGenerationResult> {
-  const { data } = await client.get<SpecGenerationResult>('/gitlab/generate-spec', {
-    params: buildGitlabPreviewQuery(params),
-  })
+export async function generateSpecFromGitlab(
+  params: GitlabPreviewParams,
+  sessionId?: string | null,
+): Promise<SpecGenerationResult> {
+  const query = buildGitlabPreviewQuery(params)
+  if (sessionId) query.set('sessionId', sessionId)
+  const { data } = await client.get<SpecGenerationResult>('/gitlab/generate-spec', { params: query })
   return data
 }
 
 /**
  * Merges the Word-generated and JXML-generated markdown specs (as currently held by the
- * frontend, including any manual edit) into a single reconciled document. The source document
- * ids, when known, are recorded on the merge for traceability (best-effort — see backend), as is
- * the current GitLab project selection (JSON-encoded, opaque to the backend), so the resulting
- * merged document's id alone is enough to export/import the whole session.
+ * frontend, including any manual edit) into a single reconciled document, attached to
+ * `sessionId` — the session both were generated under. The current GitLab project selection
+ * (JSON-encoded, opaque to the backend), if any, is recorded on that same session, so its id
+ * alone is enough to export/import the whole thing.
  */
 export async function mergeSpecs(
   wordMarkdown: string,
   jxmlMarkdown: string,
-  wordDocumentId?: string | null,
-  jxmlDocumentId?: string | null,
+  sessionId: string,
   gitlabSelectionJson?: string | null,
 ): Promise<SpecGenerationResult> {
   const { data } = await client.post<SpecGenerationResult>('/spec/merge', {
     wordMarkdown,
     jxmlMarkdown,
-    wordDocumentId: wordDocumentId ?? undefined,
-    jxmlDocumentId: jxmlDocumentId ?? undefined,
+    sessionId,
     gitlabSelectionJson: gitlabSelectionJson ?? undefined,
   })
   return data
 }
 
 /**
- * Pairs an already-generated Word document with an already-generated JXML document as the same
- * in-progress session, before either is merged — so the session becomes recoverable from just one
- * of their ids even if they're never actually merged. Called whenever both slots are filled.
+ * Everything needed to recover a session from another machine, from just its id — backs the
+ * navbar's session export/import.
  */
-export async function linkDocuments(wordDocumentId: string, jxmlDocumentId: string): Promise<void> {
-  await client.put('/spec/link', { wordDocumentId, jxmlDocumentId })
-}
-
-/** A persisted document's latest content — used to recover a session from its id. */
-export async function getDocument(id: string): Promise<SpecGenerationResult> {
-  const { data } = await client.get<SpecGenerationResult>(`/spec/documents/${id}`)
-  return data
-}
-
-/**
- * Everything needed to recover a finished merge on another machine, from just its document id —
- * backs the navbar's session export/import.
- */
-export async function getSession(mergedDocumentId: string): Promise<SessionExport> {
-  const { data } = await client.get<SessionExport>(`/spec/session/${mergedDocumentId}`)
+export async function getSession(sessionId: string): Promise<SessionExport> {
+  const { data } = await client.get<SessionExport>(`/spec/session/${sessionId}`)
   return data
 }
 

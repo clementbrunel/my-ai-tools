@@ -22,10 +22,10 @@ beforeEach(() => {
 })
 
 /** SpecPanel's doc is controlled by its parent — this harness stands in for App. */
-function renderSpecPanel(onCollapse?: () => void) {
+function renderSpecPanel(onCollapse?: () => void, sessionId?: string | null) {
   function Harness() {
     const doc = usePersistedDoc()
-    return <SpecPanel onCollapse={onCollapse} doc={doc} />
+    return <SpecPanel onCollapse={onCollapse} doc={doc} sessionId={sessionId} />
   }
   return render(<Harness />)
 }
@@ -62,26 +62,26 @@ describe('SpecPanel', () => {
     expect(screen.getByText('Générer la doc')).not.toBeDisabled()
   })
 
-  it('generates without a file, passing undefined through', async () => {
-    generateSpecFromWordMock.mockResolvedValue({ id: 'word-1', markdown: '# Doc générée' })
-    renderSpecPanel()
+  it('generates without a file, passing the current session id through', async () => {
+    generateSpecFromWordMock.mockResolvedValue({ id: 'word-1', markdown: '# Doc générée', sessionId: 'session-1' })
+    renderSpecPanel(undefined, 'session-1')
     await userEvent.click(screen.getByText('Générer la doc'))
-    expect(generateSpecFromWordMock).toHaveBeenCalledWith(undefined)
+    expect(generateSpecFromWordMock).toHaveBeenCalledWith(undefined, 'session-1')
   })
 
   it('generates the spec and switches to the Output tab', async () => {
-    generateSpecFromWordMock.mockResolvedValue({ id: 'word-1', markdown: '# Doc générée' })
+    generateSpecFromWordMock.mockResolvedValue({ id: 'word-1', markdown: '# Doc générée', sessionId: 'session-1' })
     const { container } = renderSpecPanel()
     const file = new File(['contenu'], 'spec.docx')
     const input = container.querySelector('input[type="file"]') as HTMLInputElement
     await userEvent.upload(input, file)
     await userEvent.click(screen.getByText('Générer la doc'))
-    expect(generateSpecFromWordMock).toHaveBeenCalledWith(file)
+    expect(generateSpecFromWordMock).toHaveBeenCalledWith(file, undefined)
     expect(await screen.findByRole('heading', { level: 1, name: 'Doc générée' })).toBeDefined()
   })
 
   it('names the Word file in the loader while generating', async () => {
-    let resolveGeneration: (result: { id: string; markdown: string }) => void = () => {}
+    let resolveGeneration: (result: { id: string; markdown: string; sessionId: string }) => void = () => {}
     generateSpecFromWordMock.mockReturnValue(new Promise((resolve) => { resolveGeneration = resolve }))
     const { container } = renderSpecPanel()
     const file = new File(['contenu'], 'spec.docx')
@@ -89,11 +89,11 @@ describe('SpecPanel', () => {
     await userEvent.upload(input, file)
     await userEvent.click(screen.getByText('Générer la doc'))
     expect(await screen.findByText('Génération de la doc depuis le Word en cours…')).toBeDefined()
-    resolveGeneration({ id: 'word-1', markdown: '# Doc générée' })
+    resolveGeneration({ id: 'word-1', markdown: '# Doc générée', sessionId: 'session-1' })
   })
 
   it('names the Excel file in the loader while generating', async () => {
-    let resolveGeneration: (result: { id: string; markdown: string }) => void = () => {}
+    let resolveGeneration: (result: { id: string; markdown: string; sessionId: string }) => void = () => {}
     generateSpecFromWordMock.mockReturnValue(new Promise((resolve) => { resolveGeneration = resolve }))
     const { container } = renderSpecPanel()
     const file = new File(['contenu'], 'spec.xlsx')
@@ -101,16 +101,16 @@ describe('SpecPanel', () => {
     await userEvent.upload(input, file)
     await userEvent.click(screen.getByText('Générer la doc'))
     expect(await screen.findByText("Génération de la doc depuis l'Excel en cours…")).toBeDefined()
-    resolveGeneration({ id: 'word-1', markdown: '# Doc générée' })
+    resolveGeneration({ id: 'word-1', markdown: '# Doc générée', sessionId: 'session-1' })
   })
 
   it('names the sample in the loader while generating without a file', async () => {
-    let resolveGeneration: (result: { id: string; markdown: string }) => void = () => {}
+    let resolveGeneration: (result: { id: string; markdown: string; sessionId: string }) => void = () => {}
     generateSpecFromWordMock.mockReturnValue(new Promise((resolve) => { resolveGeneration = resolve }))
     renderSpecPanel()
     await userEvent.click(screen.getByText('Générer la doc'))
     expect(await screen.findByText("Génération de la doc depuis l'exemple en cours…")).toBeDefined()
-    resolveGeneration({ id: 'word-1', markdown: '# Doc générée' })
+    resolveGeneration({ id: 'word-1', markdown: '# Doc générée', sessionId: 'session-1' })
   })
 
   it('shows an error message when generation fails', async () => {
@@ -194,7 +194,7 @@ describe('SpecPanel', () => {
   })
 
   it('shows no save button until the generated doc is edited', async () => {
-    generateSpecFromWordMock.mockResolvedValue({ id: 'word-1', markdown: '# Doc générée' })
+    generateSpecFromWordMock.mockResolvedValue({ id: 'word-1', markdown: '# Doc générée', sessionId: 'session-1' })
     renderSpecPanel()
     await userEvent.click(screen.getByText('Générer la doc'))
     await screen.findByRole('heading', { level: 1, name: 'Doc générée' })
@@ -203,8 +203,8 @@ describe('SpecPanel', () => {
   })
 
   it('shows a save button after editing, and saves on click without any debounce', async () => {
-    generateSpecFromWordMock.mockResolvedValue({ id: 'word-1', markdown: '# Doc générée' })
-    updateDocumentMock.mockResolvedValue({ id: 'word-1', markdown: '# Doc éditée' })
+    generateSpecFromWordMock.mockResolvedValue({ id: 'word-1', markdown: '# Doc générée', sessionId: 'session-1' })
+    updateDocumentMock.mockResolvedValue({ id: 'word-1', markdown: '# Doc éditée', sessionId: null })
     renderSpecPanel()
     await userEvent.click(screen.getByText('Générer la doc'))
     await screen.findByRole('heading', { level: 1, name: 'Doc générée' })
@@ -222,7 +222,7 @@ describe('SpecPanel', () => {
   })
 
   it('shows an error message when saving fails', async () => {
-    generateSpecFromWordMock.mockResolvedValue({ id: 'word-1', markdown: '# Doc générée' })
+    generateSpecFromWordMock.mockResolvedValue({ id: 'word-1', markdown: '# Doc générée', sessionId: 'session-1' })
     updateDocumentMock.mockRejectedValue(new Error("Échec de l'enregistrement"))
     renderSpecPanel()
     await userEvent.click(screen.getByText('Générer la doc'))

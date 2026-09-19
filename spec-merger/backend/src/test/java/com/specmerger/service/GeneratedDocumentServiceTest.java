@@ -43,8 +43,6 @@ class GeneratedDocumentServiceTest {
         GeneratedDocument document = service.createWord("# Doc Word");
 
         assertThat(document.getSource()).isEqualTo(Source.WORD);
-        assertThat(document.getWordDocumentId()).isNull();
-        assertThat(document.getJxmlDocumentId()).isNull();
 
         ArgumentCaptor<DocumentRevision> revisionCaptor = ArgumentCaptor.forClass(DocumentRevision.class);
         verify(revisionRepository).save(revisionCaptor.capture());
@@ -54,20 +52,34 @@ class GeneratedDocumentServiceTest {
     }
 
     @Test
-    void createMergedLinksTheTwoSourceDocumentIdsAndTheGitlabSelection() {
+    void createJxmlPersistsTheDocumentAndItsFirstRevision() {
         GeneratedDocumentService service = newService();
         when(documentRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(documentRepository.lockById(any())).thenAnswer(invocation -> Optional.of(new GeneratedDocument()));
         when(revisionRepository.findTopByDocumentIdOrderByRevisionNumberDesc(any())).thenReturn(Optional.empty());
-        UUID wordId = UUID.randomUUID();
-        UUID jxmlId = UUID.randomUUID();
 
-        GeneratedDocument document = service.createMerged("# Fusionné", wordId, jxmlId, "{\"projectId\":\"1\"}");
+        GeneratedDocument document = service.createJxml("# Doc JXML");
+
+        assertThat(document.getSource()).isEqualTo(Source.JXML);
+        ArgumentCaptor<DocumentRevision> revisionCaptor = ArgumentCaptor.forClass(DocumentRevision.class);
+        verify(revisionRepository).save(revisionCaptor.capture());
+        assertThat(revisionCaptor.getValue().getContent()).isEqualTo("# Doc JXML");
+    }
+
+    @Test
+    void createMergedPersistsTheDocumentAndItsFirstRevision() {
+        GeneratedDocumentService service = newService();
+        when(documentRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(documentRepository.lockById(any())).thenAnswer(invocation -> Optional.of(new GeneratedDocument()));
+        when(revisionRepository.findTopByDocumentIdOrderByRevisionNumberDesc(any())).thenReturn(Optional.empty());
+
+        GeneratedDocument document = service.createMerged("# Fusionné");
 
         assertThat(document.getSource()).isEqualTo(Source.MERGED);
-        assertThat(document.getWordDocumentId()).isEqualTo(wordId);
-        assertThat(document.getJxmlDocumentId()).isEqualTo(jxmlId);
-        assertThat(document.getGitlabSelectionJson()).isEqualTo("{\"projectId\":\"1\"}");
+
+        ArgumentCaptor<DocumentRevision> revisionCaptor = ArgumentCaptor.forClass(DocumentRevision.class);
+        verify(revisionRepository).save(revisionCaptor.capture());
+        assertThat(revisionCaptor.getValue().getContent()).isEqualTo("# Fusionné");
     }
 
     @Test
@@ -119,215 +131,5 @@ class GeneratedDocumentServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining(documentId.toString());
         verify(revisionRepository, never()).save(any());
-    }
-
-    @Test
-    void getSessionReturnsTheMergeAndBothSourceDocumentsAndTheGitlabSelection() {
-        GeneratedDocumentService service = newService();
-        UUID wordId = UUID.randomUUID();
-        UUID jxmlId = UUID.randomUUID();
-        UUID mergedId = UUID.randomUUID();
-
-        GeneratedDocument merged = new GeneratedDocument();
-        merged.setId(mergedId);
-        merged.setSource(Source.MERGED);
-        merged.setWordDocumentId(wordId);
-        merged.setJxmlDocumentId(jxmlId);
-        merged.setGitlabSelectionJson("{\"projectId\":\"1\"}");
-        when(documentRepository.findById(mergedId)).thenReturn(Optional.of(merged));
-
-        DocumentRevision mergedRevision = new DocumentRevision();
-        mergedRevision.setContent("# Fusionné");
-        DocumentRevision wordRevision = new DocumentRevision();
-        wordRevision.setContent("# Word");
-        DocumentRevision jxmlRevision = new DocumentRevision();
-        jxmlRevision.setContent("# JXML");
-        when(revisionRepository.findTopByDocumentIdOrderByRevisionNumberDesc(mergedId))
-                .thenReturn(Optional.of(mergedRevision));
-        when(revisionRepository.findTopByDocumentIdOrderByRevisionNumberDesc(wordId))
-                .thenReturn(Optional.of(wordRevision));
-        when(revisionRepository.findTopByDocumentIdOrderByRevisionNumberDesc(jxmlId))
-                .thenReturn(Optional.of(jxmlRevision));
-
-        var session = service.getSession(mergedId);
-
-        assertThat(session.mergedDocumentId()).isEqualTo(mergedId);
-        assertThat(session.mergedMarkdown()).isEqualTo("# Fusionné");
-        assertThat(session.wordDocumentId()).isEqualTo(wordId);
-        assertThat(session.wordMarkdown()).isEqualTo("# Word");
-        assertThat(session.jxmlDocumentId()).isEqualTo(jxmlId);
-        assertThat(session.jxmlMarkdown()).isEqualTo("# JXML");
-        assertThat(session.gitlabSelectionJson()).isEqualTo("{\"projectId\":\"1\"}");
-    }
-
-    @Test
-    void getSessionReturnsOnlyTheWordSlotForALoneUnlinkedWordDocument() {
-        GeneratedDocumentService service = newService();
-        UUID wordId = UUID.randomUUID();
-        GeneratedDocument word = new GeneratedDocument();
-        word.setId(wordId);
-        word.setSource(Source.WORD);
-        when(documentRepository.findById(wordId)).thenReturn(Optional.of(word));
-        DocumentRevision wordRevision = new DocumentRevision();
-        wordRevision.setContent("# Word");
-        when(revisionRepository.findTopByDocumentIdOrderByRevisionNumberDesc(wordId))
-                .thenReturn(Optional.of(wordRevision));
-
-        var session = service.getSession(wordId);
-
-        assertThat(session.wordDocumentId()).isEqualTo(wordId);
-        assertThat(session.wordMarkdown()).isEqualTo("# Word");
-        assertThat(session.mergedDocumentId()).isNull();
-        assertThat(session.mergedMarkdown()).isNull();
-        assertThat(session.jxmlDocumentId()).isNull();
-        assertThat(session.jxmlMarkdown()).isNull();
-        assertThat(session.gitlabSelectionJson()).isNull();
-    }
-
-    @Test
-    void getSessionReturnsOnlyTheJxmlSlotForALoneUnlinkedJxmlDocument() {
-        GeneratedDocumentService service = newService();
-        UUID jxmlId = UUID.randomUUID();
-        GeneratedDocument jxml = new GeneratedDocument();
-        jxml.setId(jxmlId);
-        jxml.setSource(Source.JXML);
-        when(documentRepository.findById(jxmlId)).thenReturn(Optional.of(jxml));
-        DocumentRevision jxmlRevision = new DocumentRevision();
-        jxmlRevision.setContent("# JXML");
-        when(revisionRepository.findTopByDocumentIdOrderByRevisionNumberDesc(jxmlId))
-                .thenReturn(Optional.of(jxmlRevision));
-
-        var session = service.getSession(jxmlId);
-
-        assertThat(session.jxmlDocumentId()).isEqualTo(jxmlId);
-        assertThat(session.jxmlMarkdown()).isEqualTo("# JXML");
-        assertThat(session.mergedDocumentId()).isNull();
-        assertThat(session.mergedMarkdown()).isNull();
-        assertThat(session.wordDocumentId()).isNull();
-        assertThat(session.wordMarkdown()).isNull();
-    }
-
-    @Test
-    void getSessionFromTheWordIdAlsoReturnsALinkedJxmlCounterpartWithNoMerge() {
-        GeneratedDocumentService service = newService();
-        UUID wordId = UUID.randomUUID();
-        UUID jxmlId = UUID.randomUUID();
-        GeneratedDocument word = new GeneratedDocument();
-        word.setId(wordId);
-        word.setSource(Source.WORD);
-        word.setJxmlDocumentId(jxmlId);
-        when(documentRepository.findById(wordId)).thenReturn(Optional.of(word));
-        DocumentRevision wordRevision = new DocumentRevision();
-        wordRevision.setContent("# Word");
-        DocumentRevision jxmlRevision = new DocumentRevision();
-        jxmlRevision.setContent("# JXML");
-        when(revisionRepository.findTopByDocumentIdOrderByRevisionNumberDesc(wordId))
-                .thenReturn(Optional.of(wordRevision));
-        when(revisionRepository.findTopByDocumentIdOrderByRevisionNumberDesc(jxmlId))
-                .thenReturn(Optional.of(jxmlRevision));
-
-        var session = service.getSession(wordId);
-
-        assertThat(session.wordDocumentId()).isEqualTo(wordId);
-        assertThat(session.wordMarkdown()).isEqualTo("# Word");
-        assertThat(session.jxmlDocumentId()).isEqualTo(jxmlId);
-        assertThat(session.jxmlMarkdown()).isEqualTo("# JXML");
-        assertThat(session.mergedDocumentId()).isNull();
-    }
-
-    @Test
-    void getSessionFromTheJxmlIdAlsoReturnsALinkedWordCounterpartWithNoMerge() {
-        GeneratedDocumentService service = newService();
-        UUID wordId = UUID.randomUUID();
-        UUID jxmlId = UUID.randomUUID();
-        GeneratedDocument jxml = new GeneratedDocument();
-        jxml.setId(jxmlId);
-        jxml.setSource(Source.JXML);
-        jxml.setWordDocumentId(wordId);
-        when(documentRepository.findById(jxmlId)).thenReturn(Optional.of(jxml));
-        DocumentRevision wordRevision = new DocumentRevision();
-        wordRevision.setContent("# Word");
-        DocumentRevision jxmlRevision = new DocumentRevision();
-        jxmlRevision.setContent("# JXML");
-        when(revisionRepository.findTopByDocumentIdOrderByRevisionNumberDesc(wordId))
-                .thenReturn(Optional.of(wordRevision));
-        when(revisionRepository.findTopByDocumentIdOrderByRevisionNumberDesc(jxmlId))
-                .thenReturn(Optional.of(jxmlRevision));
-
-        var session = service.getSession(jxmlId);
-
-        assertThat(session.jxmlDocumentId()).isEqualTo(jxmlId);
-        assertThat(session.jxmlMarkdown()).isEqualTo("# JXML");
-        assertThat(session.wordDocumentId()).isEqualTo(wordId);
-        assertThat(session.wordMarkdown()).isEqualTo("# Word");
-        assertThat(session.mergedDocumentId()).isNull();
-    }
-
-    @Test
-    void getSessionThrowsForAnUnknownDocument() {
-        GeneratedDocumentService service = newService();
-        UUID documentId = UUID.randomUUID();
-        when(documentRepository.findById(documentId)).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> service.getSession(documentId))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining(documentId.toString());
-    }
-
-    @Test
-    void linkCounterpartsSetsEachDocumentsPointerToTheOther() {
-        GeneratedDocumentService service = newService();
-        UUID wordId = UUID.randomUUID();
-        UUID jxmlId = UUID.randomUUID();
-        GeneratedDocument word = new GeneratedDocument();
-        word.setId(wordId);
-        word.setSource(Source.WORD);
-        GeneratedDocument jxml = new GeneratedDocument();
-        jxml.setId(jxmlId);
-        jxml.setSource(Source.JXML);
-        when(documentRepository.findById(wordId)).thenReturn(Optional.of(word));
-        when(documentRepository.findById(jxmlId)).thenReturn(Optional.of(jxml));
-
-        service.linkCounterparts(wordId, jxmlId);
-
-        assertThat(word.getJxmlDocumentId()).isEqualTo(jxmlId);
-        assertThat(jxml.getWordDocumentId()).isEqualTo(wordId);
-        verify(documentRepository).save(word);
-        verify(documentRepository).save(jxml);
-    }
-
-    @Test
-    void linkCounterpartsRejectsAWordIdThatIsNotAWordDocument() {
-        GeneratedDocumentService service = newService();
-        UUID notWordId = UUID.randomUUID();
-        UUID jxmlId = UUID.randomUUID();
-        GeneratedDocument notWord = new GeneratedDocument();
-        notWord.setId(notWordId);
-        notWord.setSource(Source.JXML);
-        when(documentRepository.findById(notWordId)).thenReturn(Optional.of(notWord));
-        when(documentRepository.findById(jxmlId)).thenReturn(Optional.of(new GeneratedDocument()));
-
-        assertThatThrownBy(() -> service.linkCounterparts(notWordId, jxmlId))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining(notWordId.toString());
-    }
-
-    @Test
-    void linkCounterpartsRejectsAJxmlIdThatIsNotAJxmlDocument() {
-        GeneratedDocumentService service = newService();
-        UUID wordId = UUID.randomUUID();
-        UUID notJxmlId = UUID.randomUUID();
-        GeneratedDocument word = new GeneratedDocument();
-        word.setId(wordId);
-        word.setSource(Source.WORD);
-        GeneratedDocument notJxml = new GeneratedDocument();
-        notJxml.setId(notJxmlId);
-        notJxml.setSource(Source.WORD);
-        when(documentRepository.findById(wordId)).thenReturn(Optional.of(word));
-        when(documentRepository.findById(notJxmlId)).thenReturn(Optional.of(notJxml));
-
-        assertThatThrownBy(() -> service.linkCounterparts(wordId, notJxmlId))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining(notJxmlId.toString());
     }
 }

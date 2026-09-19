@@ -14,6 +14,9 @@ import XmlTreeView from './XmlTreeView'
 interface CodePanelProps {
   onCollapse?: () => void
   doc: PersistedDoc
+  /** The current session, if one already exists (e.g. a Word doc was generated first) — passed
+   * along so this generation attaches to it instead of starting a new one. */
+  sessionId?: string | null
   /** The GitLab selection read from a persisted session at mount, replayed once below — see #326. */
   initialGitlabSelection?: GitlabSelection | null
   /** Called with the current selection whenever it changes, so the parent can persist it. */
@@ -32,7 +35,7 @@ function downloadMarkdown(markdown: string, filename: string) {
   URL.revokeObjectURL(url)
 }
 
-function CodePanel({ onCollapse, doc, initialGitlabSelection, onGitlabSelectionChange }: CodePanelProps) {
+function CodePanel({ onCollapse, doc, sessionId, initialGitlabSelection, onGitlabSelectionChange }: CodePanelProps) {
   const { markdown, isDirty, saving, onGenerated, onEdit, save } = doc
   const [tab, setTab] = useState<Tab>('input')
   const [gitlabProjects, setGitlabProjects] = useState<GitLabProjectSummary[]>([])
@@ -261,7 +264,7 @@ function CodePanel({ onCollapse, doc, initialGitlabSelection, onGitlabSelectionC
     try {
       const params = currentGitlabPreviewParams()
       if (!params) return
-      onGenerated(await generateSpecFromGitlab(params))
+      onGenerated(await generateSpecFromGitlab(params, sessionId))
       setTab('output')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Échec de la génération de la doc — voir la console.')

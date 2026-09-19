@@ -8,16 +8,16 @@ beforeEach(() => {
 })
 
 interface RenderOptions {
-  currentSessionId?: string | null
+  activeSessionId?: string | null
   hasSession?: boolean
-  onImportSession?: (documentId: string) => Promise<void>
+  onImportSession?: (sessionId: string) => Promise<void>
   onReset?: () => void
 }
 
 function renderHeader(options: RenderOptions = {}) {
   return render(
     <Header
-      currentSessionId={options.currentSessionId ?? null}
+      activeSessionId={options.activeSessionId ?? null}
       hasSession={options.hasSession ?? false}
       onImportSession={options.onImportSession ?? vi.fn()}
       onReset={options.onReset ?? vi.fn()}
@@ -37,17 +37,17 @@ describe('Header', () => {
   })
 
   it('keeps the session-id field in sync with the current session id', () => {
-    const { rerender } = renderHeader({ currentSessionId: null })
+    const { rerender } = renderHeader({ activeSessionId: null })
     expect(screen.getByPlaceholderText('ID de session…')).toHaveValue('')
 
     rerender(
-      <Header currentSessionId="merged-1" hasSession onImportSession={vi.fn()} onReset={vi.fn()} />,
+      <Header activeSessionId="merged-1" hasSession onImportSession={vi.fn()} onReset={vi.fn()} />,
     )
     expect(screen.getByPlaceholderText('ID de session…')).toHaveValue('merged-1')
   })
 
   it('copies the session id to the clipboard', async () => {
-    renderHeader({ currentSessionId: 'merged-1' })
+    renderHeader({ activeSessionId: 'merged-1' })
     await userEvent.click(screen.getByText('Copier'))
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith('merged-1')
     expect(await screen.findByText('Copié ✓')).toBeDefined()
@@ -59,13 +59,13 @@ describe('Header', () => {
   })
 
   it('disables Charger while the field matches the current session (nothing new to load)', () => {
-    renderHeader({ currentSessionId: 'merged-1' })
+    renderHeader({ activeSessionId: 'merged-1' })
     expect(screen.getByPlaceholderText('ID de session…')).toHaveValue('merged-1')
     expect(screen.getByText('Charger')).toBeDisabled()
   })
 
   it('enables Charger once a different id is typed', async () => {
-    renderHeader({ currentSessionId: 'merged-1' })
+    renderHeader({ activeSessionId: 'merged-1' })
     const input = screen.getByPlaceholderText('ID de session…')
     await userEvent.clear(input)
     await userEvent.type(input, 'merged-2')
