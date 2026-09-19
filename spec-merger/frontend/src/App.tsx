@@ -8,6 +8,18 @@ import MergePanel from './components/MergePanel'
 import SpecPanel from './components/SpecPanel'
 import { importSession, resetSession, useGenerationSession } from './hooks/useGenerationSession'
 
+// Keyed by spec+merge+code collapsed, in that order, as "0"/"1" — see gridColsClass below.
+const GRID_COLS_BY_COLLAPSE: Record<string, string> = {
+  '000': 'md:grid-cols-[1fr_1.4fr_1fr]',
+  '001': 'md:grid-cols-[1fr_1fr_3rem]',
+  '010': 'md:grid-cols-[1fr_3rem_1fr]',
+  '011': 'md:grid-cols-[1fr_3rem_3rem]',
+  '100': 'md:grid-cols-[3rem_1fr_1fr]',
+  '101': 'md:grid-cols-[3rem_1fr_3rem]',
+  '110': 'md:grid-cols-[3rem_3rem_1fr]',
+  '111': 'md:grid-cols-[3rem_3rem_3rem]',
+}
+
 function App() {
   const [specCollapsed, setSpecCollapsed] = useState(false)
   const [codeCollapsed, setCodeCollapsed] = useState(false)
@@ -30,22 +42,10 @@ function App() {
   // same narrow strip whenever it's collapsed, freeing its width to the side panels in turn.
   // Every combination is spelled out as a literal class below (rather than built dynamically) so
   // Tailwind's JIT scanner — which only generates CSS for arbitrary-value classes it can see
-  // verbatim in the source — picks up all eight.
-  const gridColsClass = specCollapsed
-    ? mergeCollapsed
-      ? codeCollapsed
-        ? 'md:grid-cols-[3rem_3rem_3rem]'
-        : 'md:grid-cols-[3rem_3rem_1fr]'
-      : codeCollapsed
-        ? 'md:grid-cols-[3rem_1fr_3rem]'
-        : 'md:grid-cols-[3rem_1fr_1fr]'
-    : mergeCollapsed
-      ? codeCollapsed
-        ? 'md:grid-cols-[1fr_3rem_3rem]'
-        : 'md:grid-cols-[1fr_3rem_1fr]'
-      : codeCollapsed
-        ? 'md:grid-cols-[1fr_1fr_3rem]'
-        : 'md:grid-cols-[1fr_1.4fr_1fr]'
+  // verbatim in the source — picks up all eight; the lookup key is spec+merge+code collapsed, in
+  // that order, as "0"/"1".
+  const gridColsClass =
+    GRID_COLS_BY_COLLAPSE[`${+specCollapsed}${+mergeCollapsed}${+codeCollapsed}`]
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">
