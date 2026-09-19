@@ -10,8 +10,11 @@ interface MergePanelProps {
   wordDoc: PersistedDoc
   jxmlDoc: PersistedDoc
   mergedDoc: PersistedDoc
-  /** The currently selected GitLab project, if any — recorded on the merge so a single merged
-   * document id is enough to export/import the whole session (see the navbar). */
+  /** The session both docs were generated under — known non-null whenever both are ready, since
+   * generating either one always creates or attaches to a session first. */
+  sessionId: string | null
+  /** The currently selected GitLab project, if any — recorded on the session so its id alone is
+   * enough to export/import the whole session (see the navbar). */
   gitlabSelection: GitlabSelection | null
   onCollapse?: () => void
 }
@@ -26,9 +29,9 @@ function downloadMarkdown(markdown: string, filename: string) {
   URL.revokeObjectURL(url)
 }
 
-function MergePanel({ wordDoc, jxmlDoc, mergedDoc, gitlabSelection, onCollapse }: MergePanelProps) {
-  const { markdown: wordMarkdown, id: wordDocumentId } = wordDoc
-  const { markdown: jxmlMarkdown, id: jxmlDocumentId } = jxmlDoc
+function MergePanel({ wordDoc, jxmlDoc, mergedDoc, sessionId, gitlabSelection, onCollapse }: MergePanelProps) {
+  const { markdown: wordMarkdown } = wordDoc
+  const { markdown: jxmlMarkdown } = jxmlDoc
   const { markdown: mergedMarkdown, id: mergedDocumentId, isDirty, saving, onGenerated, onEdit, save } = mergedDoc
 
   // Tracks the last AI-generated result so a re-merge can tell whether the user has since
@@ -54,6 +57,7 @@ function MergePanel({ wordDoc, jxmlDoc, mergedDoc, gitlabSelection, onCollapse }
   }, [mergedDocumentId])
 
   async function runMerge() {
+    if (!sessionId) return
     setError(null)
     setLoading(true)
     const start = performance.now()
@@ -61,8 +65,7 @@ function MergePanel({ wordDoc, jxmlDoc, mergedDoc, gitlabSelection, onCollapse }
       const result = await mergeSpecs(
         wordMarkdown,
         jxmlMarkdown,
-        wordDocumentId,
-        jxmlDocumentId,
+        sessionId,
         gitlabSelection ? JSON.stringify(gitlabSelection) : null,
       )
       onGenerated(result)

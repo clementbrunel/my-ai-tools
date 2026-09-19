@@ -27,8 +27,17 @@ function App() {
   // merge becomes possible or already happened (e.g. a restored session). The user can still
   // collapse it back by hand at any point, e.g. when only doing one of the two docs.
   const [mergeCollapsed, setMergeCollapsed] = useState(true)
-  const { word, jxml, merged, restoring, gitlabSelection, initialGitlabSelection, setGitlabSelection } =
-    useGenerationSession()
+  const {
+    word,
+    jxml,
+    merged,
+    sessionId,
+    claimSessionId,
+    restoring,
+    gitlabSelection,
+    initialGitlabSelection,
+    setGitlabSelection,
+  } = useGenerationSession()
 
   const bothReady = word.markdown.trim() !== '' && jxml.markdown.trim() !== ''
   const hasMergedResult = merged.id !== null
@@ -55,44 +64,50 @@ function App() {
     <div className="h-screen flex flex-col overflow-hidden">
       {restoring && <FullPageLoader message="Récupération de la session en cours…" />}
       <Header
-        mergedDocumentId={merged.id}
+        activeSessionId={sessionId}
         hasSession={Boolean(word.id || jxml.id || merged.id)}
         onImportSession={importSession}
         onReset={resetSession}
       />
 
-      <div className="flex-1 min-h-0 flex flex-col overflow-y-auto">
-        <div className={`grid grid-cols-1 ${gridColsClass} justify-between gap-3 p-3 flex-1 min-h-0`}>
-          {specCollapsed ? (
-            <CollapsedPanel label="Spec Word / Excel" icon="▶" onExpand={() => setSpecCollapsed(false)} />
-          ) : (
-            <SpecPanel onCollapse={() => setSpecCollapsed(true)} doc={word} />
-          )}
+      {/* Not rendered until any restore has finished, so CodePanel's initialGitlabSelection is
+          already final at its first mount instead of arriving asynchronously after. */}
+      {!restoring && (
+        <div className="flex-1 min-h-0 flex flex-col overflow-y-auto">
+          <div className={`grid grid-cols-1 ${gridColsClass} justify-between gap-3 p-3 flex-1 min-h-0`}>
+            {specCollapsed ? (
+              <CollapsedPanel label="Spec Word / Excel" icon="▶" onExpand={() => setSpecCollapsed(false)} />
+            ) : (
+              <SpecPanel onCollapse={() => setSpecCollapsed(true)} doc={word} claimSessionId={claimSessionId} />
+            )}
 
-          {mergeCollapsed ? (
-            <MergeCollapsedPanel ready={bothReady} onExpand={() => setMergeCollapsed(false)} />
-          ) : (
-            <MergePanel
-              wordDoc={word}
-              jxmlDoc={jxml}
-              mergedDoc={merged}
-              gitlabSelection={gitlabSelection}
-              onCollapse={() => setMergeCollapsed(true)}
-            />
-          )}
+            {mergeCollapsed ? (
+              <MergeCollapsedPanel ready={bothReady} onExpand={() => setMergeCollapsed(false)} />
+            ) : (
+              <MergePanel
+                wordDoc={word}
+                jxmlDoc={jxml}
+                mergedDoc={merged}
+                sessionId={sessionId}
+                gitlabSelection={gitlabSelection}
+                onCollapse={() => setMergeCollapsed(true)}
+              />
+            )}
 
-          {codeCollapsed ? (
-            <CollapsedPanel label="Spec JXML" icon="◀" onExpand={() => setCodeCollapsed(false)} />
-          ) : (
-            <CodePanel
-              onCollapse={() => setCodeCollapsed(true)}
-              doc={jxml}
-              initialGitlabSelection={initialGitlabSelection}
-              onGitlabSelectionChange={setGitlabSelection}
-            />
-          )}
+            {codeCollapsed ? (
+              <CollapsedPanel label="Spec JXML" icon="◀" onExpand={() => setCodeCollapsed(false)} />
+            ) : (
+              <CodePanel
+                onCollapse={() => setCodeCollapsed(true)}
+                doc={jxml}
+                claimSessionId={claimSessionId}
+                initialGitlabSelection={initialGitlabSelection}
+                onGitlabSelectionChange={setGitlabSelection}
+              />
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }

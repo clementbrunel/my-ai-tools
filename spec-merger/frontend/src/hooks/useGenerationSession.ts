@@ -1,139 +1,167 @@
 import { useEffect, useRef, useState } from 'react'
-import { getDocument, getSession } from '../api/analysis'
+import { getSession } from '../api/analysis'
 import type { GitlabSelection } from '../types'
 import { usePersistedDoc } from './usePersistedDoc'
 
-const STORAGE_KEY = 'spec-merger-session'
-
-interface StoredSession {
-  wordDocumentId?: string
-  jxmlDocumentId?: string
-  mergedDocumentId?: string
-  gitlabSelection?: GitlabSelection
+/** What `trackingOnGenerated` below needs from a generate/merge result — `sessionId` optional so
+ * this stays assignable wherever a plain `{id, markdown}` (no session concept) is expected, e.g.
+ * a document slot's own `onGenerated`/`restore`. */
+interface GeneratedDocWithSession {
+  id: string
+  markdown: string
+  sessionId?: string | null
 }
 
-function loadStoredSession(): StoredSession {
+const STORAGE_KEY = 'spec-merger-session-id'
+
+function loadStoredSessionId(): string | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? (JSON.parse(raw) as StoredSession) : {}
+    return localStorage.getItem(STORAGE_KEY)
   } catch {
-    // Private browsing, cleared/blocked site data, etc. — start with an empty session.
-    return {}
+    // Private browsing, cleared/blocked site data, etc. — start with no session.
+    return null
+  }
+}
+
+function storeSessionId(sessionId: string | null): void {
+  try {
+    if (sessionId) localStorage.setItem(STORAGE_KEY, sessionId)
+    else localStorage.removeItem(STORAGE_KEY)
+  } catch {
+    // localStorage unavailable — the session just won't survive a reload.
   }
 }
 
 /**
- * Loads a finished merge exported from another machine (by its merged document id — see the
- * navbar's "Exporter"/"Charger une session" controls) and reloads the page. Writing the ids to
- * localStorage and reloading, rather than pushing the fetched state into this hook directly,
- * reuses the exact same restore path a normal reload takes — including CodePanel's GitLab
- * selection replay — instead of duplicating that logic here for a one-off case.
+ * Loads a session exported from another machine, by its id (see the navbar's
+ * "Exporter"/"Charger une session" controls), and reloads the page. Storing just the id and
+ * reloading, rather than pushing the fetched state into this hook directly, reuses the exact
+ * same restore path a normal reload takes instead of duplicating that logic here for a one-off
+ * case. Fetches the session first so a bad/unknown id fails loudly instead of silently wiping
+ * the current session.
  */
-export async function importSession(mergedDocumentId: string): Promise<void> {
-  const session = await getSession(mergedDocumentId)
-  const stored: StoredSession = {
-    wordDocumentId: session.wordDocumentId ?? undefined,
-    jxmlDocumentId: session.jxmlDocumentId ?? undefined,
-    mergedDocumentId: session.mergedDocumentId,
-    gitlabSelection: session.gitlabSelectionJson
-      ? (JSON.parse(session.gitlabSelectionJson) as GitlabSelection)
-      : undefined,
-  }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(stored))
+export async function importSession(sessionId: string): Promise<void> {
+  await getSession(sessionId)
+  storeSessionId(sessionId)
   window.location.reload()
 }
 
 /**
- * Clears the current session (the 3 document slots + the GitLab selection) and reloads, for a
- * clean slate once the user is done working — the navbar's "Nouvelle session" control. The
- * underlying documents are never deleted server-side (their revisions stay reachable by id, or
- * via a previously exported session id) — this only drops the local pointers to them.
+ * Clears the current session and reloads, for a clean slate once the user is done working — the
+ * navbar's "Nouvelle session" control. The underlying session and its documents are never deleted
+ * server-side (still reachable by id, e.g. via a previously exported session id) — this only
+ * drops the local pointer to it.
  */
 export function resetSession(): void {
-  try {
-    localStorage.removeItem(STORAGE_KEY)
-  } catch {
-    // localStorage unavailable — nothing was persisted to begin with.
-  }
+  storeSessionId(null)
   window.location.reload()
 }
 
 /**
- * The cross-cutting session state: the three document slots (Word spec, JXML spec, merge) and
- * their persisted ids, restored from localStorage on mount by fetching each document's latest
- * content back from the backend — see #263. The GitLab source-selection fields (repo, entry
- * point, selected paths) are persisted the same way; `initialGitlabSelection` is the value read
- * from storage at mount, for CodePanel to replay its GitLab loading flow with, and
- * `setGitlabSelection` is how CodePanel reports the selection back as it changes — see #326.
+ * The cross-cutting session state: a single session id — created server-side as soon as the first
+ * document (Word or JXML) is generated, unchanged after — and the three document slots it may
+ * carry (Word spec, JXML spec, their merge), restored in one call from the id kept in
+ * localStorage. The GitLab source-selection (repo, entry point, selected paths) travels with the
+ * session too; `initialGitlabSelection` is what CodePanel replays its GitLab loading flow from —
+ * known synchronously at its first mount since the panels aren't rendered until any restore has
+ * finished (see App.tsx) — and `setGitlabSelection` is how CodePanel reports the selection back
+ * as it changes.
  */
 export function useGenerationSession() {
   const word = usePersistedDoc()
   const jxml = usePersistedDoc()
   const merged = usePersistedDoc()
-  const stored = useRef(loadStoredSession()).current
-  const [restoring, setRestoring] = useState(
-    Boolean(stored.wordDocumentId || stored.jxmlDocumentId || stored.mergedDocumentId),
-  )
-  const [gitlabSelection, setGitlabSelection] = useState<GitlabSelection | null>(
-    stored.gitlabSelection ?? null,
-  )
+  const storedSessionId = useRef(loadStoredSessionId()).current
+  const [sessionId, setSessionId] = useState(storedSessionId)
+  const [restoring, setRestoring] = useState(Boolean(storedSessionId))
+  const [gitlabSelection, setGitlabSelection] = useState<GitlabSelection | null>(null)
+  const initialGitlabSelection = useRef<GitlabSelection | null>(null)
 
   useEffect(() => {
+    if (!storedSessionId) return
     let cancelled = false
 
-    async function restoreDoc(id: string | undefined, target: typeof word) {
-      if (!id) return
+    async function restore() {
       try {
-        const result = await getDocument(id)
-        if (!cancelled) target.restore(result)
+        const session = await getSession(storedSessionId as string)
+        if (cancelled) return
+        if (session.wordDocumentId) {
+          word.restore({ id: session.wordDocumentId, markdown: session.wordMarkdown ?? '' })
+        }
+        if (session.jxmlDocumentId) {
+          jxml.restore({ id: session.jxmlDocumentId, markdown: session.jxmlMarkdown ?? '' })
+        }
+        if (session.mergedDocumentId) {
+          merged.restore({ id: session.mergedDocumentId, markdown: session.mergedMarkdown ?? '' })
+        }
+        if (session.gitlabSelectionJson) {
+          const selection = JSON.parse(session.gitlabSelectionJson) as GitlabSelection
+          initialGitlabSelection.current = selection
+          setGitlabSelection(selection)
+        }
       } catch (e) {
-        console.error('Échec de la restauration du document', id, e)
+        console.error('Échec de la restauration de la session', storedSessionId, e)
+      } finally {
+        if (!cancelled) setRestoring(false)
       }
     }
 
-    async function restoreAll() {
-      await Promise.all([
-        restoreDoc(stored.wordDocumentId, word),
-        restoreDoc(stored.jxmlDocumentId, jxml),
-        restoreDoc(stored.mergedDocumentId, merged),
-      ])
-      if (!cancelled) setRestoring(false)
-    }
-
-    if (restoring) void restoreAll()
+    void restore()
     return () => {
       cancelled = true
     }
-    // Runs once on mount only — restoring the three slots from whatever was in localStorage then.
+    // Runs once on mount only — restoring from whatever session id was in localStorage then.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
-    // While a restore is in flight, word/jxml/merged ids are still null (the getDocument calls
-    // haven't resolved yet) — persisting now would clobber the very session being restored with
-    // nulls, before it's even had a chance to load. Wait for restoreAll() to finish (sets
-    // restoring to false) before this effect is allowed to write anything.
-    if (restoring) return
-    const session: StoredSession = {
-      wordDocumentId: word.id ?? undefined,
-      jxmlDocumentId: jxml.id ?? undefined,
-      mergedDocumentId: merged.id ?? undefined,
-      gitlabSelection: gitlabSelection ?? undefined,
+    storeSessionId(sessionId)
+  }, [sessionId])
+
+  // Mirrors `sessionId` but as a ref, so `claimSessionId` below can mint (and immediately see) a
+  // new id synchronously, without waiting for React to commit the corresponding state update —
+  // see `claimSessionId`'s own comment for why that matters.
+  const sessionIdRef = useRef(sessionId)
+
+  /** Wraps a document slot's onGenerated so every generation also tracks the session it belongs
+   * to — the id the frontend actually keeps (see storeSessionId above). */
+  function trackingOnGenerated(doc: typeof word) {
+    return (result: GeneratedDocWithSession) => {
+      doc.onGenerated(result)
+      if (result.sessionId) {
+        sessionIdRef.current = result.sessionId
+        setSessionId(result.sessionId)
+      }
     }
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(session))
-    } catch {
-      // localStorage unavailable — the session just won't survive a reload.
+  }
+
+  /**
+   * Returns the session id to send with a Word or JXML generation request, minting one
+   * client-side on first use instead of leaving the backend to mint one once the request lands.
+   * This matters because two generations (Word and JXML) can be fired one right after the other,
+   * before either response comes back — if both requests went out with no session id, the backend
+   * would create two separate sessions and whichever response arrives last would silently win,
+   * orphaning the other document. Claiming the id here — a synchronous ref read-then-write, not
+   * React state — means the second call sees the first's claim immediately, so both requests
+   * always carry the same id and land on the same session.
+   */
+  function claimSessionId(): string {
+    if (!sessionIdRef.current) {
+      sessionIdRef.current = crypto.randomUUID()
+      setSessionId(sessionIdRef.current)
     }
-  }, [word.id, jxml.id, merged.id, gitlabSelection, restoring])
+    return sessionIdRef.current
+  }
 
   return {
-    word,
-    jxml,
-    merged,
+    word: { ...word, onGenerated: trackingOnGenerated(word) },
+    jxml: { ...jxml, onGenerated: trackingOnGenerated(jxml) },
+    merged: { ...merged, onGenerated: trackingOnGenerated(merged) },
     restoring,
     gitlabSelection,
-    initialGitlabSelection: stored.gitlabSelection ?? null,
+    initialGitlabSelection: initialGitlabSelection.current,
     setGitlabSelection,
+    sessionId,
+    claimSessionId,
   }
 }
