@@ -1,6 +1,5 @@
 package com.specmerger.service;
 
-import com.specmerger.dto.SessionExport;
 import com.specmerger.entity.DocumentRevision;
 import com.specmerger.entity.GeneratedDocument;
 import com.specmerger.entity.GeneratedDocument.Source;
@@ -13,9 +12,8 @@ import java.util.UUID;
 
 /**
  * Persists AI generations (Word spec, JXML spec, their merge) and manual edits to them — see
- * {@link GeneratedDocument}/{@link DocumentRevision}. The frontend keeps only each document's id
- * (in localStorage) to recover a session, fetching content back through this service instead of
- * holding the markdown itself across reloads.
+ * {@link GeneratedDocument}/{@link DocumentRevision}. Which session a document belongs to is
+ * tracked separately by {@link com.specmerger.service.SessionService}.
  */
 @Service
 public class GeneratedDocumentService {
@@ -31,18 +29,17 @@ public class GeneratedDocumentService {
 
     @Transactional
     public GeneratedDocument createWord(String content) {
-        return create(Source.WORD, content, null, null, null);
+        return create(Source.WORD, content);
     }
 
     @Transactional
     public GeneratedDocument createJxml(String content) {
-        return create(Source.JXML, content, null, null, null);
+        return create(Source.JXML, content);
     }
 
     @Transactional
-    public GeneratedDocument createMerged(String content, UUID wordDocumentId, UUID jxmlDocumentId,
-                                           String gitlabSelectionJson) {
-        return create(Source.MERGED, content, wordDocumentId, jxmlDocumentId, gitlabSelectionJson);
+    public GeneratedDocument createMerged(String content) {
+        return create(Source.MERGED, content);
     }
 
     /** The document's latest revision content — what the frontend restores after a reload. */
@@ -51,40 +48,15 @@ public class GeneratedDocumentService {
         return latestRevision(documentId).getContent();
     }
 
-    /**
-     * Everything needed to recover a MERGED document's whole session from another machine: its
-     * own content, the two documents it was produced from (best-effort — see {@link
-     * GeneratedDocument}), and the GitLab selection it carries.
-     */
-    @Transactional(readOnly = true)
-    public SessionExport getSession(UUID mergedDocumentId) {
-        GeneratedDocument merged = documentRepository.findById(mergedDocumentId)
-                .orElseThrow(() -> new IllegalArgumentException("Document introuvable: " + mergedDocumentId));
-        if (merged.getSource() != Source.MERGED) {
-            throw new IllegalArgumentException("Ce document n'est pas une fusion: " + mergedDocumentId);
-        }
-        String mergedMarkdown = latestRevision(mergedDocumentId).getContent();
-        String wordMarkdown = merged.getWordDocumentId() == null ? null
-                : latestRevision(merged.getWordDocumentId()).getContent();
-        String jxmlMarkdown = merged.getJxmlDocumentId() == null ? null
-                : latestRevision(merged.getJxmlDocumentId()).getContent();
-        return new SessionExport(merged.getId(), mergedMarkdown, merged.getWordDocumentId(), wordMarkdown,
-                merged.getJxmlDocumentId(), jxmlMarkdown, merged.getGitlabSelectionJson());
-    }
-
     /** Appends a new revision (never overwrites) — backs the debounced auto-save of manual edits. */
     @Transactional
     public void addRevision(UUID documentId, String content) {
         saveNextRevision(documentId, content);
     }
 
-    private GeneratedDocument create(Source source, String content, UUID wordDocumentId, UUID jxmlDocumentId,
-                                      String gitlabSelectionJson) {
+    private GeneratedDocument create(Source source, String content) {
         GeneratedDocument document = new GeneratedDocument();
         document.setSource(source);
-        document.setWordDocumentId(wordDocumentId);
-        document.setJxmlDocumentId(jxmlDocumentId);
-        document.setGitlabSelectionJson(gitlabSelectionJson);
         document = documentRepository.save(document);
         saveNextRevision(document.getId(), content);
         return document;
