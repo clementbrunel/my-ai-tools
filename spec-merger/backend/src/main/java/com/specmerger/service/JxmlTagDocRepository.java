@@ -122,6 +122,10 @@ public class JxmlTagDocRepository {
             }
         }
 
+        log.info("jxml-tags: {} fiche(s) incluse(s) dans le prompt Mistral ({} caractères) — cap actuel : "
+                        + "{} fiches / {} caractères.",
+                selected.size(), totalChars, maxDocs, maxTotalChars);
+
         if (!dropped.isEmpty()) {
             String limitingFactor = droppedForDocCountCap && droppedForCharBudgetCap
                     ? "nombre de fiches ET caractères"
