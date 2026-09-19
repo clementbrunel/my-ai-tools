@@ -43,7 +43,11 @@ function App() {
   // Every combination is spelled out as a literal class below (rather than built dynamically) so
   // Tailwind's JIT scanner — which only generates CSS for arbitrary-value classes it can see
   // verbatim in the source — picks up all eight; the lookup key is spec+merge+code collapsed, in
-  // that order, as "0"/"1".
+  // that order, as "0"/"1". Spec/Fusion/Code all collapsed is the one case with no `fr` column to
+  // absorb the row's leftover width, so it's the only case where the grid's `justify-between`
+  // (below) has any visible effect — it keeps Spec glued to the left edge and Code glued to the
+  // right edge instead of both drifting left with Fusion, in the middle by construction since all
+  // three strips are the same width.
   const gridColsClass =
     GRID_COLS_BY_COLLAPSE[`${+specCollapsed}${+mergeCollapsed}${+codeCollapsed}`]
 
@@ -58,7 +62,7 @@ function App() {
       />
 
       <div className="flex-1 min-h-0 flex flex-col overflow-y-auto">
-        <div className={`grid grid-cols-1 ${gridColsClass} gap-3 p-3 flex-1 min-h-0`}>
+        <div className={`grid grid-cols-1 ${gridColsClass} justify-between gap-3 p-3 flex-1 min-h-0`}>
           {specCollapsed ? (
             <CollapsedPanel label="Spec Word / Excel" icon="▶" onExpand={() => setSpecCollapsed(false)} />
           ) : (
