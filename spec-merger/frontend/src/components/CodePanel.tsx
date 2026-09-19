@@ -264,6 +264,7 @@ function CodePanel({ onCollapse, doc, claimSessionId, initialGitlabSelection, on
   async function handleGenerate() {
     setError(null)
     setGenerating(true)
+    const start = performance.now()
     try {
       const params = currentGitlabPreviewParams()
       if (!params) return
@@ -272,6 +273,7 @@ function CodePanel({ onCollapse, doc, claimSessionId, initialGitlabSelection, on
       // follow-up. `params` already has exactly the GitlabSelection shape.
       onGenerated(await generateSpecFromGitlab(params, claimSessionId?.(), JSON.stringify(params)))
       setTab('output')
+      console.info(`Génération de la doc JXML terminée en ${((performance.now() - start) / 1000).toFixed(1)} s`)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Échec de la génération de la doc — voir la console.')
       console.error(e)
@@ -303,8 +305,9 @@ function CodePanel({ onCollapse, doc, claimSessionId, initialGitlabSelection, on
     <>
       {generating && <FullPageLoader message="Génération de la doc depuis le code source en cours…" />}
       <section className="card p-4 overflow-auto min-h-0 flex flex-col">
+        {/* Button before the title (mirrored from SpecPanel/MergePanel) so the collapse control
+            sits on the inner edge, next to the Fusion panel, on both sides symmetrically. */}
         <div className="flex items-center justify-between gap-2 mb-3">
-          <h2 className="field-label">Spec JXML</h2>
           {onCollapse && (
             <button
               type="button"
@@ -316,6 +319,7 @@ function CodePanel({ onCollapse, doc, claimSessionId, initialGitlabSelection, on
               ▶
             </button>
           )}
+          <h2 className="field-label">Spec JXML</h2>
         </div>
         <div className="flex mb-3 border-b border-[#dcdcde] text-sm shrink-0">
           {(['input', 'output'] as const).map((t) => (

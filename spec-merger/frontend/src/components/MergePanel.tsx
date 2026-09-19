@@ -16,6 +16,7 @@ interface MergePanelProps {
   /** The currently selected GitLab project, if any — recorded on the session so its id alone is
    * enough to export/import the whole session (see the navbar). */
   gitlabSelection: GitlabSelection | null
+  onCollapse?: () => void
 }
 
 function downloadMarkdown(markdown: string, filename: string) {
@@ -28,7 +29,7 @@ function downloadMarkdown(markdown: string, filename: string) {
   URL.revokeObjectURL(url)
 }
 
-function MergePanel({ wordDoc, jxmlDoc, mergedDoc, sessionId, gitlabSelection }: MergePanelProps) {
+function MergePanel({ wordDoc, jxmlDoc, mergedDoc, sessionId, gitlabSelection, onCollapse }: MergePanelProps) {
   const { markdown: wordMarkdown } = wordDoc
   const { markdown: jxmlMarkdown } = jxmlDoc
   const { markdown: mergedMarkdown, id: mergedDocumentId, isDirty, saving, onGenerated, onEdit, save } = mergedDoc
@@ -59,6 +60,7 @@ function MergePanel({ wordDoc, jxmlDoc, mergedDoc, sessionId, gitlabSelection }:
     if (!sessionId) return
     setError(null)
     setLoading(true)
+    const start = performance.now()
     try {
       const result = await mergeSpecs(
         wordMarkdown,
@@ -67,6 +69,7 @@ function MergePanel({ wordDoc, jxmlDoc, mergedDoc, sessionId, gitlabSelection }:
         gitlabSelection ? JSON.stringify(gitlabSelection) : null,
       )
       onGenerated(result)
+      console.info(`Fusion des deux documentations terminée en ${((performance.now() - start) / 1000).toFixed(1)} s`)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Échec de la fusion — voir la console.')
       console.error(e)
@@ -104,25 +107,38 @@ function MergePanel({ wordDoc, jxmlDoc, mergedDoc, sessionId, gitlabSelection }:
       <section className="card p-4 overflow-auto min-h-0 flex flex-col">
         <div className="flex items-center justify-between gap-2 mb-3 shrink-0">
           <h2 className="field-label">Fusion</h2>
-          {hasResult && (
-            <div className="flex items-center gap-3">
-              {isDirty && (
-                <button type="button" className="btn-primary" onClick={handleSave} disabled={saving}>
-                  {saving ? 'Enregistrement…' : 'Enregistrer'}
+          <div className="flex items-center gap-3">
+            {hasResult && (
+              <>
+                {isDirty && (
+                  <button type="button" className="btn-primary" onClick={handleSave} disabled={saving}>
+                    {saving ? 'Enregistrement…' : 'Enregistrer'}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => downloadMarkdown(mergedMarkdown, 'spec-fusion.md')}
+                >
+                  Télécharger
                 </button>
-              )}
+                <button type="button" className="btn-secondary" onClick={handleMergeClick} disabled={!bothReady}>
+                  Refusionner
+                </button>
+              </>
+            )}
+            {onCollapse && (
               <button
                 type="button"
-                className="btn-secondary"
-                onClick={() => downloadMarkdown(mergedMarkdown, 'spec-fusion.md')}
+                onClick={onCollapse}
+                title="Réduire le panneau"
+                aria-label="Réduire le panneau Fusion"
+                className="text-gray-400 hover:text-gl-blue leading-none px-1 shrink-0"
               >
-                Télécharger
+                −
               </button>
-              <button type="button" className="btn-secondary" onClick={handleMergeClick} disabled={!bothReady}>
-                Refusionner
-              </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {!bothReady ? (
