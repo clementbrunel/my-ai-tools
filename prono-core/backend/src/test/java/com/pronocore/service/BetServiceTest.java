@@ -369,6 +369,27 @@ class BetServiceTest {
         verifyNoInteractions(participationRepository);
     }
 
+    @Test
+    void upsertParticipateByMatch_throwsWhenAllBetsClosed() {
+        // Deadline just passed — the classic "match kicked off while the user
+        // was filling the form" race. Must surface as an error, not a silent
+        // 200 with an empty list (the frontend reads that as a successful save).
+        Bet expiredBet = Bet.builder().id(1L).title("Test Bet").betType(Bet.BetType.FREE).points(10)
+            .deadline(LocalDateTime.now().minusMinutes(1)).status(Bet.Status.OPEN)
+            .creator(testUser).group(testGroup).build();
+
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+        when(betRepository.findByMatchIdInUserActiveGroups(5L, 1L)).thenReturn(List.of(expiredBet));
+
+        ParticipateRequest request = new ParticipateRequest();
+        request.setChosenOption("Victoire France 2-1");
+
+        assertThatThrownBy(() -> betService.upsertParticipateByMatch(5L, request, "testuser"))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("commencé");
+        verifyNoInteractions(participationRepository);
+    }
+
     // ── validateBet ─────────────────────────────────────────────────────────────
 
     @Test

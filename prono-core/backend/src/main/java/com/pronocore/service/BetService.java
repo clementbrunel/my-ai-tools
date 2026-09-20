@@ -269,7 +269,7 @@ public class BetService {
     public List<BetParticipationResponse> upsertParticipateByMatch(Long matchId, ParticipateRequest request, String username) {
         User user = CurrentUserLookup.require(userRepository, username);
         List<Bet> bets = betRepository.findByMatchIdInUserActiveGroups(matchId, user.getId());
-        return bets.stream()
+        List<BetParticipationResponse> results = bets.stream()
             .filter(bet -> {
                 try { assertOpenForParticipation(bet); return true; }
                 catch (IllegalStateException e) { return false; }
@@ -290,6 +290,15 @@ public class BetService {
                 return betMapper.toParticipationResponse(participationRepository.save(participation));
             })
             .toList();
+
+        // bets non-empty but nothing saved means every bet for this match was closed
+        // (deadline passed / settled) — surface that as an error instead of silently
+        // returning 200 with an empty list, which the frontend was reading as success.
+        if (results.isEmpty() && !bets.isEmpty()) {
+            throw new IllegalStateException("Le match a déjà commencé, les paris sont fermés");
+        }
+
+        return results;
     }
 
     // ---------------------------------------------------------------
