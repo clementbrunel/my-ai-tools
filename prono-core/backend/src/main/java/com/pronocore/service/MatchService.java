@@ -152,6 +152,7 @@ public class MatchService {
                 existing.setMatchDate(fixture.date());
                 if (roundChanged) existing.setRound(round);
                 rescheduled.add(matchRepository.save(existing));
+                if (dateChanged) syncOpenBetDeadlines(existing);
             }
         }
 
@@ -163,6 +164,23 @@ public class MatchService {
                 .created(created.stream().map(this::toEnrichedResponse).toList())
                 .rescheduled(rescheduled.stream().map(this::toEnrichedResponse).toList())
                 .build();
+    }
+
+    /**
+     * bet.deadline is a snapshot of the match's kick-off time taken once, when a group
+     * admin opens the match for betting — it isn't derived live from match.matchDate.
+     * A broadcast-time reschedule after that (common mid-season, see the import above)
+     * would otherwise leave every OPEN bet locked to a deadline that's now stale: if the
+     * kick-off moves later, users get locked out early by a "deadline" already in the
+     * past even though the real match hasn't started yet.
+     */
+    private void syncOpenBetDeadlines(Match match) {
+        List<Bet> openBets = betRepository.findByMatchIdAndStatusOrderByCreatedAtDesc(match.getId(), Bet.Status.OPEN);
+        if (openBets.isEmpty()) return;
+        for (Bet bet : openBets) {
+            bet.setDeadline(match.getMatchDate());
+        }
+        betRepository.saveAll(openBets);
     }
 
     private Match createMatchFromFdFixture(Competition competition, FootballDataClient.FdMatch fixture) {

@@ -146,8 +146,10 @@ public class F1SyncService {
             String country = raceNode.path("Circuit").path("Location").path("country").asText("");
             race.setCountryIso2(COUNTRY_ISO2.getOrDefault(country, race.getCountryIso2()));
 
+            LocalDateTime previousRaceDate = race.getRaceDate();
             LocalDateTime raceDate = toParisTime(raceNode.path("date").asText(null), raceNode.path("time").asText(null));
             if (raceDate != null) race.setRaceDate(raceDate);
+            boolean raceDateChanged = raceDate != null && !raceDate.equals(previousRaceDate);
             JsonNode quali = raceNode.path("Qualifying");
             LocalDateTime qualiDate = toParisTime(quali.path("date").asText(null), quali.path("time").asText(null));
             race.setQualifyingDate(qualiDate != null ? qualiDate
@@ -156,6 +158,7 @@ public class F1SyncService {
             race.setSprintDate(toParisTime(sprint.path("date").asText(null), sprint.path("time").asText(null)));
 
             raceRepository.save(race);
+            if (raceDateChanged) syncOpenBetDeadlines(race);
             matched.add(race);
             count++;
         }
@@ -168,6 +171,22 @@ public class F1SyncService {
             }
         }
         return count;
+    }
+
+    /**
+     * bet.deadline is a snapshot of the race's start time taken once, when a group admin
+     * opens the race for betting — it isn't derived live from race.raceDate. jolpica
+     * regularly moves a GP's schedule (broadcast slot changes, weather-driven reshuffles)
+     * after that; without this, an OPEN bet keeps a stale deadline and users can get
+     * locked out early (or stay open too long) relative to the real, updated start time.
+     */
+    private void syncOpenBetDeadlines(Race race) {
+        List<Bet> openBets = betRepository.findByRaceIdAndStatusOrderByCreatedAtDesc(race.getId(), Bet.Status.OPEN);
+        if (openBets.isEmpty()) return;
+        for (Bet bet : openBets) {
+            bet.setDeadline(race.getRaceDate());
+        }
+        betRepository.saveAll(openBets);
     }
 
     // ---------------------------------------------------------------

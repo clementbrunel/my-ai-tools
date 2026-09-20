@@ -386,6 +386,44 @@ class MatchServiceTest {
         verify(matchExternalLinksRepository, never()).save(any());
     }
 
+    @Test
+    void importFixturesFromFootballData_resyncsOpenBetDeadlineWhenKickoffMoves() {
+        // bet.deadline is a snapshot taken once at bet-open time — a rescheduled kickoff
+        // must resync it, otherwise a match pushed later leaves users locked out by a
+        // deadline still stuck in the past relative to the real, updated kick-off.
+        Competition ligue1 = Competition.builder().id(2L).name("Ligue 1 2026-2027")
+                .season(2026).footballDataCompetitionCode("FL1").build();
+        when(competitionRepository.findById(2L)).thenReturn(Optional.of(ligue1));
+        when(footballDataClient.isDisabled()).thenReturn(false);
+
+        LocalDateTime originalKickoff = LocalDateTime.of(2026, 8, 20, 14, 0);
+        LocalDateTime newKickoff = LocalDateTime.of(2026, 8, 20, 15, 0);
+        FootballDataClient.FdMatch rescheduledFixture = new FootballDataClient.FdMatch(
+                100L, newKickoff, "PSG", "OM", 1L, 2L, "SCHEDULED", null, null, 1);
+        when(footballDataClient.getSeasonMatches("FL1", 2026)).thenReturn(List.of(rescheduledFixture));
+
+        Match existingMatch = Match.builder().id(77L).matchDate(originalKickoff).round("Journée 1").build();
+        MatchExternalLinks existingLink = MatchExternalLinks.builder()
+                .matchId(77L).match(existingMatch).footballDataMatchId(100L).build();
+        when(matchExternalLinksRepository.findByFootballDataMatchIdIn(List.of(100L)))
+                .thenReturn(List.of(existingLink));
+        when(matchRepository.save(any(Match.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(matchMapper.toResponse(any(Match.class))).thenReturn(MatchResponse.builder().build());
+
+        Bet staleOpenBet = Bet.builder().id(10L).status(Bet.Status.OPEN)
+                .match(existingMatch).deadline(originalKickoff).build();
+        Bet settledBet = Bet.builder().id(11L).status(Bet.Status.VALIDATED)
+                .match(existingMatch).deadline(originalKickoff).build();
+        when(betRepository.findByMatchIdAndStatusOrderByCreatedAtDesc(77L, Bet.Status.OPEN))
+                .thenReturn(List.of(staleOpenBet));
+
+        matchService.importFixturesFromFootballData(2L);
+
+        assertThat(staleOpenBet.getDeadline()).isEqualTo(newKickoff);
+        assertThat(settledBet.getDeadline()).isEqualTo(originalKickoff);
+        verify(betRepository).saveAll(List.of(staleOpenBet));
+    }
+
     // ── deleteMatch ───────────────────────────────────────────────────────────
 
     @Test
