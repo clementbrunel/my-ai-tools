@@ -185,6 +185,30 @@ class F1SyncServiceTest {
     }
 
     @Test
+    void syncSeason_resyncsOpenBetDeadlineWhenRaceDateMoves() {
+        // bet.deadline is a snapshot taken once at bet-open time — a jolpica reschedule
+        // must resync it, otherwise a race pushed later leaves users locked out by a
+        // deadline still stuck in the past relative to the real, updated start time.
+        Competition competition = Competition.builder().id(9L).name("Formule 1 2026").sport(Sport.F1).season(2026).build();
+        Race round1 = race(101L, 1, Race.Status.FINISHED, competition);   // FINISHED → results/grid sync skipped
+
+        when(competitionRepository.findFirstBySportOrderByIdDesc(Sport.F1)).thenReturn(Optional.of(competition));
+        when(raceRepository.findByCompetition_IdOrderByRaceDateAsc(9L)).thenReturn(List.of(round1));
+        when(jolpicaClient.get("2026.json?limit=100")).thenReturn(CALENDAR_JSON);
+        when(raceRepository.save(any(Race.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Bet staleOpenBet = Bet.builder().id(20L).status(Bet.Status.OPEN).race(round1).build();
+        when(betRepository.findByRaceIdAndStatusOrderByCreatedAtDesc(101L, Bet.Status.OPEN))
+                .thenReturn(List.of(staleOpenBet));
+
+        f1SyncService.syncSeason();
+
+        assertThat(round1.getRaceDate()).isEqualTo(LocalDateTime.parse("2026-03-08T05:00"));
+        assertThat(staleOpenBet.getDeadline()).isEqualTo(round1.getRaceDate());
+        verify(betRepository).saveAll(List.of(staleOpenBet));
+    }
+
+    @Test
     void syncSeason_alreadyFinishedRace_isNotResettled() {
         Competition competition = Competition.builder().id(9L).name("Formule 1 2026").sport(Sport.F1).season(2026).build();
         Race round1 = race(101L, 1, Race.Status.FINISHED, competition);
