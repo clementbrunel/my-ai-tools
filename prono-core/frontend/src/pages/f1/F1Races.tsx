@@ -180,6 +180,13 @@ const F1Races: React.FC = () => {
     return acc;
   }, {});
 
+  const dateSortDirection = filter === 'FINISHED' ? -1 : 1;
+  Object.values(racesByMonth).forEach((monthRaces) =>
+    monthRaces.sort(
+      (a, b) => dateSortDirection * (new Date(a.raceDate).getTime() - new Date(b.raceDate).getTime()),
+    ),
+  );
+
   const sortedMonths = Object.keys(racesByMonth).sort(
     filter === 'FINISHED' ? (a, b) => b.localeCompare(a) : undefined,
   );
