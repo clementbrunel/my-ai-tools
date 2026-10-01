@@ -36,7 +36,7 @@ export const apps: AppEntry[] = [
     kind: { fr: 'Web app · en ligne', en: 'Web app · live' },
     headline: { fr: ['Un bébé arrive.', 'La liste suit.'], en: ['A baby is coming.', 'The list follows.'] },
     description: {
-      fr: 'Crée gratuitement ta liste de naissance et partage-la. Tes proches réservent les cadeaux en un clic, sans doublons, sans se marcher dessus.',
+      fr: 'Crée gratuitement ta liste de naissance et partage-la. Tes proches réservent les cadeaux en un clic, sans doublon, sans se marcher dessus.',
       en: 'Create your birth registry for free and share it. Family and friends reserve gifts in one click, no duplicates, no overlap.',
     },
     tags: ['React', 'TypeScript', 'FR · EN · DE'],
@@ -44,7 +44,7 @@ export const apps: AppEntry[] = [
   },
   {
     id: 'prono-core',
-    name: 'Prono Core',
+    name: 'Prono-core',
     stage: 'prono',
     scene: './scenes/prono-core.jpg',
     theme: {
@@ -55,8 +55,8 @@ export const apps: AppEntry[] = [
     kind: { fr: 'Web app · en ligne', en: 'Web app · live' },
     headline: { fr: ['Foot ou F1 entre potes :\nPas d’argent, pas de prise de tête…', 'Juste quelques gages !'], en: ['Football or F1 with friends:\nNo money, no hassle…', 'Just a few forfeits!'] },
     description: {
-      fr: 'Pronostics entre potes sur la Ligue 1 et la Formule 1 : crée ton groupe, devine les scores, grimpe au classement.',
-      en: 'Predictions with friends on Ligue 1 and Formula 1: create your group, guess the scores, climb the leaderboard.',
+      fr: 'Crée ton groupe, devine les scores, grimpe au classement.',
+      en: 'Create your group, guess the scores, climb the leaderboard.',
     },
     tags: ['React', 'Spring Boot', 'PostgreSQL'],
     links: [{ label: { fr: 'Jouer', en: 'Play' }, url: 'https://prono-core.top' }],
