@@ -1,7 +1,7 @@
 # showcase
 
 Page catalogue statique (FR/EN) qui présente mes apps : **BienvenueBébé**, **prono-core**, **ai-env-manager**.
-Inspirée de polymorph.club. Hébergement à décider : le build est agnostique (`base: './'`).
+Inspirée de polymorph.club. Servie par GitHub Pages sur https://clementbrunel.github.io (le build reste agnostique : `base: './'`).
 
 ## Ajouter / modifier une app
 
@@ -37,3 +37,20 @@ npm install
 npm run dev     # dev server
 npm run build   # → dist/ (statique, à déposer n'importe où)
 ```
+
+## Déploiement (GitHub Pages)
+
+Les sources restent ici ; le workflow [`showcase-deploy.yml`](../.github/workflows/showcase-deploy.yml) build le site
+(`npm ci && npm run build`) et pousse **uniquement `showcase/dist`** vers le dépôt public
+`clementbrunel/clementbrunel.github.io`, servi à la racine par GitHub Pages.
+Déclenchement : push sur `main` touchant `showcase/**`, ou manuellement (`workflow_dispatch`).
+
+Mise en place (une seule fois) :
+
+1. Créer le dépôt public `clementbrunel/clementbrunel.github.io`, avec un premier commit sur `main`,
+   puis *Settings → Pages → Deploy from a branch → `main` / `(root)`*.
+2. Générer une clé : `ssh-keygen -t ed25519 -N "" -C showcase-deploy -f deploy_key`.
+3. Ajouter `deploy_key.pub` en *Deploy key* (avec accès en écriture) du dépôt Pages.
+4. Ajouter le contenu de `deploy_key` comme secret `PAGES_DEPLOY_KEY` de `my-ai-tools`, puis supprimer les deux fichiers locaux.
+
+Domaine personnalisé plus tard : ajouter un fichier `CNAME` dans `public/` (il sera copié dans `dist/`).
