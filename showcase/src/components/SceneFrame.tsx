@@ -38,6 +38,7 @@ export default function SceneFrame({ app, lang, flip = false, layout = 'side', a
         )}
         {app.scene && <div className={`shade ${split ? 'top' : ''} ${th.dark ? '' : 'light'}`} />}
         <div className="copy" style={{ transform: `translateY(${(1 - o) * 50}px)` }}>
+          <p className="appname">{app.name}</p>
           <p className="kind">{app.kind[lang]}</p>
           <h2>
             {plain.split('\n').map((line, i) => <span key={line} className={i ? 'h2-sub' : 'h2-line'}>{line}</span>)}

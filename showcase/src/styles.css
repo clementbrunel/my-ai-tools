@@ -59,13 +59,18 @@ a { color:inherit }
 .app.flip .copy { order:2 }
 .copy { position:relative; z-index:2; max-width:480px }
 .kind { font:11px var(--mono); letter-spacing:.14em; text-transform:uppercase; opacity:.6; margin-bottom:18px }
-.app h2 { font-weight:800; font-size:clamp(36px,4.4vw,68px); line-height:1; letter-spacing:-.02em }
-[id=ai-env-manager] h2 { font-weight:700; font-size:clamp(30px,3.9vw,58px); line-height:1.1 }
+.appname { font-weight:800; font-size:clamp(40px,4.4vw,68px); line-height:.95; letter-spacing:-.02em; margin-bottom:14px; color:var(--punch) }
+[id=bienvenuebebe] .appname { font-weight:700 }
+[id=prono-core] .appname { font-weight:400; font-size:clamp(52px,6.4vw,100px); letter-spacing:.05em; text-transform:uppercase }
+[id=ai-env-manager] .appname { font-weight:700; font-size:clamp(26px,2.9vw,44px); letter-spacing:-.03em; white-space:nowrap }
+[id=ai-env-manager] .appname::before { content:'$ '; opacity:.55 }
+.app h2 { font-weight:700; font-size:clamp(24px,2.7vw,42px); line-height:1.1; letter-spacing:-.01em }
+[id=ai-env-manager] h2 { font-size:clamp(22px,2.4vw,36px); line-height:1.2 }
 .h2-line { display:block }
 .h2-sub { display:block; font-size:.56em; line-height:1.15; margin:.12em 0 .34em; opacity:.92; letter-spacing:.02em }
 .punch-line { line-height:1.12 }
 .punch { display:inline; padding:0 .18em; background:var(--punch); color:var(--punchInk); border-radius:.12em; -webkit-box-decoration-break:clone; box-decoration-break:clone }
-.lede { margin-top:22px; font:16px/1.55 var(--sans); opacity:.8; max-width:410px }
+.lede { white-space:pre-line; margin-top:22px; font:16px/1.55 var(--sans); opacity:.8; max-width:410px }
 .tags { display:flex; flex-wrap:wrap; gap:6px; list-style:none; margin-top:18px }
 .tags li { font:12px var(--sans); padding:3px 11px; border-radius:99px; background:color-mix(in srgb,currentColor 12%,transparent) }
 .cta { display:inline-block; margin-top:28px; padding:13px 22px; border-radius:99px; background:var(--punch); color:var(--punchInk); font:700 14px var(--sans); text-decoration:none; transition:transform .2s }
@@ -97,7 +102,7 @@ a { color:inherit }
 .app.split { display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:0; padding:70px 6vw 96px; text-align:center }
 .split .copy { max-width:920px; margin:0 auto; text-shadow:0 2px 16px rgba(0,0,0,.65) } .split .punch { text-shadow:none }
 .split .kind { margin-bottom:12px; opacity:.85 }
-.split h2 { font-weight:400; font-size:clamp(34px,5.2vw,76px); line-height:1.08; letter-spacing:.01em; text-transform:uppercase }
+.split h2 { font-weight:400; font-size:clamp(26px,3.3vw,50px); line-height:1.08; letter-spacing:.01em; text-transform:uppercase }
 .split .h2-sub { opacity:1 }
 .split .lede { margin:14px auto 0; max-width:560px; font-size:17px; opacity:.96 }
 .split .cta { margin-top:20px }
@@ -167,7 +172,10 @@ a { color:inherit }
   .hero.has-img h1 { font-size:clamp(44px,15vw,80px) }
   .hero-bg { left:-50vh; transform:none }
 
+  /* shorter scroll on phones: one swipe moves to the next scene */
+  .scene { height:175vh } .hero-scene { height:160vh } .about-scene { height:120vh }
   .app.split { justify-content:center }
+  .split .h2-sub { font-size:.7em }
   .shade.top { background:linear-gradient(180deg,rgba(4,8,12,.6),rgba(4,8,12,.82) 50%,rgba(4,8,12,.6)) }
 
   /* poster cropped on the mobile + card, copy below */
@@ -184,11 +192,12 @@ a { color:inherit }
   .app:not(.anchored):not(.split) { gap:12px; padding-top:44px; padding-bottom:84px }
   .term pre { padding:10px 12px; font-size:11px; line-height:1.5 }
   .dots { padding:9px 12px }
-  [id=ai-env-manager] h2 { font-size:28px }
+  [id=ai-env-manager] h2 { font-size:20px }
   .lede { font-size:14px; margin-top:12px }
   .tags { margin-top:12px } .progress { margin-top:16px }
+  .appname { font-size:36px; margin-bottom:8px } [id=prono-core] .appname { font-size:44px } [id=ai-env-manager] .appname { font-size:26px }
   .anchored .kind { display:none } .anchored .lede { font-size:13px; margin-top:8px } .anchored .cta { margin-top:12px; padding:10px 18px }
-  .anchored h2 { font-size:30px }
+  .app h2 { font-size:22px } .split h2 { font-size:26px }
 }
 @media (prefers-reduced-motion: reduce) {
   .sticky { opacity:1 !important; transform:none !important }
