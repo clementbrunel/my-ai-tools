@@ -14,6 +14,7 @@ Each tool lives in its own subdirectory with its own `package.json`, `src/`, and
 | `prono-core/`      | `prono-core`      | Full-stack World Cup 2026 betting app (Java/Spring + React)              |
 | `my-house/`        | `my-house`        | Home Assistant setup (NAS Docker or Pi 3B+ HAOS) + Somfy RTS/Zigbee      |
 | `my-money-hub/`    | `my-money-hub`    | Personal multi-bank/insurance account aggregator (Java/Spring + React), self-hosted alternative to Linxo |
+| `showcase/` | `showcase` | Static FR/EN catalogue page promoting my public apps (BienvenueBébé, prono-core, ai-env-manager) — Vite + React; cards driven by `src/apps.ts` |
 | `spec-merger/` | `spec-merger` | Merges a project's Word spec with its JWAY JXML source into a single editable, version-tracked markdown (Java/Spring Boot + React + Postgres) |
 
 ## Adding a new tool
@@ -25,7 +26,7 @@ Each tool lives in its own subdirectory with its own `package.json`, `src/`, and
 ## GitHub issues & PRs
 
 Every issue/PR gets a label matching the sub-project directory it belongs to (`ai-env-manager`,
-`mistral-chat`, `mottaret-watch`, `prono-core`, `my-house`) so work stays filterable by tool in
+`mistral-chat`, `mottaret-watch`, `prono-core`, `my-house`, `showcase`) so work stays filterable by tool in
 this monorepo. See `.claude/skills/github-issue-pr/` for the convention and how to apply it.
 
 ## Common commands (per tool)

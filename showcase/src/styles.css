@@ -1,0 +1,197 @@
+/* ───────── tokens & base ───────── */
+:root {
+  --bg:#0c0e13; --ink:#f2efe9;
+  --serif:"Instrument Serif",Georgia,serif; --sans:Inter,system-ui,sans-serif;
+  --mono:ui-monospace,monospace; --hand:Caveat,"Segoe Script","Bradley Hand",cursive;
+}
+* { box-sizing:border-box; margin:0; padding:0 }
+html { -webkit-text-size-adjust:100% }
+body { background:var(--bg); color:var(--ink); font-family:var(--sans); -webkit-font-smoothing:antialiased; overflow-x:hidden }
+a { color:inherit }
+@keyframes blink { 50% { opacity:0 } }
+
+/* language switch */
+.lang { position:fixed; top:16px; right:16px; z-index:60; padding:7px 12px; border-radius:99px; border:0; background:rgba(255,255,255,.5); backdrop-filter:blur(14px); box-shadow:inset 0 0 0 1px rgba(0,0,0,.08); color:#151412; font:600 11px var(--mono); letter-spacing:.08em; cursor:pointer; transition:background .5s,color .5s }
+.lang.dark { background:rgba(38,36,42,.6); color:#fff; box-shadow:inset 0 0 0 1px rgba(255,255,255,.12) }
+.lang b { opacity:.4 } .lang b.on { opacity:1 }
+
+/* ───────── scenes: tall sections with a pinned, fading frame ───────── */
+.scene { position:relative; height:230vh }
+.hero-scene { height:210vh }
+.about-scene { height:130vh }
+/* each scene starts while the previous one is still fading out: crossfade, no empty screen in between */
+.scene + .scene { margin-top:-110vh }
+.sticky { position:sticky; top:0; height:100vh; overflow:hidden; will-change:opacity,transform }
+
+/* progress bar (colours/height overridable with --pbar-*) */
+.pbar { height:var(--pbar-h,8px); border-radius:99px; background:var(--pbar-track,color-mix(in srgb,currentColor 16%,transparent)); overflow:hidden }
+.pbar span { display:block; height:100%; border-radius:inherit; background:var(--pbar-fill,var(--punch)) }
+
+/* ───────── hero ───────── */
+.hero { display:grid; place-content:center; justify-items:center; text-align:center; padding:0 16px }
+.halo { position:absolute; left:50%; top:46%; width:min(95vmin,950px); aspect-ratio:1; translate:-50% -50%; border-radius:50%; background:radial-gradient(circle,rgba(80,120,190,.3),rgba(40,60,110,.14) 42%,transparent 68%); filter:blur(30px); animation:breathe 9s ease-in-out infinite; z-index:-1 }
+@keyframes breathe { 50% { scale:1.08; opacity:.8 } }
+.hero h1 { font:800 clamp(56px,11.5vw,180px)/.88 var(--sans); letter-spacing:-.045em; text-transform:uppercase }
+.hero h1 span, .hero h1 em { display:block }
+.hero h1 em { font-style:normal; color:transparent; -webkit-text-stroke:2px var(--ink) }
+.sub { margin-top:30px; font:11px var(--mono); letter-spacing:.18em; text-transform:uppercase; opacity:.6 }
+.icons { display:flex; gap:18px; margin-top:34px }
+.icons a { display:block; box-shadow:0 0 0 1px rgba(255,255,255,.12),0 18px 30px -14px rgba(0,0,0,.8); border-radius:17px; transition:transform .4s cubic-bezier(.3,1.8,.5,1) }
+.icons a:hover { transform:translateY(-8px) rotate(-4deg) scale(1.08) }
+.ico { display:grid; place-items:center }
+.cue { position:absolute; bottom:24px; left:50%; translate:-50% 0; display:flex; flex-direction:column; align-items:center; gap:10px; font:10px var(--mono); letter-spacing:.2em; text-transform:uppercase; opacity:.45 }
+.cue i { width:1px; height:40px; background:currentColor; transform-origin:top; animation:cue 2s ease-in-out infinite }
+@keyframes cue { 0% { transform:scaleY(0) } 50% { transform:scaleY(1) } 100% { transform:scaleY(1); opacity:0 } }
+
+/* with a poster behind (apps.ts heroScene): box sized from the hero height, faded on its own left/right edges */
+.hero-bg { position:absolute; top:0; height:100%; left:50%; aspect-ratio:var(--ar,1); transform:translateX(-50%); z-index:-1; background-size:cover; background-position:center; -webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent); mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent) }
+.hero-bg::after { content:""; position:absolute; inset:0; background:radial-gradient(ellipse at 50% 45%,rgba(12,14,19,.25),rgba(12,14,19,0) 60%,rgba(12,14,19,.55) 100%) }
+/* smaller title at the bottom so the scene stays visible */
+.hero.has-img { place-content:end center; padding-bottom:10vh }
+.hero.has-img h1 { font-size:clamp(44px,6.4vw,96px) }
+.hero.has-img .sub { margin-top:16px }
+.hero.has-img .icons { margin-top:22px }
+.hero.has-img .cue { bottom:8px } .hero.has-img .cue i { height:30px }
+
+/* ───────── app scenes ───────── */
+.app { display:grid; grid-template-columns:minmax(300px,.85fr) 1.15fr; align-items:center; gap:4vw; padding:0 6vw 100px }
+.app.flip { grid-template-columns:1.15fr minmax(300px,.85fr) }
+.app.flip .copy { order:2 }
+.copy { position:relative; z-index:2; max-width:480px }
+.kind { font:11px var(--mono); letter-spacing:.14em; text-transform:uppercase; opacity:.6; margin-bottom:18px }
+.app h2 { font-weight:800; font-size:clamp(36px,4.4vw,68px); line-height:1; letter-spacing:-.02em }
+[id=ai-env-manager] h2 { font-weight:700; font-size:clamp(30px,3.9vw,58px); line-height:1.1 }
+.h2-line { display:block }
+.h2-sub { display:block; font-size:.56em; line-height:1.15; margin:.12em 0 .34em; opacity:.92; letter-spacing:.02em }
+.punch-line { line-height:1.12 }
+.punch { display:inline; padding:0 .18em; background:var(--punch); color:var(--punchInk); border-radius:.12em; -webkit-box-decoration-break:clone; box-decoration-break:clone }
+.lede { margin-top:22px; font:16px/1.55 var(--sans); opacity:.8; max-width:410px }
+.tags { display:flex; flex-wrap:wrap; gap:6px; list-style:none; margin-top:18px }
+.tags li { font:12px var(--sans); padding:3px 11px; border-radius:99px; background:color-mix(in srgb,currentColor 12%,transparent) }
+.cta { display:inline-block; margin-top:28px; padding:13px 22px; border-radius:99px; background:var(--punch); color:var(--punchInk); font:700 14px var(--sans); text-decoration:none; transition:transform .2s }
+.cta:hover { transform:translateY(-2px) }
+.progress { margin-top:28px; max-width:340px }
+.progress p { margin-bottom:8px; font:12px var(--mono); letter-spacing:.08em; text-transform:uppercase; opacity:.75 }
+
+/* drawn illustration (apps without a poster) */
+.stagewrap { position:relative; height:100%; display:grid; place-items:center }
+.stage { position:relative; width:min(640px,100%); font-family:var(--sans) }
+
+/* terminal (ai-env-manager) */
+.term { width:min(560px,100%); border-radius:14px; background:#070a08; border:1px solid #1f3a29; box-shadow:0 40px 80px -30px rgba(125,255,155,.25); overflow:hidden }
+.dots { display:flex; align-items:center; gap:7px; padding:12px 14px; border-bottom:1px solid #1f3a29 }
+.dots i { width:11px; height:11px; border-radius:50%; background:#ff5f57 } .dots i:nth-child(2) { background:#febc2e } .dots i:nth-child(3) { background:#28c840 }
+.dots span { margin-left:10px; font:12px var(--mono); opacity:.5 }
+.term pre { padding:18px; min-height:300px; font:14px/1.8 "JetBrains Mono",ui-monospace,monospace; white-space:pre-wrap }
+.term .ok, .cursor { color:var(--punch) } .term .warn { color:#ffcc66 }
+.cursor { animation:blink 1s steps(1) infinite }
+
+/* ───────── poster scenes (prono-core, BienvenueBébé) ───────── */
+/* poster scenes: no tags, a shade keeps the copy readable */
+.split .tags, .anchored .tags { display:none }
+.shade { position:absolute; inset:0; background:linear-gradient(90deg,rgba(0,0,0,.6),transparent 65%) }
+.shade.top { background:linear-gradient(180deg,rgba(4,8,12,.82),rgba(4,8,12,.6) 40%,transparent 75%) }
+.shade.light { background:linear-gradient(90deg,transparent 35%,rgba(253,233,239,.55) 100%) }
+
+/* split: copy centered on top of the poster (prono-core) */
+.app.split { display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:0; padding:70px 6vw 96px; text-align:center }
+.split .copy { max-width:920px; margin:0 auto; text-shadow:0 2px 16px rgba(0,0,0,.65) } .split .punch { text-shadow:none }
+.split .kind { margin-bottom:12px; opacity:.85 }
+.split h2 { font-weight:400; font-size:clamp(34px,5.2vw,76px); line-height:1.08; letter-spacing:.01em; text-transform:uppercase }
+.split .h2-sub { opacity:1 }
+.split .lede { margin:14px auto 0; max-width:560px; font-size:17px; opacity:.96 }
+.split .cta { margin-top:20px }
+
+/* anchored: the poster box is sized from the viewport height, so overlays placed in % of the image keep their spot whatever the crop */
+.scene-clip { position:absolute; inset:0 }
+.scene-img { position:absolute; left:50%; top:50%; width:max(100%,calc(100vh * var(--ar))); aspect-ratio:var(--ar); transform:translate(-50%,-50%); background-size:100% 100% }
+.app.flip.anchored .copy { grid-column:2; align-self:start; margin-top:12vh }
+
+/* birth-registry list printed on the poster's paper card: box on the card face, lightly rotated so lines descend to the right */
+.reg { position:absolute; left:30.3%; top:47%; width:12.4%; height:44%; container-type:inline-size; font-family:var(--hand) }
+.reg-in { height:100%; display:flex; flex-direction:column; transform:rotate(3.5deg); transform-origin:50% 50% }
+.reg-h { display:flex; flex-direction:column; font-size:13cqw; font-weight:700; line-height:1.05; margin:0 0 5cqw }
+.reg-h b { color:#d57a9f; font-size:22cqw; line-height:1 }
+.reg ul { flex:1; display:flex; flex-direction:column; justify-content:space-evenly; list-style:none }
+.reg li { display:flex; align-items:center; gap:5cqw; font:600 12cqw/1 var(--hand) }
+.reg li i { flex:none; width:9cqw; height:9cqw; border-radius:2cqw; border:.9cqw solid var(--punch); display:grid; place-items:center; font-style:normal; font-size:6.5cqw; color:#fff }
+.reg li.done span { opacity:.55; text-decoration:line-through } .reg li.done i { background:var(--punch) }
+.reg .pbar { --pbar-h:3.4cqw; --pbar-track:#fbdde8; margin-top:4cqw }
+.reg-f { margin:3cqw 0 0; font:600 10cqw var(--hand); opacity:.65 }
+
+/* ───────── about / contact ───────── */
+.about { display:grid; place-content:center; justify-items:center; text-align:center; padding:0 16px }
+.about-t { font:400 clamp(36px,6vw,80px)/1 var(--serif); max-width:14ch }
+.about-p { max-width:44ch; margin:20px 0; line-height:1.55; opacity:.75 }
+.links { display:flex; gap:12px }
+.links a { padding:11px 22px; border-radius:99px; border:1px solid currentColor; text-decoration:none; font-weight:600 } .links a:hover { background:var(--ink); color:var(--bg) }
+.about footer { position:absolute; bottom:90px; font-size:12px; opacity:.55 }
+
+/* ───────── dock ───────── */
+.dock { width:max-content; position:fixed; left:50%; bottom:18px; z-index:50; display:flex; align-items:center; gap:6px; padding:6px; border-radius:99px; color:#151412; background:rgba(255,255,255,.62); backdrop-filter:blur(22px) saturate(1.6); box-shadow:0 18px 40px -14px rgba(0,0,0,.4),inset 0 0 0 1px rgba(255,255,255,.55); opacity:0; transform:translate(-50%,24px); pointer-events:none; transition:opacity .5s,transform .6s cubic-bezier(.2,.8,.2,1),background .6s,color .6s }
+.dock.show { opacity:1; transform:translate(-50%,0); pointer-events:auto }
+.dock.dark { color:#fff; background:rgba(30,30,34,.62); box-shadow:0 18px 40px -14px rgba(0,0,0,.7),inset 0 0 0 1px rgba(255,255,255,.12) }
+.mono { width:36px; height:36px; border-radius:50%; display:grid; place-items:center; text-decoration:none; font:800 13px var(--sans); letter-spacing:-.04em }
+.dock:not(.dark) .mono { background:#151412; color:#f4f1ec } .dock.dark .mono { background:#fff; color:#151412 }
+.dock > * { flex:none }
+.dock .ico { max-width:none }
+.sep { width:1px; height:22px; background:currentColor; opacity:.18; margin:0 2px }
+.dk { display:flex; align-items:center; gap:0; padding:0; border-radius:99px; text-decoration:none; transition:background .35s,padding .35s }
+.dk .ico { box-shadow:0 4px 10px -4px rgba(0,0,0,.4); transition:transform .35s cubic-bezier(.3,1.8,.5,1) }
+.dk:hover .ico { transform:scale(1.12) }
+.lbl { display:grid; grid-template-columns:0fr; transition:grid-template-columns .4s cubic-bezier(.2,.8,.2,1) }
+.lbl > span { overflow:hidden; white-space:nowrap; font:600 13px var(--sans); opacity:0; transition:opacity .3s }
+.dk.on { padding-right:4px; background:color-mix(in srgb,currentColor 12%,transparent) }
+.dk.on .lbl { grid-template-columns:1fr } .dk.on .lbl > span { opacity:1; padding:0 12px 0 10px }
+.soc { width:36px; height:36px; border-radius:50%; display:grid; place-items:center; text-decoration:none; font:700 15px var(--sans); opacity:.7; transition:opacity .2s,background .2s }
+.soc:hover { opacity:1; background:color-mix(in srgb,currentColor 12%,transparent) }
+
+/* ───────── legal page ───────── */
+.legal { max-width:760px; margin:0 auto; padding:80px 24px }
+.legal .back { opacity:.6; font-size:14px; text-decoration:none }
+.legal h1 { font:400 40px var(--serif); margin:24px 0 32px }
+.legal section { margin-bottom:28px } .legal h2 { font:400 24px var(--serif); margin-bottom:8px } .legal p { line-height:1.6; margin-bottom:6px }
+
+/* ───────── small screens ───────── */
+@media (max-width:820px) {
+  .app, .app.flip { grid-template-columns:1fr; align-content:center; gap:18px; padding:0 6vw }
+  .app.flip .copy { order:0 }
+  .stagewrap { order:-1; height:auto }
+  .stage { width:100% }
+  .term pre { min-height:0; padding:14px; font-size:12px; line-height:1.6 }
+  .lede { font-size:15px }
+  .copy { max-width:none }
+  .dk.on .lbl { display:none } .dk.on { background:none }
+
+  .hero.has-img { place-content:start center; padding:11vh 0 0 }
+  .hero.has-img h1 { font-size:clamp(44px,15vw,80px) }
+  .hero-bg { left:-50vh; transform:none }
+
+  .app.split { justify-content:center }
+  .shade.top { background:linear-gradient(180deg,rgba(4,8,12,.6),rgba(4,8,12,.82) 50%,rgba(4,8,12,.6)) }
+
+  /* poster cropped on the mobile + card, copy below */
+  .anchored .scene-img { top:-7vh; left:calc(50vw - .38 * 62vh * var(--ar)); width:calc(62vh * var(--ar)); height:62vh; aspect-ratio:auto; transform:none; -webkit-mask-image:linear-gradient(#000 88%,transparent); mask-image:linear-gradient(#000 88%,transparent) }
+  /* poster and copy stack in normal flow: the copy always starts right under the poster, whatever the phone height */
+  .app.anchored { align-content:start; row-gap:0; padding:0 6vw 104px }
+  .scene-clip { position:relative; inset:auto; height:55vh; margin:0 -6vw; overflow:hidden }
+  .app.flip.anchored .copy { grid-column:1; align-self:start; margin-top:clamp(16px,2.8vh,28px) }
+  .shade.light { background:linear-gradient(180deg,transparent 40%,rgba(253,233,239,.9) 68%) }
+  .anchored .lede { font-size:14px; margin-top:12px } .anchored .kind { margin-bottom:10px } .anchored .cta { margin-top:16px }
+}
+/* short phones: tighter console and copy so everything stays above the dock */
+@media (max-width:820px) and (max-height:700px) {
+  .app:not(.anchored):not(.split) { gap:12px; padding-top:44px; padding-bottom:84px }
+  .term pre { padding:10px 12px; font-size:11px; line-height:1.5 }
+  .dots { padding:9px 12px }
+  [id=ai-env-manager] h2 { font-size:28px }
+  .lede { font-size:14px; margin-top:12px }
+  .tags { margin-top:12px } .progress { margin-top:16px }
+  .anchored .kind { display:none } .anchored .lede { font-size:13px; margin-top:8px } .anchored .cta { margin-top:12px; padding:10px 18px }
+  .anchored h2 { font-size:30px }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sticky { opacity:1 !important; transform:none !important }
+  .scene { height:auto } .sticky { position:relative; min-height:100vh }
+  *, *::before, *::after { animation:none !important }
+}
