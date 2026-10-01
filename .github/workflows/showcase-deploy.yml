@@ -10,6 +10,10 @@ on:
       - ".github/workflows/showcase-deploy.yml"
   workflow_dispatch:
 
+env:
+  # Les actions JS tierces (peaceiris) tournent encore en Node 20 : on force Node 24.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 concurrency:
   group: showcase-deploy
   cancel-in-progress: true
@@ -20,9 +24,9 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
