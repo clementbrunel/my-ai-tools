@@ -4,7 +4,7 @@ import { profile, type Lang } from '../apps'
 const txt = {
   fr: {
     back: '← Retour à l’accueil', h1: 'Mentions légales & confidentialité',
-    ed: 'Éditeur', status: 'Statut', contact: 'Contact',
+    ed: 'Éditeur', host: 'Hébergement', hostT: 'Ce site est hébergé par GitHub, Inc. (GitHub Pages), 88 Colin P. Kelly Jr. Street, San Francisco, CA 94107, États-Unis — ', status: 'Statut', contact: 'Contact',
     projects: 'Projets présentés',
     projectsT: 'Prono Core et ai-env-manager sont des projets personnels, menés bénévolement et sans but lucratif. BienvenueBébé est édité par une société dont je ne suis pas actionnaire : j’y contribue bénévolement en tant que développeur. Ses propres mentions légales et sa politique de confidentialité sont disponibles sur ',
     ip: 'Propriété intellectuelle',
@@ -15,7 +15,7 @@ const txt = {
   },
   en: {
     back: '← Back to home', h1: 'Legal notice & privacy',
-    ed: 'Publisher', status: 'Status', contact: 'Contact',
+    ed: 'Publisher', host: 'Hosting', hostT: 'This site is hosted by GitHub, Inc. (GitHub Pages), 88 Colin P. Kelly Jr. Street, San Francisco, CA 94107, USA — ', status: 'Status', contact: 'Contact',
     projects: 'Featured projects',
     projectsT: 'Prono Core and ai-env-manager are personal projects, carried out on a volunteer basis and not for profit. BienvenueBébé is published by a company in which I am not a shareholder: I contribute to it as a volunteer developer. Its own legal notice and privacy policy are available on ',
     ip: 'Intellectual property',
@@ -37,6 +37,7 @@ export default function Legal({ lang }: { lang: Lang }) {
         <p>{t.status} : {publisher.status[lang]}</p>
         <p>{t.contact} : <a href={profile.linkedin}>LinkedIn</a> · <a href={profile.github}>GitHub</a></p>
       </section>
+      <section><h2>{t.host}</h2><p>{t.hostT}<a href="https://pages.github.com/" target="_blank" rel="noopener noreferrer">pages.github.com</a></p></section>
       <section><h2>{t.projects}</h2><p>{t.projectsT}<a href="https://bienvenuebebe.com" target="_blank" rel="noopener noreferrer">bienvenuebebe.com</a>.</p></section>
       <section><h2>{t.ip}</h2><p>{t.ipT}</p></section>
       <section><h2>{t.data}</h2><p>{t.dataT}</p></section>
