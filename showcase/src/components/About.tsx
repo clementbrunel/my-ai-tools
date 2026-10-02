@@ -7,7 +7,7 @@ export default function About({ lang }: { lang: Lang }) {
   const t = ui[lang]
   return (
     <section ref={ref} className="scene about-scene" id="contact">
-      <div className="sticky about" style={{ opacity: o, transform: `translateY(${(1 - o) * 40}px)` }}>
+      <div className="sticky about" style={{ opacity: o, transform: `translateY(${(1 - o) * 40}px)`, pointerEvents: o < 0.4 ? 'none' : 'auto' }}>
         <h2 className="about-t">{t.aboutT}</h2>
         <p className="about-p">{t.aboutP}</p>
         <div className="links">

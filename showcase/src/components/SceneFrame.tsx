@@ -12,12 +12,14 @@ interface Props extends SceneProps {
   layout?: 'side' | 'split'
   /** Translatable HTML placed on top of the `scene` poster, positioned in % of the image (needs `sceneRatio`). */
   overlay?: ReactNode
+  /** Interactive widget placed under the call-to-action links (inside the copy block). */
+  extra?: ReactNode
   /** Drawn illustration shown next to the copy, for apps without a poster (side layout). Receives the scroll progress. */
   art?: (progress: number) => ReactNode
 }
 
 /** Shared shell of an app scene: sticky full-bleed frame, scroll fade, themed background, copy block. */
-export default function SceneFrame({ app, lang, flip = false, layout = 'side', art, overlay }: Props) {
+export default function SceneFrame({ app, lang, flip = false, layout = 'side', art, overlay, extra }: Props) {
   const [ref, o, p] = useScene<HTMLElement>(0.1)
   const th = app.theme
   const split = layout === 'split'
@@ -53,6 +55,7 @@ export default function SceneFrame({ app, lang, flip = false, layout = 'side', a
             </div>
           )}
           {app.links.map((l) => <a key={l.url} className="cta" href={l.url} target="_blank" rel="noopener noreferrer">{l.label[lang]} ↗</a>)}
+          {extra}
         </div>
         {art && !app.scene && (
           <div className="stagewrap" style={{ transform: `translateY(${(1 - o) * 80}px) scale(${0.94 + o * 0.06})` }}>{art(p)}</div>
