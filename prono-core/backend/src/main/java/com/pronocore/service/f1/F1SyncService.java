@@ -24,9 +24,10 @@ import java.util.*;
  * Imports the season from the jolpica-f1 API (Ergast-compatible):
  * calendar, entry list (drivers + constructors) and race results.
  *
- * Each finished race is settled through the same path as a manual admin
- * entry ({@link F1RaceService#enterResults}), so bets, points and the
- * daily gage behave identically whether results are typed or imported.
+ * A newly raced classification is only staged as a draft ({@link F1RaceService#saveDraftResults});
+ * the admin reviews it and validates it through {@link F1RaceService#enterResults}, which settles
+ * bets, points and the daily gage (and sends the emails) exactly as for a manual entry. A forced
+ * resync of an already-settled race re-settles it directly.
  *
  * Sprint classifications are imported too (no betting on sprints) so the
  * championship standings include FIA sprint points.
@@ -92,7 +93,7 @@ public class F1SyncService {
                     : " — grille de départ importée pour les manches " + qualifyingRounds)
                 + (settledRounds.isEmpty()
                     ? " — aucun nouveau résultat"
-                    : " — résultats importés et paris réglés pour les manches " + settledRounds);
+                    : " — résultats importés (à valider avant règlement des paris) pour les manches " + settledRounds);
         log.info("🔄 F1 sync {} — {}", season, summary);
         return summary;
     }
@@ -300,7 +301,6 @@ public class F1SyncService {
         for (Race race : raceRepository.findByCompetition_IdOrderByRaceDateAsc(competition.getId())) {
             if (race.getStatus() == Race.Status.FINISHED) continue;
             throttle();
-            // Never previously finished, so this always notifies regardless of the flag here.
             if (fetchAndSettleResults(season, race, false)) settled.add(race.getRound());
         }
         return settled;
@@ -322,11 +322,13 @@ public class F1SyncService {
                 .orElseThrow(() -> new EntityNotFoundException("Race not found: " + raceId));
         int season = requireSeason(race.getCompetition());
         return fetchAndSettleResults(season, race, notifyByEmail)
-                ? "Résultats réimportés et paris réglés pour " + race.getName()
+                ? (race.getStatus() == Race.Status.FINISHED
+                    ? "Résultats réimportés et paris réglés pour " + race.getName()
+                    : "Résultats importés pour " + race.getName() + " — à vérifier puis valider pour régler les paris")
                 : "Aucun résultat disponible sur jolpica pour " + race.getName();
     }
 
-    /** Fetches the full classification from jolpica and settles it — false if jolpica has nothing yet. */
+    /** Fetches the full classification from jolpica — staged as a draft for an unsettled race, re-settled for a finished one. False if jolpica has nothing yet. */
     private boolean fetchAndSettleResults(int season, Race race, boolean notifyByEmail) {
         JsonNode raceNode = read(season + "/" + race.getRound() + "/results.json?limit=40")
                 .path("MRData").path("RaceTable").path("Races");
@@ -362,7 +364,14 @@ public class F1SyncService {
         EnterRaceResultsRequest request = new EnterRaceResultsRequest();
         request.setResults(entries);
         request.setNotifyByEmail(notifyByEmail);
-        f1RaceService.enterResults(race.getId(), request);
+        if (race.getStatus() == Race.Status.FINISHED) {
+            // Correction of an already-settled race (explicit admin resync): recalculates directly.
+            f1RaceService.enterResults(race.getId(), request);
+        } else {
+            // First import: stage only. Settlement (points, gages, emails) waits for the admin to
+            // review the classification and validate it via F1RaceService#enterResults.
+            f1RaceService.saveDraftResults(race.getId(), request);
+        }
         return true;
     }
 

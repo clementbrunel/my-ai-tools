@@ -115,6 +115,15 @@ public class F1RaceService {
             response.setResults(raceResultRepository.findByRaceIdWithDrivers(raceId).stream()
                     .map(this::toResultResponse)
                     .toList());
+        } else if (user.getRole() == User.Role.PLATFORM_ADMIN) {
+            // Imported-but-unvalidated classification: admin-only, players must not see it.
+            List<RaceResultResponse> draft = raceResultRepository.findByRaceIdWithDrivers(raceId).stream()
+                    .map(this::toResultResponse)
+                    .toList();
+            if (!draft.isEmpty()) {
+                response.setResults(draft);
+                response.setResultsDraft(true);
+            }
         }
         if (!LocalDateTime.now().isBefore(race.getQualifyingDate())) {
             response.setQualifyingResults(qualifyingResultRepository.findByRaceIdWithDrivers(raceId).stream()
@@ -366,6 +375,41 @@ public class F1RaceService {
         Race race = requireRace(raceId);
         boolean wasAlreadyFinished = race.getStatus() == Race.Status.FINISHED;
 
+        List<RaceResult> results = storeResults(race, request);
+
+        race.setStatus(Race.Status.FINISHED);
+        raceRepository.save(race);
+
+        f1ScoringService.settleBetsForRace(race, results);
+        // A race day is a gage day like any match day: once everything of the
+        // day is finished, the group's daily gage is assigned to the day's loser.
+        // First-time settlement always notifies players; a recalcul on an already-finished
+        // race (manual correction or forced resync) only notifies if the admin opted in,
+        // so a routine recalcul doesn't re-send the day's emails to everyone.
+        boolean notifyByEmail = !wasAlreadyFinished || request.isNotifyByEmail();
+        dailyGageService.onMatchSettled(race.getRaceDate().toLocalDate(), notifyByEmail);
+        return getRaceForAdmin(race);
+    }
+
+    /**
+     * Stores a classification as a DRAFT: the race stays UPCOMING, nothing is settled, no
+     * email goes out and the standings ignore it. Used by the jolpica import so the admin can
+     * review (and fix, e.g. a wrong red lantern) before {@link #enterResults} validates it.
+     * Re-saving replaces the previous draft; refused once the race is settled.
+     */
+    @Transactional
+    public RaceResponse saveDraftResults(Long raceId, EnterRaceResultsRequest request) {
+        Race race = requireRace(raceId);
+        if (race.getStatus() == Race.Status.FINISHED) {
+            throw new IllegalStateException("Race already settled — use enterResults to correct it: " + raceId);
+        }
+        storeResults(race, request);
+        return getRaceForAdmin(race);
+    }
+
+    /** Validates a classification and replaces the race's stored results with it. */
+    private List<RaceResult> storeResults(Race race, EnterRaceResultsRequest request) {
+        Long raceId = race.getId();
         Set<Long> seenDrivers = new HashSet<>();
         Set<Integer> seenPositions = new HashSet<>();
         int poleCount = 0;
@@ -412,19 +456,7 @@ public class F1RaceService {
                 })
                 .toList();
         raceResultRepository.saveAll(results);
-
-        race.setStatus(Race.Status.FINISHED);
-        raceRepository.save(race);
-
-        f1ScoringService.settleBetsForRace(race, results);
-        // A race day is a gage day like any match day: once everything of the
-        // day is finished, the group's daily gage is assigned to the day's loser.
-        // First-time settlement always notifies players; a recalcul on an already-finished
-        // race (manual correction or forced resync) only notifies if the admin opted in,
-        // so a routine recalcul doesn't re-send the day's emails to everyone.
-        boolean notifyByEmail = !wasAlreadyFinished || request.isNotifyByEmail();
-        dailyGageService.onMatchSettled(race.getRaceDate().toLocalDate(), notifyByEmail);
-        return getRaceForAdmin(race);
+        return results;
     }
 
     // ---------------------------------------------------------------

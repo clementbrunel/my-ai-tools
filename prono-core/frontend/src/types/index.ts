@@ -440,6 +440,8 @@ export interface Race {
   userPredicted: boolean;
   predictionsCount: number;
   results?: RaceResultEntry[];
+  /** Admin-only: `results` is an imported classification not yet validated (no points awarded, no email sent). */
+  resultsDraft?: boolean;
   /** Starting grid — populated as soon as qualifying is over, well before the race. */
   qualifyingResults?: QualifyingResultEntry[];
 }
