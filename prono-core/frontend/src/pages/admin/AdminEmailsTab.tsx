@@ -146,6 +146,19 @@ const EMAIL_TEMPLATES: EmailTemplateInfo[] = [
     ),
   },
   {
+    type: 'ADMIN_RESULTS_READY',
+    label: 'Admin : résultats F1 à valider',
+    theme: 'F1',
+    description: (
+      <>
+        Envoyé automatiquement à tous les PLATFORM_ADMIN quand l'import jolpica post-course (tenté toutes les 30 min
+        une fois le GP terminé) a enregistré un classement en brouillon, à relire et valider avant le règlement des paris.
+        Réglages dans application.yml : app.f1-auto-import.*.
+        Le test utilise des données fictives (Grand Prix de Monaco).
+      </>
+    ),
+  },
+  {
     type: 'TEST_CEDRIC',
     label: 'test cédric 🏦',
     theme: 'NEUTRAL',

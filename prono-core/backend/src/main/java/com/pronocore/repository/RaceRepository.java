@@ -42,6 +42,17 @@ public interface RaceRepository extends JpaRepository<Race, Long> {
             """)
     List<Race> findOverdueUnresolvedRaces(@Param("cutoff") LocalDateTime cutoff);
 
+    /** Races started within [from, to] that are not settled and have no imported classification yet —
+     *  the candidates for the post-race jolpica import retry (a staged draft ends the retries). */
+    @Query("""
+            SELECT r FROM Race r JOIN FETCH r.competition
+            WHERE r.status <> com.pronocore.entity.Race.Status.FINISHED
+              AND r.raceDate >= :from AND r.raceDate <= :to
+              AND NOT EXISTS (SELECT 1 FROM RaceResult rr WHERE rr.race = r)
+            ORDER BY r.raceDate ASC
+            """)
+    List<Race> findAwaitingResultsImport(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+
     /** Upcoming races whose start falls in [from, to] and for which no reminder has been sent yet. */
     @Query("""
             SELECT r FROM Race r

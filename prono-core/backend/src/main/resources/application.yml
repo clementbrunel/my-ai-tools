@@ -30,6 +30,14 @@ app:
     race-grace-hours: ${ADMIN_ALERT_RACE_GRACE_HOURS:24}
     gage-grace-hours: ${ADMIN_ALERT_GAGE_GRACE_HOURS:12}
 
+  # Post-race jolpica import retry (every 30 min): stages a draft classification and emails the
+  # platform admins to validate it. First attempt `race-duration-minutes` after the start; gives
+  # up `give-up-hours` after the start (manual import stays available).
+  f1-auto-import:
+    enabled: ${F1_AUTO_IMPORT_ENABLED:true}
+    race-duration-minutes: ${F1_AUTO_IMPORT_RACE_DURATION_MINUTES:120}
+    give-up-hours: ${F1_AUTO_IMPORT_GIVE_UP_HOURS:48}
+
 jwt:
   secret: ${JWT_SECRET}
   expiration: 86400000

@@ -4,9 +4,10 @@ Historique des fonctionnalités et correctifs notables, ordonné par date décro
 
 ---
 
-## Août 2026 (17)
+## Août 2026 (18)
 
 ### Fonctionnalités
+- **Import jolpica automatique après le GP + notif admin** : toutes les 30 min, `F1ResultsImportSchedulerService` tente d'importer le classement des courses démarrées depuis ≥ 2 h (jusqu'à 48 h) et sans brouillon. Dès qu'un brouillon est enregistré (la grille de qualifs est d'abord récupérée si absente, pour la pole), les PLATFORM_ADMIN reçoivent l'email « résultats à valider » (`ADMIN_RESULTS_READY`, prévisualisable dans l'onglet Emails). Les retries s'arrêtent d'eux-mêmes ; réglages `app.f1-auto-import.*` (enabled, race-duration-minutes, give-up-hours).
 - **Validation des résultats F1 avant règlement** : l'import jolpica (sync saison ou « Resync résultats ») n'enregistre plus qu'un *brouillon* du classement — course toujours non réglée, aucun point, aucun email, classements inchangés. L'admin le relit dans l'onglet 🏎 F1 (bandeau « pas encore validé », pastille « importés — à valider »), corrige au besoin (lanterne rouge, pole…) puis clique « Valider » : seulement alors les paris sont réglés et l'email du jour part. Le brouillon n'est visible que des admins (`RaceResponse.resultsDraft`). Un resync sur une course déjà réglée reste une correction directe (email opt-in inchangé).
 - **Désactivation des gages par groupe** : nouveau réglage admin `gagesEnabled` — quand il est désactivé, plus de proposition/vote/sélection ni d'attribution de gage quotidien ; l'email de fin de journée bascule sur un récap "scores uniquement" (nouveau template `DailyScoresEmailTemplate`) sans mentionner de perdant. Les badges "gages manquants" et le panneau "Gages du jour" du groupe sont masqués/neutralisés quand le réglage est désactivé.
 

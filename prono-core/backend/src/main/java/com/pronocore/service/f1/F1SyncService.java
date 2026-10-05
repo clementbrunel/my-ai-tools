@@ -328,6 +328,23 @@ public class F1SyncService {
                 : "Aucun résultat disponible sur jolpica pour " + race.getName();
     }
 
+    /**
+     * Post-race automatic attempt (scheduler): stages the classification as a draft if jolpica
+     * already has it — never settles. Also pulls the qualifying grid first when missing, so the
+     * pole is flagged correctly. Returns true when a new draft was staged (admin to validate).
+     */
+    @Transactional
+    public boolean importResultsDraftIfAvailable(Long raceId) {
+        Race race = raceRepository.findById(raceId)
+                .orElseThrow(() -> new EntityNotFoundException("Race not found: " + raceId));
+        if (race.getStatus() == Race.Status.FINISHED) return false;
+        int season = requireSeason(race.getCompetition());
+        if (qualifyingResultRepository.findByRaceIdWithDrivers(raceId).isEmpty()) {
+            fetchAndStoreQualifyingGrid(season, race);
+        }
+        return fetchAndSettleResults(season, race, false);
+    }
+
     /** Fetches the full classification from jolpica — staged as a draft for an unsettled race, re-settled for a finished one. False if jolpica has nothing yet. */
     private boolean fetchAndSettleResults(int season, Race race, boolean notifyByEmail) {
         JsonNode raceNode = read(season + "/" + race.getRound() + "/results.json?limit=40")

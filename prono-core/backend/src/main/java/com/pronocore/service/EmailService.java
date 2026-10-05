@@ -13,6 +13,7 @@ import com.pronocore.entity.User;
 import com.pronocore.repository.GroupMemberRepository;
 import com.pronocore.service.email.EmailSender;
 import com.pronocore.service.email.EmailTheme;
+import com.pronocore.service.email.template.AdminResultsReadyEmailTemplate;
 import com.pronocore.service.email.template.AdminUnresolvedAlertEmailTemplate;
 import com.pronocore.service.email.template.DailyScoresEmailTemplate;
 import com.pronocore.service.email.template.GageResolutionEmailTemplate;
@@ -60,7 +61,7 @@ public class EmailService {
         return switch (emailType) {
             case VERIFICATION, PASSWORD_RESET, TEST_CEDRIC, GAGE_RESOLUTION, DAILY_SCORES_RECAP, GROUP_MEMBERSHIP_REQUEST, ADMIN_UNRESOLVED_ALERT -> EmailTheme.NEUTRAL;
             case MATCH_REMINDER, GROUP_NEW_MATCHES -> EmailTheme.FOOTBALL;
-            case RACE_REMINDER, QUALIFYING_REMINDER, GROUP_NEW_RACES -> EmailTheme.F1;
+            case RACE_REMINDER, QUALIFYING_REMINDER, GROUP_NEW_RACES, ADMIN_RESULTS_READY -> EmailTheme.F1;
         };
     }
 
@@ -181,6 +182,11 @@ public class EmailService {
                         .status(DailyGage.Status.PENDING).build()
                 );
                 sendAdminUnresolvedAlert(fakeAdmin, fakeMatches, fakeRaces, fakeGages);
+            }
+            case ADMIN_RESULTS_READY -> {
+                User fakeAdmin = User.builder().username("admin_test").displayName("Admin Test").email(to).build();
+                sendAdminResultsReadyEmail(fakeAdmin, Race.builder().id(0L).name("Grand Prix de Monaco").round(7)
+                    .raceDate(LocalDateTime.now().minusHours(3)).competition(F1_CHAMPIONSHIP_2026).build());
             }
             case TEST_CEDRIC -> sendTestCedricEmail(to);
         }
@@ -359,6 +365,17 @@ public class EmailService {
                 admin.getEmail(), overdueMatches.size(), overdueRaces.size(), overdueGages.size());
         } catch (Exception e) {
             log.error("Failed to send admin unresolved alert to {}: {}", admin.getEmail(), e.getMessage());
+        }
+    }
+
+    /** Tells a platform admin that a jolpica-imported classification is staged and waits for validation. */
+    public void sendAdminResultsReadyEmail(User admin, Race race) {
+        try {
+            emailSender.send(admin.getEmail(), AdminResultsReadyEmailTemplate.subject(race),
+                AdminResultsReadyEmailTemplate.build(themeFor(EmailType.ADMIN_RESULTS_READY), admin, race, frontendUrl));
+            log.info("Results-ready notification sent to {} ({})", admin.getEmail(), race.getName());
+        } catch (Exception e) {
+            log.error("Failed to send results-ready notification to {}: {}", admin.getEmail(), e.getMessage());
         }
     }
 
