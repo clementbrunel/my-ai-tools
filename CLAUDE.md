@@ -29,6 +29,13 @@ Every issue/PR gets a label matching the sub-project directory it belongs to (`a
 `mistral-chat`, `mottaret-watch`, `prono-core`, `my-house`, `showcase`) so work stays filterable by tool in
 this monorepo. See `.claude/skills/github-issue-pr/` for the convention and how to apply it.
 
+## Weekly dependency routine
+
+A Claude routine fires every Friday at midnight (Paris) and runs `.claude/skills/weekly-deps/`:
+one tested patch/minor PR per sub-project, majors listed in the `📦 Dépendances — tableau de bord
+hebdo` issue, and a review of ai-env-manager's catalogue. The perimeter (which sub-projects, which
+checks) is edited in `.claude/skills/weekly-deps/scope.json`.
+
 ## Common commands (per tool)
 
 ```bash
