@@ -6,16 +6,16 @@ Monorepo of small CLI tools for Claude Code / AI environment inspection.
 
 Each tool lives in its own subdirectory with its own `package.json`, `src/`, and `README.md`.
 
-| Directory         | Tool             | Description                                                     |
-|-------------------|------------------|-----------------------------------------------------------------|
-| `ai-env-manager/` | `ai-env-manager` | Scans, diagnoses, and manages a Claude Code project's AI setup (MCP servers, context, hooks, tool updates, install catalogue, post-install verification, Claude → Mistral migration) |
-| `mistral-chat/`   | `mistral-chat`   | Interactive CLI REPL for enterprise Mistral via browser cookies |
-| `mottaret-watch/`  | `mottaret-watch`  | Python cron (GitHub Actions) — scrapes rental availability, emails alerts |
-| `prono-core/`      | `prono-core`      | Full-stack World Cup 2026 betting app (Java/Spring + React)              |
-| `my-house/`        | `my-house`        | Home Assistant setup (NAS Docker or Pi 3B+ HAOS) + Somfy RTS/Zigbee      |
-| `my-money-hub/`    | `my-money-hub`    | Personal multi-bank/insurance account aggregator (Java/Spring + React), self-hosted alternative to Linxo |
-| `showcase/` | `showcase` | Static FR/EN catalogue page promoting my public apps (BienvenueBébé, prono-core, ai-env-manager) — Vite + React; cards driven by `src/apps.ts` |
-| `spec-merger/` | `spec-merger` | Merges a project's Word spec with its JWAY JXML source into a single editable, version-tracked markdown (Java/Spring Boot + React + Postgres) |
+| Directory         | Tool             | Description                                                     | Status |
+|-------------------|------------------|-----------------------------------------------------------------|--------|
+| `ai-env-manager/` | `ai-env-manager` | Scans, diagnoses, and manages a Claude Code project's AI setup (MCP servers, context, hooks, tool updates, install catalogue, post-install verification, Claude → Mistral migration) | active |
+| `mistral-chat/`   | `mistral-chat`   | Interactive CLI REPL for enterprise Mistral via browser cookies | deprecated |
+| `mottaret-watch/`  | `mottaret-watch`  | Python cron (GitHub Actions) — scrapes rental availability, emails alerts | deprecated |
+| `prono-core/`      | `prono-core`      | Full-stack World Cup 2026 betting app (Java/Spring + React)              | active |
+| `my-house/`        | `my-house`        | Home Assistant setup (NAS Docker or Pi 3B+ HAOS) + Somfy RTS/Zigbee      | wip |
+| `my-money-hub/`    | `my-money-hub`    | Personal multi-bank/insurance account aggregator (Java/Spring + React), self-hosted alternative to Linxo | wip |
+| `showcase/` | `showcase` | Static FR/EN catalogue page promoting my public apps (BienvenueBébé, prono-core, ai-env-manager) — Vite + React; cards driven by `src/apps.ts` | active |
+| `spec-merger/` | `spec-merger` | Merges a project's Word spec with its JWAY JXML source into a single editable, version-tracked markdown (Java/Spring Boot + React + Postgres) | active |
 
 ## Adding a new tool
 

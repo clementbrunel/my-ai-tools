@@ -15,6 +15,8 @@ the dashboard issue.
 - **`scope.json`** (next to this file) — the only place the perimeter is decided. Skip any
   project with `enabled: false`. Each project lists its `npm` / `maven` / `pip` directories, the
   `checks` that must pass, an optional `adoptPr`, and `catalogue: true` for ai-env-manager.
+  `status` (`active` / `wip` / `deprecated`, mirrored in the root `CLAUDE.md` table) is shown in
+  the dashboard; a `deprecated` project is never processed, even if someone sets it `enabled`.
 - **`outdated.mjs`** (next to this file) — the inventory:
   `node .claude/skills/weekly-deps/outdated.mjs --json`. For every dependency it gives `safe`
   (best patch/minor target, applied automatically) and `major` (latest major, never applied
@@ -128,7 +130,7 @@ _Dernière passe : YYYY-MM-DD — périmètre : <projets enabled>_
 - Autres candidats : …
 
 ## Hors périmètre
-<projets enabled:false, et adoptPr à nettoyer le cas échéant>
+<projets enabled:false avec leur status (wip / deprecated), et adoptPr à nettoyer le cas échéant>
 ```
 
 For each major, add one short line on what it breaks (from its release notes / migration guide)

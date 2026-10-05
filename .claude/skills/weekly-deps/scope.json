@@ -1,30 +1,50 @@
 {
-  "_doc": "Périmètre de la routine hebdo de mise à jour des dépendances (skill weekly-deps). Passer enabled à false pour exclure un sous-projet. npm/maven/pip = dossiers (relatifs à la racine du repo) contenant package.json / pom.xml / requirements.txt. checks = commandes lancées depuis la racine du repo après les mises à jour ; toutes doivent passer pour qu'un bump soit gardé. adoptPr = numéro d'une PR de deps déjà ouverte à reprendre au lieu d'en créer une nouvelle (à retirer une fois mergée).",
+  "_doc": "Périmètre de la routine hebdo de mise à jour des dépendances (skill weekly-deps). Passer enabled à false pour exclure un sous-projet. npm/maven/pip = dossiers (relatifs à la racine du repo) contenant package.json / pom.xml / requirements.txt. checks = commandes lancées depuis la racine du repo après les mises à jour ; toutes doivent passer pour qu'un bump soit gardé. adoptPr = numéro d'une PR de deps déjà ouverte à reprendre au lieu d'en créer une nouvelle (à retirer une fois mergée). status = active | wip (pas encore en prod / pas utilisé au quotidien) | deprecated (plus maintenu, toujours enabled:false) — même valeur que la colonne Status du CLAUDE.md racine.",
   "projects": [
     {
       "name": "ai-env-manager",
+      "status": "active",
       "enabled": true,
-      "npm": ["ai-env-manager"],
-      "checks": ["cd ai-env-manager && npm ci && npm run build && npm test"],
+      "npm": [
+        "ai-env-manager"
+      ],
+      "checks": [
+        "cd ai-env-manager && npm ci && npm run build && npm test"
+      ],
       "catalogue": true
     },
     {
       "name": "mistral-chat",
-      "enabled": true,
-      "npm": ["mistral-chat"],
-      "checks": ["cd mistral-chat && npm install && npm run build"]
+      "status": "deprecated",
+      "enabled": false,
+      "npm": [
+        "mistral-chat"
+      ],
+      "checks": [
+        "cd mistral-chat && npm install && npm run build"
+      ]
     },
     {
       "name": "showcase",
+      "status": "active",
       "enabled": true,
-      "npm": ["showcase"],
-      "checks": ["cd showcase && npm ci && npm run build"]
+      "npm": [
+        "showcase"
+      ],
+      "checks": [
+        "cd showcase && npm ci && npm run build"
+      ]
     },
     {
       "name": "prono-core",
+      "status": "active",
       "enabled": true,
-      "npm": ["prono-core/frontend"],
-      "maven": ["prono-core/backend"],
+      "npm": [
+        "prono-core/frontend"
+      ],
+      "maven": [
+        "prono-core/backend"
+      ],
       "checks": [
         "cd prono-core/frontend && npm ci && npm run lint && npm test && npm run build",
         "cd prono-core/backend && mvn -B -q verify"
@@ -33,9 +53,14 @@
     },
     {
       "name": "my-money-hub",
+      "status": "wip",
       "enabled": true,
-      "npm": ["my-money-hub/frontend"],
-      "maven": ["my-money-hub/backend"],
+      "npm": [
+        "my-money-hub/frontend"
+      ],
+      "maven": [
+        "my-money-hub/backend"
+      ],
       "checks": [
         "cd my-money-hub/frontend && npm install && npm run lint && npm run build",
         "cd my-money-hub/backend && mvn -B -q verify"
@@ -43,9 +68,14 @@
     },
     {
       "name": "spec-merger",
+      "status": "active",
       "enabled": true,
-      "npm": ["spec-merger/frontend"],
-      "maven": ["spec-merger/backend"],
+      "npm": [
+        "spec-merger/frontend"
+      ],
+      "maven": [
+        "spec-merger/backend"
+      ],
       "checks": [
         "cd spec-merger/frontend && npm ci && npm test && npm run build",
         "cd spec-merger/backend && mvn -B -q verify"
@@ -53,12 +83,18 @@
     },
     {
       "name": "mottaret-watch",
+      "status": "deprecated",
       "enabled": false,
-      "pip": ["mottaret-watch"],
-      "checks": ["cd mottaret-watch && python3 -m py_compile check_availability.py"]
+      "pip": [
+        "mottaret-watch"
+      ],
+      "checks": [
+        "cd mottaret-watch && python3 -m py_compile check_availability.py"
+      ]
     },
     {
       "name": "my-house",
+      "status": "wip",
       "enabled": false,
       "_note": "Images Docker / Home Assistant : pas encore géré par le script (ni npm, ni maven, ni pip)."
     }
