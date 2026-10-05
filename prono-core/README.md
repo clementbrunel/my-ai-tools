@@ -1,6 +1,6 @@
 # Prono Core ⚽🏆
 
-**Application de pronostics entre amis — Coupe du Monde 2026 ⚽ et Formule 1 🏎 — Pas d'argent réel, que du fun et des gages !**
+**Application de pronostics entre amis — Ligue 1 ⚽ et Formule 1 🏎 — Pas d'argent réel, que du fun et des gages !**
 
 ## Stack technique
 
@@ -248,4 +248,4 @@ Variables d'environnement (backend) :
 
 ---
 
-*Bonne Coupe du Monde 2026 ! 🌍⚽🏆*
+*Bonne saison de Ligue 1 et de F1 ! ⚽🏎🏆*

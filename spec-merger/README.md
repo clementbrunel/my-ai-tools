@@ -25,7 +25,7 @@ cd backend && mvn spring-boot:run   # écoute sur :8080
 ### Frontend seul
 
 ```bash
-cd frontend && npm install && npm run dev   # écoute sur :5173, proxy /api → localhost:8091
+cd frontend && npm install && npm run dev   # écoute sur :5174, proxy /api → localhost:8091
 ```
 
 ## Structure

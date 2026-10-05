@@ -1,20 +1,30 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { importSession, resetSession, useGenerationSession } from './useGenerationSession'
-import { getDocument, getSession } from '../api/analysis'
+import { getSession } from '../api/analysis'
 
 vi.mock('../api/analysis', () => ({
-  getDocument: vi.fn(),
   getSession: vi.fn(),
   updateDocument: vi.fn(),
 }))
 
-const getDocumentMock = vi.mocked(getDocument)
 const getSessionMock = vi.mocked(getSession)
-const STORAGE_KEY = 'spec-merger-session'
+const STORAGE_KEY = 'spec-merger-session-id'
+
+function emptySessionExport(sessionId: string) {
+  return {
+    sessionId,
+    wordDocumentId: null,
+    wordMarkdown: null,
+    jxmlDocumentId: null,
+    jxmlMarkdown: null,
+    mergedDocumentId: null,
+    mergedMarkdown: null,
+    gitlabSelectionJson: null,
+  }
+}
 
 beforeEach(() => {
-  getDocumentMock.mockReset()
   getSessionMock.mockReset()
   localStorage.clear()
 })
@@ -23,46 +33,56 @@ describe('useGenerationSession', () => {
   it('starts empty and not restoring when localStorage has no session', () => {
     const { result } = renderHook(() => useGenerationSession())
     expect(result.current.restoring).toBe(false)
+    expect(result.current.sessionId).toBeNull()
     expect(result.current.word.id).toBeNull()
     expect(result.current.jxml.id).toBeNull()
     expect(result.current.merged.id).toBeNull()
-    expect(getDocumentMock).not.toHaveBeenCalled()
+    expect(getSessionMock).not.toHaveBeenCalled()
   })
 
-  it('restores all three documents from a stored session', async () => {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ wordDocumentId: 'word-1', jxmlDocumentId: 'jxml-1', mergedDocumentId: 'merged-1' }),
-    )
-    getDocumentMock.mockImplementation(async (id: string) => ({ id, markdown: `# ${id}` }))
+  it('restores all three documents from a stored session id in one call', async () => {
+    localStorage.setItem(STORAGE_KEY, 'session-1')
+    getSessionMock.mockResolvedValue({
+      ...emptySessionExport('session-1'),
+      wordDocumentId: 'word-1',
+      wordMarkdown: '# word-1',
+      jxmlDocumentId: 'jxml-1',
+      jxmlMarkdown: '# jxml-1',
+      mergedDocumentId: 'merged-1',
+      mergedMarkdown: '# merged-1',
+    })
 
     const { result } = renderHook(() => useGenerationSession())
     expect(result.current.restoring).toBe(true)
 
     await waitFor(() => expect(result.current.restoring).toBe(false))
 
+    expect(getSessionMock).toHaveBeenCalledWith('session-1')
+    expect(result.current.sessionId).toBe('session-1')
     expect(result.current.word).toMatchObject({ id: 'word-1', markdown: '# word-1' })
     expect(result.current.jxml).toMatchObject({ id: 'jxml-1', markdown: '# jxml-1' })
     expect(result.current.merged).toMatchObject({ id: 'merged-1', markdown: '# merged-1' })
   })
 
-  it('restores only the documents present in the stored session', async () => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ wordDocumentId: 'word-1' }))
-    getDocumentMock.mockResolvedValue({ id: 'word-1', markdown: '# Word' })
+  it('restores only the slots present in the session (no merge yet)', async () => {
+    localStorage.setItem(STORAGE_KEY, 'session-1')
+    getSessionMock.mockResolvedValue({
+      ...emptySessionExport('session-1'),
+      wordDocumentId: 'word-1',
+      wordMarkdown: '# Word',
+    })
 
     const { result } = renderHook(() => useGenerationSession())
     await waitFor(() => expect(result.current.restoring).toBe(false))
 
-    expect(getDocumentMock).toHaveBeenCalledTimes(1)
-    expect(getDocumentMock).toHaveBeenCalledWith('word-1')
     expect(result.current.word.id).toBe('word-1')
     expect(result.current.jxml.id).toBeNull()
     expect(result.current.merged.id).toBeNull()
   })
 
-  it('stops restoring even if fetching a stored document fails', async () => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ wordDocumentId: 'gone' }))
-    getDocumentMock.mockRejectedValue(new Error('Document introuvable'))
+  it('stops restoring even if fetching the stored session fails', async () => {
+    localStorage.setItem(STORAGE_KEY, 'gone')
+    getSessionMock.mockRejectedValue(new Error('Session introuvable'))
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     const { result } = renderHook(() => useGenerationSession())
@@ -72,101 +92,90 @@ describe('useGenerationSession', () => {
     consoleErrorSpy.mockRestore()
   })
 
-  it('persists document ids to localStorage as they are generated', () => {
+  it('tracks the session id returned by a generation, and persists it to localStorage', () => {
     const { result } = renderHook(() => useGenerationSession())
 
-    act(() => result.current.word.onGenerated({ id: 'word-1', markdown: '# Word' }))
+    act(() => result.current.word.onGenerated({ id: 'word-1', markdown: '# Word', sessionId: 'session-1' }))
 
-    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}')
-    expect(stored.wordDocumentId).toBe('word-1')
-    expect(stored.jxmlDocumentId).toBeUndefined()
+    expect(result.current.sessionId).toBe('session-1')
+    expect(localStorage.getItem(STORAGE_KEY)).toBe('session-1')
   })
 
-  it('exposes a stored GitLab selection as initialGitlabSelection', () => {
+  it('still sets the document slot even though the session id is unchanged on a second generation', () => {
+    const { result } = renderHook(() => useGenerationSession())
+
+    act(() => result.current.word.onGenerated({ id: 'word-1', markdown: '# Word', sessionId: 'session-1' }))
+    act(() => result.current.jxml.onGenerated({ id: 'jxml-1', markdown: '# JXML', sessionId: 'session-1' }))
+
+    expect(result.current.sessionId).toBe('session-1')
+    expect(result.current.word.id).toBe('word-1')
+    expect(result.current.jxml.id).toBe('jxml-1')
+  })
+
+  it('claimSessionId mints a new id once and returns the same one on later calls', () => {
+    const { result } = renderHook(() => useGenerationSession())
+
+    let claimed1 = ''
+    let claimed2 = ''
+    act(() => {
+      claimed1 = result.current.claimSessionId()
+      claimed2 = result.current.claimSessionId()
+    })
+
+    expect(claimed1).toBe(claimed2)
+    expect(result.current.sessionId).toBe(claimed1)
+  })
+
+  it('claimSessionId lets two near-simultaneous first generations share one session id', () => {
+    // Regression test: Word and JXML generation used to each omit sessionId until their own
+    // response came back, so firing both before either resolved raced into two separate backend
+    // sessions. claimSessionId mints the id up front (synchronously) so both requests carry it.
+    const { result } = renderHook(() => useGenerationSession())
+
+    let wordSessionId = ''
+    let jxmlSessionId = ''
+    act(() => {
+      wordSessionId = result.current.claimSessionId()
+      jxmlSessionId = result.current.claimSessionId()
+    })
+
+    expect(wordSessionId).toBe(jxmlSessionId)
+  })
+
+  it('claimSessionId reuses the session id already known from a prior generation', () => {
+    const { result } = renderHook(() => useGenerationSession())
+
+    act(() => result.current.word.onGenerated({ id: 'word-1', markdown: '# Word', sessionId: 'session-1' }))
+
+    let claimed = ''
+    act(() => {
+      claimed = result.current.claimSessionId()
+    })
+
+    expect(claimed).toBe('session-1')
+  })
+
+  it('exposes a stored GitLab selection as initialGitlabSelection once restored', async () => {
+    localStorage.setItem(STORAGE_KEY, 'session-1')
     const gitlabSelection = {
       groupKey: 'jway-forms',
       projectId: '1',
       entryPointPath: 'forms/demarche_un.jxml',
       selectedPaths: ['forms/kyc.jxml'],
     }
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ gitlabSelection }))
+    getSessionMock.mockResolvedValue({
+      ...emptySessionExport('session-1'),
+      gitlabSelectionJson: JSON.stringify(gitlabSelection),
+    })
 
     const { result } = renderHook(() => useGenerationSession())
+    await waitFor(() => expect(result.current.restoring).toBe(false))
 
     expect(result.current.initialGitlabSelection).toEqual(gitlabSelection)
+    expect(result.current.gitlabSelection).toEqual(gitlabSelection)
   })
 
-  it('persists the GitLab selection reported via setGitlabSelection', () => {
-    const { result } = renderHook(() => useGenerationSession())
-
-    const gitlabSelection = {
-      groupKey: 'jway-forms',
-      projectId: '1',
-      entryPointPath: 'forms/demarche_un.jxml',
-      selectedPaths: ['forms/kyc.jxml'],
-    }
-    act(() => result.current.setGitlabSelection(gitlabSelection))
-
-    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}')
-    expect(stored.gitlabSelection).toEqual(gitlabSelection)
-  })
-
-  it('clears the persisted GitLab selection when setGitlabSelection(null) is reported', () => {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        gitlabSelection: {
-          groupKey: 'jway-forms',
-          projectId: '1',
-          entryPointPath: 'forms/demarche_un.jxml',
-          selectedPaths: [],
-        },
-      }),
-    )
-    const { result } = renderHook(() => useGenerationSession())
-
-    act(() => result.current.setGitlabSelection(null))
-
-    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}')
-    expect(stored.gitlabSelection).toBeUndefined()
-  })
-
-  it('does not clobber the stored session with nulls while a restore is still in flight', async () => {
-    // Regression test: the persist effect used to fire on mount before the async getDocument
-    // calls resolved (word/jxml/merged ids were still null then), overwriting the very session
-    // being restored — permanently losing it if the tab closed before the restore finished.
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ wordDocumentId: 'word-1', jxmlDocumentId: 'jxml-1', mergedDocumentId: 'merged-1' }),
-    )
-    let resolveWord: (result: { id: string; markdown: string }) => void = () => {}
-    getDocumentMock.mockImplementation((id: string) => {
-      if (id === 'word-1') return new Promise((resolve) => { resolveWord = resolve })
-      return Promise.resolve({ id, markdown: `# ${id}` })
-    })
-
-    const { result } = renderHook(() => useGenerationSession())
-    expect(result.current.restoring).toBe(true)
-
-    // jxml/merged have already resolved, but word (and thus the whole restore) hasn't — the
-    // stored session must still be intact on disk at this point, not wiped to nulls.
-    await waitFor(() => expect(result.current.jxml.id).toBe('jxml-1'))
-    expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}')).toEqual({
-      wordDocumentId: 'word-1',
-      jxmlDocumentId: 'jxml-1',
-      mergedDocumentId: 'merged-1',
-    })
-
-    resolveWord({ id: 'word-1', markdown: '# Word' })
-    await waitFor(() => expect(result.current.restoring).toBe(false))
-    expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}')).toEqual({
-      wordDocumentId: 'word-1',
-      jxmlDocumentId: 'jxml-1',
-      mergedDocumentId: 'merged-1',
-    })
-  })
-
-  it('exposes the live GitLab selection, not just the one read from storage at mount', () => {
+  it('exposes the live GitLab selection reported via setGitlabSelection', () => {
     const { result } = renderHook(() => useGenerationSession())
     expect(result.current.gitlabSelection).toBeNull()
 
@@ -205,59 +214,21 @@ describe('importSession', () => {
     Object.defineProperty(window, 'location', { configurable: true, value: originalLocation })
   })
 
-  it('stores the fetched session (documents + GitLab selection) and reloads the page', async () => {
+  it('fetches the session to validate it, then stores the id and reloads the page', async () => {
     const reloadSpy = stubLocationReload()
-    const gitlabSelection = {
-      groupKey: 'jway-forms',
-      projectId: '1',
-      entryPointPath: 'forms/demarche_un.jxml',
-      selectedPaths: ['forms/kyc.jxml'],
-    }
-    getSessionMock.mockResolvedValue({
-      mergedDocumentId: 'merged-1',
-      mergedMarkdown: '# Fusionné',
-      wordDocumentId: 'word-1',
-      wordMarkdown: '# Word',
-      jxmlDocumentId: 'jxml-1',
-      jxmlMarkdown: '# JXML',
-      gitlabSelectionJson: JSON.stringify(gitlabSelection),
-    })
+    getSessionMock.mockResolvedValue(emptySessionExport('session-1'))
 
-    await importSession('merged-1')
+    await importSession('session-1')
 
-    expect(getSessionMock).toHaveBeenCalledWith('merged-1')
-    expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}')).toEqual({
-      wordDocumentId: 'word-1',
-      jxmlDocumentId: 'jxml-1',
-      mergedDocumentId: 'merged-1',
-      gitlabSelection,
-    })
+    expect(getSessionMock).toHaveBeenCalledWith('session-1')
+    expect(localStorage.getItem(STORAGE_KEY)).toBe('session-1')
     expect(reloadSpy).toHaveBeenCalled()
   })
 
-  it('omits the GitLab selection when the exported session had none', async () => {
-    stubLocationReload()
-    getSessionMock.mockResolvedValue({
-      mergedDocumentId: 'merged-1',
-      mergedMarkdown: '# Fusionné',
-      wordDocumentId: null,
-      wordMarkdown: null,
-      jxmlDocumentId: null,
-      jxmlMarkdown: null,
-      gitlabSelectionJson: null,
-    })
-
-    await importSession('merged-1')
-
-    expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}')).toEqual({
-      mergedDocumentId: 'merged-1',
-    })
-  })
-
   it('propagates the error and does not touch localStorage when the fetch fails', async () => {
-    getSessionMock.mockRejectedValue(new Error('Document introuvable'))
+    getSessionMock.mockRejectedValue(new Error('Session introuvable'))
 
-    await expect(importSession('unknown')).rejects.toThrow('Document introuvable')
+    await expect(importSession('unknown')).rejects.toThrow('Session introuvable')
     expect(localStorage.getItem(STORAGE_KEY)).toBeNull()
   })
 })
@@ -273,11 +244,8 @@ describe('resetSession', () => {
     Object.defineProperty(window, 'location', { configurable: true, value: originalLocation })
   })
 
-  it('clears the stored session and reloads the page', () => {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ wordDocumentId: 'word-1', jxmlDocumentId: 'jxml-1', mergedDocumentId: 'merged-1' }),
-    )
+  it('clears the stored session id and reloads the page', () => {
+    localStorage.setItem(STORAGE_KEY, 'session-1')
     const reloadSpy = stubLocationReload()
 
     resetSession()

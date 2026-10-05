@@ -4,15 +4,16 @@ A personal collection of AI development tools for inspecting, diagnosing, and op
 
 ## Tools
 
-| Tool                                  | Description                                                                                                                |
-|---------------------------------------|----------------------------------------------------------------------------------------------------------------------------|
-| [`ai-env-manager`](./ai-env-manager/) | Scans and diagnoses your Claude Code / AI environment, checks for tool updates, manages a catalogue of recommended tools with guided or automated installation, verifies afterwards that the requested tools really work in the target folder, and migrates the environment to a Mistral configuration |
-| [`mistral-chat`](./mistral-chat/)     | Interactive CLI REPL to chat with an enterprise Mistral instance, authenticating via Chrome/Edge browser session cookies   |
-| [`mottaret-watch`](./mottaret-watch/) | Python script (Docker + Synology Task Scheduler) that scrapes rental availability for Méribel Mottaret Les Bleuets and sends email alerts via Resend |
-| [`prono-core`](./prono-core/)         | Full-stack World Cup 2026 betting app for friends — Java/Spring Boot + React, deployed via private Docker registry on NAS  |
-| [`my-house`](./my-house/)             | Home Assistant setup guide (Synology NAS Docker or Raspberry Pi 3B+ HAOS) with Somfy RTS (RFXCOM) and Zigbee integration   |
-| [`my-money-hub`](./my-money-hub/)     | Personal account aggregator — Java/Spring Boot + React, self-hosted alternative to Linxo (Enable Banking API for Boursorama/N26/Revolut, woob scraping for BNP Paribas) |
-| [`spec-merger`](./spec-merger/) | Merges a project's Word specification with its JWAY JXML source into a single, editable, version-tracked markdown — Java/Spring Boot + React + Postgres |
+| Tool                                  | Description                                                                                                                | Status |
+|---------------------------------------|----------------------------------------------------------------------------------------------------------------------------|--------|
+| [`ai-env-manager`](./ai-env-manager/) | Scans and diagnoses your Claude Code / AI environment, checks for tool updates, manages a catalogue of recommended tools with guided or automated installation, verifies afterwards that the requested tools really work in the target folder, and migrates the environment to a Mistral configuration | active |
+| [`mistral-chat`](./mistral-chat/)     | Interactive CLI REPL to chat with an enterprise Mistral instance, authenticating via Chrome/Edge browser session cookies   | deprecated |
+| [`mottaret-watch`](./mottaret-watch/) | Python script (Docker + Synology Task Scheduler) that scrapes rental availability for Méribel Mottaret Les Bleuets and sends email alerts via Resend | deprecated |
+| [`prono-core`](./prono-core/)         | Full-stack Ligue 1 and Formula 1 betting app for friends — Java/Spring Boot + React, deployed via private Docker registry on NAS  | active |
+| [`my-house`](./my-house/)             | Home Assistant setup guide (Synology NAS Docker or Raspberry Pi 3B+ HAOS) with Somfy RTS (RFXCOM) and Zigbee integration   | wip |
+| [`my-money-hub`](./my-money-hub/)     | Personal account aggregator — Java/Spring Boot + React, self-hosted alternative to Linxo (Enable Banking API for Boursorama/N26/Revolut, woob scraping for BNP Paribas) | wip |
+| [`showcase`](./showcase/) | Static FR/EN catalogue page promoting my public apps (BienvenueBébé, prono-core, ai-env-manager) — Vite + React | active |
+| [`spec-merger`](./spec-merger/) | Merges a project's Word specification with its JWAY JXML source into a single, editable, version-tracked markdown — Java/Spring Boot + React + Postgres | active |
 
 ## Roadmap
 

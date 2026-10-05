@@ -1,0 +1,51 @@
+name: Showcase – déploiement GitHub Pages
+
+# Build showcase/ puis publie uniquement showcase/dist dans le dépôt public
+# clementbrunel/clementbrunel.github.io (servi par GitHub Pages à la racine).
+on:
+  push:
+    branches: [main]
+    paths:
+      - "showcase/**"
+      - ".github/workflows/showcase-deploy.yml"
+  workflow_dispatch:
+
+env:
+  # Les actions JS tierces (peaceiris) tournent encore en Node 20 : on force Node 24.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+concurrency:
+  group: showcase-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: showcase/package-lock.json
+
+      - name: Build
+        working-directory: showcase
+        run: |
+          npm ci
+          npm run build
+
+      - name: Publish to clementbrunel.github.io
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          deploy_key: ${{ secrets.PAGES_DEPLOY_KEY }}
+          external_repository: clementbrunel/clementbrunel.github.io
+          publish_branch: main
+          publish_dir: showcase/dist
+          force_orphan: true
+          user_name: github-actions[bot]
+          user_email: 41898282+github-actions[bot]@users.noreply.github.com
+          commit_message: "Deploy showcase from ${{ github.sha }}"

@@ -37,7 +37,7 @@ spring:
           model: ${MISTRAL_MODEL:unset}
 
 app:
-  frontend-url: ${FRONTEND_URL:http://localhost:5173}
+  frontend-url: ${FRONTEND_URL:http://localhost:5174}
   ai:
     # true : remplace l'appel mistral-vibe par un provider local qui renvoie le gabarit
     # tel quel (placeholders non remplis) — pour avancer sur le reste du pipeline

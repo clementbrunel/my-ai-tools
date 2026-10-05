@@ -23,8 +23,9 @@ beforeEach(() => {
 interface RenderOptions {
   wordMarkdown?: string
   jxmlMarkdown?: string
-  wordDocumentId?: string
-  jxmlDocumentId?: string
+  /** The session both docs were generated under — real usage always has one by the time both
+   * markdowns are ready, since generating either always creates or attaches to a session. */
+  sessionId?: string | null
   /** Simulates useGenerationSession restoring a merged doc from localStorage on mount, rather
    * than the user generating one by clicking the button in this render. */
   restoredMerged?: { id: string; markdown: string }
@@ -39,10 +40,10 @@ function renderMergePanel(options: RenderOptions = {}) {
     const mergedDoc = usePersistedDoc()
     useEffect(() => {
       if (options.wordMarkdown) {
-        wordDoc.onGenerated({ id: options.wordDocumentId ?? 'word-1', markdown: options.wordMarkdown })
+        wordDoc.onGenerated({ id: 'word-1', markdown: options.wordMarkdown })
       }
       if (options.jxmlMarkdown) {
-        jxmlDoc.onGenerated({ id: options.jxmlDocumentId ?? 'jxml-1', markdown: options.jxmlMarkdown })
+        jxmlDoc.onGenerated({ id: 'jxml-1', markdown: options.jxmlMarkdown })
       }
       if (options.restoredMerged) mergedDoc.restore(options.restoredMerged)
       // Only ever meant to fire once, on mount, like the real session-restore effect.
@@ -53,6 +54,7 @@ function renderMergePanel(options: RenderOptions = {}) {
         wordDoc={wordDoc}
         jxmlDoc={jxmlDoc}
         mergedDoc={mergedDoc}
+        sessionId={options.sessionId === undefined ? 'session-1' : options.sessionId}
         gitlabSelection={options.gitlabSelection ?? null}
       />
     )
@@ -77,17 +79,23 @@ describe('MergePanel', () => {
     expect(screen.getByText('Fusionner Word ⇄ JXML')).toBeDefined()
   })
 
-  it('merges the two docs (passing their ids for traceability) and shows the editable result', async () => {
-    mergeSpecsMock.mockResolvedValue({ id: 'merged-1', markdown: '# Document fusionné' })
-    renderMergePanel({ wordMarkdown: '# Word', jxmlMarkdown: '# JXML', wordDocumentId: 'word-1', jxmlDocumentId: 'jxml-1' })
+  it('merges the two docs (passing the session id) and shows the editable result', async () => {
+    mergeSpecsMock.mockResolvedValue({ id: 'merged-1', markdown: '# Document fusionné', sessionId: 'session-1' })
+    renderMergePanel({ wordMarkdown: '# Word', jxmlMarkdown: '# JXML' })
     await userEvent.click(screen.getByText('Fusionner Word ⇄ JXML'))
-    expect(mergeSpecsMock).toHaveBeenCalledWith('# Word', '# JXML', 'word-1', 'jxml-1', null)
+    expect(mergeSpecsMock).toHaveBeenCalledWith('# Word', '# JXML', 'session-1', null)
     expect(await screen.findByRole('heading', { level: 1, name: 'Document fusionné' })).toBeDefined()
     expect(screen.getByText('Télécharger')).toBeDefined()
   })
 
+  it('does not attempt to merge without a session id', async () => {
+    renderMergePanel({ wordMarkdown: '# Word', jxmlMarkdown: '# JXML', sessionId: null })
+    await userEvent.click(screen.getByText('Fusionner Word ⇄ JXML'))
+    expect(mergeSpecsMock).not.toHaveBeenCalled()
+  })
+
   it('sends the current GitLab selection (JSON-encoded) with the merge, when one is set', async () => {
-    mergeSpecsMock.mockResolvedValue({ id: 'merged-1', markdown: '# Document fusionné' })
+    mergeSpecsMock.mockResolvedValue({ id: 'merged-1', markdown: '# Document fusionné', sessionId: 'session-1' })
     const gitlabSelection: GitlabSelection = {
       groupKey: 'jway-forms',
       projectId: '1',
@@ -99,8 +107,7 @@ describe('MergePanel', () => {
     expect(mergeSpecsMock).toHaveBeenCalledWith(
       '# Word',
       '# JXML',
-      'word-1',
-      'jxml-1',
+      'session-1',
       JSON.stringify(gitlabSelection),
     )
   })
@@ -113,12 +120,12 @@ describe('MergePanel', () => {
   })
 
   it('re-merges without asking when the result has not been edited', async () => {
-    mergeSpecsMock.mockResolvedValue({ id: 'merged-1', markdown: '# v1' })
+    mergeSpecsMock.mockResolvedValue({ id: 'merged-1', markdown: '# v1', sessionId: 'session-1' })
     renderMergePanel({ wordMarkdown: '# Word', jxmlMarkdown: '# JXML' })
     await userEvent.click(screen.getByText('Fusionner Word ⇄ JXML'))
     await screen.findByText('Refusionner')
 
-    mergeSpecsMock.mockResolvedValue({ id: 'merged-1', markdown: '# v2' })
+    mergeSpecsMock.mockResolvedValue({ id: 'merged-1', markdown: '# v2', sessionId: 'session-1' })
     await userEvent.click(screen.getByText('Refusionner'))
 
     expect(screen.queryByText('Le document fusionné a été modifié manuellement. Relancer la fusion écrasera ces modifications. Continuer ?')).toBeNull()
@@ -126,7 +133,7 @@ describe('MergePanel', () => {
   })
 
   it('asks for confirmation before overwriting a manually edited result', async () => {
-    mergeSpecsMock.mockResolvedValue({ id: 'merged-1', markdown: '# v1' })
+    mergeSpecsMock.mockResolvedValue({ id: 'merged-1', markdown: '# v1', sessionId: 'session-1' })
     renderMergePanel({ wordMarkdown: '# Word', jxmlMarkdown: '# JXML' })
     await userEvent.click(screen.getByText('Fusionner Word ⇄ JXML'))
     await screen.findByText('Refusionner')
@@ -136,7 +143,7 @@ describe('MergePanel', () => {
     await userEvent.clear(textarea)
     await userEvent.type(textarea, '# v1 édité à la main')
 
-    mergeSpecsMock.mockResolvedValue({ id: 'merged-1', markdown: '# v2' })
+    mergeSpecsMock.mockResolvedValue({ id: 'merged-1', markdown: '# v2', sessionId: 'session-1' })
     await userEvent.click(screen.getByText('Refusionner'))
     await screen.findByRole('alertdialog')
     await userEvent.click(screen.getByText('Annuler'))
@@ -146,7 +153,7 @@ describe('MergePanel', () => {
   })
 
   it('re-merges after confirming the overwrite of a manually edited result', async () => {
-    mergeSpecsMock.mockResolvedValue({ id: 'merged-1', markdown: '# v1' })
+    mergeSpecsMock.mockResolvedValue({ id: 'merged-1', markdown: '# v1', sessionId: 'session-1' })
     renderMergePanel({ wordMarkdown: '# Word', jxmlMarkdown: '# JXML' })
     await userEvent.click(screen.getByText('Fusionner Word ⇄ JXML'))
     await screen.findByText('Refusionner')
@@ -156,7 +163,7 @@ describe('MergePanel', () => {
     await userEvent.clear(textarea)
     await userEvent.type(textarea, '# v1 édité à la main')
 
-    mergeSpecsMock.mockResolvedValue({ id: 'merged-1', markdown: '# v2' })
+    mergeSpecsMock.mockResolvedValue({ id: 'merged-1', markdown: '# v2', sessionId: 'session-1' })
     await userEvent.click(screen.getByText('Refusionner'))
     await userEvent.click(await screen.findByText('Continuer'))
 
@@ -188,7 +195,7 @@ describe('MergePanel', () => {
   })
 
   it('shows no save button until the merged result is edited', async () => {
-    mergeSpecsMock.mockResolvedValue({ id: 'merged-1', markdown: '# v1' })
+    mergeSpecsMock.mockResolvedValue({ id: 'merged-1', markdown: '# v1', sessionId: 'session-1' })
     renderMergePanel({ wordMarkdown: '# Word', jxmlMarkdown: '# JXML' })
     await userEvent.click(screen.getByText('Fusionner Word ⇄ JXML'))
     await screen.findByText('Refusionner')
@@ -197,8 +204,8 @@ describe('MergePanel', () => {
   })
 
   it('shows a save button after editing, and saves on click without any debounce', async () => {
-    mergeSpecsMock.mockResolvedValue({ id: 'merged-1', markdown: '# v1' })
-    updateDocumentMock.mockResolvedValue({ id: 'merged-1', markdown: '# v1 édité' })
+    mergeSpecsMock.mockResolvedValue({ id: 'merged-1', markdown: '# v1', sessionId: 'session-1' })
+    updateDocumentMock.mockResolvedValue({ id: 'merged-1', markdown: '# v1 édité', sessionId: null })
     renderMergePanel({ wordMarkdown: '# Word', jxmlMarkdown: '# JXML' })
     await userEvent.click(screen.getByText('Fusionner Word ⇄ JXML'))
     await screen.findByText('Refusionner')
@@ -217,7 +224,7 @@ describe('MergePanel', () => {
   })
 
   it('shows an error message when saving fails', async () => {
-    mergeSpecsMock.mockResolvedValue({ id: 'merged-1', markdown: '# v1' })
+    mergeSpecsMock.mockResolvedValue({ id: 'merged-1', markdown: '# v1', sessionId: 'session-1' })
     updateDocumentMock.mockRejectedValue(new Error("Échec de l'enregistrement"))
     renderMergePanel({ wordMarkdown: '# Word', jxmlMarkdown: '# JXML' })
     await userEvent.click(screen.getByText('Fusionner Word ⇄ JXML'))

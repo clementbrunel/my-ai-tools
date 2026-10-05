@@ -1,6 +1,13 @@
 import { useCallback, useState } from 'react'
 import { updateDocument } from '../api/analysis'
-import type { SpecGenerationResult } from '../types'
+
+/** The only shape this hook actually cares about from a generate/merge/restore result — deliberately
+ * narrower than {@link import('../types').SpecGenerationResult}, whose other fields (e.g.
+ * `sessionId`) are the concern of {@link useGenerationSession}, not of a single document slot. */
+interface GeneratedDoc {
+  id: string
+  markdown: string
+}
 
 /**
  * One persisted document slot (the Word spec, the JXML spec, or their merge): its id and current
@@ -15,7 +22,7 @@ export function usePersistedDoc() {
   const [saving, setSaving] = useState(false)
 
   /** Call once a generate/merge API call resolves — the result is saved by definition. */
-  const onGenerated = useCallback((result: SpecGenerationResult) => {
+  const onGenerated = useCallback((result: GeneratedDoc) => {
     setId(result.id)
     setMarkdown(result.markdown)
     setSavedMarkdown(result.markdown)
