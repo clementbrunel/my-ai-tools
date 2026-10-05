@@ -54,7 +54,7 @@
     {
       "name": "my-money-hub",
       "status": "wip",
-      "enabled": true,
+      "enabled": false,
       "npm": [
         "my-money-hub/frontend"
       ],
