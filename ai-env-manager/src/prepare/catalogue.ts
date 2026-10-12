@@ -46,12 +46,13 @@ export const CATALOGUE: CatalogueTool[] = [
     steps: [
       {
         label: "Installer le binaire",
-        command: "cargo install rtk",
-        manual: "ou télécharger le binaire depuis https://github.com/stscoundrel/rtk/releases",
+        command: "cargo install --git https://github.com/rtk-ai/rtk",
+        manual: "ou brew install rtk / télécharger le binaire depuis https://github.com/rtk-ai/rtk/releases (ne pas utiliser 'cargo install rtk' : le crate 'rtk' de crates.io est un autre projet, Rust Type Kit)",
       },
       {
         label: "Configurer le hook Claude Code",
-        manual: 'Ajouter dans .claude/settings.json → hooks.PostToolUse : { "matcher": "Bash", "hooks": [{"type": "command", "command": "rtk"}] }',
+        command: "rtk init -g",
+        manual: "Installe le hook Bash de Claude Code (réécrit les commandes en 'rtk <cmd>'), puis redémarrer Claude Code. Vérifier avec 'rtk gain'",
       },
     ],
     conflictGroup: "token",
@@ -64,11 +65,11 @@ export const CATALOGUE: CatalogueTool[] = [
     steps: [
       {
         label: "Installer le package Python",
-        command: "pip install headroom",
+        command: "pip install headroom-ai",
       },
       {
         label: "Mode proxy (optionnel, zero-code-change)",
-        command: "pip install 'headroom[proxy]'",
+        command: "pip install 'headroom-ai[proxy]'",
       },
       {
         label: "Ajouter comme serveur MCP (optionnel)",

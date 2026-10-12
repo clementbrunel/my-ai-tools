@@ -146,8 +146,8 @@ install plan that picks more than one.
 
 | id | Tool | What it does | Install surface |
 |---|---|---|---|
-| `rtk` | [RTK (Rust Token Killer)](https://www.rtk-ai.app/) | CLI proxy that compresses shell output before it reaches the model | `cargo install rtk` + a `PostToolUse` hook |
-| `headroom` | [Headroom](https://github.com/chopratejas/headroom) | Compresses tool outputs, RAG chunks and JSON (60–95 % claimed) | `pip install headroom`; library, HTTP proxy, or MCP server |
+| `rtk` | [RTK (Rust Token Killer)](https://www.rtk-ai.app/) | CLI proxy that compresses shell output before it reaches the model | `cargo install --git https://github.com/rtk-ai/rtk` + a `PostToolUse` hook |
+| `headroom` | [Headroom](https://github.com/chopratejas/headroom) | Compresses tool outputs, RAG chunks and JSON (60–95 % claimed) | `pip install headroom-ai`; library, HTTP proxy, or MCP server |
 | `caveman` | [Caveman](https://github.com/JuliusBrussee/caveman) | Skill that steers the model toward terse answers — zero infra | `/plugin install caveman@caveman` |
 
 #### Group `memory` — project memory & codebase knowledge *(pick 1)*
