@@ -53,3 +53,10 @@ Copier `.env.example` → `.env` (déjà dans `.gitignore` racine du monorepo).
 l'institution, migration `V2`) → redirection vers le dashboard. Ensuite `POST /api/institutions/{id}/sync` lit
 `/sessions/{id}` puis `/accounts/{uid}/details|balances|transactions`. `externalAccountId` = `identification_hash`
 (stable entre consentements). Consentement à renouveler à expiration (bouton « Reconnecter »).
+
+## Woob (BNP Paribas)
+
+`WoobConnector` appelle la CLI woob (vérifiée sur woob 3.7 + module `bnp`) : `woob bank -b <backend> -f json -n 0 list`
+puis `history <id@backend> <since>`. `Institution.externalRef` = nom du backend woob, configuré hors de l'app
+(`pip install woob && woob config add bnp`). Erreurs backend détectées sur stderr (`Error(bnp)` / `Bug(bnp)`, woob
+sortant parfois en 0 avec `[]`). Sync réel : `cd backend && WOOB_LIVE_BACKEND=bnp mvn test -Dtest=WoobConnectorLiveTest`.
