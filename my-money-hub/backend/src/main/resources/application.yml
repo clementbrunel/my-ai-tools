@@ -28,3 +28,4 @@ mymoneyhub:
     redirect-url: ${ENABLE_BANKING_REDIRECT_URL:http://localhost:5173/connect/callback}
   woob:
     binary-path: ${WOOB_BINARY_PATH:woob}
+    timeout: ${WOOB_TIMEOUT:2m}
