@@ -1,4 +1,4 @@
-import '@testing-library/jest-dom';
+import '@testing-library/jest-dom/vitest';
 
 // Node 22+ defines global `localStorage`/`sessionStorage` getters that throw
 // without `--localstorage-file`. Because they already exist on `global`,
