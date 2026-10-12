@@ -36,6 +36,9 @@ public class RaceResponse {
     /** Full classification — only populated once the race is FINISHED. */
     private List<RaceResultResponse> results;
 
+    /** True when {@link #results} is an imported classification awaiting admin validation (admin-only). */
+    private boolean resultsDraft;
+
     /** Starting grid — populated as soon as qualifying is over, well before the race. */
     private List<QualifyingResultResponse> qualifyingResults;
 }

@@ -96,7 +96,7 @@ class F1SyncServiceTest {
     }
 
     @Test
-    void syncSeason_importsCalendarResultsAndSettles() {
+    void syncSeason_importsCalendarAndStagesResultsAsDraft() {
         Competition competition = Competition.builder().id(9L).name("Formule 1 2026").sport(Sport.F1).season(2026).build();
         Race round1 = race(101L, 1, Race.Status.UPCOMING, competition);
         Race round2 = race(102L, 2, Race.Status.UPCOMING, competition);
@@ -146,9 +146,10 @@ class F1SyncServiceTest {
         assertThat(grid.get(3).getTime()).isEqualTo("1:23.000");   // VER — eliminated in Q1
         assertThat(summary).contains("grille de départ importée pour les manches [1]");
 
-        // Results: settled through the same path as a manual entry
+        // Results: staged as a draft only — settlement (points + emails) waits for the admin's validation
         ArgumentCaptor<EnterRaceResultsRequest> captor = ArgumentCaptor.forClass(EnterRaceResultsRequest.class);
-        verify(f1RaceService).enterResults(eq(101L), captor.capture());
+        verify(f1RaceService).saveDraftResults(eq(101L), captor.capture());
+        verify(f1RaceService, never()).enterResults(any(), any());
         List<EnterRaceResultsRequest.Entry> entries = captor.getValue().getResults();
         assertThat(entries).hasSize(4);
         assertThat(entries.get(0).getPosition()).isEqualTo(1);
@@ -161,8 +162,8 @@ class F1SyncServiceTest {
         assertThat(entries.get(0).getSprintPosition()).isEqualTo(2);   // RUS
         assertThat(entries.get(2).getSprintPosition()).isEqualTo(1);   // NOR
         assertThat(entries.get(1).getSprintPosition()).isNull();       // ANT no sprint points
-        // Round 2 has no results yet → not settled
-        verify(f1RaceService, never()).enterResults(eq(102L), any());
+        // Round 2 has no results yet → nothing staged
+        verify(f1RaceService, never()).saveDraftResults(eq(102L), any());
 
         assertThat(summary).contains("2 course(s)").contains("manches [1]");
     }
@@ -290,6 +291,24 @@ class F1SyncServiceTest {
     }
 
     @Test
+    void syncResultsForRace_unsettledRace_stagesDraftWithoutSettling() {
+        Competition competition = Competition.builder().id(9L).name("Formule 1 2026").sport(Sport.F1).season(2026).build();
+        Race round1 = race(101L, 1, Race.Status.UPCOMING, competition);
+
+        when(raceRepository.findById(101L)).thenReturn(Optional.of(round1));
+        when(jolpicaClient.get("2026/1/results.json?limit=40")).thenReturn(ROUND1_RESULTS_JSON);
+        when(jolpicaClient.get("2026/1/sprint.json?limit=40")).thenReturn(ROUND1_SPRINT_JSON);
+        when(qualifyingResultRepository.findByRaceIdWithDrivers(101L)).thenReturn(List.of());
+        stubEntryListUpserts();
+
+        String message = f1SyncService.syncResultsForRace(101L, false);
+
+        verify(f1RaceService).saveDraftResults(eq(101L), any());
+        verify(f1RaceService, never()).enterResults(any(), any());
+        assertThat(message).contains("à vérifier puis valider");
+    }
+
+    @Test
     void syncResultsForRace_noJolpicaDataYet_returnsWithoutSettling() {
         Competition competition = Competition.builder().id(9L).name("Formule 1 2026").sport(Sport.F1).season(2026).build();
         Race round2 = race(102L, 2, Race.Status.UPCOMING, competition);
@@ -300,6 +319,7 @@ class F1SyncServiceTest {
         String message = f1SyncService.syncResultsForRace(102L, false);
 
         verify(f1RaceService, never()).enterResults(any(), any());
+        verify(f1RaceService, never()).saveDraftResults(any(), any());
         assertThat(message).contains("Aucun résultat disponible");
     }
 

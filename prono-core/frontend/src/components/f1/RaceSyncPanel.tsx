@@ -25,7 +25,7 @@ interface RaceSyncPanelProps {
  * Race picker + the jolpica sync/resync/delete admin actions for one race, plus at-a-glance
  * status chips (grid imported? results settled?) so the admin doesn't have to guess which of
  * the force-resync buttons applies. Those are corrections, not the routine flow (pick a race,
- * hit the jolpica sync, done) — tucked under "Actions avancées" so they don't crowd it.
+ * hit the jolpica sync, review, validate) — tucked under "Actions avancées" so they don't crowd it.
  *
  * Render with `key={selectedRaceId}` from the parent: switching races should reset the
  * "advanced" disclosure, and remounting is simpler than lifting yet another piece of state.
@@ -42,6 +42,7 @@ const RaceSyncPanel: React.FC<RaceSyncPanelProps> = ({
   const qualifsImported = (raceDetail?.qualifyingResults?.length ?? 0) > 0;
   const racePassed = selectedRace ? new Date(selectedRace.raceDate) <= new Date() : false;
   const resultsSettled = selectedRace?.status === 'FINISHED';
+  const resultsDraft = !resultsSettled && raceDetail?.resultsDraft === true;
 
   return (
     <div className="card space-y-3">
@@ -62,7 +63,7 @@ const RaceSyncPanel: React.FC<RaceSyncPanelProps> = ({
           onClick={onSync}
           disabled={isSyncing}
           className="btn-gold w-full sm:w-auto sm:ml-auto"
-          title="Action de routine après un GP : importe calendrier, grille et résultats depuis jolpica-f1 pour toute la saison, et règle les paris des courses qui viennent de se terminer"
+          title="Action de routine après un GP : importe calendrier, grille et résultats depuis jolpica-f1 pour toute la saison. Les résultats importés restent à valider avant le règlement des paris"
         >
           {isSyncing ? 'Import en cours…' : '🔄 Importer les résultats (jolpica)'}
         </button>
@@ -85,13 +86,13 @@ const RaceSyncPanel: React.FC<RaceSyncPanelProps> = ({
             className={`text-xs font-bold px-2 py-1 rounded-full ${
               resultsSettled
                 ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300'
-                : racePassed
+                : resultsDraft || racePassed
                   ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300'
                   : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
             }`}
             title={resultsSettled ? 'Réenregistrer ou resynchroniser recalcule les points' : undefined}
           >
-            🏁 Résultats {resultsSettled ? 'réglés ✓' : racePassed ? 'pas encore importés' : 'à venir'}
+            🏁 Résultats {resultsSettled ? 'réglés ✓' : resultsDraft ? 'importés — à valider' : racePassed ? 'pas encore importés' : 'à venir'}
           </span>
           <button
             type="button"

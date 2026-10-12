@@ -280,6 +280,44 @@ class F1RaceServiceTest {
     }
 
     @Test
+    void saveDraftResults_storesWithoutSettlingNorNotifying() {
+        Race race = raceAt(LocalDateTime.now().minusDays(2), LocalDateTime.now().minusDays(1));
+
+        when(raceRepository.findById(100L)).thenReturn(Optional.of(race));
+        when(driverRepository.findById(1L)).thenReturn(Optional.of(nor));
+        when(driverRepository.findById(2L)).thenReturn(Optional.of(pia));
+        when(driverRepository.findById(3L)).thenReturn(Optional.of(lec));
+        when(raceResultRepository.findByRaceIdWithDrivers(100L)).thenReturn(List.of());
+
+        EnterRaceResultsRequest request = new EnterRaceResultsRequest();
+        request.setResults(List.of(
+                entry(1L, 1, true, false, false),
+                entry(2L, 2, false, false, false),
+                entry(3L, 3, false, false, false)));
+
+        f1RaceService.saveDraftResults(100L, request);
+
+        verify(raceResultRepository).saveAll(anyList());
+        assertThat(race.getStatus()).isEqualTo(Race.Status.UPCOMING);
+        verify(raceRepository, never()).save(any(Race.class));
+        verifyNoInteractions(f1ScoringService, dailyGageService);
+    }
+
+    @Test
+    void saveDraftResults_onSettledRace_isRefused() {
+        Race race = raceAt(LocalDateTime.now().minusDays(2), LocalDateTime.now().minusDays(1));
+        race.setStatus(Race.Status.FINISHED);
+        when(raceRepository.findById(100L)).thenReturn(Optional.of(race));
+
+        EnterRaceResultsRequest request = new EnterRaceResultsRequest();
+        request.setResults(List.of(entry(1L, 1, false, false, false)));
+
+        assertThatThrownBy(() -> f1RaceService.saveDraftResults(100L, request))
+                .isInstanceOf(IllegalStateException.class);
+        verify(raceResultRepository, never()).deleteByRaceId(anyLong());
+    }
+
+    @Test
     void enterResults_withoutFullPodium_isRejected() {
         Race race = raceAt(LocalDateTime.now().minusDays(2), LocalDateTime.now().minusDays(1));
         when(raceRepository.findById(100L)).thenReturn(Optional.of(race));

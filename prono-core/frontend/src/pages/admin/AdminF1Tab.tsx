@@ -116,7 +116,7 @@ const SortableDriverRow: React.FC<RowProps> = ({
 /**
  * Platform-admin entry of a race's full classification.
  * Drag rows to order the finishers; DNF rows drop to the bottom (position null).
- * Saving settles every open bet of the race.
+ * Jolpica imports land here as a draft; saving ("Valider") settles every open bet of the race and sends the emails.
  */
 const AdminF1Tab: React.FC = () => {
   const { showToast } = useToast();
@@ -330,7 +330,7 @@ const AdminF1Tab: React.FC = () => {
       await enterRaceResults(selectedRaceId, entries, notifyByEmail);
       showToast('Résultats enregistrés — paris réglés ! 🏁', 'success');
       setRaces((prev) => prev.map((r) => (r.id === selectedRaceId ? { ...r, status: 'FINISHED' } : r)));
-      setRaceDetail((prev) => (prev ? { ...prev, status: 'FINISHED' } : prev));
+      setRaceDetail((prev) => (prev ? { ...prev, status: 'FINISHED', resultsDraft: false } : prev));
     } catch (e: unknown) {
       const message = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
       showToast(message ?? "Impossible d'enregistrer les résultats", 'error');
@@ -362,6 +362,12 @@ const AdminF1Tab: React.FC = () => {
       />
 
       <div className="card space-y-2">
+        {raceDetail?.resultsDraft && selectedRace?.status !== 'FINISHED' && (
+          <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 text-sm px-3 py-2">
+            ⚠️ Classement importé de jolpica, <strong>pas encore validé</strong> : aucun point attribué, aucun email envoyé.
+            Vérifie-le (pole, meilleur tour, lanterne rouge…), corrige si besoin, puis valide.
+          </div>
+        )}
         <div className="flex items-center justify-between flex-wrap gap-2">
           <h2 className="font-bold text-gray-900 dark:text-white">Classement de la course</h2>
           <span className="text-xs text-gray-400">
