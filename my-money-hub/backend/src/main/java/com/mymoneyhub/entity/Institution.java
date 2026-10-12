@@ -29,10 +29,21 @@ public class Institution {
     @Column(name = "connector_type", nullable = false, length = 20)
     private ConnectorType connectorType;
 
-    /** Meaning depends on {@link #connectorType}: Enable Banking ASPSP name, woob module
+    /** Meaning depends on {@link #connectorType}: Enable Banking ASPSP name (e.g. "Boursorama", "N26", "Revolut"), woob module
      *  name (e.g. "bnp"), or null for MANUAL institutions with no automated sync. */
     @Column(name = "external_ref", length = 100)
     private String externalRef;
+
+    /** ENABLE_BANKING only: ISO country of the ASPSP (e.g. "FR"), paired with {@link #externalRef}. */
+    @Column(name = "external_country", length = 2)
+    private String externalCountry;
+
+    /** ENABLE_BANKING only: session obtained after the user consented at the bank. */
+    @Column(name = "external_session_id", length = 100)
+    private String externalSessionId;
+
+    @Column(name = "session_valid_until")
+    private LocalDateTime sessionValidUntil;
 
     @Column(name = "created_at", nullable = false)
     @Builder.Default

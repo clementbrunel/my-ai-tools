@@ -25,6 +25,7 @@ public class InstitutionService {
                 .type(request.type())
                 .connectorType(request.connectorType())
                 .externalRef(request.externalRef())
+                .externalCountry(request.externalCountry())
                 .build();
         return toDto(institutionRepository.save(institution));
     }
@@ -35,7 +36,9 @@ public class InstitutionService {
                 institution.getName(),
                 institution.getType(),
                 institution.getConnectorType(),
-                institution.getExternalRef()
+                institution.getExternalRef(),
+                institution.getExternalCountry(),
+                institution.getSessionValidUntil()
         );
     }
 }
