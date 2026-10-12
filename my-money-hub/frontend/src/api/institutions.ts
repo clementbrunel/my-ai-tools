@@ -10,3 +10,9 @@ export async function createInstitution(request: CreateInstitutionRequest): Prom
   const { data } = await apiClient.post<Institution>('/institutions', request)
   return data
 }
+
+/** Returns the bank's consent page URL for an Enable Banking institution. */
+export async function connectInstitution(id: number): Promise<string> {
+  const { data } = await apiClient.post<{ url: string }>(`/institutions/${id}/connect`)
+  return data.url
+}

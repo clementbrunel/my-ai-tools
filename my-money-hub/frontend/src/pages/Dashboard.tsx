@@ -1,16 +1,29 @@
 import { useEffect, useState, useCallback } from 'react'
 import { fetchNetWorth, syncAll } from '@/api/accounts'
-import type { NetWorth } from '@/types'
+import { connectInstitution, fetchInstitutions } from '@/api/institutions'
+import type { Institution, NetWorth } from '@/types'
 import AccountCard from '@/components/AccountCard'
 
 export default function Dashboard() {
   const [netWorth, setNetWorth] = useState<NetWorth | null>(null)
   const [syncing, setSyncing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [institutions, setInstitutions] = useState<Institution[]>([])
+  // Set by the Enable Banking callback redirect (?connected=… / ?connectError=…)
+  const [notice] = useState(() => {
+    const params = new URLSearchParams(window.location.search)
+    const connected = params.get('connected')
+    const connectError = params.get('connectError')
+    if (connected || connectError) window.history.replaceState(null, '', window.location.pathname)
+    if (connected) return { ok: true, text: `${connected} connecté — tu peux lancer une synchronisation.` }
+    if (connectError) return { ok: false, text: `Connexion refusée : ${connectError}` }
+    return null
+  })
 
   const load = useCallback(async () => {
     try {
       setNetWorth(await fetchNetWorth())
+      setInstitutions((await fetchInstitutions()).filter((i) => i.connectorType === 'ENABLE_BANKING'))
       setError(null)
     } catch {
       setError('Impossible de charger les comptes — le backend est-il démarré ?')
@@ -31,6 +44,21 @@ export default function Dashboard() {
     }
   }
 
+  async function handleConnect(institution: Institution) {
+    try {
+      window.location.href = await connectInstitution(institution.id)
+    } catch {
+      setError(`Impossible de démarrer la connexion à ${institution.name} — Enable Banking est-il configuré ?`)
+    }
+  }
+
+  function consentLabel(institution: Institution) {
+    if (!institution.sessionValidUntil) return 'Non connecté'
+    const until = new Date(institution.sessionValidUntil)
+    if (until < new Date()) return 'Consentement expiré'
+    return `Connecté jusqu'au ${until.toLocaleDateString('fr-FR')}`
+  }
+
   return (
     <div className="max-w-5xl mx-auto p-6">
       <div className="flex items-center justify-between mb-6">
@@ -41,6 +69,26 @@ export default function Dashboard() {
       </div>
 
       {error && <p className="text-mh-danger mb-4">{error}</p>}
+      {notice && <p className={notice.ok ? 'text-green-600 mb-4' : 'text-mh-danger mb-4'}>{notice.text}</p>}
+
+      {institutions.length > 0 && (
+        <div className="card mb-6">
+          <span className="stat-label">Banques Enable Banking</span>
+          <ul className="mt-2 divide-y divide-gray-200 dark:divide-gray-700">
+            {institutions.map((institution) => (
+              <li key={institution.id} className="flex items-center justify-between py-2">
+                <span>
+                  {institution.name}{' '}
+                  <span className="text-sm text-gray-500 dark:text-gray-400">— {consentLabel(institution)}</span>
+                </span>
+                <button className="btn-primary" onClick={() => handleConnect(institution)}>
+                  {institution.sessionValidUntil ? 'Reconnecter' : 'Connecter'}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {netWorth && (
         <div className="card mb-6 flex flex-col items-center py-8">

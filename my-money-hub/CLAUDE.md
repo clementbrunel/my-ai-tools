@@ -45,3 +45,11 @@ cd frontend && npm install && npm run dev   # listens on :5173, proxies /api →
 ## Environment Variables
 
 Copier `.env.example` → `.env` (déjà dans `.gitignore` racine du monorepo).
+
+## Enable Banking (Boursorama, N26, Revolut)
+
+`EnableBankingConnector` — JWT RS256 signé avec la clé de l'application (`EnableBankingJwtSigner`), consentement via
+`POST /api/institutions/{id}/connect` → page de la banque → `GET /api/enable-banking/callback` (stocke la session sur
+l'institution, migration `V2`) → redirection vers le dashboard. Ensuite `POST /api/institutions/{id}/sync` lit
+`/sessions/{id}` puis `/accounts/{uid}/details|balances|transactions`. `externalAccountId` = `identification_hash`
+(stable entre consentements). Consentement à renouveler à expiration (bouton « Reconnecter »).

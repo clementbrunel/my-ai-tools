@@ -8,6 +8,8 @@ export interface Institution {
   type: InstitutionType
   connectorType: ConnectorType
   externalRef: string | null
+  externalCountry: string | null
+  sessionValidUntil: string | null
 }
 
 export interface CreateInstitutionRequest {
@@ -15,6 +17,7 @@ export interface CreateInstitutionRequest {
   type: InstitutionType
   connectorType: ConnectorType
   externalRef?: string
+  externalCountry?: string
 }
 
 export interface Account {
