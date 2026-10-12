@@ -48,8 +48,7 @@
       "checks": [
         "cd prono-core/frontend && npm ci && npm run lint && npm test && npm run build",
         "cd prono-core/backend && mvn -B -q verify"
-      ],
-      "adoptPr": 336
+      ]
     },
     {
       "name": "my-money-hub",
