@@ -163,10 +163,9 @@ For each major, add one short line on what it breaks (from its release notes / m
 so the manual work can be sized at a glance. Group families (e.g. "Spring Boot 4 (parent +
 springdoc 3)").
 
-## Step 5 — Checklist, then final message (sent by email)
+## Step 5 — Final message (sent by email)
 
-Before the final message, verify each item; anything unchecked is either done now or reported
-as a failure with its reason:
+Quick reminder before the final message (mention in the recap anything left undone):
 
 - [ ] Every enabled project: inventory run, safe bumps applied or explained, all `checks` run.
 - [ ] Every minor kept: changelog skimmed.
