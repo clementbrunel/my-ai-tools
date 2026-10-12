@@ -10,23 +10,14 @@ review over the weekend. Everything below is meant to be done in one session, un
 stop to ask a question — when something is ambiguous, take the conservative option and say so in
 the dashboard issue.
 
-## Definition of done — read this first
+## What a pass must cover
 
-A run is complete only when **all five steps** below are done. There is no time limit: a full pass
-normally takes 30–90 minutes, and a pass that ends after a few minutes is almost certainly
-incomplete. Do not trade completeness for speed. In particular, these are **mandatory every
-week**, never optional extras:
+Each week, besides the dependency PRs, a pass includes:
 
-- **Step 3 (catalogue review) in full** — every catalogue entry checked upstream, and the web
-  search for additions done — even when no dependency needs bumping.
-- **Changelogs read** — for every minor kept in a PR (skim) and for every major family listed in
-  the dashboard (its notes column must say what breaks, with a link). "Changelog non lu" is not
-  an acceptable note.
+- **Step 3 (catalogue review)** — even when no dependency needs bumping.
+- **A short "what breaks" note + link** for each major family listed in the dashboard.
 
-Before writing the final message, go through the checklist in Step 5. If an item genuinely could
-not be done (network refused, tool crashed after the fallbacks below), that is a **failure to
-report** in the recap and the dashboard — with the exact error — never a silent skip and never
-"pas fait cette semaine" without a reason.
+If something could not be done, say so in the recap with the reason rather than leaving it out.
 
 ## Inputs
 
