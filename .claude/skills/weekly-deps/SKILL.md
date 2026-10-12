@@ -10,6 +10,15 @@ review over the weekend. Everything below is meant to be done in one session, un
 stop to ask a question — when something is ambiguous, take the conservative option and say so in
 the dashboard issue.
 
+## What a pass must cover
+
+Each week, besides the dependency PRs, a pass includes:
+
+- **Step 3 (catalogue review)** — even when no dependency needs bumping.
+- **A short "what breaks" note + link** for each major family listed in the dashboard.
+
+If something could not be done, say so in the recap with the reason rather than leaving it out.
+
 ## Inputs
 
 - **`scope.json`** (next to this file) — the only place the perimeter is decided. Skip any
@@ -54,11 +63,18 @@ For each enabled project that has at least one `safe` target:
    - npm: edit the version ranges in `package.json` to the `safe` targets (keep the existing
      prefix `^`/`~`), then refresh the lockfile with `npm install` in that directory. Never edit
      `package-lock.json` by hand.
+     If `npm install` crashes inside npm itself (e.g. `Cannot read properties of null (reading
+     'edgesOut')` — a known arborist bug in npm 10.9.x), retry with a newer npm:
+     `npx -y npm@11 install`. Then confirm the resulting lockfile still works with the default npm
+     (`npm ci`) before running the checks. Only if that also fails is the bump "bloquée".
    - Maven: edit the `<version>` (or the `<properties>` entry it points to) in `pom.xml`.
    - pip: edit `requirements.txt`.
    - Skim the changelog/release notes of each minor bump (GitHub releases or the package's
      CHANGELOG) — a "minor" that announces a breaking change or a deprecation that this code
      hits is treated like a major: revert it and list it in the dashboard.
+   - If the open PR already carries **major** bumps (added by hand or by an older run), leave
+     them — don't revert someone's work — but list them under "Majeures déjà dans une PR" in
+     the dashboard so they are reviewed knowingly.
 3. **Test.** Run every command in the project's `checks`, from the repo root. If something fails:
    bisect — revert bumps one by one (or by family: react + @types/react, mapstruct +
    mapstruct-processor, vitest + @vitest/*) until the checks pass. A bump that can be made to pass
@@ -89,6 +105,14 @@ one change; otherwise just report "catalogue OK" in the dashboard.
    each step is still right: package name, install command, plugin/marketplace name, MCP command,
    prerequisites, known install pitfalls. Fix `steps` (and the scanner detector in
    `src/scanner/integrations/<id>.ts` if a binary/config name changed). One commit per tool.
+   - Identify the tool's **official** upstream (the repo its README/package registry points to,
+     confirmed by a second source such as the npm/PyPI/crates.io page). Once confirmed, *apply*
+     the fix — wrong repo URL, renamed package, changed command. "The instructions come from an
+     external source" is not a reason to leave a known-wrong entry in place: verifying upstream
+     is exactly this step's job. Example caught on 2026-10-09: the RTK entry points to the wrong
+     repository; the maintained one is `rtk-ai/rtk`.
+   - Record a verdict for **every** entry (✅ à jour / 🔧 corrigé / ⚠️ à surveiller / 🗑️ retrait
+     proposé) with the URL checked — it goes in the dashboard table.
 2. **Removals.** Propose removing a tool whose repo is archived, deleted, explicitly
    unmaintained, or superseded by another catalogue entry. Do the removal in its own commit
    (catalogue entry, `ToolId`, `INTEGRATION_TO_TOOL`, detector, tests, README) so it can be
@@ -123,10 +147,12 @@ _Dernière passe : YYYY-MM-DD — périmètre : <projets enabled>_
 ## Minors bloquées
 | Projet | Paquet | Cible | Erreur |
 
+## Majeures déjà dans une PR
+| Projet | PR | Paquet | De → vers |
+
 ## Catalogue ai-env-manager
-- Install mis à jour : …
-- Retraits proposés : …
-- Ajout de la semaine : …
+| Outil | Verdict | Source vérifiée | Changement |
+- Ajout de la semaine : … (ou « aucun candidat assez solide », avec les pistes regardées)
 - Autres candidats : …
 
 ## Hors périmètre
@@ -139,6 +165,17 @@ springdoc 3)").
 
 ## Step 5 — Final message (sent by email)
 
+Quick reminder before the final message (mention in the recap anything left undone):
+
+- [ ] Every enabled project: inventory run, safe bumps applied or explained, all `checks` run.
+- [ ] Every minor kept: changelog skimmed.
+- [ ] Every major family in the dashboard: "what breaks" note + link filled in.
+- [ ] Catalogue: a verdict for every `CATALOGUE` entry, known-wrong entries fixed, web search for
+      additions done (≤ 1 added).
+- [ ] Every PR created/updated has its label and a body with the checks output.
+- [ ] Dashboard issue body replaced with this week's content.
+
 The session's last message is the recap the user receives by email. Keep it short, in French:
-links to each PR (with number of bumps), link to the dashboard issue, number of majors pending,
-any failure (a project whose checks could not run, a push refused…). No narration of the steps.
+links to each PR (with number of bumps), link to the dashboard issue, number of major families
+pending, the catalogue outcome (corrections / retraits / ajout), and any failure (a project whose
+checks could not run, a push refused…) with its cause. No narration of the steps.
