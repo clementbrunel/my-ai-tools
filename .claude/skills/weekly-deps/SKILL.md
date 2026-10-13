@@ -15,7 +15,9 @@ the dashboard issue.
 Each week, besides the dependency PRs, a pass includes:
 
 - **Step 3 (catalogue review)** — even when no dependency needs bumping.
-- **A short "what breaks" note + link** for each major family listed in the dashboard.
+- **A short "what breaks" note + link** for each major family listed in the dashboard —
+  read from the release notes / migration guide with the GitHub tools above (one family = one
+  lookup: e.g. Spring Boot 4 migration guide, TypeScript 7 release notes, vitest 5 migration).
 
 If something could not be done, say so in the recap with the reason rather than leaving it out.
 
@@ -23,7 +25,8 @@ If something could not be done, say so in the recap with the reason rather than 
 
 - **`scope.json`** (next to this file) — the only place the perimeter is decided. Skip any
   project with `enabled: false`. Each project lists its `npm` / `maven` / `pip` directories, the
-  `checks` that must pass, an optional `adoptPr`, and `catalogue: true` for ai-env-manager.
+  `checks` that must pass, an optional `adoptPr` (only if the field is present), and
+  `catalogue: true` for ai-env-manager.
   `status` (`active` / `wip` / `deprecated`, mirrored in the root `CLAUDE.md` table) is shown in
   the dashboard; a `deprecated` project is never processed, even if someone sets it `enabled`.
 - **`outdated.mjs`** (next to this file) — the inventory:
@@ -31,6 +34,15 @@ If something could not be done, say so in the recap with the reason rather than 
   (best patch/minor target, applied automatically) and `major` (latest major, never applied
   automatically). Don't re-derive this by hand; if the script errors for a directory, report the
   error in the dashboard and carry on with the others.
+- **Reading GitHub (upstream repos, releases, changelogs)** — `curl` to `api.github.com` is
+  blocked in the sandbox, so don't conclude "GitHub inaccessible" from it. Use instead:
+  - `mcp__github__search_repositories` with query `repo:<owner>/<name>` → archived flag, last
+    push date, description (is the repo alive? is it the right one?);
+  - `mcp__github__get_latest_release` / `mcp__github__list_releases` → release notes;
+  - `mcp__github__get_file_contents` → README, `CHANGELOG.md`, migration guides;
+  - `curl https://raw.githubusercontent.com/<owner>/<repo>/<branch>/<file>` also works;
+  - `npm view <pkg> repository.url` / the PyPI JSON give the upstream repo of a package.
+  Load these tools with ToolSearch at the start of the run, together with the write tools.
 - **`.claude/skills/github-issue-pr/SKILL.md`** — read it: every PR gets its sub-project label,
   applied in the same turn as the PR is created, and confirmed.
 
@@ -53,7 +65,7 @@ For each enabled project that has at least one `safe` target:
 
 1. **Pick the branch.**
    - `adoptPr` is set and that PR is still open → work on its head branch (fetch it). If it was
-     merged or closed, ignore `adoptPr` and say in the recap that it can be removed from
+     merged or closed, ignore `adoptPr` and say in the recap that the field can be removed from
      `scope.json`.
    - Otherwise use `deps/<project>`. If an open PR already uses it, continue on it. If the branch
      exists but its PR was merged/closed, restart it from `origin/main`.
@@ -156,7 +168,7 @@ _Dernière passe : YYYY-MM-DD — périmètre : <projets enabled>_
 - Autres candidats : …
 
 ## Hors périmètre
-<projets enabled:false avec leur status (wip / deprecated), et adoptPr à nettoyer le cas échéant>
+<projets enabled:false avec leur status (wip / deprecated)>
 ```
 
 For each major, add one short line on what it breaks (from its release notes / migration guide)
