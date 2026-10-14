@@ -43,6 +43,12 @@ If something could not be done, say so in the recap with the reason rather than 
   - `curl https://raw.githubusercontent.com/<owner>/<repo>/<branch>/<file>` also works;
   - `npm view <pkg> repository.url` / the PyPI JSON give the upstream repo of a package.
   Load these tools with ToolSearch at the start of the run, together with the write tools.
+  - **`WebFetch` on public pages** (`https://raw.githubusercontent.com/<owner>/<repo>/<branch>/README.md`,
+    release pages, npm/PyPI pages) works for **any public repo**, including those outside this
+    repo's GitHub scope (the MCP tools above are limited to `clementbrunel/my-ai-tools`). It is
+    the default way to read a tool's upstream documentation — load it with ToolSearch too.
+    Blog/news sites may be unreachable from the sandbox (`ENOTFOUND`); that's not a reason to
+    skip a verification, fall back to the repo's own README + the registry.
 - **`.claude/skills/github-issue-pr/SKILL.md`** — read it: every PR gets its sub-project label,
   applied in the same turn as the PR is created, and confirmed.
 
@@ -123,13 +129,31 @@ one change; otherwise just report "catalogue OK" in the dashboard.
      external source" is not a reason to leave a known-wrong entry in place: verifying upstream
      is exactly this step's job. Example caught on 2026-10-09: the RTK entry points to the wrong
      repository; the maintained one is `rtk-ai/rtk`.
+   - **Method (mandatory, every entry, every week).** For each entry: (1) `WebFetch` the
+     upstream README (`raw.githubusercontent.com/<owner>/<repo>/<branch>/README.md`) and compare,
+     line by line, with `steps` — marketplace `add` command *and* `install` command, package
+     name, MCP command and flags, prerequisites (Node/Python/Docker versions), env variables
+     and their documented values, counts quoted in `tagline`/`why` (agents, skills…);
+     (2) cross-check the package on its registry (`npm view`, PyPI JSON) — version, last
+     publish date, `repository.url` — and look for an "archived" / "deprecated" / "moved" notice
+     (README banner, registry metadata). A README longer than the fetch window must be read in
+     several `offset` passes when the point to check may be further down.
+     "GitHub API inaccessible" is never a verdict: use `WebFetch`/`raw.githubusercontent.com`.
+     ⚠️ à surveiller is reserved for a point that upstream does not document, and the dashboard
+     must say which one.
    - Record a verdict for **every** entry (✅ à jour / 🔧 corrigé / ⚠️ à surveiller / 🗑️ retrait
      proposé) with the URL checked — it goes in the dashboard table.
 2. **Removals.** Propose removing a tool whose repo is archived, deleted, explicitly
    unmaintained, or superseded by another catalogue entry. Do the removal in its own commit
    (catalogue entry, `ToolId`, `INTEGRATION_TO_TOOL`, detector, tests, README) so it can be
    dropped from the PR independently, and explain the evidence in the PR body.
-3. **Additions.** Search the web for new Claude Code tools in the catalogue's problem spaces
+3. **Additions.** Cross several recognised sources before choosing — a single blog post or a
+   self-reported benchmark is not enough. A candidate is only eligible when it has: (a) its
+   upstream README read via `WebFetch` (install commands, licence, prerequisites, caveats),
+   (b) a registry page (npm/PyPI) showing a recent release, and (c) at least one independent
+   source (comparison/benchmark article, awesome-list, release coverage) — benchmarks the
+   authors themselves flag as unverified don't count as evidence of quality.
+   Search the web for new Claude Code tools in the catalogue's problem spaces
    (token reduction, project memory / codebase indexing, agent discipline, cost tracking,
    documentation). Add **at most one** new tool per week — the strongest candidate — by
    following `ai-env-manager/.claude/skills/add-catalogue-tool/SKILL.md` step by step, in its
