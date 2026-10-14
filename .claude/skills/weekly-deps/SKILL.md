@@ -10,6 +10,24 @@ review over the weekend. Everything below is meant to be done in one session, un
 stop to ask a question — when something is ambiguous, take the conservative option and say so in
 the dashboard issue.
 
+## Routine entry point
+
+This file is the single source of truth for the weekly pass; the routine's own prompt is only a
+stub, so every rule, method and output format lives here (and gets reviewed in PRs). The stub
+must do just four things, because they happen before this file can be read:
+
+1. attach the repo if it isn't cloned yet (`add_repo`, owner `clementbrunel`, repo
+   `my-ai-tools`, access `push`), `cd` to its root;
+2. start from an up-to-date `main`;
+3. if `.claude/skills/weekly-deps/SKILL.md` is missing on `main`, do nothing else and finish
+   with a one-line message saying so;
+4. otherwise read this file and apply it in full, unattended (Step 5 defines the final message).
+
+Recommended stub: « Passe hebdo des dépendances de clementbrunel/my-ai-tools : attache le repo
+si besoin (add_repo, access push), place-toi sur main à jour, puis lis et applique intégralement
+`.claude/skills/weekly-deps/SKILL.md`. Si ce fichier n'existe pas sur main, termine par un
+message d'une ligne le signalant. » Don't add rules to the stub: put them here.
+
 ## What a pass must cover
 
 Each week, besides the dependency PRs, a pass includes:
