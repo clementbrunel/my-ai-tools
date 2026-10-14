@@ -123,12 +123,16 @@ export const CATALOGUE: CatalogueTool[] = [
         command: "docker info",
       },
       {
-        label: "Installer le plugin dans Claude Code",
-        manual: "/plugin install socraticode@socraticode  (dans une session Claude Code)",
+        label: "Ajouter le marketplace",
+        manual: "/plugin marketplace add giancarloerra/socraticode  (dans une session Claude Code)",
       },
       {
-        label: "Alternative — ajouter le serveur MCP manuellement",
-        manual: "claude mcp add socraticode -- socraticode serve  (dans le terminal Claude Code)",
+        label: "Installer le plugin dans Claude Code",
+        manual: "/plugin install socraticode@socraticode  (dans une session Claude Code ; ouvrir ensuite une nouvelle session)",
+      },
+      {
+        label: "Alternative — ajouter le serveur MCP seul (sans les skills du plugin)",
+        manual: "claude mcp add --scope user socraticode -- npx -y --prefer-online socraticode@latest  (dans le terminal Claude Code ; Node 18.17+ requis)",
       },
     ],
     conflictGroup: "memory",

@@ -160,7 +160,7 @@ install plan that picks more than one.
 | id | Tool | What it does | Install surface |
 |---|---|---|---|
 | `mempalace` | [MemPalace](https://www.mempalace.tech/) | Long-term memory MCP server — you decide what is remembered | `pip install mempalace` + `claude mcp add` |
-| `socraticode` | [SocratiCode](https://github.com/giancarloerra/SocratiCode) | Codebase index: hybrid vector + BM25 search, call tracing, blast-radius | Docker + `/plugin install socraticode@socraticode` |
+| `socraticode` | [SocratiCode](https://github.com/giancarloerra/SocratiCode) | Codebase index: hybrid vector + BM25 search, call tracing, blast-radius | Docker + `/plugin marketplace add giancarloerra/socraticode` + `/plugin install socraticode@socraticode` |
 | `graphify` | [Graphify](https://github.com/Graphify-Labs/graphify) | Codebase → queryable knowledge graph (tree-sitter AST, no embeddings) | `uv tool install graphifyy` + `graphify install` |
 | `openwiki` | [OpenWiki](https://github.com/langchain-ai/openwiki) | Generates and maintains a Markdown wiki of the codebase, committed to the repo | `npm i -g openwiki` + provider key + optional CI workflow |
 | `codealmanac` | [CodeAlmanac](https://github.com/AlmanacCode/codealmanac) | Wiki fed by your agent sessions — decisions, invariants, gotchas | `uv tool install codealmanac` + `codealmanac setup` (macOS, Python 3.12+) |
