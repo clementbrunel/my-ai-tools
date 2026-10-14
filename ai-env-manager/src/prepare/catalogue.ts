@@ -85,6 +85,10 @@ export const CATALOGUE: CatalogueTool[] = [
     why: "Option la plus légère : zéro infrastructure, juste un plugin. Efficace pour réduire le bruit dans les réponses texte, mais ne compresse pas les sorties d'outils. À préférer si tu veux quelque chose d'immédiat et sans dépendances.",
     steps: [
       {
+        label: "Ajouter le marketplace",
+        manual: "/plugin marketplace add JuliusBrussee/caveman  (dans une session Claude Code)",
+      },
+      {
         label: "Installer le plugin dans Claude Code",
         manual: "/plugin install caveman@caveman  (à exécuter dans une session Claude Code)",
       },
