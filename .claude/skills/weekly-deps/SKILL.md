@@ -168,12 +168,33 @@ one change; otherwise just report "catalogue OK" in the dashboard.
 3. **Additions.** Cross several recognised sources before choosing — a single blog post or a
    self-reported benchmark is not enough. A candidate is only eligible when it has: (a) its
    upstream README read via `WebFetch` (install commands, licence, prerequisites, caveats),
-   (b) a registry page (npm/PyPI) showing a recent release, and (c) at least one independent
-   source (comparison/benchmark article, awesome-list, release coverage) — benchmarks the
+   (b) a registry page (npm/PyPI) showing a recent release, and (c) the independence rule below
+   (two different kinds of source) — benchmarks the
    authors themselves flag as unverified don't count as evidence of quality.
-   Search the web for new Claude Code tools in the catalogue's problem spaces
-   (token reduction, project memory / codebase indexing, agent discipline, cost tracking,
-   documentation). Add **at most one** new tool per week — the strongest candidate — by
+   **Where to look** (checked reachable from the sandbox on 2026-10-14; if one stops working,
+   say so in the dashboard instead of silently skipping it). Scan at least the first three, one
+   pass per problem space (token reduction, project memory / codebase indexing, agent
+   discipline, cost tracking, documentation):
+   - `WebFetch https://github.com/topics/claude-code-plugin` (also `…/topics/claude-code`,
+     `…/topics/claude-code-skills`, `…/topics/mcp-server`) — repos by stars; star counts and
+     descriptions come from a page summariser, so re-read the repo's README before trusting them
+     (`curl` to github.com is blocked, `WebFetch` is not);
+   - `curl https://raw.githubusercontent.com/hesreallyhim/awesome-claude-code/main/README.md`
+     — community awesome-list, sections « Documentation, Knowledge & Learning », « Agent
+     Orchestration », etc.; and Anthropic's own directory
+     `raw.githubusercontent.com/anthropics/claude-plugins-official/main/README.md`
+     (`/plugins`, `/external_plugins`);
+   - npm search: `curl "https://registry.npmjs.org/-/v1/search?text=claude-code%20<topic>&size=10"`
+     (recent `date`, maintainers, `links.repository`); PyPI has no usable search API — look a
+     package up by name only;
+   - web search (`WebSearch`) for comparison/benchmark articles — often unreachable afterwards
+     (`ENOTFOUND` / proxy deny on blogs, Reddit, Hacker News, dev.to): an article only seen as a
+     search snippet is a lead, not a read source, and must be reported as such.
+   **Independence rule:** « sources croisées » means at least **two different kinds** among
+   {GitHub topic ranking, awesome-list / Anthropic directory, npm/PyPI traction, article read
+   in full} naming the tool — the tool's own README and its registry page count as one
+   (they describe the same project). If only one kind names it, list it as a candidate, don't add.
+   Add **at most one** new tool per week — the strongest candidate — by
    following `ai-env-manager/.claude/skills/add-catalogue-tool/SKILL.md` step by step, in its
    own commit. List the other candidates (name, link, one line on why) in the dashboard instead
    of adding them.
