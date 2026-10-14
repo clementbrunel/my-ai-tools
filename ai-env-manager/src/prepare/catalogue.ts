@@ -1,4 +1,4 @@
-export type ToolId = "rtk" | "headroom" | "caveman" | "mempalace" | "socraticode" | "ecc" | "karpathy-skills" | "graphify" | "ponytail" | "codeburn" | "openwiki" | "codealmanac";
+export type ToolId = "rtk" | "headroom" | "caveman" | "mempalace" | "socraticode" | "ecc" | "karpathy-skills" | "graphify" | "ponytail" | "codeburn" | "openwiki" | "codealmanac" | "claude-mem";
 
 export interface InstallStep {
   label: string;
@@ -32,7 +32,7 @@ export const CONFLICT_GROUPS: ConflictGroup[] = [
   {
     id: "memory",
     label: "Mémoire projet",
-    note: "MemPalace = notes que tu rédiges. SocratiCode = indexation auto du code par embeddings (Docker requis). Graphify = indexation auto du code par graphe déterministe AST (pas de Docker, inclut docs/PDF). OpenWiki = documentation Markdown générée par agent, versionnée dans le repo. CodeAlmanac = wiki Markdown versionné aussi, mais alimenté en continu par ce que tes sessions d'agent apprennent (macOS uniquement). Compatibles sur un grand codebase inconnu, redondants sinon.",
+    note: "MemPalace = notes que tu rédiges. SocratiCode = indexation auto du code par embeddings (Docker requis). Graphify = indexation auto du code par graphe déterministe AST (pas de Docker, inclut docs/PDF). OpenWiki = documentation Markdown générée par agent, versionnée dans le repo. CodeAlmanac = wiki Markdown versionné aussi, mais alimenté en continu par ce que tes sessions d'agent apprennent (macOS uniquement). Claude-Mem = mémoire automatique des sessions (observations compressées, base SQLite locale), ré-injectée au démarrage des sessions suivantes. Compatibles sur un grand codebase inconnu, redondants sinon.",
     maxPick: 1,
   },
 ];
@@ -302,6 +302,23 @@ export const CATALOGUE: CatalogueTool[] = [
     ],
     conflictGroup: "memory",
   },
+  {
+    id: "claude-mem",
+    name: "Claude-Mem",
+    tagline: "Mémoire automatique entre sessions — capture ce que fait l'agent, le compresse, le ré-injecte au démarrage suivant",
+    why: "Contrairement à MemPalace (notes que tu rédiges), rien à écrire à la main : un plugin à hooks observe chaque session, résume les observations et les stocke localement (SQLite + base vectorielle Chroma, réglages dans ~/.claude-mem/). Le contexte des sessions précédentes réapparaît tout seul. Prérequis : Node 20+ (Bun et uv sont installés automatiquement). Chevauche MemPalace, CodeAlmanac et les outils d'indexation — en choisir un seul.",
+    steps: [
+      {
+        label: "Ajouter le marketplace",
+        manual: "/plugin marketplace add thedotmack/claude-mem  (dans une session Claude Code)",
+      },
+      {
+        label: "Installer le plugin",
+        manual: "/plugin install claude-mem  (dans une session Claude Code, puis redémarrer Claude Code). Ne pas utiliser 'npm install -g claude-mem' : ce paquet n'installe que le SDK, sans hooks ni service worker — l'alternative en CLI est 'npx claude-mem install'",
+      },
+    ],
+    conflictGroup: "memory",
+  },
 ];
 
 // Maps Integration.name (from scanner) to a catalogue ToolId.
@@ -318,6 +335,7 @@ export const INTEGRATION_TO_TOOL: Record<string, ToolId> = {
   "CodeBurn": "codeburn",
   "OpenWiki": "openwiki",
   "CodeAlmanac": "codealmanac",
+  "Claude-Mem": "claude-mem",
 };
 
 // Reverse of INTEGRATION_TO_TOOL: the scanner integration that proves a tool works.

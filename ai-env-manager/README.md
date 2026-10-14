@@ -36,7 +36,7 @@ Reads config from disk (nothing is executed against the network except version l
 | **MCP servers** | `.mcp.json`, `.claude/settings.json`, `~/.claude/settings.json`, `claude_desktop_config.json` (macOS / Windows / XDG paths) | stdio command resolvable in `PATH`, referenced env vars set, API-key-shaped vars flagged separately; Docker MCP gateways are expanded into their sub-server list via `docker mcp server list` |
 | **Context files** | `CLAUDE.md` (project, every parent up to `$HOME`, `~/CLAUDE.md`, `~/.claude/CLAUDE.md`), every file in `.claude/`, `.clauderc` | size + token estimate (~4 chars/token): `warning` ≥ 500t, `error` ≥ 1000t, plus a TOTAL row |
 | **Hooks** | `.claude/settings.json`, `~/.claude/settings.json` | script exists and is executable (or first token resolves in `PATH`); `mcp__<server>__<tool>` matchers are parsed into server/tool; hooks are grouped by provider executable |
-| **Integrations** | 12 detectors, see [Integration detection](#integration-detection) | detected or not, plus whether the install looks complete (binary missing, plugin without `SKILL.md`, missing provider key…) |
+| **Integrations** | 13 detectors, see [Integration detection](#integration-detection) | detected or not, plus whether the install looks complete (binary missing, plugin without `SKILL.md`, missing provider key…) |
 | **Env vars** | every var referenced by an MCP server config | deduplicated set/missing summary |
 
 ### Status levels
@@ -148,14 +148,15 @@ install plan that picks more than one.
 |---|---|---|---|
 | `rtk` | [RTK (Rust Token Killer)](https://www.rtk-ai.app/) | CLI proxy that compresses shell output before it reaches the model | `cargo install --git https://github.com/rtk-ai/rtk` + a `PostToolUse` hook |
 | `headroom` | [Headroom](https://github.com/headroomlabs-ai/headroom) | Compresses tool outputs, RAG chunks and JSON (60–95 % claimed) | `pip install headroom-ai`; library, HTTP proxy, or MCP server |
-| `caveman` | [Caveman](https://github.com/JuliusBrussee/caveman) | Skill that steers the model toward terse answers — zero infra | `/plugin install caveman@caveman` |
+| `caveman` | [Caveman](https://github.com/JuliusBrussee/caveman) | Skill that steers the model toward terse answers — zero infra | `/plugin marketplace add JuliusBrussee/caveman` + `/plugin install caveman@caveman` |
 
 #### Group `memory` — project memory & codebase knowledge *(pick 1)*
 
 > MemPalace = notes you write. SocratiCode = automatic embedding-based code indexing (Docker).
 > Graphify = deterministic AST graph, no Docker, ingests docs/PDF. OpenWiki = agent-generated
 > Markdown docs committed to the repo. CodeAlmanac = committed Markdown too, but fed continuously
-> by what your agent sessions learn (macOS only).
+> by what your agent sessions learn (macOS only). Claude-Mem = automatic session memory
+> (compressed observations in local SQLite, re-injected at the next session start).
 
 | id | Tool | What it does | Install surface |
 |---|---|---|---|
@@ -163,6 +164,7 @@ install plan that picks more than one.
 | `socraticode` | [SocratiCode](https://github.com/giancarloerra/SocratiCode) | Codebase index: hybrid vector + BM25 search, call tracing, blast-radius | Docker + `/plugin marketplace add giancarloerra/socraticode` + `/plugin install socraticode@socraticode` |
 | `graphify` | [Graphify](https://github.com/Graphify-Labs/graphify) | Codebase → queryable knowledge graph (tree-sitter AST, no embeddings) | `uv tool install graphifyy` + `graphify install` |
 | `openwiki` | [OpenWiki](https://github.com/langchain-ai/openwiki) | Generates and maintains a Markdown wiki of the codebase, committed to the repo | `npm i -g openwiki` + provider key + optional CI workflow |
+| `claude-mem` | [Claude-Mem](https://github.com/thedotmack/claude-mem) | Automatic cross-session memory — captures, compresses and re-injects what the agent did | `/plugin marketplace add thedotmack/claude-mem` + `/plugin install claude-mem` (Node 20+) |
 | `codealmanac` | [CodeAlmanac](https://github.com/AlmanacCode/codealmanac) | Wiki fed by your agent sessions — decisions, invariants, gotchas | `uv tool install codealmanac` + `codealmanac setup` (macOS, Python 3.12+) |
 
 #### Ungrouped tools — `AUTRES OUTILS` *(cumulables)*
@@ -324,7 +326,7 @@ runtime dependencies.
 
 ## Integration detection
 
-The scanner ships 12 detectors (`src/scanner/integrations/`). Each returns *detected / not
+The scanner ships 13 detectors (`src/scanner/integrations/`). Each returns *detected / not
 detected* plus the evidence that led to the verdict, so `prepare` never suggests something that is
 already there. Detection is signal-based: any single signal is enough to report the tool as
 present, and a partial install (e.g. plugin enabled but binary missing) is reported as
@@ -343,6 +345,7 @@ present, and a partial install (e.g. plugin enabled but binary missing) is repor
 | **Ponytail** | enabled plugin, `~/.config/ponytail/config.json`, `PONYTAIL_DEFAULT_MODE`, rule files (`.cursor` / `.windsurf` / `.clinerules`), reference in `CLAUDE.md` / `AGENTS.md` / copilot instructions |
 | **CodeBurn** | `codeburn` binary, MCP server match, `~/.config/codeburn/{config,guard}.json` |
 | **OpenWiki** | `openwiki` binary, `openwiki/INSTRUCTIONS.md` or `openwiki/.langsmith.json`, `.openwikiignore`, `.github/workflows/openwiki-update.yml`, reference in `CLAUDE.md` / `AGENTS.md`, `~/.openwiki/` credentials & personal wiki |
+| **Claude-Mem** | enabled plugin, `~/.claude-mem/settings.json`, reference in `CLAUDE.md` |
 | **CodeAlmanac** | `codealmanac` binary, `almanac/topics.yaml` or `almanac/README.md`, `.almanac.yaml`, reference in `CLAUDE.md` / `AGENTS.md`, `~/.codealmanac/{config.toml,codealmanac.db}` |
 
 See [`docs/context-tools-comparison.md`](./docs/context-tools-comparison.md) for a side-by-side
@@ -455,10 +458,10 @@ src/
     hook-providers.ts         — Known hook provider metadata (per-event descriptions)
     env.ts                    — Environment variable aggregation
     integrations/
-      index.ts                — Runs all 12 detectors
+      index.ts                — Runs all 13 detectors
       mempalace.ts  caveman.ts  rtk.ts  headroom.ts  ecc.ts  socraticode.ts
       karpathy-skills.ts  graphify.ts  ponytail.ts  codeburn.ts
-      openwiki.ts  codealmanac.ts
+      openwiki.ts  codealmanac.ts  claude-mem.ts
   diagram/
     shared.ts                 — Status ranking, token formatting, path shortening
     table.ts                  — ASCII tables, ANSI-aware wrapping, status palette (shared with verify/)

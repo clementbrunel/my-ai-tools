@@ -12,6 +12,7 @@ import { detectPonytail } from "./ponytail.js";
 import { detectCodeBurn } from "./codeburn.js";
 import { detectOpenwiki } from "./openwiki.js";
 import { detectCodealmanac } from "./codealmanac.js";
+import { detectClaudeMem } from "./claude-mem.js";
 
 export function scanIntegrations(
   projectPath: string,
@@ -32,5 +33,6 @@ export function scanIntegrations(
     detectCodeBurn(mcpServers),
     detectOpenwiki(absPath),
     detectCodealmanac(absPath),
+    detectClaudeMem(absPath),
   ];
 }
