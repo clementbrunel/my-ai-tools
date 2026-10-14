@@ -140,20 +140,24 @@ export const CATALOGUE: CatalogueTool[] = [
   {
     id: "ecc",
     name: "ECC (Agent Harness OS)",
-    tagline: "Framework tout-en-un : 67 agents, 271 skills, hooks et règles pour Claude Code, Cursor, Codex",
+    tagline: "Framework tout-en-un : 71 agents, 311 skills, hooks et règles pour Claude Code, Cursor, Codex",
     why: "Installe d'un coup un ensemble complet de patterns de travail éprouvés (10+ mois de production). Inclut déjà une réduction de tokens similaire à Caveman. Choisir ECC OU les outils individuels — pas les deux, risque de conflits de hooks et de skills.",
     steps: [
+      {
+        label: "Ajouter le marketplace",
+        manual: "/plugin marketplace add https://github.com/affaan-m/ECC  (dans une session Claude Code)",
+      },
       {
         label: "Installer le plugin dans Claude Code",
         manual: "/plugin install ecc@ecc  (dans une session Claude Code)",
       },
       {
         label: "Alternative — installation manuelle (plus de contrôle)",
-        manual: "Voir https://github.com/affaan-m/ECC pour le script bash d'installation sélective",
+        manual: "Depuis un clone de https://github.com/affaan-m/ECC : ./install.sh --profile full --enable-hooks (ou --profile minimal --target claude). Ne pas la cumuler avec le plugin",
       },
       {
         label: "Configurer le profil de hooks (optionnel)",
-        manual: "export ECC_HOOK_PROFILE=strict  (dans ton shell profile)",
+        manual: "export ECC_HOOK_PROFILE=standard  (valeur par défaut ; dans ton shell profile — les autres profils ne sont pas détaillés dans le README)",
       },
     ],
   },
