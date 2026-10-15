@@ -8,9 +8,9 @@ Période ciblée : **16 juillet – 31 juillet 2026**.
 
 ---
 
-## Déploiement sur Synology (Docker)
+## Déploiement sur NAS (Docker)
 
-Le script tourne dans un container Docker déclenché toutes les heures par le **Task Scheduler** du Synology.
+Le script tourne dans un container Docker déclenché toutes les heures par le **Task Scheduler** du NAS.
 
 ### 1. Copier les fichiers sur le NAS
 
@@ -55,7 +55,7 @@ docker volume rm mottaret-watch_mottaret-data
 
 ### 5. Planifier toutes les heures
 
-Dans **Synology Task Scheduler** → Tâche déclenchée → Script utilisateur :
+Dans le **Task Scheduler du NAS** → Tâche déclenchée → Script utilisateur :
 
 ```bash
 docker start -a mottaret-watch
@@ -63,7 +63,7 @@ docker start -a mottaret-watch
 
 Fréquence : toutes les heures.
 
-`docker start -a` démarre le container existant et attend qu'il se termine (comportement bloquant identique à l'ancien `docker compose run --rm`), mais **sans le détruire** à la fin. Le code de sortie du script (0 si OK, ≠0 si crash) reste répercuté normalement, donc Container Manager continue de signaler un vrai crash.
+`docker start -a` démarre le container existant et attend qu'il se termine (comportement bloquant identique à l'ancien `docker compose run --rm`), mais **sans le détruire** à la fin. Le code de sortie du script (0 si OK, ≠0 si crash) reste répercuté normalement, donc l'outil de gestion de conteneurs du NAS continue de signaler un vrai crash.
 
 ### 6. Consulter les logs
 
