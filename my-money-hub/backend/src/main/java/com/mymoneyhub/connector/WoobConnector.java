@@ -45,7 +45,10 @@ import java.util.concurrent.TimeUnit;
  *       value of woob's {@code AccountType}/{@code TransactionType} enum, unset fields are {@code null}.
  *       Transactions carry no {@code currency} (amounts are in the account's currency).</li>
  *   <li>Backend errors (bad credentials, site down, 2FA needed…) are printed as {@code Error(<backend>): …}
- *       on stderr while woob still exits 0 with {@code []} — so stderr is checked, not just the exit code.</li>
+ *       or {@code Bug(<backend>): …} on stderr while {@code list} still exits 0 with {@code []} — so stderr
+ *       is checked, not just the exit code ({@code history} does exit 1).</li>
+ *   <li>The {@code bnp} module fills {@code Transaction.id} from BNP's {@code idOperation} for past
+ *       operations; life-insurance and coming operations may have none, hence {@link #syntheticId}.</li>
  * </ul>
  */
 @Component
@@ -175,7 +178,7 @@ public class WoobConnector implements BankConnector {
             if (exitCode != 0 || !errors.isEmpty()) {
                 throw new WoobExecutionException("woob " + String.join(" ", args) + " failed (exit " + exitCode + "): "
                         + (errors.isEmpty() ? err.strip() : String.join("; ", errors))
-                        + (out.isBlank() ? "" : " | stdout: " + out.strip()));
+                        + (out.isBlank() ? "" : " | stdout: " + abbreviate(out)));
             }
             if (!err.isBlank()) {
                 log.debug("woob stderr: {}", err.strip());
@@ -183,12 +186,13 @@ public class WoobConnector implements BankConnector {
             try {
                 JsonNode root = objectMapper.readTree(out);
                 if (root == null || !root.isArray()) {
-                    throw new WoobExecutionException("unexpected woob output (expected a JSON array): " + out.strip());
+                    throw new WoobExecutionException("unexpected woob output (expected a JSON array): " + abbreviate(out));
                 }
                 return root;
             } catch (IOException e) {
-                // e.g. `Error: Backend "x" not found.` is printed on stdout, not stderr.
-                throw new WoobExecutionException("unparseable woob output: " + out.strip(), e);
+                // e.g. an unknown `-b` backend makes woob print its interactive "There is currently no
+                // configured backend for bank" menu on stdout, and still exit 0.
+                throw new WoobExecutionException("unparseable woob output: " + abbreviate(out), e);
             }
         } catch (IOException e) {
             throw new WoobExecutionException("failed to run woob command: " + command, e);
@@ -206,6 +210,11 @@ public class WoobConnector implements BankConnector {
                 throw new UncheckedIOException(e);
             }
         });
+    }
+
+    private static String abbreviate(String text) {
+        String stripped = text.strip();
+        return stripped.length() <= 500 ? stripped : stripped.substring(0, 500) + "…";
     }
 
     private static String nullDevice() {

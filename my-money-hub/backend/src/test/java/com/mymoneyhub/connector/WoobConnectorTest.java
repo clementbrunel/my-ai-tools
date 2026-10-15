@@ -118,8 +118,11 @@ class WoobConnectorTest {
     @Test
     @DisabledOnOs(OS.WINDOWS)
     void backendErrorOnStderrFailsEvenWithExitZero(@TempDir Path dir) throws IOException {
+        // Shape captured from woob 3.7 + bnp module when the site is unreachable.
         Path fake = fakeWoob(dir, """
+                echo '2026-10-12 22:55:01,788:WARNING:urllib3.connectionpool:3.7:connectionpool.py:874:urlopen Retrying' >&2
                 echo 'Error(bnp): Wrong login or password' >&2
+                echo 'Use --debug option to print backtraces' >&2
                 echo '[]'
                 """);
         WoobConnector real = new WoobConnector(new WoobProperties(fake.toString(), Duration.ofSeconds(10)));
@@ -132,12 +135,19 @@ class WoobConnectorTest {
     @Test
     @DisabledOnOs(OS.WINDOWS)
     void unknownBackendMessageOnStdoutIsReported(@TempDir Path dir) throws IOException {
-        Path fake = fakeWoob(dir, "echo 'Error: Backend \"bnp\" not found.'\n");
+        // What woob 3.7 really does for an unknown `-b`: interactive menu on stdout, exit 0.
+        Path fake = fakeWoob(dir, """
+                echo 'There is currently no configured backend for bank'
+                echo ''
+                echo 'Available modules:'
+                echo ' 13) [ ] bnp                 BNP Paribas'
+                printf 'Select a backend to create: '
+                """);
         WoobConnector real = new WoobConnector(new WoobProperties(fake.toString(), Duration.ofSeconds(10)));
 
         assertThatThrownBy(() -> real.fetchAccounts(Institution.builder().externalRef("bnp").build()))
                 .isInstanceOf(WoobConnector.WoobExecutionException.class)
-                .hasMessageContaining("not found");
+                .hasMessageContaining("no configured backend");
     }
 
     @Test
