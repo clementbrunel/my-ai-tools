@@ -1,7 +1,8 @@
-# log-tail — Cahier des charges fonctionnel
+# cbl-log — Cahier des charges fonctionnel
 
-> Statut : **brouillon v0.1** — à valider avant tout développement.
-> Nom de code provisoire : `log-tail` (à confirmer, cf. § 9).
+> Statut : **brouillon v0.2** — à valider avant tout développement.
+> v0.2 : nom `cbl-log`, Windows seul, priorité au fichier `.log` en rolling, pas de version terminal,
+> pile TypeScript (Electron) au lieu de Rust.
 
 ## 1. Contexte et objectif
 
@@ -11,7 +12,7 @@ selon des mots-clés. Il n'a pas évolué depuis des années et montre ses limit
 
 | Limite de BareTail                                         | Conséquence                                         |
 |------------------------------------------------------------|-----------------------------------------------------|
-| Windows uniquement, UI Win32 datée, pas de thème sombre    | Inutilisable sur Linux/macOS, fatigue visuelle      |
+| UI Win32 datée, pas de thème sombre, pas de HiDPI propre   | Fatigue visuelle, ergonomie d'un autre âge          |
 | Highlighting par sous-chaîne, pas de vraie regex (free)    | Règles approximatives, faux positifs                |
 | Pas de filtre ni de recherche avancée (réservés à la Pro)  | Impossible d'isoler un flux dans un log verbeux     |
 | Aucune compréhension du format (niveau, timestamp, JSON)   | Logs JSON illisibles, pas de saut par horodatage    |
@@ -20,8 +21,9 @@ selon des mots-clés. Il n'a pas évolué depuis des années et montre ses limit
 | Pas de signets, pas d'annotation, pas d'export de sélection| Partage d'un incident laborieux                     |
 | Pas d'alertes                                              | Il faut garder un œil sur la fenêtre                |
 
-**Objectif** : un outil perso, moderne, multiplateforme, qui conserve la qualité n°1 de BareTail
-(*ouvrir n'importe quel fichier, même énorme, et le suivre instantanément*) tout en ajoutant ce qui
+**Objectif** : un outil perso, moderne, **pour Windows**, qui conserve la qualité n°1 de BareTail
+(*ouvrir n'importe quel fichier, même énorme, et le suivre instantanément*) — y compris à travers le
+**rolling** des fichiers (Logback, Log4j2, Serilog, NLog…) — tout en ajoutant ce qui
 manque, et qui soit **facile à customiser** (règles, parseurs, thèmes) puisque c'est la raison
 d'être d'un outil maison.
 
@@ -48,7 +50,7 @@ Priorités : **P0** = MVP (parité BareTail utile), **P1** = V1 (ce qui justifie
 
 | ID     | Exigence                                                                                              | Prio |
 |--------|-------------------------------------------------------------------------------------------------------|------|
-| F-01   | Ouvrir un fichier via dialogue, glisser-déposer, ligne de commande (`log-tail fichier.log`) et récents | P0   |
+| F-01   | Ouvrir un fichier via dialogue, glisser-déposer, ligne de commande (`cbl-log fichier.log`) et récents | P0   |
 | F-02   | Ouvrir des fichiers de **taille arbitraire** (≥ 10 Go) sans les charger en mémoire                     | P0   |
 | F-03   | Affichage immédiat de la **fin** du fichier, l'indexation complète se fait en arrière-plan             | P0   |
 | F-04   | Lecture **non bloquante** : ne jamais verrouiller le fichier (l'appli qui écrit doit continuer)        | P0   |
@@ -56,7 +58,7 @@ Priorités : **P0** = MVP (parité BareTail utile), **P1** = V1 (ce qui justifie
 | F-06   | Fins de ligne `\n`, `\r\n`, `\r` ; lignes très longues tronquées à l'affichage (seuil configurable)    | P0   |
 | F-07   | Fichiers sur partage réseau (SMB/NFS) — fonctionnement par polling si les événements FS sont absents   | P0   |
 | F-08   | Ouvrir un fichier compressé `.gz` en lecture seule (sans suivi temps réel)                             | P2   |
-| F-09   | Suivre un **motif de fichiers** (`/var/log/app-*.log`) et basculer sur le plus récent                  | P1   |
+| F-09   | Suivre un **motif de fichiers** (`C:\logs\app-*.log`) et basculer sur le plus récent (rolling par nom daté) | P1 |
 | F-10   | Source = sortie d'une commande (`docker logs -f x`, `kubectl logs -f`, `journalctl -f`) ou stdin       | P2   |
 | F-11   | Source distante via SSH (tail d'un fichier sur une autre machine)                                      | P2   |
 
@@ -67,9 +69,14 @@ Priorités : **P0** = MVP (parité BareTail utile), **P1** = V1 (ce qui justifie
 | T-01   | Les nouvelles lignes apparaissent en < 250 ms après leur écriture (fichier local)                      | P0   |
 | T-02   | Mode **Follow** (auto-scroll en bas) activable/désactivable ; se désactive seul si on remonte         | P0   |
 | T-03   | Détection de **troncature** (taille qui diminue) → relecture depuis le début, marqueur visuel         | P0   |
-| T-04   | Détection de **rotation** (fichier remplacé, inode/ID changé) → bascule sur le nouveau fichier        | P0   |
+| T-04   | Détection de **rolling** : le fichier est renommé (`app.log` → `app.2026-10-14.0.log`) puis recréé → bascule sur le nouveau `app.log` | P0 |
+| T-04b  | **Aucune ligne perdue** au rolling : les dernières lignes écrites dans l'ancien fichier sont lues avant la bascule | P0 |
+| T-04c  | Ne **jamais bloquer le rolling** de l'appli : sous Windows, un handle ouvert sans partage « delete » fait échouer le renommage (cas classique de Logback qui ne roule plus) | P0 |
+| T-04d  | Séparateur visuel « ── rolling 10:02:11 → app.2026-10-14.0.log ── » dans la vue                    | P0   |
 | T-05   | Fichier supprimé puis recréé : attente puis reprise, état « en attente » affiché                      | P0   |
 | T-06   | Pause du rafraîchissement (figer la vue sans perdre les lignes qui arrivent)                          | P1   |
+| T-08   | Accès aux **fichiers précédents** du rolling (liste des archives du même motif, ouverture en un clic, y compris `.gz`) | P1 |
+| T-09   | Option « historique continu » : voir l'archive précédente + le fichier courant comme un seul flux | P2 |
 | T-07   | Indicateur d'activité par onglet (point / compteur de nouvelles lignes depuis la dernière visite)     | P0   |
 
 ### 3.3 Affichage
@@ -144,12 +151,12 @@ Priorités : **P0** = MVP (parité BareTail utile), **P1** = V1 (ce qui justifie
 
 | ID     | Exigence                                                                                              |
 |--------|-------------------------------------------------------------------------------------------------------|
-| NF-01  | **Démarrage** : fenêtre affichée < 1 s ; fin d'un fichier de 10 Go visible < 1 s                        |
-| NF-02  | **Mémoire** : < 200 Mo pour un fichier de 10 Go (index compris), indépendant de la taille du contenu    |
-| NF-03  | **Indexation** : ≥ 500 Mo/s sur SSD local (débit disque comme borne)                                    |
+| NF-01  | **Démarrage** : fenêtre affichée < 2 s ; fin d'un fichier de 10 Go visible < 1 s après ouverture        |
+| NF-02  | **Mémoire** : < 400 Mo au total (dont ~150 Mo de socle Electron) pour un fichier de 10 Go, indépendant de la taille du contenu |
+| NF-03  | **Indexation** : ≥ 300 Mo/s sur SSD local                                                               |
 | NF-04  | **Débit temps réel** : absorber 10 000 lignes/s en follow sans figer l'UI (rendu ≤ 60 fps, coalescé)    |
-| NF-05  | **Recherche/filtre** sur 10 Go : premiers résultats < 1 s, progression visible, annulable              |
-| NF-06  | Multiplateforme : **Windows 10+** (cible n°1), Linux, macOS ; binaire unique < 20 Mo                    |
+| NF-05  | **Recherche/filtre** : premiers résultats < 1 s, 1 Go filtré en < 3 s, progression visible, annulable  |
+| NF-06  | **Windows 10/11 x64** uniquement ; installeur + version portable (`.exe` sans installation)             |
 | NF-07  | Hors ligne, aucune télémétrie, aucune donnée ne quitte la machine                                       |
 | NF-08  | Lecture seule stricte sur les fichiers suivis : l'outil n'écrit jamais dans un log                      |
 | NF-09  | Robustesse : un fichier binaire, illisible ou supprimé ne fait jamais planter l'appli                   |
@@ -184,7 +191,8 @@ Priorités : **P0** = MVP (parité BareTail utile), **P1** = V1 (ce qui justifie
 
 1. Ouvrir un fichier de 10 Go généré : la fin s'affiche en < 1 s, mémoire < 200 Mo.
 2. Un script qui écrit 1 000 lignes/s : l'affichage suit en continu, l'UI reste fluide.
-3. `logrotate` (copytruncate **et** create) pendant le suivi : aucune ligne perdue côté nouveau fichier, marqueur affiché.
+3. Une appli Logback en `RollingFileAppender` (rolling par taille, 1 Mo) suivie pendant 10 rollings : **le rolling
+   réussit à chaque fois** côté appli, aucune ligne perdue ni dupliquée côté cbl-log, séparateur affiché.
 4. Pendant le suivi sous Windows, l'appli qui écrit peut renommer/supprimer le fichier (pas de verrou).
 5. Fichier sur un partage SMB du NAS : les nouvelles lignes apparaissent (polling).
 6. Règles de surlignage regex appliquées, modifiables à chaud, persistées.
@@ -194,18 +202,26 @@ Priorités : **P0** = MVP (parité BareTail utile), **P1** = V1 (ce qui justifie
 
 | Jalon | Contenu                                                                         |
 |-------|---------------------------------------------------------------------------------|
-| M0    | Squelette + moteur de lecture/indexation testé seul (CLI de bench)              |
+| M0    | Squelette Electron + moteur de lecture/indexation/rolling testé seul (tests + script de bench) |
 | M1    | MVP P0 : onglets, follow, rotation, surlignage, recherche, session              |
 | M2    | Filtres, parseurs de format, regroupement multi-lignes, niveaux                 |
 | M3    | Profils, signets, alertes, export, palette de commandes, split view             |
 | M4    | Vue fusionnée multi-fichiers, aller à l'horodatage, JSON                        |
 | M5+   | P2 : sources commande/stdin/SSH, `.gz`, plugins, import BareTail                 |
 
-## 9. Questions ouvertes
+## 9. Décisions prises (v0.2)
 
-1. **Nom** de l'outil (`log-tail` est provisoire).
-2. **OS prioritaire** : Windows (comme BareTail, poste pro ?) — l'hypothèse retenue ici — ou Linux/macOS ?
-3. **Format de config** : JSON (cohérent avec le reste du monorepo) ou TOML (plus agréable à la main) ?
-4. Les **sources non-fichier** (commande, Docker, SSH) sont-elles vraiment P2, ou un besoin du quotidien ?
-5. Faut-il une **version CLI/TUI** en plus de l'appli graphique (utile en SSH sur le NAS) ? Le moteur
-   étant séparé (cf. architecture), c'est possible à coût modéré.
+| Sujet               | Décision                                                                     |
+|---------------------|------------------------------------------------------------------------------|
+| Nom                 | `cbl-log`                                                                    |
+| OS                  | Windows 10/11 uniquement                                                     |
+| Source prioritaire  | Fichier `.log` local ou partage réseau, **avec rolling** ; commandes/SSH restent P2 |
+| Version terminal    | Non                                                                          |
+| Pile                | TypeScript de bout en bout (Electron + React) — cf. architecture § 2         |
+
+## 10. Questions ouvertes
+
+1. **Format de config** : JSON (retenu par défaut, cohérent avec le monorepo) ou TOML ?
+2. Quelles **appli/librairies de log** produisent tes fichiers (Logback ? Log4j2 ? Serilog ?), et quel
+   motif de nommage des archives (`app.%d{yyyy-MM-dd}.%i.log`…) ? Ça fixe les formats et motifs fournis d'office.
+3. Taille typique des fichiers ? (Si c'est < 500 Mo, les exigences de perf sur 10 Go peuvent être relâchées.)
