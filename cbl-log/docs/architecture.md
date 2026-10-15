@@ -1,6 +1,6 @@
 # cbl-log — Dossier d'architecture
 
-> Statut : **brouillon v0.3** — compagnon du [cahier des charges fonctionnel](./cahier-des-charges-fonctionnel.md).
+> Statut : **v0.4 — validé pour démarrer M0** — compagnon du [cahier des charges fonctionnel](./cahier-des-charges-fonctionnel.md).
 > Les identifiants `F-xx`, `T-xx`, `NF-xx`… renvoient aux exigences de ce dernier.
 > v0.2 : passage de Tauri/Rust à **Electron + TypeScript** (langage maîtrisé), cible Windows seule,
 > rolling au premier plan, pas de CLI/TUI.
@@ -158,7 +158,7 @@ Les serveurs et librairies de log roulent de trois façons :
 |-----------------------------------|-----------------------------------------------|----------------------------------------------------|
 | **Rename + create** (la plus courante) | **WebSphere traditional** (`SystemOut_26.10.14_10.02.11.log`), **Liberty** (`messages_26.10.14_10.02.11.0.log`, `maxFileSize`/`maxFiles`), Logback, Log4j2 | `SystemOut.log` renommé, nouveau `SystemOut.log` créé |
 | **Nom daté, pas de renommage**    | Serilog (`app20261014.log`), Log4j2 `%d` dans `fileName` | Un nouveau fichier apparaît dans le dossier ; l'ancien ne bouge plus |
-| **Truncate** (avec ou sans copie) | `logrotate copytruncate` dans le conteneur, scripts maison, ce que tu observes aujourd'hui | Même fichier, taille qui retombe à ~0 |
+| **Truncate** (avec ou sans copie) | `logrotate copytruncate` dans le conteneur, scripts maison — **le cas observé** : même nom, archives créées à côté | Même fichier, taille qui retombe à ~0 |
 
 ```mermaid
 stateDiagram-v2
@@ -219,7 +219,7 @@ Format déclaratif en JSON (C-04), regex à groupes nommés :
 - Formats fournis : **WebSphere traditional, WebSphere Liberty, Liberty JSON** (P0), Spring Boot/Logback,
   Log4j2, JSON lines.
 
-Format WebSphere (traditional `SystemOut.log` et Liberty `messages.log` partagent la même mise en page
+Format WebSphere *générique, provisoire* — sera remplacé par le formatage réel fourni avant M2 (traditional `SystemOut.log` et Liberty `messages.log` partagent la même mise en page
 « basic » : `[10/14/26 10:02:11:204 CEST] 0000004a SystemOut     O Hello`) :
 
 ```json

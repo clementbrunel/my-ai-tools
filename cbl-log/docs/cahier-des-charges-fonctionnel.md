@@ -1,6 +1,7 @@
 # cbl-log — Cahier des charges fonctionnel
 
-> Statut : **brouillon v0.3** — à valider avant tout développement.
+> Statut : **v0.4 — validé pour démarrer le développement (M0)**.
+> v0.4 : rolling confirmé (même nom + archives à côté), bind mount Windows, format de log fourni plus tard.
 > v0.3 : source de référence = WebSphere en conteneur Docker, perf 10 Go conservée (plusieurs logs en parallèle).
 > v0.2 : nom `cbl-log`, Windows seul, priorité au fichier `.log` en rolling, pas de version terminal,
 > pile TypeScript (Electron) au lieu de Rust.
@@ -33,11 +34,12 @@ d'être d'un outil maison.
 Utilisateur unique : développeur·se / ops qui lit des logs applicatifs au quotidien
 (Spring Boot, Node, nginx, Docker, Home Assistant…), en local ou sur un partage réseau (NAS).
 
-**Source de référence** : un serveur **WebSphere** (traditional ou Liberty) qui tourne dans un **conteneur
-Docker** et écrit son `.log` (`SystemOut.log` / `messages.log` / `trace.log`) dans un **volume monté**,
-lu depuis Windows. Rolling **tous les ~100 Mo**, a priori en vidant le fichier sur place (truncate) —
-à confirmer : par défaut, WebSphere roule plutôt en **renommant** (`SystemOut_26.10.14_10.02.11.log`,
-`messages_26.10.14_10.02.11.0.log`) puis en recréant le fichier. cbl-log doit gérer les deux.
+**Source de référence** : un serveur **WebSphere** qui tourne dans un **conteneur Docker** et écrit son
+`.log` dans un **bind mount vers un dossier Windows** (`-v C:\logs\…:/…/logs`), lu directement depuis Windows.
+Rolling **tous les ~100 Mo** : le fichier courant garde toujours le même nom (BareTail le suit sans
+intervention) et des **archives** apparaissent au fur et à mesure dans le même dossier. Que ce soit un
+vidage sur place (copy + truncate) ou un renommage suivi d'une recréation, vu de l'extérieur c'est
+identique : cbl-log gère les deux et le test de référence couvre les deux.
 Plusieurs logs (plusieurs serveurs/conteneurs) peuvent être suivis **en même temps**.
 
 Cas d'usage de référence :
@@ -227,22 +229,21 @@ Priorités : **P0** = MVP (parité BareTail utile), **P1** = V1 (ce qui justifie
 | M5    | JSON, archives du rolling (T-08), minimap                                       |
 | M6+   | P2 : sources commande/stdin/SSH, `.gz`, plugins, import BareTail                 |
 
-## 9. Décisions prises (v0.3)
+## 9. Décisions prises (v0.4)
 
 | Sujet               | Décision                                                                     |
 |---------------------|------------------------------------------------------------------------------|
 | Nom                 | `cbl-log`                                                                    |
 | OS                  | Windows 10/11 uniquement                                                     |
 | Source prioritaire  | `.log` WebSphere écrit par un conteneur Docker dans un volume, **avec rolling ~100 Mo** ; commandes/SSH restent P2 |
+| Montage Docker      | Bind mount vers un dossier Windows (événements NTFS disponibles + polling en filet) |
+| Format de log       | Format WebSphere exact fourni plus tard ; d'ici là, format « brut » + parseur WebSphere « basic » générique |
 | Perf                | Objectifs 10 Go conservés (plusieurs logs ouverts en même temps) + NF-11     |
 | Version terminal    | Non                                                                          |
 | Pile                | TypeScript de bout en bout (Electron + React) — cf. architecture § 2         |
 
 ## 10. Questions ouvertes
 
-1. **Format de config** : JSON (retenu par défaut, cohérent avec le monorepo) ou TOML ?
-2. **WebSphere traditional ou Liberty ?** Et dans le dossier de logs, après un rolling, voit-on des
-   fichiers archivés (`SystemOut_26.10.14_….log`, `messages_….log`) ? Si oui, c'est du *rename*, pas du
-   *truncate* (les deux sont gérés, mais ça change le test de référence et l'accès aux archives T-08).
-3. **Où est le volume côté Windows** : bind mount d'un dossier Windows (`-v C:\logs:/logs`), volume nommé
-   lu via `\\wsl$\…`, ou Docker sur une autre machine (partage réseau) ?
+1. **Format de config** : JSON retenu par défaut (cohérent avec le monorepo), TOML possible plus tard.
+2. **Formatage exact des logs WebSphere** (exemple de lignes + nom des archives) : à fournir avant M2 ;
+   il fixe le parseur par défaut, la locale des dates et la détection des archives (T-08).
