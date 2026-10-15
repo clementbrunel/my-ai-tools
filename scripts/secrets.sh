@@ -8,6 +8,8 @@ usage() {
 Usage:
   scripts/secrets.sh encrypt-env <tool-dir>     <tool-dir>/.env -> <tool-dir>/.env.enc
   scripts/secrets.sh decrypt-env <tool-dir>     <tool-dir>/.env.enc -> <tool-dir>/.env
+  scripts/secrets.sh encrypt-all                encrypt-env sur tous les sous-projets déployés
+  scripts/secrets.sh decrypt-all                decrypt-env sur tous les sous-projets déployés
   scripts/secrets.sh encrypt-file <path>        <path> -> <path>.age (fichier binaire, ex: clé PEM)
   scripts/secrets.sh decrypt-file <path>.age    <path>.age -> <path>
 
@@ -20,15 +22,48 @@ EOF
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 default_key_file="${HOME:-}/.config/sops/age/keys.txt"
 
+# Sous-projets réellement déployés avec un .env (my-house exclu : pas déployé).
+deployed_tools=(prono-core my-money-hub spec-merger mottaret-watch)
+
+encrypt_env() {
+  local dir="$1"
+  sops --encrypt "$dir/.env" > "$dir/.env.enc"
+}
+
+decrypt_env() {
+  local dir="$1"
+  sops --decrypt "$dir/.env.enc" > "$dir/.env"
+}
+
 cmd="${1:-}"
 case "$cmd" in
   encrypt-env)
     dir="${2:?tool directory required}"
-    sops --encrypt "$dir/.env" > "$dir/.env.enc"
+    encrypt_env "$dir"
     ;;
   decrypt-env)
     dir="${2:?tool directory required}"
-    sops --decrypt "$dir/.env.enc" > "$dir/.env"
+    decrypt_env "$dir"
+    ;;
+  encrypt-all)
+    for dir in "${deployed_tools[@]}"; do
+      if [ -f "$repo_root/$dir/.env" ]; then
+        echo "== $dir =="
+        encrypt_env "$repo_root/$dir"
+      else
+        echo "== $dir : pas de .env, ignoré =="
+      fi
+    done
+    ;;
+  decrypt-all)
+    for dir in "${deployed_tools[@]}"; do
+      if [ -f "$repo_root/$dir/.env.enc" ]; then
+        echo "== $dir =="
+        decrypt_env "$repo_root/$dir"
+      else
+        echo "== $dir : pas de .env.enc, ignoré =="
+      fi
+    done
     ;;
   encrypt-file)
     path="${2:?file path required}"

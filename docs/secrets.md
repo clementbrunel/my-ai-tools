@@ -53,6 +53,16 @@ creation_rules:
 
 Même principe pour `my-money-hub`, `spec-merger`, `mottaret-watch`.
 
+Pour traiter les quatre sous-projets déployés en une fois :
+
+```bash
+./scripts/secrets.sh encrypt-all   # tous les .env -> .env.enc
+./scripts/secrets.sh decrypt-all   # tous les .env.enc -> .env
+```
+
+Un sous-projet sans `.env` (ou sans `.env.enc`) est simplement signalé et
+ignoré, le reste continue.
+
 ## 5. Cas d'un fichier binaire (ex : clé privée Enable Banking de `my-money-hub`)
 
 `sops` n'est pas adapté aux fichiers binaires — on chiffre directement avec
