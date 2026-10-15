@@ -39,7 +39,7 @@ Historique des fonctionnalités et correctifs notables, ordonné par date décro
 - **Force-settle gage du jour** : possibilité de forcer le règlement après coup
 - **Édition de gage** dans la vue admin
 - **Endpoint `/api/admin/counts`** : badges d'alerte centralisés dans la navbar admin
-- **Déploiement NAS Synology** : workflow GitHub Actions + scripts build/push vers le registre local
+- **Déploiement NAS** : workflow GitHub Actions + scripts build/push vers le registre local
 
 ### Correctifs
 - Participations manquantes backfillées lors du force-settle
