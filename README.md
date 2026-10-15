@@ -10,7 +10,7 @@ A personal collection of AI development tools for inspecting, diagnosing, and op
 | [`mistral-chat`](./mistral-chat/)     | Interactive CLI REPL to chat with an enterprise Mistral instance, authenticating via Chrome/Edge browser session cookies   | deprecated |
 | [`mottaret-watch`](./mottaret-watch/) | Python script (Docker + Synology Task Scheduler) that scrapes rental availability for Méribel Mottaret Les Bleuets and sends email alerts via Resend | deprecated |
 | [`prono-core`](./prono-core/)         | Full-stack Ligue 1 and Formula 1 betting app for friends — Java/Spring Boot + React, deployed via private Docker registry on NAS  | active |
-| [`my-house`](./my-house/)             | Home Assistant setup guide (Synology NAS Docker or Raspberry Pi 3B+ HAOS) with Somfy RTS (RFXCOM) and Zigbee integration   | wip |
+| [`my-house`](./my-house/)             | Home Assistant setup guide (NAS Docker or Raspberry Pi 3B+ HAOS) with Somfy RTS (RFXCOM) and Zigbee integration   | wip |
 | [`my-money-hub`](./my-money-hub/)     | Personal account aggregator — Java/Spring Boot + React, self-hosted alternative to Linxo (Enable Banking API for Boursorama/N26/Revolut, woob scraping for BNP Paribas) | wip |
 | [`showcase`](./showcase/) | Static FR/EN catalogue page promoting my public apps (BienvenueBébé, prono-core, ai-env-manager) — Vite + React | active |
 | [`cbl-log`](./cbl-log/) | Real-time Windows log viewer — modern, customizable take on BareTail with rolling-file support (Electron + TypeScript + React). Spec phase | wip |

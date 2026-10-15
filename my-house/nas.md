@@ -1,28 +1,31 @@
-# Option A — Home Assistant en Docker sur le NAS Synology
+# Option A — Home Assistant en Docker sur un NAS
 
 Mutualisé avec le reste de l'infra (`mottaret-watch`, `prono-core`), mais le passthrough
-USB vers un conteneur est capricieux sur Synology. Voir le matériel existant (RFXCOM,
+USB vers un conteneur est capricieux sur certains NAS. Voir le matériel existant (RFXCOM,
 dongle Zigbee) dans le [README](./README.md).
 
 ## Pré-requis
 
-1. Installer le package **Container Manager** depuis le Centre de paquets Synology (DSM 7+).
-2. Activer SSH sur le NAS (Panneau de configuration > Terminal & SNMP) pour lancer
-   `docker compose` en ligne de commande — l'interface graphique de Container Manager ne
-   propose pas toujours le mode réseau `host`, recommandé pour Home Assistant (découverte
-   réseau, mDNS, intégrations qui scannent le LAN).
-3. Créer les dossiers de config :
+1. Installer l'outil de gestion de conteneurs fourni par le NAS (ex. Container Manager,
+   Portainer...).
+2. Activer SSH sur le NAS (dépend du modèle/firmware) pour lancer `docker compose` en
+   ligne de commande — l'interface graphique ne propose pas toujours le mode réseau
+   `host`, recommandé pour Home Assistant (découverte réseau, mDNS, intégrations qui
+   scannent le LAN).
+3. Créer les dossiers de config à l'emplacement de stockage persistant du NAS, par
+   exemple :
    ```bash
-   mkdir -p /volume1/docker/my-house/homeassistant
-   mkdir -p /volume1/docker/my-house/esphome
+   mkdir -p ./homeassistant
+   mkdir -p ./esphome
    ```
 
 ## Lancer le stack
 
-Copier `docker-compose.yml` sur le NAS, puis en SSH :
+Copier `docker-compose.yml` sur le NAS, dans le dossier de config choisi ci-dessus, puis
+en SSH :
 
 ```bash
-cd /volume1/docker/my-house
+cd <dossier-config-my-house>
 docker compose up -d
 ```
 
@@ -47,8 +50,8 @@ ajoutant les périphériques détectés :
 
 Utilise les chemins stables `/dev/serial/by-id/...` (pas `/dev/ttyUSB0`, qui peut changer
 d'ordre au reboot). Si le NAS ne détecte pas les périphériques USB série au reboot du
-conteneur (fréquent sur certains modèles Synology), c'est le principal argument pour
-préférer l'option [Raspberry Pi](./raspberry.md) avec ces deux périphériques.
+conteneur (fréquent sur certains NAS), c'est le principal argument pour préférer l'option
+[Raspberry Pi](./raspberry.md) avec ces deux périphériques.
 
 ## Alternative sans passthrough : ESPHome pour le RTS uniquement
 
