@@ -1,9 +1,11 @@
 # cbl-log — Dossier d'architecture
 
-> Statut : **brouillon v0.2** — compagnon du [cahier des charges fonctionnel](./cahier-des-charges-fonctionnel.md).
+> Statut : **brouillon v0.3** — compagnon du [cahier des charges fonctionnel](./cahier-des-charges-fonctionnel.md).
 > Les identifiants `F-xx`, `T-xx`, `NF-xx`… renvoient aux exigences de ce dernier.
 > v0.2 : passage de Tauri/Rust à **Electron + TypeScript** (langage maîtrisé), cible Windows seule,
 > rolling au premier plan, pas de CLI/TUI.
+> v0.3 : source de référence WebSphere dans Docker (truncate ou rename), volumes Docker Desktop,
+> format WebSphere, onglet « Tout » (vue fusionnée), multi-logs (NF-11).
 
 ## 1. Principes directeurs
 
@@ -119,10 +121,21 @@ flowchart LR
 
 - Interface `Source` : `size()`, `readAt(offset, length)`, `identity()`, `close()` ; `FileSource` en P0,
   `GzSource` en P1 (archives du rolling), `CommandSource`/`SshSource` éventuellement plus tard.
-- Lectures positionnelles par blocs de 64 Ko, cache LRU de blocs (~32 Mo).
+- Lectures positionnelles par blocs de 64 Ko, cache LRU de blocs **global à toutes les sources** (64 Mo).
 - **Pas de lecture de tout le fichier** ni de `readFile` / `createReadStream` sur la vue courante.
 - ⚠️ Partage Windows : vérifié par un test d'intégration Windows (un process garde le fichier ouvert
   pendant qu'un autre le renomme/supprime) pour se protéger d'une régression de libuv.
+
+**Lire un log écrit par un conteneur Docker (Docker Desktop / WSL2)** :
+
+| Montage                                        | Chemin lu par cbl-log           | Événements FS | Verdict |
+|------------------------------------------------|---------------------------------|---------------|---------|
+| **Bind mount** `-v C:\logs\srv1:/logs`          | `C:\logs\srv1\SystemOut.log`    | oui (NTFS)    | ✅ recommandé |
+| Volume nommé (vit dans la VM Linux)            | `\\wsl.localhost\docker-desktop…\` (chemin variable selon la version) | non | ⚠️ polling seul, chemin instable |
+| Docker sur une autre machine (NAS, serveur)    | partage SMB `\\nas\logs\…`      | peu fiables   | ✅ polling 1 s |
+
+Côté Linux, un rename ou un truncate fait par WebSphere n'est jamais bloqué par un handle ouvert
+côté Windows (bind mount : le partage « delete » de libuv suffit ; volume/SMB : sémantique Linux).
 
 ### 4.2 Index de lignes creux
 
@@ -137,15 +150,15 @@ alloué dans un `SharedArrayBuffer` extensible pour être lu par les workers san
   lignes, affichées immédiatement avec numéros provisoires ; l'indexation avant tourne en fond.
 - UTF-16 : recherche de `0x0a 0x00` aligné sur 2 octets. Lignes très longues : affichage plafonné à 64 Ko.
 
-### 4.3 Suivi et **rolling** (cœur de la v0.2)
+### 4.3 Suivi et **rolling**
 
-Les librairies de log Windows roulent de deux façons :
+Les serveurs et librairies de log roulent de trois façons :
 
 | Stratégie                         | Librairies                                    | Ce que voit cbl-log                                |
 |-----------------------------------|-----------------------------------------------|----------------------------------------------------|
-| **Rename + create** (la plus courante) | Logback `RollingFileAppender`, Log4j2, NLog (archive) | `app.log` renommé en `app.2026-10-14.0.log`, nouveau `app.log` créé |
+| **Rename + create** (la plus courante) | **WebSphere traditional** (`SystemOut_26.10.14_10.02.11.log`), **Liberty** (`messages_26.10.14_10.02.11.0.log`, `maxFileSize`/`maxFiles`), Logback, Log4j2 | `SystemOut.log` renommé, nouveau `SystemOut.log` créé |
 | **Nom daté, pas de renommage**    | Serilog (`app20261014.log`), Log4j2 `%d` dans `fileName` | Un nouveau fichier apparaît dans le dossier ; l'ancien ne bouge plus |
-| **Copy + truncate**               | rare sous Windows                             | Même fichier, taille qui retombe                   |
+| **Truncate** (avec ou sans copie) | `logrotate copytruncate` dans le conteneur, scripts maison, ce que tu observes aujourd'hui | Même fichier, taille qui retombe à ~0 |
 
 ```mermaid
 stateDiagram-v2
@@ -154,7 +167,7 @@ stateDiagram-v2
   Following --> Draining: identité du chemin ≠ identité du handle (renommé)
   Draining --> Switching: lire jusqu'à EOF sur l'ANCIEN handle (lignes de dernière minute)
   Switching --> Following: ouvrir le nouveau app.log, séparateur « rolling », reset index
-  Following --> Truncated: taille < offset indexé, ou empreinte des 4 premiers Ko changée
+  Following --> Truncated: taille < offset indexé, ou ancre (4 Ko avant l'offset indexé) modifiée
   Truncated --> Following: reset index, séparateur « tronqué »
   Following --> Missing: chemin absent (entre rename et create)
   Missing --> Switching: fichier réapparu
@@ -169,8 +182,17 @@ Points clés :
   grâce au partage delete) et on le vide jusqu'à EOF *avant* de basculer.
 - **Déclencheurs** : `fs.watch` sur le **dossier** (un watch sur le fichier lui-même suit le fichier
   renommé et rate la création) + **polling `stat`** toujours actif en filet (250 ms local, 1 s sur un
-  chemin UNC `\\nas\…`, où les événements sont peu fiables — F-07). Les événements ne sont qu'un indice,
+  chemin UNC `\\nas\…` ou `\\wsl.localhost\…`, où les événements sont peu fiables — F-07). Les événements ne sont qu'un indice,
   la vérité vient du `stat`.
+- **Truncate qui regrossit vite (critère 3b)** : un fichier vidé peut avoir regrossi au-delà de l'ancienne
+  taille avant le contrôle suivant ; comparer les tailles ne suffit pas. On garde une **ancre** = empreinte
+  des 4 Ko qui précèdent le dernier offset indexé ; à chaque contrôle on relit ces 4 Ko (une petite lecture
+  par fichier et par tick) : différents → troncature. WebSphere réécrit en plus un en-tête daté en tête de
+  fichier, ce qui fait aussi changer l'empreinte des premiers octets (second indice).
+- **Perte au truncate** : les lignes écrites entre notre dernière lecture et la troncature sont perdues
+  (≤ un intervalle de polling, d'où 250 ms). Exception : en *copytruncate*, l'archive copiée contient ces
+  octets → si une archive apparaît dont la taille ≥ notre offset, on y relit `[offset, fin]` pour **récupérer**
+  les lignes manquantes avant le séparateur.
 - **Coalescence** : au plus un événement `rows` par ~50 ms vers l'UI, quel que soit le débit.
 - Dernière ligne sans `\n` tenue « ouverte » et ré-émise si elle grandit.
 - **Archives (T-08)** : à partir du motif d'archive (déduit, ou déclaré dans le profil :
@@ -194,7 +216,30 @@ Format déclaratif en JSON (C-04), regex à groupes nommés :
 - Auto-détection sur les 100 premières lignes ; sinon format « brut ».
 - `continuation: not-line` → les lignes qui ne matchent pas rejoignent le record précédent (stack traces, A-08).
   Index de records construit dans la même passe que l'index de lignes.
-- Formats fournis : Spring Boot/Logback, Log4j2 (pattern par défaut), Serilog, JSON lines, IIS/W3C.
+- Formats fournis : **WebSphere traditional, WebSphere Liberty, Liberty JSON** (P0), Spring Boot/Logback,
+  Log4j2, JSON lines.
+
+Format WebSphere (traditional `SystemOut.log` et Liberty `messages.log` partagent la même mise en page
+« basic » : `[10/14/26 10:02:11:204 CEST] 0000004a SystemOut     O Hello`) :
+
+```json
+{
+  "id": "websphere-basic",
+  "detect": "^\\[\\d{1,2}/\\d{1,2}/\\d{2} \\d{1,2}:\\d{2}:\\d{2}:\\d{3} \\S+\\] [0-9a-f]{8} ",
+  "line": "^\\[(?<ts>[^\\]]+)\\] (?<thread>[0-9a-f]{8}) (?<logger>\\S+)\\s+(?<level>[A-Z]) (?<msg>.*)$",
+  "timestamp": "M/d/yy H:mm:ss:SSS z",
+  "levels": { "F": "fatal", "E": "error", "R": "error", "W": "warn", "A": "info", "I": "info",
+              "O": "info", "C": "debug", "D": "debug", "1": "trace", "2": "trace", "3": "trace" },
+  "continuation": "not-line"
+}
+```
+
+- L'ordre jour/mois dépend de la **locale du serveur** (`M/d/yy` en en_US, `dd/MM/yy` en fr_FR) : réglable
+  par profil, avec détection automatique quand un jour > 12 apparaît.
+- Le fuseau est une abréviation (`CEST`, `UTC`) : table abréviation → décalage dans `settings.json`.
+- Les identifiants de messages IBM (`CWWKZ0001I`, `WSVR0605W`, `…E`) servent de niveau de secours et
+  fournissent des règles de surlignage par défaut (suffixe `E` rouge, `W` orange).
+- Liberty JSON (`WLP_LOGGING_MESSAGE_FORMAT=json`) : mapping `ibm_datetime`, `loglevel`, `module`, `message`.
 
 ### 4.5 Recherche, filtres, vues
 
@@ -211,10 +256,25 @@ Format déclaratif en JSON (C-04), regex à groupes nommés :
   des lignes retenues + recherche dichotomique), `MergedView` (§ 4.6). Passer filtré ↔ complet en gardant
   la position (S-05) = conversion via le n° de ligne source.
 
-### 4.6 Vue fusionnée multi-fichiers (M-01, P1)
+### 4.6 Onglet « Tout » : vue fusionnée (M-01, P1)
 
-Fusion k-voies des records par `(timestamp, source, n°)`, chaque source gardant son ordre propre
-(comme `sort -m`). Index de fusion compact (`Uint8Array` source + `Uint32Array` n° de record).
+Chaque fichier a son onglet ; l'onglet **« Tout »**, épinglé en premier, montre tous les fichiers ouverts
+(ou une sélection) entrelacés par horodatage. Ce n'est **pas** une copie des lignes : c'est une `MergedView`
+au-dessus des index des sources.
+
+- **Index de fusion** : un `Uint8Array` « n° de source » par row fusionnée (1 octet ; 70 M rows ≈ 70 Mo
+  pour 10 Go cumulés), plus un point de contrôle toutes les 64 rows contenant le compteur de records de
+  chaque source. `rowToLine(r)` = point de contrôle + ≤ 63 pas → (source, n° de record) en O(1).
+- **Construction** : fusion k-voies par `(timestamp, n° de source)`, chaque source gardant son ordre propre
+  (comme `sort -m`). Les timestamps sont lus/parsés par les workers en flux et ne sont pas conservés.
+- **Temps réel** : les records ajoutés sont insérés en fin si leur timestamp ≥ dernier ; une fenêtre de
+  ré-ordonnancement (~2 s) absorbe les petits décalages entre conteneurs.
+- **Rolling d'une source** : séparateur étiqueté dans la vue ; si la source est tronquée, ses anciennes
+  rows sont retirées (passe linéaire sur le `Uint8Array`, quelques ms).
+- **Affichage** : colonne étiquette (`srv1`, `srv2`…) + liseré de couleur par source ; cases pour masquer
+  une source (= filtre `Field source`) ; « ouvrir dans l'onglet du fichier » via `rowToLine` (M-01c).
+- Filtres, surlignage, recherche et alertes passent par les mêmes mécanismes (M-01d).
+- Prérequis : chaque source a un format reconnu avec timestamp ; sinon elle est proposée mais grisée.
 
 ### 4.7 Alertes (B-04)
 
@@ -317,7 +377,11 @@ bugs subtils (rolling, offsets, encodages).
 - Tests d'intégration rolling : un écrivain simulé écrit en continu et roule par **rename + create**,
   **nom daté** et **truncate** ; vérif « aucune ligne perdue ni dupliquée » et « le rename de l'écrivain
   n'échoue jamais ».
-- Test bout en bout optionnel avec une vraie appli Logback (critère d'acceptation n°3).
+- Truncate qui regrossit au-delà de l'ancienne taille entre deux ticks (critère 3b), et récupération depuis
+  l'archive en copytruncate.
+- Test bout en bout avec un conteneur **WebSphere Liberty** (`icr.io/appcafe/open-liberty`) dans un bind
+  mount, `maxFileSize=1` (critère d'acceptation n°3).
+- Vue fusionnée : ordre global, sources masquées, retrait d'une source tronquée.
 - Bench : `npm run bench -- --size 10G` mesure ouverture, indexation, `getRows`, filtre.
 - **CI GitHub Actions sur `windows-latest`** : `npm ci`, typecheck, `vitest`, build ; sur tag `cbl-log-v*`,
   `electron-builder` publie installeur + portable en release GitHub.
@@ -333,6 +397,9 @@ bugs subtils (rolling, offsets, encodages).
 | Régression libuv sur le partage de fichiers Windows         | Test CI Windows dédié                                                   |
 | `fs.watch` peu fiable sur partage réseau                    | Polling `stat` toujours actif, intervalle adaptatif                     |
 | Mémoire de socle Electron                                   | Assumé (NF-02 revu à 400 Mo) ; un seul processus moteur pour tous les onglets |
+| 8 fichiers en follow (NF-11)                                | Un seul ordonnanceur de polling pour toutes les sources (ticks décalés), cache de blocs **global** (64 Mo), pool de workers partagé |
+| Volume Docker nommé (`\\wsl.localhost\…`) lent / sans événements | Recommander un **bind mount** vers un dossier Windows (`-v C:\logs\srv1:/opt/IBM/…/logs`) ; polling dans tous les cas |
+| Locale/fuseau des timestamps WebSphere                      | Réglage par profil + détection, table de fuseaux configurable         |
 | DOM trop lent en follow intensif                            | Modèle pull + coalescence ; plan B canvas                               |
 
 ## 12. Décisions à valider

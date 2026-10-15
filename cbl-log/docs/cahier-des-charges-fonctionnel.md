@@ -1,6 +1,7 @@
 # cbl-log — Cahier des charges fonctionnel
 
-> Statut : **brouillon v0.2** — à valider avant tout développement.
+> Statut : **brouillon v0.3** — à valider avant tout développement.
+> v0.3 : source de référence = WebSphere en conteneur Docker, perf 10 Go conservée (plusieurs logs en parallèle).
 > v0.2 : nom `cbl-log`, Windows seul, priorité au fichier `.log` en rolling, pas de version terminal,
 > pile TypeScript (Electron) au lieu de Rust.
 
@@ -32,6 +33,13 @@ d'être d'un outil maison.
 Utilisateur unique : développeur·se / ops qui lit des logs applicatifs au quotidien
 (Spring Boot, Node, nginx, Docker, Home Assistant…), en local ou sur un partage réseau (NAS).
 
+**Source de référence** : un serveur **WebSphere** (traditional ou Liberty) qui tourne dans un **conteneur
+Docker** et écrit son `.log` (`SystemOut.log` / `messages.log` / `trace.log`) dans un **volume monté**,
+lu depuis Windows. Rolling **tous les ~100 Mo**, a priori en vidant le fichier sur place (truncate) —
+à confirmer : par défaut, WebSphere roule plutôt en **renommant** (`SystemOut_26.10.14_10.02.11.log`,
+`messages_26.10.14_10.02.11.0.log`) puis en recréant le fichier. cbl-log doit gérer les deux.
+Plusieurs logs (plusieurs serveurs/conteneurs) peuvent être suivis **en même temps**.
+
 Cas d'usage de référence :
 
 - **UC1 — Suivre un log en direct** pendant un démarrage d'appli ou un test manuel.
@@ -56,7 +64,7 @@ Priorités : **P0** = MVP (parité BareTail utile), **P1** = V1 (ce qui justifie
 | F-04   | Lecture **non bloquante** : ne jamais verrouiller le fichier (l'appli qui écrit doit continuer)        | P0   |
 | F-05   | Encodages : UTF-8 (défaut), UTF-16 LE/BE (BOM), Latin-1/Windows-1252 ; sélection manuelle possible     | P0   |
 | F-06   | Fins de ligne `\n`, `\r\n`, `\r` ; lignes très longues tronquées à l'affichage (seuil configurable)    | P0   |
-| F-07   | Fichiers sur partage réseau (SMB/NFS) — fonctionnement par polling si les événements FS sont absents   | P0   |
+| F-07   | Fichiers sur partage réseau (SMB/NFS) **et volumes Docker Desktop** (bind mount d'un dossier Windows, ou `\\wsl$\…`) — fonctionnement par polling, les événements FS n'y étant pas fiables | P0 |
 | F-08   | Ouvrir un fichier compressé `.gz` en lecture seule (sans suivi temps réel)                             | P2   |
 | F-09   | Suivre un **motif de fichiers** (`C:\logs\app-*.log`) et basculer sur le plus récent (rolling par nom daté) | P1 |
 | F-10   | Source = sortie d'une commande (`docker logs -f x`, `kubectl logs -f`, `journalctl -f`) ou stdin       | P2   |
@@ -83,7 +91,7 @@ Priorités : **P0** = MVP (parité BareTail utile), **P1** = V1 (ce qui justifie
 
 | ID     | Exigence                                                                                              | Prio |
 |--------|-------------------------------------------------------------------------------------------------------|------|
-| A-01   | **Onglets** multiples, réordonnables ; vue scindée (split horizontal/vertical) de 2 à 4 fichiers      | P0 (onglets) / P1 (split) |
+| A-01   | **Un onglet par fichier**, réordonnables, avec indicateur d'activité ; vue scindée (split horizontal/vertical) de 2 à 4 fichiers | P0 (onglets) / P1 (split) |
 | A-02   | Défilement fluide sur des millions de lignes (liste virtualisée), barre de défilement fidèle          | P0   |
 | A-03   | Numéros de ligne, retour à la ligne (wrap) activable, police monospace configurable, zoom             | P0   |
 | A-04   | Thèmes clair / sombre / système                                                                        | P0   |
@@ -123,7 +131,11 @@ Priorités : **P0** = MVP (parité BareTail utile), **P1** = V1 (ce qui justifie
 
 | ID     | Exigence                                                                                              | Prio |
 |--------|-------------------------------------------------------------------------------------------------------|------|
-| M-01   | **Vue fusionnée** : plusieurs fichiers entrelacés par horodatage, chaque source avec sa couleur/étiquette | P1 |
+| M-01   | **Onglet « Tout »** (épinglé en premier) : vue centralisée de tous les fichiers ouverts (ou d'une sélection), entrelacés par horodatage, en temps réel | P1 |
+| M-01b  | Dans la vue fusionnée, chaque ligne porte l'**étiquette et la couleur de sa source** (ex. `srv1`, `srv2`), avec cases pour masquer/afficher une source | P1 |
+| M-01c  | Depuis la vue fusionnée, « ouvrir dans l'onglet du fichier » saute à la même ligne dans son onglet (et inversement) | P1 |
+| M-01d  | Filtres, surlignage, recherche et alertes fonctionnent à l'identique dans la vue fusionnée               | P1   |
+| M-01e  | Les rollings de chaque source apparaissent dans la vue fusionnée comme des séparateurs étiquetés         | P1   |
 | M-02   | Rechercher dans tous les onglets ouverts                                                                | P2   |
 
 ### 3.7 Sessions, profils, personnalisation
@@ -133,7 +145,7 @@ Priorités : **P0** = MVP (parité BareTail utile), **P1** = V1 (ce qui justifie
 | C-01   | Restauration de la session à la réouverture (onglets, position, follow, filtres actifs)                | P0   |
 | C-02   | **Profils** nommés : ensemble de fichiers/motifs + jeu de règles + parseur + filtres (« prono-core dev ») | P1 |
 | C-03   | Configuration stockée en **fichiers texte lisibles** (JSON/TOML) éditables à la main et versionnables  | P0   |
-| C-04   | **Parseurs de format** déclaratifs (regex à groupes nommés : `ts`, `level`, `logger`, `msg`) ; formats fournis : Spring Boot/Logback, nginx access/error, JSON lines, syslog | P1 |
+| C-04   | **Parseurs de format** déclaratifs (regex à groupes nommés : `ts`, `level`, `logger`, `msg`) ; formats fournis : **WebSphere traditional** (`SystemOut.log`), **WebSphere Liberty** (`messages.log`, et JSON logging), Spring Boot/Logback, JSON lines | **P0** pour WebSphere, P1 pour les autres |
 | C-05   | Raccourcis clavier configurables ; palette de commandes (`Ctrl+Shift+P`)                               | P1   |
 | C-06   | Point d'extension pour scripts/plugins utilisateur (transformation ou action sur ligne)                 | P2   |
 
@@ -156,6 +168,7 @@ Priorités : **P0** = MVP (parité BareTail utile), **P1** = V1 (ce qui justifie
 | NF-03  | **Indexation** : ≥ 300 Mo/s sur SSD local                                                               |
 | NF-04  | **Débit temps réel** : absorber 10 000 lignes/s en follow sans figer l'UI (rendu ≤ 60 fps, coalescé)    |
 | NF-05  | **Recherche/filtre** : premiers résultats < 1 s, 1 Go filtré en < 3 s, progression visible, annulable  |
+| NF-11  | **Multi-logs** : 8 fichiers suivis simultanément (onglets + split), 1 000 lignes/s chacun, totalisant 10 Go, sans dégradation visible de l'UI ni dépassement de NF-02 |
 | NF-06  | **Windows 10/11 x64** uniquement ; installeur + version portable (`.exe` sans installation)             |
 | NF-07  | Hors ligne, aucune télémétrie, aucune donnée ne quitte la machine                                       |
 | NF-08  | Lecture seule stricte sur les fichiers suivis : l'outil n'écrit jamais dans un log                      |
@@ -189,12 +202,16 @@ Priorités : **P0** = MVP (parité BareTail utile), **P1** = V1 (ce qui justifie
 
 ## 7. Critères d'acceptation du MVP (P0)
 
-1. Ouvrir un fichier de 10 Go généré : la fin s'affiche en < 1 s, mémoire < 200 Mo.
+1. Ouvrir un fichier de 10 Go généré : la fin s'affiche en < 1 s, mémoire totale < 400 Mo.
 2. Un script qui écrit 1 000 lignes/s : l'affichage suit en continu, l'UI reste fluide.
-3. Une appli Logback en `RollingFileAppender` (rolling par taille, 1 Mo) suivie pendant 10 rollings : **le rolling
-   réussit à chaque fois** côté appli, aucune ligne perdue ni dupliquée côté cbl-log, séparateur affiché.
+3. Un conteneur WebSphere Liberty (ou un écrivain simulé) qui roule toutes les 1 Mo, en **truncate** puis en
+   **rename + create**, suivi pendant 10 rollings : **le rolling réussit à chaque fois** côté serveur,
+   aucune ligne dupliquée côté cbl-log, aucune ligne perdue en rename, séparateur affiché.
+3b. Le fichier est vidé puis **regrossit au-delà de l'ancienne taille entre deux contrôles** : la
+   troncature est quand même détectée (pas de lignes mélangées).
 4. Pendant le suivi sous Windows, l'appli qui écrit peut renommer/supprimer le fichier (pas de verrou).
-5. Fichier sur un partage SMB du NAS : les nouvelles lignes apparaissent (polling).
+5. Fichier dans un volume Docker Desktop et sur un partage SMB du NAS : les nouvelles lignes apparaissent (polling).
+8. 8 onglets en follow simultané (NF-11) : UI fluide, mémoire < 400 Mo.
 6. Règles de surlignage regex appliquées, modifiables à chaud, persistées.
 7. Fermer / rouvrir l'appli : mêmes onglets, mêmes positions, mêmes règles.
 
@@ -204,24 +221,28 @@ Priorités : **P0** = MVP (parité BareTail utile), **P1** = V1 (ce qui justifie
 |-------|---------------------------------------------------------------------------------|
 | M0    | Squelette Electron + moteur de lecture/indexation/rolling testé seul (tests + script de bench) |
 | M1    | MVP P0 : onglets, follow, rotation, surlignage, recherche, session              |
-| M2    | Filtres, parseurs de format, regroupement multi-lignes, niveaux                 |
-| M3    | Profils, signets, alertes, export, palette de commandes, split view             |
-| M4    | Vue fusionnée multi-fichiers, aller à l'horodatage, JSON                        |
-| M5+   | P2 : sources commande/stdin/SSH, `.gz`, plugins, import BareTail                 |
+| M2    | Filtres, format WebSphere + autres parseurs, regroupement multi-lignes, niveaux |
+| M3    | **Onglet « Tout » (vue fusionnée)**, aller à l'horodatage                       |
+| M4    | Profils, signets, alertes, export, palette de commandes, split view             |
+| M5    | JSON, archives du rolling (T-08), minimap                                       |
+| M6+   | P2 : sources commande/stdin/SSH, `.gz`, plugins, import BareTail                 |
 
-## 9. Décisions prises (v0.2)
+## 9. Décisions prises (v0.3)
 
 | Sujet               | Décision                                                                     |
 |---------------------|------------------------------------------------------------------------------|
 | Nom                 | `cbl-log`                                                                    |
 | OS                  | Windows 10/11 uniquement                                                     |
-| Source prioritaire  | Fichier `.log` local ou partage réseau, **avec rolling** ; commandes/SSH restent P2 |
+| Source prioritaire  | `.log` WebSphere écrit par un conteneur Docker dans un volume, **avec rolling ~100 Mo** ; commandes/SSH restent P2 |
+| Perf                | Objectifs 10 Go conservés (plusieurs logs ouverts en même temps) + NF-11     |
 | Version terminal    | Non                                                                          |
 | Pile                | TypeScript de bout en bout (Electron + React) — cf. architecture § 2         |
 
 ## 10. Questions ouvertes
 
 1. **Format de config** : JSON (retenu par défaut, cohérent avec le monorepo) ou TOML ?
-2. Quelles **appli/librairies de log** produisent tes fichiers (Logback ? Log4j2 ? Serilog ?), et quel
-   motif de nommage des archives (`app.%d{yyyy-MM-dd}.%i.log`…) ? Ça fixe les formats et motifs fournis d'office.
-3. Taille typique des fichiers ? (Si c'est < 500 Mo, les exigences de perf sur 10 Go peuvent être relâchées.)
+2. **WebSphere traditional ou Liberty ?** Et dans le dossier de logs, après un rolling, voit-on des
+   fichiers archivés (`SystemOut_26.10.14_….log`, `messages_….log`) ? Si oui, c'est du *rename*, pas du
+   *truncate* (les deux sont gérés, mais ça change le test de référence et l'accès aux archives T-08).
+3. **Où est le volume côté Windows** : bind mount d'un dossier Windows (`-v C:\logs:/logs`), volume nommé
+   lu via `\\wsl$\…`, ou Docker sur une autre machine (partage réseau) ?
