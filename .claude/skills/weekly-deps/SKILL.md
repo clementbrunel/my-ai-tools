@@ -10,12 +10,32 @@ review over the weekend. Everything below is meant to be done in one session, un
 stop to ask a question — when something is ambiguous, take the conservative option and say so in
 the dashboard issue.
 
+## Routine entry point
+
+This file is the single source of truth for the weekly pass; the routine's own prompt is only a
+stub, so every rule, method and output format lives here (and gets reviewed in PRs). The stub
+must do just four things, because they happen before this file can be read:
+
+1. attach the repo if it isn't cloned yet (`add_repo`, owner `clementbrunel`, repo
+   `my-ai-tools`, access `push`), `cd` to its root;
+2. start from an up-to-date `main`;
+3. if `.claude/skills/weekly-deps/SKILL.md` is missing on `main`, do nothing else and finish
+   with a one-line message saying so;
+4. otherwise read this file and apply it in full, unattended (Step 5 defines the final message).
+
+Recommended stub: « Passe hebdo des dépendances de clementbrunel/my-ai-tools : attache le repo
+si besoin (add_repo, access push), place-toi sur main à jour, puis lis et applique intégralement
+`.claude/skills/weekly-deps/SKILL.md`. Si ce fichier n'existe pas sur main, termine par un
+message d'une ligne le signalant. » Don't add rules to the stub: put them here.
+
 ## What a pass must cover
 
 Each week, besides the dependency PRs, a pass includes:
 
 - **Step 3 (catalogue review)** — even when no dependency needs bumping.
-- **A short "what breaks" note + link** for each major family listed in the dashboard.
+- **A short "what breaks" note + link** for each major family listed in the dashboard —
+  read from the release notes / migration guide with the GitHub tools above (one family = one
+  lookup: e.g. Spring Boot 4 migration guide, TypeScript 7 release notes, vitest 5 migration).
 
 If something could not be done, say so in the recap with the reason rather than leaving it out.
 
@@ -23,7 +43,8 @@ If something could not be done, say so in the recap with the reason rather than 
 
 - **`scope.json`** (next to this file) — the only place the perimeter is decided. Skip any
   project with `enabled: false`. Each project lists its `npm` / `maven` / `pip` directories, the
-  `checks` that must pass, an optional `adoptPr`, and `catalogue: true` for ai-env-manager.
+  `checks` that must pass, an optional `adoptPr` (only if the field is present), and
+  `catalogue: true` for ai-env-manager.
   `status` (`active` / `wip` / `deprecated`, mirrored in the root `CLAUDE.md` table) is shown in
   the dashboard; a `deprecated` project is never processed, even if someone sets it `enabled`.
 - **`outdated.mjs`** (next to this file) — the inventory:
@@ -31,6 +52,21 @@ If something could not be done, say so in the recap with the reason rather than 
   (best patch/minor target, applied automatically) and `major` (latest major, never applied
   automatically). Don't re-derive this by hand; if the script errors for a directory, report the
   error in the dashboard and carry on with the others.
+- **Reading GitHub (upstream repos, releases, changelogs)** — `curl` to `api.github.com` is
+  blocked in the sandbox, so don't conclude "GitHub inaccessible" from it. Use instead:
+  - `mcp__github__search_repositories` with query `repo:<owner>/<name>` → archived flag, last
+    push date, description (is the repo alive? is it the right one?);
+  - `mcp__github__get_latest_release` / `mcp__github__list_releases` → release notes;
+  - `mcp__github__get_file_contents` → README, `CHANGELOG.md`, migration guides;
+  - `curl https://raw.githubusercontent.com/<owner>/<repo>/<branch>/<file>` also works;
+  - `npm view <pkg> repository.url` / the PyPI JSON give the upstream repo of a package.
+  Load these tools with ToolSearch at the start of the run, together with the write tools.
+  - **`WebFetch` on public pages** (`https://raw.githubusercontent.com/<owner>/<repo>/<branch>/README.md`,
+    release pages, npm/PyPI pages) works for **any public repo**, including those outside this
+    repo's GitHub scope (the MCP tools above are limited to `clementbrunel/my-ai-tools`). It is
+    the default way to read a tool's upstream documentation — load it with ToolSearch too.
+    Blog/news sites may be unreachable from the sandbox (`ENOTFOUND`); that's not a reason to
+    skip a verification, fall back to the repo's own README + the registry.
 - **`.claude/skills/github-issue-pr/SKILL.md`** — read it: every PR gets its sub-project label,
   applied in the same turn as the PR is created, and confirmed.
 
@@ -53,7 +89,7 @@ For each enabled project that has at least one `safe` target:
 
 1. **Pick the branch.**
    - `adoptPr` is set and that PR is still open → work on its head branch (fetch it). If it was
-     merged or closed, ignore `adoptPr` and say in the recap that it can be removed from
+     merged or closed, ignore `adoptPr` and say in the recap that the field can be removed from
      `scope.json`.
    - Otherwise use `deps/<project>`. If an open PR already uses it, continue on it. If the branch
      exists but its PR was merged/closed, restart it from `origin/main`.
@@ -111,15 +147,54 @@ one change; otherwise just report "catalogue OK" in the dashboard.
      external source" is not a reason to leave a known-wrong entry in place: verifying upstream
      is exactly this step's job. Example caught on 2026-10-09: the RTK entry points to the wrong
      repository; the maintained one is `rtk-ai/rtk`.
+   - **Method (mandatory, every entry, every week).** For each entry: (1) `WebFetch` the
+     upstream README (`raw.githubusercontent.com/<owner>/<repo>/<branch>/README.md`) and compare,
+     line by line, with `steps` — marketplace `add` command *and* `install` command, package
+     name, MCP command and flags, prerequisites (Node/Python/Docker versions), env variables
+     and their documented values, counts quoted in `tagline`/`why` (agents, skills…);
+     (2) cross-check the package on its registry (`npm view`, PyPI JSON) — version, last
+     publish date, `repository.url` — and look for an "archived" / "deprecated" / "moved" notice
+     (README banner, registry metadata). A README longer than the fetch window must be read in
+     several `offset` passes when the point to check may be further down.
+     "GitHub API inaccessible" is never a verdict: use `WebFetch`/`raw.githubusercontent.com`.
+     ⚠️ à surveiller is reserved for a point that upstream does not document, and the dashboard
+     must say which one.
    - Record a verdict for **every** entry (✅ à jour / 🔧 corrigé / ⚠️ à surveiller / 🗑️ retrait
      proposé) with the URL checked — it goes in the dashboard table.
 2. **Removals.** Propose removing a tool whose repo is archived, deleted, explicitly
    unmaintained, or superseded by another catalogue entry. Do the removal in its own commit
    (catalogue entry, `ToolId`, `INTEGRATION_TO_TOOL`, detector, tests, README) so it can be
    dropped from the PR independently, and explain the evidence in the PR body.
-3. **Additions.** Search the web for new Claude Code tools in the catalogue's problem spaces
-   (token reduction, project memory / codebase indexing, agent discipline, cost tracking,
-   documentation). Add **at most one** new tool per week — the strongest candidate — by
+3. **Additions.** Cross several recognised sources before choosing — a single blog post or a
+   self-reported benchmark is not enough. A candidate is only eligible when it has: (a) its
+   upstream README read via `WebFetch` (install commands, licence, prerequisites, caveats),
+   (b) a registry page (npm/PyPI) showing a recent release, and (c) the independence rule below
+   (two different kinds of source) — benchmarks the
+   authors themselves flag as unverified don't count as evidence of quality.
+   **Where to look** (checked reachable from the sandbox on 2026-10-14; if one stops working,
+   say so in the dashboard instead of silently skipping it). Scan at least the first three, one
+   pass per problem space (token reduction, project memory / codebase indexing, agent
+   discipline, cost tracking, documentation):
+   - `WebFetch https://github.com/topics/claude-code-plugin` (also `…/topics/claude-code`,
+     `…/topics/claude-code-skills`, `…/topics/mcp-server`) — repos by stars; star counts and
+     descriptions come from a page summariser, so re-read the repo's README before trusting them
+     (`curl` to github.com is blocked, `WebFetch` is not);
+   - `curl https://raw.githubusercontent.com/hesreallyhim/awesome-claude-code/main/README.md`
+     — community awesome-list, sections « Documentation, Knowledge & Learning », « Agent
+     Orchestration », etc.; and Anthropic's own directory
+     `raw.githubusercontent.com/anthropics/claude-plugins-official/main/README.md`
+     (`/plugins`, `/external_plugins`);
+   - npm search: `curl "https://registry.npmjs.org/-/v1/search?text=claude-code%20<topic>&size=10"`
+     (recent `date`, maintainers, `links.repository`); PyPI has no usable search API — look a
+     package up by name only;
+   - web search (`WebSearch`) for comparison/benchmark articles — often unreachable afterwards
+     (`ENOTFOUND` / proxy deny on blogs, Reddit, Hacker News, dev.to): an article only seen as a
+     search snippet is a lead, not a read source, and must be reported as such.
+   **Independence rule:** « sources croisées » means at least **two different kinds** among
+   {GitHub topic ranking, awesome-list / Anthropic directory, npm/PyPI traction, article read
+   in full} naming the tool — the tool's own README and its registry page count as one
+   (they describe the same project). If only one kind names it, list it as a candidate, don't add.
+   Add **at most one** new tool per week — the strongest candidate — by
    following `ai-env-manager/.claude/skills/add-catalogue-tool/SKILL.md` step by step, in its
    own commit. List the other candidates (name, link, one line on why) in the dashboard instead
    of adding them.
@@ -156,7 +231,7 @@ _Dernière passe : YYYY-MM-DD — périmètre : <projets enabled>_
 - Autres candidats : …
 
 ## Hors périmètre
-<projets enabled:false avec leur status (wip / deprecated), et adoptPr à nettoyer le cas échéant>
+<projets enabled:false avec leur status (wip / deprecated)>
 ```
 
 For each major, add one short line on what it breaks (from its release notes / migration guide)
