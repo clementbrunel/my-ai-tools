@@ -1,0 +1,31 @@
+name: cbl-log – CI
+
+on:
+  push:
+    paths:
+      - "cbl-log/**"
+      - ".github/workflows/cbl-log.yml"
+  pull_request:
+    paths:
+      - "cbl-log/**"
+      - ".github/workflows/cbl-log.yml"
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: cbl-log
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: cbl-log/package-lock.json
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build

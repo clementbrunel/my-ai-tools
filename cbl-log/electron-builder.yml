@@ -1,0 +1,14 @@
+# Configuration minimale - le packaging est finalise dans #392.
+appId: dev.clementbrunel.cbl-log
+productName: cbl-log
+directories:
+  app: app
+  output: release
+files:
+  - out/**
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]

@@ -1,0 +1,12 @@
+{
+  "name": "cbl-log-workspace",
+  "private": true,
+  "version": "0.0.0",
+  "workspaces": ["packages/*", "app"],
+  "scripts": {
+    "dev": "npm run dev -w @cbl-log/app",
+    "build": "npm run build -w @cbl-log/shared && npm run build -w @cbl-log/engine && npm run build -w @cbl-log/app",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm test --workspaces --if-present"
+  }
+}
