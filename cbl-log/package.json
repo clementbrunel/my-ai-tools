@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "npm run dev -w @cbl-log/app",
     "build": "npm run build -w @cbl-log/shared && npm run build -w @cbl-log/engine && npm run build -w @cbl-log/app",
-    "typecheck": "npm run typecheck --workspaces --if-present",
-    "test": "npm test --workspaces --if-present"
+    "typecheck": "npm run build -w @cbl-log/shared && npm run typecheck --workspaces --if-present",
+    "test": "npm run build -w @cbl-log/shared && npm test --workspaces --if-present"
   }
 }

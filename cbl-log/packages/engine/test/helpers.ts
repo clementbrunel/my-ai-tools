@@ -15,3 +15,18 @@ export function useTempDir(): () => Promise<string> {
     return dir;
   };
 }
+
+/** Attend qu'une condition devienne vraie (pas de sleep fixe : sonde toutes les `stepMs`). */
+export async function waitFor(
+  condition: () => boolean | Promise<boolean>,
+  what: string,
+  timeoutMs = 20_000,
+  stepMs = 10,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    if (await condition()) return;
+    if (Date.now() > deadline) throw new Error(`Delai depasse (${timeoutMs} ms) : ${what}`);
+    await new Promise((r) => setTimeout(r, stepMs));
+  }
+}
