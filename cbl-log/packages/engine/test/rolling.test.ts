@@ -28,6 +28,10 @@ class Collector {
 
   constructor(private readonly tailer: Tailer) {}
 
+  private hasReadableRows(from: number, to: number): boolean {
+    return this.tailer.segments.some((seg) => seg.readable && seg.startRow < to && seg.startRow + seg.rowCount > from);
+  }
+
   get last(): number {
     return this.seen.at(-1) ?? -1;
   }
@@ -39,14 +43,17 @@ class Collector {
       if (limit <= this.next) return;
       const lines = await this.tailer.getLines(this.next, limit - this.next);
       for (const line of lines) {
+        // Rows of unreadable segments are gone for good, but a gap inside a readable segment means
+        // getLines withheld rows transiently (file being truncated under load): stop there and
+        // request them again on the next pump instead of skipping them.
+        if (line.lineNo > this.next && this.hasReadableRows(this.next, line.lineNo)) return;
         const match = LINE_RE.exec(line.text);
         if (match) this.seen.push(Number(match[1]));
         else this.garbled++;
+        this.next = line.lineNo + 1;
       }
-      // Rows of unreadable segments are gone for good; rows that getLines withheld transiently (file being
-      // truncated) stay pending and are requested again on the next pump.
-      if (lines.length > 0) this.next = lines[lines.length - 1]!.lineNo + 1;
-      else if (!this.tailer.segments.some((s) => s.readable && s.startRow + s.rowCount > this.next)) this.next = limit;
+      if (lines.length > 0) return;
+      if (!this.tailer.segments.some((s) => s.readable && s.startRow + s.rowCount > this.next)) this.next = limit;
     });
     return this.busy;
   }
@@ -134,7 +141,11 @@ async function runScenario(scenario: Scenario) {
   expect(await exited).toBe(0);
 
   expect(writerErrors).toEqual([]); // no rename/unlink/copy ever failed because of our open handles
-  expect(collector.garbled).toBe(0);
+  // An unsynchronized truncation can cut the line the tailer had only partly read: that stub is the
+  // only legitimate garbled row, at most one per roll.
+  const cutsLines = scenario.mode === "truncate" && !scenario.syncRoll;
+  if (cutsLines) expect(collector.garbled).toBeLessThanOrEqual(rolls);
+  else expect(collector.garbled).toBe(0);
   expectStrictlyIncreasing(collector.seen);
   const rolled = events.filter((e) => e.type === "rolled");
   return { tailer, collector, events, rolled, lastSeq: done!.lastSeq, dir };
