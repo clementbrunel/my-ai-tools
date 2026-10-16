@@ -37,3 +37,51 @@ body {
 .placeholder p {
   color: var(--muted);
 }
+
+.app {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.toast {
+  position: fixed;
+  top: 8px;
+  right: 8px;
+  z-index: 10;
+  max-width: 60ch;
+  padding: 8px 12px;
+  border-radius: 4px;
+  background: #b3261e;
+  color: #fff;
+  cursor: pointer;
+}
+
+.tabs {
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--muted);
+}
+
+.tab {
+  border: 0;
+  padding: 6px 12px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tab.active {
+  color: var(--fg);
+  box-shadow: inset 0 -2px var(--fg);
+}
+
+.preview {
+  flex: 1;
+  margin: 0;
+  overflow: auto;
+  padding: 4px 8px;
+  font: 13px/18px Consolas, "Courier New", monospace;
+}

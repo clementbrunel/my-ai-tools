@@ -1,7 +1,19 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type { CblLogApi } from "./api";
 
-const api: CblLogApi = { version: "0.0.0" };
+const api: CblLogApi = {
+  version: "0.0.0",
+  openFileDialog: () => ipcRenderer.invoke("dialog:open-files") as Promise<string[]>,
+  onOpenFiles: (cb) => {
+    const listener = (_event: unknown, paths: string[]): void => cb(paths);
+    ipcRenderer.on("files:open", listener);
+    return () => {
+      ipcRenderer.off("files:open", listener);
+    };
+  },
+  getPathForFile: (file) => webUtils.getPathForFile(file),
+  notifyReady: () => ipcRenderer.send("renderer:ready"),
+};
 
 contextBridge.exposeInMainWorld("cblLog", api);
 
