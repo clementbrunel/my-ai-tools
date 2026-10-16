@@ -80,6 +80,19 @@ export class LineIndex {
     this.store.clear();
   }
 
+  /**
+   * Copy of the indexing state, to undo an `appendFrom` whose bytes turned out to belong to another
+   * generation of the file (truncated and regrown while we read). Checkpoints written after the
+   * snapshot are simply overwritten by the next scan.
+   */
+  snapshot(): IndexState | null {
+    return this.state ? { ...this.state } : null;
+  }
+
+  restore(snapshot: IndexState | null): void {
+    this.state = snapshot ? { ...snapshot } : null;
+  }
+
   /** Switches source (rolling) without touching the index: combine with reset() if it is another file. */
   setSource(source: Source): void {
     this.source = source;

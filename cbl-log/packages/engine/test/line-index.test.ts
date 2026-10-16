@@ -259,3 +259,20 @@ describe("LineIndex: consistency with a naive split (random files)", () => {
     }
   });
 });
+
+describe("LineIndex: snapshot / restore", () => {
+  it("undoes an appendFrom, which can then be replayed from the same offset", async () => {
+    const { path, index } = await open("a\nb\nc\n");
+    await index.appendFrom();
+    const snapshot = index.snapshot();
+    appendFileSync(path, "d\ne\n");
+    await index.appendFrom();
+    expect(index.lineCount).toBe(5);
+
+    index.restore(snapshot);
+    expect(index.lineCount).toBe(3);
+    expect(index.scannedBytes).toBe(6);
+    await index.appendFrom();
+    expect(await texts(index)).toEqual(["a", "b", "c", "d", "e"]);
+  });
+});

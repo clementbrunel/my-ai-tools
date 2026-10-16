@@ -151,7 +151,19 @@ async function runScenario(scenario: Scenario) {
   return { tailer, collector, events, rolled, lastSeq: done!.lastSeq, dir };
 }
 
+function missingRanges(seen: number[], lastSeq: number): string[] {
+  const out: string[] = [];
+  let expected = 0;
+  for (const n of seen) {
+    if (n > expected) out.push(`${expected}-${n - 1}`);
+    expected = n + 1;
+  }
+  if (expected <= lastSeq) out.push(`${expected}-${lastSeq}`);
+  return out;
+}
+
 function expectLossless(r: Awaited<ReturnType<typeof runScenario>>): void {
+  expect(missingRanges(r.collector.seen, r.lastSeq)).toEqual([]);
   expect(r.collector.seen).toHaveLength(r.lastSeq + 1);
   expect(r.collector.seen[0]).toBe(0);
   expect(r.collector.seen.at(-1)).toBe(r.lastSeq);

@@ -375,8 +375,17 @@ export class Tailer {
       index = seg.index = this.newIndex(source, detectEncoding(sample));
     }
     const before = index.lineCount;
+    const snapshot = index.snapshot();
     const res = await index.appendFrom();
     if (res.truncated) {
+      await this.truncate(seg);
+      return;
+    }
+    // The file may have been truncated and regrown while we were reading: the bytes just indexed
+    // would then come from the new generation. Re-check the anchor BEFORE refreshing it, and undo the
+    // read so that truncate() can still recover the old generation's tail from the archive.
+    if (res.appendedBytes > 0 && !(await this.anchorMatches(seg))) {
+      index.restore(snapshot);
       await this.truncate(seg);
       return;
     }
