@@ -5,6 +5,7 @@
   "workspaces": ["packages/*", "app"],
   "scripts": {
     "dev": "npm run dev -w @cbl-log/app",
+    "bench": "npm run bench -w @cbl-log/engine --",
     "build": "npm run build -w @cbl-log/shared && npm run build -w @cbl-log/engine && npm run build -w @cbl-log/app",
     "typecheck": "npm run build -w @cbl-log/shared && npm run typecheck --workspaces --if-present",
     "test": "npm run build -w @cbl-log/shared && npm test --workspaces --if-present"

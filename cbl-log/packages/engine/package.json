@@ -9,7 +9,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.test.json",
-    "test": "tsc -p tsconfig.json && vitest run"
+    "test": "tsc -p tsconfig.json && vitest run",
+    "bench": "tsc -p tsconfig.bench.json && node --expose-gc dist/bench-build/bench/run.js"
   },
   "dependencies": { "@cbl-log/shared": "*" },
   "devDependencies": { "@types/node": "^22.0.0", "typescript": "^5.9.0", "vitest": "^5.0.5" }
