@@ -89,6 +89,8 @@ interface Segment {
   index: LineIndex | undefined;
   identity: SourceIdentity;
   anchor: Buffer;
+  /** Offset just after the anchor bytes (the scanned offset when the anchor was taken). */
+  anchorEnd: number;
 }
 
 function errCode(err: unknown): string | undefined {
@@ -189,7 +191,14 @@ export class Tailer {
       const from = Math.max(first, start) - start;
       const n = Math.min(end, stop) - start - from;
       try {
-        for (const line of await index.getLines(from, n)) out.push({ ...line, lineNo: line.lineNo + start });
+        const read = await index.getLines(from, n);
+        // The live file may have been truncated while we read: offsets then point into new content.
+        // Drop those lines (the next check() reconciles) rather than return the wrong text.
+        if (seg === this.cur && !(await this.anchorMatches(seg))) {
+          void this.check();
+          continue;
+        }
+        for (const line of read) out.push({ ...line, lineNo: line.lineNo + start });
       } catch {
         // fichier modifie sous nos pieds (troncature en cours) : le prochain check reconcilie
       }
@@ -360,7 +369,7 @@ export class Tailer {
       return;
     }
     if (res.appendedBytes > 0) {
-      seg.anchor = await this.readAnchor(seg);
+      await this.refreshAnchor(seg);
       this.noteRows(index.lineCount - before);
     }
   }
@@ -373,7 +382,7 @@ export class Tailer {
       const before = index.lineCount;
       const res = await index.appendFrom();
       if (res.truncated || res.appendedBytes === 0) return;
-      seg.anchor = await this.readAnchor(seg);
+      await this.refreshAnchor(seg);
       this.noteRows(index.lineCount - before);
     }
   }
@@ -382,18 +391,18 @@ export class Tailer {
     return new LineIndex(source, encoding, this.opts.chunkSize ? { chunkSize: this.opts.chunkSize } : {});
   }
 
-  private async readAnchor(seg: Segment): Promise<Buffer> {
+  private async refreshAnchor(seg: Segment): Promise<void> {
     const scanned = seg.index?.scannedBytes ?? 0;
     const len = Math.min(ANCHOR_BYTES, scanned);
-    if (!seg.source || len === 0) return Buffer.alloc(0);
-    return seg.source.readAt(scanned - len, len, { cache: false });
+    seg.anchorEnd = scanned;
+    seg.anchor = seg.source && len > 0 ? await seg.source.readAt(scanned - len, len, { cache: false }) : Buffer.alloc(0);
   }
 
   /** L'empreinte relue a chaque tick doit etre identique a celle prise apres la derniere lecture. */
   private async anchorMatches(seg: Segment): Promise<boolean> {
     const len = seg.anchor.length;
-    if (len === 0 || !seg.source || !seg.index) return true;
-    const now = await seg.source.readAt(seg.index.scannedBytes - len, len, { cache: false });
+    if (len === 0 || !seg.source) return true;
+    const now = await seg.source.readAt(seg.anchorEnd - len, len, { cache: false });
     return now.length === len && now.equals(seg.anchor);
   }
 
@@ -479,6 +488,7 @@ export class Tailer {
   private async findArchive(seg: Segment, oldScanned: number): Promise<{ path: string; source: FileSource } | undefined> {
     const anchor = seg.anchor;
     if (anchor.length === 0 || oldScanned < anchor.length) return undefined;
+    const anchorStart = seg.anchorEnd - anchor.length;
     const dir = dirname(seg.path);
     let candidates: { path: string; mtime: number }[] = [];
     try {
@@ -500,7 +510,7 @@ export class Tailer {
       let source: FileSource | undefined;
       try {
         source = await FileSource.open(candidate.path, this.opts.cache ? { cache: this.opts.cache } : {});
-        const bytes = await source.readAt(oldScanned - anchor.length, anchor.length, { cache: false });
+        const bytes = await source.readAt(anchorStart, anchor.length, { cache: false });
         if (bytes.length === anchor.length && bytes.equals(anchor)) return { path: candidate.path, source };
       } catch {
         // illisible : candidat suivant
@@ -543,8 +553,9 @@ export class Tailer {
         index,
         identity,
         anchor: Buffer.alloc(0),
+        anchorEnd: 0,
       };
-      seg.anchor = await this.readAnchor(seg);
+      await this.refreshAnchor(seg);
       const roll = first ? undefined : (this.pendingRoll ?? { reason: "new-file" as const });
       this.pendingRoll = undefined;
       this.flushRows(); // `rows` precedent le rolling ne doit pas compter les lignes du nouveau segment
