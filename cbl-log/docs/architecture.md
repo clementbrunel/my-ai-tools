@@ -193,6 +193,7 @@ Points clés :
   (≤ un intervalle de polling, d'où 250 ms). Exception : en *copytruncate*, l'archive copiée contient ces
   octets → si une archive apparaît dont la taille ≥ notre offset, on y relit `[offset, fin]` pour **récupérer**
   les lignes manquantes avant le séparateur.
+- **Modèle de lignes (implémenté : `Tailer`, `packages/engine/src/tail/`)** : une liste de **segments**, un par fichier physique suivi (`{id, path, startRow, rowCount, startedBy, readable}`). Les numéros de ligne sont **globaux et ne décroissent jamais** : un rolling n’efface rien, l’UI dessine le séparateur (T-04d) à `startRow` de chaque segment d’id > 0. `rolled.at` = `startRow` du nouveau segment. Rename : l’ancien handle reste ouvert (lisible, au plus `maxRetainedSegments`, 3 par défaut). Copytruncate : l’archive retrouvée (taille ≥ offset, mêmes 4 Ko d’ancre) devient la source du segment précédent, qui rattrape `[offset, fin]` (événement `rows`, puis `rolled`). Truncate sans archive : segment `readable: false`, ses lignes restent comptées. L’ancre est prise avant l’offset **scanné** (là où l’indexation reprend).
 - **Coalescence** : au plus un événement `rows` par ~50 ms vers l'UI, quel que soit le débit.
 - Dernière ligne sans `\n` tenue « ouverte » et ré-émise si elle grandit.
 - **Archives (T-08)** : à partir du motif d'archive (déduit, ou déclaré dans le profil :
