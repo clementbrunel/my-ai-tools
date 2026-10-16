@@ -1,7 +1,8 @@
 // Encoding detection (F-04): BOM first, then BOM-less UTF-16 (heuristic), then valid UTF-8, else windows-1252.
 import { TextDecoder } from "node:util";
+import type { Encoding } from "@cbl-log/shared";
 
-export type Encoding = "utf-8" | "utf-16le" | "utf-16be" | "windows-1252" | "iso-8859-1";
+export type { Encoding } from "@cbl-log/shared";
 
 const BOMS: Partial<Record<Encoding, readonly number[]>> = {
   "utf-8": [0xef, 0xbb, 0xbf],

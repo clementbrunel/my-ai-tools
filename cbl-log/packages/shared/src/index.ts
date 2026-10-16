@@ -27,3 +27,5 @@ export const settingsSchema = z.object({
 });
 
 export type Settings = z.infer<typeof settingsSchema>;
+
+export * from "./protocol.js";

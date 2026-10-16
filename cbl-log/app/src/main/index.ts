@@ -1,5 +1,8 @@
 import { join } from "node:path";
 import { app, BrowserWindow } from "electron";
+import { EngineHost } from "./engine-process";
+
+const engine = new EngineHost();
 
 function createWindow(): void {
   const win = new BrowserWindow({
@@ -13,6 +16,7 @@ function createWindow(): void {
       nodeIntegration: false,
     },
   });
+  engine.attachWindow(win);
   win.once("ready-to-show", () => win.show());
 
   const devUrl = process.env["ELECTRON_RENDERER_URL"];
@@ -24,11 +28,14 @@ function createWindow(): void {
 }
 
 void app.whenReady().then(() => {
+  engine.start();
   createWindow();
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
+
+app.on("before-quit", () => engine.stop());
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
