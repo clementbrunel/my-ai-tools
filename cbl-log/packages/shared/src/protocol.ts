@@ -1,0 +1,80 @@
+// Typed request/response protocol between the renderer and the engine (utilityProcess), carried
+// over a MessagePort. Requests are correlated with their responses by numeric id.
+import type { TabEvent, TabId } from "./index.js";
+
+/** Text encodings the engine can decode (single source of truth, re-exported by the engine). */
+export type Encoding = "utf-16le" | "utf-16be" | "utf-8" | "windows-1252" | "iso-8859-1";
+
+/** One displayed line. `lineNo` is 0-based and global (never decreases across rolling segments). */
+export interface Row {
+  lineNo: number;
+  text: string;
+  truncated: boolean;
+}
+
+export interface OpenParams {
+  path: string;
+  /** Default: detected from the file content. */
+  encoding?: Encoding;
+}
+
+export interface TabInfo {
+  tabId: TabId;
+  path: string;
+  encoding: Encoding;
+  sizeBytes: number;
+  totalRows: number;
+  /** "unknown" is accepted until line-ending detection is implemented. */
+  lineEnding: "crlf" | "lf" | "unknown";
+}
+
+export interface GetRowsParams {
+  tabId: TabId;
+  first: number;
+  count: number;
+}
+
+export interface RowsResult {
+  first: number;
+  rows: Row[];
+  total: number;
+}
+
+export interface CloseParams {
+  tabId: TabId;
+}
+
+// TODO(M1+): goto / setFollow / setPaused. Follow and goto are renderer-only state for now
+// (pull model), pause (T-06) is deferred.
+
+export interface EngineRequestMap {
+  open: { params: OpenParams; result: TabInfo };
+  close: { params: CloseParams; result: void };
+  getRows: { params: GetRowsParams; result: RowsResult };
+}
+
+export type EngineOp = keyof EngineRequestMap;
+
+export type EngineRequest<K extends EngineOp = EngineOp> = {
+  [P in K]: { kind: "request"; id: number; op: P; params: EngineRequestMap[P]["params"] };
+}[K];
+
+export interface EngineErrorPayload {
+  code: string;
+  message: string;
+}
+
+export type EngineResponse =
+  | { kind: "response"; id: number; ok: true; result: unknown }
+  | { kind: "response"; id: number; ok: false; error: EngineErrorPayload };
+
+export interface EngineEvent {
+  kind: "event";
+  tabId: TabId;
+  event: TabEvent;
+}
+
+export type EngineMessage = EngineResponse | EngineEvent;
+
+/** Hard cap on the rows returned by one `getRows` request (the service clamps). */
+export const MAX_ROWS_PER_REQUEST = 2000;

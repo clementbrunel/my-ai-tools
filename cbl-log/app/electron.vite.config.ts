@@ -8,7 +8,18 @@ const bundled = ["@cbl-log/shared", "@cbl-log/engine"];
 export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin({ exclude: bundled })],
-    build: { rollupOptions: { input: resolve(__dirname, "src/main/index.ts") } },
+    build: {
+      rollupOptions: {
+        // engine.js = utilityProcess entry; indexer-worker.js must sit next to it (worker_threads
+        // loads it by path, see setIndexerWorkerPath in src/engine/index.ts).
+        input: {
+          index: resolve(__dirname, "src/main/index.ts"),
+          engine: resolve(__dirname, "src/engine/index.ts"),
+          "indexer-worker": resolve(__dirname, "../packages/engine/src/index/indexer-worker.ts"),
+        },
+        output: { entryFileNames: "[name].js" },
+      },
+    },
   },
   preload: {
     plugins: [externalizeDepsPlugin({ exclude: bundled })],

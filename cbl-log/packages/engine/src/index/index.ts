@@ -7,5 +7,5 @@ export { MAX_LINE_BYTES } from "./lines.js";
 export type { DecodedLine, NumberedLine } from "./lines.js";
 export { readTail } from "./tail.js";
 export type { TailResult } from "./tail.js";
-export { indexInWorker } from "./worker-host.js";
+export { indexInWorker, setIndexerWorkerPath } from "./worker-host.js";
 export type { IndexBatch, IndexProgress, WorkerIndexOptions, WorkerIndexResult } from "./worker-host.js";

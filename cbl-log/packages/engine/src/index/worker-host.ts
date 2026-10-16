@@ -6,7 +6,7 @@
 // cannot be grown reliably from two threads, and batches are cheap (10 GB = ~9 MB of checkpoints
 // in total). Batches also serve as progress reports and make the index usable while indexing.
 import { existsSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { Worker } from "node:worker_threads";
 import type { Encoding } from "../source/encoding.js";
 import { SourceError } from "../source/source.js";
@@ -59,12 +59,23 @@ export type WorkerMessage =
   | { type: "done"; state: IndexState | null }
   | { type: "error"; code: string; message: string };
 
+let injectedWorkerPath: string | undefined;
+
+/**
+ * Overrides the location of the compiled indexer worker. Needed when the engine is bundled
+ * (the worker is then a separate bundle entry next to the bundle, not next to this module).
+ */
+export function setIndexerWorkerPath(path: string | undefined): void {
+  injectedWorkerPath = path;
+}
+
 /**
  * The worker is compiled JS (dist/index/indexer-worker.js). Under vitest the code runs from
  * src/ as TypeScript, where this file does not exist: we fall back to the compiled version, which
  * the engine's `test` script builds beforehand.
  */
 function workerUrl(): URL {
+  if (injectedWorkerPath) return pathToFileURL(injectedWorkerPath);
   const sibling = new URL("./indexer-worker.js", import.meta.url);
   if (existsSync(fileURLToPath(sibling))) return sibling;
   const built = new URL("../../dist/index/indexer-worker.js", import.meta.url);
