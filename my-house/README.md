@@ -3,9 +3,9 @@
 Configuration domotique personnelle : Home Assistant, en remplacement de l'ancienne
 config Jeedom (abandonnée). Deux options de déploiement documentées en parallèle :
 
-- **[nas.md](./nas.md)** — NAS Synology (Docker) : mutualisé avec le reste de l'infra
+- **[nas.md](./nas.md)** — NAS (Docker) : mutualisé avec le reste de l'infra
   (`mottaret-watch`, `prono-core`), mais le passthrough USB vers un conteneur est
-  capricieux sur Synology.
+  capricieux sur certains NAS.
 - **[raspberry.md](./raspberry.md)** — Raspberry Pi 3 B+ en direct (Home Assistant OS) :
   machine dédiée comme l'était Jeedom, matériel USB branché nativement sans souci de
   passthrough.
