@@ -4,3 +4,5 @@ export const ENGINE_NAME = "@cbl-log/engine";
 export function engineInfo(): { name: string } {
   return { name: ENGINE_NAME };
 }
+
+export * from "./source/index.js";
