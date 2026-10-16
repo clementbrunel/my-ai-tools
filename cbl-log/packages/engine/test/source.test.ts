@@ -14,7 +14,7 @@ async function fileWith(content: Buffer | string, name = "a.log"): Promise<strin
 }
 
 describe("FileSource.readAt", () => {
-  it("lit a un offset donne", async () => {
+  it("reads at a given offset", async () => {
     const path = await fileWith("0123456789");
     const src = await FileSource.open(path, { cache: new BlockCache() });
     expect((await src.readAt(3, 4)).toString()).toBe("3456");
@@ -22,7 +22,7 @@ describe("FileSource.readAt", () => {
     await src.close();
   });
 
-  it("lit a cheval sur plusieurs blocs de 64 Ko", async () => {
+  it("reads across several 64 KB blocks", async () => {
     const data = randomBytes(BLOCK_SIZE * 3 + 123);
     const src = await FileSource.open(await fileWith(data), { cache: new BlockCache() });
     for (const [offset, length] of [
@@ -38,7 +38,7 @@ describe("FileSource.readAt", () => {
     await src.close();
   });
 
-  it("renvoie un buffer court au-dela de EOF, vide apres", async () => {
+  it("returns a short buffer beyond EOF, an empty one after", async () => {
     const src = await FileSource.open(await fileWith("hello"), { cache: new BlockCache() });
     expect((await src.readAt(3, 100)).toString()).toBe("lo");
     expect((await src.readAt(5, 10)).length).toBe(0);
@@ -46,14 +46,14 @@ describe("FileSource.readAt", () => {
     await src.close();
   });
 
-  it("evince en LRU sous un petit budget", async () => {
+  it("evicts in LRU order under a small budget", async () => {
     const data = randomBytes(BLOCK_SIZE * 4);
     const cache = new BlockCache(BLOCK_SIZE * 2);
     const src = await FileSource.open(await fileWith(data), { cache });
     for (let i = 0; i < 4; i++) await src.readAt(i * BLOCK_SIZE, 10);
     expect(cache.byteSize).toBeLessThanOrEqual(BLOCK_SIZE * 2);
     expect(cache.blockCount).toBe(2);
-    // les deux plus recents (2 et 3) restent, 0 est parti : relire 0 le re-cache et evince 2
+    // the two most recent (2 and 3) stay, 0 is gone: re-reading 0 caches it again and evicts 2
     expect(cache.get(src.id, 0)).toBeUndefined();
     expect(cache.get(src.id, 3)).toBeDefined();
     await src.readAt(0, 10);
@@ -62,25 +62,25 @@ describe("FileSource.readAt", () => {
     await src.close();
   });
 
-  it("un bloc touche est rajeuni", async () => {
+  it("a touched block is refreshed", async () => {
     const cache = new BlockCache(BLOCK_SIZE * 2);
     const src = await FileSource.open(await fileWith(randomBytes(BLOCK_SIZE * 3)), { cache });
     await src.readAt(0, 1);
     await src.readAt(BLOCK_SIZE, 1);
-    await src.readAt(0, 1); // rajeunit 0
-    await src.readAt(BLOCK_SIZE * 2, 1); // evince 1
+    await src.readAt(0, 1); // refreshes 0
+    await src.readAt(BLOCK_SIZE * 2, 1); // evicts 1
     expect(cache.get(src.id, 1)).toBeUndefined();
     expect(cache.get(src.id, 0)).toBeDefined();
     await src.close();
   });
 
-  it("ne sert pas une queue perimee quand le fichier grandit", async () => {
+  it("does not serve a stale tail when the file grows", async () => {
     const path = await fileWith("abc");
     const src = await FileSource.open(path, { cache: new BlockCache() });
     expect((await src.readAt(0, 100)).toString()).toBe("abc");
     appendFileSync(path, "def");
     expect((await src.readAt(0, 100)).toString()).toBe("abcdef");
-    // idem quand le dernier bloc partiel devient plein puis deborde
+    // same when the last partial block becomes full then overflows
     appendFileSync(path, Buffer.alloc(BLOCK_SIZE, 0x78));
     const all = await src.readAt(0, BLOCK_SIZE * 2);
     expect(all.length).toBe(6 + BLOCK_SIZE);
@@ -88,7 +88,7 @@ describe("FileSource.readAt", () => {
     await src.close();
   });
 
-  it("invalidate() oublie les blocs de la source", async () => {
+  it("invalidate() forgets the source's blocks", async () => {
     const cache = new BlockCache();
     const src = await FileSource.open(await fileWith(randomBytes(BLOCK_SIZE * 2)), { cache });
     await src.readAt(0, BLOCK_SIZE * 2);
@@ -98,7 +98,7 @@ describe("FileSource.readAt", () => {
     await src.close();
   });
 
-  it("cache:false ne remplit pas le cache", async () => {
+  it("cache:false does not fill the cache", async () => {
     const cache = new BlockCache();
     const src = await FileSource.open(await fileWith(randomBytes(BLOCK_SIZE * 2)), { cache });
     await src.readAt(5, BLOCK_SIZE, { cache: false });
@@ -107,18 +107,18 @@ describe("FileSource.readAt", () => {
   });
 });
 
-describe("erreurs typees", () => {
+describe("typed errors", () => {
   it("ENOENT", async () => {
     const path = join(await tempDir(), "absent.log");
     await expect(FileSource.open(path)).rejects.toMatchObject({ name: "SourceError", code: "ENOENT" });
     await expect(FileSource.open(path)).rejects.toBeInstanceOf(SourceError);
   });
 
-  it("dossier => EISDIR ou EACCES (selon la plateforme)", async () => {
+  it("directory => EISDIR or EACCES (depending on the platform)", async () => {
     await expect(FileSource.open(await tempDir())).rejects.toMatchObject({ code: expect.stringMatching(/EISDIR|EACCES/) });
   });
 
-  it("CLOSED apres close()", async () => {
+  it("CLOSED after close()", async () => {
     const src = await FileSource.open(await fileWith("x"));
     await src.close();
     await src.close(); // idempotent
@@ -128,7 +128,7 @@ describe("erreurs typees", () => {
 });
 
 describe("identity", () => {
-  it("est stable pour un meme fichier et distincte entre deux fichiers", async () => {
+  it("is stable for the same file and distinct between two files", async () => {
     const dir = await tempDir();
     writeFileSync(join(dir, "a"), "a");
     writeFileSync(join(dir, "b"), "b");
@@ -142,9 +142,9 @@ describe("identity", () => {
   });
 });
 
-// Protection contre une regression de libuv (FILE_SHARE_DELETE) : T-04c.
+// Guards against a libuv regression (FILE_SHARE_DELETE): T-04c.
 describe.skipIf(process.platform !== "win32")("partage Windows", () => {
-  it("renommer / supprimer pendant que le handle est ouvert reussit", async () => {
+  it("renaming / deleting while the handle is open succeeds", async () => {
     const dir = await tempDir();
     const log = join(dir, "SystemOut.log");
     const other = join(dir, "autre.log");
@@ -157,10 +157,10 @@ describe.skipIf(process.platform !== "win32")("partage Windows", () => {
     renameSync(log, join(dir, "SystemOut_26.10.14.log"));
     rmSync(other);
 
-    // l'ancien handle lit toujours le contenu renomme
+    // the old handle still reads the renamed content
     expect((await src.readAt(0, 100, { cache: false })).toString()).toBe("ligne 1\nligne 2\n");
 
-    // l'ecrivain recree le fichier : l'identite de l'ancien handle est differente
+    // the writer recreates the file: the old handle's identity is different
     writeFileSync(log, "neuf\n");
     const fresh = await FileSource.open(log, { cache: new BlockCache() });
     expect(await fresh.identity()).not.toEqual(oldId);

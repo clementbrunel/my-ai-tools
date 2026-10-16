@@ -1,4 +1,4 @@
-// Moteur cbl-log : TypeScript pur Node, aucune dependance a Electron.
+// cbl-log engine: plain Node TypeScript, no dependency on Electron.
 export const ENGINE_NAME = "@cbl-log/engine";
 
 export function engineInfo(): { name: string } {

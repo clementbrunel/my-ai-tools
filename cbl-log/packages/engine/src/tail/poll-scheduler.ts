@@ -1,10 +1,10 @@
-// Un seul timer pour toutes les sources suivies (NF-11) : les ticks de chaque tache sont decales
-// pour que N fichiers ne fassent pas N stat() au meme instant.
+// A single timer for all followed sources (NF-11): each task's ticks are staggered
+// so that N files do not issue N stat() calls at the same instant.
 
 export const LOCAL_POLL_MS = 250;
 export const UNC_POLL_MS = 1000;
 
-/** Chemin reseau Windows (`\\nas\share`, `\\wsl.localhost\...`) : evenements peu fiables, polling plus lent. */
+/** Windows network path (`\\nas\share`, `\\wsl.localhost\...`): unreliable events, slower polling. */
 export function isUncPath(path: string): boolean {
   return path.startsWith("\\\\") || path.startsWith("//");
 }
@@ -14,7 +14,7 @@ export function defaultPollInterval(path: string): number {
 }
 
 export interface PollTask {
-  /** Demande un controle anticipe (indice fs.watch) ; sans effet si la tache n'est plus inscrite. */
+  /** Requests an early check (fs.watch hint); no effect if the task is no longer registered. */
   poke(): void;
   cancel(): void;
 }
@@ -41,10 +41,10 @@ export class PollScheduler {
     return this.entries.size;
   }
 
-  /** Inscrit `run`, appelee toutes les `intervalMs` (jamais en parallele avec elle-meme). Les erreurs sont ignorees. */
+  /** Registers `run`, called every `intervalMs` (never in parallel with itself). Errors are ignored. */
   add(run: () => unknown, intervalMs: number): PollTask {
     const interval = Math.max(1, intervalMs);
-    // premier tick decale : fraction de l'intervalle (suite de Weyl) pour etaler les taches
+    // staggered first tick: a fraction of the interval (Weyl sequence) to spread the tasks out
     this.phase = (this.phase + GOLDEN) % 1;
     const entry: Entry = {
       run,
@@ -106,7 +106,7 @@ export class PollScheduler {
         e.pokedWhileRunning = false;
         this.arm();
       };
-      // en parallele : un partage reseau bloque ne doit pas retarder les autres fichiers
+      // in parallel: a hung network share must not delay the other files
       Promise.resolve()
         .then(e.run)
         .catch(() => {})
@@ -118,7 +118,7 @@ export class PollScheduler {
 
 let globalScheduler: PollScheduler | undefined;
 
-/** Ordonnanceur partage par tous les Tailer (un seul timer pour l'application). */
+/** Scheduler shared by all Tailers (a single timer for the whole application). */
 export function getGlobalPollScheduler(): PollScheduler {
   return (globalScheduler ??= new PollScheduler());
 }

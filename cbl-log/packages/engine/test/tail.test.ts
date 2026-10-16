@@ -19,13 +19,13 @@ async function tailOf(data: Buffer, enc: Encoding, maxLines?: number) {
 }
 
 describe("readTail", () => {
-  it("fichier vide", async () => {
+  it("empty file", async () => {
     const t = await tailOf(Buffer.alloc(0), "utf-8");
     expect(t.lines).toEqual([]);
     expect(t.isLastLineOpen).toBe(false);
   });
 
-  it("petit fichier : tout, depuis le debut", async () => {
+  it("small file: everything, from the start", async () => {
     const t = await tailOf(Buffer.from("a\r\nb\nc"), "utf-8");
     expect(t.lines.map((l) => l.text)).toEqual(["a", "b", "c"]);
     expect(t.startsAtFileStart).toBe(true);
@@ -33,7 +33,7 @@ describe("readTail", () => {
     expect(t.endOffset).toBe(6);
   });
 
-  it("ne garde que les maxLines dernieres", async () => {
+  it("keeps only the last maxLines", async () => {
     const lines = Array.from({ length: 5000 }, (_, i) => `ligne numero ${i}`);
     const t = await tailOf(Buffer.from(lines.join("\n") + "\n"), "utf-8", 10);
     expect(t.lines.map((l) => l.text)).toEqual(lines.slice(-10));
@@ -41,8 +41,8 @@ describe("readTail", () => {
     expect(t.isLastLineOpen).toBe(false);
   });
 
-  it("\\r\\n a cheval sur la frontiere de 64 Ko", async () => {
-    // on place le \r\n pile autour de size - 64 Ko
+  it("\\r\\n straddling the 64 KB boundary", async () => {
+    // place the \r\n exactly around size - 64 KB
     const total = 3 * 65536;
     for (const shift of [-1, 0, 1]) {
       const cut = total - 65536 + shift;
@@ -51,18 +51,18 @@ describe("readTail", () => {
       buf[cut] = 0x0a;
       buf[total - 1] = 0x0a;
       const t = await tailOf(buf, "utf-8", 2);
-      // lignes : [...a\r\n][aaaa...\n] => 2 dernieres lignes
+      // lines: [...a\r\n][aaaa...\n] => last 2 lines
       expect(t.lines.length).toBe(2);
       expect(t.lines[1]!.text.length).toBe(total - 1 - (cut + 1));
     }
   });
 
-  it("dernier octet \\r (terminateur en attente)", async () => {
+  it("last byte \\r (pending terminator)", async () => {
     const t = await tailOf(Buffer.from("a\nb\r"), "utf-8");
     expect(t.lines.map((l) => l.text)).toEqual(["a", "b"]);
   });
 
-  it("UTF-16LE / BE avec BOM", async () => {
+  it("UTF-16LE / BE with BOM", async () => {
     for (const enc of ["utf-16le", "utf-16be"] as const) {
       const t = await tailOf(Buffer.concat([bomFor(enc), encode("x\r\ny\nz", enc)]), enc, 2);
       expect(t.lines.map((l) => l.text)).toEqual(["y", "z"]);
@@ -70,7 +70,7 @@ describe("readTail", () => {
     }
   });
 
-  it("ligne geante en queue : tronquee a l'affichage", async () => {
+  it("giant line at the tail: truncated for display", async () => {
     const t = await tailOf(Buffer.from("debut\n" + "z".repeat(300_000)), "utf-8", 5);
     expect(t.lines.map((l) => l.truncated)).toEqual([false, true]);
     expect(t.lines[0]!.text).toBe("debut");

@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach } from "vitest";
 
-/** Dossier temporaire par test, nettoye automatiquement. */
+/** Per-test temporary directory, cleaned up automatically. */
 export function useTempDir(): () => Promise<string> {
   const dirs: string[] = [];
   afterEach(async () => {
@@ -16,7 +16,7 @@ export function useTempDir(): () => Promise<string> {
   };
 }
 
-/** Attend qu'une condition devienne vraie (pas de sleep fixe : sonde toutes les `stepMs`). */
+/** Waits for a condition to become true (no fixed sleep: polls every `stepMs`). */
 export async function waitFor(
   condition: () => boolean | Promise<boolean>,
   what: string,
@@ -26,7 +26,7 @@ export async function waitFor(
   const deadline = Date.now() + timeoutMs;
   for (;;) {
     if (await condition()) return;
-    if (Date.now() > deadline) throw new Error(`Delai depasse (${timeoutMs} ms) : ${what}`);
+    if (Date.now() > deadline) throw new Error(`Timed out (${timeoutMs} ms): ${what}`);
     await new Promise((r) => setTimeout(r, stepMs));
   }
 }

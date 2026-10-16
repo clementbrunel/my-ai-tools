@@ -1,9 +1,9 @@
-// Points de controle (offset du debut de la ligne i*64) dans un Float64Array : exact jusqu'a 2^53.
-// 70 M lignes => ~1,1 M entrees => ~9 Mo. Le tampon est un SharedArrayBuffer extensible pour que
-// des workers de recherche puissent le lire sans copie.
+// Checkpoints (offset of the start of line i*64) in a Float64Array: exact up to 2^53.
+// 70 M lines => ~1.1 M entries => ~9 MB. The buffer is a growable SharedArrayBuffer so that
+// search workers can read it without copying.
 
 const INITIAL_CAPACITY = 1024;
-// Reservation d'espace d'adressage uniquement : 1 Gio = 134 M points = 8,6 milliards de lignes.
+// Address-space reservation only: 1 GiB = 134 M checkpoints = 8.6 billion lines.
 const MAX_BYTE_LENGTH = 1024 * 1024 * 1024;
 
 interface GrowableSharedArrayBuffer extends SharedArrayBuffer {
@@ -28,17 +28,17 @@ export class CheckpointStore {
       const sab = new (SharedArrayBuffer as unknown as GrowableCtor)(byteLength, { maxByteLength: MAX_BYTE_LENGTH });
       if (sab.growable) return sab;
     } catch {
-      // moteur sans SAB extensible : repli sur allocation fixe + copie
+      // engine without growable SAB: fall back to fixed allocation + copy
     }
     return new SharedArrayBuffer(byteLength);
   }
 
-  /** Tampon partageable. Attention : en repli (SAB non extensible) il change quand le magasin grandit. */
+  /** Shareable buffer. Note: in the fallback (non-growable SAB) it changes when the store grows. */
   get buffer(): SharedArrayBuffer {
     return this.sab;
   }
 
-  /** Nombre de points de controle ecrits. */
+  /** Number of checkpoints written. */
   get count(): number {
     return this.used;
   }

@@ -9,13 +9,13 @@ export interface FileSourceOptions {
 }
 
 /**
- * Lecture seule, positionnelle (FileHandle.read) : jamais readFile / createReadStream.
- * Sous Windows libuv ouvre avec FILE_SHARE_READ|WRITE|DELETE, donc l'ecrivain du log peut
- * renommer ou supprimer le fichier pendant qu'on le tient ouvert (teste dans file-source.test.ts).
+ * Read-only, positional (FileHandle.read): never readFile / createReadStream.
+ * On Windows libuv opens with FILE_SHARE_READ|WRITE|DELETE, so the log writer can
+ * rename or delete the file while we hold it open (tested in file-source.test.ts).
  */
 export class FileSource implements Source {
   readonly path: string;
-  /** Identifiant dans le cache de blocs. */
+  /** Identifier in the block cache. */
   readonly id: number;
   private handle: FileHandle | undefined;
   private readonly cache: BlockCache;
@@ -35,8 +35,8 @@ export class FileSource implements Source {
       throw toSourceError(err, path);
     }
     try {
-      // open() reussit sur un dossier sous Linux ; on refuse explicitement partout.
-      if ((await handle.stat()).isDirectory()) throw new SourceError("EISDIR", path, `${path} est un dossier`);
+      // open() succeeds on a directory on Linux; we explicitly refuse it everywhere.
+      if ((await handle.stat()).isDirectory()) throw new SourceError("EISDIR", path, `${path} is a directory`);
     } catch (err) {
       await handle.close().catch(() => {});
       throw toSourceError(err, path);
@@ -45,7 +45,7 @@ export class FileSource implements Source {
   }
 
   private requireHandle(): FileHandle {
-    if (!this.handle) throw new SourceError("CLOSED", this.path, `Source fermee : ${this.path}`);
+    if (!this.handle) throw new SourceError("CLOSED", this.path, `Source closed: ${this.path}`);
     return this.handle;
   }
 
@@ -59,7 +59,7 @@ export class FileSource implements Source {
 
   async identity(): Promise<SourceIdentity> {
     try {
-      // bigint : l'index de fichier NTFS fait 64 bits et serait tronque en number
+      // bigint: the NTFS file index is 64 bits and would be truncated as a number
       const st = await this.requireHandle().stat({ bigint: true });
       return { ino: st.ino.toString(), dev: st.dev.toString() };
     } catch (err) {
@@ -78,7 +78,7 @@ export class FileSource implements Source {
     }
   }
 
-  /** Oublie les blocs en cache (troncature / rolling detectes par l'appelant). */
+  /** Forgets the cached blocks (truncation / rolling detected by the caller). */
   invalidate(): void {
     this.cache.invalidate(this.id);
   }
@@ -115,8 +115,8 @@ export class FileSource implements Source {
       let block = this.cache.get(this.id, index);
       if (!block) {
         block = await this.readDirect(handle, index * BLOCK_SIZE, BLOCK_SIZE);
-        // Bloc partiel = fin de fichier qui peut encore grandir : jamais mis en cache,
-        // sinon on servirait une queue perimee apres un append.
+        // Partial block = end of file that may still grow: never cached,
+        // otherwise we would serve a stale tail after an append.
         if (block.length === BLOCK_SIZE) this.cache.set(this.id, index, block);
       }
       const blockStart = index * BLOCK_SIZE;
@@ -125,7 +125,7 @@ export class FileSource implements Source {
       if (to > from) parts.push(block.subarray(from, to));
       if (block.length < BLOCK_SIZE) break; // EOF
     }
-    // copie : ne jamais exposer un sous-buffer du cache a l'appelant
+    // copy: never expose a cache sub-buffer to the caller
     return parts.length === 1 ? Buffer.from(parts[0]!) : Buffer.concat(parts);
   }
 }

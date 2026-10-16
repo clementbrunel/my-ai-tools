@@ -1,22 +1,22 @@
-// "La fin d'abord" (F-03) : les dernieres lignes s'affichent avant que l'indexation avant ait fini.
+// "End first" (F-03): the last lines are shown before forward indexing has finished.
 import { bomLength, createDecoder, unitSize, type Encoding } from "../source/encoding.js";
 import type { Source } from "../source/source.js";
 import { decodeLine, MAX_LINE_BYTES, type DecodedLine } from "./lines.js";
 import { scanChunk, type ScanCarry } from "./scan.js";
 
 const STEP = 64 * 1024;
-// Un fichier sans aucun saut de ligne ne doit pas etre lu en entier a rebours.
+// A file without any line break must not be read backwards in full.
 const MAX_TAIL_BYTES = 32 * 1024 * 1024;
 
 export interface TailResult {
-  /** Les dernieres lignes, dans l'ordre du fichier. Pas de numeros absolus : l'index n'existe pas encore. */
+  /** The last lines, in file order. No absolute numbers: the index does not exist yet. */
   lines: DecodedLine[];
-  /** true : la premiere ligne est la ligne 0 du fichier (numeros alors deductibles). */
+  /** true: the first line is line 0 of the file (numbers can then be deduced). */
   startsAtFileStart: boolean;
   isLastLineOpen: boolean;
-  /** Offset de debut de la premiere ligne renvoyee. */
+  /** Start offset of the first returned line. */
   startOffset: number;
-  /** Taille lue (fin exclusive) : l'indexation avant reprend a partir de la. */
+  /** Size read (exclusive end): forward indexing resumes from there. */
   endOffset: number;
 }
 
@@ -40,7 +40,7 @@ export async function readTail(source: Source, encoding: Encoding, maxLines = 50
   while (from > bom) {
     const next = Math.max(bom, from - STEP);
     const chunk = await source.readAt(next, from - next);
-    if (chunk.length !== from - next) break; // le fichier a rétréci pendant la lecture
+    if (chunk.length !== from - next) break; // the file shrank during the read
     region = region.length ? Buffer.concat([chunk, region]) : chunk;
     from = next;
     ({ spans, open } = analyze(region, from, bom, end, encoding));
@@ -63,7 +63,7 @@ export async function readTail(source: Source, encoding: Encoding, maxLines = 50
   };
 }
 
-/** Decoupe `region` (qui commence a `from`) en lignes ; ce qui precede le premier terminateur est ignore. */
+/** Splits `region` (which starts at `from`) into lines; whatever precedes the first terminator is ignored. */
 function analyze(region: Buffer, from: number, bom: number, end: number, encoding: Encoding): { spans: Span[]; open: boolean } {
   const unit = unitSize(encoding);
   const carry: ScanCarry = { pendingCR: false };
@@ -74,8 +74,8 @@ function analyze(region: Buffer, from: number, bom: number, end: number, encodin
     terms.push(term);
   });
 
-  // from === bom : le debut du fichier est une vraie frontiere de ligne.
-  // Plafond atteint plus loin que le premier terminateur : sinon la premiere ligne est partielle.
+  // from === bom: the start of the file is a real line boundary.
+  // Cap reached beyond the first terminator: otherwise the first line is partial.
   const leading = from === bom ? [bom] : [];
   const spans: Span[] = [];
   const all = [...leading, ...starts];

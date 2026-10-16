@@ -5,7 +5,7 @@ import { BlockCache, FileSource, indexInWorker, LineIndex, type Encoding, type I
 import { generateFile, mulberry32 } from "./gen";
 import { useTempDir } from "./helpers";
 
-// Le worker est du JS compile : `npm test` du moteur lance d'abord `tsc` (voir package.json).
+// The worker is compiled JS: the engine's `npm test` runs `tsc` first (see package.json).
 const tempDir = useTempDir();
 
 async function fileWith(data: Buffer | string): Promise<string> {
@@ -15,7 +15,7 @@ async function fileWith(data: Buffer | string): Promise<string> {
 }
 
 describe("indexInWorker", () => {
-  it("donne le meme resultat que l'indexation en processus", async () => {
+  it("gives the same result as in-process indexing", async () => {
     for (const enc of ["utf-8", "utf-16le", "utf-16be"] as const satisfies readonly Encoding[]) {
       const gen = generateFile(mulberry32(99), enc, { maxLines: 5000, maxLen: 150 });
       const path = await fileWith(gen.data);
@@ -41,7 +41,7 @@ describe("indexInWorker", () => {
     }
   });
 
-  it("reprend un index entame (queue ajoutee) apres le worker", async () => {
+  it("resumes an index already under way (tail appended) after the worker", async () => {
     const path = await fileWith("a\nb\nc");
     const source = await FileSource.open(path, { cache: new BlockCache() });
     const index = new LineIndex(source, "utf-8");
@@ -53,16 +53,16 @@ describe("indexInWorker", () => {
     await source.close();
   });
 
-  it("fichier vide", async () => {
+  it("empty file", async () => {
     const result = await indexInWorker(await fileWith(""), "utf-8");
     expect(result.state).toBeNull();
   });
 
-  it("fichier introuvable : SourceError typee", async () => {
+  it("file not found: typed SourceError", async () => {
     await expect(indexInWorker(join(await tempDir(), "absent.log"), "utf-8")).rejects.toMatchObject({ name: "SourceError", code: "ENOENT" });
   });
 
-  it("progression rapportee, croissante", async () => {
+  it("progress reported, increasing", async () => {
     const lines = Array.from({ length: 60_000 }, (_, i) => `2026-10-14 10:02:11 INFO ligne ${i}`);
     const path = await fileWith(lines.join("\n") + "\n");
     const seen: IndexProgress[] = [];
@@ -74,7 +74,7 @@ describe("indexInWorker", () => {
     expect(last.bytesRead).toBe(last.totalBytes);
   });
 
-  it("annulable via AbortSignal", async () => {
+  it("abortable via AbortSignal", async () => {
     const path = await fileWith(Buffer.alloc(8 * 1024 * 1024, "line of text\n"));
     const controller = new AbortController();
     const pending = indexInWorker(path, "utf-8", {
@@ -86,7 +86,7 @@ describe("indexInWorker", () => {
     await expect(pending).rejects.toMatchObject({ name: "AbortError" });
   });
 
-  it("signal deja annule : rejet immediat", async () => {
+  it("signal already aborted: immediate rejection", async () => {
     const controller = new AbortController();
     controller.abort();
     await expect(indexInWorker(await fileWith("a\n"), "utf-8", { signal: controller.signal })).rejects.toMatchObject({ name: "AbortError" });

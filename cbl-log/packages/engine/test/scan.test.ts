@@ -27,13 +27,13 @@ function scanSplit(buf: Buffer, enc: Encoding, cuts: number[]): number[] {
 }
 
 describe("scanChunk", () => {
-  it("LF, CRLF, CR seul", () => {
+  it("LF, CRLF, lone CR", () => {
     const { starts, terms } = scanWhole(Buffer.from("a\nb\r\nc\rd"), "utf-8");
     expect(starts).toEqual([2, 5, 7]);
     expect(terms).toEqual([1, 2, 1]);
   });
 
-  it("\\r en fin de chunk reste en attente, \\r\\n coupe = un seul terminateur", () => {
+  it("\\r at the end of a chunk stays pending, split \\r\\n = a single terminator", () => {
     const starts: number[] = [];
     const carry: ScanCarry = { pendingCR: false };
     const a = Buffer.from("ab\r");
@@ -45,7 +45,7 @@ describe("scanChunk", () => {
     expect(carry.pendingCR).toBe(false);
   });
 
-  it("CR en attente puis autre octet : fin de ligne a l'offset du CR + 1", () => {
+  it("pending CR then another byte: line end at the CR offset + 1", () => {
     const starts: number[] = [];
     const carry: ScanCarry = { pendingCR: false };
     scanChunk(Buffer.from("a\r"), 0, "utf-8", carry, (n) => void starts.push(n));
@@ -55,21 +55,21 @@ describe("scanChunk", () => {
     expect(starts).toEqual([2]);
   });
 
-  it("le handler peut arreter le scan", () => {
+  it("the handler can stop the scan", () => {
     const carry: ScanCarry = { pendingCR: false };
     const consumed = scanChunk(Buffer.from("a\nb\nc\n"), 0, "utf-8", carry, (n) => n === 4);
     expect(consumed).toBe(4);
   });
 
-  it("UTF-16 : seuls les 0x0a alignes comptent", () => {
-    // U+0A41 en LE = 41 0A (le 0x0a est en position impaire) ; U+0A00 = 00 0A
+  it("UTF-16: only aligned 0x0a count", () => {
+    // U+0A41 in LE = 41 0A (the 0x0a is at an odd position); U+0A00 = 00 0A
     const le = encode("xੁ਀\ny\r\nz", "utf-16le");
     expect(scanWhole(le, "utf-16le").starts).toEqual([8, 14]);
     const be = encode("xੁ਀\ny\r\nz", "utf-16be");
     expect(scanWhole(be, "utf-16be").starts).toEqual([8, 14]);
   });
 
-  it("UTF-16 : octet impair final ignore", () => {
+  it("UTF-16: trailing odd byte ignored", () => {
     const buf = Buffer.concat([encode("a\n", "utf-16le"), Buffer.from([0x62])]);
     const carry: ScanCarry = { pendingCR: false };
     expect(scanChunk(buf, 0, "utf-16le", carry, () => {})).toBe(4);

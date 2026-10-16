@@ -1,4 +1,4 @@
-// Generateur de fichiers de log aleatoires (PRNG seede) avec la verite terrain connue.
+// Random log file generator (seeded PRNG) with known ground truth.
 import type { Encoding } from "../src/index";
 
 export function mulberry32(seed: number): () => number {
@@ -33,16 +33,16 @@ export function bomFor(encoding: Encoding): Buffer {
   return Buffer.alloc(0);
 }
 
-// Caracteres dont les octets UTF-16 ressemblent a 0x0a / 0x0d mais mal alignes (U+0A41, U+0D0A, U+0A0D, U+0A00).
+// Characters whose UTF-16 bytes look like 0x0a / 0x0d but misaligned (U+0A41, U+0D0A, U+0A0D, U+0A00).
 const ALPHABET = ["a", "b", "Z", " ", "\t", "7", "-", ":", "é", "€", "ੁ", "ഊ", "਍", "਀"];
 const LATIN_ALPHABET = ["a", "b", "Z", " ", "\t", "7", "-", ":", "é", "ü"];
 const TERMS = ["\n", "\r\n", "\r"] as const;
 
 export interface GeneratedFile {
   data: Buffer;
-  /** Texte attendu de chaque ligne (sans terminateur). */
+  /** Expected text of each line (without terminator). */
   lines: string[];
-  /** Offset attendu du debut de chaque ligne. */
+  /** Expected start offset of each line. */
   offsets: number[];
   endsWithOpenLine: boolean;
 }
@@ -69,7 +69,7 @@ export function generateFile(rand: () => number, encoding: Encoding, opts: { max
   let prevTerm = "";
   for (let i = 0; i < n; i++) {
     let t = text();
-    // un CR seul suivi d'une ligne vide terminee par LF ferait un CRLF : ambigu pour la verite terrain
+    // a lone CR followed by an empty line ended by LF would form a CRLF: ambiguous for the ground truth
     if (prevTerm === "\r" && t === "") t = "x";
     const term = TERMS[Math.floor(rand() * TERMS.length)]!;
     const bytes = encode(t + term, encoding);

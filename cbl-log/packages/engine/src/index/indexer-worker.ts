@@ -1,11 +1,11 @@
-// Point d'entree du worker d'indexation (voir worker-host.ts). Ne depend que du scanner pur.
+// Entry point of the indexing worker (see worker-host.ts). Depends only on the pure scanner.
 import { open } from "node:fs/promises";
 import { parentPort, workerData } from "node:worker_threads";
 import { checkpointCountOf, IndexBuilder, initialIndexState, type IndexState } from "./scan.js";
 import type { WorkerJob, WorkerMessage } from "./worker-host.js";
 
 const port = parentPort;
-if (!port) throw new Error("indexer-worker doit etre lance dans un worker_thread");
+if (!port) throw new Error("indexer-worker must run inside a worker_thread");
 
 function post(msg: WorkerMessage, transfer: ArrayBuffer[] = []): void {
   port!.postMessage(msg, transfer);

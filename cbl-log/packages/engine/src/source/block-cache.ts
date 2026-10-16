@@ -1,10 +1,10 @@
-// Cache LRU de blocs de 64 Ko, global a toutes les sources (NF-08 : budget memoire borne).
+// LRU cache of 64 KB blocks, shared by all sources (NF-08: bounded memory budget).
 
 export const BLOCK_SIZE = 64 * 1024;
 export const DEFAULT_CACHE_BUDGET = 64 * 1024 * 1024;
 
 export class BlockCache {
-  // L'ordre d'insertion de Map sert d'ordre LRU : le plus ancien est en tete.
+  // Map insertion order doubles as LRU order: the oldest entry comes first.
   private readonly blocks = new Map<string, Buffer>();
   private bytes = 0;
   private budget: number;
@@ -34,14 +34,14 @@ export class BlockCache {
     const key = `${sourceId}:${blockIndex}`;
     const block = this.blocks.get(key);
     if (block) {
-      // re-insertion = "recemment utilise"
+      // re-inserting = "recently used"
       this.blocks.delete(key);
       this.blocks.set(key, block);
     }
     return block;
   }
 
-  /** Ne stocker que des blocs complets : un bloc partiel (fin de fichier) pourrait devenir obsolete. */
+  /** Only store full blocks: a partial block (end of file) could become stale. */
   set(sourceId: number, blockIndex: number, block: Buffer): void {
     const key = `${sourceId}:${blockIndex}`;
     const previous = this.blocks.get(key);
@@ -54,7 +54,7 @@ export class BlockCache {
     this.evict();
   }
 
-  /** Oublie tous les blocs d'une source (troncature, rolling, fermeture). */
+  /** Drops every block of a source (truncation, rolling, close). */
   invalidate(sourceId: number): void {
     const prefix = `${sourceId}:`;
     for (const [key, block] of this.blocks) {
@@ -81,7 +81,7 @@ export class BlockCache {
 
 let globalCache: BlockCache | undefined;
 
-/** Singleton partage par toutes les FileSource. */
+/** Singleton shared by all FileSource instances. */
 export function getGlobalBlockCache(): BlockCache {
   globalCache ??= new BlockCache();
   return globalCache;

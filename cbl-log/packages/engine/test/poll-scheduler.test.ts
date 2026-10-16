@@ -9,7 +9,7 @@ afterEach(() => {
 });
 
 describe("PollScheduler", () => {
-  it("intervalle : 250 ms en local, 1 s en UNC", () => {
+  it("interval: 250 ms locally, 1 s for UNC", () => {
     expect(isUncPath("\\\\nas\\share\\a.log")).toBe(true);
     expect(isUncPath("\\\\wsl.localhost\\Ubuntu\\var\\log\\a.log")).toBe(true);
     expect(isUncPath("C:\\logs\\a.log")).toBe(false);
@@ -17,7 +17,7 @@ describe("PollScheduler", () => {
     expect(defaultPollInterval("\\\\nas\\share\\a.log")).toBe(1000);
   });
 
-  it("decale les premiers ticks", async () => {
+  it("staggers the first ticks", async () => {
     scheduler = new PollScheduler();
     const firstRun: number[] = [];
     for (let i = 0; i < 4; i++) {
@@ -26,12 +26,12 @@ describe("PollScheduler", () => {
         if (n++ === 0) firstRun.push(Date.now());
       }, 400);
     }
-    await waitFor(() => firstRun.length === 4, "4 premiers ticks");
-    // phases 0.62 / 0.24 / 0.86 / 0.48 de l'intervalle : jamais tous au meme instant
+    await waitFor(() => firstRun.length === 4, "first 4 ticks");
+    // phases 0.62 / 0.24 / 0.86 / 0.48 of the interval: never all at the same instant
     expect(Math.max(...firstRun) - Math.min(...firstRun)).toBeGreaterThan(50);
   });
 
-  it("une tache lente ne bloque pas les autres et n'est jamais relancee en parallele", async () => {
+  it("a slow task does not block the others and is never rerun in parallel", async () => {
     scheduler = new PollScheduler();
     let slowRuns = 0;
     let slowParallel = 0;
@@ -44,12 +44,12 @@ describe("PollScheduler", () => {
       slowParallel--;
     }, 10);
     scheduler.add(() => void fastRuns++, 10);
-    await waitFor(() => fastRuns >= 10, "10 ticks rapides pendant qu'une tache lente tourne");
+    await waitFor(() => fastRuns >= 10, "10 fast ticks while a slow task runs");
     expect(slowOverlap).toBe(false);
     expect(slowRuns).toBeLessThanOrEqual(2);
   });
 
-  it("poke avance le prochain tick ; cancel arrete la tache ; une erreur n'arrete pas le polling", async () => {
+  it("poke brings the next tick forward; cancel stops the task; an error does not stop polling", async () => {
     scheduler = new PollScheduler();
     let runs = 0;
     const task = scheduler.add(() => {
@@ -57,9 +57,9 @@ describe("PollScheduler", () => {
       throw new Error("boom");
     }, 60_000);
     task.poke();
-    await waitFor(() => runs === 1, "tick provoque par poke");
+    await waitFor(() => runs === 1, "tick triggered by poke");
     task.poke();
-    await waitFor(() => runs === 2, "second poke apres erreur");
+    await waitFor(() => runs === 2, "second poke after an error");
     task.cancel();
     expect(scheduler.size).toBe(0);
     task.poke();

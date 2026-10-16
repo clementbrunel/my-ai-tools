@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 import { defineConfig, externalizeDepsPlugin } from "electron-vite";
 import react from "@vitejs/plugin-react";
 
-// Les paquets workspace sont en ESM : on les embarque dans le bundle au lieu de les externaliser.
+// Workspace packages are ESM: bundle them instead of externalizing them.
 const bundled = ["@cbl-log/shared", "@cbl-log/engine"];
 
 export default defineConfig({

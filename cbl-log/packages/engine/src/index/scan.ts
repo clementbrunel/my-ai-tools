@@ -1,26 +1,26 @@
-// Coeur du scanner de fins de ligne : fonctions pures sur des Buffer, sans fichier ni worker.
-// Partage tel quel par l'indexation en processus, le worker, la lecture a rebours et getLines().
+// Core of the line-end scanner: pure functions over Buffers, no file or worker involved.
+// Shared as-is by in-process indexing, the worker, backward reading and getLines().
 import { bomLength, isPartialBom, unitSize, type Encoding } from "../source/encoding.js";
 
 export const CHECKPOINT_INTERVAL = 64;
 
-/** Etat porte d'un chunk au suivant. */
+/** State carried from one chunk to the next. */
 export interface ScanCarry {
-  /** Le chunk precedent finissait par un \r : \r\n ou \r seul, on ne sait pas encore. */
+  /** The previous chunk ended with a \r: \r\n or a lone \r, not known yet. */
   pendingCR: boolean;
 }
 
 /**
- * Appele a chaque fin de ligne confirmee, avec l'offset du debut de la ligne suivante et la taille
- * du terminateur en octets. Retourner true arrete le scan juste apres ce terminateur.
+ * Called for each confirmed line end, with the offset of the start of the next line and the
+ * terminator size in bytes. Returning true stops the scan right after that terminator.
  */
 export type LineEndHandler = (nextLineStart: number, terminatorBytes: number) => boolean | void;
 
 /**
- * Scanne `buf` (qui commence a l'offset absolu `base`, aligne sur une unite de code) et appelle
- * `onLineEnd` pour chaque fin de ligne : \n, \r\n ou \r seul (F-06). Retourne le nombre d'octets
- * consommes : tout le chunk (arrondi a l'unite en UTF-16), ou moins si le handler a demande l'arret.
- * Un \r en toute fin de chunk reste en attente dans `carry`, resolu au chunk suivant.
+ * Scans `buf` (which starts at absolute offset `base`, aligned on a code unit) and calls
+ * `onLineEnd` for each line end: \n, \r\n or a lone \r (F-06). Returns the number of bytes
+ * consumed: the whole chunk (rounded to the unit in UTF-16), or less if the handler asked to stop.
+ * A \r at the very end of the chunk stays pending in `carry`, resolved by the next chunk.
  */
 export function scanChunk(buf: Buffer, base: number, encoding: Encoding, carry: ScanCarry, onLineEnd: LineEndHandler): number {
   const unit = unitSize(encoding);
@@ -28,7 +28,7 @@ export function scanChunk(buf: Buffer, base: number, encoding: Encoding, carry: 
   const len = unit === 2 ? buf.length & ~1 : buf.length;
   if (len === 0) return 0;
 
-  // Position de la prochaine unite `code` (0x0a ou 0x0d) a partir de `from`, alignee en UTF-16.
+  // Position of the next `code` unit (0x0a or 0x0d) from `from`, aligned in UTF-16.
   const find = (code: number, from: number): number => {
     if (unit === 1) {
       const i = buf.indexOf(code, from);
@@ -52,7 +52,7 @@ export function scanChunk(buf: Buffer, base: number, encoding: Encoding, carry: 
   if (carry.pendingCR) {
     carry.pendingCR = false;
     if (isLF(0)) {
-      pos = unit; // \r\n coupe entre deux chunks : un seul terminateur de 2 unites
+      pos = unit; // \r\n split across two chunks: a single 2-unit terminator
       if (onLineEnd(base + unit, 2 * unit)) return pos;
     } else if (onLineEnd(base, unit)) {
       return 0;
@@ -84,21 +84,21 @@ export function scanChunk(buf: Buffer, base: number, encoding: Encoding, carry: 
 }
 
 /**
- * Etat d'indexation d'un fichier. Sérialisable (structured clone) : c'est ce qui voyage entre le
- * worker et le thread principal.
+ * Indexing state of a file. Serializable (structured clone): this is what travels between the
+ * worker and the main thread.
  */
 export interface IndexState {
   bomLength: number;
-  /** Fins de ligne confirmees = lignes terminees. */
+  /** Confirmed line ends = terminated lines. */
   terminators: number;
-  /** Debut de la derniere ligne (ouverte ou non encore commencee) = octets "completement" indexes. */
+  /** Start of the last line (open or not yet started) = bytes that are "fully" indexed. */
   lineStart: number;
-  /** Octets consommes par le scanner (>= lineStart ; l'ecart est la ligne ouverte). */
+  /** Bytes consumed by the scanner (>= lineStart; the gap is the open line). */
   scanned: number;
   pendingCR: boolean;
 }
 
-/** Etat de depart, ou null si l'echantillon est un debut de BOM (fichier en cours d'ecriture). */
+/** Initial state, or null if the sample is a BOM prefix (file still being written). */
 export function initialIndexState(encoding: Encoding, sample: Buffer): IndexState | null {
   if (sample.length === 0 || isPartialBom(encoding, sample)) return null;
   const bom = bomLength(encoding, sample);
@@ -109,12 +109,12 @@ export function lineCountOf(state: IndexState): number {
   return state.terminators + (state.scanned > state.lineStart ? 1 : 0);
 }
 
-/** Nombre de points de controle connus : un par multiple de 64 lignes, plus celui de la ligne 0. */
+/** Number of known checkpoints: one per multiple of 64 lines, plus the one for line 0. */
 export function checkpointCountOf(state: IndexState): number {
   return Math.floor(state.terminators / CHECKPOINT_INTERVAL) + 1;
 }
 
-/** Fait avancer un IndexState en place, chunk apres chunk. */
+/** Advances an IndexState in place, chunk after chunk. */
 export class IndexBuilder {
   constructor(
     private readonly encoding: Encoding,
@@ -122,7 +122,7 @@ export class IndexBuilder {
     private readonly onCheckpoint: (checkpointIndex: number, offset: number) => void,
   ) {}
 
-  /** `chunk` commence a state.scanned. Retourne le nombre d'octets consommes. */
+  /** `chunk` starts at state.scanned. Returns the number of bytes consumed. */
   feed(chunk: Buffer): number {
     const state = this.state;
     const carry: ScanCarry = { pendingCR: state.pendingCR };

@@ -1,4 +1,4 @@
-// Sanity de debit, hors CI : CBL_PERF=1 npm test -w @cbl-log/engine -- perf
+// Throughput sanity check, outside CI: CBL_PERF=1 npm test -w @cbl-log/engine -- perf
 import { closeSync, mkdtempSync, openSync, rmSync, writeSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -8,7 +8,7 @@ import { FileSource, indexInWorker, LineIndex } from "../src/index";
 const SIZE_MB = Number(process.env.CBL_PERF_MB ?? 200);
 
 describe.skipIf(!process.env.CBL_PERF)("debit d'indexation", () => {
-  it(`indexe ~${SIZE_MB} Mo`, { timeout: 120_000 }, async () => {
+  it(`indexes ~${SIZE_MB} MB`, { timeout: 120_000 }, async () => {
     const dir = mkdtempSync(join(tmpdir(), "cbl-log-perf-"));
     const path = join(dir, "big.log");
     try {

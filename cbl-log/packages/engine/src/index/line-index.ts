@@ -17,22 +17,22 @@ import {
 import { indexInWorker, type IndexBatch, type IndexProgress } from "./worker-host.js";
 
 export const DEFAULT_CHUNK_SIZE = 1024 * 1024;
-// offsetOf() ne lit qu'une petite fenetre : 63 lignes de ~150 o tiennent en ~10 Ko
+// offsetOf() only reads a small window: 63 lines of ~150 bytes fit in ~10 KB
 const OFFSET_WINDOW = 16 * 1024;
 const GET_LINES_WINDOW = 256 * 1024;
 
 export interface LineIndexOptions {
-  /** Taille des lectures d'indexation (defaut 1 Mio). Les tests la reduisent pour franchir les bords de chunk. */
+  /** Size of indexing reads (default 1 MiB). Tests shrink it to cross chunk boundaries. */
   chunkSize?: number;
 }
 
 export interface AppendResult {
   appendedBytes: number;
-  /** La source est plus petite que ce qui a deja ete indexe : l'appelant doit reset() (troncature / rolling). */
+  /** The source is smaller than what was already indexed: the caller must reset() (truncation / rolling). */
   truncated: boolean;
 }
 
-/** Index creux : un point de controle toutes les 64 lignes, la ligne exacte se retrouve par un petit scan. */
+/** Sparse index: one checkpoint every 64 lines, the exact line is found with a small scan. */
 export class LineIndex {
   private source: Source;
   private readonly encoding: Encoding;
@@ -47,7 +47,7 @@ export class LineIndex {
     this.encoding = encoding;
     this.decoder = createDecoder(encoding);
     const unit = unitSize(encoding);
-    // multiple de l'unite pour rester aligne en UTF-16
+    // multiple of the unit to stay aligned in UTF-16
     this.chunkSize = Math.max(unit, Math.floor((options.chunkSize ?? DEFAULT_CHUNK_SIZE) / unit) * unit);
   }
 
@@ -55,22 +55,22 @@ export class LineIndex {
     return this.state ? lineCountOf(this.state) : 0;
   }
 
-  /** Offset jusqu'ou toutes les lignes sont terminees (= debut de la ligne ouverte, ou fin du fichier). */
+  /** Offset up to which all lines are terminated (= start of the open line, or end of file). */
   get indexedBytes(): number {
     return this.state?.lineStart ?? 0;
   }
 
-  /** Offset jusqu'ou le fichier a ete lu (reprise de appendFrom). */
+  /** Offset up to which the file has been read (where appendFrom resumes). */
   get scannedBytes(): number {
     return this.state?.scanned ?? 0;
   }
 
-  /** La derniere ligne n'a pas (encore) de terminateur : elle sera re-emise si elle grandit. */
+  /** The last line has no terminator (yet): it will be re-emitted if it grows. */
   get isLastLineOpen(): boolean {
     return !!this.state && this.state.scanned > this.state.lineStart;
   }
 
-  /** Tampon partageable des points de controle (lecture seule pour les autres threads). */
+  /** Shareable checkpoint buffer (read-only for other threads). */
   get checkpoints(): { buffer: SharedArrayBuffer; count: number; byteLength: number } {
     return { buffer: this.store.buffer, count: this.store.count, byteLength: this.store.byteLength };
   }
@@ -80,12 +80,12 @@ export class LineIndex {
     this.store.clear();
   }
 
-  /** Change de source (rolling) sans toucher a l'index : a combiner avec reset() si c'est un autre fichier. */
+  /** Switches source (rolling) without touching the index: combine with reset() if it is another file. */
   setSource(source: Source): void {
     this.source = source;
   }
 
-  /** Indexation incrementale de la queue : lit de scannedBytes jusqu'a la taille courante. */
+  /** Incremental tail indexing: reads from scannedBytes up to the current size. */
   appendFrom(source: Source = this.source): Promise<AppendResult> {
     return this.serialize(async () => {
       this.source = source;
@@ -103,7 +103,7 @@ export class LineIndex {
       const startScanned = state.scanned;
       const builder = new IndexBuilder(this.encoding, state, (i, off) => this.store.set(i, off));
       while (state.scanned < size) {
-        // lecture directe : balayer un fichier de 10 Go ne doit pas vider le cache de blocs
+        // direct read: sweeping a 10 GB file must not flush the block cache
         const buf = await source.readAt(state.scanned, Math.min(this.chunkSize, size - state.scanned), { cache: false });
         if (buf.length === 0 || builder.feed(buf) === 0) break;
       }
@@ -112,8 +112,8 @@ export class LineIndex {
   }
 
   /**
-   * Indexation par un worker_thread (voir worker-host.ts). L'index se remplit au fil des lots :
-   * lineCount grandit pendant l'execution. Reprend a scannedBytes si l'index est deja entame.
+   * Indexing by a worker_thread (see worker-host.ts). The index fills up batch by batch:
+   * lineCount grows while it runs. Resumes at scannedBytes if the index is already under way.
    */
   indexWithWorker(options: { onProgress?: (p: IndexProgress) => void; signal?: AbortSignal; chunkSize?: number } = {}): Promise<void> {
     return this.serialize(async () => {
@@ -131,7 +131,7 @@ export class LineIndex {
     });
   }
 
-  /** Offset du debut de la ligne `line` (0-based) : point de controle + au plus 63 fins de ligne a sauter. */
+  /** Offset of the start of line `line` (0-based): checkpoint + at most 63 line ends to skip. */
   async offsetOf(line: number): Promise<number> {
     const state = this.requireLine(line);
     const block = Math.floor(line / CHECKPOINT_INTERVAL);
@@ -156,7 +156,7 @@ export class LineIndex {
     return found;
   }
 
-  /** Lignes decodees [first, first+count) ; plafonnees a 64 Ko d'affichage chacune. */
+  /** Decoded lines [first, first+count); each capped at 64 KB for display. */
   async getLines(first: number, count: number): Promise<NumberedLine[]> {
     const state = this.state;
     if (!state || first < 0 || count <= 0 || first >= lineCountOf(state)) return [];
@@ -189,7 +189,7 @@ export class LineIndex {
         ends.push({ next, end: next - term });
         return out.length + ends.length >= count;
       });
-      // les lignes d'un chunk sont decodees avant de lire le suivant (le tampon est local)
+      // a chunk's lines are decoded before reading the next one (the buffer is local)
       for (const e of ends) {
         await push(e.end, { buf, base });
         lineStart = e.next;
@@ -198,7 +198,7 @@ export class LineIndex {
       pos += consumed;
     }
     if (out.length < count && lineStart < limit) {
-      // ligne ouverte : un \r final est un terminateur en attente, pas du texte
+      // open line: a trailing \r is a pending terminator, not text
       await push(carry.pendingCR ? limit - unit : limit, { buf: Buffer.alloc(0), base: 0 });
     }
     return out;
@@ -207,14 +207,14 @@ export class LineIndex {
   private requireLine(line: number): IndexState {
     const state = this.state;
     if (!state || !Number.isInteger(line) || line < 0 || line >= lineCountOf(state)) {
-      throw new RangeError(`Ligne ${line} hors de [0, ${this.lineCount})`);
+      throw new RangeError(`Line ${line} outside [0, ${this.lineCount})`);
     }
     if (checkpointCountOf(state) > this.store.count) throw this.inconsistent();
     return state;
   }
 
   private inconsistent(): SourceError {
-    return new SourceError("UNKNOWN", this.source.path, "Index incoherent avec le fichier (modifie ?) : reset() requis");
+    return new SourceError("UNKNOWN", this.source.path, "Index inconsistent with the file (modified?): reset() required");
   }
 
   private serialize<T>(task: () => Promise<T>): Promise<T> {

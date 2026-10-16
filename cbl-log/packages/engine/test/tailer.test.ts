@@ -16,7 +16,7 @@ const lines = (from: number, to: number, tag = "L"): string =>
 const ids = (from: number, to: number): string[] => Array.from({ length: to - from }, (_, i) => `L${from + i}`);
 const texts = async (t: Tailer): Promise<string[]> => (await t.getLines(0, t.totalRows)).map((l) => l.text.split(" ")[0]!);
 
-/** Tailer pilote a la main : aucun tick automatique, aucun watch ; chaque `check()` est un tick. */
+/** Hand-driven tailer: no automatic tick, no watch; each `check()` is one tick. */
 async function manual(path: string, extra: Partial<TailerOptions> = {}) {
   const scheduler = new PollScheduler();
   const tailer = new Tailer({ path, scheduler, pollIntervalMs: 3_600_000, watch: false, cache: new BlockCache(), ...extra });
@@ -31,7 +31,7 @@ async function manual(path: string, extra: Partial<TailerOptions> = {}) {
 }
 
 describe("Tailer", () => {
-  it("indexe a l'ouverture puis suit les ajouts (polling + watch reels)", async () => {
+  it("indexes on open then follows appends (real polling + watch)", async () => {
     const path = join(await tempDir(), "app.log");
     writeFileSync(path, lines(0, 10));
     const scheduler = new PollScheduler();
@@ -47,15 +47,15 @@ describe("Tailer", () => {
     expect(events[0]).toEqual({ type: "state", state: "following" });
 
     for (let i = 0; i < 20; i++) appendFileSync(path, lines(10 + i * 5, 15 + i * 5));
-    await waitFor(() => tailer.totalRows === 110, "110 lignes");
-    await waitFor(() => events.some((e) => e.type === "rows" && e.total === 110), "evenement rows final");
+    await waitFor(() => tailer.totalRows === 110, "110 lines");
+    await waitFor(() => events.some((e) => e.type === "rows" && e.total === 110), "final rows event");
     const appended = events.reduce((n, e) => n + (e.type === "rows" ? e.appended : 0), 0);
     expect(appended).toBe(110);
     expect((await texts(tailer)).slice(-2)).toEqual(["L108", "L109"]);
     expect(tailer.segments).toHaveLength(1);
   });
 
-  it("coalesce les rows : au plus un evenement par ~50 ms", async () => {
+  it("coalesces rows: at most one event per ~50 ms", async () => {
     const path = join(await tempDir(), "app.log");
     writeFileSync(path, "");
     const scheduler = new PollScheduler();
@@ -74,13 +74,13 @@ describe("Tailer", () => {
       n++;
       await new Promise((r) => setTimeout(r, 3));
     }
-    await waitFor(() => tailer.totalRows === n, "toutes les lignes");
+    await waitFor(() => tailer.totalRows === n, "all the lines");
     expect(stamps.length).toBeGreaterThan(2);
     expect(stamps.length).toBeLessThanOrEqual(400 / 50 + 4);
     for (let i = 1; i < stamps.length; i++) expect(stamps[i]! - stamps[i - 1]!).toBeGreaterThanOrEqual(40);
   });
 
-  it("fichier absent : Missing puis reprise quand il apparait", async () => {
+  it("missing file: Missing, then resumes when it appears", async () => {
     const path = join(await tempDir(), "later.log");
     const { tailer, events } = await manual(path);
     expect(tailer.phase).toBe("missing");
@@ -89,17 +89,17 @@ describe("Tailer", () => {
     await tailer.check();
     expect(tailer.phase).toBe("following");
     expect(await texts(tailer)).toEqual(ids(0, 3));
-    // premier fichier = segment initial, pas un rolling
+    // first file = initial segment, not a rolling
     expect(events.some((e) => e.type === "rolled")).toBe(false);
     expect(tailer.segments[0]).toMatchObject({ startedBy: "initial", startRow: 0, rowCount: 3 });
   });
 
-  it("rename + create : l'ancien fichier est vide jusqu'a EOF avant la bascule (T-04b)", async () => {
+  it("rename + create: the old file is drained up to EOF before the switch (T-04b)", async () => {
     const dir = await tempDir();
     const path = join(dir, "SystemOut.log");
     writeFileSync(path, lines(0, 5));
     const { tailer, events } = await manual(path);
-    appendFileSync(path, lines(5, 8)); // jamais vu par un tick
+    appendFileSync(path, lines(5, 8)); // never seen by a tick
     renameSync(path, join(dir, "SystemOut_26.10.14.log"));
     writeFileSync(path, lines(8, 12));
     await tailer.check();
@@ -112,7 +112,7 @@ describe("Tailer", () => {
     ]);
   });
 
-  it("rename observe pendant l'intervalle sans fichier (Missing) : drain puis reprise, reason rename", async () => {
+  it("rename observed while the path has no file (Missing): drain then resume, reason rename", async () => {
     const dir = await tempDir();
     const path = join(dir, "a.log");
     writeFileSync(path, lines(0, 4));
@@ -121,14 +121,14 @@ describe("Tailer", () => {
     renameSync(path, join(dir, "a.1.log"));
     await tailer.check();
     expect(tailer.phase).toBe("missing");
-    expect(tailer.totalRows).toBe(6); // drain pendant Missing
+    expect(tailer.totalRows).toBe(6); // drained while Missing
     writeFileSync(path, lines(6, 9));
     await tailer.check();
     expect(await texts(tailer)).toEqual(ids(0, 9));
     expect(events.find((e) => e.type === "rolled")).toMatchObject({ reason: "rename", previous: join(dir, "a.1.log"), at: 6 });
   });
 
-  it("suppression + recreation (T-05) : new-file", async () => {
+  it("deletion + recreation (T-05): new-file", async () => {
     const dir = await tempDir();
     const path = join(dir, "a.log");
     writeFileSync(path, lines(0, 4));
@@ -142,12 +142,12 @@ describe("Tailer", () => {
     expect(events.find((e) => e.type === "rolled")).toMatchObject({ reason: "new-file", at: 4 });
   });
 
-  it("truncate simple : reset, segment precedent illisible, rows jamais decroissantes", async () => {
+  it("plain truncate: reset, previous segment unreadable, rows never decrease", async () => {
     const dir = await tempDir();
     const path = join(dir, "a.log");
     writeFileSync(path, lines(0, 200));
     const { tailer, events } = await manual(path);
-    writeFileSync(path, ""); // vide sans archive
+    writeFileSync(path, ""); // emptied, no archive
     await tailer.check();
     expect(events.find((e) => e.type === "rolled")).toEqual({ type: "rolled", reason: "truncate", at: 200 });
     expect(tailer.totalRows).toBe(200);
@@ -162,12 +162,12 @@ describe("Tailer", () => {
     ]);
   });
 
-  it("truncate qui regrossit au-dela de l'ancienne taille entre deux ticks : detecte par l'ancre (critere 3b)", async () => {
+  it("truncate that regrows beyond the old size between two ticks: detected by the anchor (criterion 3b)", async () => {
     const dir = await tempDir();
     const path = join(dir, "a.log");
     writeFileSync(path, lines(0, 100, "OLD"));
     const { tailer, events } = await manual(path);
-    // meme fichier (meme inode), contenu different et PLUS GRAND que l'ancien
+    // same file (same inode), different content and BIGGER than the old one
     writeFileSync(path, lines(0, 300, "NEW"));
     await tailer.check();
     expect(events.find((e) => e.type === "rolled")).toMatchObject({ reason: "truncate", at: 100 });
@@ -178,18 +178,18 @@ describe("Tailer", () => {
     expect((await tailer.getLines(100, 3)).map((l) => l.text.split(" ")[0])).toEqual(["NEW0", "NEW1", "NEW2"]);
   });
 
-  it("copytruncate : les lignes ecrites avant la troncature sont recuperees depuis l'archive", async () => {
+  it("copytruncate: lines written before the truncation are recovered from the archive", async () => {
     const dir = await tempDir();
     const path = join(dir, "app.log");
     writeFileSync(path, lines(0, 150));
     const { tailer, events } = await manual(path);
-    appendFileSync(path, lines(150, 170)); // jamais lu
+    appendFileSync(path, lines(150, 170)); // never read
     copyFileSync(path, join(dir, "app.log.1"));
-    writeFileSync(path, lines(170, 175)); // truncate + nouvelles lignes
+    writeFileSync(path, lines(170, 175)); // truncate + new lines
     await tailer.check();
-    await waitFor(() => events.some((e) => e.type === "rows" && e.total === 175), "rows du nouveau segment (coalesce)");
+    await waitFor(() => events.some((e) => e.type === "rows" && e.total === 175), "rows of the new segment (coalesced)");
     const order = events.filter((e) => e.type === "rows" || e.type === "rolled").map((e) => e.type);
-    expect(order.slice(-3)).toEqual(["rows", "rolled", "rows"]); // recuperees AVANT le separateur
+    expect(order.slice(-3)).toEqual(["rows", "rolled", "rows"]); // recovered BEFORE the separator
     expect(events.find((e) => e.type === "rolled")).toEqual({
       type: "rolled",
       reason: "truncate",
@@ -203,19 +203,19 @@ describe("Tailer", () => {
     ]);
   });
 
-  it("copytruncate : une archive incoherente avec l'ancre n'est pas utilisee", async () => {
+  it("copytruncate: an archive inconsistent with the anchor is not used", async () => {
     const dir = await tempDir();
     const path = join(dir, "app.log");
     writeFileSync(path, lines(0, 150));
     const { tailer } = await manual(path);
-    writeFileSync(join(dir, "autre.log"), lines(0, 400, "ZZZ")); // assez gros, mauvais contenu
+    writeFileSync(join(dir, "autre.log"), lines(0, 400, "ZZZ")); // big enough, wrong content
     writeFileSync(path, lines(0, 2, "N"));
     await tailer.check();
     expect(tailer.segments.map((s) => s.readable)).toEqual([false, true]);
     expect(tailer.totalRows).toBe(152);
   });
 
-  it("nom date (resolvePath) : bascule sur le fichier le plus recent apres drain, reason new-file", async () => {
+  it("dated name (resolvePath): switches to the newest file after draining, reason new-file", async () => {
     const dir = await tempDir();
     const a = join(dir, "app20261014.log");
     const b = join(dir, "app20261015.log");
@@ -228,7 +228,7 @@ describe("Tailer", () => {
     expect(events.find((e) => e.type === "rolled")).toEqual({ type: "rolled", reason: "new-file", previous: a, at: 5 });
   });
 
-  it("libere les segments au-dela de maxRetainedSegments (les rows restent comptees)", async () => {
+  it("releases segments beyond maxRetainedSegments (rows stay counted)", async () => {
     const dir = await tempDir();
     const path = join(dir, "a.log");
     writeFileSync(path, lines(0, 2));
@@ -243,7 +243,7 @@ describe("Tailer", () => {
     expect((await tailer.getLines(0, 8)).map((l) => l.lineNo)).toEqual([4, 5, 6, 7]);
   });
 
-  it("derniere ligne sans terminateur : comptee, puis completee sans doublon", async () => {
+  it("last line without terminator: counted, then completed without duplicate", async () => {
     const path = join(await tempDir(), "a.log");
     writeFileSync(path, "abc\ndef");
     const { tailer } = await manual(path);

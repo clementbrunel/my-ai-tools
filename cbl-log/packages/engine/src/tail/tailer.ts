@@ -1,15 +1,15 @@
-// Suivi temps reel d'un fichier de log (architecture § 4.3) : machine a etats
-// Following / Draining / Switching / Truncated / Missing, rolling sans perte, troncature par ancre.
+// Real-time following of a log file (architecture 4.3): Following / Draining / Switching /
+// Truncated / Missing state machine, lossless rolling, truncation detection by anchor.
 //
-// Modele de lignes expose a l'UI : des SEGMENTS, un par fichier physique suivi (premier fichier,
-// puis un nouveau a chaque rolling). Les numeros de ligne ("rows") sont GLOBAUX et ne decroissent
-// jamais : le segment k commence a `startRow` = total des segments precedents. Un rolling n'efface
-// donc rien ; l'UI dessine le separateur T-04d a `segment.startRow` (id > 0).
-// Un segment reste lisible tant que son contenu l'est :
-//   - rename : on garde le handle ouvert sur le fichier renomme (lisible, partage delete) ;
-//   - copytruncate avec archive retrouvee : le segment est re-pointe sur l'archive ;
-//   - truncate sans archive : le contenu a disparu, segment `readable: false` (les rows restent comptees) ;
-//   - au-dela de `maxRetainedSegments` segments lisibles, le plus ancien est libere (handle ferme).
+// Line model exposed to the UI: SEGMENTS, one per followed physical file (the first file, then a
+// new one at each rolling). Line numbers ("rows") are GLOBAL and never decrease: segment k starts
+// at `startRow` = total of the previous segments. A rolling therefore erases nothing; the UI draws
+// the T-04d separator at `segment.startRow` (id > 0).
+// A segment stays readable as long as its content is:
+//   - rename: we keep the handle open on the renamed file (readable, delete sharing);
+//   - copytruncate with the archive found: the segment is re-pointed at the archive;
+//   - truncate without archive: the content is gone, segment `readable: false` (rows stay counted);
+//   - beyond `maxRetainedSegments` readable segments, the oldest is released (handle closed).
 import { watch, type BigIntStats, type FSWatcher } from "node:fs";
 import { readdir, stat } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
@@ -23,7 +23,7 @@ import { LineIndex } from "../index/line-index.js";
 import type { NumberedLine } from "../index/lines.js";
 import { defaultPollInterval, getGlobalPollScheduler, type PollScheduler, type PollTask } from "./poll-scheduler.js";
 
-/** Taille de l'ancre : empreinte des octets qui precedent l'offset scanne. */
+/** Anchor size: fingerprint of the bytes preceding the scanned offset. */
 export const ANCHOR_BYTES = 4096;
 export const DEFAULT_COALESCE_MS = 50;
 export const DEFAULT_MAX_RETAINED_SEGMENTS = 3;
@@ -35,45 +35,45 @@ const WATCH_MIN_SPACING_MS = 50;
 export type TailerPhase = "idle" | "following" | "draining" | "switching" | "truncated" | "missing" | "error";
 export type SegmentOrigin = "initial" | RolledReason;
 
-/** Un fichier physique suivi ; voir l'en-tete du fichier pour le modele de numerotation. */
+/** A followed physical file; see the file header for the numbering model. */
 export interface TailSegment {
   id: number;
   path: string;
-  /** Numero (global, 0-based) de la premiere ligne de ce segment. */
+  /** Global (0-based) number of the first line of this segment. */
   startRow: number;
   rowCount: number;
   startedBy: SegmentOrigin;
-  /** false : le contenu n'est plus accessible (tronque sans archive, ou libere) ; les rows restent comptees. */
+  /** false: the content is no longer accessible (truncated without archive, or released); rows stay counted. */
   readable: boolean;
 }
 
 export interface TailerOptions {
   path: string;
-  /** Defaut : ordonnanceur partage de l'application. */
+  /** Default: the application-wide shared scheduler. */
   scheduler?: PollScheduler;
-  /** Defaut : 250 ms, 1 s pour un chemin UNC. */
+  /** Default: 250 ms, 1 s for a UNC path. */
   pollIntervalMs?: number;
-  /** fs.watch du dossier comme indice (defaut true). Un echec de watch est ignore. */
+  /** fs.watch on the directory as a hint (default true). A failing watch is ignored. */
   watch?: boolean;
-  /** Defaut : detecte a l'ouverture de chaque fichier. */
+  /** Default: detected when each file is opened. */
   encoding?: Encoding;
   cache?: BlockCache;
   chunkSize?: number;
-  /** Fenetre de coalescence des evenements `rows` (defaut 50 ms). */
+  /** Coalescing window of `rows` events (default 50 ms). */
   coalesceMs?: number;
-  /** Segments lisibles conserves (handles ouverts) en plus du courant (defaut 3). */
+  /** Readable segments kept (handles open) besides the current one (default 3). */
   maxRetainedSegments?: number;
-  /** Recuperation copytruncate depuis l'archive (defaut true). */
+  /** Copytruncate recovery from the archive (default true). */
   recoverCopytruncate?: boolean;
   /**
-   * Indexation du PREMIER fichier (defaut : appendFrom dans le thread courant). Pour un tres gros
-   * fichier, passer `(i) => i.indexWithWorker()`.
+   * Indexing of the FIRST file (default: appendFrom on the current thread). For a very large
+   * file, pass `(i) => i.indexWithWorker()`.
    */
   initialIndexer?: (index: LineIndex) => Promise<void>;
   /**
-   * Choisit le fichier a suivre a chaque tick (motif a nom date, F-09). Un chemin different du
-   * courant declenche Draining puis Switching (`new-file`) ; `undefined` = aucun fichier (Missing).
-   * `path` sert alors seulement a choisir le dossier surveille par fs.watch.
+   * Chooses the file to follow at each tick (dated-name pattern, F-09). A path different from the
+   * current one triggers Draining then Switching (`new-file`); `undefined` = no file (Missing).
+   * `path` is then only used to pick the directory watched by fs.watch.
    */
   resolvePath?: () => string | undefined | Promise<string | undefined>;
 }
@@ -135,12 +135,12 @@ export class Tailer {
     return this.phaseValue;
   }
 
-  /** Total de lignes, tous segments confondus (ne decroit jamais). */
+  /** Total number of lines across all segments (never decreases). */
   get totalRows(): number {
     return this.segs.reduce((n, s) => n + this.rowCountOf(s), 0);
   }
 
-  /** La derniere ligne du segment courant n'est pas terminee : elle peut encore grandir. */
+  /** The last line of the current segment is not terminated: it may still grow. */
   get isLastLineOpen(): boolean {
     return !!this.cur?.index?.isLastLineOpen;
   }
@@ -161,7 +161,7 @@ export class Tailer {
     return () => this.listeners.delete(listener);
   }
 
-  /** Ouvre le fichier s'il existe (indexation initiale incluse) puis suit ; ne rejette jamais. */
+  /** Opens the file if it exists (initial indexing included) then follows it; never rejects. */
   async start(): Promise<void> {
     if (this.running) return;
     this.running = true;
@@ -170,16 +170,27 @@ export class Tailer {
     await this.check();
   }
 
-  /** Un controle complet (stat, drain, bascule, troncature, indexation), serialise. Ne rejette jamais. */
+  /** One full check (stat, drain, switch, truncation, indexing), serialized. Never rejects. */
   check(): Promise<void> {
     const run = this.queue.then(() => this.doCheck());
     this.queue = run;
     return run;
   }
 
-  /** Lignes [first, first+count) en numerotation globale ; les segments illisibles sont sautes. */
+  /** Lines [first, first+count) in global numbering; unreadable segments are skipped. */
   async getLines(first: number, count: number): Promise<NumberedLine[]> {
+    // A read that races a truncation / archive switch is retried after a check() has reconciled the
+    // segments; lines are never silently dropped for a segment that is (or becomes) readable.
+    for (let attempt = 0; ; attempt++) {
+      const { lines, dropped } = await this.readLines(first, count);
+      if (!dropped || attempt >= 3 || !this.running) return lines;
+      await this.check();
+    }
+  }
+
+  private async readLines(first: number, count: number): Promise<{ lines: NumberedLine[]; dropped: boolean }> {
     const out: NumberedLine[] = [];
+    let dropped = false;
     const end = first + count;
     for (const seg of [...this.segs]) {
       const start = seg.startRow;
@@ -195,15 +206,16 @@ export class Tailer {
         // The live file may have been truncated while we read: offsets then point into new content.
         // Drop those lines (the next check() reconciles) rather than return the wrong text.
         if (seg === this.cur && !(await this.anchorMatches(seg))) {
-          void this.check();
+          dropped = true;
           continue;
         }
         for (const line of read) out.push({ ...line, lineNo: line.lineNo + start });
       } catch {
-        // fichier modifie sous nos pieds (troncature en cours) : le prochain check reconcilie
+        // file modified under our feet (truncation in progress) or source closed by a switch
+        dropped = true;
       }
     }
-    return out;
+    return { lines: out, dropped };
   }
 
   async stop(): Promise<void> {
@@ -235,7 +247,7 @@ export class Tailer {
       try {
         listener(event);
       } catch {
-        // un abonne defaillant ne doit pas casser le suivi
+        // a failing subscriber must not break the following
       }
     }
   }
@@ -284,7 +296,7 @@ export class Tailer {
       const watcher = watch(dirname(this.opts.path), { persistent: false }, (type, filename) => {
         if (!this.running) return;
         if (type === "rename") {
-          this.task?.poke(); // creation / suppression / renommage : toujours
+          this.task?.poke(); // creation / deletion / rename: always
         } else if (!filename || String(filename) === target) {
           if (Date.now() - this.lastCheckAt >= WATCH_MIN_SPACING_MS) this.task?.poke();
         }
@@ -295,7 +307,7 @@ export class Tailer {
       });
       this.watcher = watcher;
     } catch {
-      // partage reseau, dossier absent : le polling suffit
+      // network share, missing directory: polling is enough
     }
   }
 
@@ -324,7 +336,7 @@ export class Tailer {
     const cur = this.cur;
 
     if (!st || target === undefined) {
-      // entre rename et create, ou apres suppression : l'ancien handle reste lisible, on le vide encore
+      // between rename and create, or after deletion: the old handle stays readable, keep draining it
       if (cur) await this.drain(cur);
       this.phaseValue = "missing";
       this.setState("missing");
@@ -337,7 +349,7 @@ export class Tailer {
     const sameFile = target === cur.path && (st.ino === 0n || st.ino.toString() === cur.identity.ino);
     if (!sameFile) {
       this.phaseValue = "draining";
-      await this.drain(cur); // T-04b : aucune ligne perdue avant la bascule
+      await this.drain(cur); // T-04b: no line lost before the switch
       this.phaseValue = "switching";
       this.pendingRoll = await this.classifyRoll(cur, target);
       await this.openSegment(target);
@@ -358,7 +370,7 @@ export class Tailer {
       return;
     }
     if (index.scannedBytes === 0 && size > 0 && !this.opts.encoding) {
-      // fichier vide a l'ouverture : l'encodage n'a pas pu etre detecte
+      // file was empty when opened: the encoding could not be detected
       const sample = await source.readAt(0, 4096, { cache: false });
       index = seg.index = this.newIndex(source, detectEncoding(sample));
     }
@@ -374,7 +386,7 @@ export class Tailer {
     }
   }
 
-  /** Lit l'ancien handle jusqu'a EOF (appendFrom jusqu'a stabilite). */
+  /** Reads the old handle up to EOF (appendFrom until stable). */
   private async drain(seg: Segment): Promise<void> {
     const index = seg.index;
     if (!seg.readable || !index) return;
@@ -398,7 +410,7 @@ export class Tailer {
     seg.anchor = seg.source && len > 0 ? await seg.source.readAt(scanned - len, len, { cache: false }) : Buffer.alloc(0);
   }
 
-  /** L'empreinte relue a chaque tick doit etre identique a celle prise apres la derniere lecture. */
+  /** The fingerprint re-read at each tick must equal the one taken after the last read. */
   private async anchorMatches(seg: Segment): Promise<boolean> {
     const len = seg.anchor.length;
     if (len === 0 || !seg.source) return true;
@@ -406,7 +418,7 @@ export class Tailer {
     return now.length === len && now.equals(seg.anchor);
   }
 
-  /** Cherche dans le dossier le fichier renomme (meme identite) pour renseigner `previous`. */
+  /** Looks in the directory for the renamed file (same identity) to fill in `previous`. */
   private async classifyRoll(old: Segment, target: string): Promise<{ reason: RolledReason; previous?: string }> {
     if (target !== old.path) return { reason: "new-file", previous: old.path };
     const found = await this.findByIdentity(old);
@@ -424,20 +436,20 @@ export class Tailer {
         try {
           if ((await stat(full, { bigint: true })).ino.toString() === old.identity.ino) return full;
         } catch {
-          // disparu entre-temps
+          // vanished meanwhile
         }
       }
     } catch {
-      // dossier illisible
+      // unreadable directory
     }
     return undefined;
   }
 
   /**
-   * Troncature (taille < offset, ou ancre modifiee). Si une archive coherente avec l'ancre existe
-   * (copytruncate), le segment courant est re-pointe dessus et rattrape `[offset, fin]` : ces lignes
-   * sont AJOUTEES A LA FIN DU SEGMENT PRECEDENT (rows + rolled arrivent dans cet ordre). Sinon le
-   * contenu est perdu : segment illisible. Dans les deux cas un nouveau segment demarre sur le chemin.
+   * Truncation (size < offset, or anchor changed). If an archive consistent with the anchor exists
+   * (copytruncate), the current segment is re-pointed at it and catches up on `[offset, end]`: those
+   * lines are APPENDED TO THE END OF THE PREVIOUS SEGMENT (rows then rolled are emitted in that
+   * order). Otherwise the content is lost: unreadable segment. Either way a new segment starts on the path.
    */
   private async truncate(seg: Segment): Promise<void> {
     this.phaseValue = "truncated";
@@ -465,7 +477,7 @@ export class Tailer {
       await this.freeze(seg);
     }
     this.pendingRoll = { reason: "truncate", ...(previous ? { previous } : {}) };
-    this.cur = undefined; // si le chemin a disparu entre-temps, le prochain tick rouvre un segment
+    this.cur = undefined; // if the path vanished meanwhile, the next tick reopens a segment
     await this.openSegment(seg.path);
   }
 
@@ -499,7 +511,7 @@ export class Tailer {
           const st = await stat(full);
           if (st.isFile() && st.size >= oldScanned) candidates.push({ path: full, mtime: st.mtimeMs });
         } catch {
-          // disparu entre-temps
+          // vanished meanwhile
         }
       }
     } catch {
@@ -513,14 +525,14 @@ export class Tailer {
         const bytes = await source.readAt(anchorStart, anchor.length, { cache: false });
         if (bytes.length === anchor.length && bytes.equals(anchor)) return { path: candidate.path, source };
       } catch {
-        // illisible : candidat suivant
+        // unreadable: next candidate
       }
       await source?.close().catch(() => {});
     }
     return undefined;
   }
 
-  /** Ouvre `target` comme nouveau segment (premier fichier, rolling ou fichier reapparu). */
+  /** Opens `target` as a new segment (first file, rolling or reappeared file). */
   private async openSegment(target: string): Promise<void> {
     const first = this.segs.length === 0;
     let source: FileSource;
@@ -558,7 +570,7 @@ export class Tailer {
       await this.refreshAnchor(seg);
       const roll = first ? undefined : (this.pendingRoll ?? { reason: "new-file" as const });
       this.pendingRoll = undefined;
-      this.flushRows(); // `rows` precedent le rolling ne doit pas compter les lignes du nouveau segment
+      this.flushRows(); // the `rows` preceding the rolling must not count the new segment's lines
       this.segs.push(seg);
       this.cur = seg;
       await this.enforceRetention();

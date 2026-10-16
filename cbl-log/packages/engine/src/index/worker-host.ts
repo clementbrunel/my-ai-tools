@@ -1,11 +1,10 @@
-// Cote thread principal de l'indexation en worker_thread.
+// Main-thread side of worker_thread indexing.
 //
-// Strategie : le worker ouvre son propre fd, lit par blocs de 1 Mio, et POSTE des lots de points de
-// controle (Float64Array transferee) + l'etat du scanner toutes les ~100 ms. Le thread principal
-// les copie dans son CheckpointStore. Pas de SharedArrayBuffer partage entre les deux threads : un
-// SAB extensible ne peut pas etre agrandi de facon fiable depuis deux threads, et les lots coutent
-// peu (10 Go = ~9 Mo de points au total). Les lots servent aussi de progression et rendent l'index
-// utilisable pendant l'indexation.
+// Strategy: the worker opens its own fd, reads in 1 MiB blocks, and POSTs batches of checkpoints
+// (transferred Float64Array) + the scanner state every ~100 ms. The main thread copies them into
+// its CheckpointStore. No SharedArrayBuffer is shared between the two threads: a growable SAB
+// cannot be grown reliably from two threads, and batches are cheap (10 GB = ~9 MB of checkpoints
+// in total). Batches also serve as progress reports and make the index usable while indexing.
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { Worker } from "node:worker_threads";
@@ -23,14 +22,14 @@ export interface IndexProgress {
 }
 
 export interface IndexBatch {
-  /** Indice du premier point de controle de `checkpoints`. */
+  /** Index of the first checkpoint in `checkpoints`. */
   firstCheckpoint: number;
   checkpoints: Float64Array;
   state: IndexState;
 }
 
 export interface WorkerIndexOptions {
-  /** Reprise : etat d'un index deja entame. Absent = depuis le debut du fichier. */
+  /** Resume: state of an index already under way. Absent = from the start of the file. */
   start?: IndexState;
   chunkSize?: number;
   progressIntervalMs?: number;
@@ -40,10 +39,10 @@ export interface WorkerIndexOptions {
 }
 
 export interface WorkerIndexResult {
-  /** null si le fichier est vide (ou ne contient qu'un debut de BOM). */
+  /** null if the file is empty (or only holds the start of a BOM). */
   state: IndexState | null;
   firstCheckpoint: number;
-  /** Tous les points de controle produits par ce run (concatenation des lots). */
+  /** All checkpoints produced by this run (concatenation of the batches). */
   checkpoints: Float64Array;
 }
 
@@ -61,20 +60,20 @@ export type WorkerMessage =
   | { type: "error"; code: string; message: string };
 
 /**
- * Le worker est du JS compile (dist/index/indexer-worker.js). Sous vitest le code tourne depuis
- * src/ en TypeScript, où ce fichier n'existe pas : on retombe sur la version compilee, que le script
- * `test` du moteur construit au prealable.
+ * The worker is compiled JS (dist/index/indexer-worker.js). Under vitest the code runs from
+ * src/ as TypeScript, where this file does not exist: we fall back to the compiled version, which
+ * the engine's `test` script builds beforehand.
  */
 function workerUrl(): URL {
   const sibling = new URL("./indexer-worker.js", import.meta.url);
   if (existsSync(fileURLToPath(sibling))) return sibling;
   const built = new URL("../../dist/index/indexer-worker.js", import.meta.url);
   if (existsSync(fileURLToPath(built))) return built;
-  throw new Error("indexer-worker.js introuvable : lancer `npm run build` dans packages/engine");
+  throw new Error("indexer-worker.js not found: run `npm run build` in packages/engine");
 }
 
 function abortError(): Error {
-  const err = new Error("Indexation annulee");
+  const err = new Error("Indexing aborted");
   err.name = "AbortError";
   return err;
 }
@@ -130,7 +129,7 @@ export function indexInWorker(path: string, encoding: Encoding, options: WorkerI
     });
     worker.on("error", (err) => finish(() => reject(new SourceError("UNKNOWN", path, err.message, { cause: err }))));
     worker.on("exit", (code) => {
-      if (code !== 0) finish(() => reject(new SourceError("UNKNOWN", path, `Worker d'indexation arrete (code ${code})`)));
+      if (code !== 0) finish(() => reject(new SourceError("UNKNOWN", path, `Indexing worker stopped (code ${code})`)));
     });
   });
 }

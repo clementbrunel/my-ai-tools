@@ -24,8 +24,8 @@ async function texts(index: LineIndex): Promise<string[]> {
   return (await index.getLines(0, index.lineCount + 5)).map((l) => l.text);
 }
 
-describe("LineIndex : cas simples", () => {
-  it("fichier vide : 0 ligne", async () => {
+describe("LineIndex: simple cases", () => {
+  it("empty file: 0 lines", async () => {
     const { index } = await open("");
     await index.appendFrom();
     expect(index.lineCount).toBe(0);
@@ -33,7 +33,7 @@ describe("LineIndex : cas simples", () => {
     expect(await index.getLines(0, 10)).toEqual([]);
   });
 
-  it("'a\\n' = 1 ligne fermee ; 'a' = 1 ligne ouverte", async () => {
+  it("'a\\n' = 1 closed line; 'a' = 1 open line", async () => {
     const closed = await open("a\n");
     await closed.index.appendFrom();
     expect(closed.index.lineCount).toBe(1);
@@ -47,13 +47,13 @@ describe("LineIndex : cas simples", () => {
     expect(opened.index.indexedBytes).toBe(0);
   });
 
-  it("BOM seul : 0 ligne", async () => {
+  it("BOM only: 0 lines", async () => {
     const { index } = await open(bomFor("utf-8"));
     await index.appendFrom();
     expect(index.lineCount).toBe(0);
   });
 
-  it("CRLF, CR et LF melanges, lignes vides comprises", async () => {
+  it("mixed CRLF, CR and LF, empty lines included", async () => {
     const { index } = await open("one\r\ntwo\rthree\n\nfive\r\n\r\nsept");
     await index.appendFrom();
     expect(await texts(index)).toEqual(["one", "two", "three", "", "five", "", "sept"]);
@@ -61,7 +61,7 @@ describe("LineIndex : cas simples", () => {
     expect(index.isLastLineOpen).toBe(true);
   });
 
-  it("\\r\\n coupe a chaque position de chunk", async () => {
+  it("\\r\\n split at every chunk position", async () => {
     const content = "aa\r\nbb\r\ncc\rdd\r\n";
     for (let chunk = 1; chunk <= content.length; chunk++) {
       const { index } = await open(content, "utf-8", chunk);
@@ -70,7 +70,7 @@ describe("LineIndex : cas simples", () => {
     }
   });
 
-  it("getLines hors bornes", async () => {
+  it("getLines out of bounds", async () => {
     const { index } = await open("a\nb\n");
     await index.appendFrom();
     expect((await index.getLines(1, 100)).map((l) => [l.lineNo, l.text])).toEqual([[1, "b"]]);
@@ -86,7 +86,7 @@ describe("LineIndex : cas simples", () => {
   });
 });
 
-describe("LineIndex : UTF-16", () => {
+describe("LineIndex: UTF-16", () => {
   it.each<Encoding>(["utf-16le", "utf-16be"])("avec BOM (%s)", async (enc) => {
     const content = Buffer.concat([bomFor(enc), encode("alpha\r\nbeta\nੁgamma\rdelta", enc)]);
     const { index } = await open(content, enc);
@@ -97,8 +97,8 @@ describe("LineIndex : UTF-16", () => {
   });
 });
 
-describe("LineIndex : ligne ouverte et croissance", () => {
-  it("la derniere ligne est re-emise quand elle grandit", async () => {
+describe("LineIndex: open line and growth", () => {
+  it("the last line is re-emitted when it grows", async () => {
     const { path, index } = await open("one\ntw");
     await index.appendFrom();
     expect(await texts(index)).toEqual(["one", "tw"]);
@@ -117,7 +117,7 @@ describe("LineIndex : ligne ouverte et croissance", () => {
     expect(index.indexedBytes).toBe(14);
   });
 
-  it("\\r en fin de fichier puis \\n ajoute apres : pas de ligne fantome", async () => {
+  it("\\r at end of file then \\n appended later: no phantom line", async () => {
     const { path, index } = await open("a\r");
     await index.appendFrom();
     expect(await texts(index)).toEqual(["a"]);
@@ -126,7 +126,7 @@ describe("LineIndex : ligne ouverte et croissance", () => {
     expect(await texts(index)).toEqual(["a", "b"]);
   });
 
-  it("\\r en fin de fichier puis texte : \\r etait bien un terminateur", async () => {
+  it("\\r at end of file then text: \\r was indeed a terminator", async () => {
     const { path, index } = await open("a\r");
     await index.appendFrom();
     appendFileSync(path, "b");
@@ -134,7 +134,7 @@ describe("LineIndex : ligne ouverte et croissance", () => {
     expect(await texts(index)).toEqual(["a", "b"]);
   });
 
-  it("UTF-16 : append coupe au milieu d'une unite", async () => {
+  it("UTF-16: append cut in the middle of a unit", async () => {
     const full = Buffer.concat([bomFor("utf-16le"), encode("ab\ncd\n", "utf-16le")]);
     const { path, index } = await open(full.subarray(0, 7), "utf-16le");
     await index.appendFrom();
@@ -143,7 +143,7 @@ describe("LineIndex : ligne ouverte et croissance", () => {
     expect(await texts(index)).toEqual(["ab", "cd"]);
   });
 
-  it("troncature detectee, reset puis reindexation", async () => {
+  it("truncation detected, reset then reindexing", async () => {
     const { path, index } = await open("one\ntwo\nthree\n");
     await index.appendFrom();
     truncateSync(path, 4);
@@ -155,8 +155,8 @@ describe("LineIndex : ligne ouverte et croissance", () => {
   });
 });
 
-describe("LineIndex : offsetOf et points de controle", () => {
-  it("bords des points de controle (63, 64, 65, 128)", async () => {
+describe("LineIndex: offsetOf and checkpoints", () => {
+  it("checkpoint boundaries (63, 64, 65, 128)", async () => {
     const lines = Array.from({ length: 300 }, (_, i) => `ligne ${i} ${"x".repeat(i % 17)}`);
     const offsets: number[] = [];
     let pos = 0;
@@ -171,10 +171,10 @@ describe("LineIndex : offsetOf et points de controle", () => {
       expect(await index.offsetOf(n)).toBe(offsets[n]);
     }
     expect((await index.getLines(60, 10)).map((l) => l.text)).toEqual(lines.slice(60, 70));
-    expect(index.checkpoints.count).toBe(5); // lignes 0, 64, 128, 192, 256
+    expect(index.checkpoints.count).toBe(5); // lines 0, 64, 128, 192, 256
   });
 
-  it("budget memoire : 70 M lignes ~ 9 Mo de points de controle", () => {
+  it("memory budget: 70 M lines ~ 9 MB of checkpoints", () => {
     const store = new CheckpointStore();
     const count = Math.ceil(70_000_000 / 64);
     store.set(count - 1, 123456789012);
@@ -184,8 +184,8 @@ describe("LineIndex : offsetOf et points de controle", () => {
   });
 });
 
-describe("LineIndex : lignes geantes", () => {
-  it("affichage plafonne a 64 Ko, offsets exacts", async () => {
+describe("LineIndex: giant lines", () => {
+  it("display capped at 64 KB, exact offsets", async () => {
     const giant = "g".repeat(200_000);
     const content = `avant\n${giant}\r\napres\n`;
     for (const chunk of [undefined, 50_000, 4096]) {
@@ -200,7 +200,7 @@ describe("LineIndex : lignes geantes", () => {
     }
   });
 
-  it("une ligne de exactement 64 Ko n'est pas tronquee", async () => {
+  it("a line of exactly 64 KB is not truncated", async () => {
     const { index } = await open("x".repeat(MAX_LINE_BYTES) + "\r\nfin\n");
     await index.appendFrom();
     const [first] = await index.getLines(0, 1);
@@ -209,10 +209,10 @@ describe("LineIndex : lignes geantes", () => {
   });
 });
 
-describe("LineIndex : coherence avec un split naif (fichiers aleatoires)", () => {
+describe("LineIndex: consistency with a naive split (random files)", () => {
   const encodings: Encoding[] = ["utf-8", "utf-16le", "utf-16be", "windows-1252"];
   for (const enc of encodings) {
-    it(`seed 1..25 en ${enc}`, { timeout: 30_000 }, async () => {
+    it(`seed 1..25 in ${enc}`, { timeout: 30_000 }, async () => {
       for (let seed = 1; seed <= 25; seed++) {
         const rand = mulberry32(seed * 7919);
         const gen = generateFile(rand, enc, { bom: enc !== "windows-1252" && rand() < 0.7 });
@@ -222,7 +222,7 @@ describe("LineIndex : coherence avec un split naif (fichiers aleatoires)", () =>
         const ctx = `seed ${seed}, chunk ${chunk}`;
         expect(index.lineCount, ctx).toBe(gen.lines.length);
         expect((await texts(index)), ctx).toEqual(gen.lines);
-        // fenetres aleatoires et offsets
+        // random windows and offsets
         for (let k = 0; k < 5 && gen.lines.length > 0; k++) {
           const first = Math.floor(rand() * gen.lines.length);
           const count = 1 + Math.floor(rand() * 80);
@@ -236,7 +236,7 @@ describe("LineIndex : coherence avec un split naif (fichiers aleatoires)", () =>
     });
   }
 
-  it("indexation incrementale par morceaux == indexation d'un coup", async () => {
+  it("incremental indexing in pieces == indexing in one go", async () => {
     for (let seed = 1; seed <= 20; seed++) {
       const rand = mulberry32(seed * 104729);
       const enc: Encoding = seed % 2 ? "utf-8" : "utf-16le";
