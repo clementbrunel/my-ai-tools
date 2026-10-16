@@ -231,13 +231,13 @@ export const CATALOGUE: CatalogueTool[] = [
   {
     id: "codeburn",
     name: "CodeBurn",
-    tagline: "Suivi des coûts et de la consommation de tokens sur 36 outils de code IA (Claude Code, Cursor, Codex, Gemini...)",
+    tagline: "Suivi des coûts et de la consommation de tokens sur 42 outils de code IA (Claude Code, Cursor, Codex, Gemini...)",
     why: "Utile pour voir où part réellement l'argent : répartition par modèle, projet et type de tâche, distinction entre overhead de conversation et travail de code productif, détection des patterns gaspilleurs. Complémentaire aux outils de réduction de tokens — CodeBurn mesure, il ne compresse pas.",
     steps: [
       {
         label: "Installer le package npm",
         command: "npm install -g codeburn",
-        manual: "ou via Homebrew : brew install codeburn",
+        manual: "Nécessite Node.js 22.13+. Ou via Homebrew : brew install codeburn",
       },
       {
         label: "Ajouter comme serveur MCP (optionnel)",
