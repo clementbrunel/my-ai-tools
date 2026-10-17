@@ -1,4 +1,4 @@
-import type { Level, Theme } from "@cbl-log/shared";
+import type { Level } from "@cbl-log/shared";
 import type { TabState } from "./tabs-reducer";
 
 export function formatBytes(bytes: number): string {
@@ -13,16 +13,15 @@ export function formatBytes(bytes: number): string {
   return `${value.toFixed(value >= 100 ? 0 : 1)} ${units[unit]}`;
 }
 
-const THEME_LABELS: Record<Theme, string> = { system: "système", light: "clair", dark: "sombre" };
-
 interface Props {
   tab: TabState;
   onToggleFollow(): void;
   onClear(): void;
   onUnclear(): void;
   onEditRules(): void;
-  theme: Theme;
-  onCycleTheme(): void;
+  /** Dark theme in force (starts from the system setting, then the user's choice). */
+  dark: boolean;
+  onToggleTheme(): void;
   /** Highlighting profiles: the user's choice for this tab ("auto" = follow the detected format). */
   profiles: readonly { id: string; name: string }[];
   profileChoice: string;
@@ -34,7 +33,7 @@ interface Props {
   level?: Level | undefined;
 }
 
-export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules, theme, onCycleTheme, formatName, level, profiles, profileChoice, autoProfileName, onProfileChange }: Props) {
+export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules, dark, onToggleTheme, formatName, level, profiles, profileChoice, autoProfileName, onProfileChange }: Props) {
   return (
     <footer className="statusbar">
       <span className="status-path" title={tab.info.path}>
@@ -42,7 +41,7 @@ export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules
       </span>
       <span>{tab.info.encoding}</span>
       <span title="Format de log détecté">{formatName ?? "brut"}</span>
-      {level && <span className={`level-badge lvl-text-${level}`}>{level.toUpperCase()}</span>}
+      {level && <span title="Niveau de la dernière ligne affichée" className={`level-badge lvl-text-${level}`}>{level.toUpperCase()}</span>}
       <span>{formatBytes(tab.info.sizeBytes)}</span>
       <span>{tab.total.toLocaleString("fr-FR")} lignes</span>
       {tab.indexing !== undefined && <span>Indexation {Math.round(tab.indexing * 100)} %</span>}
@@ -56,8 +55,9 @@ export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules
           Effacer
         </button>
       )}
-      <button type="button" className="link" onClick={onCycleTheme} title="Changer de thème (système / clair / sombre)">
-        Thème : {THEME_LABELS[theme]}
+      <button type="button" role="switch" aria-checked={dark} className={dark ? "theme-switch dark" : "theme-switch"} onClick={onToggleTheme} title="Basculer entre le thème clair et le thème sombre">
+        <span className="knob" aria-hidden="true" />
+        {dark ? "Sombre" : "Clair"}
       </button>
       <label className="profile-select" title="Profil de surlignage de cet onglet">
         Profil :{" "}

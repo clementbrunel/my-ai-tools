@@ -6,10 +6,12 @@ import { insertAt } from "../search/regex-help";
 import { createRule, moveRule, removeRule, updateRule } from "./rules-edit";
 
 interface Props {
-  /** All profiles, and the one being edited. */
+  /** Profiles, the tab's choice ("auto" or an id) and what "auto" means for this tab: the editor edits the tab's profile. */
   sets: readonly RuleSet[];
   selectedId: string;
-  onSelect(id: string): void;
+  choice: string;
+  autoName: string;
+  onChoose(choice: string): void;
   /** Log formats a profile can be proposed for. */
   formatOptions: readonly { id: string; name: string }[];
   onToggleFormat(formatId: string): void;
@@ -23,7 +25,7 @@ interface Props {
 }
 
 /** Modal editor: edits apply to the open tabs immediately; the parent persists them. */
-export function RulesEditor({ sets, selectedId, onSelect, formatOptions, onToggleFormat, onCreate, rules, errors, onChange, onReset, onClose }: Props) {
+export function RulesEditor({ sets, selectedId, choice, autoName, onChoose, formatOptions, onToggleFormat, onCreate, rules, errors, onChange, onReset, onClose }: Props) {
   const selected = sets.find((s) => s.id === selectedId);
   const [naming, setNaming] = useState(false);
   const [newName, setNewName] = useState("");
@@ -68,9 +70,10 @@ export function RulesEditor({ sets, selectedId, onSelect, formatOptions, onToggl
           </button>
         </header>
         <div className="profile-bar">
-          <label>
-            Profil
-            <select value={selectedId} onChange={(ev) => onSelect(ev.target.value)}>
+          <label title="Même réglage que « Profil » dans la barre d'état : c'est le profil de l'onglet affiché">
+            Profil de cet onglet
+            <select value={choice} onChange={(ev) => onChoose(ev.target.value)}>
+              <option value="auto">Auto ({autoName})</option>
               {sets.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name || s.id}
@@ -105,7 +108,7 @@ export function RulesEditor({ sets, selectedId, onSelect, formatOptions, onToggl
             ))}
           </span>
         </div>
-        <p className="hint">La première règle « ligne » qui correspond colore la ligne ; pour les fragments, la règle placée plus haut l'emporte.</p>
+        <p className="hint">Les règles ci-dessous sont celles du profil <strong>{selected?.name || selectedId}</strong>, appliqué à l'onglet affiché. La première règle « ligne » qui correspond colore la ligne ; pour les fragments, la règle placée plus haut l'emporte.</p>
         <div className="rules-sample">
           <label>
             Ligne d'exemple (collez une vraie ligne de log pour voir ce que vos règles en font)

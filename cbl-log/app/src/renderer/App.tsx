@@ -19,7 +19,6 @@ import {
   type SessionTab,
   type Settings,
   type TabId,
-  type Theme,
 } from "@cbl-log/shared";
 import { subscribeEngine } from "./engine/client";
 import type { RpcClient } from "./engine/rpc-client";
@@ -49,8 +48,6 @@ export function App() {
   stateRef.current = state;
   const [notice, setNotice] = useState<{ text: string; isError: boolean } | undefined>();
   const [ruleSets, setRuleSets] = useState<RuleSet[]>(createBuiltinRuleSets);
-  /** Profile shown in the rules editor (undefined = the active tab's). */
-  const [editingSetId, setEditingSetId] = useState<string | undefined>();
   const [rulesOpen, setRulesOpen] = useState(false);
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [userFormats, setUserFormats] = useState<LogFormat[]>([]);
@@ -266,13 +263,24 @@ export function App() {
       if (warning) setNotice({ text: `Réglages ignorés : ${warning}`, isError: true });
     });
   }, []);
-  const cycleTheme = useCallback(() => {
-    const order: Theme[] = ["system", "light", "dark"];
+  // The theme starts as the system's (settings.theme === "system"); the switch then pins light or dark.
+  // prefers-color-scheme follows Electron's nativeTheme, so it tells the theme in force in every case.
+  const [dark, setDark] = useState(() => matchMedia("(prefers-color-scheme: dark)").matches);
+  const darkRef = useRef(dark);
+  darkRef.current = dark;
+  useEffect(() => {
+    const query = matchMedia("(prefers-color-scheme: dark)");
+    const onChange = (): void => setDark(query.matches);
+    query.addEventListener("change", onChange);
+    return () => query.removeEventListener("change", onChange);
+  }, []);
+  const toggleTheme = useCallback(() => {
     setSettings((prev) => {
-      const next: Settings = { ...prev, theme: order[(order.indexOf(prev.theme) + 1) % order.length]! };
+      const next: Settings = { ...prev, theme: darkRef.current ? "light" : "dark" };
       void window.cblLog.saveSettings(next).catch(() => undefined);
       return next;
     });
+    setDark(!darkRef.current); // immediate; the media query confirms it once the main process applied it
   }, []);
 
   // Rules: loaded once, edited live, saved shortly after the last edit.
@@ -320,14 +328,14 @@ export function App() {
   }, []);
 
   const createRuleSet = useCallback(
-    (name: string, base: RuleSet | undefined) => {
+    (name: string, base: RuleSet | undefined, onCreated?: (id: string) => void) => {
       const slug = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "profil";
       let id = slug;
       for (let n = 2; ruleSets.some((s) => s.id === id); n++) id = `${slug}-${n}`;
       const created: RuleSet = { schemaVersion: 1, id, name, formats: [], rules: (base ?? createDefaultRuleSet()).rules.map((r) => ({ ...r })) };
       setRuleSets((prev) => [...prev, created]);
       void window.cblLog.saveRuleSet(created).catch(() => undefined);
-      setEditingSetId(id);
+      onCreated?.(id);
     },
     [ruleSets],
   );
@@ -485,7 +493,12 @@ export function App() {
   const onNotice = useCallback((text: string, isError = false) => setNotice({ text, isError }), []);
 
   const runtime = activeId ? runtimes.current.get(activeId) : undefined;
-  const editedSet = ruleSets.find((s) => s.id === editingSetId) ?? activeRuleSet ?? createWebSphereRuleSet();
+  // the rules editor works on the profile in force for the active tab
+  const editedSet = activeRuleSet ?? createWebSphereRuleSet();
+  const profileChoice = active?.ruleSetId && ruleSets.some((s) => s.id === active.ruleSetId) ? active.ruleSetId : "auto";
+  const chooseProfile = (choice: string): void => {
+    if (active) dispatch({ type: "ruleSetChosen", tabId: active.info.tabId, ruleSetId: choice === "auto" ? undefined : choice });
+  };
   const autoSet = autoRuleSet(ruleSets, active?.formatId);
   const activeFormat = active?.formatId ? formats.find((f) => f.format.id === active.formatId) : undefined;
 
@@ -500,7 +513,9 @@ export function App() {
         <RulesEditor
           sets={ruleSets}
           selectedId={editedSet.id}
-          onSelect={setEditingSetId}
+          choice={profileChoice}
+          autoName={autoSet?.name || autoSet?.id || "—"}
+          onChoose={chooseProfile}
           formatOptions={formats.map((f) => ({ id: f.format.id, name: f.format.name || f.format.id }))}
           onToggleFormat={(formatId) =>
             editRuleSet(editedSet.id, (set) => ({
@@ -508,7 +523,7 @@ export function App() {
               formats: set.formats.includes(formatId) ? set.formats.filter((f) => f !== formatId) : [...set.formats, formatId],
             }))
           }
-          onCreate={(name) => createRuleSet(name, editedSet)}
+          onCreate={(name) => createRuleSet(name, editedSet, (id) => chooseProfile(id))}
           rules={editedSet.rules}
           errors={compiled.errors}
           onChange={(rules) => editRuleSet(editedSet.id, (set) => ({ ...set, rules }))}
@@ -573,14 +588,14 @@ export function App() {
             onClear={() => dispatch({ type: "clear", tabId: active.info.tabId })}
             onUnclear={() => dispatch({ type: "unclear", tabId: active.info.tabId })}
             onEditRules={() => setRulesOpen(true)}
-            theme={settings.theme}
+            dark={dark}
             profiles={ruleSets.map((s) => ({ id: s.id, name: s.name }))}
-            profileChoice={active.ruleSetId && ruleSets.some((s) => s.id === active.ruleSetId) ? active.ruleSetId : "auto"}
+            profileChoice={profileChoice}
             autoProfileName={autoSet?.name || autoSet?.id || "—"}
-            onProfileChange={(choice) => dispatch({ type: "ruleSetChosen", tabId: active.info.tabId, ruleSetId: choice === "auto" ? undefined : choice })}
+            onProfileChange={chooseProfile}
             formatName={activeFormat?.format.name || activeFormat?.format.id}
             level={viewLevel}
-            onCycleTheme={cycleTheme}
+            onToggleTheme={toggleTheme}
           />
         </>
       )}

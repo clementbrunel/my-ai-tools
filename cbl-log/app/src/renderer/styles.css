@@ -592,3 +592,29 @@ body {
 .profile-select {
   white-space: nowrap;
 }
+
+.theme-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px 0 2px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.theme-switch .knob {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #f29900;
+  transition: transform 0.15s;
+}
+
+.theme-switch.dark .knob {
+  background: #8ab4f8;
+  transform: translateX(0);
+}
