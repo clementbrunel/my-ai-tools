@@ -133,7 +133,10 @@ body {
 
 .viewport {
   flex: 1;
-  overflow: auto;
+  overflow-y: auto;
+  /* Always reserve the horizontal scrollbar: it would otherwise appear and disappear as long lines
+     scroll in and out of the window, resizing the viewport (and flickering) at every toggle. */
+  overflow-x: scroll;
   position: relative;
   outline: none;
   font: 13px/18px Consolas, "Courier New", monospace;
@@ -147,7 +150,11 @@ body {
 
 .viewport-window {
   position: absolute;
+  top: 0;
   left: 0;
+  /* own compositor layer, opaque so that text keeps its sub-pixel antialiasing while scrolling */
+  will-change: transform;
+  background: var(--bg);
   min-width: 100%;
   width: max-content;
 }
@@ -155,6 +162,7 @@ body {
 .log-row {
   display: flex;
   white-space: pre;
+  contain: layout paint;
 }
 
 .log-gutter {
