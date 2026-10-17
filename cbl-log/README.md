@@ -18,7 +18,7 @@ Monorepo npm workspaces : `packages/shared` (types + schémas zod), `packages/en
 ```bash
 cd cbl-log
 npm install        # installe les dépendances (npm ci en CI)
-npm run dev        # lance l'app Electron en mode dev (electron-vite)
+npm run dev        # reconstruit shared + engine puis lance l'app Electron en mode dev (electron-vite)
 npm run typecheck  # tsc --noEmit sur tous les workspaces
 npm test           # vitest (moteur)
 npm run build      # build shared, engine puis app (sortie app/out)

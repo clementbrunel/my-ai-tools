@@ -5,7 +5,7 @@
   "workspaces": ["packages/*", "app"],
   "scripts": {
     "postinstall": "node scripts/install-electron.mjs",
-    "dev": "npm run dev -w @cbl-log/app",
+    "dev": "npm run build -w @cbl-log/shared && npm run build -w @cbl-log/engine && npm run dev -w @cbl-log/app",
     "package": "npm run build && electron-builder --config electron-builder.yml --win",
     "package:dir": "npm run build && electron-builder --config electron-builder.yml --win --dir",
     "bench": "npm run bench -w @cbl-log/engine --",
