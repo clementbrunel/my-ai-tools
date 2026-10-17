@@ -57,7 +57,8 @@ export function App() {
   /** Last session written (or loaded): reopened if the engine process restarts. */
   const lastSessionObj = useRef<Session | undefined>(undefined);
   const restoreRef = useRef<(session: Session) => Promise<void>>(async () => {});
-  const [searchOpen, setSearchOpen] = useState(false);
+  /** Incremented by Ctrl+F: the search field takes the focus. */
+  const [searchFocus, setSearchFocus] = useState(0);
   const [reveal, setReveal] = useState<{ row: number; nonce: number } | undefined>();
   const revealNonce = useRef(0);
   const viewRow = useRef(0);
@@ -429,10 +430,6 @@ export function App() {
     [active, withEngine],
   );
 
-  const closeSearch = useCallback(() => {
-    setSearchOpen(false);
-    if (activeId && active?.search) void runSearch(null);
-  }, [activeId, active?.search, runSearch]);
 
   // First results of a new search: jump to the first match after the current position.
   const status = active ? searchStatus(active) : undefined;
@@ -452,11 +449,11 @@ export function App() {
         closeTab(activeId);
       } else if (e.ctrlKey && e.key.toLowerCase() === "f" && activeId) {
         e.preventDefault();
-        setSearchOpen(true);
+        setSearchFocus((n) => n + 1);
       } else if (e.key === "F3" && activeId) {
         e.preventDefault();
         if (active?.search) void findHit(e.shiftKey ? "prev" : "next");
-        else setSearchOpen(true);
+        else setSearchFocus((n) => n + 1);
       } else if (e.ctrlKey && e.key.toLowerCase() === "h") {
         e.preventDefault();
         setRulesOpen(true);
@@ -547,17 +544,15 @@ export function App() {
       ) : (
         <>
           <TabBar tabs={state.tabs} activeId={activeId} onActivate={(tabId) => dispatch({ type: "activated", tabId })} onClose={closeTab} />
-          {searchOpen && (
-            <SearchBar
-              key={active.info.tabId}
-              initial={active.search}
-              status={status}
-              onQuery={(q) => void runSearch(q)}
-              onNext={() => void findHit("next")}
-              onPrev={() => void findHit("prev")}
-              onClose={closeSearch}
-            />
-          )}
+          <SearchBar
+            tabId={active.info.tabId}
+            initial={active.search}
+            status={status}
+            focusRequest={searchFocus}
+            onQuery={(q) => void runSearch(q)}
+            onNext={() => void findHit("next")}
+            onPrev={() => void findHit("prev")}
+          />
           {active.state !== "following" && (
             <div className={`banner banner-${active.state}`} role="status">
               {active.state === "missing" ? "Fichier absent, en attente…" : active.message ?? "Erreur de lecture du fichier."}
