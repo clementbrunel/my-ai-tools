@@ -1,8 +1,9 @@
 // Persistence of highlighting rule sets: one `<id>.json` file per set in the `rules` directory of the
 // user data folder. Electron-free so it can be tested; the directory is passed in.
-import { mkdir, readdir, readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { createDefaultRuleSet, parseRuleSet, type RuleSet } from "@cbl-log/shared";
+import { writeJsonAtomic } from "./json-file";
 
 export interface LoadedRuleSets {
   sets: RuleSet[];
@@ -37,12 +38,8 @@ export async function loadRuleSets(dir: string): Promise<LoadedRuleSets> {
   return { sets, warnings };
 }
 
-/** Writes a rule set atomically (temp file + rename). Throws for an unsafe id. */
-export async function saveRuleSet(dir: string, set: RuleSet): Promise<void> {
+/** Writes a rule set atomically. Returns the text written. Throws for an unsafe id. */
+export async function saveRuleSet(dir: string, set: RuleSet): Promise<string> {
   if (!SAFE_ID.test(set.id)) throw new Error(`Invalid rule set id: ${set.id}`);
-  await mkdir(dir, { recursive: true });
-  const target = join(dir, `${set.id}.json`);
-  const temp = `${target}.tmp`;
-  await writeFile(temp, `${JSON.stringify(set, null, 2)}\n`, "utf8");
-  await rename(temp, target);
+  return writeJsonAtomic(join(dir, `${set.id}.json`), set);
 }

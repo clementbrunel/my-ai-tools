@@ -52,6 +52,7 @@ export type TabsAction =
   | { type: "searchStarted"; tabId: TabId; query: SearchQuery; id: string | null }
   | { type: "searchHit"; tabId: TabId; row: number; ordinal: number | null }
   | { type: "searchStopped"; tabId: TabId }
+  | { type: "clearedTo"; tabId: TabId; row: number }
   | { type: "clear"; tabId: TabId }
   | { type: "unclear"; tabId: TabId }
   | { type: "follow"; tabId: TabId; follow: boolean }
@@ -139,6 +140,11 @@ export function tabsReducer(state: TabsState, action: TabsAction): TabsState {
       });
     case "clear":
       return updateTab(state, action.tabId, (t) => (t.clearedBefore === t.total ? t : { ...t, clearedBefore: t.total }));
+    case "clearedTo":
+      return updateTab(state, action.tabId, (t) => {
+        const row = Math.min(Math.max(0, action.row), t.total);
+        return t.clearedBefore === row ? t : { ...t, clearedBefore: row };
+      });
     case "unclear":
       return updateTab(state, action.tabId, (t) => (t.clearedBefore === 0 ? t : { ...t, clearedBefore: 0 }));
     case "follow":
