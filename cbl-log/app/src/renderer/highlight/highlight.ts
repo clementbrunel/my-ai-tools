@@ -120,3 +120,12 @@ export function highlightLine(text: string, rules: readonly CompiledRule[]): Hig
   if (at < text.length) result.segments.push({ text: text.slice(at) });
   return result;
 }
+
+/** True when the rule (enabled or not) matches somewhere in `text`; false for an invalid or empty pattern. */
+export function ruleMatches(rule: HighlightRule, text: string): boolean {
+  const { compiled } = compileRules([{ ...rule, enabled: true }]);
+  const first = compiled[0];
+  if (!first) return false;
+  first.regex.lastIndex = 0;
+  return first.regex.test(text.length > MAX_MATCHED_CHARS ? text.slice(0, MAX_MATCHED_CHARS) : text);
+}

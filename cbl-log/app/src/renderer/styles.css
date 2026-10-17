@@ -449,3 +449,116 @@ body {
 .log-row.lvl-fatal { background-color: color-mix(in srgb, var(--lvl-fatal) 18%, transparent); }
 .log-row.lvl-error { background-color: color-mix(in srgb, var(--lvl-error) 12%, transparent); }
 .log-row.lvl-warn { background-color: color-mix(in srgb, var(--lvl-warn) 12%, transparent); }
+
+.help-toggle {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.help-toggle.on {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+.regex-help {
+  flex: none;
+  max-height: 40vh;
+  overflow: auto;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--gutter-bg);
+  font-size: 12px;
+}
+
+.regex-help h3 {
+  margin: 6px 0 4px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.regex-help-note {
+  margin: 0 0 4px;
+}
+
+.regex-help code {
+  padding: 0 4px;
+  border-radius: 3px;
+  background: rgba(128, 128, 128, 0.2);
+  font-family: Consolas, "Courier New", monospace;
+}
+
+.regex-reading {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+
+.regex-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.regex-chips button {
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.regex-chips button:hover {
+  border-color: var(--accent);
+}
+
+.rule-help {
+  flex-basis: 100%;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.rules-sample {
+  padding: 0 12px 8px;
+  font-size: 12px;
+}
+
+.rules-sample input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 2px;
+  font-family: Consolas, "Courier New", monospace;
+}
+
+.sample-preview {
+  margin-top: 4px;
+  padding: 2px 6px;
+  border: 1px dashed var(--border);
+  font: 13px/18px Consolas, "Courier New", monospace;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.sample-hit {
+  color: #188038;
+  font-weight: 700;
+}
+
+.sample-miss {
+  color: var(--muted);
+}

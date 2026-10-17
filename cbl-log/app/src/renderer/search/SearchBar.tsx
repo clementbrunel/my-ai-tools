@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { SearchQuery } from "@cbl-log/shared";
 import type { SearchState } from "../tabs/tabs-reducer";
+import { RegexHelp } from "./RegexHelp";
+import { insertAt } from "./regex-help";
 import { describeSearch, validateQuery } from "./search-text";
 
 export const SEARCH_DEBOUNCE_MS = 150;
@@ -20,7 +22,25 @@ export function SearchBar({ initial, status, onQuery, onNext, onPrev, onClose }:
   const [pattern, setPattern] = useState(initial?.query.pattern ?? "");
   const [isRegex, setIsRegex] = useState(initial?.query.isRegex ?? false);
   const [caseSensitive, setCaseSensitive] = useState(initial?.query.caseSensitive ?? false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  /** Cursor to restore once React has rendered the inserted text. */
+  const pendingCursor = useRef<number | undefined>(undefined);
+
+  useLayoutEffect(() => {
+    if (pendingCursor.current === undefined) return;
+    inputRef.current?.focus();
+    inputRef.current?.setSelectionRange(pendingCursor.current, pendingCursor.current);
+    pendingCursor.current = undefined;
+  }, [pattern]);
+
+  const insert = (text: string): void => {
+    const input = inputRef.current;
+    const done = insertAt(pattern, input?.selectionStart ?? pattern.length, input?.selectionEnd ?? pattern.length, text);
+    pendingCursor.current = done.cursor;
+    setIsRegex(true); // everything in the help is regex syntax
+    setPattern(done.value);
+  };
   const first = useRef(true);
   const invalid = validateQuery({ pattern, isRegex, caseSensitive });
 
@@ -44,6 +64,7 @@ export function SearchBar({ initial, status, onQuery, onNext, onPrev, onClose }:
 
   const current = initial?.current;
   return (
+    <>
     <div className="searchbar" role="search">
       <input
         ref={inputRef}
@@ -69,6 +90,9 @@ export function SearchBar({ initial, status, onQuery, onNext, onPrev, onClose }:
       <label title="Respecter la casse">
         <input type="checkbox" checked={caseSensitive} onChange={(e) => setCaseSensitive(e.target.checked)} /> Aa
       </label>
+      <button type="button" className={helpOpen ? "help-toggle on" : "help-toggle"} onClick={() => setHelpOpen((v) => !v)} title="Aide à la saisie des expressions régulières" aria-label="Aide à la saisie" aria-expanded={helpOpen}>
+        ?
+      </button>
       <button type="button" onClick={onPrev} title="Précédent (Maj+F3)" aria-label="Précédent">
         ↑
       </button>
@@ -82,5 +106,19 @@ export function SearchBar({ initial, status, onQuery, onNext, onPrev, onClose }:
         ×
       </button>
     </div>
+    {helpOpen && (
+      <RegexHelp
+        pattern={pattern}
+        isRegex={isRegex}
+        onInsert={insert}
+        onPreset={(p) => {
+          pendingCursor.current = p.length;
+          setIsRegex(true);
+          setPattern(p);
+        }}
+        onEnableRegex={() => setIsRegex(true)}
+      />
+    )}
+    </>
   );
 }

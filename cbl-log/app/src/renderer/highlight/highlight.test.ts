@@ -1,6 +1,6 @@
 import { createDefaultRuleSet, type HighlightRule } from "@cbl-log/shared";
 import { describe, expect, it } from "vitest";
-import { BACKGROUND_ALPHA, compileRules, highlightLine, withAlpha } from "./highlight";
+import { BACKGROUND_ALPHA, compileRules, highlightLine, ruleMatches, withAlpha } from "./highlight";
 
 const rule = (over: Partial<HighlightRule> & { id: string; pattern: string }): HighlightRule => ({
   name: "",
@@ -115,5 +115,20 @@ describe("default rules", () => {
 describe("withAlpha", () => {
   it("converts #rrggbb to rgba", () => {
     expect(withAlpha("#ff8000", 0.5)).toBe("rgba(255, 128, 0, 0.5)");
+  });
+});
+
+describe("ruleMatches", () => {
+  it("tells whether one rule matches a sample line, even a disabled one", () => {
+    expect(ruleMatches(rule({ id: "a", pattern: "ERR\\w+", isRegex: true }), "an ERROR here")).toBe(true);
+    expect(ruleMatches(rule({ id: "a", pattern: "WARN", enabled: false }), "a WARN here")).toBe(true);
+    expect(ruleMatches(rule({ id: "a", pattern: "WARN" }), "all fine")).toBe(false);
+  });
+
+  it("is false for an empty or invalid pattern and can be called repeatedly (no lastIndex leak)", () => {
+    expect(ruleMatches(rule({ id: "a", pattern: "" }), "x")).toBe(false);
+    expect(ruleMatches(rule({ id: "a", pattern: "(", isRegex: true }), "x")).toBe(false);
+    const r = rule({ id: "a", pattern: "o", isRegex: false });
+    expect([ruleMatches(r, "foo"), ruleMatches(r, "foo"), ruleMatches(r, "foo")]).toEqual([true, true, true]);
   });
 });
