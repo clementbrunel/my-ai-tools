@@ -443,3 +443,9 @@ body {
 .lvl-text-info { background: var(--lvl-info); }
 .lvl-text-debug { background: var(--lvl-debug); }
 .lvl-text-trace { background: var(--lvl-trace); }
+
+/* faint background by level (fatal / error / warn), so that a block of errors reads at a glance.
+   A highlighting rule that colors the line sets its background inline and takes precedence. */
+.log-row.lvl-fatal { background-color: color-mix(in srgb, var(--lvl-fatal) 18%, transparent); }
+.log-row.lvl-error { background-color: color-mix(in srgb, var(--lvl-error) 12%, transparent); }
+.log-row.lvl-warn { background-color: color-mix(in srgb, var(--lvl-warn) 12%, transparent); }
