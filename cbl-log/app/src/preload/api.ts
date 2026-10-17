@@ -1,4 +1,4 @@
-import type { RuleSet } from "@cbl-log/shared";
+import type { RuleSet, Session, Settings } from "@cbl-log/shared";
 
 /** API exposed to the renderer through contextBridge (`window.cblLog`). */
 export interface CblLogApi {
@@ -14,4 +14,11 @@ export interface CblLogApi {
   /** Highlighting rule sets from the user data folder (the default set is created on first run). */
   loadRuleSets(): Promise<{ sets: RuleSet[]; warnings: string[] }>;
   saveRuleSet(set: RuleSet): Promise<void>;
+  /** settings.json (a missing file gives the defaults; an unusable one is reported in `warning`). */
+  loadSettings(): Promise<{ value: Settings; warning?: string }>;
+  saveSettings(settings: Settings): Promise<void>;
+  loadSession(): Promise<{ value: Session; warning?: string }>;
+  saveSession(session: Session): Promise<void>;
+  /** A config file was edited outside the app (hot reload). */
+  onConfigChanged(cb: (kind: "settings" | "rules") => void): () => void;
 }

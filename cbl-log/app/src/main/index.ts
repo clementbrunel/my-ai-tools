@@ -1,13 +1,17 @@
+import { mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { app, BrowserWindow, dialog, ipcMain, Menu } from "electron";
-import type { RuleSet } from "@cbl-log/shared";
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme } from "electron";
+import type { RuleSet, Session, Settings } from "@cbl-log/shared";
 import { parseFileArgs } from "./cli-args";
+import { ConfigWatcher, type ConfigKind } from "./config-watcher";
+import { loadSession, loadSettings, saveSession, saveSettings } from "./config-store";
 import { EngineHost } from "./engine-process";
 import { loadRuleSets, saveRuleSet } from "./rules-store";
 
-// Settings live in %APPDATA%cbl-log (architecture, section 8), not under the package name.
+// Settings live in %APPDATA%/cbl-log (architecture, section 8), not under the package name.
 app.setPath("userData", join(app.getPath("appData"), "cbl-log"));
 const rulesDir = (): string => join(app.getPath("userData"), "rules");
+let configWatcher: ConfigWatcher | undefined;
 
 const engine = new EngineHost();
 let mainWindow: BrowserWindow | undefined;
@@ -100,7 +104,20 @@ if (!app.requestSingleInstanceLock()) {
 
   ipcMain.handle("dialog:open-files", () => pickFiles());
   ipcMain.handle("rules:load", () => loadRuleSets(rulesDir()));
-  ipcMain.handle("rules:save", (_event, set: RuleSet) => saveRuleSet(rulesDir(), set));
+  ipcMain.handle("rules:save", async (_event, set: RuleSet) => {
+    configWatcher?.noteWrite(`rules/${set.id}.json`, await saveRuleSet(rulesDir(), set));
+  });
+  ipcMain.handle("settings:load", async () => {
+    const loaded = await loadSettings(app.getPath("userData"));
+    nativeTheme.themeSource = loaded.value.theme;
+    return loaded;
+  });
+  ipcMain.handle("settings:save", async (_event, settings: Settings) => {
+    nativeTheme.themeSource = settings.theme;
+    configWatcher?.noteWrite("settings.json", await saveSettings(app.getPath("userData"), settings));
+  });
+  ipcMain.handle("session:load", () => loadSession(app.getPath("userData")));
+  ipcMain.handle("session:save", (_event, session: Session) => saveSession(app.getPath("userData"), session).then(() => undefined));
   ipcMain.on("renderer:ready", () => {
     rendererReady = true;
     sendFiles(pendingPaths.splice(0));
@@ -108,6 +125,11 @@ if (!app.requestSingleInstanceLock()) {
 
   void app.whenReady().then(() => {
     buildMenu();
+    mkdirSync(rulesDir(), { recursive: true }); // so that the folder can be watched from the first run
+    configWatcher = new ConfigWatcher(app.getPath("userData"), (kind: ConfigKind) => {
+      mainWindow?.webContents.send("config:changed", kind);
+    });
+    configWatcher.start();
     engine.start();
     createWindow();
     app.on("activate", () => {
@@ -115,7 +137,10 @@ if (!app.requestSingleInstanceLock()) {
     });
   });
 
-  app.on("before-quit", () => engine.stop());
+  app.on("before-quit", () => {
+  configWatcher?.stop();
+  engine.stop();
+});
 
   app.on("window-all-closed", () => {
     if (process.platform !== "darwin") app.quit();

@@ -15,6 +15,17 @@ const api: CblLogApi = {
   notifyReady: () => ipcRenderer.send("renderer:ready"),
   loadRuleSets: () => ipcRenderer.invoke("rules:load") as ReturnType<CblLogApi["loadRuleSets"]>,
   saveRuleSet: (set) => ipcRenderer.invoke("rules:save", set) as Promise<void>,
+  loadSettings: () => ipcRenderer.invoke("settings:load") as ReturnType<CblLogApi["loadSettings"]>,
+  saveSettings: (settings) => ipcRenderer.invoke("settings:save", settings) as Promise<void>,
+  loadSession: () => ipcRenderer.invoke("session:load") as ReturnType<CblLogApi["loadSession"]>,
+  saveSession: (session) => ipcRenderer.invoke("session:save", session) as Promise<void>,
+  onConfigChanged: (cb) => {
+    const listener = (_event: unknown, kind: "settings" | "rules"): void => cb(kind);
+    ipcRenderer.on("config:changed", listener);
+    return () => {
+      ipcRenderer.off("config:changed", listener);
+    };
+  },
 };
 
 contextBridge.exposeInMainWorld("cblLog", api);

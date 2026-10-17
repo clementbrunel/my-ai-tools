@@ -1,11 +1,24 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { createDefaultRuleSet, type HighlightRule, type RuleSet, type Row, type SearchQuery, type TabId } from "@cbl-log/shared";
+import {
+  createDefaultRuleSet,
+  defaultSettings,
+  type HighlightRule,
+  type RuleSet,
+  type Row,
+  type SearchQuery,
+  type Session,
+  type SessionTab,
+  type Settings,
+  type TabId,
+  type Theme,
+} from "@cbl-log/shared";
 import { subscribeEngine } from "./engine/client";
 import type { RpcClient } from "./engine/rpc-client";
 import { baseName, pathKey } from "./files/path-key";
 import { useFileDrop } from "./files/useFileDrop";
 import { compileRules, highlightLine } from "./highlight/highlight";
 import { RulesEditor } from "./rules/RulesEditor";
+import { buildSession } from "./session/session-snapshot";
 import { StatusBar } from "./tabs/StatusBar";
 import { TabBar } from "./tabs/TabBar";
 import { initialTabsState, searchStatus, tabsReducer } from "./tabs/tabs-reducer";
@@ -25,6 +38,11 @@ export function App() {
   const [notice, setNotice] = useState<{ text: string; isError: boolean } | undefined>();
   const [ruleSet, setRuleSet] = useState<RuleSet>(createDefaultRuleSet);
   const [rulesOpen, setRulesOpen] = useState(false);
+  const [settings, setSettings] = useState<Settings>(defaultSettings);
+  const sessionReady = useRef(false);
+  /** Last session written (or loaded): reopened if the engine process restarts. */
+  const lastSessionObj = useRef<Session | undefined>(undefined);
+  const restoreRef = useRef<(session: Session) => Promise<void>>(async () => {});
   const [searchOpen, setSearchOpen] = useState(false);
   const [reveal, setReveal] = useState<{ row: number; nonce: number } | undefined>();
   const revealNonce = useRef(0);
@@ -54,7 +72,8 @@ export function App() {
       engineRef.current = engine;
       if (isReconnection) {
         resetTabs();
-        setNotice({ text: "Le moteur a redémarré : les onglets ont été fermés.", isError: true });
+        setNotice({ text: "Le moteur a redémarré : les onglets sont rouverts depuis la dernière session.", isError: true });
+        if (lastSessionObj.current) void restoreRef.current(lastSessionObj.current);
       } else {
         console.log("engine connected");
       }
@@ -82,27 +101,59 @@ export function App() {
     };
   }, [resetTabs]);
 
-  const openPaths = useCallback(
-    async (paths: string[]) => {
+  /** Opens one file in a tab (or activates its tab); `restore` re-applies a saved session position. */
+  const openFile = useCallback(
+    async (path: string, restore?: SessionTab): Promise<{ ok: true } | { ok: false; message: string }> => {
       const engine = await withEngine();
-      for (const path of paths) {
-        const key = pathKey(path);
-        const existing = [...runtimes.current.entries()].find(([, rt]) => rt.pathKey === key);
-        if (existing) {
-          dispatch({ type: "activated", tabId: existing[0] });
-          continue;
+      const key = pathKey(path);
+      const existing = [...runtimes.current.entries()].find(([, rt]) => rt.pathKey === key);
+      if (existing) {
+        dispatch({ type: "activated", tabId: existing[0] });
+        return { ok: true };
+      }
+      try {
+        const info = await engine.request("open", { path });
+        const cache = new PageCache(async (first, count) => (await engine.request("getRows", { tabId: info.tabId, first, count })).rows);
+        runtimes.current.set(info.tabId, { cache, total: info.totalRows, pathKey: key });
+        dispatch({ type: "opened", info });
+        if (restore) {
+          dispatch({ type: "follow", tabId: info.tabId, follow: restore.follow });
+          dispatch({ type: "scrollRow", tabId: info.tabId, row: restore.scrollRow });
+          if (restore.clearedBefore > 0) dispatch({ type: "clearedTo", tabId: info.tabId, row: restore.clearedBefore });
         }
-        try {
-          const info = await engine.request("open", { path });
-          const cache = new PageCache(async (first, count) => (await engine.request("getRows", { tabId: info.tabId, first, count })).rows);
-          runtimes.current.set(info.tabId, { cache, total: info.totalRows, pathKey: key });
-          dispatch({ type: "opened", info });
-        } catch (err) {
-          setNotice({ text: `${baseName(path)} : ${err instanceof Error ? err.message : String(err)}`, isError: true });
-        }
+        return { ok: true };
+      } catch (err) {
+        return { ok: false, message: err instanceof Error ? err.message : String(err) };
       }
     },
     [withEngine],
+  );
+
+  const openPaths = useCallback(
+    async (paths: string[]) => {
+      for (const path of paths) {
+        const result = await openFile(path);
+        if (!result.ok) setNotice({ text: `${baseName(path)} : ${result.message}`, isError: true });
+      }
+    },
+    [openFile],
+  );
+
+  const restoreSession = useCallback(
+    async (session: Session) => {
+      const missing: string[] = [];
+      for (const tab of session.tabs) {
+        const result = await openFile(tab.path, tab);
+        if (!result.ok) missing.push(baseName(tab.path));
+      }
+      if (session.activePath) {
+        const key = pathKey(session.activePath);
+        const active = [...runtimes.current.entries()].find(([, rt]) => rt.pathKey === key);
+        if (active) dispatch({ type: "activated", tabId: active[0] });
+      }
+      if (missing.length > 0) setNotice({ text: `Session : fichier(s) introuvable(s) : ${missing.join(", ")}`, isError: true });
+    },
+    [openFile],
   );
 
   const closeTab = useCallback(
@@ -116,20 +167,85 @@ export function App() {
     [withEngine],
   );
 
+  // Startup: restore the saved session first, then announce we are ready so that files given on the
+  // command line open after it (and end up active).
+  restoreRef.current = restoreSession;
+  const restoreStarted = useRef(false);
   useEffect(() => {
     const off = window.cblLog.onOpenFiles((paths) => void openPaths(paths));
-    window.cblLog.notifyReady();
+    if (!restoreStarted.current) {
+      restoreStarted.current = true;
+      void (async () => {
+        try {
+          const { value, warning } = await window.cblLog.loadSession();
+          if (warning) setNotice({ text: `Session ignorée : ${warning}`, isError: true });
+          lastSessionObj.current = value;
+          await restoreSession(value);
+        } finally {
+          sessionReady.current = true;
+          window.cblLog.notifyReady();
+        }
+      })();
+    }
     return off;
-  }, [openPaths]);
+  }, [openPaths, restoreSession]);
+
+  // Session: written shortly after a change, every 30 s (scroll position) and when the page goes away.
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const lastSession = useRef("");
+  const saveSessionNow = useCallback(() => {
+    if (!sessionReady.current) return;
+    const { tabs, activeId: current } = stateRef.current;
+    const session = buildSession(tabs, current, viewRow.current);
+    const text = JSON.stringify(session);
+    if (text === lastSession.current) return;
+    lastSession.current = text;
+    lastSessionObj.current = session;
+    void window.cblLog.saveSession(session).catch(() => undefined);
+  }, []);
+  useEffect(() => {
+    const timer = setTimeout(saveSessionNow, 1000);
+    return () => clearTimeout(timer);
+  }, [state.tabs, state.activeId, saveSessionNow]);
+  useEffect(() => {
+    const interval = setInterval(saveSessionNow, 30_000);
+    window.addEventListener("pagehide", saveSessionNow);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("pagehide", saveSessionNow);
+    };
+  }, [saveSessionNow]);
+
+  // Settings (theme): loaded at startup and reloaded when settings.json is edited outside the app.
+  const loadSettingsNow = useCallback(() => {
+    void window.cblLog.loadSettings().then(({ value, warning }) => {
+      setSettings(value);
+      if (warning) setNotice({ text: `Réglages ignorés : ${warning}`, isError: true });
+    });
+  }, []);
+  const cycleTheme = useCallback(() => {
+    const order: Theme[] = ["system", "light", "dark"];
+    setSettings((prev) => {
+      const next: Settings = { ...prev, theme: order[(order.indexOf(prev.theme) + 1) % order.length]! };
+      void window.cblLog.saveSettings(next).catch(() => undefined);
+      return next;
+    });
+  }, []);
 
   // Rules: loaded once, edited live, saved shortly after the last edit.
-  useEffect(() => {
+  const loadRulesNow = useCallback(() => {
     void window.cblLog.loadRuleSets().then(({ sets, warnings }) => {
       const loaded = sets.find((s) => s.id === "default") ?? sets[0];
       if (loaded) setRuleSet(loaded);
       if (warnings.length > 0) setNotice({ text: `Règles ignorées : ${warnings.join(" ; ")}`, isError: true });
     });
   }, []);
+  useEffect(() => {
+    loadRulesNow();
+    loadSettingsNow();
+    return window.cblLog.onConfigChanged((kind) => (kind === "rules" ? loadRulesNow() : loadSettingsNow()));
+  }, [loadRulesNow, loadSettingsNow]);
 
   const changeRules = useCallback((rules: HighlightRule[]) => {
     setRuleSet((prev) => {
@@ -334,6 +450,8 @@ export function App() {
             onClear={() => dispatch({ type: "clear", tabId: active.info.tabId })}
             onUnclear={() => dispatch({ type: "unclear", tabId: active.info.tabId })}
             onEditRules={() => setRulesOpen(true)}
+            theme={settings.theme}
+            onCycleTheme={cycleTheme}
           />
         </>
       )}

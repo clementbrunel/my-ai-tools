@@ -1,3 +1,4 @@
+import type { Theme } from "@cbl-log/shared";
 import type { TabState } from "./tabs-reducer";
 
 export function formatBytes(bytes: number): string {
@@ -12,15 +13,19 @@ export function formatBytes(bytes: number): string {
   return `${value.toFixed(value >= 100 ? 0 : 1)} ${units[unit]}`;
 }
 
+const THEME_LABELS: Record<Theme, string> = { system: "système", light: "clair", dark: "sombre" };
+
 interface Props {
   tab: TabState;
   onToggleFollow(): void;
   onClear(): void;
   onUnclear(): void;
   onEditRules(): void;
+  theme: Theme;
+  onCycleTheme(): void;
 }
 
-export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules }: Props) {
+export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules, theme, onCycleTheme }: Props) {
   return (
     <footer className="statusbar">
       <span className="status-path" title={tab.info.path}>
@@ -40,6 +45,9 @@ export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules
           Effacer
         </button>
       )}
+      <button type="button" className="link" onClick={onCycleTheme} title="Changer de thème (système / clair / sombre)">
+        Thème : {THEME_LABELS[theme]}
+      </button>
       <button type="button" className="link" onClick={onEditRules} title="Règles de surlignage (Ctrl+H)">
         Règles…
       </button>

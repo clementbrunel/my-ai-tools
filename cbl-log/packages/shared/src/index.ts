@@ -1,5 +1,3 @@
-import { z } from "zod";
-
 /** Why a search stopped early: a regex that stalled a worker, or a file that could not be read. */
 export type SearchError = "too-expensive" | "failed";
 
@@ -23,14 +21,8 @@ export type RolledReason = RolledEvent["reason"];
 /** Subset of TabEvent emitted by file following (engine Tailer). */
 export type TailEvent = RowsEvent | RolledEvent | StateEvent;
 
-/** Skeleton of the configuration schema (architecture, section 8). */
-export const settingsSchema = z.object({
-  schemaVersion: z.literal(1),
-  theme: z.enum(["system", "dark", "light"]).default("system"),
-});
-
-export type Settings = z.infer<typeof settingsSchema>;
-
 export * from "./protocol.js";
 
 export * from "./rules.js";
+
+export * from "./config.js";
