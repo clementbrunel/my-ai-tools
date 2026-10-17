@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "workspaces": ["packages/*", "app"],
   "scripts": {
+    "postinstall": "node scripts/install-electron.mjs",
     "dev": "npm run dev -w @cbl-log/app",
     "bench": "npm run bench -w @cbl-log/engine --",
     "build": "npm run build -w @cbl-log/shared && npm run build -w @cbl-log/engine && npm run build -w @cbl-log/app",
