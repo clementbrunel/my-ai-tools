@@ -1,5 +1,15 @@
-import type { TabEvent, TabId, TabInfo } from "@cbl-log/shared";
+import type { SearchError, SearchQuery, TabEvent, TabId, TabInfo } from "@cbl-log/shared";
 import type { RollMark } from "../viewer/roll-mark";
+
+export type QueryEvent = Extract<TabEvent, { type: "query" }>;
+
+export interface SearchState {
+  query: SearchQuery;
+  /** Engine-side search id (null until the engine has answered). */
+  id: string | null;
+  /** Match the view is parked on. */
+  current?: { row: number; ordinal: number | null };
+}
 
 export interface TabState {
   info: TabInfo;
@@ -17,6 +27,16 @@ export interface TabState {
   marks: RollMark[];
   /** "Clear": rows before this one are hidden (0 = show everything). */
   clearedBefore: number;
+  search?: SearchState;
+  /** Latest progress event of the engine search (matched to `search.id` by searchStatus). */
+  queryEvent?: QueryEvent;
+}
+
+/** Progress of the tab search, or undefined when there is none (or the engine has not answered yet). */
+export function searchStatus(tab: TabState): { matches: number; done: boolean; error?: SearchError } | undefined {
+  if (!tab.search?.id || tab.queryEvent?.id !== tab.search.id) return undefined;
+  const { matches, done, error } = tab.queryEvent;
+  return { matches, done, ...(error ? { error } : {}) };
 }
 
 export interface TabsState {
@@ -29,6 +49,9 @@ export type TabsAction =
   | { type: "closed"; tabId: TabId }
   | { type: "activated"; tabId: TabId }
   | { type: "event"; tabId: TabId; event: TabEvent; receivedAt: number }
+  | { type: "searchStarted"; tabId: TabId; query: SearchQuery; id: string | null }
+  | { type: "searchHit"; tabId: TabId; row: number; ordinal: number | null }
+  | { type: "searchStopped"; tabId: TabId }
   | { type: "clear"; tabId: TabId }
   | { type: "unclear"; tabId: TabId }
   | { type: "follow"; tabId: TabId; follow: boolean }
@@ -61,6 +84,8 @@ function applyEvent(tab: TabState, isActive: boolean, event: TabEvent, receivedA
       return { ...tab, indexing: event.progress < 1 ? event.progress : undefined };
     case "state":
       return { ...tab, state: event.state, message: event.message };
+    case "query":
+      return { ...tab, queryEvent: event };
     case "rolled": {
       const mark: RollMark = { row: event.at, reason: event.reason, at: receivedAt, ...(event.previous ? { previous: event.previous } : {}) };
       return { ...tab, marks: [...tab.marks, mark] };
@@ -100,6 +125,18 @@ export function tabsReducer(state: TabsState, action: TabsAction): TabsState {
     }
     case "event":
       return updateTab(state, action.tabId, (t) => applyEvent(t, state.activeId === action.tabId, action.event, action.receivedAt));
+    case "searchStarted":
+      // keep `queryEvent`: the engine may have reported progress before its answer reached us
+      return updateTab(state, action.tabId, (t) => ({ ...t, search: { query: action.query, id: action.id } }));
+    case "searchHit":
+      return updateTab(state, action.tabId, (t) =>
+        t.search ? { ...t, search: { ...t.search, current: { row: action.row, ordinal: action.ordinal } } } : t,
+      );
+    case "searchStopped":
+      return updateTab(state, action.tabId, (t) => {
+        const { search: _search, queryEvent: _event, ...rest } = t;
+        return rest;
+      });
     case "clear":
       return updateTab(state, action.tabId, (t) => (t.clearedBefore === t.total ? t : { ...t, clearedBefore: t.total }));
     case "unclear":

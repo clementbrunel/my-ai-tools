@@ -156,6 +156,13 @@ export class Tailer {
     }));
   }
 
+  /** The segment being followed, with its line index: what engine-side scans (search) read. */
+  get currentTarget(): { path: string; encoding: Encoding; startRow: number; index: LineIndex } | undefined {
+    const seg = this.cur;
+    if (!seg?.index || !seg.readable) return undefined;
+    return { path: seg.path, encoding: seg.index.encoding, startRow: seg.startRow, index: seg.index };
+  }
+
   on(listener: (event: TailEvent) => void): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);

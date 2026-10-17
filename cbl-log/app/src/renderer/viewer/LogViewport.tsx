@@ -19,6 +19,12 @@ interface Props {
   /** Colors a line according to the active highlighting rules. */
   highlight(text: string): HighlightResult;
   follow: boolean;
+  /** Scroll so that `row` is centered whenever `nonce` changes (search results). */
+  reveal?: { row: number; nonce: number } | undefined;
+  /** Row of the current search match (outlined). */
+  currentMatchRow?: number | undefined;
+  /** Receives the first visible row, so the search can start from where the user is. */
+  viewRowRef?: { current: number };
   /** First row to show (relative to `base`) when the viewport mounts with follow off. */
   initialRow: number;
   onFollowChange(follow: boolean): void;
@@ -30,7 +36,7 @@ interface Props {
 }
 
 /** Virtualized, fixed-height-row view of a tab's lines. Follow mode keeps the end in view. */
-export function LogViewport({ cache, total: realTotal, base, marks, highlight, follow, initialRow, onFollowChange, onLeave, fetchRows, onNotice }: Props) {
+export function LogViewport({ cache, total: realTotal, base, marks, highlight, follow, reveal, currentMatchRow, viewRowRef, initialRow, onFollowChange, onLeave, fetchRows, onNotice }: Props) {
   const total = Math.max(0, realTotal - base);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
@@ -69,6 +75,19 @@ export function LogViewport({ cache, total: realTotal, base, marks, highlight, f
   useEffect(() => setSelection(undefined), [base]);
 
   const range = visibleRange(scrollTop, viewportHeight, total, OVERSCAN);
+  if (viewRowRef) viewRowRef.current = base + scrollTopToRow(scrollTop, viewportHeight, total);
+
+  // Reveal request: center the row (search hit).
+  const revealNonce = reveal?.nonce;
+  useLayoutEffect(() => {
+    const el = scrollerRef.current;
+    if (!el || reveal === undefined) return;
+    const { viewportHeight: vh, total: count, base: origin } = latest.current;
+    const relative = Math.min(Math.max(reveal.row - origin, 0), Math.max(0, count - 1));
+    el.scrollTop = rowToScrollTop(Math.max(0, relative - Math.floor(vh / ROW_HEIGHT / 2)), vh, count);
+    setScrollTop(el.scrollTop);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [revealNonce]);
 
   // Keep the pages under the viewport loaded (the cache de-duplicates and prefetches neighbours).
   useEffect(() => {
@@ -182,6 +201,7 @@ export function LogViewport({ cache, total: realTotal, base, marks, highlight, f
     const classes = ["log-row"];
     if (mark) classes.push("roll-start");
     if (isSelected(selection, lineRow)) classes.push("selected");
+    if (lineRow === currentMatchRow) classes.push("current-match");
     rows.push(
       <div
         className={classes.join(" ")}

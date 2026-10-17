@@ -35,7 +35,7 @@ export interface AppendResult {
 /** Sparse index: one checkpoint every 64 lines, the exact line is found with a small scan. */
 export class LineIndex {
   private source: Source;
-  private readonly encoding: Encoding;
+  readonly encoding: Encoding;
   private readonly decoder: TextDecoder;
   private readonly chunkSize: number;
   private readonly store = new CheckpointStore();
@@ -167,6 +167,40 @@ export class LineIndex {
     }
     if (found === undefined) throw this.inconsistent();
     return found;
+  }
+
+  /**
+   * 0-based number of the line containing byte `offset` (checkpoint binary search + at most 63 line
+   * ends to skip). Offsets past the scanned part belong to the last line.
+   */
+  async lineAtOffset(offset: number): Promise<number> {
+    const state = this.state;
+    if (!state) throw new RangeError("Empty index");
+    if (checkpointCountOf(state) > this.store.count) throw this.inconsistent();
+    let low = 0;
+    let high = checkpointCountOf(state) - 1;
+    while (low < high) {
+      const mid = (low + high + 1) >> 1;
+      if (this.store.get(mid) <= offset) low = mid;
+      else high = mid - 1;
+    }
+    let line = low * CHECKPOINT_INTERVAL;
+    let pos = this.store.get(low);
+    const carry: ScanCarry = { pendingCR: false };
+    let found = false;
+    while (!found && pos < state.scanned) {
+      const buf = await this.source.readAt(pos, Math.min(OFFSET_WINDOW, state.scanned - pos));
+      const consumed = scanChunk(buf, pos, this.encoding, carry, (next) => {
+        if (next > offset) {
+          found = true;
+          return true;
+        }
+        line++;
+      });
+      if (consumed === 0) break;
+      pos += consumed;
+    }
+    return Math.min(line, lineCountOf(state) - 1);
   }
 
   /** Decoded lines [first, first+count); each capped at 64 KB for display. */

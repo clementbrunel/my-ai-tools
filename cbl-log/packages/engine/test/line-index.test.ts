@@ -276,3 +276,24 @@ describe("LineIndex: snapshot / restore", () => {
     expect(await texts(index)).toEqual(["a", "b", "c", "d", "e"]);
   });
 });
+
+describe("LineIndex: lineAtOffset", () => {
+  it("is the inverse of offsetOf, for line starts and for offsets inside a line", async () => {
+    const lines = Array.from({ length: 300 }, (_, i) => "x".repeat(1 + (i % 17)) + i);
+    const { index } = await open(lines.join("\n") + "\n");
+    await index.appendFrom();
+    for (const line of [0, 1, 63, 64, 65, 127, 128, 200, 299]) {
+      const start = await index.offsetOf(line);
+      expect(await index.lineAtOffset(start)).toBe(line);
+      expect(await index.lineAtOffset(start + 1)).toBe(line);
+    }
+  });
+
+  it("handles CRLF files", async () => {
+    const { index } = await open("a\r\nbb\r\nccc\r\n");
+    await index.appendFrom();
+    expect(await index.lineAtOffset(0)).toBe(0);
+    expect(await index.lineAtOffset(3)).toBe(1);
+    expect(await index.lineAtOffset(7)).toBe(2);
+  });
+});

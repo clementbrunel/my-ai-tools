@@ -372,3 +372,35 @@ body {
   height: 22px;
   padding: 0;
 }
+
+.searchbar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.searchbar > input:first-child {
+  width: 28ch;
+}
+
+.searchbar input.invalid {
+  outline: 1px solid #b3261e;
+}
+
+.search-count {
+  flex: 1;
+  color: var(--muted);
+}
+
+.search-count.error {
+  color: #b3261e;
+}
+
+.log-row.current-match {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
