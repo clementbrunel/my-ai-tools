@@ -30,6 +30,8 @@ export interface TabState {
   search?: SearchState;
   /** Detected log format: undefined = not detected yet, null = raw (no known format). */
   formatId?: string | null;
+  /** Highlighting profile chosen by the user for this tab; undefined = automatic (from the format). */
+  ruleSetId?: string;
   /** Latest progress event of the engine search (matched to `search.id` by searchStatus). */
   queryEvent?: QueryEvent;
 }
@@ -55,6 +57,7 @@ export type TabsAction =
   | { type: "searchHit"; tabId: TabId; row: number; ordinal: number | null }
   | { type: "searchStopped"; tabId: TabId }
   | { type: "formatDetected"; tabId: TabId; formatId: string | null }
+  | { type: "ruleSetChosen"; tabId: TabId; ruleSetId: string | undefined }
   | { type: "clearedTo"; tabId: TabId; row: number }
   | { type: "clear"; tabId: TabId }
   | { type: "unclear"; tabId: TabId }
@@ -143,6 +146,12 @@ export function tabsReducer(state: TabsState, action: TabsAction): TabsState {
       });
     case "clear":
       return updateTab(state, action.tabId, (t) => (t.clearedBefore === t.total ? t : { ...t, clearedBefore: t.total }));
+    case "ruleSetChosen":
+      return updateTab(state, action.tabId, (t) => {
+        if (t.ruleSetId === action.ruleSetId) return t;
+        const { ruleSetId: _previous, ...rest } = t;
+        return action.ruleSetId === undefined ? rest : { ...rest, ruleSetId: action.ruleSetId };
+      });
     case "formatDetected":
       return updateTab(state, action.tabId, (t) => (t.formatId === action.formatId ? t : { ...t, formatId: action.formatId }));
     case "clearedTo":

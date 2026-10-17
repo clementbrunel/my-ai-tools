@@ -23,13 +23,18 @@ interface Props {
   onEditRules(): void;
   theme: Theme;
   onCycleTheme(): void;
+  /** Highlighting profiles: the user's choice for this tab ("auto" = follow the detected format). */
+  profiles: readonly { id: string; name: string }[];
+  profileChoice: string;
+  autoProfileName: string;
+  onProfileChange(choice: string): void;
   /** Name of the detected format (undefined = raw). */
   formatName?: string | undefined;
   /** Level of the first visible line. */
   level?: Level | undefined;
 }
 
-export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules, theme, onCycleTheme, formatName, level }: Props) {
+export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules, theme, onCycleTheme, formatName, level, profiles, profileChoice, autoProfileName, onProfileChange }: Props) {
   return (
     <footer className="statusbar">
       <span className="status-path" title={tab.info.path}>
@@ -54,6 +59,17 @@ export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules
       <button type="button" className="link" onClick={onCycleTheme} title="Changer de thème (système / clair / sombre)">
         Thème : {THEME_LABELS[theme]}
       </button>
+      <label className="profile-select" title="Profil de surlignage de cet onglet">
+        Profil :{" "}
+        <select value={profileChoice} onChange={(e) => onProfileChange(e.target.value)}>
+          <option value="auto">Auto ({autoProfileName})</option>
+          {profiles.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name || p.id}
+            </option>
+          ))}
+        </select>
+      </label>
       <button type="button" className="link" onClick={onEditRules} title="Règles de surlignage (Ctrl+H)">
         Règles…
       </button>

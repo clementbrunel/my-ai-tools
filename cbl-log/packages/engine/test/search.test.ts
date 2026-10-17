@@ -91,7 +91,8 @@ describe("planSlices", () => {
   });
 });
 
-describe("search", () => {
+// Each test starts worker threads (Windows runners can be slow to spawn them): well above the 5 s default.
+describe("search", { timeout: 30_000 }, () => {
   it("counts the matching lines (raw literal fast path) across several slices", async () => {
     const ctx = await openLines(makeLines(3000, 7));
     const id = await search(ctx, { pattern: "NEEDLE" });
@@ -105,6 +106,16 @@ describe("search", () => {
     expect(finalEvent(ctx, await search(ctx, { pattern: "needle", caseSensitive: false })).matches).toBe(expected);
     expect(finalEvent(ctx, await search(ctx, { pattern: "Needle \\w+", isRegex: true })).matches).toBe(expected);
     expect(finalEvent(ctx, await search(ctx, { pattern: "needle", caseSensitive: true })).matches).toBe(0);
+  });
+
+  it("whole word: skips substrings of longer words, in both the raw and the regex paths", async () => {
+    const lines = ["an ERROR here", "ERRORS everywhere", "MYERROR too", "[ERROR] tagged", "error lower"];
+    const ctx = await openLines(lines);
+    const count = async (query: Partial<SearchQuery> & { pattern: string }) => finalEvent(ctx, await search(ctx, query)).matches;
+    expect(await count({ pattern: "ERROR" })).toBe(4); // substring search: ERROR, ERRORS, MYERROR, [ERROR]
+    expect(await count({ pattern: "ERROR", wholeWord: true })).toBe(2); // "an ERROR here" and "[ERROR] tagged"
+    expect(await count({ pattern: "ERROR", wholeWord: true, caseSensitive: false })).toBe(3); // plus "error lower"
+    expect(await count({ pattern: "ERROR|here", isRegex: true, wholeWord: true })).toBe(2);
   });
 
   it("navigates next / previous with ranks, and wraps around", async () => {

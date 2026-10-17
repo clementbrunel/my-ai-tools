@@ -36,6 +36,13 @@ describe("buildSession", () => {
     ]);
   });
 
+  it("keeps a chosen highlighting profile, and omits it when automatic", () => {
+    const s = run({ type: "opened", info: info("a") }, { type: "opened", info: info("b") }, { type: "ruleSetChosen", tabId: "b", ruleSetId: "websphere" });
+    const tabs = buildSession(s.tabs, s.activeId, 0).tabs;
+    expect(tabs[0]).not.toHaveProperty("ruleSetId");
+    expect(tabs[1]?.ruleSetId).toBe("websphere");
+  });
+
   it("never writes a negative position", () => {
     const s = run({ type: "opened", info: info("a") }, { type: "clearedTo", tabId: "a", row: 50 });
     expect(buildSession(s.tabs, s.activeId, 10).tabs[0]?.scrollRow).toBe(0);

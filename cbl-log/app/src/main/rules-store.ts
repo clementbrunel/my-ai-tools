@@ -2,7 +2,7 @@
 // user data folder. Electron-free so it can be tested; the directory is passed in.
 import { mkdir, readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { createDefaultRuleSet, parseRuleSet, type RuleSet } from "@cbl-log/shared";
+import { createBuiltinRuleSets, createDefaultRuleSet, parseRuleSet, type RuleSet } from "@cbl-log/shared";
 import { writeJsonAtomic } from "./json-file";
 
 export interface LoadedRuleSets {
@@ -13,7 +13,7 @@ export interface LoadedRuleSets {
 
 const SAFE_ID = /^[\w.-]+$/;
 
-/** Loads every rule set; writes the default set the first time (no file at all). */
+/** Loads every rule set; writes the built-in ones that have no file yet (never overwrites a file). */
 export async function loadRuleSets(dir: string): Promise<LoadedRuleSets> {
   await mkdir(dir, { recursive: true });
   const names = (await readdir(dir)).filter((name) => name.toLowerCase().endsWith(".json")).sort();
@@ -28,13 +28,16 @@ export async function loadRuleSets(dir: string): Promise<LoadedRuleSets> {
       warnings.push(`${name}: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
-  if (names.length === 0) {
-    const fresh = createDefaultRuleSet();
-    await saveRuleSet(dir, fresh);
-    sets.push(fresh);
-  } else if (sets.length === 0) {
-    sets.push(createDefaultRuleSet()); // everything on disk was invalid: work in memory, keep the files
+  const present = new Set(names.map((n) => n.toLowerCase()));
+  for (const builtin of createBuiltinRuleSets()) {
+    if (present.has(`${builtin.id}.json`)) continue;
+    await saveRuleSet(dir, builtin);
+    sets.push(builtin);
   }
+  if (!sets.some((set) => set.id === "default")) {
+    sets.push(createDefaultRuleSet()); // its file is invalid: work in memory, keep the file
+  }
+  sets.sort((a, b) => (a.id === "default" ? -1 : b.id === "default" ? 1 : a.id.localeCompare(b.id)));
   return { sets, warnings };
 }
 

@@ -17,6 +17,8 @@ export const sessionTabSchema = z.object({
   /** First visible row, relative to `clearedBefore`. */
   scrollRow: z.number().int().min(0).default(0),
   clearedBefore: z.number().int().min(0).default(0),
+  /** Highlighting profile chosen for this tab; absent = automatic (from the detected format). */
+  ruleSetId: z.string().optional(),
 });
 export type SessionTab = z.infer<typeof sessionTabSchema>;
 

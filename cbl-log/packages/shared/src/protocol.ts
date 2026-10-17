@@ -49,6 +49,8 @@ export interface SearchQuery {
   pattern: string;
   isRegex: boolean;
   caseSensitive: boolean;
+  /** Whole words only (see patternSource). Absent = false. */
+  wholeWord?: boolean | undefined;
 }
 
 export interface SearchParams {

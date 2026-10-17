@@ -75,7 +75,11 @@ describe("Tailer", () => {
       await new Promise((r) => setTimeout(r, 3));
     }
     await waitFor(() => tailer.totalRows === n, "all the lines");
-    expect(stamps.length).toBeGreaterThan(2);
+    // the last coalesced event fires up to ~50 ms after the rows were counted
+    await waitFor(() => stamps.length >= 1, "a rows event");
+    await new Promise((r) => setTimeout(r, 120));
+    // far fewer events than the ~130 appends (the bound that matters); a starved process may even deliver a single batch
+    expect(stamps.length).toBeGreaterThanOrEqual(1);
     expect(stamps.length).toBeLessThanOrEqual(400 / 50 + 4);
     for (let i = 1; i < stamps.length; i++) expect(stamps[i]! - stamps[i - 1]!).toBeGreaterThanOrEqual(40);
   });

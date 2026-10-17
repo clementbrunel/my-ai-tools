@@ -28,3 +28,5 @@ export * from "./rules.js";
 export * from "./config.js";
 
 export * from "./formats.js";
+
+export * from "./pattern.js";

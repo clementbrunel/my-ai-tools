@@ -16,13 +16,26 @@ const tempRoot = (): string => {
 };
 
 describe("rules store", () => {
-  it("creates the default rule set on first load", async () => {
+  it("creates the built-in rule sets on first load, default first", async () => {
     const dir = join(tempRoot(), "rules");
     const { sets, warnings } = await loadRuleSets(dir);
     expect(warnings).toEqual([]);
-    expect(sets).toHaveLength(1);
-    expect(sets[0]?.id).toBe("default");
+    expect(sets.map((s) => s.id)).toEqual(["default", "websphere"]);
     expect(JSON.parse(readFileSync(join(dir, "default.json"), "utf8")).schemaVersion).toBe(1);
+    expect(JSON.parse(readFileSync(join(dir, "websphere.json"), "utf8")).formats).toEqual(["websphere-basic"]);
+  });
+
+  it("adds a built-in set that is missing from an existing folder, and never overwrites a customized one", async () => {
+    const dir = tempRoot();
+    const mine = { ...createDefaultRuleSet(), name: "Mon défaut" };
+    await saveRuleSet(dir, mine); // an install from before the WebSphere profile existed
+    const { sets } = await loadRuleSets(dir);
+    expect(sets.map((s) => s.id)).toEqual(["default", "websphere"]);
+    expect(sets[0]?.name).toBe("Mon défaut");
+    const websphere = JSON.parse(readFileSync(join(dir, "websphere.json"), "utf8"));
+    websphere.name = "Mon WebSphere";
+    writeFileSync(join(dir, "websphere.json"), JSON.stringify(websphere));
+    expect((await loadRuleSets(dir)).sets.find((x) => x.id === "websphere")?.name).toBe("Mon WebSphere");
   });
 
   it("round-trips a saved rule set", async () => {
@@ -40,7 +53,7 @@ describe("rules store", () => {
     writeFileSync(join(dir, "broken.json"), "{ not json");
     writeFileSync(join(dir, "wrong.json"), JSON.stringify({ schemaVersion: 2, id: "x", rules: [] }));
     const { sets, warnings } = await loadRuleSets(dir);
-    expect(sets.map((s) => s.id)).toEqual(["default"]);
+    expect(sets.map((s) => s.id)).toEqual(["default", "websphere"]);
     expect(warnings).toHaveLength(2);
     expect(warnings.some((w) => w.startsWith("broken.json"))).toBe(true);
   });
@@ -49,7 +62,7 @@ describe("rules store", () => {
     const dir = tempRoot();
     writeFileSync(join(dir, "default.json"), "oops");
     const { sets, warnings } = await loadRuleSets(dir);
-    expect(sets[0]?.id).toBe("default");
+    expect(sets.map((s) => s.id)).toEqual(["default", "websphere"]);
     expect(warnings).toHaveLength(1);
     expect(readFileSync(join(dir, "default.json"), "utf8")).toBe("oops");
   });
