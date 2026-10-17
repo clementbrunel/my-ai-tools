@@ -2,6 +2,8 @@ name: cbl-log – CI
 
 on:
   push:
+    tags:
+      - "cbl-log-v*"
     paths:
       - "cbl-log/**"
       - ".github/workflows/cbl-log.yml"
@@ -29,3 +31,36 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+
+  # Tag cbl-log-vX.Y.Z -> installer + portable exe attached to a GitHub release (NF-06).
+  release:
+    if: startsWith(github.ref, 'refs/tags/cbl-log-v')
+    needs: build
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: cbl-log
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: cbl-log/package-lock.json
+
+      - run: npm ci
+
+      - name: Package (version taken from the tag)
+        shell: bash
+        run: npm run package -- -c.extraMetadata.version="${GITHUB_REF_NAME#cbl-log-v}"
+
+      - name: Create the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#cbl-log-v}"
+          gh release create "$GITHUB_REF_NAME" release/*.exe --verify-tag --generate-notes --title "cbl-log $version"

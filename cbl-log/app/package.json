@@ -2,6 +2,7 @@
   "name": "@cbl-log/app",
   "version": "0.0.0",
   "private": true,
+  "author": "Clement Brunel",
   "description": "cbl-log - visualiseur de logs temps reel",
   "main": "out/main/index.js",
   "scripts": {
@@ -22,6 +23,7 @@
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^6.1.2",
     "electron": "^44.7.2",
+    "electron-builder": "^26.15.3",
     "electron-vite": "^6.0.0",
     "typescript": "^5.9.0",
     "vite": "^8.3.4",
