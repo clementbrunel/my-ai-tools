@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+/** Why a search stopped early: a regex that stalled a worker, or a file that could not be read. */
+export type SearchError = "too-expensive" | "failed";
+
 /** Identifier of a tab (a followed file or pattern). */
 export type TabId = string;
 
@@ -9,7 +12,7 @@ export type TabEvent =
   | { type: "indexing"; progress: number; provisional: boolean }
   | { type: "rolled"; reason: "rename" | "truncate" | "new-file"; previous?: string; at: number }
   | { type: "state"; state: "following" | "missing" | "error"; message?: string }
-  | { type: "query"; id: string; matches: number; done: boolean }
+  | { type: "query"; id: string; matches: number; done: boolean; error?: SearchError }
   | { type: "alert"; ruleId: string; line: number };
 
 export type RowsEvent = Extract<TabEvent, { type: "rows" }>;

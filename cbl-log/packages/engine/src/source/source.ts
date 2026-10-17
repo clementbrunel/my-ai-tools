@@ -21,7 +21,7 @@ export interface Source {
   close(): Promise<void>;
 }
 
-export type SourceErrorCode = "ENOENT" | "EACCES" | "EISDIR" | "BINARY" | "CLOSED" | "UNKNOWN";
+export type SourceErrorCode = "ENOENT" | "EACCES" | "EISDIR" | "BINARY" | "BAD_QUERY" | "CLOSED" | "UNKNOWN";
 
 /** The only error the engine's public API lets out for I/O problems. */
 export class SourceError extends Error {

@@ -1,6 +1,6 @@
 import type { TabInfo } from "@cbl-log/shared";
 import { describe, expect, it } from "vitest";
-import { initialTabsState, tabsReducer, type TabsAction, type TabsState } from "./tabs-reducer";
+import { initialTabsState, searchStatus, tabsReducer, type TabsAction, type TabsState } from "./tabs-reducer";
 
 const info = (tabId: string, totalRows = 10): TabInfo => ({
   tabId,
@@ -109,6 +109,37 @@ describe("tabsReducer", () => {
     expect(s.tabs[0]?.clearedBefore).toBe(50);
     s = tabsReducer(s, { type: "unclear", tabId: "a" });
     expect(s.tabs[0]?.clearedBefore).toBe(0);
+  });
+
+  const query = { pattern: "x", isRegex: false, caseSensitive: true };
+
+  it("tracks search progress by search id, even when it arrives before the engine answer", () => {
+    let s = run(
+      { type: "opened", info: info("a") },
+      { type: "event", tabId: "a", event: { type: "query", id: "s1", matches: 3, done: true }, receivedAt: 0 },
+    );
+    expect(searchStatus(s.tabs[0]!)).toBeUndefined();
+    s = tabsReducer(s, { type: "searchStarted", tabId: "a", query, id: "s1" });
+    expect(searchStatus(s.tabs[0]!)).toEqual({ matches: 3, done: true });
+  });
+
+  it("ignores progress of another search and records the current hit", () => {
+    let s = run(
+      { type: "opened", info: info("a") },
+      { type: "searchStarted", tabId: "a", query, id: "new" },
+      { type: "event", tabId: "a", event: { type: "query", id: "old", matches: 9, done: true }, receivedAt: 0 },
+    );
+    expect(searchStatus(s.tabs[0]!)).toBeUndefined();
+    s = tabsReducer(s, { type: "event", tabId: "a", event: { type: "query", id: "new", matches: 2, done: false, error: "too-expensive" }, receivedAt: 0 });
+    expect(searchStatus(s.tabs[0]!)).toEqual({ matches: 2, done: false, error: "too-expensive" });
+    s = tabsReducer(s, { type: "searchHit", tabId: "a", row: 40, ordinal: 2 });
+    expect(s.tabs[0]?.search?.current).toEqual({ row: 40, ordinal: 2 });
+  });
+
+  it("stopping the search forgets it", () => {
+    const s = run({ type: "opened", info: info("a") }, { type: "searchStarted", tabId: "a", query, id: "s" }, { type: "searchStopped", tabId: "a" });
+    expect(s.tabs[0]?.search).toBeUndefined();
+    expect(s.tabs[0]?.queryEvent).toBeUndefined();
   });
 
   it("reset drops every tab", () => {

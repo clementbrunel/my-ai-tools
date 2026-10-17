@@ -44,6 +44,45 @@ export interface CloseParams {
   tabId: TabId;
 }
 
+/** Text or regex query (S-01). Matching is per line. */
+export interface SearchQuery {
+  pattern: string;
+  isRegex: boolean;
+  caseSensitive: boolean;
+}
+
+export interface SearchParams {
+  tabId: TabId;
+  /** null cancels the current search of the tab. */
+  query: SearchQuery | null;
+}
+
+export interface SearchStarted {
+  /** Identifier carried by the `query` events; null when the search was cancelled. */
+  searchId: string | null;
+}
+
+export interface SearchNextParams {
+  tabId: TabId;
+  searchId: string;
+  /** Reference row: "next" finds the first match after it, "prev" the last match before it. */
+  fromRow: number;
+  dir: "next" | "prev";
+}
+
+export interface SearchHit {
+  /** Global row of the match, null when there is none (yet). */
+  row: number | null;
+  /** 1-based rank of the match among the results found so far. */
+  ordinal: number | null;
+  /** Matches found so far. */
+  matches: number;
+  /** The whole file has been scanned: counts and ranks are final. */
+  done: boolean;
+  /** The search went around the end (or the start) of the file. */
+  wrapped: boolean;
+}
+
 // TODO(M1+): goto / setFollow / setPaused. Follow and goto are renderer-only state for now
 // (pull model), pause (T-06) is deferred.
 
@@ -51,6 +90,8 @@ export interface EngineRequestMap {
   open: { params: OpenParams; result: TabInfo };
   close: { params: CloseParams; result: void };
   getRows: { params: GetRowsParams; result: RowsResult };
+  search: { params: SearchParams; result: SearchStarted };
+  searchNext: { params: SearchNextParams; result: SearchHit };
 }
 
 export type EngineOp = keyof EngineRequestMap;

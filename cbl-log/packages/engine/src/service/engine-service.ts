@@ -13,12 +13,17 @@ import {
   type EngineResponse,
   type OpenParams,
   type RowsResult,
+  type SearchHit,
+  type SearchNextParams,
+  type SearchParams,
+  type SearchStarted,
   type TabEvent,
   type TabId,
   type TabInfo,
 } from "@cbl-log/shared";
 import { detectEncoding, isUtf16, looksBinary } from "../source/encoding.js";
 import { SourceError, toSourceError } from "../source/source.js";
+import { SearchSession, type SearchSessionOptions } from "../search/session.js";
 import { Tailer } from "../tail/tailer.js";
 
 /** Minimal message port: adapters wrap MessagePortMain (Electron) or node:worker_threads ports. */
@@ -31,6 +36,8 @@ export interface PortLike {
 export interface EngineServiceOptions {
   /** Files larger than this are indexed in a worker thread (default 64 MiB). */
   indexWithWorkerAboveBytes?: number;
+  /** Tuning of the search pool (tests shrink the slices and the stall delay). */
+  search?: SearchSessionOptions;
 }
 
 export const DEFAULT_WORKER_THRESHOLD_BYTES = 64 * 1024 * 1024;
@@ -39,6 +46,7 @@ const INDEXING_THROTTLE_MS = 100;
 
 interface Tab {
   tailer: Tailer;
+  search?: SearchSession;
   /** Port that opened the tab: the only one receiving its events. */
   port: PortLike;
   unsubscribe: () => void;
@@ -51,11 +59,13 @@ type Handler<K extends EngineOp> = (
 
 export class EngineService {
   private readonly threshold: number;
+  private readonly searchOptions: SearchSessionOptions;
   private readonly tabs = new Map<TabId, Tab>();
   private readonly detachers = new Set<() => void>();
 
   constructor(options: EngineServiceOptions = {}) {
     this.threshold = options.indexWithWorkerAboveBytes ?? DEFAULT_WORKER_THRESHOLD_BYTES;
+    this.searchOptions = options.search ?? {};
   }
 
   /** Starts serving requests received on `port`. Returns a function that detaches it. */
@@ -79,6 +89,8 @@ export class EngineService {
     open: (params, port) => this.openTab(params, port),
     getRows: (params) => this.getRows(params.tabId, params.first, params.count),
     close: (params) => this.closeTab(params.tabId),
+    search: (params, port) => this.startSearch(params, port),
+    searchNext: (params) => this.searchNext(params),
   };
 
   private async handle(msg: unknown, port: PortLike): Promise<void> {
@@ -133,8 +145,14 @@ export class EngineService {
             })
         : undefined,
     });
-    const unsubscribe = tailer.on((event) => this.emitEvent(port, tabId, event));
-    this.tabs.set(tabId, { tailer, port, unsubscribe });
+    const tab: Tab = { tailer, port, unsubscribe: () => {} };
+    tab.unsubscribe = tailer.on((event) => {
+      this.emitEvent(port, tabId, event);
+      // keep the search of the tab in step with the file
+      if (event.type === "rows") tab.search?.extend();
+      else if (event.type === "rolled") tab.search?.restart();
+    });
+    this.tabs.set(tabId, tab);
     try {
       await tailer.start();
     } catch (err) {
@@ -163,10 +181,43 @@ export class EngineService {
     };
   }
 
+  private async startSearch(params: SearchParams, port: PortLike): Promise<SearchStarted> {
+    const tab = this.requireTab(params.tabId);
+    tab.search?.dispose();
+    tab.search = undefined;
+    const { query } = params;
+    if (!query || query.pattern === "") return { searchId: null };
+    if (query.isRegex) {
+      try {
+        new RegExp(query.pattern);
+      } catch (err) {
+        throw new SourceError("BAD_QUERY", "", err instanceof Error ? err.message : String(err));
+      }
+    }
+    const session = new SearchSession(
+      query,
+      () => tab.tailer.currentTarget,
+      (event) => this.emitEvent(port, params.tabId, event),
+      this.searchOptions,
+    );
+    tab.search = session;
+    session.start();
+    return { searchId: session.id };
+  }
+
+  private async searchNext(params: SearchNextParams): Promise<SearchHit> {
+    const session = this.requireTab(params.tabId).search;
+    if (!session || session.id !== params.searchId) {
+      return { row: null, ordinal: null, matches: 0, done: true, wrapped: false };
+    }
+    return session.next(params.fromRow, params.dir);
+  }
+
   private async closeTab(tabId: TabId): Promise<void> {
     const tab = this.tabs.get(tabId);
     if (!tab) return;
     this.tabs.delete(tabId);
+    tab.search?.dispose();
     tab.unsubscribe();
     await tab.tailer.close();
   }
