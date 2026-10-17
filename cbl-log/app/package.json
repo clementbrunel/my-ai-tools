@@ -2,6 +2,7 @@
   "name": "@cbl-log/app",
   "version": "0.0.0",
   "private": true,
+  "productName": "cbl-log",
   "author": "Clement Brunel",
   "description": "cbl-log - visualiseur de logs temps reel",
   "main": "out/main/index.js",
