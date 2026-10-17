@@ -15,9 +15,11 @@ export function formatBytes(bytes: number): string {
 interface Props {
   tab: TabState;
   onToggleFollow(): void;
+  onClear(): void;
+  onUnclear(): void;
 }
 
-export function StatusBar({ tab, onToggleFollow }: Props) {
+export function StatusBar({ tab, onToggleFollow, onClear, onUnclear }: Props) {
   return (
     <footer className="statusbar">
       <span className="status-path" title={tab.info.path}>
@@ -28,6 +30,15 @@ export function StatusBar({ tab, onToggleFollow }: Props) {
       <span>{tab.total.toLocaleString("fr-FR")} lignes</span>
       {tab.indexing !== undefined && <span>Indexation {Math.round(tab.indexing * 100)} %</span>}
       {tab.state !== "following" && <span className={`state-${tab.state}`}>{tab.state === "missing" ? "Fichier introuvable" : tab.message ?? "Erreur"}</span>}
+      {tab.clearedBefore > 0 ? (
+        <button type="button" className="link" onClick={onUnclear} title="Réafficher les lignes masquées">
+          {tab.clearedBefore.toLocaleString("fr-FR")} ligne(s) masquée(s) — tout afficher
+        </button>
+      ) : (
+        <button type="button" className="link" onClick={onClear} title="Masquer tout ce qui précède (Ctrl+L)">
+          Effacer
+        </button>
+      )}
       <button type="button" className={tab.follow ? "follow on" : "follow"} onClick={onToggleFollow} title="Suivre la fin du fichier (Ctrl+End)">
         FOLLOW
       </button>
