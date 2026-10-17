@@ -1,7 +1,13 @@
 import { join } from "node:path";
 import { app, BrowserWindow, dialog, ipcMain, Menu } from "electron";
+import type { RuleSet } from "@cbl-log/shared";
 import { parseFileArgs } from "./cli-args";
 import { EngineHost } from "./engine-process";
+import { loadRuleSets, saveRuleSet } from "./rules-store";
+
+// Settings live in %APPDATA%cbl-log (architecture, section 8), not under the package name.
+app.setPath("userData", join(app.getPath("appData"), "cbl-log"));
+const rulesDir = (): string => join(app.getPath("userData"), "rules");
 
 const engine = new EngineHost();
 let mainWindow: BrowserWindow | undefined;
@@ -93,6 +99,8 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   ipcMain.handle("dialog:open-files", () => pickFiles());
+  ipcMain.handle("rules:load", () => loadRuleSets(rulesDir()));
+  ipcMain.handle("rules:save", (_event, set: RuleSet) => saveRuleSet(rulesDir(), set));
   ipcMain.on("renderer:ready", () => {
     rendererReady = true;
     sendFiles(pendingPaths.splice(0));

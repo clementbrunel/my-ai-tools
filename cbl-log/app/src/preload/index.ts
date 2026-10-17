@@ -13,6 +13,8 @@ const api: CblLogApi = {
   },
   getPathForFile: (file) => webUtils.getPathForFile(file),
   notifyReady: () => ipcRenderer.send("renderer:ready"),
+  loadRuleSets: () => ipcRenderer.invoke("rules:load") as ReturnType<CblLogApi["loadRuleSets"]>,
+  saveRuleSet: (set) => ipcRenderer.invoke("rules:save", set) as Promise<void>,
 };
 
 contextBridge.exposeInMainWorld("cblLog", api);

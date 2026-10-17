@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { Row } from "@cbl-log/shared";
+import type { HighlightResult } from "../highlight/highlight";
 import type { PageCache } from "./page-cache";
 import { marksByRow, rollMarkLabel, type RollMark } from "./roll-mark";
 import { formatRows, isSelected, MAX_COPY_ROWS, selectionRange, selectionSize, type Selection } from "./selection";
@@ -15,6 +16,8 @@ interface Props {
   /** Rows before this one are hidden ("clear"); line numbers stay those of the file. */
   base: number;
   marks: readonly RollMark[];
+  /** Colors a line according to the active highlighting rules. */
+  highlight(text: string): HighlightResult;
   follow: boolean;
   /** First row to show (relative to `base`) when the viewport mounts with follow off. */
   initialRow: number;
@@ -27,7 +30,7 @@ interface Props {
 }
 
 /** Virtualized, fixed-height-row view of a tab's lines. Follow mode keeps the end in view. */
-export function LogViewport({ cache, total: realTotal, base, marks, follow, initialRow, onFollowChange, onLeave, fetchRows, onNotice }: Props) {
+export function LogViewport({ cache, total: realTotal, base, marks, highlight, follow, initialRow, onFollowChange, onLeave, fetchRows, onNotice }: Props) {
   const total = Math.max(0, realTotal - base);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
@@ -175,6 +178,7 @@ export function LogViewport({ cache, total: realTotal, base, marks, follow, init
     const lineRow = base + i;
     const row = cache.getRow(lineRow);
     const mark = markAt.get(lineRow);
+    const colored = row ? highlight(row.text) : undefined;
     const classes = ["log-row"];
     if (mark) classes.push("roll-start");
     if (isSelected(selection, lineRow)) classes.push("selected");
@@ -182,7 +186,11 @@ export function LogViewport({ cache, total: realTotal, base, marks, follow, init
       <div
         className={classes.join(" ")}
         key={lineRow}
-        style={{ height: ROW_HEIGHT }}
+        style={{
+          height: ROW_HEIGHT,
+          ...(colored?.lineBg ? { backgroundColor: colored.lineBg } : {}),
+          ...(colored?.lineFg ? { color: colored.lineFg } : {}),
+        }}
         onMouseDown={(e) => {
           if (e.button !== 0) return;
           dragging.current = true;
@@ -194,7 +202,17 @@ export function LogViewport({ cache, total: realTotal, base, marks, follow, init
       >
         <span className="log-gutter">{lineRow + 1}</span>
         <span className="log-text">
-          {row ? row.text : ""}
+          {colored
+            ? colored.segments.map((seg, n) =>
+                seg.fg || seg.bg ? (
+                  <span key={n} style={{ color: seg.fg, backgroundColor: seg.bg }}>
+                    {seg.text}
+                  </span>
+                ) : (
+                  seg.text
+                ),
+              )
+            : ""}
           {row?.truncated ? "…" : ""}
         </span>
         {mark && <span className="roll-label">{rollMarkLabel(mark)}</span>}
