@@ -384,13 +384,17 @@ export class Tailer {
     // The file may have been truncated and regrown while we were reading: the bytes just indexed
     // would then come from the new generation. Re-check the anchor BEFORE refreshing it, and undo the
     // read so that truncate() can still recover the old generation's tail from the archive.
-    if (res.appendedBytes > 0 && !(await this.anchorMatches(seg))) {
-      index.restore(snapshot);
-      await this.truncate(seg);
-      return;
-    }
     if (res.appendedBytes > 0) {
-      await this.refreshAnchor(seg);
+      // Order matters: read the new anchor FIRST, then verify the old one. A truncation after the
+      // check cannot taint the new anchor (it was read earlier); one before it fails the check.
+      const fresh = await this.readAnchor(seg);
+      if (!(await this.anchorMatches(seg))) {
+        index.restore(snapshot);
+        await this.truncate(seg);
+        return;
+      }
+      seg.anchor = fresh.anchor;
+      seg.anchorEnd = fresh.anchorEnd;
       this.noteRows(index.lineCount - before);
     }
   }
@@ -413,10 +417,17 @@ export class Tailer {
   }
 
   private async refreshAnchor(seg: Segment): Promise<void> {
+    const fresh = await this.readAnchor(seg);
+    seg.anchor = fresh.anchor;
+    seg.anchorEnd = fresh.anchorEnd;
+  }
+
+  /** Fingerprint of the ANCHOR_BYTES preceding the scanned offset, without storing it. */
+  private async readAnchor(seg: Segment): Promise<{ anchor: Buffer; anchorEnd: number }> {
     const scanned = seg.index?.scannedBytes ?? 0;
     const len = Math.min(ANCHOR_BYTES, scanned);
-    seg.anchorEnd = scanned;
-    seg.anchor = seg.source && len > 0 ? await seg.source.readAt(scanned - len, len, { cache: false }) : Buffer.alloc(0);
+    const anchor = seg.source && len > 0 ? await seg.source.readAt(scanned - len, len, { cache: false }) : Buffer.alloc(0);
+    return { anchor, anchorEnd: scanned };
   }
 
   /** The fingerprint re-read at each tick must equal the one taken after the last read. */
