@@ -229,3 +229,53 @@ body {
   background: var(--accent);
   color: #fff;
 }
+
+.toast.info {
+  background: var(--accent);
+}
+
+.banner {
+  flex: none;
+  padding: 4px 12px;
+  background: #d98e04;
+  color: #1b1f24;
+  font-size: 12px;
+}
+
+.banner-error {
+  background: #b3261e;
+  color: #fff;
+}
+
+.log-row.roll-start {
+  border-top: 1px dashed var(--accent);
+  box-sizing: border-box;
+}
+
+.log-row.selected {
+  background: rgba(47, 111, 220, 0.25);
+}
+
+.log-row {
+  user-select: none;
+}
+
+.roll-label {
+  position: sticky;
+  right: 8px;
+  margin-left: auto;
+  padding: 0 8px;
+  background: var(--bg);
+  color: var(--accent);
+  font-size: 11px;
+}
+
+.link {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+}

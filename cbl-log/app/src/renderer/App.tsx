@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
-import type { TabId } from "@cbl-log/shared";
+import type { Row, TabId } from "@cbl-log/shared";
 import { subscribeEngine } from "./engine/client";
 import type { RpcClient } from "./engine/rpc-client";
 import { baseName, pathKey } from "./files/path-key";
@@ -19,7 +19,7 @@ interface TabRuntime {
 
 export function App() {
   const [state, dispatch] = useReducer(tabsReducer, initialTabsState);
-  const [error, setError] = useState<string | undefined>();
+  const [notice, setNotice] = useState<{ text: string; isError: boolean } | undefined>();
   const engineRef = useRef<RpcClient | undefined>(undefined);
   const engineWaiters = useRef<((engine: RpcClient) => void)[]>([]);
   const runtimes = useRef(new Map<TabId, TabRuntime>());
@@ -43,7 +43,7 @@ export function App() {
       engineRef.current = engine;
       if (isReconnection) {
         resetTabs();
-        setError("Le moteur a redémarré : les onglets ont été fermés.");
+        setNotice({ text: "Le moteur a redémarré : les onglets ont été fermés.", isError: true });
       } else {
         console.log("engine connected");
       }
@@ -62,7 +62,7 @@ export function App() {
             rt.cache.invalidateFrom(event.at);
           }
         }
-        dispatch({ type: "event", tabId, event });
+        dispatch({ type: "event", tabId, event, receivedAt: Date.now() });
       });
     });
     return () => {
@@ -87,7 +87,7 @@ export function App() {
           runtimes.current.set(info.tabId, { cache, total: info.totalRows, pathKey: key });
           dispatch({ type: "opened", info });
         } catch (err) {
-          setError(`${baseName(path)} : ${err instanceof Error ? err.message : String(err)}`);
+          setNotice({ text: `${baseName(path)} : ${err instanceof Error ? err.message : String(err)}`, isError: true });
         }
       }
     },
@@ -112,10 +112,10 @@ export function App() {
   }, [openPaths]);
 
   useEffect(() => {
-    if (!error) return;
-    const timer = setTimeout(() => setError(undefined), 6000);
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(undefined), 6000);
     return () => clearTimeout(timer);
-  }, [error]);
+  }, [notice]);
 
   useFileDrop(openPaths);
 
@@ -127,6 +127,9 @@ export function App() {
       if (e.ctrlKey && e.key.toLowerCase() === "w" && activeId) {
         e.preventDefault();
         closeTab(activeId);
+      } else if (e.ctrlKey && e.key.toLowerCase() === "l" && activeId) {
+        e.preventDefault();
+        dispatch({ type: "clear", tabId: activeId });
       }
     };
     window.addEventListener("keydown", onKey);
@@ -146,13 +149,23 @@ export function App() {
     [activeId],
   );
 
+  const fetchRows = useCallback(
+    async (first: number, count: number): Promise<Row[]> => {
+      if (!activeId) return [];
+      const engine = await withEngine();
+      return (await engine.request("getRows", { tabId: activeId, first, count })).rows;
+    },
+    [activeId, withEngine],
+  );
+  const onNotice = useCallback((text: string, isError = false) => setNotice({ text, isError }), []);
+
   const runtime = activeId ? runtimes.current.get(activeId) : undefined;
 
   return (
     <div className="app">
-      {error && (
-        <div className="toast" role="alert" onClick={() => setError(undefined)}>
-          {error}
+      {notice && (
+        <div className={notice.isError ? "toast" : "toast info"} role="alert" onClick={() => setNotice(undefined)}>
+          {notice.text}
         </div>
       )}
       {!active || !runtime ? (
@@ -166,16 +179,30 @@ export function App() {
       ) : (
         <>
           <TabBar tabs={state.tabs} activeId={activeId} onActivate={(tabId) => dispatch({ type: "activated", tabId })} onClose={closeTab} />
+          {active.state !== "following" && (
+            <div className={`banner banner-${active.state}`} role="status">
+              {active.state === "missing" ? "Fichier absent, en attente…" : active.message ?? "Erreur de lecture du fichier."}
+            </div>
+          )}
           <LogViewport
             key={active.info.tabId}
             cache={runtime.cache}
             total={active.total}
+            base={active.clearedBefore}
+            marks={active.marks}
+            fetchRows={fetchRows}
+            onNotice={onNotice}
             follow={active.follow}
             initialRow={active.scrollRow}
             onFollowChange={onFollowChange}
             onLeave={onLeave}
           />
-          <StatusBar tab={active} onToggleFollow={() => onFollowChange(!active.follow)} />
+          <StatusBar
+            tab={active}
+            onToggleFollow={() => onFollowChange(!active.follow)}
+            onClear={() => dispatch({ type: "clear", tabId: active.info.tabId })}
+            onUnclear={() => dispatch({ type: "unclear", tabId: active.info.tabId })}
+          />
         </>
       )}
     </div>

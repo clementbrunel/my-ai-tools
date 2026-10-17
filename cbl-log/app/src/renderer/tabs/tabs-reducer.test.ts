@@ -24,9 +24,9 @@ describe("tabsReducer", () => {
     const s = run(
       { type: "opened", info: info("a") },
       { type: "opened", info: info("b") },
-      { type: "event", tabId: "a", event: { type: "rows", total: 15, appended: 5 } },
-      { type: "event", tabId: "a", event: { type: "rows", total: 18, appended: 3 } },
-      { type: "event", tabId: "b", event: { type: "rows", total: 11, appended: 1 } },
+      { type: "event", tabId: "a", event: { type: "rows", total: 15, appended: 5 }, receivedAt: 0 },
+      { type: "event", tabId: "a", event: { type: "rows", total: 18, appended: 3 }, receivedAt: 0 },
+      { type: "event", tabId: "b", event: { type: "rows", total: 11, appended: 1 }, receivedAt: 0 },
     );
     expect(s.tabs.find((t) => t.info.tabId === "a")).toMatchObject({ total: 18, unseen: 8 });
     expect(s.tabs.find((t) => t.info.tabId === "b")).toMatchObject({ total: 11, unseen: 0 });
@@ -36,7 +36,7 @@ describe("tabsReducer", () => {
     const s = run(
       { type: "opened", info: info("a") },
       { type: "opened", info: info("b") },
-      { type: "event", tabId: "a", event: { type: "rows", total: 15, appended: 5 } },
+      { type: "event", tabId: "a", event: { type: "rows", total: 15, appended: 5 }, receivedAt: 0 },
       { type: "activated", tabId: "a" },
     );
     expect(s.activeId).toBe("a");
@@ -44,16 +44,16 @@ describe("tabsReducer", () => {
   });
 
   it("tracks indexing progress and clears it when done", () => {
-    let s = run({ type: "opened", info: info("a") }, { type: "event", tabId: "a", event: { type: "indexing", progress: 0.4, provisional: false } });
+    let s = run({ type: "opened", info: info("a") }, { type: "event", tabId: "a", event: { type: "indexing", progress: 0.4, provisional: false }, receivedAt: 0 });
     expect(s.tabs[0]?.indexing).toBe(0.4);
-    s = tabsReducer(s, { type: "event", tabId: "a", event: { type: "indexing", progress: 1, provisional: false } });
+    s = tabsReducer(s, { type: "event", tabId: "a", event: { type: "indexing", progress: 1, provisional: false }, receivedAt: 0 });
     expect(s.tabs[0]?.indexing).toBeUndefined();
   });
 
   it("records missing / error state and recovery", () => {
-    let s = run({ type: "opened", info: info("a") }, { type: "event", tabId: "a", event: { type: "state", state: "missing", message: "gone" } });
+    let s = run({ type: "opened", info: info("a") }, { type: "event", tabId: "a", event: { type: "state", state: "missing", message: "gone" }, receivedAt: 0 });
     expect(s.tabs[0]).toMatchObject({ state: "missing", message: "gone" });
-    s = tabsReducer(s, { type: "event", tabId: "a", event: { type: "state", state: "following" } });
+    s = tabsReducer(s, { type: "event", tabId: "a", event: { type: "state", state: "following" }, receivedAt: 0 });
     expect(s.tabs[0]).toMatchObject({ state: "following", message: undefined });
   });
 
@@ -69,7 +69,7 @@ describe("tabsReducer", () => {
   it("returns the same state object when nothing changes", () => {
     const s = run({ type: "opened", info: info("a") });
     expect(tabsReducer(s, { type: "follow", tabId: "a", follow: true })).toBe(s);
-    expect(tabsReducer(s, { type: "event", tabId: "zzz", event: { type: "rows", total: 1, appended: 1 } })).toBe(s);
+    expect(tabsReducer(s, { type: "event", tabId: "zzz", event: { type: "rows", total: 1, appended: 1 }, receivedAt: 0 })).toBe(s);
   });
 
   it("closing the active tab activates its neighbour, closing the last one empties the bar", () => {
@@ -86,6 +86,29 @@ describe("tabsReducer", () => {
     const s = run({ type: "opened", info: info("a") }, { type: "opened", info: info("b") }, { type: "closed", tabId: "a" });
     expect(s.activeId).toBe("b");
     expect(s.tabs).toHaveLength(1);
+  });
+
+  it("records rolling marks with their time", () => {
+    const s = run(
+      { type: "opened", info: info("a") },
+      { type: "event", tabId: "a", event: { type: "rolled", reason: "rename", previous: "C:/logs/a.log.1", at: 10 }, receivedAt: 123 },
+      { type: "event", tabId: "a", event: { type: "rolled", reason: "truncate", at: 25 }, receivedAt: 456 },
+    );
+    expect(s.tabs[0]?.marks).toEqual([
+      { row: 10, reason: "rename", previous: "C:/logs/a.log.1", at: 123 },
+      { row: 25, reason: "truncate", at: 456 },
+    ]);
+  });
+
+  it("clear hides everything before the current end, unclear shows it again", () => {
+    let s = run(
+      { type: "opened", info: info("a", 40) },
+      { type: "event", tabId: "a", event: { type: "rows", total: 50, appended: 10 }, receivedAt: 0 },
+      { type: "clear", tabId: "a" },
+    );
+    expect(s.tabs[0]?.clearedBefore).toBe(50);
+    s = tabsReducer(s, { type: "unclear", tabId: "a" });
+    expect(s.tabs[0]?.clearedBefore).toBe(0);
   });
 
   it("reset drops every tab", () => {
