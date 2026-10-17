@@ -220,7 +220,7 @@ Format déclaratif en JSON (C-04), regex à groupes nommés :
 - Formats fournis : **WebSphere traditional, WebSphere Liberty, Liberty JSON** (P0), Spring Boot/Logback,
   Log4j2, JSON lines.
 
-Format WebSphere *générique, provisoire* — sera remplacé par le formatage réel fourni avant M2 (traditional `SystemOut.log` et Liberty `messages.log` partagent la même mise en page
+Format WebSphere `websphere-basic` (implémenté dans `packages/shared/src/formats.ts`, validé sur un `SystemOut.log` réel de WebSphere 9.0.5 : locale `M/d/yy`, fuseau `UTC`) — traditional `SystemOut.log` et Liberty `messages.log` partagent la même mise en page
 « basic » : `[10/14/26 10:02:11:204 CEST] 0000004a SystemOut     O Hello`) :
 
 ```json
@@ -238,6 +238,12 @@ Format WebSphere *générique, provisoire* — sera remplacé par le formatage r
 - L'ordre jour/mois dépend de la **locale du serveur** (`M/d/yy` en en_US, `dd/MM/yy` en fr_FR) : réglable
   par profil, avec détection automatique quand un jour > 12 apparaît.
 - Le fuseau est une abréviation (`CEST`, `UTC`) : table abréviation → décalage dans `settings.json`.
+- **Le niveau n'est presque jamais dans la lettre WebSphere** : les lignes `SystemOut` sont toutes de type `O`.
+  Le niveau réel est celui de la mise en page applicative qui suit (`user|canal|yyyyMMdd|heure|NIVEAU|logger|…`),
+  avec les niveaux de `java.util.logging` (`SEVERE`, `WARNING`, `INFO`, `CONFIG`, `FINE`, `FINER`, `FINEST`) :
+  le format les lit via `levelFallbacks` (la lettre `O` vaut `none`).
+- Les lignes qui ne commencent pas par l'en-tête (tabulation + `at …`, `Caused by:`, `… N more`, SQL sur plusieurs lignes,
+  ligne d'exception sans préfixe, bandeau d'environnement du début) sont des suites de l'enregistrement précédent.
 - Les identifiants de messages IBM (`CWWKZ0001I`, `WSVR0605W`, `…E`) servent de niveau de secours et
   fournissent des règles de surlignage par défaut (suffixe `E` rouge, `W` orange).
 - Liberty JSON (`WLP_LOGGING_MESSAGE_FORMAT=json`) : mapping `ibm_datetime`, `loglevel`, `module`, `message`.

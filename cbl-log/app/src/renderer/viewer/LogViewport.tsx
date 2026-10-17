@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
-import type { Row } from "@cbl-log/shared";
+import type { CompiledFormat, Level, Row } from "@cbl-log/shared";
+import { computeRowLevels } from "../formats/row-levels";
 import type { HighlightResult } from "../highlight/highlight";
 import type { PageCache } from "./page-cache";
 import { marksByRow, rollMarkLabel, type RollMark } from "./roll-mark";
@@ -18,6 +19,10 @@ interface Props {
   /** Rows before this one are hidden ("clear"); line numbers stay those of the file. */
   base: number;
   marks: readonly RollMark[];
+  /** Detected log format: gives each row a level marker (continuation lines inherit it). */
+  format?: CompiledFormat | undefined;
+  /** Level of the first visible row, reported when it changes. */
+  onViewLevel?: (level: Level | undefined) => void;
   /** Colors a line according to the active highlighting rules. */
   highlight(text: string): HighlightResult;
   follow: boolean;
@@ -38,7 +43,7 @@ interface Props {
 }
 
 /** Virtualized, fixed-height-row view of a tab's lines. Follow mode keeps the end in view. */
-export function LogViewport({ cache, total: realTotal, base, marks, highlight, follow, reveal, currentMatchRow, viewRowRef, initialRow, onFollowChange, onLeave, fetchRows, onNotice }: Props) {
+export function LogViewport({ cache, total: realTotal, base, marks, format, onViewLevel, highlight, follow, reveal, currentMatchRow, viewRowRef, initialRow, onFollowChange, onLeave, fetchRows, onNotice }: Props) {
   const total = Math.max(0, realTotal - base);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
@@ -91,6 +96,10 @@ export function LogViewport({ cache, total: realTotal, base, marks, highlight, f
   useEffect(() => setSelection(undefined), [base]);
 
   const range = visibleRange(scrollTop, viewportHeight, total, OVERSCAN);
+  const levels = computeRowLevels(format, (row) => cache.getRow(row)?.text, base + range.first, range.count);
+  const topIndex = Math.max(0, scrollTopToRow(scrollTop, viewportHeight, total) - range.first);
+  const topLevel = levels[topIndex];
+  useEffect(() => onViewLevel?.(topLevel), [topLevel, onViewLevel]);
   if (viewRowRef) viewRowRef.current = base + scrollTopToRow(scrollTop, viewportHeight, total);
 
   // Reveal request: center the row (search hit).
@@ -226,6 +235,8 @@ export function LogViewport({ cache, total: realTotal, base, marks, highlight, f
     if (mark) classes.push("roll-start");
     if (isSelected(selection, lineRow)) classes.push("selected");
     if (lineRow === currentMatchRow) classes.push("current-match");
+    const level = levels[i - range.first];
+    if (level) classes.push(`lvl-${level}`);
     rows.push(
       <div
         className={classes.join(" ")}

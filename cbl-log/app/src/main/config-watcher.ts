@@ -4,7 +4,7 @@ import { watch, type FSWatcher } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-export type ConfigKind = "settings" | "rules";
+export type ConfigKind = "settings" | "rules" | "formats";
 
 export const WATCH_DEBOUNCE_MS = 300;
 
@@ -13,6 +13,7 @@ export function classifyConfigFile(relativePath: string): ConfigKind | undefined
   const normalized = relativePath.split(String.fromCharCode(92)).join("/");
   if (normalized === "settings.json") return "settings";
   if (/^rules\/[^/]+\.json$/.test(normalized)) return "rules";
+  if (/^formats\/[^/]+\.json$/.test(normalized)) return "formats";
   return undefined;
 }
 

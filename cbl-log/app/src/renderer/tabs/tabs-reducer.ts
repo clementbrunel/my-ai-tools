@@ -28,6 +28,8 @@ export interface TabState {
   /** "Clear": rows before this one are hidden (0 = show everything). */
   clearedBefore: number;
   search?: SearchState;
+  /** Detected log format: undefined = not detected yet, null = raw (no known format). */
+  formatId?: string | null;
   /** Latest progress event of the engine search (matched to `search.id` by searchStatus). */
   queryEvent?: QueryEvent;
 }
@@ -52,6 +54,7 @@ export type TabsAction =
   | { type: "searchStarted"; tabId: TabId; query: SearchQuery; id: string | null }
   | { type: "searchHit"; tabId: TabId; row: number; ordinal: number | null }
   | { type: "searchStopped"; tabId: TabId }
+  | { type: "formatDetected"; tabId: TabId; formatId: string | null }
   | { type: "clearedTo"; tabId: TabId; row: number }
   | { type: "clear"; tabId: TabId }
   | { type: "unclear"; tabId: TabId }
@@ -140,6 +143,8 @@ export function tabsReducer(state: TabsState, action: TabsAction): TabsState {
       });
     case "clear":
       return updateTab(state, action.tabId, (t) => (t.clearedBefore === t.total ? t : { ...t, clearedBefore: t.total }));
+    case "formatDetected":
+      return updateTab(state, action.tabId, (t) => (t.formatId === action.formatId ? t : { ...t, formatId: action.formatId }));
     case "clearedTo":
       return updateTab(state, action.tabId, (t) => {
         const row = Math.min(Math.max(0, action.row), t.total);

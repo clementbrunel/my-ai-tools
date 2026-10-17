@@ -245,5 +245,6 @@ Priorités : **P0** = MVP (parité BareTail utile), **P1** = V1 (ce qui justifie
 ## 10. Questions ouvertes
 
 1. **Format de config** : JSON retenu par défaut (cohérent avec le monorepo), TOML possible plus tard.
-2. **Formatage exact des logs WebSphere** (exemple de lignes + nom des archives) : à fournir avant M2 ;
-   il fixe le parseur par défaut, la locale des dates et la détection des archives (T-08).
+2. **Formatage exact des logs WebSphere** : *en partie levée* — un `SystemOut.log` réel a fixé le parseur par défaut
+   et la locale (`M/d/yy`, UTC). Reste à fournir : le nom des archives de rolling (détection T-08) et un exemple Liberty
+   (`messages.log` / JSON).

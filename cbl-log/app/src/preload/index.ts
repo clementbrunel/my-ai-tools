@@ -19,8 +19,9 @@ const api: CblLogApi = {
   saveSettings: (settings) => ipcRenderer.invoke("settings:save", settings) as Promise<void>,
   loadSession: () => ipcRenderer.invoke("session:load") as ReturnType<CblLogApi["loadSession"]>,
   saveSession: (session) => ipcRenderer.invoke("session:save", session) as Promise<void>,
+  loadFormats: () => ipcRenderer.invoke("formats:load") as ReturnType<CblLogApi["loadFormats"]>,
   onConfigChanged: (cb) => {
-    const listener = (_event: unknown, kind: "settings" | "rules"): void => cb(kind);
+    const listener = (_event: unknown, kind: "settings" | "rules" | "formats"): void => cb(kind);
     ipcRenderer.on("config:changed", listener);
     return () => {
       ipcRenderer.off("config:changed", listener);
