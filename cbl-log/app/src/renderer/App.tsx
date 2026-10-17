@@ -1,51 +1,111 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { TabInfo } from "@cbl-log/shared";
-import { engineReady } from "./engine/client";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import type { TabId } from "@cbl-log/shared";
+import { subscribeEngine } from "./engine/client";
+import type { RpcClient } from "./engine/rpc-client";
 import { baseName, pathKey } from "./files/path-key";
 import { useFileDrop } from "./files/useFileDrop";
+import { StatusBar } from "./tabs/StatusBar";
+import { TabBar } from "./tabs/TabBar";
+import { initialTabsState, tabsReducer } from "./tabs/tabs-reducer";
+import { LogViewport } from "./viewer/LogViewport";
+import { PageCache } from "./viewer/page-cache";
 
-const PREVIEW_ROWS = 200;
-
-interface PreviewTab {
-  info: TabInfo;
-  /** Temporary stand-in for the virtualized viewport: the last lines as plain text. */
-  preview: string;
+interface TabRuntime {
+  cache: PageCache;
+  /** Row count last seen, to know from where the cache is outdated when rows are appended. */
+  total: number;
+  pathKey: string;
 }
 
 export function App() {
-  const [tabs, setTabs] = useState<PreviewTab[]>([]);
-  const [activeId, setActiveId] = useState<string | undefined>();
+  const [state, dispatch] = useReducer(tabsReducer, initialTabsState);
   const [error, setError] = useState<string | undefined>();
-  const tabsRef = useRef<PreviewTab[]>([]);
+  const engineRef = useRef<RpcClient | undefined>(undefined);
+  const engineWaiters = useRef<((engine: RpcClient) => void)[]>([]);
+  const runtimes = useRef(new Map<TabId, TabRuntime>());
 
-  const openPaths = useCallback(async (paths: string[]) => {
-    const engine = await engineReady;
-    for (const path of paths) {
-      const existing = tabsRef.current.find((t) => pathKey(t.info.path) === pathKey(path));
-      if (existing) {
-        setActiveId(existing.info.tabId);
-        continue;
-      }
-      try {
-        const info = await engine.request("open", { path });
-        const first = Math.max(0, info.totalRows - PREVIEW_ROWS);
-        const rows = await engine.request("getRows", { tabId: info.tabId, first, count: PREVIEW_ROWS });
-        const tab: PreviewTab = { info, preview: rows.rows.map((r) => r.text).join("\n") };
-        tabsRef.current = [...tabsRef.current, tab];
-        setTabs(tabsRef.current);
-        setActiveId(info.tabId);
-      } catch (err) {
-        setError(`${baseName(path)} : ${err instanceof Error ? err.message : String(err)}`);
-      }
-    }
+  const withEngine = useCallback((): Promise<RpcClient> => {
+    const engine = engineRef.current;
+    return engine ? Promise.resolve(engine) : new Promise((resolve) => engineWaiters.current.push(resolve));
   }, []);
 
+  const resetTabs = useCallback(() => {
+    for (const rt of runtimes.current.values()) rt.cache.clear();
+    runtimes.current.clear();
+    dispatch({ type: "reset" });
+  }, []);
+
+  // Engine connection, and events pushed by the engine.
   useEffect(() => {
-    void engineReady.then((engine) => {
-      console.log("engine connected");
+    let offEvents: (() => void) | undefined;
+    const offSubscribe = subscribeEngine((engine, isReconnection) => {
+      offEvents?.();
+      engineRef.current = engine;
+      if (isReconnection) {
+        resetTabs();
+        setError("Le moteur a redémarré : les onglets ont été fermés.");
+      } else {
+        console.log("engine connected");
+      }
       // Dev-only handle to drive the engine from DevTools: await __engine.request("open", { path })
       if (import.meta.env.DEV) (window as unknown as { __engine: unknown }).__engine = engine;
+      for (const waiter of engineWaiters.current.splice(0)) waiter(engine);
+
+      offEvents = engine.onAnyEvent((tabId, event) => {
+        const rt = runtimes.current.get(tabId);
+        if (rt) {
+          if (event.type === "rows") {
+            // the last line may have been open: re-read from the previous end
+            rt.cache.invalidateFrom(Math.max(0, rt.total - 1));
+            rt.total = event.total;
+          } else if (event.type === "rolled") {
+            rt.cache.invalidateFrom(event.at);
+          }
+        }
+        dispatch({ type: "event", tabId, event });
+      });
     });
+    return () => {
+      offEvents?.();
+      offSubscribe();
+    };
+  }, [resetTabs]);
+
+  const openPaths = useCallback(
+    async (paths: string[]) => {
+      const engine = await withEngine();
+      for (const path of paths) {
+        const key = pathKey(path);
+        const existing = [...runtimes.current.entries()].find(([, rt]) => rt.pathKey === key);
+        if (existing) {
+          dispatch({ type: "activated", tabId: existing[0] });
+          continue;
+        }
+        try {
+          const info = await engine.request("open", { path });
+          const cache = new PageCache(async (first, count) => (await engine.request("getRows", { tabId: info.tabId, first, count })).rows);
+          runtimes.current.set(info.tabId, { cache, total: info.totalRows, pathKey: key });
+          dispatch({ type: "opened", info });
+        } catch (err) {
+          setError(`${baseName(path)} : ${err instanceof Error ? err.message : String(err)}`);
+        }
+      }
+    },
+    [withEngine],
+  );
+
+  const closeTab = useCallback(
+    (tabId: TabId) => {
+      const rt = runtimes.current.get(tabId);
+      rt?.cache.clear();
+      runtimes.current.delete(tabId);
+      dispatch({ type: "closed", tabId });
+      void withEngine().then((engine) => engine.request("close", { tabId }).catch(() => undefined));
+    },
+    [withEngine],
+  );
+
+  useEffect(() => {
     const off = window.cblLog.onOpenFiles((paths) => void openPaths(paths));
     window.cblLog.notifyReady();
     return off;
@@ -59,7 +119,34 @@ export function App() {
 
   useFileDrop(openPaths);
 
-  const active = tabs.find((t) => t.info.tabId === activeId);
+  const active = state.tabs.find((t) => t.info.tabId === state.activeId);
+  const activeId = active?.info.tabId;
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.ctrlKey && e.key.toLowerCase() === "w" && activeId) {
+        e.preventDefault();
+        closeTab(activeId);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [activeId, closeTab]);
+
+  const onFollowChange = useCallback(
+    (follow: boolean) => {
+      if (activeId) dispatch({ type: "follow", tabId: activeId, follow });
+    },
+    [activeId],
+  );
+  const onLeave = useCallback(
+    (row: number) => {
+      if (activeId) dispatch({ type: "scrollRow", tabId: activeId, row });
+    },
+    [activeId],
+  );
+
+  const runtime = activeId ? runtimes.current.get(activeId) : undefined;
 
   return (
     <div className="app">
@@ -68,7 +155,7 @@ export function App() {
           {error}
         </div>
       )}
-      {tabs.length === 0 ? (
+      {!active || !runtime ? (
         <main className="placeholder">
           <h1>cbl-log</h1>
           <p>Glissez un fichier ou Ctrl+O</p>
@@ -78,20 +165,17 @@ export function App() {
         </main>
       ) : (
         <>
-          <nav className="tabs">
-            {tabs.map((t) => (
-              <button
-                key={t.info.tabId}
-                type="button"
-                className={t.info.tabId === activeId ? "tab active" : "tab"}
-                title={t.info.path}
-                onClick={() => setActiveId(t.info.tabId)}
-              >
-                {baseName(t.info.path)}
-              </button>
-            ))}
-          </nav>
-          <pre className="preview">{active?.preview}</pre>
+          <TabBar tabs={state.tabs} activeId={activeId} onActivate={(tabId) => dispatch({ type: "activated", tabId })} onClose={closeTab} />
+          <LogViewport
+            key={active.info.tabId}
+            cache={runtime.cache}
+            total={active.total}
+            follow={active.follow}
+            initialRow={active.scrollRow}
+            onFollowChange={onFollowChange}
+            onLeave={onLeave}
+          />
+          <StatusBar tab={active} onToggleFollow={() => onFollowChange(!active.follow)} />
         </>
       )}
     </div>
