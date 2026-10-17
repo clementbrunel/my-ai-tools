@@ -22,4 +22,14 @@ npm run dev        # lance l'app Electron en mode dev (electron-vite)
 npm run typecheck  # tsc --noEmit sur tous les workspaces
 npm test           # vitest (moteur)
 npm run build      # build shared, engine puis app (sortie app/out)
+npm run package    # installeur NSIS + exe portable dans release/ (Windows x64)
+npm run package:dir  # idem sans installeur : release/win-unpacked/cbl-log.exe
 ```
+
+## Packaging et release
+
+`electron-builder.yml` produit `cbl-log-Setup-<version>.exe` (NSIS, installation par utilisateur) et `cbl-log-<version>-portable.exe`.
+Pas de télémétrie ni de mise à jour automatique (NF-07). Les exécutables ne sont pas signés : Windows SmartScreen peut afficher un avertissement.
+
+Publier une version : poser un tag `cbl-log-vX.Y.Z` sur `main` et le pousser. Le job `release` du workflow
+`cbl-log – CI` construit les deux exécutables (version issue du tag) et les attache à une release GitHub.
