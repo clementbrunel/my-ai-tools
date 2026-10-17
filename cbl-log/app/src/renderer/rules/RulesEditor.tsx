@@ -105,6 +105,9 @@ export function RulesEditor({ rules, errors, onChange, onReset, onClose }: Props
               <label title="Expression régulière">
                 <input type="checkbox" checked={rule.isRegex} onChange={(e) => patch(rule.id, { isRegex: e.target.checked })} /> regex
               </label>
+              <label title="Mot entier : ERROR ne trouve pas ERRORS ni MYERROR">
+                <input type="checkbox" checked={rule.wholeWord} onChange={(ev) => patch(rule.id, { wholeWord: ev.target.checked })} /> Mot
+              </label>
               <label title="Respecter la casse">
                 <input type="checkbox" checked={rule.caseSensitive} onChange={(e) => patch(rule.id, { caseSensitive: e.target.checked })} /> Aa
               </label>

@@ -22,6 +22,7 @@ export function SearchBar({ initial, status, onQuery, onNext, onPrev, onClose }:
   const [pattern, setPattern] = useState(initial?.query.pattern ?? "");
   const [isRegex, setIsRegex] = useState(initial?.query.isRegex ?? false);
   const [caseSensitive, setCaseSensitive] = useState(initial?.query.caseSensitive ?? false);
+  const [wholeWord, setWholeWord] = useState(initial?.query.wholeWord ?? false);
   const [helpOpen, setHelpOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   /** Cursor to restore once React has rendered the inserted text. */
@@ -42,7 +43,7 @@ export function SearchBar({ initial, status, onQuery, onNext, onPrev, onClose }:
     setPattern(done.value);
   };
   const first = useRef(true);
-  const invalid = validateQuery({ pattern, isRegex, caseSensitive });
+  const invalid = validateQuery({ pattern, isRegex, caseSensitive, wholeWord });
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -56,11 +57,11 @@ export function SearchBar({ initial, status, onQuery, onNext, onPrev, onClose }:
     }
     const timer = setTimeout(() => {
       if (pattern === "" || invalid) onQuery(null);
-      else onQuery({ pattern, isRegex, caseSensitive });
+      else onQuery({ pattern, isRegex, caseSensitive, wholeWord });
     }, SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pattern, isRegex, caseSensitive]);
+  }, [pattern, isRegex, caseSensitive, wholeWord]);
 
   const current = initial?.current;
   return (
@@ -89,6 +90,9 @@ export function SearchBar({ initial, status, onQuery, onNext, onPrev, onClose }:
       </label>
       <label title="Respecter la casse">
         <input type="checkbox" checked={caseSensitive} onChange={(e) => setCaseSensitive(e.target.checked)} /> Aa
+      </label>
+      <label title="Mot entier : ERROR ne trouve pas ERRORS ni MYERROR">
+        <input type="checkbox" checked={wholeWord} onChange={(e) => setWholeWord(e.target.checked)} /> Mot
       </label>
       <button type="button" className={helpOpen ? "help-toggle on" : "help-toggle"} onClick={() => setHelpOpen((v) => !v)} title="Aide à la saisie des expressions régulières" aria-label="Aide à la saisie" aria-expanded={helpOpen}>
         ?

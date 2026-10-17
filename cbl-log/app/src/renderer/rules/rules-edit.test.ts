@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createRule, moveRule, newRuleId, removeRule, updateRule } from "./rules-edit";
 
 const make = (...ids: string[]): HighlightRule[] =>
-  ids.map((id) => ({ id, name: id, pattern: id, isRegex: false, caseSensitive: false, scope: "line", enabled: true }));
+  ids.map((id) => ({ id, name: id, pattern: id, isRegex: false, caseSensitive: false, wholeWord: false, scope: "line", enabled: true }));
 const ids = (rules: HighlightRule[]): string[] => rules.map((r) => r.id);
 
 describe("rules-edit", () => {

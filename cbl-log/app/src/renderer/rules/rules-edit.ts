@@ -14,6 +14,7 @@ export function createRule(rules: readonly HighlightRule[]): HighlightRule {
     pattern: "",
     isRegex: false,
     caseSensitive: false,
+    wholeWord: false,
     bg: "#f29900",
     scope: "line",
     enabled: true,

@@ -2,6 +2,7 @@
 // lines, and posts the offsets of the lines that match. Depends only on the pure line scanner.
 import { open } from "node:fs/promises";
 import { parentPort, workerData } from "node:worker_threads";
+import { patternSource } from "@cbl-log/shared";
 import { createDecoder, isUtf16 } from "../source/encoding.js";
 import { scanChunk, type ScanCarry } from "../index/scan.js";
 import type { SearchJob, SearchWorkerMessage } from "./search-types.js";
@@ -16,14 +17,10 @@ function post(msg: SearchWorkerMessage, transfer: ArrayBuffer[] = []): void {
   port!.postMessage(msg, transfer);
 }
 
-function escapeRegExp(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
 /** Bytes of a literal that can be searched in the raw buffer without decoding, if possible. */
 function rawNeedle(job: SearchJob): Buffer | undefined {
-  const { pattern, isRegex, caseSensitive } = job.query;
-  if (isRegex || !caseSensitive || pattern === "" || /[\r\n]/.test(pattern)) return undefined;
+  const { pattern, isRegex, caseSensitive, wholeWord } = job.query;
+  if (isRegex || wholeWord || !caseSensitive || pattern === "" || /[\r\n]/.test(pattern)) return undefined;
   if (job.encoding === "utf-8") return Buffer.from(pattern, "utf8");
   if (!isUtf16(job.encoding) && /^[\x20-\x7e]*$/.test(pattern)) return Buffer.from(pattern, "latin1");
   return undefined;
@@ -35,7 +32,7 @@ async function run(job: SearchJob): Promise<void> {
     const needle = rawNeedle(job);
     const regex = needle
       ? undefined
-      : new RegExp(job.query.isRegex ? job.query.pattern : escapeRegExp(job.query.pattern), job.query.caseSensitive ? "" : "i");
+      : new RegExp(patternSource(job.query), job.query.caseSensitive ? "" : "i");
     const decoder = createDecoder(job.encoding);
 
     let batch: number[] = [];

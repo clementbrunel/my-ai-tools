@@ -327,7 +327,20 @@ export function App() {
   const compiled = useMemo(() => {
     // the search highlight comes first so that it wins over the rules on overlapping fragments
     const searchRule: HighlightRule[] = searchQuery
-      ? [{ id: "__search", name: "", scope: "fragment", enabled: true, bg: "#ffd600", fg: "#000000", ...searchQuery }]
+      ? [
+          {
+            id: "__search",
+            name: "",
+            scope: "fragment",
+            enabled: true,
+            bg: "#ffd600",
+            fg: "#000000",
+            pattern: searchQuery.pattern,
+            isRegex: searchQuery.isRegex,
+            caseSensitive: searchQuery.caseSensitive,
+            wholeWord: searchQuery.wholeWord ?? false,
+          },
+        ]
       : [];
     return compileRules([...searchRule, ...ruleSet.rules]);
   }, [ruleSet.rules, searchQuery]);

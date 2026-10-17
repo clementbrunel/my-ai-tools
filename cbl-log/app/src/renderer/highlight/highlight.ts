@@ -1,4 +1,4 @@
-import type { HighlightRule } from "@cbl-log/shared";
+import { patternSource, type HighlightRule } from "@cbl-log/shared";
 
 /** Only this many leading characters of a line are matched (keeps a 64 KB line cheap). */
 export const MAX_MATCHED_CHARS = 4000;
@@ -28,10 +28,6 @@ export interface CompiledRules {
   errors: Record<string, string>;
 }
 
-function escapeRegExp(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
 /** Compiles the enabled rules, in order. Invalid or empty patterns are skipped and reported. */
 export function compileRules(rules: readonly HighlightRule[]): CompiledRules {
   const compiled: CompiledRule[] = [];
@@ -39,8 +35,7 @@ export function compileRules(rules: readonly HighlightRule[]): CompiledRules {
   for (const rule of rules) {
     if (!rule.enabled || rule.pattern === "") continue;
     try {
-      const source = rule.isRegex ? rule.pattern : escapeRegExp(rule.pattern);
-      compiled.push({ rule, regex: new RegExp(source, rule.caseSensitive ? "g" : "gi") });
+      compiled.push({ rule, regex: new RegExp(patternSource(rule), rule.caseSensitive ? "g" : "gi") });
     } catch (err) {
       errors[rule.id] = err instanceof Error ? err.message : String(err);
     }

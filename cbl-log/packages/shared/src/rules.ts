@@ -12,6 +12,8 @@ export const highlightRuleSchema = z.object({
   /** false: `pattern` is a literal substring. */
   isRegex: z.boolean().default(false),
   caseSensitive: z.boolean().default(false),
+  /** Whole words only: not preceded and not followed by a letter, digit or underscore. */
+  wholeWord: z.boolean().default(false),
   fg: hexColor.optional(),
   bg: hexColor.optional(),
   /** "line": the whole line is colored; "fragment": only the matching text. */
@@ -49,6 +51,7 @@ const rule = (id: string, name: string, pattern: string, extra: Partial<Highligh
   pattern,
   isRegex: true,
   caseSensitive: true,
+  wholeWord: false,
   scope: "line",
   enabled: true,
   ...extra,

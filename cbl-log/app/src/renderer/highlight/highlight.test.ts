@@ -6,6 +6,7 @@ const rule = (over: Partial<HighlightRule> & { id: string; pattern: string }): H
   name: "",
   isRegex: false,
   caseSensitive: false,
+  wholeWord: false,
   scope: "line",
   enabled: true,
   ...over,
@@ -115,6 +116,21 @@ describe("default rules", () => {
 describe("withAlpha", () => {
   it("converts #rrggbb to rgba", () => {
     expect(withAlpha("#ff8000", 0.5)).toBe("rgba(255, 128, 0, 0.5)");
+  });
+});
+
+describe("whole word rules", () => {
+  it("only colors whole words", () => {
+    const rules = [rule({ id: "w", pattern: "ERROR", wholeWord: true, scope: "fragment", bg: "#ff0000" })];
+    expect(run("1 ERROR 2 ERRORS 3 MYERROR", rules).segments.filter((s) => s.bg).map((s) => s.text)).toEqual(["ERROR"]);
+  });
+
+  it("applies to line-scope rules and to ruleMatches too", () => {
+    const r = rule({ id: "w", pattern: "WARN", wholeWord: true, bg: "#ffaa00" });
+    expect(run("WARNING here", [r]).lineBg).toBeUndefined();
+    expect(run("a WARN here", [r]).lineBg).toBeDefined();
+    expect(ruleMatches(r, "WARNING")).toBe(false);
+    expect(ruleMatches(r, "WARN")).toBe(true);
   });
 });
 
