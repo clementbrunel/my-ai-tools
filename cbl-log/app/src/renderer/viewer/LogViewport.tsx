@@ -5,7 +5,7 @@ import type { HighlightResult } from "../highlight/highlight";
 import type { PageCache } from "./page-cache";
 import { marksByRow, rollMarkLabel, type RollMark } from "./roll-mark";
 import { formatRows, isSelected, MAX_COPY_ROWS, selectionRange, selectionSize, type Selection } from "./selection";
-import { isAtBottom, isScaled, contentHeight, ROW_HEIGHT, rowToScrollTop, scrollTopToRow, visibleRange } from "./viewport-math";
+import { isAtBottom, isScaled, contentHeight, lastVisibleRow, ROW_HEIGHT, rowToScrollTop, scrollTopToRow, visibleRange } from "./viewport-math";
 
 // Rows rendered beyond the viewport on each side: the window scrolls natively with the content, so a
 // generous margin keeps the edges covered between two React renders.
@@ -21,7 +21,7 @@ interface Props {
   marks: readonly RollMark[];
   /** Detected log format: gives each row a level marker (continuation lines inherit it). */
   format?: CompiledFormat | undefined;
-  /** Level of the first visible row, reported when it changes. */
+  /** Level of the last visible row (the one being read in follow mode), reported when it changes. */
   onViewLevel?: (level: Level | undefined) => void;
   /** Colors a line according to the active highlighting rules. */
   highlight(text: string): HighlightResult;
@@ -97,9 +97,10 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, onVi
 
   const range = visibleRange(scrollTop, viewportHeight, total, OVERSCAN);
   const levels = computeRowLevels(format, (row) => cache.getRow(row)?.text, base + range.first, range.count);
-  const topIndex = Math.max(0, scrollTopToRow(scrollTop, viewportHeight, total) - range.first);
-  const topLevel = levels[topIndex];
-  useEffect(() => onViewLevel?.(topLevel), [topLevel, onViewLevel]);
+  // In follow mode the view is pinned to the end: the last visible row is then the last row of the file.
+  const bottomRow = follow ? total - 1 : lastVisibleRow(scrollTop, viewportHeight, total);
+  const bottomLevel = levels[bottomRow - range.first];
+  useEffect(() => onViewLevel?.(bottomLevel), [bottomLevel, onViewLevel]);
   if (viewRowRef) viewRowRef.current = base + scrollTopToRow(scrollTop, viewportHeight, total);
 
   // Reveal request: center the row (search hit).

@@ -3,6 +3,7 @@ import {
   contentHeight,
   isAtBottom,
   isScaled,
+  lastVisibleRow,
   MAX_SCROLL_PX,
   rowToScrollTop,
   scrollTopToRow,
@@ -78,5 +79,23 @@ describe("scaled geometry (beyond MAX_SCROLL_PX)", () => {
     const back = scrollTopToRow(rowToScrollTop(500_000_000, VH, total, RH), VH, total, RH);
     // one scroll pixel is worth ~33 rows in this configuration
     expect(Math.abs(back - 500_000_000)).toBeLessThan(100);
+  });
+});
+
+describe("lastVisibleRow", () => {
+  it("is the row at the bottom edge of the viewport", () => {
+    expect(lastVisibleRow(0, VH, 1000, RH)).toBe(29); // 540 px = 30 rows: 0..29
+    expect(lastVisibleRow(18 * 100, VH, 1000, RH)).toBe(129);
+    expect(lastVisibleRow(18 * 100 + 5, VH, 1000, RH)).toBe(130); // a partly visible row counts
+  });
+
+  it("is the very last row when scrolled to the end, in both modes", () => {
+    expect(lastVisibleRow(18_000 - VH, VH, 1000, RH)).toBe(999);
+    expect(lastVisibleRow(MAX_SCROLL_PX - VH, VH, 1_000_000_000, RH)).toBe(999_999_999);
+  });
+
+  it("copes with short and empty content", () => {
+    expect(lastVisibleRow(0, VH, 5, RH)).toBe(4);
+    expect(lastVisibleRow(0, VH, 0, RH)).toBe(0);
   });
 });

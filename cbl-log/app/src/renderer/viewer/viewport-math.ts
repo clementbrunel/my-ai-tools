@@ -73,3 +73,10 @@ export function visibleRange(
 export function isAtBottom(scrollTop: number, viewportHeight: number, total: number, rowHeight = ROW_HEIGHT, tolerance = 1): boolean {
   return scrollTop + viewportHeight >= contentHeight(total, rowHeight) - tolerance;
 }
+
+/** Index of the last (even partially) visible row. */
+export function lastVisibleRow(scrollTop: number, viewportHeight: number, total: number, rowHeight = ROW_HEIGHT): number {
+  if (total <= 0) return 0;
+  const bottom = scrollTopToRowFloat(scrollTop, viewportHeight, total, rowHeight) + viewportHeight / rowHeight;
+  return clamp(Math.ceil(bottom - 1e-9) - 1, 0, total - 1);
+}
