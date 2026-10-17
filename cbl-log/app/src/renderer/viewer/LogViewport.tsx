@@ -4,9 +4,11 @@ import type { HighlightResult } from "../highlight/highlight";
 import type { PageCache } from "./page-cache";
 import { marksByRow, rollMarkLabel, type RollMark } from "./roll-mark";
 import { formatRows, isSelected, MAX_COPY_ROWS, selectionRange, selectionSize, type Selection } from "./selection";
-import { isAtBottom, contentHeight, ROW_HEIGHT, rowToScrollTop, scrollTopToRow, visibleRange } from "./viewport-math";
+import { isAtBottom, isScaled, contentHeight, ROW_HEIGHT, rowToScrollTop, scrollTopToRow, visibleRange } from "./viewport-math";
 
-const OVERSCAN = 20;
+// Rows rendered beyond the viewport on each side: the window scrolls natively with the content, so a
+// generous margin keeps the edges covered between two React renders.
+const OVERSCAN = 40;
 const COPY_CHUNK = 2000;
 
 interface Props {
@@ -44,8 +46,22 @@ export function LogViewport({ cache, total: realTotal, base, marks, highlight, f
   const [gotoOpen, setGotoOpen] = useState(false);
   const [selection, setSelection] = useState<Selection | undefined>();
   const [, rerender] = useReducer((n: number) => n + 1, 0);
-  const latest = useRef({ scrollTop: 0, viewportHeight: 0, total, follow, initialRow, selection, base, realTotal });
-  latest.current = { scrollTop, viewportHeight, total, follow, initialRow, selection, base, realTotal };
+  /** Real scroll position, updated on every scroll event (the `scrollTop` state only moves when the window must). */
+  const scrollTopRef = useRef(0);
+  const renderedRow = useRef(0);
+  /** The user scrolled away from the bottom; follow mode must not pull the view back before React catches up. */
+  const userUnpinned = useRef(false);
+  const wasFollowing = useRef(follow);
+  const latest = useRef({ viewportHeight: 0, total, follow, initialRow, selection, base, realTotal });
+  latest.current = { viewportHeight, total, follow, initialRow, selection, base, realTotal };
+
+  /** Re-render the window around `top` (programmatic scrolls, and native scrolls that cross a row). */
+  const commitScroll = useCallback((top: number) => {
+    scrollTopRef.current = top;
+    const { viewportHeight: vh, total: count } = latest.current;
+    renderedRow.current = scrollTopToRow(top, vh, count);
+    setScrollTop(top);
+  }, []);
   const restored = useRef(false);
   const dragging = useRef(false);
   const markAt = useMemo(() => marksByRow(marks), [marks]);
@@ -63,9 +79,9 @@ export function LogViewport({ cache, total: realTotal, base, marks, highlight, f
 
   useEffect(
     () => () => {
-      const { scrollTop: top, viewportHeight: vh, total: count } = latest.current;
+      const { viewportHeight: vh, total: count } = latest.current;
       if (vh === 0) return; // never measured (StrictMode probe): keep the remembered row
-      onLeave(scrollTopToRow(top, vh, count));
+      onLeave(scrollTopToRow(scrollTopRef.current, vh, count));
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
@@ -85,7 +101,7 @@ export function LogViewport({ cache, total: realTotal, base, marks, highlight, f
     const { viewportHeight: vh, total: count, base: origin } = latest.current;
     const relative = Math.min(Math.max(reveal.row - origin, 0), Math.max(0, count - 1));
     el.scrollTop = rowToScrollTop(Math.max(0, relative - Math.floor(vh / ROW_HEIGHT / 2)), vh, count);
-    setScrollTop(el.scrollTop);
+    commitScroll(el.scrollTop);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [revealNonce]);
 
@@ -99,12 +115,15 @@ export function LogViewport({ cache, total: realTotal, base, marks, highlight, f
   useLayoutEffect(() => {
     const el = scrollerRef.current;
     if (!el || viewportHeight === 0) return;
-    if (follow) {
+    const justEnabled = follow && !wasFollowing.current;
+    wasFollowing.current = follow;
+    if (follow && (justEnabled || !userUnpinned.current)) {
+      userUnpinned.current = false;
       el.scrollTop = el.scrollHeight - el.clientHeight;
-      setScrollTop(el.scrollTop);
-    } else if (!restored.current) {
+      commitScroll(el.scrollTop);
+    } else if (!follow && !restored.current) {
       el.scrollTop = rowToScrollTop(latest.current.initialRow, viewportHeight, total);
-      setScrollTop(el.scrollTop);
+      commitScroll(el.scrollTop);
     }
     restored.current = true;
   }, [follow, total, viewportHeight]);
@@ -113,10 +132,15 @@ export function LogViewport({ cache, total: realTotal, base, marks, highlight, f
     const el = scrollerRef.current;
     if (!el) return;
     const { viewportHeight: vh, total: count, follow: isFollowing } = latest.current;
-    setScrollTop(el.scrollTop);
-    const bottom = isAtBottom(el.scrollTop, vh, count);
+    const top = el.scrollTop;
+    scrollTopRef.current = top;
+    // The window scrolls natively with the content: only re-render when another row comes into view
+    // (or in scaled mode, where the window follows the scroll position continuously).
+    if (isScaled(count) || scrollTopToRow(top, vh, count) !== renderedRow.current) commitScroll(top);
+    const bottom = isAtBottom(top, vh, count);
+    userUnpinned.current = !bottom;
     if (bottom !== isFollowing) onFollowChange(bottom);
-  }, [onFollowChange]);
+  }, [onFollowChange, commitScroll]);
 
   const scrollToRow = useCallback((row: number) => {
     const el = scrollerRef.current;
@@ -244,7 +268,7 @@ export function LogViewport({ cache, total: realTotal, base, marks, highlight, f
     <div className="viewport-wrap">
       <div ref={scrollerRef} className="viewport" tabIndex={0} onScroll={onScroll}>
         <div className="viewport-spacer" style={{ height: contentHeight(total) }}>
-          <div className="viewport-window" style={{ top: range.top }}>
+          <div className="viewport-window" style={{ transform: `translateY(${range.top}px)` }}>
             {rows}
           </div>
         </div>
