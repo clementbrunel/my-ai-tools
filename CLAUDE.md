@@ -30,6 +30,13 @@ Every issue/PR gets a label matching the sub-project directory it belongs to (`a
 `mistral-chat`, `mottaret-watch`, `prono-core`, `my-house`, `showcase`) so work stays filterable by tool in
 this monorepo. See `.claude/skills/github-issue-pr/` for the convention and how to apply it.
 
+## Secrets
+
+Les `.env` réels des apps déployées (`prono-core`, `my-money-hub`, `spec-merger`,
+`mottaret-watch`) vivent sur le NAS et ne sont jamais committés. Pour en garder une
+copie versionnée sans les exposer en clair, voir `docs/secrets.md` (chiffrement
+sops + age, script `scripts/secrets.sh`).
+
 ## Weekly dependency routine
 
 A Claude routine fires every Friday at midnight (Paris) and runs `.claude/skills/weekly-deps/`:
