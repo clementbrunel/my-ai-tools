@@ -1,4 +1,4 @@
-export type ToolId = "rtk" | "headroom" | "caveman" | "mempalace" | "socraticode" | "ecc" | "karpathy-skills" | "graphify" | "ponytail" | "codeburn" | "openwiki" | "codealmanac";
+export type ToolId = "rtk" | "headroom" | "caveman" | "mempalace" | "socraticode" | "ecc" | "karpathy-skills" | "graphify" | "ponytail" | "codeburn" | "openwiki" | "codealmanac" | "claude-mem";
 
 export interface InstallStep {
   label: string;
@@ -32,7 +32,7 @@ export const CONFLICT_GROUPS: ConflictGroup[] = [
   {
     id: "memory",
     label: "Mémoire projet",
-    note: "MemPalace = notes que tu rédiges. SocratiCode = indexation auto du code par embeddings (Docker requis). Graphify = indexation auto du code par graphe déterministe AST (pas de Docker, inclut docs/PDF). OpenWiki = documentation Markdown générée par agent, versionnée dans le repo. CodeAlmanac = wiki Markdown versionné aussi, mais alimenté en continu par ce que tes sessions d'agent apprennent (macOS uniquement). Compatibles sur un grand codebase inconnu, redondants sinon.",
+    note: "MemPalace = notes que tu rédiges. SocratiCode = indexation auto du code par embeddings (Docker requis). Graphify = indexation auto du code par graphe déterministe AST (pas de Docker, inclut docs/PDF). OpenWiki = documentation Markdown générée par agent, versionnée dans le repo. CodeAlmanac = wiki Markdown versionné aussi, mais alimenté en continu par ce que tes sessions d'agent apprennent (macOS uniquement). Claude-Mem = mémoire automatique des sessions (observations compressées, base SQLite locale), ré-injectée au démarrage des sessions suivantes. Compatibles sur un grand codebase inconnu, redondants sinon.",
     maxPick: 1,
   },
 ];
@@ -46,12 +46,13 @@ export const CATALOGUE: CatalogueTool[] = [
     steps: [
       {
         label: "Installer le binaire",
-        command: "cargo install rtk",
-        manual: "ou télécharger le binaire depuis https://github.com/stscoundrel/rtk/releases",
+        command: "cargo install --git https://github.com/rtk-ai/rtk",
+        manual: "ou brew install rtk / télécharger le binaire depuis https://github.com/rtk-ai/rtk/releases (ne pas utiliser 'cargo install rtk' : le crate 'rtk' de crates.io est un autre projet, Rust Type Kit)",
       },
       {
         label: "Configurer le hook Claude Code",
-        manual: 'Ajouter dans .claude/settings.json → hooks.PostToolUse : { "matcher": "Bash", "hooks": [{"type": "command", "command": "rtk"}] }',
+        command: "rtk init -g",
+        manual: "Installe le hook Bash de Claude Code (réécrit les commandes en 'rtk <cmd>'), puis redémarrer Claude Code. Vérifier avec 'rtk gain'",
       },
     ],
     conflictGroup: "token",
@@ -64,11 +65,11 @@ export const CATALOGUE: CatalogueTool[] = [
     steps: [
       {
         label: "Installer le package Python",
-        command: "pip install headroom",
+        command: "pip install headroom-ai",
       },
       {
         label: "Mode proxy (optionnel, zero-code-change)",
-        command: "pip install 'headroom[proxy]'",
+        command: "pip install 'headroom-ai[proxy]'",
       },
       {
         label: "Ajouter comme serveur MCP (optionnel)",
@@ -83,6 +84,10 @@ export const CATALOGUE: CatalogueTool[] = [
     tagline: "Skill Claude Code qui oriente le modèle vers des réponses concises",
     why: "Option la plus légère : zéro infrastructure, juste un plugin. Efficace pour réduire le bruit dans les réponses texte, mais ne compresse pas les sorties d'outils. À préférer si tu veux quelque chose d'immédiat et sans dépendances.",
     steps: [
+      {
+        label: "Ajouter le marketplace",
+        manual: "/plugin marketplace add JuliusBrussee/caveman  (dans une session Claude Code)",
+      },
       {
         label: "Installer le plugin dans Claude Code",
         manual: "/plugin install caveman@caveman  (à exécuter dans une session Claude Code)",
@@ -118,12 +123,16 @@ export const CATALOGUE: CatalogueTool[] = [
         command: "docker info",
       },
       {
-        label: "Installer le plugin dans Claude Code",
-        manual: "/plugin install socraticode@socraticode  (dans une session Claude Code)",
+        label: "Ajouter le marketplace",
+        manual: "/plugin marketplace add giancarloerra/socraticode  (dans une session Claude Code)",
       },
       {
-        label: "Alternative — ajouter le serveur MCP manuellement",
-        manual: "claude mcp add socraticode -- socraticode serve  (dans le terminal Claude Code)",
+        label: "Installer le plugin dans Claude Code",
+        manual: "/plugin install socraticode@socraticode  (dans une session Claude Code ; ouvrir ensuite une nouvelle session)",
+      },
+      {
+        label: "Alternative — ajouter le serveur MCP seul (sans les skills du plugin)",
+        manual: "claude mcp add --scope user socraticode -- npx -y --prefer-online socraticode@latest  (dans le terminal Claude Code ; Node 18.17+ requis)",
       },
     ],
     conflictGroup: "memory",
@@ -131,20 +140,24 @@ export const CATALOGUE: CatalogueTool[] = [
   {
     id: "ecc",
     name: "ECC (Agent Harness OS)",
-    tagline: "Framework tout-en-un : 67 agents, 271 skills, hooks et règles pour Claude Code, Cursor, Codex",
+    tagline: "Framework tout-en-un : 71 agents, 311 skills, hooks et règles pour Claude Code, Cursor, Codex",
     why: "Installe d'un coup un ensemble complet de patterns de travail éprouvés (10+ mois de production). Inclut déjà une réduction de tokens similaire à Caveman. Choisir ECC OU les outils individuels — pas les deux, risque de conflits de hooks et de skills.",
     steps: [
+      {
+        label: "Ajouter le marketplace",
+        manual: "/plugin marketplace add https://github.com/affaan-m/ECC  (dans une session Claude Code)",
+      },
       {
         label: "Installer le plugin dans Claude Code",
         manual: "/plugin install ecc@ecc  (dans une session Claude Code)",
       },
       {
         label: "Alternative — installation manuelle (plus de contrôle)",
-        manual: "Voir https://github.com/affaan-m/ECC pour le script bash d'installation sélective",
+        manual: "Depuis un clone de https://github.com/affaan-m/ECC : ./install.sh --profile full --enable-hooks (ou --profile minimal --target claude). Ne pas la cumuler avec le plugin",
       },
       {
         label: "Configurer le profil de hooks (optionnel)",
-        manual: "export ECC_HOOK_PROFILE=strict  (dans ton shell profile)",
+        manual: "export ECC_HOOK_PROFILE=standard  (valeur par défaut ; dans ton shell profile — les autres profils ne sont pas détaillés dans le README)",
       },
     ],
   },
@@ -218,13 +231,13 @@ export const CATALOGUE: CatalogueTool[] = [
   {
     id: "codeburn",
     name: "CodeBurn",
-    tagline: "Suivi des coûts et de la consommation de tokens sur 36 outils de code IA (Claude Code, Cursor, Codex, Gemini...)",
+    tagline: "Suivi des coûts et de la consommation de tokens sur 42 outils de code IA (Claude Code, Cursor, Codex, Gemini...)",
     why: "Utile pour voir où part réellement l'argent : répartition par modèle, projet et type de tâche, distinction entre overhead de conversation et travail de code productif, détection des patterns gaspilleurs. Complémentaire aux outils de réduction de tokens — CodeBurn mesure, il ne compresse pas.",
     steps: [
       {
         label: "Installer le package npm",
         command: "npm install -g codeburn",
-        manual: "ou via Homebrew : brew install codeburn",
+        manual: "Nécessite Node.js 22.13+. Ou via Homebrew : brew install codeburn",
       },
       {
         label: "Ajouter comme serveur MCP (optionnel)",
@@ -289,6 +302,23 @@ export const CATALOGUE: CatalogueTool[] = [
     ],
     conflictGroup: "memory",
   },
+  {
+    id: "claude-mem",
+    name: "Claude-Mem",
+    tagline: "Mémoire automatique entre sessions — capture ce que fait l'agent, le compresse, le ré-injecte au démarrage suivant",
+    why: "Contrairement à MemPalace (notes que tu rédiges), rien à écrire à la main : un plugin à hooks observe chaque session, résume les observations et les stocke localement (SQLite + base vectorielle Chroma, réglages dans ~/.claude-mem/). Le contexte des sessions précédentes réapparaît tout seul. Prérequis : Node 20+ (Bun et uv sont installés automatiquement). Chevauche MemPalace, CodeAlmanac et les outils d'indexation — en choisir un seul.",
+    steps: [
+      {
+        label: "Ajouter le marketplace",
+        manual: "/plugin marketplace add thedotmack/claude-mem  (dans une session Claude Code)",
+      },
+      {
+        label: "Installer le plugin",
+        manual: "/plugin install claude-mem  (dans une session Claude Code, puis redémarrer Claude Code). Ne pas utiliser 'npm install -g claude-mem' : ce paquet n'installe que le SDK, sans hooks ni service worker — l'alternative en CLI est 'npx claude-mem install'",
+      },
+    ],
+    conflictGroup: "memory",
+  },
 ];
 
 // Maps Integration.name (from scanner) to a catalogue ToolId.
@@ -305,6 +335,7 @@ export const INTEGRATION_TO_TOOL: Record<string, ToolId> = {
   "CodeBurn": "codeburn",
   "OpenWiki": "openwiki",
   "CodeAlmanac": "codealmanac",
+  "Claude-Mem": "claude-mem",
 };
 
 // Reverse of INTEGRATION_TO_TOOL: the scanner integration that proves a tool works.

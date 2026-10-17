@@ -34,6 +34,12 @@ describe("getToolById", () => {
     expect(tool!.conflictGroup).toBe("memory");
   });
 
+  it("returns the claude-mem tool in the memory conflict group", () => {
+    const tool = getToolById("claude-mem");
+    expect(tool).toBeDefined();
+    expect(tool!.conflictGroup).toBe("memory");
+  });
+
   it("returns the codealmanac tool in the memory conflict group", () => {
     const tool = getToolById("codealmanac");
     expect(tool).toBeDefined();
