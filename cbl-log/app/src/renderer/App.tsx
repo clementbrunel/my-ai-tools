@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useReducer, useRef, useState } from "react";
-import type { Row, TabId } from "@cbl-log/shared";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { createDefaultRuleSet, type HighlightRule, type RuleSet, type Row, type TabId } from "@cbl-log/shared";
 import { subscribeEngine } from "./engine/client";
 import type { RpcClient } from "./engine/rpc-client";
 import { baseName, pathKey } from "./files/path-key";
 import { useFileDrop } from "./files/useFileDrop";
+import { compileRules, highlightLine } from "./highlight/highlight";
+import { RulesEditor } from "./rules/RulesEditor";
 import { StatusBar } from "./tabs/StatusBar";
 import { TabBar } from "./tabs/TabBar";
 import { initialTabsState, tabsReducer } from "./tabs/tabs-reducer";
@@ -20,6 +22,9 @@ interface TabRuntime {
 export function App() {
   const [state, dispatch] = useReducer(tabsReducer, initialTabsState);
   const [notice, setNotice] = useState<{ text: string; isError: boolean } | undefined>();
+  const [ruleSet, setRuleSet] = useState<RuleSet>(createDefaultRuleSet);
+  const [rulesOpen, setRulesOpen] = useState(false);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const engineRef = useRef<RpcClient | undefined>(undefined);
   const engineWaiters = useRef<((engine: RpcClient) => void)[]>([]);
   const runtimes = useRef(new Map<TabId, TabRuntime>());
@@ -111,6 +116,29 @@ export function App() {
     return off;
   }, [openPaths]);
 
+  // Rules: loaded once, edited live, saved shortly after the last edit.
+  useEffect(() => {
+    void window.cblLog.loadRuleSets().then(({ sets, warnings }) => {
+      const loaded = sets.find((s) => s.id === "default") ?? sets[0];
+      if (loaded) setRuleSet(loaded);
+      if (warnings.length > 0) setNotice({ text: `Règles ignorées : ${warnings.join(" ; ")}`, isError: true });
+    });
+  }, []);
+
+  const changeRules = useCallback((rules: HighlightRule[]) => {
+    setRuleSet((prev) => {
+      const next = { ...prev, rules };
+      clearTimeout(saveTimer.current);
+      saveTimer.current = setTimeout(() => {
+        void window.cblLog.saveRuleSet(next).catch((err: unknown) => setNotice({ text: `Règles non enregistrées : ${err instanceof Error ? err.message : String(err)}`, isError: true }));
+      }, 400);
+      return next;
+    });
+  }, []);
+
+  const compiled = useMemo(() => compileRules(ruleSet.rules), [ruleSet.rules]);
+  const highlight = useCallback((text: string) => highlightLine(text, compiled.compiled), [compiled]);
+
   useEffect(() => {
     if (!notice) return;
     const timer = setTimeout(() => setNotice(undefined), 6000);
@@ -127,6 +155,9 @@ export function App() {
       if (e.ctrlKey && e.key.toLowerCase() === "w" && activeId) {
         e.preventDefault();
         closeTab(activeId);
+      } else if (e.ctrlKey && e.key.toLowerCase() === "h") {
+        e.preventDefault();
+        setRulesOpen(true);
       } else if (e.ctrlKey && e.key.toLowerCase() === "l" && activeId) {
         e.preventDefault();
         dispatch({ type: "clear", tabId: activeId });
@@ -168,6 +199,15 @@ export function App() {
           {notice.text}
         </div>
       )}
+      {rulesOpen && (
+        <RulesEditor
+          rules={ruleSet.rules}
+          errors={compiled.errors}
+          onChange={changeRules}
+          onReset={() => changeRules(createDefaultRuleSet().rules)}
+          onClose={() => setRulesOpen(false)}
+        />
+      )}
       {!active || !runtime ? (
         <main className="placeholder">
           <h1>cbl-log</h1>
@@ -190,6 +230,7 @@ export function App() {
             total={active.total}
             base={active.clearedBefore}
             marks={active.marks}
+            highlight={highlight}
             fetchRows={fetchRows}
             onNotice={onNotice}
             follow={active.follow}
@@ -202,6 +243,7 @@ export function App() {
             onToggleFollow={() => onFollowChange(!active.follow)}
             onClear={() => dispatch({ type: "clear", tabId: active.info.tabId })}
             onUnclear={() => dispatch({ type: "unclear", tabId: active.info.tabId })}
+            onEditRules={() => setRulesOpen(true)}
           />
         </>
       )}

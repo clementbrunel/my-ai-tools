@@ -253,7 +253,8 @@ body {
 }
 
 .log-row.selected {
-  background: rgba(47, 111, 220, 0.25);
+  /* inset shadow, so it shows over a rule background set inline */
+  box-shadow: inset 0 0 0 100vw rgba(47, 111, 220, 0.25);
 }
 
 .log-row {
@@ -278,4 +279,96 @@ body {
   font-size: 12px;
   text-decoration: underline;
   cursor: pointer;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 8vh;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.modal {
+  width: min(960px, 94vw);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.modal header,
+.modal footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+}
+
+.modal header {
+  justify-content: space-between;
+}
+
+.modal h2 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.hint {
+  margin: 0;
+  padding: 0 12px 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.rules-list {
+  overflow: auto;
+  padding: 0 12px;
+}
+
+.rule-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.rule-row.invalid .rule-pattern {
+  outline: 1px solid #b3261e;
+}
+
+.rule-pattern {
+  flex: 1;
+  min-width: 14ch;
+  font-family: Consolas, "Courier New", monospace;
+}
+
+.rule-error {
+  flex-basis: 100%;
+  color: #b3261e;
+}
+
+.color-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.color-field input.unset {
+  opacity: 0.35;
+}
+
+.color-field input[type="color"] {
+  width: 28px;
+  height: 22px;
+  padding: 0;
 }

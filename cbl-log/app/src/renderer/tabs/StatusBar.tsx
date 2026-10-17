@@ -17,9 +17,10 @@ interface Props {
   onToggleFollow(): void;
   onClear(): void;
   onUnclear(): void;
+  onEditRules(): void;
 }
 
-export function StatusBar({ tab, onToggleFollow, onClear, onUnclear }: Props) {
+export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules }: Props) {
   return (
     <footer className="statusbar">
       <span className="status-path" title={tab.info.path}>
@@ -39,6 +40,9 @@ export function StatusBar({ tab, onToggleFollow, onClear, onUnclear }: Props) {
           Effacer
         </button>
       )}
+      <button type="button" className="link" onClick={onEditRules} title="Règles de surlignage (Ctrl+H)">
+        Règles…
+      </button>
       <button type="button" className={tab.follow ? "follow on" : "follow"} onClick={onToggleFollow} title="Suivre la fin du fichier (Ctrl+End)">
         FOLLOW
       </button>
