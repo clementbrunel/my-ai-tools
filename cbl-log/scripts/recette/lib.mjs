@@ -77,7 +77,7 @@ export function openInRunningApp(app, files) {
 /** Closes the window like the user does (so that the session is saved), then waits for the exit. */
 export async function quit(app, { graceful = true } = {}) {
   if (graceful) {
-    await app.cdp.send("Browser.close").catch(() => {});
+    void app.cdp.send("Browser.close"); // never answered (the browser goes away first): do not await it
     await Promise.race([new Promise((r) => app.proc.once("exit", r)), sleep(8000)]);
   }
   app.cdp.close();

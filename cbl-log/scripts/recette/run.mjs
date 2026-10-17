@@ -36,8 +36,13 @@ const fmt = (n, digits = 0) => (Number.isFinite(n) ? n.toFixed(digits) : "n/a");
 /** Writes lines `#seq#wallMs#` to the given files at `rate` lines/s per file; resolves when done. */
 function runWriter(files, rate, seconds) {
   return new Promise((resolveWriter, reject) => {
-    const child = spawn(process.execPath, [writerJs, "--files", files.join(","), "--rate", String(rate), "--seconds", String(seconds)], { stdio: "ignore" });
-    child.once("exit", (code) => (code === 0 ? resolveWriter() : reject(new Error(`writer exited with ${code}`))));
+    // the bench writer only runs when forked (it talks to its parent over IPC)
+    const child = fork(writerJs, ["--files", files.join(","), "--rate", String(rate), "--seconds", String(seconds)], { execArgv: [], stdio: "ignore" });
+    let done = false;
+    child.on("message", (m) => {
+      if (m.type === "done") done = true;
+    });
+    child.once("exit", (code) => (code === 0 && done ? resolveWriter() : reject(new Error(`writer exited with ${code} (done=${done})`))));
   });
 }
 
@@ -141,7 +146,11 @@ async function r1(ctx) {
         "mémoire privée, au repos": `${idle.privateMiB} Mio (${idle.processes} processus ; working set ${idle.workingSetMiB} Mio)`,
         "mémoire privée, après 40 sauts aléatoires": `${afterScroll.privateMiB} Mio (working set ${afterScroll.workingSetMiB} Mio)`,
       },
-      corrected > 1000 ? ["La fin n'est affichée qu'une fois l'indexation initiale terminée : c'est le suivi #406 (affichage de la fin d'abord, F-03)."] : [],
+      [
+        `Le fichier vient d'être généré : il est dans le cache disque de l'OS (une lecture à froid sera plus lente).`,
+        `La fin n'est affichée qu'une fois l'indexation initiale terminée, donc le délai croît avec la taille : extrapolé linéairement à 10 Gio, ~${fmt((corrected * 10) / 1000, 1)} s, au-dessus de la cible de 1 s. Le suivi #406 (affichage de la fin d'abord, F-03) vise à le supprimer.`,
+        `Mémoire : « privée » = working set privé cumulé des processus cbl-log (colonne « Mémoire » du Gestionnaire des tâches) ; le « working set » total compte aussi les pages partagées entre processus.`,
+      ],
     );
   } finally {
     await quit(app, { graceful: false });
@@ -204,14 +213,22 @@ async function rolling(mode, id, title, lossless) {
     const text = await copyAllRows(app.cdp);
     const seq = sequenceReport(text, done.lastSeq);
     const separators = await collectSeparators(app.cdp);
-    const ok = writerErrors.length === 0 && seq.duplicates === 0 && seq.outOfOrder === 0 && separators === 10 && (!lossless || seq.lost === 0);
+    // Lines are lost when the tab counted fewer than the writer wrote. What is still READABLE afterwards
+    // is another matter: older rolled files are released after `maxRetainedSegments` (their rows stay counted).
+    const missing = done.lastSeq + 1 - total;
+    const ok = writerErrors.length === 0 && seq.duplicates === 0 && seq.outOfOrder === 0 && separators === 10 && (!lossless || missing === 0);
+    const notes = [
+      "Seules les lignes du fichier courant et des 3 derniers fichiers roulés restent lisibles dans l'interface ; les plus anciennes sont comptées mais libérées (archives du rolling : T-08, M5).",
+    ];
+    if (!lossless) notes.push("Troncature sans archive pendant l'écriture : des lignes écrites entre deux contrôles peuvent disparaître avec le fichier (inhérent au truncate) ; doublons et désordre restent bloquants.");
     return result(id, title, "le rolling réussit à chaque fois côté serveur, aucune ligne dupliquée, séparateur affiché" + (lossless ? ", aucune ligne perdue" : ""), verdict(ok), {
       "lignes écrites": `${(done.lastSeq + 1).toLocaleString("fr-FR")} (10 rollings de 1 Mio)`,
-      "lignes dans l'onglet / copiées": `${total.toLocaleString("fr-FR")} / ${seq.rows.toLocaleString("fr-FR")}`,
+      "lignes comptées par l'onglet": `${total.toLocaleString("fr-FR")} (manquantes : ${missing.toLocaleString("fr-FR")})`,
+      "lignes encore lisibles (copie de tout l'onglet)": `${seq.rows.toLocaleString("fr-FR")}`,
       "erreurs côté écrivain (rename / truncate / copie / ouverture)": writerErrors.length === 0 ? "aucune" : writerErrors.join(", "),
-      "doublons / désordre / perdues": `${seq.duplicates} / ${seq.outOfOrder} / ${seq.lost.toLocaleString("fr-FR")}`,
+      "doublons / désordre dans les lignes lisibles": `${seq.duplicates} / ${seq.outOfOrder}`,
       "séparateurs de rolling affichés": `${separators} sur 10`,
-    }, lossless ? [] : ["Troncature sans archive pendant l'écriture : des lignes écrites entre deux contrôles peuvent disparaître avec le fichier (inhérent au truncate) ; seuls doublons et désordre sont bloquants."]);
+    }, notes);
   } finally {
     await quit(app, { graceful: false });
   }
@@ -295,6 +312,7 @@ async function r6andR7() {
   let ok7 = false;
   try {
     await waitFor(async () => (await app.cdp.ev("document.querySelectorAll('.tab').length")) === 2, "two tabs");
+    await sleep(1500); // let the startup loading of rules / formats settle (it would overwrite an early edit)
     const before = await coloredRows(app);
     // hot edit: disable the first rule (ERROR) in the editor
     await app.cdp.key("h", "KeyH", 2);
@@ -413,6 +431,25 @@ function toMarkdown(results, meta) {
     for (const n of r.notes) lines.push("", `> ${n}`);
     lines.push("");
   }
+  lines.push(
+    "## Non réalisé dans cette passe",
+    "",
+    "- **Critère 1 à 10 Gio** : mesuré sur 1 Gio (extrapolation dans R1).",
+    "- **Critère 3 avec un vrai conteneur WebSphere Liberty** (`icr.io/appcafe/open-liberty`, bind mount, `maxFileSize=1`) : remplacé par l'écrivain simulé du banc (`packages/engine/test/fixtures/rolling-writer.mjs`), qui reproduit les trois modes de rolling mais pas le comportement exact d'un serveur.",
+    "- **Critère 5** (volume Docker Desktop et partage SMB du NAS) : nécessite Docker et le NAS, hors de portée de cette machine ; le suivi par polling est couvert côté moteur (`PollScheduler`, `LOCAL_POLL_MS` / `UNC_POLL_MS`) mais pas mesuré ici.",
+    "- **Critère 8 à 10 Gio au total** (NF-11 complet) : mesuré avec 8 fichiers de 128 Mio (1 Gio au total).",
+    "",
+    "## Comment relancer",
+    "",
+    "```bash",
+    "cd cbl-log",
+    "npm run package:dir                       # construit release/win-unpacked/cbl-log.exe",
+    "npm run bench -- --size 1G --generate-only # compile le banc (générateur + écrivain) et prépare le log",
+    "npm run recette -- --size 1G --out docs/recette-mvp.md [--only r1,r2,r3,r3t,r3c,r3b,r4,r67,r8]",
+    "```",
+    "",
+    "L'application tourne avec un dossier de configuration isolé (`CBL_LOG_USER_DATA`) : la configuration réelle n'est pas touchée.",
+  );
   return lines.join("\n");
 }
 
@@ -455,7 +492,7 @@ async function main() {
 
   const pkg = JSON.parse(readFileSync(join(root, "app/package.json"), "utf8"));
   const meta = {
-    date: new Date().toISOString().slice(0, 10),
+    date: new Date().toLocaleDateString("sv-SE"), // local date, YYYY-MM-DD
     version: pkg.version,
     machine: `${cpus()[0]?.model.trim()} (${cpus().length} threads), ${Math.round(totalmem() / 1073741824)} Go de RAM, Windows ${release()} ${platform()}`,
   };
