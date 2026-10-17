@@ -91,7 +91,8 @@ describe("planSlices", () => {
   });
 });
 
-describe("search", () => {
+// Each test starts worker threads (Windows runners can be slow to spawn them): well above the 5 s default.
+describe("search", { timeout: 30_000 }, () => {
   it("counts the matching lines (raw literal fast path) across several slices", async () => {
     const ctx = await openLines(makeLines(3000, 7));
     const id = await search(ctx, { pattern: "NEEDLE" });
