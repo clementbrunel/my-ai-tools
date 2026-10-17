@@ -1,11 +1,19 @@
 import { useEffect, useRef, useState } from "react";
-import type { HighlightRule } from "@cbl-log/shared";
+import type { HighlightRule, RuleSet } from "@cbl-log/shared";
 import { compileRules, highlightLine, ruleMatches } from "../highlight/highlight";
 import { RegexHelp } from "../search/RegexHelp";
 import { insertAt } from "../search/regex-help";
 import { createRule, moveRule, removeRule, updateRule } from "./rules-edit";
 
 interface Props {
+  /** All profiles, and the one being edited. */
+  sets: readonly RuleSet[];
+  selectedId: string;
+  onSelect(id: string): void;
+  /** Log formats a profile can be proposed for. */
+  formatOptions: readonly { id: string; name: string }[];
+  onToggleFormat(formatId: string): void;
+  onCreate(name: string): void;
   rules: readonly HighlightRule[];
   /** Rule id -> compile error, for rules whose regex is invalid. */
   errors: Record<string, string>;
@@ -15,7 +23,10 @@ interface Props {
 }
 
 /** Modal editor: edits apply to the open tabs immediately; the parent persists them. */
-export function RulesEditor({ rules, errors, onChange, onReset, onClose }: Props) {
+export function RulesEditor({ sets, selectedId, onSelect, formatOptions, onToggleFormat, onCreate, rules, errors, onChange, onReset, onClose }: Props) {
+  const selected = sets.find((s) => s.id === selectedId);
+  const [naming, setNaming] = useState(false);
+  const [newName, setNewName] = useState("");
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === "Escape") onClose();
@@ -56,6 +67,44 @@ export function RulesEditor({ rules, errors, onChange, onReset, onClose }: Props
             ×
           </button>
         </header>
+        <div className="profile-bar">
+          <label>
+            Profil
+            <select value={selectedId} onChange={(ev) => onSelect(ev.target.value)}>
+              {sets.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name || s.id}
+                </option>
+              ))}
+            </select>
+          </label>
+          {naming ? (
+            <form
+              className="profile-new"
+              onSubmit={(ev) => {
+                ev.preventDefault();
+                if (newName.trim()) onCreate(newName.trim());
+                setNaming(false);
+                setNewName("");
+              }}
+            >
+              <input autoFocus value={newName} onChange={(ev) => setNewName(ev.target.value)} placeholder="Nom du nouveau profil" onKeyDown={(ev) => ev.key === "Escape" && setNaming(false)} />
+              <button type="submit">Créer</button>
+            </form>
+          ) : (
+            <button type="button" onClick={() => setNaming(true)} title="Crée un profil à partir des règles affichées">
+              Nouveau profil…
+            </button>
+          )}
+          <span className="profile-formats">
+            Proposé automatiquement pour les logs :{" "}
+            {formatOptions.map((f) => (
+              <label key={f.id}>
+                <input type="checkbox" checked={selected?.formats.includes(f.id) ?? false} onChange={() => onToggleFormat(f.id)} /> {f.name}
+              </label>
+            ))}
+          </span>
+        </div>
         <p className="hint">La première règle « ligne » qui correspond colore la ligne ; pour les fragments, la règle placée plus haut l'emporte.</p>
         <div className="rules-sample">
           <label>

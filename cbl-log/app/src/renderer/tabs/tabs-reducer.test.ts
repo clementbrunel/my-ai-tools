@@ -151,6 +151,15 @@ describe("tabsReducer", () => {
     expect(tabsReducer(s, { type: "formatDetected", tabId: "a", formatId: null }).tabs[0]?.formatId).toBeNull();
   });
 
+  it("remembers the highlighting profile chosen for a tab, and forgets it when set back to automatic", () => {
+    let s = run({ type: "opened", info: info("a") });
+    s = tabsReducer(s, { type: "ruleSetChosen", tabId: "a", ruleSetId: "websphere" });
+    expect(s.tabs[0]?.ruleSetId).toBe("websphere");
+    expect(tabsReducer(s, { type: "ruleSetChosen", tabId: "a", ruleSetId: "websphere" })).toBe(s);
+    const auto = tabsReducer(s, { type: "ruleSetChosen", tabId: "a", ruleSetId: undefined });
+    expect("ruleSetId" in auto.tabs[0]!).toBe(false);
+  });
+
   it("reset drops every tab", () => {
     expect(run({ type: "opened", info: info("a") }, { type: "reset" })).toEqual(initialTabsState);
   });

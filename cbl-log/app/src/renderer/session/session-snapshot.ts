@@ -15,6 +15,7 @@ export function buildSession(tabs: readonly TabState[], activeId: TabId | undefi
       follow: tab.follow,
       scrollRow: tab === active ? Math.max(0, viewRow - tab.clearedBefore) : tab.scrollRow,
       clearedBefore: tab.clearedBefore,
+      ...(tab.ruleSetId ? { ruleSetId: tab.ruleSetId } : {}),
     })),
     ...(active ? { activePath: active.info.path } : {}),
   };

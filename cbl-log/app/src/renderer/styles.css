@@ -562,3 +562,33 @@ body {
 .sample-miss {
   color: var(--muted);
 }
+
+.profile-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 0 12px 8px;
+  font-size: 12px;
+}
+
+.profile-bar select,
+.profile-select select {
+  margin-left: 4px;
+  max-width: 22ch;
+  font-size: 12px;
+}
+
+.profile-new {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.profile-formats label {
+  margin-right: 8px;
+  white-space: nowrap;
+}
+
+.profile-select {
+  white-space: nowrap;
+}

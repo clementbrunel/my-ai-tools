@@ -3,7 +3,9 @@ import {
   BUILTIN_FORMATS,
   DETECT_SAMPLE_LINES,
   compileFormat,
+  createBuiltinRuleSets,
   createDefaultRuleSet,
+  createWebSphereRuleSet,
   defaultSettings,
   detectFormat,
   type CompiledFormat,
@@ -25,6 +27,7 @@ import { baseName, pathKey } from "./files/path-key";
 import { useFileDrop } from "./files/useFileDrop";
 import { compileRules, highlightLine } from "./highlight/highlight";
 import { RulesEditor } from "./rules/RulesEditor";
+import { autoRuleSet, pickRuleSet } from "./rules/rule-profile";
 import { buildSession } from "./session/session-snapshot";
 import { StatusBar } from "./tabs/StatusBar";
 import { TabBar } from "./tabs/TabBar";
@@ -45,7 +48,9 @@ export function App() {
   const stateRef = useRef(state);
   stateRef.current = state;
   const [notice, setNotice] = useState<{ text: string; isError: boolean } | undefined>();
-  const [ruleSet, setRuleSet] = useState<RuleSet>(createDefaultRuleSet);
+  const [ruleSets, setRuleSets] = useState<RuleSet[]>(createBuiltinRuleSets);
+  /** Profile shown in the rules editor (undefined = the active tab's). */
+  const [editingSetId, setEditingSetId] = useState<string | undefined>();
   const [rulesOpen, setRulesOpen] = useState(false);
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [userFormats, setUserFormats] = useState<LogFormat[]>([]);
@@ -60,7 +65,7 @@ export function App() {
   const revealNonce = useRef(0);
   const viewRow = useRef(0);
   const jumpedFor = useRef<string | undefined>(undefined);
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const saveTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const engineRef = useRef<RpcClient | undefined>(undefined);
   const engineWaiters = useRef<((engine: RpcClient) => void)[]>([]);
   const runtimes = useRef(new Map<TabId, TabRuntime>());
@@ -137,6 +142,7 @@ export function App() {
           dispatch({ type: "follow", tabId: info.tabId, follow: restore.follow });
           dispatch({ type: "scrollRow", tabId: info.tabId, row: restore.scrollRow });
           if (restore.clearedBefore > 0) dispatch({ type: "clearedTo", tabId: info.tabId, row: restore.clearedBefore });
+          if (restore.ruleSetId) dispatch({ type: "ruleSetChosen", tabId: info.tabId, ruleSetId: restore.ruleSetId });
         }
         return { ok: true };
       } catch (err) {
@@ -272,8 +278,7 @@ export function App() {
   // Rules: loaded once, edited live, saved shortly after the last edit.
   const loadRulesNow = useCallback(() => {
     void window.cblLog.loadRuleSets().then(({ sets, warnings }) => {
-      const loaded = sets.find((s) => s.id === "default") ?? sets[0];
-      if (loaded) setRuleSet(loaded);
+      if (sets.length > 0) setRuleSets(sets);
       if (warnings.length > 0) setNotice({ text: `Règles ignorées : ${warnings.join(" ; ")}`, isError: true });
     });
   }, []);
@@ -294,18 +299,42 @@ export function App() {
     });
   }, [loadRulesNow, loadSettingsNow, loadFormatsNow]);
 
-  const changeRules = useCallback((rules: HighlightRule[]) => {
-    setRuleSet((prev) => {
-      const next = { ...prev, rules };
-      clearTimeout(saveTimer.current);
-      saveTimer.current = setTimeout(() => {
-        void window.cblLog.saveRuleSet(next).catch((err: unknown) => setNotice({ text: `Règles non enregistrées : ${err instanceof Error ? err.message : String(err)}`, isError: true }));
-      }, 400);
-      return next;
-    });
+  /** Applies `edit` to one profile now and writes it to disk shortly after the last edit. */
+  const editRuleSet = useCallback((setId: string, edit: (set: RuleSet) => RuleSet) => {
+    setRuleSets((prev) =>
+      prev.map((set) => {
+        if (set.id !== setId) return set;
+        const next = edit(set);
+        clearTimeout(saveTimers.current.get(setId));
+        saveTimers.current.set(
+          setId,
+          setTimeout(() => {
+            void window.cblLog
+              .saveRuleSet(next)
+              .catch((err: unknown) => setNotice({ text: `Règles non enregistrées : ${err instanceof Error ? err.message : String(err)}`, isError: true }));
+          }, 400),
+        );
+        return next;
+      }),
+    );
   }, []);
 
+  const createRuleSet = useCallback(
+    (name: string, base: RuleSet | undefined) => {
+      const slug = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "profil";
+      let id = slug;
+      for (let n = 2; ruleSets.some((s) => s.id === id); n++) id = `${slug}-${n}`;
+      const created: RuleSet = { schemaVersion: 1, id, name, formats: [], rules: (base ?? createDefaultRuleSet()).rules.map((r) => ({ ...r })) };
+      setRuleSets((prev) => [...prev, created]);
+      void window.cblLog.saveRuleSet(created).catch(() => undefined);
+      setEditingSetId(id);
+    },
+    [ruleSets],
+  );
+
   const searchTab = state.tabs.find((t) => t.info.tabId === state.activeId);
+  const activeRuleSet = pickRuleSet(ruleSets, searchTab?.formatId, searchTab?.ruleSetId);
+  const activeRules = activeRuleSet?.rules;
   const searchProgress = searchTab ? searchStatus(searchTab) : undefined;
   // A regex runs on the UI thread to highlight the visible rows: only trust it once the engine has
   // run it on the whole file without stalling (a literal can never backtrack).
@@ -342,8 +371,8 @@ export function App() {
           },
         ]
       : [];
-    return compileRules([...searchRule, ...ruleSet.rules]);
-  }, [ruleSet.rules, searchQuery]);
+    return compileRules([...searchRule, ...(activeRules ?? [])]);
+  }, [activeRules, searchQuery]);
   const highlight = useCallback((text: string) => highlightLine(text, compiled.compiled), [compiled]);
 
   useEffect(() => {
@@ -456,6 +485,8 @@ export function App() {
   const onNotice = useCallback((text: string, isError = false) => setNotice({ text, isError }), []);
 
   const runtime = activeId ? runtimes.current.get(activeId) : undefined;
+  const editedSet = ruleSets.find((s) => s.id === editingSetId) ?? activeRuleSet ?? createWebSphereRuleSet();
+  const autoSet = autoRuleSet(ruleSets, active?.formatId);
   const activeFormat = active?.formatId ? formats.find((f) => f.format.id === active.formatId) : undefined;
 
   return (
@@ -467,10 +498,26 @@ export function App() {
       )}
       {rulesOpen && (
         <RulesEditor
-          rules={ruleSet.rules}
+          sets={ruleSets}
+          selectedId={editedSet.id}
+          onSelect={setEditingSetId}
+          formatOptions={formats.map((f) => ({ id: f.format.id, name: f.format.name || f.format.id }))}
+          onToggleFormat={(formatId) =>
+            editRuleSet(editedSet.id, (set) => ({
+              ...set,
+              formats: set.formats.includes(formatId) ? set.formats.filter((f) => f !== formatId) : [...set.formats, formatId],
+            }))
+          }
+          onCreate={(name) => createRuleSet(name, editedSet)}
+          rules={editedSet.rules}
           errors={compiled.errors}
-          onChange={changeRules}
-          onReset={() => changeRules(createDefaultRuleSet().rules)}
+          onChange={(rules) => editRuleSet(editedSet.id, (set) => ({ ...set, rules }))}
+          onReset={() =>
+            editRuleSet(editedSet.id, (set) => ({
+              ...set,
+              rules: (createBuiltinRuleSets().find((b) => b.id === set.id) ?? createDefaultRuleSet()).rules,
+            }))
+          }
           onClose={() => setRulesOpen(false)}
         />
       )}
@@ -527,6 +574,10 @@ export function App() {
             onUnclear={() => dispatch({ type: "unclear", tabId: active.info.tabId })}
             onEditRules={() => setRulesOpen(true)}
             theme={settings.theme}
+            profiles={ruleSets.map((s) => ({ id: s.id, name: s.name }))}
+            profileChoice={active.ruleSetId && ruleSets.some((s) => s.id === active.ruleSetId) ? active.ruleSetId : "auto"}
+            autoProfileName={autoSet?.name || autoSet?.id || "—"}
+            onProfileChange={(choice) => dispatch({ type: "ruleSetChosen", tabId: active.info.tabId, ruleSetId: choice === "auto" ? undefined : choice })}
             formatName={activeFormat?.format.name || activeFormat?.format.id}
             level={viewLevel}
             onCycleTheme={cycleTheme}
