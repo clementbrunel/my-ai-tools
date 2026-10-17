@@ -412,3 +412,34 @@ body {
   outline: 1px solid var(--accent);
   outline-offset: -1px;
 }
+
+/* level marker: colored edge of the line-number gutter */
+:root {
+  --lvl-fatal: #a50e0e;
+  --lvl-error: #d93025;
+  --lvl-warn: #f29900;
+  --lvl-info: #1a73e8;
+  --lvl-debug: #80868b;
+  --lvl-trace: #a0a4a8;
+}
+
+.log-row.lvl-fatal .log-gutter { box-shadow: inset 3px 0 0 var(--lvl-fatal); }
+.log-row.lvl-error .log-gutter { box-shadow: inset 3px 0 0 var(--lvl-error); }
+.log-row.lvl-warn .log-gutter { box-shadow: inset 3px 0 0 var(--lvl-warn); }
+.log-row.lvl-info .log-gutter { box-shadow: inset 3px 0 0 var(--lvl-info); }
+.log-row.lvl-debug .log-gutter { box-shadow: inset 3px 0 0 var(--lvl-debug); }
+.log-row.lvl-trace .log-gutter { box-shadow: inset 3px 0 0 var(--lvl-trace); }
+
+.level-badge {
+  padding: 0 6px;
+  border-radius: 3px;
+  color: #fff;
+  font-size: 11px;
+}
+
+.lvl-text-fatal { background: var(--lvl-fatal); }
+.lvl-text-error { background: var(--lvl-error); }
+.lvl-text-warn { background: var(--lvl-warn); }
+.lvl-text-info { background: var(--lvl-info); }
+.lvl-text-debug { background: var(--lvl-debug); }
+.lvl-text-trace { background: var(--lvl-trace); }

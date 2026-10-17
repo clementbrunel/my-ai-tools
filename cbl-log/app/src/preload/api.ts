@@ -1,4 +1,4 @@
-import type { RuleSet, Session, Settings } from "@cbl-log/shared";
+import type { LogFormat, RuleSet, Session, Settings } from "@cbl-log/shared";
 
 /** API exposed to the renderer through contextBridge (`window.cblLog`). */
 export interface CblLogApi {
@@ -20,5 +20,7 @@ export interface CblLogApi {
   loadSession(): Promise<{ value: Session; warning?: string }>;
   saveSession(session: Session): Promise<void>;
   /** A config file was edited outside the app (hot reload). */
-  onConfigChanged(cb: (kind: "settings" | "rules") => void): () => void;
+  onConfigChanged(cb: (kind: "settings" | "rules" | "formats") => void): () => void;
+  /** User log formats from the formats folder (built-in ones come with the app). */
+  loadFormats(): Promise<{ formats: LogFormat[]; warnings: string[] }>;
 }

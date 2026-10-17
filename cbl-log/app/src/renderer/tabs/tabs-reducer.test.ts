@@ -142,6 +142,15 @@ describe("tabsReducer", () => {
     expect(s.tabs[0]?.queryEvent).toBeUndefined();
   });
 
+  it("records the detected format (null = raw) without touching other state", () => {
+    let s = run({ type: "opened", info: info("a") });
+    expect(s.tabs[0]?.formatId).toBeUndefined();
+    s = tabsReducer(s, { type: "formatDetected", tabId: "a", formatId: "websphere-basic" });
+    expect(s.tabs[0]?.formatId).toBe("websphere-basic");
+    expect(tabsReducer(s, { type: "formatDetected", tabId: "a", formatId: "websphere-basic" })).toBe(s);
+    expect(tabsReducer(s, { type: "formatDetected", tabId: "a", formatId: null }).tabs[0]?.formatId).toBeNull();
+  });
+
   it("reset drops every tab", () => {
     expect(run({ type: "opened", info: info("a") }, { type: "reset" })).toEqual(initialTabsState);
   });

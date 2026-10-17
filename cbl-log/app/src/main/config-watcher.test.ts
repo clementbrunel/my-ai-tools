@@ -36,6 +36,7 @@ describe("classifyConfigFile", () => {
     expect(classifyConfigFile("settings.json")).toBe("settings");
     expect(classifyConfigFile("rules/default.json")).toBe("rules");
     expect(classifyConfigFile("rules\\custom.json")).toBe("rules");
+    expect(classifyConfigFile("formats/mine.json")).toBe("formats");
     expect(classifyConfigFile("session.json")).toBeUndefined();
     expect(classifyConfigFile("rules/default.json.tmp")).toBeUndefined();
     expect(classifyConfigFile("rules/sub/x.json")).toBeUndefined();

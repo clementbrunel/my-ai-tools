@@ -5,6 +5,7 @@ import type { RuleSet, Session, Settings } from "@cbl-log/shared";
 import { parseFileArgs } from "./cli-args";
 import { ConfigWatcher, type ConfigKind } from "./config-watcher";
 import { loadSession, loadSettings, saveSession, saveSettings } from "./config-store";
+import { loadFormats } from "./formats-store";
 import { EngineHost } from "./engine-process";
 import { loadRuleSets, saveRuleSet } from "./rules-store";
 
@@ -116,6 +117,7 @@ if (!app.requestSingleInstanceLock()) {
     nativeTheme.themeSource = settings.theme;
     configWatcher?.noteWrite("settings.json", await saveSettings(app.getPath("userData"), settings));
   });
+  ipcMain.handle("formats:load", () => loadFormats(join(app.getPath("userData"), "formats")));
   ipcMain.handle("session:load", () => loadSession(app.getPath("userData")));
   ipcMain.handle("session:save", (_event, session: Session) => saveSession(app.getPath("userData"), session).then(() => undefined));
   ipcMain.on("renderer:ready", () => {
@@ -125,7 +127,8 @@ if (!app.requestSingleInstanceLock()) {
 
   void app.whenReady().then(() => {
     buildMenu();
-    mkdirSync(rulesDir(), { recursive: true }); // so that the folder can be watched from the first run
+    mkdirSync(rulesDir(), { recursive: true }); // so that the folders can be watched from the first run
+    mkdirSync(join(app.getPath("userData"), "formats"), { recursive: true });
     configWatcher = new ConfigWatcher(app.getPath("userData"), (kind: ConfigKind) => {
       mainWindow?.webContents.send("config:changed", kind);
     });

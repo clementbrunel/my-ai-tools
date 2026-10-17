@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import {
+  BUILTIN_FORMATS,
+  DETECT_SAMPLE_LINES,
+  compileFormat,
   createDefaultRuleSet,
   defaultSettings,
+  detectFormat,
+  type CompiledFormat,
+  type Level,
+  type LogFormat,
   type HighlightRule,
   type RuleSet,
   type Row,
@@ -35,10 +42,15 @@ interface TabRuntime {
 
 export function App() {
   const [state, dispatch] = useReducer(tabsReducer, initialTabsState);
+  const stateRef = useRef(state);
+  stateRef.current = state;
   const [notice, setNotice] = useState<{ text: string; isError: boolean } | undefined>();
   const [ruleSet, setRuleSet] = useState<RuleSet>(createDefaultRuleSet);
   const [rulesOpen, setRulesOpen] = useState(false);
   const [settings, setSettings] = useState<Settings>(defaultSettings);
+  const [userFormats, setUserFormats] = useState<LogFormat[]>([]);
+  const [viewLevel, setViewLevel] = useState<Level | undefined>();
+  const detecting = useRef(new Set<TabId>());
   const sessionReady = useRef(false);
   /** Last session written (or loaded): reopened if the engine process restarts. */
   const lastSessionObj = useRef<Session | undefined>(undefined);
@@ -92,6 +104,10 @@ export function App() {
             rt.cache.invalidateFrom(event.at);
           }
         }
+        if (event.type === "rows" && event.total <= DETECT_SAMPLE_LINES * 3) {
+          const tab = stateRef.current.tabs.find((t) => t.info.tabId === tabId);
+          if (tab && !tab.formatId) void detectRef.current(tabId);
+        }
         dispatch({ type: "event", tabId, event, receivedAt: Date.now() });
       });
     });
@@ -116,6 +132,7 @@ export function App() {
         const cache = new PageCache(async (first, count) => (await engine.request("getRows", { tabId: info.tabId, first, count })).rows);
         runtimes.current.set(info.tabId, { cache, total: info.totalRows, pathKey: key });
         dispatch({ type: "opened", info });
+        void detectRef.current(info.tabId);
         if (restore) {
           dispatch({ type: "follow", tabId: info.tabId, follow: restore.follow });
           dispatch({ type: "scrollRow", tabId: info.tabId, row: restore.scrollRow });
@@ -128,6 +145,27 @@ export function App() {
     },
     [withEngine],
   );
+
+  /** (Re)detects the log format of a tab from its first lines; stays raw (null) when none fits. */
+  const detectTab = useCallback(
+    async (tabId: TabId) => {
+      if (detecting.current.has(tabId)) return;
+      detecting.current.add(tabId);
+      try {
+        const engine = await withEngine();
+        const { rows } = await engine.request("getRows", { tabId, first: 0, count: DETECT_SAMPLE_LINES });
+        const found = detectFormat(rows.map((r) => r.text), formatsRef.current);
+        dispatch({ type: "formatDetected", tabId, formatId: found?.format.id ?? null });
+      } catch {
+        // tab closed meanwhile
+      } finally {
+        detecting.current.delete(tabId);
+      }
+    },
+    [withEngine],
+  );
+  const detectRef = useRef(detectTab);
+  detectRef.current = detectTab;
 
   const openPaths = useCallback(
     async (paths: string[]) => {
@@ -191,8 +229,6 @@ export function App() {
   }, [openPaths, restoreSession]);
 
   // Session: written shortly after a change, every 30 s (scroll position) and when the page goes away.
-  const stateRef = useRef(state);
-  stateRef.current = state;
   const lastSession = useRef("");
   const saveSessionNow = useCallback(() => {
     if (!sessionReady.current) return;
@@ -241,11 +277,22 @@ export function App() {
       if (warnings.length > 0) setNotice({ text: `Règles ignorées : ${warnings.join(" ; ")}`, isError: true });
     });
   }, []);
+  const loadFormatsNow = useCallback(() => {
+    void window.cblLog.loadFormats().then(({ formats: loaded, warnings }) => {
+      setUserFormats(loaded);
+      if (warnings.length > 0) setNotice({ text: `Formats ignorés : ${warnings.join(" ; ")}`, isError: true });
+    });
+  }, []);
   useEffect(() => {
     loadRulesNow();
     loadSettingsNow();
-    return window.cblLog.onConfigChanged((kind) => (kind === "rules" ? loadRulesNow() : loadSettingsNow()));
-  }, [loadRulesNow, loadSettingsNow]);
+    loadFormatsNow();
+    return window.cblLog.onConfigChanged((kind) => {
+      if (kind === "rules") loadRulesNow();
+      else if (kind === "formats") loadFormatsNow();
+      else loadSettingsNow();
+    });
+  }, [loadRulesNow, loadSettingsNow, loadFormatsNow]);
 
   const changeRules = useCallback((rules: HighlightRule[]) => {
     setRuleSet((prev) => {
@@ -264,6 +311,19 @@ export function App() {
   // run it on the whole file without stalling (a literal can never backtrack).
   const searchQuery =
     searchTab?.search && (!searchTab.search.query.isRegex || (searchProgress?.done && !searchProgress.error)) ? searchTab.search.query : undefined;
+  const formats = useMemo<CompiledFormat[]>(() => {
+    const byId = new Map<string, LogFormat>(BUILTIN_FORMATS.map((f) => [f.id, f]));
+    for (const f of userFormats) byId.set(f.id, f);
+    // user formats first: on a tie in detection the more specific, hand-written format wins
+    return [...userFormats, ...[...byId.values()].filter((f) => !userFormats.includes(f))].map(compileFormat);
+  }, [userFormats]);
+  const formatsRef = useRef(formats);
+  formatsRef.current = formats;
+  useEffect(() => {
+    // formats changed (startup, user file edited): detect again, tabs may now match a better format
+    for (const tab of stateRef.current.tabs) void detectRef.current(tab.info.tabId);
+  }, [formats]);
+
   const compiled = useMemo(() => {
     // the search highlight comes first so that it wins over the rules on overlapping fragments
     const searchRule: HighlightRule[] = searchQuery
@@ -383,6 +443,7 @@ export function App() {
   const onNotice = useCallback((text: string, isError = false) => setNotice({ text, isError }), []);
 
   const runtime = activeId ? runtimes.current.get(activeId) : undefined;
+  const activeFormat = active?.formatId ? formats.find((f) => f.format.id === active.formatId) : undefined;
 
   return (
     <div className="app">
@@ -434,6 +495,8 @@ export function App() {
             base={active.clearedBefore}
             marks={active.marks}
             highlight={highlight}
+            format={activeFormat}
+            onViewLevel={setViewLevel}
             reveal={reveal}
             currentMatchRow={active.search?.current?.row}
             viewRowRef={viewRow}
@@ -451,6 +514,8 @@ export function App() {
             onUnclear={() => dispatch({ type: "unclear", tabId: active.info.tabId })}
             onEditRules={() => setRulesOpen(true)}
             theme={settings.theme}
+            formatName={activeFormat?.format.name || activeFormat?.format.id}
+            level={viewLevel}
             onCycleTheme={cycleTheme}
           />
         </>

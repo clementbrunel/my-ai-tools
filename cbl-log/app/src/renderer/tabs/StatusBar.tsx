@@ -1,4 +1,4 @@
-import type { Theme } from "@cbl-log/shared";
+import type { Level, Theme } from "@cbl-log/shared";
 import type { TabState } from "./tabs-reducer";
 
 export function formatBytes(bytes: number): string {
@@ -23,15 +23,21 @@ interface Props {
   onEditRules(): void;
   theme: Theme;
   onCycleTheme(): void;
+  /** Name of the detected format (undefined = raw). */
+  formatName?: string | undefined;
+  /** Level of the first visible line. */
+  level?: Level | undefined;
 }
 
-export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules, theme, onCycleTheme }: Props) {
+export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules, theme, onCycleTheme, formatName, level }: Props) {
   return (
     <footer className="statusbar">
       <span className="status-path" title={tab.info.path}>
         {tab.info.path}
       </span>
       <span>{tab.info.encoding}</span>
+      <span title="Format de log détecté">{formatName ?? "brut"}</span>
+      {level && <span className={`level-badge lvl-text-${level}`}>{level.toUpperCase()}</span>}
       <span>{formatBytes(tab.info.sizeBytes)}</span>
       <span>{tab.total.toLocaleString("fr-FR")} lignes</span>
       {tab.indexing !== undefined && <span>Indexation {Math.round(tab.indexing * 100)} %</span>}
