@@ -8,6 +8,7 @@
     "dev": "npm run build -w @cbl-log/shared && npm run build -w @cbl-log/engine && npm run dev -w @cbl-log/app",
     "package": "npm run build && electron-builder --config electron-builder.yml --win",
     "package:dir": "npm run build && electron-builder --config electron-builder.yml --win --dir",
+    "recette": "node scripts/recette/run.mjs",
     "bench": "npm run bench -w @cbl-log/engine --",
     "build": "npm run build -w @cbl-log/shared && npm run build -w @cbl-log/engine && npm run build -w @cbl-log/app",
     "typecheck": "npm run build -w @cbl-log/shared && npm run build -w @cbl-log/engine && npm run typecheck --workspaces --if-present",
