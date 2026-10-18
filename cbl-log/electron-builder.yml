@@ -15,7 +15,12 @@ files:
   - "!node_modules/**"
 npmRebuild: false
 publish: null
+# Runtime window icon (BrowserWindow.icon) lives outside the asar.
+extraResources:
+  - from: app/resources/icon.png
+    to: icon.png
 win:
+  icon: app/resources/icon.ico
   target:
     - target: nsis
       arch: [x64]
