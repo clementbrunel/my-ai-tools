@@ -604,6 +604,7 @@ export function App() {
             setNotice({ text: "Aucune occurrence dans les lignes affichées par le filtre.", isError: false });
             return;
           }
+          if (tab.pausedAt?.matches !== undefined && found.position >= tab.pausedAt.matches) dispatch({ type: "resumed", tabId });
           dispatch({ type: "searchHit", tabId, row: found.hit.row!, ordinal: found.hit.ordinal });
           setReveal({ row: found.position, nonce: ++revealNonce.current, forKey: viewKeyOf(tabId, filterId) });
           return;
@@ -611,6 +612,7 @@ export function App() {
         const hit = await engine.request("searchNext", { tabId, searchId, fromRow: from, dir });
         if (hit.row === null) return;
         if (hit.row < tab.clearedBefore) dispatch({ type: "unclear", tabId });
+        if (tab.pausedAt && hit.row >= tab.pausedAt.total) dispatch({ type: "resumed", tabId });
         dispatch({ type: "searchHit", tabId, row: hit.row, ordinal: hit.ordinal });
         setReveal({ row: hit.row, nonce: ++revealNonce.current, forKey: viewKeyOf(tabId, null) });
       } catch (err) {
@@ -654,6 +656,9 @@ export function App() {
       } else if (e.ctrlKey && e.key.toLowerCase() === "h") {
         e.preventDefault();
         setRulesOpen(true);
+      } else if (e.key === "Pause" && activeId) {
+        e.preventDefault();
+        togglePauseRef.current();
       } else if (e.ctrlKey && e.key.toLowerCase() === "l" && activeId) {
         e.preventDefault();
         dispatch({ type: "clear", tabId: activeId });
@@ -669,6 +674,16 @@ export function App() {
     },
     [activeId],
   );
+  // While the view is frozen, what the viewport reports about following means nothing (it sees a
+  // short, finished file): the choice made before the pause comes back on resume.
+  const activePaused = !!state.tabs.find((t) => t.info.tabId === activeId)?.pausedAt;
+  const onViewFollowChange = useCallback(
+    (follow: boolean) => {
+      if (!activePaused) onFollowChange(follow);
+    },
+    [activePaused, onFollowChange],
+  );
+  const togglePauseRef = useRef<() => void>(() => {});
   const onLeave = useCallback(
     (row: number) => {
       if (activeId) dispatch({ type: "scrollRow", tabId: activeId, row });
@@ -700,6 +715,16 @@ export function App() {
   const filterProgress = active ? filterStatus(active) : undefined;
   const filterCache = active?.filterId ? runtime?.filterCache : undefined;
   const filtered = isFilteredNow(active, runtime);
+  const pausedAt = active?.pausedAt;
+  // Frozen view: the viewport keeps the row counts of the moment of the pause.
+  const shownFileRows = pausedAt ? Math.min(active!.total, pausedAt.total) : (active?.total ?? 0);
+  const shownMatches = pausedAt?.matches !== undefined ? Math.min(filterProgress?.matches ?? 0, pausedAt.matches) : (filterProgress?.matches ?? 0);
+  const pendingLines = pausedAt ? Math.max(0, filtered && pausedAt.matches !== undefined ? (filterProgress?.matches ?? 0) - pausedAt.matches : active!.total - pausedAt.total) : undefined;
+  togglePauseRef.current = () => {
+    if (!active) return;
+    if (active.pausedAt) dispatch({ type: "resumed", tabId: active.info.tabId });
+    else dispatch({ type: "paused", tabId: active.info.tabId, total: active.total, ...(filtered ? { matches: filterProgress?.matches ?? 0 } : {}) });
+  };
   const currentViewKey = active ? viewKeyOf(active.info.tabId, filtered ? active.filterId : null) : "";
 
   // "Clear" in the filtered view hides the retained lines before the cleared origin.
@@ -848,7 +873,7 @@ export function App() {
           <LogViewport
             key={currentViewKey}
             cache={filtered && filterCache ? filterCache : runtime.cache}
-            total={filtered ? (filterProgress?.matches ?? 0) : active.total}
+            total={filtered ? shownMatches : shownFileRows}
             base={filtered ? filterBase : active.clearedBefore}
             marks={filtered ? filteredMarks(active.marks) : active.marks}
             highlight={highlight}
@@ -864,14 +889,19 @@ export function App() {
             viewRowRef={filtered ? filteredViewRow : viewRow}
             fetchRows={fetchRows}
             onNotice={onNotice}
-            follow={active.follow}
+            follow={active.follow && !pausedAt}
             initialRow={filtered ? 0 : active.scrollRow}
-            onFollowChange={onFollowChange}
+            onFollowChange={onViewFollowChange}
             onLeave={filtered ? ignoreLeave : onLeave}
           />
           <StatusBar
             tab={active}
-            onToggleFollow={() => onFollowChange(!active.follow)}
+            onToggleFollow={() => {
+              if (active.pausedAt) dispatch({ type: "resumed", tabId: active.info.tabId });
+              onFollowChange(active.pausedAt ? true : !active.follow);
+            }}
+            pendingLines={pendingLines}
+            onTogglePause={() => togglePauseRef.current()}
             onClear={() => dispatch({ type: "clear", tabId: active.info.tabId })}
             onUnclear={() => dispatch({ type: "unclear", tabId: active.info.tabId })}
             onEditRules={() => setRulesOpen(true)}
