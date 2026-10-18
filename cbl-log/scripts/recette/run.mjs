@@ -1,12 +1,12 @@
 // Acceptance run of the MVP criteria (cahier des charges, section 7; issue #393) on the PACKAGED app.
 //
-//   npm run package:dir && npm run recette -- --size 1G [--only r1,r2,...] [--out docs/recette-mvp.md]
+//   npm run package:dir && npm run recette -- --size 1G [--only r1,r2,...] [--out docs/recette-mvp.md] [--history docs/recette/history.jsonl]
 //
 // The app runs with an isolated config folder (CBL_LOG_USER_DATA) and is driven over the DevTools
 // protocol. Needs the bench build (`npm run bench -- --size 1G --generate-only` does it) for the
 // generator and the 1 000 lines/s writer.
-import { fork, spawn } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { execFileSync, fork, spawn } from "node:child_process";
+import { appendFileSync, copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { cpus, platform, release, tmpdir, totalmem } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -24,6 +24,7 @@ const only = opt("only", "")
   .split(",")
   .filter(Boolean);
 const outFile = opt("out", "");
+const historyFile = opt("history", "");
 const benchDir = join(root, "packages/engine/dist/bench-build/bench");
 const writerJs = join(benchDir, "writer.js");
 const rollingFixture = join(root, "packages/engine/test/fixtures/rolling-writer.mjs");
@@ -410,6 +411,16 @@ async function r8(ctx) {
 
 // ------------------------------------------------------------------------------------------------
 
+function gitCommit() {
+  try {
+    const git = (...args) => execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim();
+    const dirty = git("status", "--porcelain", "--", ".") !== "";
+    return `${git("rev-parse", "--short", "HEAD")}${dirty ? " (+ modifications locales)" : ""}`;
+  } catch {
+    return "inconnu";
+  }
+}
+
 function toMarkdown(results, meta) {
   const icon = { PASS: "✅", FAIL: "❌", "NON RÉALISÉ": "⏭️" };
   const lines = [
@@ -418,6 +429,7 @@ function toMarkdown(results, meta) {
     `Exécutée le ${meta.date} sur l'application **packagée** (\`release/win-unpacked/cbl-log.exe\`), version ${meta.version}, par \`npm run recette\` (\`scripts/recette/\`).`,
     "",
     `Machine : ${meta.machine}.`,
+    `Commit mesuré : ${meta.commit}.`,
     `Fichier de référence : log WebSphere généré (\`npm run bench\`), ${sizeArg} au lieu des 10 Go du critère 1.`,
     "",
     "| # | Critère | Résultat |",
@@ -445,7 +457,7 @@ function toMarkdown(results, meta) {
     "cd cbl-log",
     "npm run package:dir                       # construit release/win-unpacked/cbl-log.exe",
     "npm run bench -- --size 1G --generate-only # compile le banc (générateur + écrivain) et prépare le log",
-    "npm run recette -- --size 1G --out docs/recette-mvp.md [--only r1,r2,r3,r3t,r3c,r3b,r4,r67,r8]",
+    "npm run recette -- --size 1G --out docs/recette-mvp.md --history docs/recette/history.jsonl [--only r1,r2,r3,r3t,r3c,r3b,r4,r67,r8]",
     "```",
     "",
     "L'application tourne avec un dossier de configuration isolé (`CBL_LOG_USER_DATA`) : la configuration réelle n'est pas touchée.",
@@ -494,9 +506,17 @@ async function main() {
   const meta = {
     date: new Date().toLocaleDateString("sv-SE"), // local date, YYYY-MM-DD
     version: pkg.version,
+    commit: gitCommit(),
     machine: `${cpus()[0]?.model.trim()} (${cpus().length} threads), ${Math.round(totalmem() / 1073741824)} Go de RAM, Windows ${release()} ${platform()}`,
   };
   const markdown = toMarkdown(results, meta);
+  if (historyFile) {
+    // one JSON line per run, to follow the measures over time (append-only)
+    mkdirSync(dirname(resolve(root, historyFile)), { recursive: true });
+    const record = { ...meta, size: sizeArg, only, results: results.map(({ id, status, measures }) => ({ id, status, measures })) };
+    appendFileSync(resolve(root, historyFile), JSON.stringify(record) + "\n");
+    console.log(`Mesures ajoutées à ${historyFile}`);
+  }
   if (outFile) {
     mkdirSync(dirname(resolve(root, outFile)), { recursive: true });
     writeFileSync(resolve(root, outFile), markdown + "\n");
