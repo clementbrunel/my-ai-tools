@@ -15,12 +15,16 @@ export interface FilterJob {
   warmupLine: number;
   start: number;
   end: number;
+  /** End of the indexed part of the file: a folded record is counted up to there at most. */
+  limit: number;
   chunkSize: number;
 }
 
 export type FilterWorkerMessage =
   /** Retained lines of the slice, ascending: numbers in the file and level codes (see levelCode). */
-  | { type: "lines"; lines: Uint32Array; levels: Uint8Array }
+  | { type: "lines"; lines: Uint32Array; levels: Uint8Array; folds: Uint32Array }
+  /** The last retained record runs up to the end of the indexed part: it may still grow. */
+  | { type: "tail"; line: number; offset: number }
   /** Heartbeat: the worker is alive (a stalled regex stops sending it). */
   | { type: "progress"; bytes: number }
   | { type: "done" }

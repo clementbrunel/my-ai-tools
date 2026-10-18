@@ -47,8 +47,15 @@ describe("toLineFilter", () => {
     expect(toLineFilter(s, false)).toBeNull();
   });
 
+  it("folds the continuation lines only when the format has some", () => {
+    const s: FilterSettings = { ...defaultFilterSettings(), foldTraces: true };
+    expect(toLineFilter(s, true, true)).toEqual({ foldContinuation: true });
+    expect(toLineFilter(s, true, false)).toBeNull();
+    expect(isDefaultFilter(s)).toBe(false);
+  });
+
   it("carries the texts", () => {
-    const s: FilterSettings = { levels: LEVELS, include: [text("a")], exclude: [text("b")] };
+    const s: FilterSettings = { levels: LEVELS, include: [text("a")], exclude: [text("b")], foldTraces: false };
     expect(toLineFilter(s, false)).toEqual({ include: [text("a")], exclude: [text("b")] });
   });
 });
@@ -86,7 +93,7 @@ describe("filter on a tab", () => {
   });
 
   it("is saved in the session unless it hides nothing", () => {
-    const filter: FilterSettings = { levels: ["error"], include: [text("Cart")], exclude: [] };
+    const filter: FilterSettings = { levels: ["error"], include: [text("Cart")], exclude: [], foldTraces: true };
     const plain = run({ type: "opened", info });
     expect(buildSession(plain.tabs, "a", 0).tabs[0]).not.toHaveProperty("filter");
     const filtered = tabsReducer(plain, { type: "filterChanged", tabId: "a", filter });
@@ -124,7 +131,7 @@ describe("pause", () => {
     const paused = run({ type: "opened", info }, { type: "filterApplied", tabId: "a", filterId: "f1" }, { type: "paused", tabId: "a", total: 100, matches: 5 });
     expect(tabsReducer(paused, { type: "filterSuspended", tabId: "a", suspended: true }).tabs[0]).not.toHaveProperty("pausedAt");
     expect(tabsReducer(paused, { type: "filterApplied", tabId: "a", filterId: "f2" }).tabs[0]).not.toHaveProperty("pausedAt");
-    expect(tabsReducer(paused, { type: "filterChanged", tabId: "a", filter: { levels: ["error"], include: [], exclude: [] } }).tabs[0]).not.toHaveProperty("pausedAt");
+    expect(tabsReducer(paused, { type: "filterChanged", tabId: "a", filter: { levels: ["error"], include: [], exclude: [], foldTraces: false } }).tabs[0]).not.toHaveProperty("pausedAt");
   });
 
   it("is not saved in the session", () => {

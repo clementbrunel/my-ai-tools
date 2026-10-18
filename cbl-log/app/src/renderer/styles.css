@@ -490,11 +490,6 @@ body {
   cursor: pointer;
 }
 
-.filter-toggle.on {
-  font-weight: 600;
-  text-decoration: underline;
-}
-
 .level-pills {
   display: inline-flex;
   gap: 2px;
@@ -735,4 +730,23 @@ body {
   top: auto;
   bottom: 32px;
   cursor: default;
+}
+
+.fold-toggle.on {
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.fold-toggle:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.fold-badge {
+  margin-left: 10px;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 11px;
 }

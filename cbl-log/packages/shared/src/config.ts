@@ -26,6 +26,7 @@ export const filterSettingsSchema = z.object({
   levels: z.array(z.enum(LEVELS)).default([...LEVELS]),
   include: z.array(textMatcherSchema).default([]),
   exclude: z.array(textMatcherSchema).default([]),
+  foldTraces: z.boolean().default(false),
 });
 
 export const sessionTabSchema = z.object({

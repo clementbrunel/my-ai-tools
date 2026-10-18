@@ -285,8 +285,14 @@ la cible pour M4 :
 - `getRows` accepte un `filterId` : `first`/`count` indexent alors les lignes retenues, dont le `lineNo`
   reste celui du fichier. Le fichier courant seul est filtré (les anciens segments ne sont pas lisibles).
 - Mesuré sur 1 Gio (8,4 M lignes) : premiers résultats en ~0,25 s, filtre complet en ~2,5 s (NF-05).
-- Limites de cette première version, levées par #432 : `Ctrl+G`, la navigation de recherche et le
-  « clear » ne s'appliquent pas à la vue filtrée.
+- La bascule filtré ↔ complet garde la position (`filterLocate` : n° de ligne du fichier → position dans la
+  vue filtrée) ; `Ctrl+G`, la navigation de recherche (les occurrences sur des lignes masquées sont sautées),
+  « Effacer » et le séparateur de rolling s'appliquent à la vue filtrée (#432).
+- **Repli des stack traces (#439)** : `foldContinuation` ajoute une condition au filtre. Les lignes de suite
+  sont masquées et chaque en-tête retenu porte le nombre de lignes repliées (`Row.folded`). Le worker les
+  compte, en lisant au-delà de la fin de sa tranche jusqu'au prochain en-tête ; si l'enregistrement va
+  jusqu'au bout de ce qui est indexé, la session le relit au parcours suivant pour que son compte soit exact.
+  Le double-clic (#432) déplie une stack trace en montrant le fichier complet autour d'elle.
 
 ### 4.6 Onglet « Tout » : vue fusionnée (M-01, P1)
 

@@ -45,8 +45,12 @@ const WARMUP_CHECKPOINTS = Math.ceil(FILTER_LOOKBACK_LINES / CHECKPOINT_INTERVAL
 interface SliceState {
   lines: Uint32Array[];
   levels: Uint8Array[];
+  /** Continuation lines hidden under each retained line (all zero without folding). */
+  folds: Uint32Array[];
   count: number;
   done: boolean;
+  /** The last retained record of the slice runs up to the end of what was indexed: it may still grow. */
+  tail?: { line: number; offset: number };
 }
 
 /** Index of the checkpoint holding exactly `offset`, or -1. */
@@ -142,6 +146,7 @@ export class FilterSession {
     if (!target || n <= 0) return { rows: [], total };
 
     const picked = this.pick(start, n);
+    const fold = !!this.filter.foldContinuation;
     // fetch each run of consecutive lines of the file with one read
     const byLine = new Map<number, NumberedLine>();
     for (let i = 0; i < picked.lines.length; ) {
@@ -156,7 +161,8 @@ export class FilterSession {
       // a line that could not be read (file truncated meanwhile) ends the page: positions must not shift
       if (!line) break;
       const level = levelFromCode(picked.levels[i]!);
-      rows.push({ lineNo: line.lineNo, text: line.text, truncated: line.truncated, ...(level ? { level } : {}) });
+      const folded = picked.folds[i]!;
+      rows.push({ lineNo: line.lineNo, text: line.text, truncated: line.truncated, ...(level ? { level } : {}), ...(fold && folded > 0 ? { folded } : {}) });
     }
     return { rows, total };
   }
@@ -191,9 +197,10 @@ export class FilterSession {
   // ---------------------------------------------------------------------------------------------
 
   /** File line numbers and level codes at positions [start, start+n) of the view. */
-  private pick(start: number, n: number): { lines: number[]; levels: number[] } {
+  private pick(start: number, n: number): { lines: number[]; levels: number[]; folds: number[] } {
     const lines: number[] = [];
     const levels: number[] = [];
+    const folds: number[] = [];
     let skipped = 0;
     for (const slice of this.slices) {
       for (let c = 0; c < slice.lines.length && lines.length < n; c++) {
@@ -205,12 +212,34 @@ export class FilterSession {
         for (let k = Math.max(0, start - skipped); k < chunk.length && lines.length < n; k++) {
           lines.push(chunk[k]!);
           levels.push(slice.levels[c]![k]!);
+          folds.push(slice.folds[c]![k]!);
         }
         skipped += chunk.length;
       }
       if (lines.length >= n || !slice.done) break;
     }
-    return { lines, levels };
+    return { lines, levels, folds };
+  }
+
+  /**
+   * With folding, a record still being written when the last scan stopped has an incomplete count: take
+   * its head out of the results and scan again from it.
+   */
+  private rewindUnfinishedRecord(): void {
+    for (let s = this.slices.length - 1; s >= 0; s--) {
+      const slice = this.slices[s]!;
+      if (slice.count === 0) continue;
+      if (!slice.tail) return; // the last retained record was complete
+      const chunk = slice.lines.length - 1;
+      slice.lines[chunk] = slice.lines[chunk]!.subarray(0, -1);
+      slice.levels[chunk] = slice.levels[chunk]!.subarray(0, -1);
+      slice.folds[chunk] = slice.folds[chunk]!.subarray(0, -1);
+      slice.count--;
+      this.scannedTo = slice.tail.offset;
+      this.scannedLine = slice.tail.line;
+      slice.tail = undefined;
+      return;
+    }
   }
 
   private scan(): void {
@@ -224,6 +253,7 @@ export class FilterSession {
       return;
     }
     const index = target.index;
+    if (this.filter.foldContinuation) this.rewindUnfinishedRecord();
     // read together: the index may grow between two ticks, never within one
     const checkpoints = index.checkpoints;
     const offsets = new Float64Array(checkpoints.buffer, 0, checkpoints.count);
@@ -247,20 +277,25 @@ export class FilterSession {
     });
 
     const base = this.slices.length;
-    for (let i = 0; i < work.length; i++) this.slices.push({ lines: [], levels: [], count: 0, done: false });
+    for (let i = 0; i < work.length; i++) this.slices.push({ lines: [], levels: [], folds: [], count: 0, done: false });
     this.run = new FilterRun({
       path: target.path,
       encoding: target.encoding,
       filter: this.filter,
       format: this.format,
       slices: work,
+      limit,
       maxWorkers: this.options.maxWorkers ?? Math.max(1, Math.min(4, availableParallelism() - 1)),
       stallMs: this.options.stallMs,
       chunkSize: this.options.chunkSize,
-      onLines: (sliceIndex, lines, levels) => {
+      onTail: (sliceIndex, line, offset) => {
+        this.slices[base + sliceIndex]!.tail = { line, offset };
+      },
+      onLines: (sliceIndex, lines, levels, folds) => {
         const slice = this.slices[base + sliceIndex]!;
         slice.lines.push(lines);
         slice.levels.push(levels);
+        slice.folds.push(folds);
         slice.count += lines.length;
         this.emitThrottled();
       },

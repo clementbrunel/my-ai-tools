@@ -127,7 +127,7 @@ describe("FilterEvaluator", () => {
     const f = new FilterEvaluator({ levels: ["error"] }, format);
     expect(f.test(head("INFO")).keep).toBe(false);
     expect(f.test(head("ERROR")).keep).toBe(true);
-    expect(f.test("\tat com.example.Cart.add(Cart.java:42)")).toEqual({ keep: true, level: "error" });
+    expect(f.test("\tat com.example.Cart.add(Cart.java:42)")).toEqual({ keep: true, level: "error", folded: false });
     expect(f.test(head("WARN")).keep).toBe(false);
     expect(f.test("\tat com.example.Other(Other.java:1)").keep).toBe(false);
   });
@@ -276,5 +276,66 @@ describe("filterLocate", () => {
     const old = (await setFilter(ctx, { levels: ["error"] }))!;
     await setFilter(ctx, { levels: ["warn"] });
     expect(await ctx.ok("filterLocate", { tabId: ctx.tabId, filterId: old, row: 10 })).toEqual({ position: 0, exact: false, covered: true });
+  });
+});
+
+describe("folding of continuation lines", () => {
+  const isHead = (text: string): boolean => /^\d{4}-\d{2}-\d{2} /.test(text);
+  /** Heads kept (the banner before the first head stays), with the lines that continue each. */
+  const expectedFolds = (lines: string[], keepHead: (text: string) => boolean = () => true) => {
+    const out: { line: number; folded: number }[] = [];
+    let current: { line: number; folded: number } | undefined;
+    lines.forEach((text, line) => {
+      if (isHead(text)) {
+        current = keepHead(text) ? { line, folded: 0 } : undefined;
+        if (current) out.push(current);
+      } else if (line > 0 && current) {
+        current.folded++;
+      } else if (line === 0) {
+        out.push({ line, folded: 0 }); // the banner: no record above it
+      }
+    });
+    return out;
+  };
+
+  it("keeps the record heads with the number of lines folded under each, across slice boundaries", async () => {
+    const lines = makeLog(400);
+    const ctx = await open(lines);
+    const id = (await setFilter(ctx, { foldContinuation: true }))!;
+    const rows = await readAll(ctx, id);
+    const want = expectedFolds(lines);
+    expect(rows.map((r) => ({ line: r.lineNo, folded: r.folded ?? 0 }))).toEqual(want);
+    expect(rows.some((r) => (r.folded ?? 0) === 3)).toBe(true);
+    expect(rows.map((r) => r.text)).toEqual(want.map((w) => lines[w.line]));
+  });
+
+  it("combines with the levels: only the heads of the chosen levels", async () => {
+    const lines = makeLog(300);
+    const ctx = await open(lines);
+    const id = (await setFilter(ctx, { levels: ["error"], foldContinuation: true }))!;
+    const rows = await readAll(ctx, id);
+    const want = expectedFolds(lines, (t) => t.includes(" ERROR ")).filter((w) => w.line !== 0);
+    expect(rows.map((r) => ({ line: r.lineNo, folded: r.folded ?? 0 }))).toEqual(want);
+    expect(rows.every((r) => r.level === "error")).toBe(true);
+  });
+
+  it("does nothing without a format that has continuation lines", async () => {
+    const lines = makeLog(40);
+    const ctx = await open(lines);
+    const { filterId } = await ctx.ok("setFilter", { tabId: ctx.tabId, filter: { foldContinuation: true }, format: null });
+    await waitFor(() => ctx.filterEvents(ctx.tabId).some((e) => e.id === filterId && e.done), "filter done");
+    expect((await readAll(ctx, filterId!)).length).toBe(lines.length);
+  });
+
+  it("counts a record that was still being written when the file was scanned, once it is complete", async () => {
+    const head = (i: number) => `2026-10-14 10:02:11.204 ERROR 123 --- [main] com.example.Cart : record ${i}`;
+    const ctx = await open([head(1), "\tat a.b.C(C.java:1)", head(2), "\tat a.b.C(C.java:2)"]);
+    const id = (await setFilter(ctx, { foldContinuation: true }))!;
+    expect(summary(await readAll(ctx, id))).toEqual([{ line: 0, level: "error" }, { line: 2, level: "error" }]);
+    expect((await readAll(ctx, id)).map((r) => r.folded ?? 0)).toEqual([1, 1]);
+
+    appendFileSync(ctx.path, ["\tat a.b.C(C.java:3)", "\tat a.b.C(C.java:4)", head(3)].join("\n") + "\n");
+    await waitFor(async () => (await readAll(ctx, id)).length === 3, "third record");
+    await waitFor(async () => (await readAll(ctx, id)).map((r) => r.folded ?? 0).join() === "1,3,0", "folded counts", 20_000, 50);
   });
 });

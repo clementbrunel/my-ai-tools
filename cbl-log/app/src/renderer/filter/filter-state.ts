@@ -35,4 +35,4 @@ export function describeFilterCount(shown: number, total: number): string {
 
 /** Nothing checked off, nothing typed: the same as no filter (not worth saving in the session). */
 export const isDefaultFilter = (settings: FilterSettings): boolean =>
-  settings.levels.length === LEVELS.length && settings.include.length === 0 && settings.exclude.length === 0;
+  settings.levels.length === LEVELS.length && settings.include.length === 0 && settings.exclude.length === 0 && !settings.foldTraces;

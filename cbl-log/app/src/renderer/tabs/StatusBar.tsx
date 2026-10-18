@@ -43,10 +43,9 @@ interface Props {
   onEncodingChange(encoding: Encoding | undefined): void;
   /** Levels can only be told apart in a file whose format is known. */
   canFilterLevels: boolean;
+  /** The format has continuation lines (stack traces) that can be folded under their record. */
+  canFoldTraces: boolean;
   onFilterChange(filter: FilterSettings): void;
-  /** The filter bar (texts to include / exclude) can be hidden; the filter stays in force. */
-  filterBarOpen: boolean;
-  onToggleFilterBar(): void;
   /** Lines that arrived since the view was frozen (undefined = not paused). */
   pendingLines: number | undefined;
   onTogglePause(): void;
@@ -58,7 +57,7 @@ interface Props {
   filterShown?: { matches: number; done: boolean } | undefined;
 }
 
-export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules, dark, onToggleTheme, formatName, profiles, profileChoice, autoProfileName, onProfileChange, onEncodingChange, canFilterLevels, onFilterChange, filterBarOpen, onToggleFilterBar, filterSuspended, onToggleFilterView, pendingLines, onTogglePause, filterShown }: Props) {
+export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules, dark, onToggleTheme, formatName, profiles, profileChoice, autoProfileName, onProfileChange, onEncodingChange, canFilterLevels, canFoldTraces, onFilterChange, filterSuspended, onToggleFilterView, pendingLines, onTogglePause, filterShown }: Props) {
   return (
     <footer className="statusbar">
       <span className="status-path" title={tab.info.path}>
@@ -76,15 +75,6 @@ export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules
       </label>
       <span title="Format de log détecté">{formatName ?? "brut"}</span>
       <span>{formatBytes(tab.info.sizeBytes)}</span>
-      <button
-        type="button"
-        className={filterBarOpen ? "link filter-toggle on" : "link filter-toggle"}
-        aria-pressed={filterBarOpen}
-        onClick={onToggleFilterBar}
-        title={filterBarOpen ? "Masquer la barre de filtre (le filtre reste actif) — Ctrl+Maj+F" : "Afficher la barre de filtre — Ctrl+Maj+F"}
-      >
-        Filtre{tab.filter.include.length + tab.filter.exclude.length > 0 ? ` (${tab.filter.include.length + tab.filter.exclude.length})` : ""}
-      </button>
       <span className="level-pills" role="group" aria-label="Niveaux affichés" title={canFilterLevels ? "Niveaux affichés (les lignes de suite suivent leur enregistrement)" : "Filtre par niveau : format de log non reconnu"}>
         {LEVEL_PILLS.map((pill) => {
           const on = pillActive(tab.filter.levels, pill);
@@ -103,6 +93,16 @@ export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules
           );
         })}
       </span>
+      <button
+        type="button"
+        className={tab.filter.foldTraces ? "link fold-toggle on" : "link fold-toggle"}
+        aria-pressed={tab.filter.foldTraces}
+        disabled={!canFoldTraces}
+        onClick={() => onFilterChange({ ...tab.filter, foldTraces: !tab.filter.foldTraces })}
+        title={canFoldTraces ? "Replier les stack traces : une seule ligne par enregistrement (double-clic pour voir le détail)" : "Repli des stack traces : format de log non reconnu"}
+      >
+        Replier les stack traces
+      </button>
       {tab.filterId && (
         <button
           type="button"
