@@ -43,6 +43,13 @@ describe("buildSession", () => {
     expect(tabs[1]?.ruleSetId).toBe("websphere");
   });
 
+  it("keeps a forced encoding, and omits it when detected", () => {
+    const s = run({ type: "opened", info: info("a") }, { type: "opened", info: info("b"), encodingChoice: "utf-16le" });
+    const tabs = buildSession(s.tabs, s.activeId, 0).tabs;
+    expect(tabs[0]).not.toHaveProperty("encoding");
+    expect(tabs[1]?.encoding).toBe("utf-16le");
+  });
+
   it("never writes a negative position", () => {
     const s = run({ type: "opened", info: info("a") }, { type: "clearedTo", tabId: "a", row: 50 });
     expect(buildSession(s.tabs, s.activeId, 10).tabs[0]?.scrollRow).toBe(0);

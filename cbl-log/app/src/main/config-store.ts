@@ -19,7 +19,7 @@ export interface Loaded<T> {
   warning?: string;
 }
 
-async function loadJson<T>(path: string, name: string, parse: (text: string) => ParseResult<T>, fallback: () => T): Promise<Loaded<T>> {
+export async function loadJson<T>(path: string, name: string, parse: (text: string) => ParseResult<T>, fallback: () => T): Promise<Loaded<T>> {
   let text: string;
   try {
     text = await readFile(path, "utf8");

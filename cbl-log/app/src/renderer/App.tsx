@@ -9,6 +9,7 @@ import {
   defaultSettings,
   detectFormat,
   type CompiledFormat,
+  type Encoding,
   type Level,
   type LogFormat,
   type HighlightRule,
@@ -120,9 +121,12 @@ export function App() {
     };
   }, [resetTabs]);
 
-  /** Opens one file in a tab (or activates its tab); `restore` re-applies a saved session position. */
+  /**
+   * Opens one file in a tab (or activates its tab); `restore` re-applies a saved session position.
+   * The encoding is forced when `opts.encoding` (or the restored tab) says so, else detected by the engine.
+   */
   const openFile = useCallback(
-    async (path: string, restore?: SessionTab): Promise<{ ok: true } | { ok: false; message: string }> => {
+    async (path: string, restore?: SessionTab, opts: { encoding?: Encoding; index?: number } = {}): Promise<{ ok: true } | { ok: false; message: string }> => {
       const engine = await withEngine();
       const key = pathKey(path);
       const existing = [...runtimes.current.entries()].find(([, rt]) => rt.pathKey === key);
@@ -131,10 +135,11 @@ export function App() {
         return { ok: true };
       }
       try {
-        const info = await engine.request("open", { path });
+        const encoding = opts.encoding ?? restore?.encoding;
+        const info = await engine.request("open", encoding ? { path, encoding } : { path });
         const cache = new PageCache(async (first, count) => (await engine.request("getRows", { tabId: info.tabId, first, count })).rows);
         runtimes.current.set(info.tabId, { cache, total: info.totalRows, pathKey: key });
-        dispatch({ type: "opened", info });
+        dispatch({ type: "opened", info, ...(encoding ? { encodingChoice: encoding } : {}), ...(opts.index !== undefined ? { index: opts.index } : {}) });
         void detectRef.current(info.tabId);
         if (restore) {
           dispatch({ type: "follow", tabId: info.tabId, follow: restore.follow });
@@ -175,7 +180,8 @@ export function App() {
     async (paths: string[]) => {
       for (const path of paths) {
         const result = await openFile(path);
-        if (!result.ok) setNotice({ text: `${baseName(path)} : ${result.message}`, isError: true });
+        if (result.ok) void window.cblLog.addRecentFile(path).catch(() => undefined);
+        else setNotice({ text: `${baseName(path)} : ${result.message}`, isError: true });
       }
     },
     [openFile],
@@ -207,6 +213,22 @@ export function App() {
       void withEngine().then((engine) => engine.request("close", { tabId }).catch(() => undefined));
     },
     [withEngine],
+  );
+
+  /** Reopens a tab with another encoding (undefined = detect again), keeping its place, position and profile. */
+  const reopenWithEncoding = useCallback(
+    async (tabId: TabId, encoding: Encoding | undefined) => {
+      const { tabs, activeId: current } = stateRef.current;
+      const index = tabs.findIndex((t) => t.info.tabId === tabId);
+      const tab = tabs[index];
+      if (!tab) return;
+      const session = buildSession([tab], tabId === current ? tabId : undefined, viewRow.current).tabs[0]!;
+      const { encoding: _previous, ...restore } = session;
+      closeTab(tabId);
+      const result = await openFile(tab.info.path, restore, { index, ...(encoding ? { encoding } : {}) });
+      if (!result.ok) setNotice({ text: `${baseName(tab.info.path)} : ${result.message}`, isError: true });
+    },
+    [closeTab, openFile],
   );
 
   // Startup: restore the saved session first, then announce we are ready so that files given on the
@@ -591,6 +613,7 @@ export function App() {
             formatName={activeFormat?.format.name || activeFormat?.format.id}
             level={viewLevel}
             onToggleTheme={toggleTheme}
+            onEncodingChange={(encoding) => void reopenWithEncoding(active.info.tabId, encoding)}
           />
         </>
       )}

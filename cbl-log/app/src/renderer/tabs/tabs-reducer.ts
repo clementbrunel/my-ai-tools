@@ -1,4 +1,4 @@
-import type { SearchError, SearchQuery, TabEvent, TabId, TabInfo } from "@cbl-log/shared";
+import type { Encoding, SearchError, SearchQuery, TabEvent, TabId, TabInfo } from "@cbl-log/shared";
 import type { RollMark } from "../viewer/roll-mark";
 
 export type QueryEvent = Extract<TabEvent, { type: "query" }>;
@@ -32,6 +32,8 @@ export interface TabState {
   formatId?: string | null;
   /** Highlighting profile chosen by the user for this tab; undefined = automatic (from the format). */
   ruleSetId?: string;
+  /** Encoding forced by the user; undefined = the one detected by the engine (`info.encoding`). */
+  encodingChoice?: Encoding;
   /** Latest progress event of the engine search (matched to `search.id` by searchStatus). */
   queryEvent?: QueryEvent;
 }
@@ -49,7 +51,8 @@ export interface TabsState {
 }
 
 export type TabsAction =
-  | { type: "opened"; info: TabInfo }
+  /** `index`: position in the tab bar (default: last), used when a tab is reopened in place. */
+  | { type: "opened"; info: TabInfo; encodingChoice?: Encoding; index?: number }
   | { type: "closed"; tabId: TabId }
   | { type: "activated"; tabId: TabId }
   | { type: "event"; tabId: TabId; event: TabEvent; receivedAt: number }
@@ -114,8 +117,10 @@ export function tabsReducer(state: TabsState, action: TabsAction): TabsState {
         scrollRow: 0,
         marks: [],
         clearedBefore: 0,
+        ...(action.encodingChoice ? { encodingChoice: action.encodingChoice } : {}),
       };
-      return { tabs: [...state.tabs, tab], activeId: action.info.tabId };
+      const at = Math.min(Math.max(0, action.index ?? state.tabs.length), state.tabs.length);
+      return { tabs: [...state.tabs.slice(0, at), tab, ...state.tabs.slice(at)], activeId: action.info.tabId };
     }
     case "closed": {
       const index = state.tabs.findIndex((t) => t.info.tabId === action.tabId);

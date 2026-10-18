@@ -1,4 +1,4 @@
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme } from "electron";
 import type { RuleSet, Session, Settings } from "@cbl-log/shared";
@@ -7,6 +7,7 @@ import { ConfigWatcher, type ConfigKind } from "./config-watcher";
 import { loadSession, loadSettings, saveSession, saveSettings } from "./config-store";
 import { loadFormats } from "./formats-store";
 import { EngineHost } from "./engine-process";
+import { loadRecent, saveRecent, withoutRecentFile, withRecentFile } from "./recent-store";
 import { loadRuleSets, saveRuleSet } from "./rules-store";
 
 // Settings live in %APPDATA%/cbl-log (architecture, section 8), not under the package name.
@@ -43,6 +44,37 @@ async function pickFiles(): Promise<string[]> {
   return result.canceled ? [] : result.filePaths;
 }
 
+/** Files opened lately (recent.json), most recent first; filled at startup. */
+let recentFiles: string[] = [];
+
+function persistRecent(): void {
+  buildMenu();
+  void saveRecent(app.getPath("userData"), { schemaVersion: 1, files: recentFiles }).catch(() => undefined);
+}
+
+function openRecent(path: string): void {
+  if (!existsSync(path)) {
+    recentFiles = withoutRecentFile(recentFiles, path);
+    persistRecent();
+  }
+  sendFiles([path]); // a vanished file is reported by the renderer like any open failure
+}
+
+function recentSubmenu(): Electron.MenuItemConstructorOptions[] {
+  if (recentFiles.length === 0) return [{ label: "(aucun)", enabled: false }];
+  return [
+    ...recentFiles.map((path) => ({ label: path.replace(/&/g, "&&"), click: () => openRecent(path) })),
+    { type: "separator" },
+    {
+      label: "&Effacer la liste",
+      click: () => {
+        recentFiles = [];
+        persistRecent();
+      },
+    },
+  ];
+}
+
 function buildMenu(): void {
   Menu.setApplicationMenu(
     Menu.buildFromTemplate([
@@ -50,6 +82,7 @@ function buildMenu(): void {
         label: "&Fichier",
         submenu: [
           { label: "&Ouvrir…", accelerator: "CmdOrCtrl+O", click: () => void pickFiles().then(sendFiles) },
+          { label: "Fichiers &récents", submenu: recentSubmenu() },
           { type: "separator" },
           { role: "quit", label: "&Quitter" },
         ],
@@ -105,6 +138,10 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   ipcMain.handle("dialog:open-files", () => pickFiles());
+  ipcMain.handle("recent:add", (_event, path: string) => {
+    recentFiles = withRecentFile(recentFiles, path);
+    persistRecent();
+  });
   ipcMain.handle("rules:load", () => loadRuleSets(rulesDir()));
   ipcMain.handle("rules:save", async (_event, set: RuleSet) => {
     configWatcher?.noteWrite(`rules/${set.id}.json`, await saveRuleSet(rulesDir(), set));
@@ -126,7 +163,8 @@ if (!app.requestSingleInstanceLock()) {
     sendFiles(pendingPaths.splice(0));
   });
 
-  void app.whenReady().then(() => {
+  void app.whenReady().then(async () => {
+    recentFiles = (await loadRecent(app.getPath("userData"))).value.files;
     buildMenu();
     mkdirSync(rulesDir(), { recursive: true }); // so that the folders can be watched from the first run
     mkdirSync(join(app.getPath("userData"), "formats"), { recursive: true });
