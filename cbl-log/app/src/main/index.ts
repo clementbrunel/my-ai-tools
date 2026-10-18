@@ -92,11 +92,16 @@ function buildMenu(): void {
   );
 }
 
+// Window / taskbar icon: shipped next to the asar via electron-builder extraResources when packaged.
+const iconPath = (): string =>
+  app.isPackaged ? join(process.resourcesPath, "icon.png") : join(__dirname, "../../resources/icon.png");
+
 function createWindow(): void {
   const win = new BrowserWindow({
     width: 1100,
     height: 700,
     show: false,
+    icon: iconPath(),
     webPreferences: {
       preload: join(__dirname, "../preload/index.js"),
       contextIsolation: true,
