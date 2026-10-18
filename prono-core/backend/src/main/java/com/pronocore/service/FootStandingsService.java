@@ -34,6 +34,11 @@ public class FootStandingsService {
     private final FootballDataClient footballDataClient;
     private final TeamRepository teamRepository;
 
+    /** Whether this competition has a league table worth showing (Ligue 1 only, for now). */
+    public boolean hasStandings(Competition competition) {
+        return LIGUE1_CODE.equals(competition.getFootballDataCompetitionCode());
+    }
+
     @Transactional(readOnly = true)
     public List<FootStandingResponse> getStandings(Long competitionId) {
         Competition competition = competitionRepository.findById(competitionId)
