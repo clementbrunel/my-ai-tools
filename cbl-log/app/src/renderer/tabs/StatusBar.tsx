@@ -60,6 +60,9 @@ interface Props {
 export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules, dark, onToggleTheme, formatName, profiles, profileChoice, autoProfileName, onProfileChange, onEncodingChange, canFilterLevels, canFoldTraces, onFilterChange, filterSuspended, onToggleFilterView, pendingLines, onTogglePause, filterShown }: Props) {
   return (
     <footer className="statusbar">
+      <span className="line-count" title="Lignes affichées sur le total">
+        {filterShown ? `${describeFilterCount(filterShown.matches, tab.total)}${filterShown.done ? "" : "…"}` : `${tab.total.toLocaleString("fr-FR")} lignes`}
+      </span>
       <span className="status-path" title={tab.info.path}>
         {tab.info.path}
       </span>
@@ -93,36 +96,49 @@ export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules
           );
         })}
       </span>
-      <button
-        type="button"
-        className={tab.filter.foldTraces ? "link fold-toggle on" : "link fold-toggle"}
-        aria-pressed={tab.filter.foldTraces}
-        disabled={!canFoldTraces}
-        onClick={() => onFilterChange({ ...tab.filter, foldTraces: !tab.filter.foldTraces })}
+      <label
+        className={canFoldTraces ? "fold-toggle" : "fold-toggle disabled"}
         title={canFoldTraces ? "Replier les stack traces : une seule ligne par enregistrement (double-clic pour voir le détail)" : "Repli des stack traces : format de log non reconnu"}
       >
+        <input
+          type="checkbox"
+          checked={tab.filter.foldTraces}
+          disabled={!canFoldTraces}
+          onChange={() => onFilterChange({ ...tab.filter, foldTraces: !tab.filter.foldTraces })}
+        />
         Replier les stack traces
-      </button>
+      </label>
       {tab.filterId && (
-        <button
-          type="button"
-          className="link"
-          onClick={onToggleFilterView}
-          title={filterSuspended ? "Revenir aux lignes filtrées, à la même position" : "Afficher tout le fichier, à la même position (double-clic sur une ligne : la voir dans son contexte)"}
-        >
-          {filterSuspended ? "Revenir au filtre" : "Voir tout le fichier"}
-        </button>
+        <span className="view-switch" role="group" aria-label="Vue affichée">
+          <button
+            type="button"
+            className={filterSuspended ? "" : "on"}
+            aria-pressed={!filterSuspended}
+            onClick={filterSuspended ? onToggleFilterView : undefined}
+            title="Lignes filtrées uniquement"
+          >
+            Filtré
+          </button>
+          <button
+            type="button"
+            className={filterSuspended ? "on" : ""}
+            aria-pressed={filterSuspended}
+            onClick={filterSuspended ? undefined : onToggleFilterView}
+            title="Tout le fichier, à la même position (double-clic sur une ligne : la voir dans son contexte)"
+          >
+            Fichier complet
+          </button>
+        </span>
       )}
-      <span>{filterShown ? `${describeFilterCount(filterShown.matches, tab.total)}${filterShown.done ? "" : "…"}` : `${tab.total.toLocaleString("fr-FR")} lignes`}</span>
       {tab.indexing !== undefined && <span>Indexation {Math.round(tab.indexing * 100)} %</span>}
       {tab.state !== "following" && <span className={`state-${tab.state}`}>{tab.state === "missing" ? "Fichier introuvable" : tab.message ?? "Erreur"}</span>}
       {tab.clearedBefore > 0 ? (
-        <button type="button" className="link" onClick={onUnclear} title="Réafficher les lignes masquées">
-          {tab.clearedBefore.toLocaleString("fr-FR")} ligne(s) masquée(s) — tout afficher
+        <button type="button" className="icon-btn on" onClick={onUnclear} title={`${tab.clearedBefore.toLocaleString("fr-FR")} ligne(s) masquée(s) — cliquer pour tout réafficher`} aria-label="Réafficher les lignes masquées">
+          🗑 {tab.clearedBefore.toLocaleString("fr-FR")} ✕
         </button>
       ) : (
-        <button type="button" className="link" onClick={onClear} title="Masquer tout ce qui précède (Ctrl+L)">
-          Effacer
+        <button type="button" className="icon-btn" onClick={onClear} title="Effacer : masquer tout ce qui précède (Ctrl+L)" aria-label="Effacer">
+          🗑
         </button>
       )}
       <button type="button" role="switch" aria-checked={dark} className={dark ? "theme-switch dark" : "theme-switch"} onClick={onToggleTheme} title="Basculer entre le thème clair et le thème sombre">

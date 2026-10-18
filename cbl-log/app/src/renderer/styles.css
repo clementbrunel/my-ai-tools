@@ -732,14 +732,59 @@ body {
   cursor: default;
 }
 
-.fold-toggle.on {
-  font-weight: 600;
-  text-decoration: underline;
+.fold-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
 }
 
-.fold-toggle:disabled {
+.fold-toggle.disabled {
   opacity: 0.4;
   cursor: default;
+}
+
+.line-count {
+  flex: none;
+  min-width: 30ch;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.view-switch {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.view-switch button {
+  border: 0;
+  padding: 0 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.view-switch button.on {
+  background: var(--accent);
+  color: #fff;
+  cursor: default;
+}
+
+.icon-btn {
+  border: 0;
+  padding: 0 4px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.icon-btn.on {
+  color: #f29900;
+  font-size: 12px;
 }
 
 .fold-badge {
