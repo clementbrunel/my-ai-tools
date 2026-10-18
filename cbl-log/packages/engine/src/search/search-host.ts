@@ -2,11 +2,11 @@
 // worker whose regex stalls (catastrophic backtracking) and reports the matches as they come.
 import { existsSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { Worker } from "node:worker_threads";
 import type { Encoding, SearchError, SearchQuery } from "@cbl-log/shared";
+import { DEFAULT_STALL_MS, SliceRun } from "../pool/slice-run.js";
 import type { SearchJob, SearchWorkerMessage } from "./search-types.js";
 
-export const DEFAULT_STALL_MS = 5000;
+export { DEFAULT_STALL_MS };
 export const DEFAULT_SEARCH_CHUNK = 256 * 1024;
 
 let injectedWorkerPath: string | undefined;
@@ -45,103 +45,35 @@ export interface SearchRunOptions {
   onFinished(error: SearchError | undefined): void;
 }
 
-interface Running {
-  worker: Worker;
-  sliceIndex: number;
-  lastBeat: number;
-}
-
 export class SearchRun {
-  private readonly running = new Set<Running>();
-  private nextSlice = 0;
-  private finishedSlices = 0;
-  private ended = false;
-  private readonly watchdog: NodeJS.Timeout;
-  private readonly stallMs: number;
+  private readonly run: SliceRun<SearchWorkerMessage>;
 
-  constructor(private readonly opts: SearchRunOptions) {
-    this.stallMs = opts.stallMs ?? DEFAULT_STALL_MS;
-    this.watchdog = setInterval(() => this.checkStalls(), Math.max(50, Math.min(500, this.stallMs / 4)));
-    this.watchdog.unref();
-    if (opts.slices.length === 0) queueMicrotask(() => this.finish(undefined));
-    else this.fill();
+  constructor(opts: SearchRunOptions) {
+    this.run = new SliceRun<SearchWorkerMessage>({
+      workerUrl,
+      sliceCount: opts.slices.length,
+      jobFor: (sliceIndex): SearchJob => {
+        const slice = opts.slices[sliceIndex]!;
+        return {
+          path: opts.path,
+          encoding: opts.encoding,
+          query: opts.query,
+          start: slice.start,
+          end: slice.end,
+          chunkSize: opts.chunkSize ?? DEFAULT_SEARCH_CHUNK,
+        };
+      },
+      maxWorkers: opts.maxWorkers,
+      stallMs: opts.stallMs,
+      onMessage: (sliceIndex, msg) => {
+        if (msg.type === "matches") opts.onMatches(sliceIndex, msg.offsets);
+      },
+      onSliceDone: opts.onSliceDone,
+      onFinished: opts.onFinished,
+    });
   }
 
   cancel(): void {
-    if (this.ended) return;
-    this.ended = true;
-    this.shutdown();
-  }
-
-  private fill(): void {
-    while (!this.ended && this.running.size < this.opts.maxWorkers && this.nextSlice < this.opts.slices.length) {
-      this.spawn(this.nextSlice++);
-    }
-  }
-
-  private spawn(sliceIndex: number): void {
-    const slice = this.opts.slices[sliceIndex]!;
-    const job: SearchJob = {
-      path: this.opts.path,
-      encoding: this.opts.encoding,
-      query: this.opts.query,
-      start: slice.start,
-      end: slice.end,
-      chunkSize: this.opts.chunkSize ?? DEFAULT_SEARCH_CHUNK,
-    };
-    let worker: Worker;
-    try {
-      worker = new Worker(workerUrl(), { workerData: job });
-    } catch {
-      this.finish("failed");
-      return;
-    }
-    const entry: Running = { worker, sliceIndex, lastBeat: Date.now() };
-    this.running.add(entry);
-
-    worker.on("message", (msg: SearchWorkerMessage) => {
-      if (this.ended || !this.running.has(entry)) return;
-      entry.lastBeat = Date.now();
-      if (msg.type === "matches") {
-        this.opts.onMatches(sliceIndex, msg.offsets);
-      } else if (msg.type === "done") {
-        this.running.delete(entry);
-        void worker.terminate();
-        this.finishedSlices++;
-        this.opts.onSliceDone(sliceIndex);
-        if (this.finishedSlices === this.opts.slices.length) this.finish(undefined);
-        else this.fill();
-      } else if (msg.type === "error") {
-        this.finish("failed");
-      }
-    });
-    worker.on("error", () => this.finish("failed"));
-    worker.on("exit", (code) => {
-      if (code !== 0 && this.running.has(entry)) this.finish("failed");
-    });
-  }
-
-  private checkStalls(): void {
-    if (this.ended) return;
-    const now = Date.now();
-    for (const entry of this.running) {
-      if (now - entry.lastBeat > this.stallMs) {
-        this.finish("too-expensive");
-        return;
-      }
-    }
-  }
-
-  private finish(error: SearchError | undefined): void {
-    if (this.ended) return;
-    this.ended = true;
-    this.shutdown();
-    this.opts.onFinished(error);
-  }
-
-  private shutdown(): void {
-    clearInterval(this.watchdog);
-    for (const entry of this.running) void entry.worker.terminate();
-    this.running.clear();
+    this.run.cancel();
   }
 }

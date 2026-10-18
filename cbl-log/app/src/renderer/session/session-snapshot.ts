@@ -1,4 +1,5 @@
 import type { Session, TabId } from "@cbl-log/shared";
+import { isDefaultFilter } from "../filter/filter-state";
 import type { TabState } from "../tabs/tabs-reducer";
 
 /**
@@ -17,6 +18,7 @@ export function buildSession(tabs: readonly TabState[], activeId: TabId | undefi
       clearedBefore: tab.clearedBefore,
       ...(tab.ruleSetId ? { ruleSetId: tab.ruleSetId } : {}),
       ...(tab.encodingChoice ? { encoding: tab.encodingChoice } : {}),
+      ...(isDefaultFilter(tab.filter) ? {} : { filter: { levels: [...tab.filter.levels], include: [...tab.filter.include], exclude: [...tab.filter.exclude] } }),
     })),
     ...(active ? { activePath: active.info.path } : {}),
   };

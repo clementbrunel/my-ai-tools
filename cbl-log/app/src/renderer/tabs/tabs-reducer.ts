@@ -1,7 +1,8 @@
-import type { Encoding, SearchError, SearchQuery, TabEvent, TabId, TabInfo } from "@cbl-log/shared";
+import { defaultFilterSettings, type Encoding, type FilterSettings, type SearchError, type SearchQuery, type TabEvent, type TabId, type TabInfo } from "@cbl-log/shared";
 import type { RollMark } from "../viewer/roll-mark";
 
 export type QueryEvent = Extract<TabEvent, { type: "query" }>;
+export type FilterEvent = Extract<TabEvent, { type: "filter" }>;
 
 export interface SearchState {
   query: SearchQuery;
@@ -36,6 +37,19 @@ export interface TabState {
   encodingChoice?: Encoding;
   /** Latest progress event of the engine search (matched to `search.id` by searchStatus). */
   queryEvent?: QueryEvent;
+  /** What the user asked to show (levels, texts to include / exclude). */
+  filter: FilterSettings;
+  /** Engine-side id of the filter in force; null = none, undefined = not applied yet. */
+  filterId?: string | null;
+  /** Latest progress event of the engine filter (matched to `filterId` by filterStatus). */
+  filterEvent?: FilterEvent;
+}
+
+/** Lines available in the filtered view, or undefined while there is no filter in force (or no answer yet). */
+export function filterStatus(tab: TabState): { matches: number; done: boolean; error?: SearchError } | undefined {
+  if (!tab.filterId || tab.filterEvent?.id !== tab.filterId) return undefined;
+  const { matches, done, error } = tab.filterEvent;
+  return { matches, done, ...(error ? { error } : {}) };
 }
 
 /** Progress of the tab search, or undefined when there is none (or the engine has not answered yet). */
@@ -60,6 +74,8 @@ export type TabsAction =
   | { type: "searchHit"; tabId: TabId; row: number; ordinal: number | null }
   | { type: "searchStopped"; tabId: TabId }
   | { type: "formatDetected"; tabId: TabId; formatId: string | null }
+  | { type: "filterChanged"; tabId: TabId; filter: FilterSettings }
+  | { type: "filterApplied"; tabId: TabId; filterId: string | null }
   | { type: "ruleSetChosen"; tabId: TabId; ruleSetId: string | undefined }
   | { type: "clearedTo"; tabId: TabId; row: number }
   | { type: "clear"; tabId: TabId }
@@ -96,6 +112,8 @@ function applyEvent(tab: TabState, isActive: boolean, event: TabEvent, receivedA
       return { ...tab, state: event.state, message: event.message };
     case "query":
       return { ...tab, queryEvent: event };
+    case "filter":
+      return { ...tab, filterEvent: event };
     case "rolled": {
       const mark: RollMark = { row: event.at, reason: event.reason, at: receivedAt, ...(event.previous ? { previous: event.previous } : {}) };
       return { ...tab, marks: [...tab.marks, mark] };
@@ -117,6 +135,7 @@ export function tabsReducer(state: TabsState, action: TabsAction): TabsState {
         scrollRow: 0,
         marks: [],
         clearedBefore: 0,
+        filter: defaultFilterSettings(),
         ...(action.encodingChoice ? { encodingChoice: action.encodingChoice } : {}),
       };
       const at = Math.min(Math.max(0, action.index ?? state.tabs.length), state.tabs.length);
@@ -159,6 +178,11 @@ export function tabsReducer(state: TabsState, action: TabsAction): TabsState {
       });
     case "formatDetected":
       return updateTab(state, action.tabId, (t) => (t.formatId === action.formatId ? t : { ...t, formatId: action.formatId }));
+    case "filterChanged":
+      return updateTab(state, action.tabId, (t) => (t.filter === action.filter ? t : { ...t, filter: action.filter }));
+    case "filterApplied":
+      // keep `filterEvent`: the engine may have reported progress before its answer reached us
+      return updateTab(state, action.tabId, (t) => (t.filterId === action.filterId ? t : { ...t, filterId: action.filterId }));
     case "clearedTo":
       return updateTab(state, action.tabId, (t) => {
         const row = Math.min(Math.max(0, action.row), t.total);

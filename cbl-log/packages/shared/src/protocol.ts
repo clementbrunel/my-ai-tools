@@ -1,5 +1,7 @@
 // Typed request/response protocol between the renderer and the engine (utilityProcess), carried
 // over a MessagePort. Requests are correlated with their responses by numeric id.
+import type { LineFilter } from "./filter.js";
+import type { Level, LogFormat } from "./formats.js";
 import type { TabEvent, TabId } from "./index.js";
 
 /** Text encodings the engine can decode (single source of truth, re-exported by the engine). */
@@ -10,6 +12,8 @@ export interface Row {
   lineNo: number;
   text: string;
   truncated: boolean;
+  /** Level of the line (own or inherited), only reported by the filtered view. */
+  level?: Level | undefined;
 }
 
 export interface OpenParams {
@@ -37,6 +41,11 @@ export interface GetRowsParams {
   tabId: TabId;
   first: number;
   count: number;
+  /**
+   * Read the filtered view of this filter (`setFilter` answer) instead of the file: `first` and
+   * `count` then index the retained lines, whose `lineNo` stay those of the file.
+   */
+  filterId?: string;
 }
 
 export interface RowsResult {
@@ -90,6 +99,19 @@ export interface SearchHit {
   wrapped: boolean;
 }
 
+export interface SetFilterParams {
+  tabId: TabId;
+  /** null (or a filter that hides nothing) removes the filter of the tab. */
+  filter: LineFilter | null;
+  /** Format giving the level of each line; required when the filter restricts levels. */
+  format?: LogFormat | null;
+}
+
+export interface FilterStarted {
+  /** Identifier carried by the `filter` events and by `getRows`; null when there is no filter. */
+  filterId: string | null;
+}
+
 // TODO(M1+): goto / setFollow / setPaused. Follow and goto are renderer-only state for now
 // (pull model), pause (T-06) is deferred.
 
@@ -99,6 +121,7 @@ export interface EngineRequestMap {
   getRows: { params: GetRowsParams; result: RowsResult };
   search: { params: SearchParams; result: SearchStarted };
   searchNext: { params: SearchNextParams; result: SearchHit };
+  setFilter: { params: SetFilterParams; result: FilterStarted };
 }
 
 export type EngineOp = keyof EngineRequestMap;

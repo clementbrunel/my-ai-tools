@@ -21,6 +21,11 @@ interface Props {
   marks: readonly RollMark[];
   /** Detected log format: gives each row a level marker (continuation lines inherit it). */
   format?: CompiledFormat | undefined;
+  /**
+   * The rows are those of a filtered view: `total` counts the retained lines, a row's position is not
+   * its line number (`row.lineNo`, shown in the gutter) and its level comes with it from the engine.
+   */
+  filtered?: boolean | undefined;
   /** Level of the last visible row (the one being read in follow mode), reported when it changes. */
   onViewLevel?: (level: Level | undefined) => void;
   /** Colors a line according to the active highlighting rules. */
@@ -43,7 +48,7 @@ interface Props {
 }
 
 /** Virtualized, fixed-height-row view of a tab's lines. Follow mode keeps the end in view. */
-export function LogViewport({ cache, total: realTotal, base, marks, format, onViewLevel, highlight, follow, reveal, currentMatchRow, viewRowRef, initialRow, onFollowChange, onLeave, fetchRows, onNotice }: Props) {
+export function LogViewport({ cache, total: realTotal, base, marks, format, filtered = false, onViewLevel, highlight, follow, reveal, currentMatchRow, viewRowRef, initialRow, onFollowChange, onLeave, fetchRows, onNotice }: Props) {
   const total = Math.max(0, realTotal - base);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
@@ -57,8 +62,8 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, onVi
   /** The user scrolled away from the bottom; follow mode must not pull the view back before React catches up. */
   const userUnpinned = useRef(false);
   const wasFollowing = useRef(follow);
-  const latest = useRef({ viewportHeight: 0, total, follow, initialRow, selection, base, realTotal });
-  latest.current = { viewportHeight, total, follow, initialRow, selection, base, realTotal };
+  const latest = useRef({ viewportHeight: 0, total, follow, initialRow, selection, base, realTotal, filtered });
+  latest.current = { viewportHeight, total, follow, initialRow, selection, base, realTotal, filtered };
 
   /** Re-render the window around `top` (programmatic scrolls, and native scrolls that cross a row). */
   const commitScroll = useCallback((top: number) => {
@@ -96,7 +101,9 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, onVi
   useEffect(() => setSelection(undefined), [base]);
 
   const range = visibleRange(scrollTop, viewportHeight, total, OVERSCAN);
-  const levels = computeRowLevels(format, (row) => cache.getRow(row)?.text, base + range.first, range.count);
+  const levels = filtered
+    ? Array.from({ length: range.count }, (_, i) => cache.getRow(base + range.first + i)?.level)
+    : computeRowLevels(format, (row) => cache.getRow(row)?.text, base + range.first, range.count);
   // In follow mode the view is pinned to the end: the last visible row is then the last row of the file.
   const bottomRow = follow ? total - 1 : lastVisibleRow(scrollTop, viewportHeight, total);
   const bottomLevel = levels[bottomRow - range.first];
@@ -203,7 +210,8 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, onVi
         scrollToEnd();
       } else if (e.ctrlKey && e.key.toLowerCase() === "g") {
         e.preventDefault();
-        setGotoOpen(true);
+        // a line number means nothing in a filtered view (the full view comes with the switch, #432)
+        if (!latest.current.filtered) setGotoOpen(true);
       } else if (e.ctrlKey && e.key.toLowerCase() === "c" && !inInput && latest.current.selection) {
         e.preventDefault();
         void copySelection(e.shiftKey);
@@ -230,12 +238,12 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, onVi
   for (let i = range.first; i < range.first + range.count; i++) {
     const lineRow = base + i;
     const row = cache.getRow(lineRow);
-    const mark = markAt.get(lineRow);
+    const mark = filtered ? undefined : markAt.get(lineRow);
     const colored = row ? highlight(row.text) : undefined;
     const classes = ["log-row"];
     if (mark) classes.push("roll-start");
     if (isSelected(selection, lineRow)) classes.push("selected");
-    if (lineRow === currentMatchRow) classes.push("current-match");
+    if ((filtered ? row?.lineNo : lineRow) === currentMatchRow) classes.push("current-match");
     const level = levels[i - range.first];
     if (level) classes.push(`lvl-${level}`);
     rows.push(
@@ -256,7 +264,7 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, onVi
           if (dragging.current && e.buttons === 1) setSelection((prev) => (prev ? { anchor: prev.anchor, head: lineRow } : prev));
         }}
       >
-        <span className="log-gutter">{lineRow + 1}</span>
+        <span className="log-gutter">{filtered ? (row ? row.lineNo + 1 : "") : lineRow + 1}</span>
         <span className="log-text">
           {colored
             ? colored.segments.map((seg, n) =>

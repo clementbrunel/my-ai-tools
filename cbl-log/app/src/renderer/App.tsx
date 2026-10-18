@@ -8,8 +8,10 @@ import {
   createWebSphereRuleSet,
   defaultSettings,
   detectFormat,
+  toLineFilter,
   type CompiledFormat,
   type Encoding,
+  type FilterSettings,
   type Level,
   type LogFormat,
   type HighlightRule,
@@ -25,13 +27,14 @@ import { subscribeEngine } from "./engine/client";
 import type { RpcClient } from "./engine/rpc-client";
 import { baseName, pathKey } from "./files/path-key";
 import { useFileDrop } from "./files/useFileDrop";
+import { FilterBar } from "./filter/FilterBar";
 import { compileRules, highlightLine } from "./highlight/highlight";
 import { RulesEditor } from "./rules/RulesEditor";
 import { autoRuleSet, pickRuleSet } from "./rules/rule-profile";
 import { buildSession } from "./session/session-snapshot";
 import { StatusBar } from "./tabs/StatusBar";
 import { TabBar } from "./tabs/TabBar";
-import { initialTabsState, searchStatus, tabsReducer } from "./tabs/tabs-reducer";
+import { filterStatus, initialTabsState, searchStatus, tabsReducer, type TabState } from "./tabs/tabs-reducer";
 import { SearchBar } from "./search/SearchBar";
 import { LogViewport } from "./viewer/LogViewport";
 import { PageCache } from "./viewer/page-cache";
@@ -41,7 +44,16 @@ interface TabRuntime {
   /** Row count last seen, to know from where the cache is outdated when rows are appended. */
   total: number;
   pathKey: string;
+  /** Pages of the filtered view in force (one per filter: positions mean nothing across filters). */
+  filterCache?: PageCache;
+  filterCacheId?: string;
+  /** Lines available in the filtered view when the cache was last told about them. */
+  filterTotal: number;
 }
+
+const LEVELS_COUNT = 6;
+const NO_MARKS: never[] = [];
+const ignoreLeave = (): void => {};
 
 export function App() {
   const [state, dispatch] = useReducer(tabsReducer, initialTabsState);
@@ -62,6 +74,8 @@ export function App() {
   const restoreRef = useRef<(session: Session) => Promise<void>>(async () => {});
   /** Incremented by Ctrl+F: the search field takes the focus. */
   const [searchFocus, setSearchFocus] = useState(0);
+  /** Incremented by Ctrl+Maj+F: the filter field takes the focus. */
+  const [filterFocus, setFilterFocus] = useState(0);
   const [reveal, setReveal] = useState<{ row: number; nonce: number } | undefined>();
   const revealNonce = useRef(0);
   const viewRow = useRef(0);
@@ -77,8 +91,12 @@ export function App() {
   }, []);
 
   const resetTabs = useCallback(() => {
-    for (const rt of runtimes.current.values()) rt.cache.clear();
+    for (const rt of runtimes.current.values()) {
+      rt.cache.clear();
+      rt.filterCache?.clear();
+    }
     runtimes.current.clear();
+    appliedFilters.current.clear();
     dispatch({ type: "reset" });
   }, []);
 
@@ -112,6 +130,13 @@ export function App() {
             rt.total = event.total;
           } else if (event.type === "rolled") {
             rt.cache.invalidateFrom(event.at);
+            // the filter starts over on the new file: nothing of its view can be trusted
+            rt.filterCache?.invalidateFrom(0);
+            rt.filterTotal = 0;
+          } else if (event.type === "filter" && rt.filterCache && rt.filterCacheId === event.id) {
+            // the view only grows at its end, unless the filter started over
+            rt.filterCache.invalidateFrom(event.matches < rt.filterTotal ? 0 : Math.max(0, rt.filterTotal - 1));
+            rt.filterTotal = event.matches;
           }
         }
         if (event.type === "rows" && event.total <= DETECT_SAMPLE_LINES * 3) {
@@ -146,7 +171,7 @@ export function App() {
         const encoding = opts.encoding ?? restore?.encoding;
         const info = await engine.request("open", encoding ? { path, openId, encoding } : { path, openId });
         const cache = new PageCache(async (first, count) => (await engine.request("getRows", { tabId: info.tabId, first, count })).rows);
-        runtimes.current.set(info.tabId, { cache, total: info.totalRows, pathKey: key });
+        runtimes.current.set(info.tabId, { cache, total: info.totalRows, pathKey: key, filterTotal: 0 });
         dispatch({ type: "opened", info, ...(encoding ? { encodingChoice: encoding } : {}), ...(opts.index !== undefined ? { index: opts.index } : {}) });
         void detectRef.current(info.tabId);
         if (restore) {
@@ -154,6 +179,7 @@ export function App() {
           dispatch({ type: "scrollRow", tabId: info.tabId, row: restore.scrollRow });
           if (restore.clearedBefore > 0) dispatch({ type: "clearedTo", tabId: info.tabId, row: restore.clearedBefore });
           if (restore.ruleSetId) dispatch({ type: "ruleSetChosen", tabId: info.tabId, ruleSetId: restore.ruleSetId });
+          if (restore.filter) dispatch({ type: "filterChanged", tabId: info.tabId, filter: restore.filter });
         }
         return { ok: true };
       } catch (err) {
@@ -185,6 +211,50 @@ export function App() {
   );
   const detectRef = useRef(detectTab);
   detectRef.current = detectTab;
+
+  /**
+   * Sends the filter of a tab to the engine when it differs from the one in force there. The levels
+   * need the format: while it is not known yet, a filter restricting levels waits for it.
+   */
+  const appliedFilters = useRef(new Map<TabId, string>());
+  const filterSeq = useRef(0);
+  const applyFilter = useCallback(
+    async (tab: TabState) => {
+      const tabId = tab.info.tabId;
+      if (tab.formatId === undefined && tab.filter.levels.length < LEVELS_COUNT) return;
+      const format = tab.formatId ? formatsRef.current.find((f) => f.format.id === tab.formatId)?.format : undefined;
+      const filter = toLineFilter(tab.filter, !!format);
+      const key = JSON.stringify([filter, filter?.levels ? format : null]);
+      const previous = appliedFilters.current.get(tabId);
+      if (previous === key || (previous === undefined && filter === null)) {
+        appliedFilters.current.set(tabId, key); // a fresh tab without filter: nothing to undo in the engine
+        return;
+      }
+      appliedFilters.current.set(tabId, key);
+      const seq = ++filterSeq.current;
+      try {
+        const engine = await withEngine();
+        const { filterId } = await engine.request("setFilter", { tabId, filter, format: filter?.levels ? (format ?? null) : null });
+        const rt = runtimes.current.get(tabId);
+        if (!rt || seq !== filterSeq.current) return;
+        if (filterId) {
+          rt.filterCache?.clear();
+          rt.filterCache = new PageCache(async (first, count) => (await engine.request("getRows", { tabId, first, count, filterId })).rows, undefined, true);
+          rt.filterCacheId = filterId;
+          rt.filterTotal = 0;
+        } else {
+          rt.filterCache?.clear();
+          rt.filterCache = undefined;
+          rt.filterCacheId = undefined;
+        }
+        dispatch({ type: "filterApplied", tabId, filterId });
+      } catch (err) {
+        appliedFilters.current.delete(tabId);
+        setNotice({ text: `Filtre : ${err instanceof Error ? err.message : String(err)}`, isError: true });
+      }
+    },
+    [withEngine],
+  );
 
   const openPaths = useCallback(
     async (paths: string[]) => {
@@ -218,6 +288,8 @@ export function App() {
     (tabId: TabId) => {
       const rt = runtimes.current.get(tabId);
       rt?.cache.clear();
+      rt?.filterCache?.clear();
+      appliedFilters.current.delete(tabId);
       runtimes.current.delete(tabId);
       dispatch({ type: "closed", tabId });
       void withEngine().then((engine) => engine.request("close", { tabId }).catch(() => undefined));
@@ -479,6 +551,9 @@ export function App() {
       if (e.ctrlKey && e.key.toLowerCase() === "w" && activeId) {
         e.preventDefault();
         closeTab(activeId);
+      } else if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "f" && activeId) {
+        e.preventDefault();
+        setFilterFocus((n) => n + 1);
       } else if (e.ctrlKey && e.key.toLowerCase() === "f" && activeId) {
         e.preventDefault();
         setSearchFocus((n) => n + 1);
@@ -511,13 +586,14 @@ export function App() {
     [activeId],
   );
 
+  const activeFilterId = state.tabs.find((t) => t.info.tabId === activeId)?.filterId;
   const fetchRows = useCallback(
     async (first: number, count: number): Promise<Row[]> => {
       if (!activeId) return [];
       const engine = await withEngine();
-      return (await engine.request("getRows", { tabId: activeId, first, count })).rows;
+      return (await engine.request("getRows", { tabId: activeId, first, count, ...(activeFilterId ? { filterId: activeFilterId } : {}) })).rows;
     },
-    [activeId, withEngine],
+    [activeId, activeFilterId, withEngine],
   );
   const onNotice = useCallback((text: string, isError = false) => setNotice({ text, isError }), []);
 
@@ -530,6 +606,22 @@ export function App() {
   };
   const autoSet = autoRuleSet(ruleSets, active?.formatId);
   const activeFormat = active?.formatId ? formats.find((f) => f.format.id === active.formatId) : undefined;
+  // The filtered view is shown once the engine has answered with the filter in force.
+  const filterProgress = active ? filterStatus(active) : undefined;
+  const filterCache = active?.filterId ? runtime?.filterCache : undefined;
+  const filtered = !!filterCache && runtime?.filterCacheId === active?.filterId;
+
+  // Send the filter of the active tab to the engine whenever it (or what it depends on) changes.
+  const activeTab = active;
+  useEffect(() => {
+    if (activeTab) void applyFilter(activeTab);
+  }, [activeTab?.info.tabId, activeTab?.filter, activeTab?.formatId, formats, applyFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+  const onFilterChange = useCallback(
+    (filter: FilterSettings) => {
+      if (activeId) dispatch({ type: "filterChanged", tabId: activeId, filter });
+    },
+    [activeId],
+  );
 
   return (
     <div className="app">
@@ -590,29 +682,31 @@ export function App() {
             onNext={() => void findHit("next")}
             onPrev={() => void findHit("prev")}
           />
+          <FilterBar settings={active.filter} onChange={onFilterChange} focusRequest={filterFocus} error={filterProgress?.error} />
           {active.state !== "following" && (
             <div className={`banner banner-${active.state}`} role="status">
               {active.state === "missing" ? "Fichier absent, en attente…" : active.message ?? "Erreur de lecture du fichier."}
             </div>
           )}
           <LogViewport
-            key={active.info.tabId}
-            cache={runtime.cache}
-            total={active.total}
-            base={active.clearedBefore}
-            marks={active.marks}
+            key={`${active.info.tabId}:${filtered ? active.filterId : ""}`}
+            cache={filtered ? filterCache : runtime.cache}
+            total={filtered ? (filterProgress?.matches ?? 0) : active.total}
+            base={filtered ? 0 : active.clearedBefore}
+            marks={filtered ? NO_MARKS : active.marks}
             highlight={highlight}
             format={activeFormat}
+            filtered={filtered}
             onViewLevel={setViewLevel}
-            reveal={reveal}
+            reveal={filtered ? undefined : reveal}
             currentMatchRow={active.search?.current?.row}
-            viewRowRef={viewRow}
+            {...(filtered ? {} : { viewRowRef: viewRow })}
             fetchRows={fetchRows}
             onNotice={onNotice}
             follow={active.follow}
-            initialRow={active.scrollRow}
+            initialRow={filtered ? 0 : active.scrollRow}
             onFollowChange={onFollowChange}
-            onLeave={onLeave}
+            onLeave={filtered ? ignoreLeave : onLeave}
           />
           <StatusBar
             tab={active}
@@ -629,6 +723,9 @@ export function App() {
             level={viewLevel}
             onToggleTheme={toggleTheme}
             onEncodingChange={(encoding) => void reopenWithEncoding(active.info.tabId, encoding)}
+            canFilterLevels={!!activeFormat}
+            onFilterChange={onFilterChange}
+            filterShown={filtered && filterProgress ? { matches: filterProgress.matches, done: filterProgress.done } : undefined}
           />
         </>
       )}

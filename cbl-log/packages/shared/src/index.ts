@@ -11,6 +11,8 @@ export type TabEvent =
   | { type: "rolled"; reason: "rename" | "truncate" | "new-file"; previous?: string; at: number }
   | { type: "state"; state: "following" | "missing" | "error"; message?: string }
   | { type: "query"; id: string; matches: number; done: boolean; error?: SearchError }
+  /** Progress of the line filter of the tab: `matches` lines are available in the filtered view. */
+  | { type: "filter"; id: string; matches: number; done: boolean; error?: SearchError }
   | { type: "alert"; ruleId: string; line: number };
 
 export type RowsEvent = Extract<TabEvent, { type: "rows" }>;
@@ -30,3 +32,5 @@ export * from "./config.js";
 export * from "./formats.js";
 
 export * from "./pattern.js";
+
+export * from "./filter.js";

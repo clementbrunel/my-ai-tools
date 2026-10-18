@@ -399,6 +399,73 @@ body {
   outline: 1px solid #b3261e;
 }
 
+.filterbar {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.filterbar > input:first-child {
+  width: 34ch;
+}
+
+.filterbar input.invalid {
+  outline: 1px solid #b3261e;
+}
+
+.chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 28ch;
+  padding: 0 4px 0 6px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.chip.include { border-color: #188038; }
+.chip.exclude { border-color: #b3261e; }
+
+.chip button {
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.level-pills {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.level-pill {
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: #fff;
+  font-size: 11px;
+  cursor: pointer;
+  opacity: 0.35;
+}
+
+.level-pill.on { opacity: 1; }
+.level-pill:disabled { cursor: default; opacity: 0.2; }
+
 .search-count {
   flex: 1;
   color: var(--muted);

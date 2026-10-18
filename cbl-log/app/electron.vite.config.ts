@@ -17,6 +17,7 @@ export default defineConfig({
           engine: resolve(__dirname, "src/engine/index.ts"),
           "indexer-worker": resolve(__dirname, "../packages/engine/src/index/indexer-worker.ts"),
           "search-worker": resolve(__dirname, "../packages/engine/src/search/search-worker.ts"),
+          "filter-worker": resolve(__dirname, "../packages/engine/src/filter/filter-worker.ts"),
         },
         output: { entryFileNames: "[name].js" },
       },
