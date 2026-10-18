@@ -49,11 +49,15 @@ interface Props {
   /** The filter bar (texts to include / exclude) can be hidden; the filter stays in force. */
   filterBarOpen: boolean;
   onToggleFilterBar(): void;
+  /** The full file is shown although a filter is in force. */
+  filterSuspended: boolean;
+  /** Switches between the filtered view and the full file, keeping the position. */
+  onToggleFilterView(): void;
   /** Lines shown by the filter in force (undefined = no filter). */
   filterShown?: { matches: number; done: boolean } | undefined;
 }
 
-export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules, dark, onToggleTheme, formatName, level, profiles, profileChoice, autoProfileName, onProfileChange, onEncodingChange, canFilterLevels, onFilterChange, filterBarOpen, onToggleFilterBar, filterShown }: Props) {
+export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules, dark, onToggleTheme, formatName, level, profiles, profileChoice, autoProfileName, onProfileChange, onEncodingChange, canFilterLevels, onFilterChange, filterBarOpen, onToggleFilterBar, filterSuspended, onToggleFilterView, filterShown }: Props) {
   return (
     <footer className="statusbar">
       <span className="status-path" title={tab.info.path}>
@@ -99,6 +103,16 @@ export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules
           );
         })}
       </span>
+      {tab.filterId && (
+        <button
+          type="button"
+          className="link"
+          onClick={onToggleFilterView}
+          title={filterSuspended ? "Revenir aux lignes filtrées, à la même position" : "Afficher tout le fichier, à la même position (double-clic sur une ligne : la voir dans son contexte)"}
+        >
+          {filterSuspended ? "Revenir au filtre" : "Voir tout le fichier"}
+        </button>
+      )}
       <span>{filterShown ? `${describeFilterCount(filterShown.matches, tab.total)}${filterShown.done ? "" : "…"}` : `${tab.total.toLocaleString("fr-FR")} lignes`}</span>
       {tab.indexing !== undefined && <span>Indexation {Math.round(tab.indexing * 100)} %</span>}
       {tab.state !== "following" && <span className={`state-${tab.state}`}>{tab.state === "missing" ? "Fichier introuvable" : tab.message ?? "Erreur"}</span>}

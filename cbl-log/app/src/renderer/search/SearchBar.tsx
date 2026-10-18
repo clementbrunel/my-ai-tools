@@ -110,7 +110,7 @@ export function SearchBar({ tabId, initial, status, focusRequest, onQuery, onNex
   const invalid = validateQuery(fields);
   const current = initial?.current;
   return (
-    <>
+    <div className="searchblock">
       <div className="searchbar" role="search">
         <input
           ref={inputRef}
@@ -169,6 +169,6 @@ export function SearchBar({ tabId, initial, status, focusRequest, onQuery, onNex
           onEnableRegex={() => update({ isRegex: true })}
         />
       )}
-    </>
+    </div>
   );
 }

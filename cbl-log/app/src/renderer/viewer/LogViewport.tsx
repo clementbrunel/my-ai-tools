@@ -31,10 +31,21 @@ interface Props {
   /** Colors a line according to the active highlighting rules. */
   highlight(text: string): HighlightResult;
   follow: boolean;
-  /** Scroll so that `row` is centered whenever `nonce` changes (search results). */
-  reveal?: { row: number; nonce: number } | undefined;
-  /** Row of the current search match (outlined). */
+  /**
+   * Scroll to `row` (a row of this view) whenever `nonce` changes: centered (search results) or put at
+   * the top (keeping the position when the view changes).
+   */
+  reveal?: { row: number; nonce: number; align?: "center" | "top" } | undefined;
+  /** Line number of the current search match (outlined). */
   currentMatchRow?: number | undefined;
+  /** Line number the user asked to see in context (outlined). */
+  anchorLine?: number | undefined;
+  /** Filtered view: double-click on a line (to show it among the others). */
+  onRowDoubleClick?: ((row: Row) => void) | undefined;
+  /** Filtered view: go to a line number of the file (the view finds where it falls). */
+  onGotoLine?: ((line: number) => void) | undefined;
+  /** Number of lines of the file, for the "go to line" range of a filtered view. */
+  fileRows?: number | undefined;
   /** Receives the first visible row, so the search can start from where the user is. */
   viewRowRef?: { current: number };
   /** First row to show (relative to `base`) when the viewport mounts with follow off. */
@@ -48,7 +59,7 @@ interface Props {
 }
 
 /** Virtualized, fixed-height-row view of a tab's lines. Follow mode keeps the end in view. */
-export function LogViewport({ cache, total: realTotal, base, marks, format, filtered = false, onViewLevel, highlight, follow, reveal, currentMatchRow, viewRowRef, initialRow, onFollowChange, onLeave, fetchRows, onNotice }: Props) {
+export function LogViewport({ cache, total: realTotal, base, marks, format, filtered = false, onViewLevel, highlight, follow, reveal, currentMatchRow, anchorLine, onRowDoubleClick, onGotoLine, fileRows, viewRowRef, initialRow, onFollowChange, onLeave, fetchRows, onNotice }: Props) {
   const total = Math.max(0, realTotal - base);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
@@ -117,7 +128,8 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, filt
     if (!el || reveal === undefined) return;
     const { viewportHeight: vh, total: count, base: origin } = latest.current;
     const relative = Math.min(Math.max(reveal.row - origin, 0), Math.max(0, count - 1));
-    el.scrollTop = rowToScrollTop(Math.max(0, relative - Math.floor(vh / ROW_HEIGHT / 2)), vh, count);
+    const target = reveal.align === "top" ? relative : Math.max(0, relative - Math.floor(vh / ROW_HEIGHT / 2));
+    el.scrollTop = rowToScrollTop(target, vh, count);
     commitScroll(el.scrollTop);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [revealNonce]);
@@ -210,8 +222,7 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, filt
         scrollToEnd();
       } else if (e.ctrlKey && e.key.toLowerCase() === "g") {
         e.preventDefault();
-        // a line number means nothing in a filtered view (the full view comes with the switch, #432)
-        if (!latest.current.filtered) setGotoOpen(true);
+        setGotoOpen(true);
       } else if (e.ctrlKey && e.key.toLowerCase() === "c" && !inInput && latest.current.selection) {
         e.preventDefault();
         void copySelection(e.shiftKey);
@@ -243,7 +254,9 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, filt
     const classes = ["log-row"];
     if (mark) classes.push("roll-start");
     if (isSelected(selection, lineRow)) classes.push("selected");
-    if ((filtered ? row?.lineNo : lineRow) === currentMatchRow) classes.push("current-match");
+    const lineNo = filtered ? row?.lineNo : lineRow;
+    if (lineNo === currentMatchRow) classes.push("current-match");
+    if (lineNo === anchorLine) classes.push("anchor");
     const level = levels[i - range.first];
     if (level) classes.push(`lvl-${level}`);
     rows.push(
@@ -259,6 +272,9 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, filt
           if (e.button !== 0) return;
           dragging.current = true;
           setSelection((prev) => (e.shiftKey && prev ? { anchor: prev.anchor, head: lineRow } : { anchor: lineRow, head: lineRow }));
+        }}
+        onDoubleClick={() => {
+          if (row && onRowDoubleClick) onRowDoubleClick(row);
         }}
         onMouseEnter={(e) => {
           if (dragging.current && e.buttons === 1) setSelection((prev) => (prev ? { anchor: prev.anchor, head: lineRow } : prev));
@@ -295,15 +311,16 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, filt
       </div>
       {gotoOpen && (
         <GotoLine
-          min={base + 1}
-          max={Math.max(realTotal, base + 1)}
+          min={filtered ? 1 : base + 1}
+          max={filtered ? Math.max(fileRows ?? 1, 1) : Math.max(realTotal, base + 1)}
           onClose={() => {
             setGotoOpen(false);
             scrollerRef.current?.focus();
           }}
           onGoto={(line) => {
             onFollowChange(false);
-            scrollToRow(line - 1 - base);
+            if (filtered) onGotoLine?.(line);
+            else scrollToRow(line - 1 - base);
           }}
         />
       )}

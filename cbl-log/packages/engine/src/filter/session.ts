@@ -7,6 +7,7 @@ import {
   FILTER_LOOKBACK_LINES,
   levelFromCode,
   type Encoding,
+  type FilterLocation,
   type LineFilter,
   type LogFormat,
   type Row,
@@ -158,6 +159,33 @@ export class FilterSession {
       rows.push({ lineNo: line.lineNo, text: line.text, truncated: line.truncated, ...(level ? { level } : {}) });
     }
     return { rows, total };
+  }
+
+  /**
+   * Where line `fileLine` (0-based, in this file) falls in the filtered view: the number of retained
+   * lines before it. `covered` tells whether the scan went far enough for the answer to be final.
+   */
+  locate(fileLine: number): FilterLocation {
+    let before = 0;
+    for (const slice of this.slices) {
+      for (const chunk of slice.lines) {
+        if (chunk.length === 0) continue;
+        if (chunk[chunk.length - 1]! < fileLine) {
+          before += chunk.length;
+          continue;
+        }
+        let low = 0;
+        let high = chunk.length - 1;
+        while (low < high) {
+          const mid = (low + high) >> 1;
+          if (chunk[mid]! < fileLine) low = mid + 1;
+          else high = mid;
+        }
+        return { position: before + low, exact: chunk[low] === fileLine, covered: true };
+      }
+      if (!slice.done) return { position: before, exact: false, covered: false };
+    }
+    return { position: before, exact: false, covered: this.done };
   }
 
   // ---------------------------------------------------------------------------------------------

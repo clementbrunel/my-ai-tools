@@ -236,3 +236,45 @@ describe("setFilter", () => {
     expect((await readAll(ctx, id)).map((r) => r.lineNo)).toEqual(want.map((w) => startRow + w.line));
   });
 });
+
+describe("filterLocate", () => {
+  it("tells where a line falls in the filtered view, exact or not", async () => {
+    const lines = makeLog(300);
+    const ctx = await open(lines);
+    const filter: LineFilter = { levels: ["error"] };
+    const id = (await setFilter(ctx, filter))!;
+    const want = expected(lines, filter).map((w) => w.line);
+    const locate = (row: number) => ctx.ok("filterLocate", { tabId: ctx.tabId, filterId: id, row });
+
+    for (const rank of [0, 1, 5, want.length - 1]) {
+      expect(await locate(want[rank]!)).toEqual({ position: rank, exact: true, covered: true });
+    }
+    // a line that is not retained: the position of the next retained one
+    const between = want[3]! + 1;
+    expect(want).not.toContain(between);
+    expect(await locate(between)).toEqual({ position: 4, exact: false, covered: true });
+    expect(await locate(0)).toMatchObject({ position: 0, exact: want[0] === 0 });
+    // past the last retained line: after all of them
+    expect(await locate(lines.length + 50)).toEqual({ position: want.length, exact: false, covered: true });
+  });
+
+  it("answers for the current file only after a rolling (numbers stay global)", async () => {
+    const ctx = await open(makeLog(60));
+    const id = (await setFilter(ctx, { levels: ["error"] }))!;
+    const startRow = makeLog(60).length;
+    renameSync(ctx.path, join(ctx.dir, "a.1.log"));
+    const fresh = makeLog(40);
+    writeFileSync(ctx.path, fresh.join("\n") + "\n");
+    const want = expected(fresh, { levels: ["error"] }).map((w) => w.line);
+    await waitFor(async () => (await readAll(ctx, id)).length === want.length && want.length > 0, "filter restarted", 20_000, 50);
+    expect(await ctx.ok("filterLocate", { tabId: ctx.tabId, filterId: id, row: 3 })).toMatchObject({ position: 0 });
+    expect(await ctx.ok("filterLocate", { tabId: ctx.tabId, filterId: id, row: startRow + want[2]! })).toEqual({ position: 2, exact: true, covered: true });
+  });
+
+  it("knows nothing of a replaced filter", async () => {
+    const ctx = await open(makeLog(30));
+    const old = (await setFilter(ctx, { levels: ["error"] }))!;
+    await setFilter(ctx, { levels: ["warn"] });
+    expect(await ctx.ok("filterLocate", { tabId: ctx.tabId, filterId: old, row: 10 })).toEqual({ position: 0, exact: false, covered: true });
+  });
+});
