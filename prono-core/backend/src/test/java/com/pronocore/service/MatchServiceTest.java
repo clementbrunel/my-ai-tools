@@ -4,7 +4,10 @@ import com.pronocore.client.FootballDataClient;
 import com.pronocore.dto.request.CreateMatchRequest;
 import com.pronocore.dto.request.UpdateMatchScoreRequest;
 import com.pronocore.dto.response.FixtureImportResponse;
+import com.pronocore.dto.response.FootStandingResponse;
+import com.pronocore.dto.response.MatchOutcome;
 import com.pronocore.dto.response.MatchResponse;
+import com.pronocore.dto.response.TeamRanking;
 import com.pronocore.entity.*;
 import com.pronocore.entity.Group;
 import com.pronocore.mapper.MatchMapper;
@@ -43,6 +46,7 @@ class MatchServiceTest {
     @Mock private MatchExternalLinksRepository matchExternalLinksRepository;
     @Mock private FootballDataClient           footballDataClient;
     @Mock private DailyGageService              dailyGageService;
+    @Mock private FootStandingsService          footStandingsService;
 
     @InjectMocks
     private MatchService matchService;
@@ -64,6 +68,92 @@ class MatchServiceTest {
     @AfterEach
     void clearSecurityContext() {
         SecurityContextHolder.clearContext();
+    }
+
+    // ── getMatchById : forme des équipes avant le match ──────────────────────
+
+    private static Match finished(Team teamA, Team teamB, int scoreA, int scoreB, int day) {
+        return Match.builder().teamA(teamA).teamB(teamB).scoreA(scoreA).scoreB(scoreB)
+                .status(Match.Status.FINISHED).matchDate(LocalDateTime.of(2026, 9, day, 20, 0)).build();
+    }
+
+    private Match leagueMatch(Competition competition) {
+        Team psg = Team.builder().id(1L).name("PSG").build();
+        Team om = Team.builder().id(2L).name("OM").build();
+        return Match.builder().id(5L).teamA(psg).teamB(om).competition(competition)
+                .matchDate(LocalDateTime.of(2026, 10, 1, 20, 0)).build();
+    }
+
+    @Test
+    void getMatchById_upcomingLeagueMatch_includesRankingOfEachTeam() {
+        Competition ligue1 = Competition.builder().id(10L).name("Ligue 1").build();
+        Match target = leagueMatch(ligue1);
+        when(matchRepository.findById(5L)).thenReturn(Optional.of(target));
+        when(matchMapper.toResponse(target)).thenReturn(new MatchResponse());
+        when(footStandingsService.hasStandings(ligue1)).thenReturn(true);
+        when(footStandingsService.getStandings(10L)).thenReturn(List.of(
+                FootStandingResponse.builder().position(1).teamId(1L).points(30).build(),
+                FootStandingResponse.builder().position(5).teamId(2L).points(21).build()));
+
+        MatchResponse response = matchService.getMatchById(5L);
+
+        assertThat(response.getTeamASummary().ranking()).isEqualTo(new TeamRanking(1, 30));
+        assertThat(response.getTeamBSummary().ranking()).isEqualTo(new TeamRanking(5, 21));
+    }
+
+    @Test
+    void getMatchById_finishedMatch_skipsRanking() {
+        Competition ligue1 = Competition.builder().id(10L).name("Ligue 1").build();
+        Match target = leagueMatch(ligue1);
+        target.setStatus(Match.Status.FINISHED);
+        when(matchRepository.findById(5L)).thenReturn(Optional.of(target));
+        when(matchMapper.toResponse(target)).thenReturn(new MatchResponse());
+
+        MatchResponse response = matchService.getMatchById(5L);
+
+        assertThat(response.getTeamASummary().ranking()).isNull();
+        verifyNoInteractions(footStandingsService);
+    }
+
+    @Test
+    void getMatchById_standingsFailure_leavesRankingNull() {
+        Competition ligue1 = Competition.builder().id(10L).name("Ligue 1").build();
+        Match target = leagueMatch(ligue1);
+        when(matchRepository.findById(5L)).thenReturn(Optional.of(target));
+        when(matchMapper.toResponse(target)).thenReturn(new MatchResponse());
+        when(footStandingsService.hasStandings(ligue1)).thenReturn(true);
+        when(footStandingsService.getStandings(10L)).thenThrow(new IllegalStateException("sync disabled"));
+
+        MatchResponse response = matchService.getMatchById(5L);
+
+        assertThat(response.getTeamASummary().ranking()).isNull();
+        assertThat(response.getTeamBSummary().ranking()).isNull();
+    }
+
+    @Test
+    void getMatchById_includesSummaryOfEachTeamBeforeTheMatch() {
+        Team psg = Team.builder().id(1L).name("PSG").build();
+        Team om = Team.builder().id(2L).name("OM").build();
+        Team lyon = Team.builder().id(3L).name("Lyon").build();
+        Competition ligue1 = Competition.builder().id(10L).name("Ligue 1").build();
+        Match target = Match.builder().id(5L).teamA(psg).teamB(om).competition(ligue1)
+                .matchDate(LocalDateTime.of(2026, 10, 1, 20, 0)).build();
+        when(matchRepository.findById(5L)).thenReturn(Optional.of(target));
+        when(matchMapper.toResponse(target)).thenReturn(new MatchResponse());
+        // most recent first, as the repository returns them
+        when(matchRepository.findFinishedByTeamBefore(eq(1L), eq(10L), eq(target.getMatchDate())))
+                .thenReturn(List.of(finished(psg, lyon, 0, 2, 9), finished(psg, lyon, 1, 1, 8), finished(lyon, psg, 0, 1, 7)));
+        when(matchRepository.findFinishedByTeamBefore(eq(2L), eq(10L), eq(target.getMatchDate())))
+                .thenReturn(List.of(finished(om, lyon, 2, 0, 9)));
+
+        MatchResponse response = matchService.getMatchById(5L);
+
+        assertThat(response.getTeamASummary().recent()).containsExactly(MatchOutcome.L, MatchOutcome.D, MatchOutcome.W);
+        assertThat(response.getTeamASummary().won()).isEqualTo(1);
+        assertThat(response.getTeamASummary().draw()).isEqualTo(1);
+        assertThat(response.getTeamASummary().lost()).isEqualTo(1);
+        // only one match of history: too thin to show
+        assertThat(response.getTeamBSummary().recent()).isEmpty();
     }
 
     // ── Groupe 1 : résultat final Victoire France 1-0 ────────────────────────

@@ -63,6 +63,32 @@ describe('MatchHeader — match terminé', () => {
   });
 });
 
+describe('MatchHeader — bilan des équipes', () => {
+  const match = makeMatch({
+    teamA: TEAM_FRANCE,
+    teamB: TEAM_BRESIL,
+    teamASummary: { won: 5, draw: 2, lost: 1, recent: ['W', 'D', 'L'], ranking: { rank: 1, points: 30 } },
+    teamBSummary: { won: 0, draw: 0, lost: 0, recent: [], ranking: null },
+  });
+
+  it('affiche le bilan, le rang et les points de l\'équipe A', () => {
+    renderWithRouter(<MatchHeader match={match} />);
+    expect(screen.getByText('5V 2N 1D')).toBeInTheDocument();
+    expect(screen.getByText(/30 pts/)).toBeInTheDocument();
+    expect(screen.getAllByTitle(/Victoire|Match nul|Défaite/)).toHaveLength(3);
+  });
+
+  it('n\'affiche rien pour une équipe sans historique ni classement', () => {
+    renderWithRouter(<MatchHeader match={match} />);
+    expect(screen.queryByText('0V 0N 0D')).not.toBeInTheDocument();
+  });
+
+  it('n\'affiche aucun bilan quand le résumé est absent (listes, anciens matchs)', () => {
+    renderWithRouter(<MatchHeader match={makeMatch({ teamA: TEAM_FRANCE, teamB: TEAM_BRESIL })} />);
+    expect(screen.queryByText(/\dV \dN \dD/)).not.toBeInTheDocument();
+  });
+});
+
 describe('MatchHeader — liens équipes', () => {
   const match = makeMatch({ teamA: TEAM_FRANCE, teamB: TEAM_BRESIL });
 

@@ -147,6 +147,14 @@ export interface FootStanding {
   zone: FootStandingZone | null;
 }
 
+/** Result of a finished match from one team's point of view: Win / Draw / Loss. */
+export type MatchOutcome = 'W' | 'D' | 'L';
+
+export interface TeamRanking {
+  rank: number;
+  points: number;
+}
+
 export type MatchPhase = 'POOL' | 'KNOCKOUT';
 
 export interface Match {
@@ -167,6 +175,9 @@ export interface Match {
   syncLocked?: boolean;
   autoSynced?: boolean;
   externalLinks?: Record<string, number>;
+  /** Each team's record in this competition before the match, plus its ranking — single-match endpoint only. */
+  teamASummary?: TeamSummary;
+  teamBSummary?: TeamSummary;
 }
 
 export interface FixtureImportResult {
@@ -179,6 +190,21 @@ export interface Team {
   name: string;
   iso2: string | null;
   crestUrl: string | null;
+  summary: TeamSummary;
+}
+
+/**
+ * Win/draw/loss totals and recent form — all competitions on the team page, one competition before
+ * the match on the match page. `recent` is empty when the history is too thin; `ranking` is the
+ * current league position, set on the match page only (league competitions, match not yet finished).
+ */
+export interface TeamSummary {
+  won: number;
+  draw: number;
+  lost: number;
+  /** Most recent outcomes, newest first. */
+  recent: MatchOutcome[];
+  ranking: TeamRanking | null;
 }
 
 export interface CreateMatchRequest {

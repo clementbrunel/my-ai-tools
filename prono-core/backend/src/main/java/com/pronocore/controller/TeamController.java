@@ -1,7 +1,7 @@
 package com.pronocore.controller;
 
 import com.pronocore.dto.response.MatchResponse;
-import com.pronocore.dto.response.TeamResponse;
+import com.pronocore.dto.response.TeamDetailResponse;
 import com.pronocore.service.TeamService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -23,8 +23,8 @@ public class TeamController {
     private final TeamService teamService;
 
     @GetMapping("/{id}")
-    @Operation(summary = "Get team by ID")
-    public ResponseEntity<TeamResponse> getTeam(@PathVariable Long id) {
+    @Operation(summary = "Get team by ID, with its win/draw/loss summary, recent form and league rank/points")
+    public ResponseEntity<TeamDetailResponse> getTeam(@PathVariable Long id) {
         return ResponseEntity.ok(teamService.getTeamById(id));
     }
 

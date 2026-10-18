@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 
 @Data
@@ -32,4 +33,8 @@ public class MatchResponse {
     private boolean syncLocked;
     private boolean autoSynced;
     private Map<String, Long> externalLinks;
+    /** Each team's record in this competition before this match, plus its current league ranking (live
+     *  table, matches not yet finished only) — set by the single-match endpoint only, null elsewhere. */
+    private TeamSummaryResponse teamASummary;
+    private TeamSummaryResponse teamBSummary;
 }
