@@ -222,7 +222,8 @@ body {
   color: #d98e04;
 }
 
-.follow {
+.follow,
+.pause {
   border: 1px solid var(--border);
   border-radius: 3px;
   padding: 0 8px;
@@ -236,6 +237,12 @@ body {
   border-color: var(--accent);
   background: var(--accent);
   color: #fff;
+}
+
+.pause.on {
+  border-color: #f29900;
+  background: #f29900;
+  color: #000;
 }
 
 .toast.info {

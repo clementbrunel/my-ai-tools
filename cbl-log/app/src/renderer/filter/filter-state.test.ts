@@ -99,3 +99,36 @@ describe("describeFilterCount", () => {
     expect(describeFilterCount(12, 3456).replace(/\s/g, " ")).toBe("12 ligne(s) affichée(s) sur 3 456");
   });
 });
+
+describe("pause", () => {
+  const info = { tabId: "a", path: "C:/logs/a.log", encoding: "utf-8", sizeBytes: 1, totalRows: 100, lineEnding: "unknown" } as const;
+  const run = (...actions: TabsAction[]) => actions.reduce(tabsReducer, initialTabsState);
+
+  it("freezes the row counts of the moment, and resumes", () => {
+    const paused = run({ type: "opened", info }, { type: "paused", tabId: "a", total: 100 });
+    expect(paused.tabs[0]!.pausedAt).toEqual({ total: 100 });
+    // pausing again does not move the frozen point
+    expect(tabsReducer(paused, { type: "paused", tabId: "a", total: 150 })).toBe(paused);
+    // rows keep arriving in the tab meanwhile
+    const later = tabsReducer(paused, { type: "event", tabId: "a", event: { type: "rows", total: 180, appended: 80 }, receivedAt: 0 });
+    expect(later.tabs[0]).toMatchObject({ total: 180, pausedAt: { total: 100 } });
+    expect(tabsReducer(later, { type: "resumed", tabId: "a" }).tabs[0]).not.toHaveProperty("pausedAt");
+  });
+
+  it("remembers the size of the filtered view when it was shown", () => {
+    const s = run({ type: "opened", info }, { type: "paused", tabId: "a", total: 100, matches: 12 });
+    expect(s.tabs[0]!.pausedAt).toEqual({ total: 100, matches: 12 });
+  });
+
+  it("ends when the view changes (new filter, switch to the full file)", () => {
+    const paused = run({ type: "opened", info }, { type: "filterApplied", tabId: "a", filterId: "f1" }, { type: "paused", tabId: "a", total: 100, matches: 5 });
+    expect(tabsReducer(paused, { type: "filterSuspended", tabId: "a", suspended: true }).tabs[0]).not.toHaveProperty("pausedAt");
+    expect(tabsReducer(paused, { type: "filterApplied", tabId: "a", filterId: "f2" }).tabs[0]).not.toHaveProperty("pausedAt");
+    expect(tabsReducer(paused, { type: "filterChanged", tabId: "a", filter: { levels: ["error"], include: [], exclude: [] } }).tabs[0]).not.toHaveProperty("pausedAt");
+  });
+
+  it("is not saved in the session", () => {
+    const s = run({ type: "opened", info }, { type: "paused", tabId: "a", total: 100 });
+    expect(JSON.stringify(buildSession(s.tabs, "a", 0))).not.toContain("paused");
+  });
+});

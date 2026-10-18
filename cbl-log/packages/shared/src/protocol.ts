@@ -129,8 +129,8 @@ export interface FilterLocation {
   covered: boolean;
 }
 
-// TODO(M1+): goto / setFollow / setPaused. Follow and goto are renderer-only state for now
-// (pull model), pause (T-06) is deferred.
+// Follow, goto and pause (T-06) are renderer-only state (pull model): the engine keeps reading and
+// the renderer simply stops asking for the rows that arrived after the pause.
 
 export interface EngineRequestMap {
   open: { params: OpenParams; result: TabInfo };

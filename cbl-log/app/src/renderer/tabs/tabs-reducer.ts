@@ -43,6 +43,11 @@ export interface TabState {
   filterId?: string | null;
   /** The full file is shown although a filter is in force (it keeps running, ready to be shown again). */
   filterSuspended?: boolean;
+  /**
+   * Pause (T-06): the view is frozen at this many rows (of the file, and of the filtered view when a
+   * filter is shown) while the engine keeps reading; the rows that arrive are shown on resume.
+   */
+  pausedAt?: { total: number; matches?: number };
   /** Latest progress event of the engine filter (matched to `filterId` by filterStatus). */
   filterEvent?: FilterEvent;
 }
@@ -79,6 +84,8 @@ export type TabsAction =
   | { type: "filterChanged"; tabId: TabId; filter: FilterSettings }
   | { type: "filterApplied"; tabId: TabId; filterId: string | null }
   | { type: "filterSuspended"; tabId: TabId; suspended: boolean }
+  | { type: "paused"; tabId: TabId; total: number; matches?: number }
+  | { type: "resumed"; tabId: TabId }
   | { type: "ruleSetChosen"; tabId: TabId; ruleSetId: string | undefined }
   | { type: "clearedTo"; tabId: TabId; row: number }
   | { type: "clear"; tabId: TabId }
@@ -185,20 +192,30 @@ export function tabsReducer(state: TabsState, action: TabsAction): TabsState {
       // a new filter is meant to be seen: it ends the "full file" view
       return updateTab(state, action.tabId, (t) => {
         if (t.filter === action.filter) return t;
-        const { filterSuspended: _suspended, ...rest } = t;
+        const { filterSuspended: _suspended, pausedAt: _paused, ...rest } = t;
         return { ...rest, filter: action.filter };
       });
     case "filterApplied":
       // keep `filterEvent`: the engine may have reported progress before its answer reached us
       return updateTab(state, action.tabId, (t) => {
         if (t.filterId === action.filterId) return t;
-        const { filterSuspended: _suspended, ...rest } = t;
+        const { filterSuspended: _suspended, pausedAt: _paused, ...rest } = t;
         return { ...rest, filterId: action.filterId };
+      });
+    case "paused":
+      return updateTab(state, action.tabId, (t) =>
+        t.pausedAt ? t : { ...t, pausedAt: { total: action.total, ...(action.matches !== undefined ? { matches: action.matches } : {}) } },
+      );
+    case "resumed":
+      return updateTab(state, action.tabId, (t) => {
+        if (!t.pausedAt) return t;
+        const { pausedAt: _paused, ...rest } = t;
+        return rest;
       });
     case "filterSuspended":
       return updateTab(state, action.tabId, (t) => {
         if (!!t.filterSuspended === action.suspended) return t;
-        const { filterSuspended: _suspended, ...rest } = t;
+        const { filterSuspended: _suspended, pausedAt: _paused, ...rest } = t;
         return action.suspended ? { ...rest, filterSuspended: true } : rest;
       });
     case "clearedTo":
