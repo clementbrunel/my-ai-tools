@@ -11,6 +11,8 @@ export interface CblLogApi {
   getPathForFile(file: File): string;
   /** Tells the main process the renderer is listening: queued paths are then delivered. */
   notifyReady(): void;
+  /** Records a successfully opened file in the "Fichiers récents" menu (recent.json). */
+  addRecentFile(path: string): Promise<void>;
   /** Highlighting rule sets from the user data folder (the default set is created on first run). */
   loadRuleSets(): Promise<{ sets: RuleSet[]; warnings: string[] }>;
   saveRuleSet(set: RuleSet): Promise<void>;

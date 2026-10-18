@@ -13,6 +13,7 @@ const api: CblLogApi = {
   },
   getPathForFile: (file) => webUtils.getPathForFile(file),
   notifyReady: () => ipcRenderer.send("renderer:ready"),
+  addRecentFile: (path) => ipcRenderer.invoke("recent:add", path) as Promise<void>,
   loadRuleSets: () => ipcRenderer.invoke("rules:load") as ReturnType<CblLogApi["loadRuleSets"]>,
   saveRuleSet: (set) => ipcRenderer.invoke("rules:save", set) as Promise<void>,
   loadSettings: () => ipcRenderer.invoke("settings:load") as ReturnType<CblLogApi["loadSettings"]>,

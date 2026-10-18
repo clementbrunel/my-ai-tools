@@ -20,6 +20,18 @@ describe("tabsReducer", () => {
     expect(s.tabs[0]).toMatchObject({ total: 42, follow: true, unseen: 0, state: "following" });
   });
 
+  it("remembers a forced encoding, and opens a tab at a given position", () => {
+    const s = run(
+      { type: "opened", info: info("a") },
+      { type: "opened", info: info("b") },
+      { type: "opened", info: info("c"), encodingChoice: "windows-1252", index: 1 },
+    );
+    expect(s.tabs.map((t) => t.info.tabId)).toEqual(["a", "c", "b"]);
+    expect(s.tabs[1]?.encodingChoice).toBe("windows-1252");
+    expect(s.tabs[0]).not.toHaveProperty("encodingChoice");
+    expect(s.activeId).toBe("c");
+  });
+
   it("counts unseen rows only on inactive tabs", () => {
     const s = run(
       { type: "opened", info: info("a") },

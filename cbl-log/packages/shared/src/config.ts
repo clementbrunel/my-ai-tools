@@ -11,6 +11,8 @@ export const settingsSchema = z.object({
 });
 export type Settings = z.infer<typeof settingsSchema>;
 
+export const encodingSchema = z.enum(["utf-8", "utf-16le", "utf-16be", "windows-1252", "iso-8859-1"]);
+
 export const sessionTabSchema = z.object({
   path: z.string().min(1),
   follow: z.boolean().default(true),
@@ -19,6 +21,8 @@ export const sessionTabSchema = z.object({
   clearedBefore: z.number().int().min(0).default(0),
   /** Highlighting profile chosen for this tab; absent = automatic (from the detected format). */
   ruleSetId: z.string().optional(),
+  /** Encoding forced by the user for this tab; absent = detected from the file content. */
+  encoding: encodingSchema.optional(),
 });
 export type SessionTab = z.infer<typeof sessionTabSchema>;
 
@@ -30,7 +34,16 @@ export const sessionSchema = z.object({
 });
 export type Session = z.infer<typeof sessionSchema>;
 
+/** recent.json: files opened lately, most recent first. */
+export const MAX_RECENT_FILES = 10;
+export const recentSchema = z.object({
+  schemaVersion: z.literal(1),
+  files: z.array(z.string().min(1)).default([]),
+});
+export type Recent = z.infer<typeof recentSchema>;
+
 export const defaultSettings = (): Settings => ({ schemaVersion: 1, theme: "system" });
+export const emptyRecent = (): Recent => ({ schemaVersion: 1, files: [] });
 export const emptySession = (): Session => ({ schemaVersion: 1, tabs: [] });
 
 /** Upgrades `from` -> `from + 1`. */
@@ -73,6 +86,8 @@ function parseWith<T>(text: string, schema: z.ZodType<T>, migrations: Readonly<R
 
 const SETTINGS_MIGRATIONS: Readonly<Record<number, Migration>> = {};
 const SESSION_MIGRATIONS: Readonly<Record<number, Migration>> = {};
+const RECENT_MIGRATIONS: Readonly<Record<number, Migration>> = {};
 
 export const parseSettings = (text: string): ParseResult<Settings> => parseWith(text, settingsSchema, SETTINGS_MIGRATIONS, 1);
 export const parseSession = (text: string): ParseResult<Session> => parseWith(text, sessionSchema, SESSION_MIGRATIONS, 1);
+export const parseRecent = (text: string): ParseResult<Recent> => parseWith(text, recentSchema, RECENT_MIGRATIONS, 1);

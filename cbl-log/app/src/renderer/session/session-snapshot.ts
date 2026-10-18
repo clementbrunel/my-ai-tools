@@ -16,6 +16,7 @@ export function buildSession(tabs: readonly TabState[], activeId: TabId | undefi
       scrollRow: tab === active ? Math.max(0, viewRow - tab.clearedBefore) : tab.scrollRow,
       clearedBefore: tab.clearedBefore,
       ...(tab.ruleSetId ? { ruleSetId: tab.ruleSetId } : {}),
+      ...(tab.encodingChoice ? { encoding: tab.encodingChoice } : {}),
     })),
     ...(active ? { activePath: active.info.path } : {}),
   };

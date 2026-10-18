@@ -79,4 +79,12 @@ describe("session store", () => {
     writeFileSync(join(dir, "session.json"), JSON.stringify({ schemaVersion: 1, tabs: [{ follow: true }] }));
     expect((await loadSession(dir)).warning).toMatch(/^session\.json/);
   });
+
+  it("round-trips a forced encoding and rejects an unknown one", async () => {
+    const dir = tempDir();
+    await saveSession(dir, { schemaVersion: 1, tabs: [{ path: "x.log", follow: true, scrollRow: 0, clearedBefore: 0, encoding: "windows-1252" }] });
+    expect((await loadSession(dir)).value.tabs[0]?.encoding).toBe("windows-1252");
+    writeFileSync(join(dir, "session.json"), JSON.stringify({ schemaVersion: 1, tabs: [{ path: "x.log", encoding: "ebcdic" }] }));
+    expect((await loadSession(dir)).warning).toMatch(/^session\.json/);
+  });
 });
