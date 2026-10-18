@@ -146,8 +146,11 @@ alloué dans un `SharedArrayBuffer` extensible pour être lu par les workers san
 - `offsetOf(line)` = `checkpoints[line / 64]` puis ≤ 63 `indexOf(0x0a)` sur un bloc (~10 Ko lu).
 - Indexation initiale : un worker lit par blocs de 1 Mo et accumule les fins de ligne ; progression
   publiée toutes les ~100 ms.
-- **La fin d'abord (F-03)** : à l'ouverture, lecture à rebours depuis EOF pour trouver les ~500 dernières
-  lignes, affichées immédiatement avec numéros provisoires ; l'indexation avant tourne en fond.
+- **La fin d'abord (F-03)** : `readTail` (lecture à rebours depuis EOF des ~500 dernières lignes) existe dans
+  le moteur mais n'est pas branché. À l'ouverture, `open` répond une fois l'indexation terminée ; l'UI
+  affiche un loader avec le pourcentage (événements `indexing` poussés sous l'`openId` fourni par le
+  renderer). L'affichage immédiat de la fin (#406) est reporté : l'important est le suivi/rolling après le
+  chargement initial.
 - UTF-16 : recherche de `0x0a 0x00` aligné sur 2 octets. Lignes très longues : affichage plafonné à 64 Ko.
 
 ### 4.3 Suivi et **rolling**

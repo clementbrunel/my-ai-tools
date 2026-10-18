@@ -148,7 +148,7 @@ async function r1(ctx) {
       },
       [
         `Le fichier vient d'être généré : il est dans le cache disque de l'OS (une lecture à froid sera plus lente).`,
-        `La fin n'est affichée qu'une fois l'indexation initiale terminée, donc le délai croît avec la taille : extrapolé linéairement à 10 Gio, ~${fmt((corrected * 10) / 1000, 1)} s, au-dessus de la cible de 1 s. Le suivi #406 (affichage de la fin d'abord, F-03) vise à le supprimer.`,
+        `La fin n'est affichée qu'une fois l'indexation initiale terminée, donc le délai croît avec la taille : extrapolé linéairement à 10 Gio, ~${fmt((corrected * 10) / 1000, 1)} s, au-dessus de la cible de 1 s. L'ouverture affiche un loader avec le pourcentage d'indexation ; l'affichage immédiat de la fin (F-03, #406) est volontairement reporté.`,
         `Mémoire : « privée » = working set privé cumulé des processus cbl-log (colonne « Mémoire » du Gestionnaire des tâches) ; le « working set » total compte aussi les pages partagées entre processus.`,
       ],
     );
