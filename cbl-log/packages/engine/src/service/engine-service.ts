@@ -14,6 +14,8 @@ import {
   type EngineRequest,
   type EngineRequestMap,
   type EngineResponse,
+  type FilterLocateParams,
+  type FilterLocation,
   type FilterStarted,
   type GetRowsParams,
   type OpenParams,
@@ -104,6 +106,7 @@ export class EngineService {
     search: (params, port) => this.startSearch(params, port),
     searchNext: (params) => this.searchNext(params),
     setFilter: (params, port) => this.startFilter(params, port),
+    filterLocate: (params) => this.filterLocate(params),
   };
 
   private async handle(msg: unknown, port: PortLike): Promise<void> {
@@ -254,6 +257,14 @@ export class EngineService {
     tab.filter = session;
     session.start();
     return { filterId: session.id };
+  }
+
+  private async filterLocate(params: FilterLocateParams): Promise<FilterLocation> {
+    const tab = this.requireTab(params.tabId);
+    const session = tab.filter;
+    if (!session || session.id !== params.filterId) return { position: 0, exact: false, covered: true };
+    const startRow = tab.tailer.currentTarget?.startRow ?? 0;
+    return session.locate(Math.max(0, Math.floor(Number(params.row) || 0) - startRow));
   }
 
   private async searchNext(params: SearchNextParams): Promise<SearchHit> {

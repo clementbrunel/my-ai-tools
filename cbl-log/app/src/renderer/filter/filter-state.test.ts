@@ -74,6 +74,17 @@ describe("filter on a tab", () => {
     expect(filterStatus(now.tabs[0]!)).toEqual({ matches: 7, done: false });
   });
 
+  it("can be set aside to show the full file, and a new filter ends that", () => {
+    const filter: FilterSettings = { ...defaultFilterSettings(), levels: ["error"] };
+    const applied = run({ type: "opened", info }, { type: "filterApplied", tabId: "a", filterId: "f1" });
+    const aside = tabsReducer(applied, { type: "filterSuspended", tabId: "a", suspended: true });
+    expect(aside.tabs[0]!.filterSuspended).toBe(true);
+    expect(tabsReducer(aside, { type: "filterSuspended", tabId: "a", suspended: true })).toBe(aside);
+    expect(tabsReducer(aside, { type: "filterSuspended", tabId: "a", suspended: false }).tabs[0]).not.toHaveProperty("filterSuspended");
+    expect(tabsReducer(aside, { type: "filterChanged", tabId: "a", filter }).tabs[0]).not.toHaveProperty("filterSuspended");
+    expect(tabsReducer(aside, { type: "filterApplied", tabId: "a", filterId: "f2" }).tabs[0]).not.toHaveProperty("filterSuspended");
+  });
+
   it("is saved in the session unless it hides nothing", () => {
     const filter: FilterSettings = { levels: ["error"], include: [text("Cart")], exclude: [] };
     const plain = run({ type: "opened", info });

@@ -112,6 +112,23 @@ export interface FilterStarted {
   filterId: string | null;
 }
 
+export interface FilterLocateParams {
+  tabId: TabId;
+  filterId: string;
+  /** Global row (line number) in the file. */
+  row: number;
+}
+
+/** Where a line of the file falls in the filtered view. */
+export interface FilterLocation {
+  /** Position of the first retained line at or after `row`: the retained lines before it, counted. */
+  position: number;
+  /** The line itself is retained (it is at `position`). */
+  exact: boolean;
+  /** The filter has scanned far enough to be sure of `position` (else it may still move). */
+  covered: boolean;
+}
+
 // TODO(M1+): goto / setFollow / setPaused. Follow and goto are renderer-only state for now
 // (pull model), pause (T-06) is deferred.
 
@@ -122,6 +139,7 @@ export interface EngineRequestMap {
   search: { params: SearchParams; result: SearchStarted };
   searchNext: { params: SearchNextParams; result: SearchHit };
   setFilter: { params: SetFilterParams; result: FilterStarted };
+  filterLocate: { params: FilterLocateParams; result: FilterLocation };
 }
 
 export type EngineOp = keyof EngineRequestMap;

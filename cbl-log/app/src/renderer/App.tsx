@@ -28,6 +28,7 @@ import type { RpcClient } from "./engine/rpc-client";
 import { baseName, pathKey } from "./files/path-key";
 import { useFileDrop } from "./files/useFileDrop";
 import { FilterBar } from "./filter/FilterBar";
+import { nextVisibleHit } from "./filter/filter-nav";
 import { compileRules, highlightLine } from "./highlight/highlight";
 import { RulesEditor } from "./rules/RulesEditor";
 import { autoRuleSet, pickRuleSet } from "./rules/rule-profile";
@@ -53,6 +54,20 @@ interface TabRuntime {
 
 const LEVELS_COUNT = 6;
 const NO_MARKS: never[] = [];
+
+/** Identifies what the viewport shows: a tab's file, or its filtered view (its remount key). */
+const viewKeyOf = (tabId: TabId, filterId: string | null | undefined): string => `${tabId}:${filterId ?? ""}`;
+
+/** The filtered view is the one on screen: a filter is in force, answered, and not set aside. */
+function isFilteredNow(tab: TabState | undefined, rt: TabRuntime | undefined): boolean {
+  return !!tab?.filterId && !tab.filterSuspended && !!rt?.filterCache && rt.filterCacheId === tab.filterId;
+}
+
+/** The filter reads the current file only: the last rolling is where its view begins. */
+function filteredMarks(marks: TabState["marks"]): TabState["marks"] {
+  const last = marks[marks.length - 1];
+  return last ? [{ ...last, row: 0 }] : NO_MARKS;
+}
 const ignoreLeave = (): void => {};
 
 export function App() {
@@ -85,9 +100,16 @@ export function App() {
       setFilterFocus((n) => n + 1);
     }
   }, [filterBarOpen]);
-  const [reveal, setReveal] = useState<{ row: number; nonce: number } | undefined>();
+  /** Scroll request for the view called `forKey` (a request meant for another view is ignored). */
+  const [reveal, setReveal] = useState<{ row: number; nonce: number; align?: "center" | "top"; forKey: string } | undefined>();
   const revealNonce = useRef(0);
   const viewRow = useRef(0);
+  /** First visible position of the filtered view (not a line number: see topLine). */
+  const filteredViewRow = useRef(0);
+  /** Line shown "in context" (double-click in the filtered view), outlined in the full view. */
+  const [anchor, setAnchor] = useState<{ tabId: TabId; line: number } | undefined>();
+  /** Rows of the filtered view hidden by "clear" (retained lines before the cleared origin). */
+  const [filterBase, setFilterBase] = useState(0);
   const jumpedFor = useRef<string | undefined>(undefined);
   const saveTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const engineRef = useRef<RpcClient | undefined>(undefined);
@@ -227,6 +249,33 @@ export function App() {
    */
   const appliedFilters = useRef(new Map<TabId, string>());
   const filterSeq = useRef(0);
+
+  /** Where line `row` falls in the filtered view; waits (a few seconds at most) until the scan covers it. */
+  const locate = useCallback(
+    async (tabId: TabId, filterId: string, row: number, wait: boolean) => {
+      const engine = await withEngine();
+      for (let attempt = 0; ; attempt++) {
+        const where = await engine.request("filterLocate", { tabId, filterId, row });
+        if (where.covered || !wait || attempt >= 40) return where;
+        await new Promise((resolve) => setTimeout(resolve, 120));
+      }
+    },
+    [withEngine],
+  );
+
+  /** Line number of the first visible row of the tab's view, if it is known (rows loaded). */
+  const topLine = useCallback((tabId: TabId): number | undefined => {
+    const tab = stateRef.current.tabs.find((t) => t.info.tabId === tabId);
+    const rt = runtimes.current.get(tabId);
+    if (tab && isFilteredNow(tab, rt)) return rt?.filterCache?.getRow(filteredViewRow.current)?.lineNo;
+    return viewRow.current;
+  }, []);
+
+  /** Puts a view at a position once it exists (follow mode keeps the end in view by itself). */
+  const showAt = useCallback((tabId: TabId, filterId: string | null, row: number, align: "center" | "top") => {
+    if (stateRef.current.tabs.find((t) => t.info.tabId === tabId)?.follow) return;
+    setReveal({ row, nonce: ++revealNonce.current, align, forKey: viewKeyOf(tabId, filterId) });
+  }, []);
   const applyFilter = useCallback(
     async (tab: TabState) => {
       const tabId = tab.info.tabId;
@@ -241,6 +290,7 @@ export function App() {
       }
       appliedFilters.current.set(tabId, key);
       const seq = ++filterSeq.current;
+      const keepLine = topLine(tabId); // the view changes, the reader stays where they are
       try {
         const engine = await withEngine();
         const { filterId } = await engine.request("setFilter", { tabId, filter, format: filter?.levels ? (format ?? null) : null });
@@ -257,12 +307,20 @@ export function App() {
           rt.filterCacheId = undefined;
         }
         dispatch({ type: "filterApplied", tabId, filterId });
+        if (keepLine !== undefined) {
+          if (filterId) {
+            const where = await locate(tabId, filterId, keepLine, true);
+            if (seq === filterSeq.current) showAt(tabId, filterId, where.position, "top");
+          } else {
+            showAt(tabId, null, keepLine, "top");
+          }
+        }
       } catch (err) {
         appliedFilters.current.delete(tabId);
         setNotice({ text: `Filtre : ${err instanceof Error ? err.message : String(err)}`, isError: true });
       }
     },
-    [withEngine],
+    [withEngine, topLine, locate, showAt],
   );
 
   const openPaths = useCallback(
@@ -528,19 +586,38 @@ export function App() {
       const tab = active;
       const searchId = tab?.search?.id;
       if (!tab || !searchId) return;
-      const from = tab.search?.current?.row ?? (dir === "next" ? viewRow.current - 1 : viewRow.current);
+      const tabId = tab.info.tabId;
+      const top = topLine(tabId) ?? 0;
+      const from = tab.search?.current?.row ?? (dir === "next" ? top - 1 : top);
       try {
         const engine = await withEngine();
-        const hit = await engine.request("searchNext", { tabId: tab.info.tabId, searchId, fromRow: from, dir });
+        if (isFilteredNow(tab, runtimes.current.get(tabId))) {
+          // the search covers the whole file: hits on lines the filter hides are skipped
+          const filterId = tab.filterId!;
+          const found = await nextVisibleHit(
+            (fromRow, d) => engine.request("searchNext", { tabId, searchId, fromRow, dir: d }),
+            (row) => engine.request("filterLocate", { tabId, filterId, row }),
+            from,
+            dir,
+          );
+          if (!found) {
+            setNotice({ text: "Aucune occurrence dans les lignes affichées par le filtre.", isError: false });
+            return;
+          }
+          dispatch({ type: "searchHit", tabId, row: found.hit.row!, ordinal: found.hit.ordinal });
+          setReveal({ row: found.position, nonce: ++revealNonce.current, forKey: viewKeyOf(tabId, filterId) });
+          return;
+        }
+        const hit = await engine.request("searchNext", { tabId, searchId, fromRow: from, dir });
         if (hit.row === null) return;
-        if (hit.row < tab.clearedBefore) dispatch({ type: "unclear", tabId: tab.info.tabId });
-        dispatch({ type: "searchHit", tabId: tab.info.tabId, row: hit.row, ordinal: hit.ordinal });
-        setReveal({ row: hit.row, nonce: ++revealNonce.current });
+        if (hit.row < tab.clearedBefore) dispatch({ type: "unclear", tabId });
+        dispatch({ type: "searchHit", tabId, row: hit.row, ordinal: hit.ordinal });
+        setReveal({ row: hit.row, nonce: ++revealNonce.current, forKey: viewKeyOf(tabId, null) });
       } catch (err) {
         setNotice({ text: `Recherche : ${err instanceof Error ? err.message : String(err)}`, isError: true });
       }
     },
-    [active, withEngine],
+    [active, withEngine, topLine],
   );
 
 
@@ -622,7 +699,72 @@ export function App() {
   // The filtered view is shown once the engine has answered with the filter in force.
   const filterProgress = active ? filterStatus(active) : undefined;
   const filterCache = active?.filterId ? runtime?.filterCache : undefined;
-  const filtered = !!filterCache && runtime?.filterCacheId === active?.filterId;
+  const filtered = isFilteredNow(active, runtime);
+  const currentViewKey = active ? viewKeyOf(active.info.tabId, filtered ? active.filterId : null) : "";
+
+  // "Clear" in the filtered view hides the retained lines before the cleared origin.
+  const clearedBefore = active?.clearedBefore ?? 0;
+  useEffect(() => {
+    if (!filtered || !active || clearedBefore === 0 || !active.filterId) {
+      setFilterBase(0);
+      return;
+    }
+    let live = true;
+    void locate(active.info.tabId, active.filterId, clearedBefore, false)
+      .then((where) => live && setFilterBase(where.position))
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [filtered, active?.info.tabId, active?.filterId, clearedBefore, filterProgress?.matches, locate]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Shows the full file although a filter is in force (or the filtered view again), at the same place. */
+  const toggleFilterView = useCallback(async () => {
+    const tab = active;
+    if (!tab?.filterId) return;
+    const tabId = tab.info.tabId;
+    try {
+      if (filtered) {
+        const line = topLine(tabId);
+        dispatch({ type: "filterSuspended", tabId, suspended: true });
+        if (line !== undefined) showAt(tabId, null, line, "top");
+      } else {
+        const where = await locate(tabId, tab.filterId, viewRow.current, true);
+        setAnchor(undefined);
+        dispatch({ type: "filterSuspended", tabId, suspended: false });
+        showAt(tabId, tab.filterId, where.position, "top");
+      }
+    } catch (err) {
+      setNotice({ text: `Filtre : ${err instanceof Error ? err.message : String(err)}`, isError: true });
+    }
+  }, [active, filtered, topLine, locate, showAt]);
+
+  /** Double-click on a line of the filtered view: the full file around it, the filter kept for later. */
+  const showInContext = useCallback(
+    (row: Row) => {
+      if (!active) return;
+      const tabId = active.info.tabId;
+      dispatch({ type: "follow", tabId, follow: false });
+      dispatch({ type: "filterSuspended", tabId, suspended: true });
+      setAnchor({ tabId, line: row.lineNo });
+      setReveal({ row: row.lineNo, nonce: ++revealNonce.current, align: "center", forKey: viewKeyOf(tabId, null) });
+    },
+    [active],
+  );
+
+  /** Ctrl+G in the filtered view: the line number is the file's, the view goes to the nearest retained line. */
+  const gotoFileLine = useCallback(
+    async (line: number) => {
+      if (!active?.filterId) return;
+      try {
+        const where = await locate(active.info.tabId, active.filterId, line - 1, true);
+        setReveal({ row: where.position, nonce: ++revealNonce.current, align: "top", forKey: viewKeyOf(active.info.tabId, active.filterId) });
+      } catch (err) {
+        setNotice({ text: `Aller à la ligne : ${err instanceof Error ? err.message : String(err)}`, isError: true });
+      }
+    },
+    [active, locate],
+  );
 
   // Send the filter of the active tab to the engine whenever it (or what it depends on) changes.
   const activeTab = active;
@@ -686,34 +828,40 @@ export function App() {
       ) : (
         <>
           <TabBar tabs={state.tabs} activeId={activeId} onActivate={(tabId) => dispatch({ type: "activated", tabId })} onClose={closeTab} />
-          <SearchBar
-            tabId={active.info.tabId}
-            initial={active.search}
-            status={status}
-            focusRequest={searchFocus}
-            onQuery={(q) => void runSearch(q)}
-            onNext={() => void findHit("next")}
-            onPrev={() => void findHit("prev")}
-          />
-          {filterBarOpen && <FilterBar settings={active.filter} onChange={onFilterChange} focusRequest={filterFocus} error={filterProgress?.error} />}
+          <div className="toprow">
+            <SearchBar
+              tabId={active.info.tabId}
+              initial={active.search}
+              status={status}
+              focusRequest={searchFocus}
+              onQuery={(q) => void runSearch(q)}
+              onNext={() => void findHit("next")}
+              onPrev={() => void findHit("prev")}
+            />
+            {filterBarOpen && <FilterBar settings={active.filter} onChange={onFilterChange} focusRequest={filterFocus} error={filterProgress?.error} />}
+          </div>
           {active.state !== "following" && (
             <div className={`banner banner-${active.state}`} role="status">
               {active.state === "missing" ? "Fichier absent, en attente…" : active.message ?? "Erreur de lecture du fichier."}
             </div>
           )}
           <LogViewport
-            key={`${active.info.tabId}:${filtered ? active.filterId : ""}`}
-            cache={filtered ? filterCache : runtime.cache}
+            key={currentViewKey}
+            cache={filtered && filterCache ? filterCache : runtime.cache}
             total={filtered ? (filterProgress?.matches ?? 0) : active.total}
-            base={filtered ? 0 : active.clearedBefore}
-            marks={filtered ? NO_MARKS : active.marks}
+            base={filtered ? filterBase : active.clearedBefore}
+            marks={filtered ? filteredMarks(active.marks) : active.marks}
             highlight={highlight}
             format={activeFormat}
             filtered={filtered}
             onViewLevel={setViewLevel}
-            reveal={filtered ? undefined : reveal}
+            reveal={reveal?.forKey === currentViewKey ? reveal : undefined}
             currentMatchRow={active.search?.current?.row}
-            {...(filtered ? {} : { viewRowRef: viewRow })}
+            anchorLine={anchor?.tabId === active.info.tabId && !filtered ? anchor.line : undefined}
+            onRowDoubleClick={filtered ? showInContext : undefined}
+            onGotoLine={filtered ? (line) => void gotoFileLine(line) : undefined}
+            fileRows={active.total}
+            viewRowRef={filtered ? filteredViewRow : viewRow}
             fetchRows={fetchRows}
             onNotice={onNotice}
             follow={active.follow}
@@ -738,6 +886,8 @@ export function App() {
             onEncodingChange={(encoding) => void reopenWithEncoding(active.info.tabId, encoding)}
             canFilterLevels={!!activeFormat}
             onFilterChange={onFilterChange}
+            filterSuspended={!!active.filterSuspended}
+            onToggleFilterView={() => void toggleFilterView()}
             filterBarOpen={filterBarOpen}
             onToggleFilterBar={() => setFilterBarOpen((open) => !open)}
             filterShown={filtered && filterProgress ? { matches: filterProgress.matches, done: filterProgress.done } : undefined}

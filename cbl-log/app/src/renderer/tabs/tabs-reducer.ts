@@ -41,6 +41,8 @@ export interface TabState {
   filter: FilterSettings;
   /** Engine-side id of the filter in force; null = none, undefined = not applied yet. */
   filterId?: string | null;
+  /** The full file is shown although a filter is in force (it keeps running, ready to be shown again). */
+  filterSuspended?: boolean;
   /** Latest progress event of the engine filter (matched to `filterId` by filterStatus). */
   filterEvent?: FilterEvent;
 }
@@ -76,6 +78,7 @@ export type TabsAction =
   | { type: "formatDetected"; tabId: TabId; formatId: string | null }
   | { type: "filterChanged"; tabId: TabId; filter: FilterSettings }
   | { type: "filterApplied"; tabId: TabId; filterId: string | null }
+  | { type: "filterSuspended"; tabId: TabId; suspended: boolean }
   | { type: "ruleSetChosen"; tabId: TabId; ruleSetId: string | undefined }
   | { type: "clearedTo"; tabId: TabId; row: number }
   | { type: "clear"; tabId: TabId }
@@ -179,10 +182,25 @@ export function tabsReducer(state: TabsState, action: TabsAction): TabsState {
     case "formatDetected":
       return updateTab(state, action.tabId, (t) => (t.formatId === action.formatId ? t : { ...t, formatId: action.formatId }));
     case "filterChanged":
-      return updateTab(state, action.tabId, (t) => (t.filter === action.filter ? t : { ...t, filter: action.filter }));
+      // a new filter is meant to be seen: it ends the "full file" view
+      return updateTab(state, action.tabId, (t) => {
+        if (t.filter === action.filter) return t;
+        const { filterSuspended: _suspended, ...rest } = t;
+        return { ...rest, filter: action.filter };
+      });
     case "filterApplied":
       // keep `filterEvent`: the engine may have reported progress before its answer reached us
-      return updateTab(state, action.tabId, (t) => (t.filterId === action.filterId ? t : { ...t, filterId: action.filterId }));
+      return updateTab(state, action.tabId, (t) => {
+        if (t.filterId === action.filterId) return t;
+        const { filterSuspended: _suspended, ...rest } = t;
+        return { ...rest, filterId: action.filterId };
+      });
+    case "filterSuspended":
+      return updateTab(state, action.tabId, (t) => {
+        if (!!t.filterSuspended === action.suspended) return t;
+        const { filterSuspended: _suspended, ...rest } = t;
+        return action.suspended ? { ...rest, filterSuspended: true } : rest;
+      });
     case "clearedTo":
       return updateTab(state, action.tabId, (t) => {
         const row = Math.min(Math.max(0, action.row), t.total);

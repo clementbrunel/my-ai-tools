@@ -399,19 +399,38 @@ body {
   outline: 1px solid #b3261e;
 }
 
-.filterbar {
+/* search on the left, filter on the right; the filter drops under the search when the window is narrow */
+.toprow {
   display: flex;
   flex: none;
   flex-wrap: wrap;
+  align-items: flex-start;
+  border-bottom: 1px solid var(--border);
+}
+
+.searchblock {
+  flex: 1 1 460px;
+  min-width: 0;
+}
+
+.toprow .searchbar {
+  border-bottom: 0;
+}
+
+.filterbar {
+  display: flex;
+  flex: 1 1 460px;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: 8px;
   padding: 4px 8px;
-  border-bottom: 1px solid var(--border);
+  border-left: 1px solid var(--border);
   font-size: 12px;
 }
 
 .filterbar > input:first-child {
-  width: 34ch;
+  width: 26ch;
 }
 
 .filterbar input.invalid {
@@ -478,6 +497,11 @@ body {
 
 .search-count.error {
   color: #b3261e;
+}
+
+.log-row.anchor {
+  outline: 1px dashed var(--accent);
+  outline-offset: -1px;
 }
 
 .log-row.current-match {
