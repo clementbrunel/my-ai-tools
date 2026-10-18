@@ -170,4 +170,16 @@ describe("EngineService", () => {
     const res = await ok("getRows", { tabId: info.tabId, first: 499, count: 1 });
     expect(res.rows[0]?.text).toBe("line 499");
   });
+
+  it("pushes the indexing events under the caller's open id while the file is opening", async () => {
+    const dir = await tempDir();
+    const path = join(dir, "big.log");
+    writeFileSync(path, lines(0, 500));
+    const { ok, events } = connect({ indexWithWorkerAboveBytes: 1024 });
+    const info = await ok("open", { path, openId: "open-1" });
+    const indexing = events.filter((e) => e.event.type === "indexing");
+    expect(indexing.length).toBeGreaterThan(0);
+    expect(indexing.every((e) => e.tabId === "open-1")).toBe(true);
+    expect(info.tabId).not.toBe("open-1");
+  });
 });
