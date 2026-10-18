@@ -12,7 +12,6 @@ import {
   type CompiledFormat,
   type Encoding,
   type FilterSettings,
-  type Level,
   type LogFormat,
   type HighlightRule,
   type RuleSet,
@@ -81,7 +80,6 @@ export function App() {
   const [rulesOpen, setRulesOpen] = useState(false);
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [userFormats, setUserFormats] = useState<LogFormat[]>([]);
-  const [viewLevel, setViewLevel] = useState<Level | undefined>();
   const detecting = useRef(new Set<TabId>());
   const sessionReady = useRef(false);
   /** Last session written (or loaded): reopened if the engine process restarts. */
@@ -879,7 +877,6 @@ export function App() {
             highlight={highlight}
             format={activeFormat}
             filtered={filtered}
-            onViewLevel={setViewLevel}
             reveal={reveal?.forKey === currentViewKey ? reveal : undefined}
             currentMatchRow={active.search?.current?.row}
             anchorLine={anchor?.tabId === active.info.tabId && !filtered ? anchor.line : undefined}
@@ -911,7 +908,6 @@ export function App() {
             autoProfileName={autoSet?.name || autoSet?.id || "—"}
             onProfileChange={chooseProfile}
             formatName={activeFormat?.format.name || activeFormat?.format.id}
-            level={viewLevel}
             onToggleTheme={toggleTheme}
             onEncodingChange={(encoding) => void reopenWithEncoding(active.info.tabId, encoding)}
             canFilterLevels={!!activeFormat}

@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
-import type { CompiledFormat, Level, Row } from "@cbl-log/shared";
+import type { CompiledFormat, Row } from "@cbl-log/shared";
 import { computeRowLevels } from "../formats/row-levels";
 import type { HighlightResult } from "../highlight/highlight";
 import type { PageCache } from "./page-cache";
 import { marksByRow, rollMarkLabel, type RollMark } from "./roll-mark";
 import { formatRows, isSelected, MAX_COPY_ROWS, selectionRange, selectionSize, type Selection } from "./selection";
-import { isAtBottom, isScaled, contentHeight, lastVisibleRow, ROW_HEIGHT, rowToScrollTop, scrollTopToRow, visibleRange } from "./viewport-math";
+import { isAtBottom, isScaled, contentHeight, ROW_HEIGHT, rowToScrollTop, scrollTopToRow, visibleRange } from "./viewport-math";
 
 // Rows rendered beyond the viewport on each side: the window scrolls natively with the content, so a
 // generous margin keeps the edges covered between two React renders.
@@ -26,8 +26,6 @@ interface Props {
    * its line number (`row.lineNo`, shown in the gutter) and its level comes with it from the engine.
    */
   filtered?: boolean | undefined;
-  /** Level of the last visible row (the one being read in follow mode), reported when it changes. */
-  onViewLevel?: (level: Level | undefined) => void;
   /** Colors a line according to the active highlighting rules. */
   highlight(text: string): HighlightResult;
   follow: boolean;
@@ -59,7 +57,7 @@ interface Props {
 }
 
 /** Virtualized, fixed-height-row view of a tab's lines. Follow mode keeps the end in view. */
-export function LogViewport({ cache, total: realTotal, base, marks, format, filtered = false, onViewLevel, highlight, follow, reveal, currentMatchRow, anchorLine, onRowDoubleClick, onGotoLine, fileRows, viewRowRef, initialRow, onFollowChange, onLeave, fetchRows, onNotice }: Props) {
+export function LogViewport({ cache, total: realTotal, base, marks, format, filtered = false, highlight, follow, reveal, currentMatchRow, anchorLine, onRowDoubleClick, onGotoLine, fileRows, viewRowRef, initialRow, onFollowChange, onLeave, fetchRows, onNotice }: Props) {
   const total = Math.max(0, realTotal - base);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
@@ -115,10 +113,6 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, filt
   const levels = filtered
     ? Array.from({ length: range.count }, (_, i) => cache.getRow(base + range.first + i)?.level)
     : computeRowLevels(format, (row) => cache.getRow(row)?.text, base + range.first, range.count);
-  // In follow mode the view is pinned to the end: the last visible row is then the last row of the file.
-  const bottomRow = follow ? total - 1 : lastVisibleRow(scrollTop, viewportHeight, total);
-  const bottomLevel = levels[bottomRow - range.first];
-  useEffect(() => onViewLevel?.(bottomLevel), [bottomLevel, onViewLevel]);
   if (viewRowRef) viewRowRef.current = base + scrollTopToRow(scrollTop, viewportHeight, total);
 
   // Reveal request: center the row (search hit).
@@ -280,7 +274,10 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, filt
           if (dragging.current && e.buttons === 1) setSelection((prev) => (prev ? { anchor: prev.anchor, head: lineRow } : prev));
         }}
       >
-        <span className="log-gutter">{filtered ? (row ? row.lineNo + 1 : "") : lineRow + 1}</span>
+        <span className="log-gutter">
+          <span className="log-level">{level?.toUpperCase()}</span>
+          {filtered ? (row ? row.lineNo + 1 : "") : lineRow + 1}
+        </span>
         <span className="log-text">
           {colored
             ? colored.segments.map((seg, n) =>

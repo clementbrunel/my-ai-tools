@@ -178,6 +178,22 @@ body {
   user-select: none;
 }
 
+/* Fixed slot (widest label: 5 chars) so the line numbers stay aligned whether or not a level is known. */
+.log-level {
+  display: inline-block;
+  width: 5ch;
+  margin-right: 1ch;
+  text-align: left;
+  font-size: 0.85em;
+}
+
+.log-row.lvl-fatal .log-level { color: var(--lvl-fatal); }
+.log-row.lvl-error .log-level { color: var(--lvl-error); }
+.log-row.lvl-warn .log-level { color: var(--lvl-warn); }
+.log-row.lvl-info .log-level { color: var(--lvl-info); }
+.log-row.lvl-debug .log-level { color: var(--lvl-debug); }
+.log-row.lvl-trace .log-level { color: var(--lvl-trace); }
+
 .log-text {
   padding-left: 8px;
 }
@@ -494,6 +510,13 @@ body {
   opacity: 0.35;
 }
 
+.lvl-text-fatal { background: var(--lvl-fatal); }
+.lvl-text-error { background: var(--lvl-error); }
+.lvl-text-warn { background: var(--lvl-warn); }
+.lvl-text-info { background: var(--lvl-info); }
+.lvl-text-debug { background: var(--lvl-debug); }
+.lvl-text-trace { background: var(--lvl-trace); }
+
 .level-pill.on { opacity: 1; }
 .level-pill:disabled { cursor: default; opacity: 0.2; }
 
@@ -532,20 +555,6 @@ body {
 .log-row.lvl-info .log-gutter { box-shadow: inset 3px 0 0 var(--lvl-info); }
 .log-row.lvl-debug .log-gutter { box-shadow: inset 3px 0 0 var(--lvl-debug); }
 .log-row.lvl-trace .log-gutter { box-shadow: inset 3px 0 0 var(--lvl-trace); }
-
-.level-badge {
-  padding: 0 6px;
-  border-radius: 3px;
-  color: #fff;
-  font-size: 11px;
-}
-
-.lvl-text-fatal { background: var(--lvl-fatal); }
-.lvl-text-error { background: var(--lvl-error); }
-.lvl-text-warn { background: var(--lvl-warn); }
-.lvl-text-info { background: var(--lvl-info); }
-.lvl-text-debug { background: var(--lvl-debug); }
-.lvl-text-trace { background: var(--lvl-trace); }
 
 /* faint background by level (fatal / error / warn), so that a block of errors reads at a glance.
    A highlighting rule that colors the line sets its background inline and takes precedence. */

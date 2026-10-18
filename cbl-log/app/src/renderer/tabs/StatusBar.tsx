@@ -1,4 +1,4 @@
-import type { Encoding, FilterSettings, Level } from "@cbl-log/shared";
+import type { Encoding, FilterSettings } from "@cbl-log/shared";
 import { describeFilterCount, LEVEL_PILLS, pillActive, togglePill } from "../filter/filter-state";
 import type { TabState } from "./tabs-reducer";
 
@@ -39,8 +39,6 @@ interface Props {
   onProfileChange(choice: string): void;
   /** Name of the detected format (undefined = raw). */
   formatName?: string | undefined;
-  /** Level of the first visible line. */
-  level?: Level | undefined;
   /** Forces an encoding (the tab is reopened); undefined = detect again. */
   onEncodingChange(encoding: Encoding | undefined): void;
   /** Levels can only be told apart in a file whose format is known. */
@@ -60,7 +58,7 @@ interface Props {
   filterShown?: { matches: number; done: boolean } | undefined;
 }
 
-export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules, dark, onToggleTheme, formatName, level, profiles, profileChoice, autoProfileName, onProfileChange, onEncodingChange, canFilterLevels, onFilterChange, filterBarOpen, onToggleFilterBar, filterSuspended, onToggleFilterView, pendingLines, onTogglePause, filterShown }: Props) {
+export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules, dark, onToggleTheme, formatName, profiles, profileChoice, autoProfileName, onProfileChange, onEncodingChange, canFilterLevels, onFilterChange, filterBarOpen, onToggleFilterBar, filterSuspended, onToggleFilterView, pendingLines, onTogglePause, filterShown }: Props) {
   return (
     <footer className="statusbar">
       <span className="status-path" title={tab.info.path}>
@@ -77,7 +75,6 @@ export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules
         </select>
       </label>
       <span title="Format de log détecté">{formatName ?? "brut"}</span>
-      {level && <span title="Niveau de la dernière ligne affichée" className={`level-badge lvl-text-${level}`}>{level.toUpperCase()}</span>}
       <span>{formatBytes(tab.info.sizeBytes)}</span>
       <button
         type="button"
