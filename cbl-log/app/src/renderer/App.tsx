@@ -46,6 +46,8 @@ export function App() {
   const [state, dispatch] = useReducer(tabsReducer, initialTabsState);
   const stateRef = useRef(state);
   stateRef.current = state;
+  /** Files being opened (initial indexing in progress), by open id; progress is 0..1. */
+  const [opening, setOpening] = useState<Record<string, { name: string; progress: number }>>({});
   const [notice, setNotice] = useState<{ text: string; isError: boolean } | undefined>();
   const [ruleSets, setRuleSets] = useState<RuleSet[]>(createBuiltinRuleSets);
   const [rulesOpen, setRulesOpen] = useState(false);
@@ -97,6 +99,10 @@ export function App() {
       for (const waiter of engineWaiters.current.splice(0)) waiter(engine);
 
       offEvents = engine.onAnyEvent((tabId, event) => {
+        if (event.type === "indexing") {
+          // events of a file still being opened come under its open id, not a tab id
+          setOpening((o) => (o[tabId] ? { ...o, [tabId]: { ...o[tabId], progress: event.progress } } : o));
+        }
         const rt = runtimes.current.get(tabId);
         if (rt) {
           if (event.type === "rows") {
@@ -130,8 +136,10 @@ export function App() {
         dispatch({ type: "activated", tabId: existing[0] });
         return { ok: true };
       }
+      const openId = crypto.randomUUID();
+      setOpening((o) => ({ ...o, [openId]: { name: baseName(path), progress: 0 } }));
       try {
-        const info = await engine.request("open", { path });
+        const info = await engine.request("open", { path, openId });
         const cache = new PageCache(async (first, count) => (await engine.request("getRows", { tabId: info.tabId, first, count })).rows);
         runtimes.current.set(info.tabId, { cache, total: info.totalRows, pathKey: key });
         dispatch({ type: "opened", info });
@@ -145,6 +153,8 @@ export function App() {
         return { ok: true };
       } catch (err) {
         return { ok: false, message: err instanceof Error ? err.message : String(err) };
+      } finally {
+        setOpening(({ [openId]: _done, ...rest }) => rest);
       }
     },
     [withEngine],
@@ -501,6 +511,11 @@ export function App() {
 
   return (
     <div className="app">
+      {Object.entries(opening).map(([id, o]) => (
+        <div key={id} className="toast info opening" role="status">
+          Ouverture de {o.name}… {Math.round(o.progress * 100)} %
+        </div>
+      ))}
       {notice && (
         <div className={notice.isError ? "toast" : "toast info"} role="alert" onClick={() => setNotice(undefined)}>
           {notice.text}

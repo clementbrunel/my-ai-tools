@@ -132,6 +132,29 @@ describe("Tailer", () => {
     expect(events.find((e) => e.type === "rolled")).toMatchObject({ reason: "rename", previous: join(dir, "a.1.log"), at: 6 });
   });
 
+  it("rolling during the initial indexing: lines written meanwhile are drained, none lost or duplicated", async () => {
+    const dir = await tempDir();
+    const path = join(dir, "SystemOut.log");
+    const archive = join(dir, "SystemOut_26.10.14.log");
+    writeFileSync(path, lines(0, 5));
+    const { tailer, events } = await manual(path, {
+      initialIndexer: async (index) => {
+        await index.appendFrom();
+        // while the (slow) initial indexing is under way, the app writes then the file rolls
+        appendFileSync(path, lines(5, 8));
+        renameSync(path, archive);
+        writeFileSync(path, lines(8, 12));
+      },
+    });
+    await tailer.check();
+    expect(await texts(tailer)).toEqual(ids(0, 12));
+    expect(events.find((e) => e.type === "rolled")).toEqual({ type: "rolled", reason: "rename", previous: archive, at: 8 });
+    expect(tailer.segments.map((s) => [s.startRow, s.rowCount])).toEqual([
+      [0, 8],
+      [8, 4],
+    ]);
+  });
+
   it("deletion + recreation (T-05): new-file", async () => {
     const dir = await tempDir();
     const path = join(dir, "a.log");

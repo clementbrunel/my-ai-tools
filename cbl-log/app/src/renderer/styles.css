@@ -618,3 +618,9 @@ body {
   background: #8ab4f8;
   transform: translateX(0);
 }
+
+.toast.opening {
+  top: auto;
+  bottom: 32px;
+  cursor: default;
+}

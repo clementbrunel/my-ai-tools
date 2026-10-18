@@ -16,6 +16,11 @@ export interface OpenParams {
   path: string;
   /** Default: detected from the file content. */
   encoding?: Encoding;
+  /**
+   * Chosen by the caller: `indexing` events of the initial indexing are pushed under this id (the
+   * tab id is only known once `open` has answered), so a loader can show the progress.
+   */
+  openId?: string;
 }
 
 export interface TabInfo {

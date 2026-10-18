@@ -132,7 +132,7 @@ export class EngineService {
       const now = Date.now();
       if (!force && now - lastIndexingAt < INDEXING_THROTTLE_MS) return;
       lastIndexingAt = now;
-      this.emitEvent(port, tabId, { type: "indexing", progress, provisional: false });
+      this.emitEvent(port, params.openId ?? tabId, { type: "indexing", progress, provisional: false });
     };
 
     const tailer = new Tailer({
