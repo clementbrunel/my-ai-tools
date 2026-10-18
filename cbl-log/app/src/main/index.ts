@@ -10,7 +10,8 @@ import { EngineHost } from "./engine-process";
 import { loadRuleSets, saveRuleSet } from "./rules-store";
 
 // Settings live in %APPDATA%/cbl-log (architecture, section 8), not under the package name.
-app.setPath("userData", join(app.getPath("appData"), "cbl-log"));
+// CBL_LOG_USER_DATA relocates it (portable use, isolated acceptance runs).
+app.setPath("userData", process.env["CBL_LOG_USER_DATA"] ?? join(app.getPath("appData"), "cbl-log"));
 const rulesDir = (): string => join(app.getPath("userData"), "rules");
 let configWatcher: ConfigWatcher | undefined;
 
