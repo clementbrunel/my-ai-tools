@@ -1,4 +1,5 @@
-import type { Encoding, Level } from "@cbl-log/shared";
+import type { Encoding, FilterSettings, Level } from "@cbl-log/shared";
+import { describeFilterCount, LEVEL_PILLS, pillActive, togglePill } from "../filter/filter-state";
 import type { TabState } from "./tabs-reducer";
 
 export function formatBytes(bytes: number): string {
@@ -42,9 +43,17 @@ interface Props {
   level?: Level | undefined;
   /** Forces an encoding (the tab is reopened); undefined = detect again. */
   onEncodingChange(encoding: Encoding | undefined): void;
+  /** Levels can only be told apart in a file whose format is known. */
+  canFilterLevels: boolean;
+  onFilterChange(filter: FilterSettings): void;
+  /** The filter bar (texts to include / exclude) can be hidden; the filter stays in force. */
+  filterBarOpen: boolean;
+  onToggleFilterBar(): void;
+  /** Lines shown by the filter in force (undefined = no filter). */
+  filterShown?: { matches: number; done: boolean } | undefined;
 }
 
-export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules, dark, onToggleTheme, formatName, level, profiles, profileChoice, autoProfileName, onProfileChange, onEncodingChange }: Props) {
+export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules, dark, onToggleTheme, formatName, level, profiles, profileChoice, autoProfileName, onProfileChange, onEncodingChange, canFilterLevels, onFilterChange, filterBarOpen, onToggleFilterBar, filterShown }: Props) {
   return (
     <footer className="statusbar">
       <span className="status-path" title={tab.info.path}>
@@ -63,7 +72,34 @@ export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules
       <span title="Format de log détecté">{formatName ?? "brut"}</span>
       {level && <span title="Niveau de la dernière ligne affichée" className={`level-badge lvl-text-${level}`}>{level.toUpperCase()}</span>}
       <span>{formatBytes(tab.info.sizeBytes)}</span>
-      <span>{tab.total.toLocaleString("fr-FR")} lignes</span>
+      <button
+        type="button"
+        className={filterBarOpen ? "link filter-toggle on" : "link filter-toggle"}
+        aria-pressed={filterBarOpen}
+        onClick={onToggleFilterBar}
+        title={filterBarOpen ? "Masquer la barre de filtre (le filtre reste actif) — Ctrl+Maj+F" : "Afficher la barre de filtre — Ctrl+Maj+F"}
+      >
+        Filtre{tab.filter.include.length + tab.filter.exclude.length > 0 ? ` (${tab.filter.include.length + tab.filter.exclude.length})` : ""}
+      </button>
+      <span className="level-pills" role="group" aria-label="Niveaux affichés" title={canFilterLevels ? "Niveaux affichés (les lignes de suite suivent leur enregistrement)" : "Filtre par niveau : format de log non reconnu"}>
+        {LEVEL_PILLS.map((pill) => {
+          const on = pillActive(tab.filter.levels, pill);
+          return (
+            <button
+              key={pill.id}
+              type="button"
+              role="checkbox"
+              aria-checked={on}
+              disabled={!canFilterLevels}
+              className={`level-pill lvl-text-${pill.levels[pill.levels.length - 1]}${on ? " on" : ""}`}
+              onClick={() => onFilterChange({ ...tab.filter, levels: togglePill(tab.filter.levels, pill) })}
+            >
+              {pill.label}
+            </button>
+          );
+        })}
+      </span>
+      <span>{filterShown ? `${describeFilterCount(filterShown.matches, tab.total)}${filterShown.done ? "" : "…"}` : `${tab.total.toLocaleString("fr-FR")} lignes`}</span>
       {tab.indexing !== undefined && <span>Indexation {Math.round(tab.indexing * 100)} %</span>}
       {tab.state !== "following" && <span className={`state-${tab.state}`}>{tab.state === "missing" ? "Fichier introuvable" : tab.message ?? "Erreur"}</span>}
       {tab.clearedBefore > 0 ? (

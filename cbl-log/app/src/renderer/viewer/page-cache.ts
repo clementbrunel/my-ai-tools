@@ -6,7 +6,7 @@ export const MAX_PAGES = 50;
 export type PageFetcher = (first: number, count: number) => Promise<Row[]>;
 
 interface Page {
-  /** Sparse: indexed by `lineNo - pageStart` (unreadable segments leave holes). */
+  /** Sparse: indexed by `lineNo - pageStart` (unreadable segments leave holes); by rank when positional. */
   rows: (Row | undefined)[];
   /** Content may be outdated (the file grew): still shown, but refetched. */
   stale: boolean;
@@ -26,9 +26,14 @@ export class PageCache {
   private readonly inFlight = new Map<number, InFlight>();
   private readonly listeners = new Set<() => void>();
 
+  /**
+   * `positional`: the fetcher returns consecutive rows from the position asked (the filtered view,
+   * whose rows keep the line numbers of the file), so a row is placed by its rank in the answer.
+   */
   constructor(
     private readonly fetchRows: PageFetcher,
     private readonly maxPages = MAX_PAGES,
+    private readonly positional = false,
   ) {}
 
   subscribe(listener: () => void): () => void {
@@ -96,7 +101,9 @@ export class PageCache {
         if (flight.stale) return;
         this.inFlight.delete(index);
         const page: Page = { rows: [], stale: false };
-        for (const row of rows) page.rows[row.lineNo - start] = row;
+        rows.forEach((row, rank) => {
+          page.rows[this.positional ? rank : row.lineNo - start] = row;
+        });
         this.pages.delete(index);
         this.pages.set(index, page);
         this.evict();

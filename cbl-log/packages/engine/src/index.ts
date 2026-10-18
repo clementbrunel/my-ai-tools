@@ -14,3 +14,5 @@ export * from "./tail/index.js";
 export * from "./service/index.js";
 
 export * from "./search/index.js";
+
+export * from "./filter/index.js";

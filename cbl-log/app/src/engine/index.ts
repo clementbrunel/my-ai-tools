@@ -1,11 +1,12 @@
 // utilityProcess entry point: hosts the EngineService and serves the renderer over a MessagePort
 // handed over by the main process.
 import { join } from "node:path";
-import { EngineService, setIndexerWorkerPath, setSearchWorkerPath, type PortLike } from "@cbl-log/engine";
+import { EngineService, setFilterWorkerPath, setIndexerWorkerPath, setSearchWorkerPath, type PortLike } from "@cbl-log/engine";
 
 // The indexing worker is a separate bundle entry (see electron.vite.config.ts) next to this file.
 setIndexerWorkerPath(join(__dirname, "indexer-worker.js"));
 setSearchWorkerPath(join(__dirname, "search-worker.js"));
+setFilterWorkerPath(join(__dirname, "filter-worker.js"));
 
 const service = new EngineService();
 

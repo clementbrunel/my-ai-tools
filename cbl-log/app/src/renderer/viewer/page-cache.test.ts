@@ -129,4 +129,17 @@ describe("PageCache", () => {
     expect(cache.getRow(1)).toBeUndefined();
     expect(cache.getRow(2)?.text).toBe("c");
   });
+
+  it("places the rows of a positional cache by rank, whatever their line numbers", async () => {
+    const lineOf = (position: number): number => position * 10 + 3; // the filtered view: sparse lines of the file
+    const cache = new PageCache(
+      async (first, count) => Array.from({ length: count }, (_, i) => ({ lineNo: lineOf(first + i), text: `r${first + i}`, truncated: false })),
+      MAX_PAGES,
+      true,
+    );
+    cache.request(PAGE_SIZE + 4, 10, 10_000);
+    await flush();
+    expect(cache.getRow(PAGE_SIZE + 4)).toMatchObject({ lineNo: lineOf(PAGE_SIZE + 4), text: `r${PAGE_SIZE + 4}` });
+    expect(cache.getRow(2)?.text).toBe("r2");
+  });
 });

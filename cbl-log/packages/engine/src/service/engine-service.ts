@@ -3,7 +3,10 @@
 import { randomUUID } from "node:crypto";
 import { open, stat } from "node:fs/promises";
 import {
+  FilterEvaluator,
   MAX_ROWS_PER_REQUEST,
+  compileFormat,
+  isFilterActive,
   type Encoding,
   type EngineEvent,
   type EngineMessage,
@@ -11,18 +14,22 @@ import {
   type EngineRequest,
   type EngineRequestMap,
   type EngineResponse,
+  type FilterStarted,
+  type GetRowsParams,
   type OpenParams,
   type RowsResult,
   type SearchHit,
   type SearchNextParams,
   type SearchParams,
   type SearchStarted,
+  type SetFilterParams,
   type TabEvent,
   type TabId,
   type TabInfo,
 } from "@cbl-log/shared";
 import { detectEncoding, isUtf16, looksBinary } from "../source/encoding.js";
 import { SourceError, toSourceError } from "../source/source.js";
+import { FilterSession, type FilterSessionOptions } from "../filter/session.js";
 import { SearchSession, type SearchSessionOptions } from "../search/session.js";
 import { Tailer } from "../tail/tailer.js";
 
@@ -38,6 +45,8 @@ export interface EngineServiceOptions {
   indexWithWorkerAboveBytes?: number;
   /** Tuning of the search pool (tests shrink the slices and the stall delay). */
   search?: SearchSessionOptions;
+  /** Same for the filter pool. */
+  filter?: FilterSessionOptions;
 }
 
 export const DEFAULT_WORKER_THRESHOLD_BYTES = 64 * 1024 * 1024;
@@ -47,6 +56,7 @@ const INDEXING_THROTTLE_MS = 100;
 interface Tab {
   tailer: Tailer;
   search?: SearchSession;
+  filter?: FilterSession;
   /** Port that opened the tab: the only one receiving its events. */
   port: PortLike;
   unsubscribe: () => void;
@@ -60,12 +70,14 @@ type Handler<K extends EngineOp> = (
 export class EngineService {
   private readonly threshold: number;
   private readonly searchOptions: SearchSessionOptions;
+  private readonly filterOptions: FilterSessionOptions;
   private readonly tabs = new Map<TabId, Tab>();
   private readonly detachers = new Set<() => void>();
 
   constructor(options: EngineServiceOptions = {}) {
     this.threshold = options.indexWithWorkerAboveBytes ?? DEFAULT_WORKER_THRESHOLD_BYTES;
     this.searchOptions = options.search ?? {};
+    this.filterOptions = options.filter ?? {};
   }
 
   /** Starts serving requests received on `port`. Returns a function that detaches it. */
@@ -87,10 +99,11 @@ export class EngineService {
 
   private readonly handlers: { [K in EngineOp]: Handler<K> } = {
     open: (params, port) => this.openTab(params, port),
-    getRows: (params) => this.getRows(params.tabId, params.first, params.count),
+    getRows: (params) => this.getRows(params),
     close: (params) => this.closeTab(params.tabId),
     search: (params, port) => this.startSearch(params, port),
     searchNext: (params) => this.searchNext(params),
+    setFilter: (params, port) => this.startFilter(params, port),
   };
 
   private async handle(msg: unknown, port: PortLike): Promise<void> {
@@ -148,9 +161,14 @@ export class EngineService {
     const tab: Tab = { tailer, port, unsubscribe: () => {} };
     tab.unsubscribe = tailer.on((event) => {
       this.emitEvent(port, tabId, event);
-      // keep the search of the tab in step with the file
-      if (event.type === "rows") tab.search?.extend();
-      else if (event.type === "rolled") tab.search?.restart();
+      // keep the search and the filter of the tab in step with the file
+      if (event.type === "rows") {
+        tab.search?.extend();
+        tab.filter?.extend();
+      } else if (event.type === "rolled") {
+        tab.search?.restart();
+        tab.filter?.restart();
+      }
     });
     this.tabs.set(tabId, tab);
     try {
@@ -167,11 +185,18 @@ export class EngineService {
     return { tabId, path, encoding, sizeBytes: size, totalRows: tailer.totalRows, lineEnding: "unknown" };
   }
 
-  private async getRows(tabId: TabId, first: number, count: number): Promise<RowsResult> {
-    const { tailer } = this.requireTab(tabId);
+  private async getRows(params: GetRowsParams): Promise<RowsResult> {
+    const { tailer, filter } = this.requireTab(params.tabId);
+    const start = Math.max(0, Math.floor(Number(params.first) || 0));
+    const wanted = Math.min(MAX_ROWS_PER_REQUEST, Math.max(0, Math.floor(Number(params.count) || 0)));
+    if (params.filterId !== undefined) {
+      // the filter was replaced or removed meanwhile: nothing to show for the old one
+      if (!filter || filter.id !== params.filterId) return { first: start, rows: [], total: 0 };
+      const { rows, total } = await filter.rows(start, wanted);
+      return { first: start, rows, total };
+    }
     const total = tailer.totalRows;
-    const start = Math.max(0, Math.floor(Number(first) || 0));
-    const n = Math.min(MAX_ROWS_PER_REQUEST, Math.max(0, Math.floor(Number(count) || 0)), Math.max(0, total - start));
+    const n = Math.min(wanted, Math.max(0, total - start));
     if (n === 0) return { first: start, rows: [], total };
     const lines = await tailer.getLines(start, n);
     return {
@@ -205,6 +230,32 @@ export class EngineService {
     return { searchId: session.id };
   }
 
+  private async startFilter(params: SetFilterParams, port: PortLike): Promise<FilterStarted> {
+    const tab = this.requireTab(params.tabId);
+    tab.filter?.dispose();
+    tab.filter = undefined;
+    const { filter } = params;
+    if (!isFilterActive(filter)) return { filterId: null };
+    const format = params.format ?? null;
+    if (filter.levels !== undefined && !format) throw new SourceError("BAD_QUERY", "", "Level filter needs a log format");
+    try {
+      new FilterEvaluator(filter, format ? compileFormat(format) : undefined);
+    } catch (err) {
+      throw new SourceError("BAD_QUERY", "", err instanceof Error ? err.message : String(err));
+    }
+    const session = new FilterSession(
+      filter,
+      format,
+      () => tab.tailer.currentTarget,
+      (first, count) => tab.tailer.getLines(first, count),
+      (event) => this.emitEvent(port, params.tabId, event),
+      this.filterOptions,
+    );
+    tab.filter = session;
+    session.start();
+    return { filterId: session.id };
+  }
+
   private async searchNext(params: SearchNextParams): Promise<SearchHit> {
     const session = this.requireTab(params.tabId).search;
     if (!session || session.id !== params.searchId) {
@@ -218,6 +269,7 @@ export class EngineService {
     if (!tab) return;
     this.tabs.delete(tabId);
     tab.search?.dispose();
+    tab.filter?.dispose();
     tab.unsubscribe();
     await tab.tailer.close();
   }

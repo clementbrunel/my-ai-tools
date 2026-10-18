@@ -266,6 +266,28 @@ Format WebSphere `websphere-basic` (implémenté dans `packages/shared/src/forma
   des lignes retenues + recherche dichotomique), `MergedView` (§ 4.6). Passer filtré ↔ complet en gardant
   la position (S-05) = conversion via le n° de ligne source.
 
+**Filtre de lignes (implémenté en M2, #431).** Plus simple que l'arbre de requête ci-dessus, qui reste
+la cible pour M4 :
+
+- `LineFilter { levels?, include?, exclude? }` (`packages/shared/src/filter.ts`) : une ligne est retenue
+  si son niveau est coché **et** qu'elle contient un texte `include` (s'il y en a) **et** aucun texte
+  `exclude`. Les textes se testent **ligne à ligne**, comme la recherche (mêmes options : regex, casse, mot entier).
+- Le niveau suit l'**enregistrement** : une ligne de suite (stack frame, SQL…) a le niveau de l'en-tête
+  qui la précède ; les lignes sans niveau sont masquées dès que les niveaux sont restreints. Sans format
+  reconnu, le niveau n'est pas filtrable.
+- `FilterSession` (`packages/engine/src/filter`) est calquée sur `SearchSession` : mêmes tranches (16 Mio, aux
+  checkpoints) sur le même pool (`SliceRun`), garde-fou regex compris. Chaque worker relit au plus 256 lignes
+  avant sa tranche (4 checkpoints) pour connaître le niveau de l'enregistrement en cours, puis renvoie les
+  n° de lignes retenues et leurs niveaux (`Uint32Array` + `Uint8Array`).
+- La vue filtrée n'expose que ce dont l'ordre est sûr : les tranches terminées en tête, plus les résultats
+  partiels de la première tranche inachevée. Les positions ne bougent donc jamais pendant le parcours.
+- Temps réel : sur `rows`, la session filtre la suite du fichier ; sur `rolled`, elle repart de zéro.
+- `getRows` accepte un `filterId` : `first`/`count` indexent alors les lignes retenues, dont le `lineNo`
+  reste celui du fichier. Le fichier courant seul est filtré (les anciens segments ne sont pas lisibles).
+- Mesuré sur 1 Gio (8,4 M lignes) : premiers résultats en ~0,25 s, filtre complet en ~2,5 s (NF-05).
+- Limites de cette première version, levées par #432 : `Ctrl+G`, la navigation de recherche et le
+  « clear » ne s'appliquent pas à la vue filtrée.
+
 ### 4.6 Onglet « Tout » : vue fusionnée (M-01, P1)
 
 Chaque fichier a son onglet ; l'onglet **« Tout »**, épinglé en premier, montre tous les fichiers ouverts

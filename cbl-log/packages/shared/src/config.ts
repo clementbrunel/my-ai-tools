@@ -1,6 +1,7 @@
 // Configuration files of %APPDATA%\cbl-log (architecture, section 8): settings.json and session.json.
 // Each carries a `schemaVersion`, is migrated to the current version on load, then validated.
 import { z } from "zod";
+import { LEVELS } from "./formats.js";
 
 export const themeSchema = z.enum(["system", "dark", "light"]);
 export type Theme = z.infer<typeof themeSchema>;
@@ -13,6 +14,20 @@ export type Settings = z.infer<typeof settingsSchema>;
 
 export const encodingSchema = z.enum(["utf-8", "utf-16le", "utf-16be", "windows-1252", "iso-8859-1"]);
 
+const textMatcherSchema = z.object({
+  pattern: z.string().min(1),
+  isRegex: z.boolean().default(false),
+  caseSensitive: z.boolean().default(false),
+  wholeWord: z.boolean().optional(),
+});
+
+/** Filter of a tab (see FilterSettings): the levels shown, the texts to include / exclude. */
+export const filterSettingsSchema = z.object({
+  levels: z.array(z.enum(LEVELS)).default([...LEVELS]),
+  include: z.array(textMatcherSchema).default([]),
+  exclude: z.array(textMatcherSchema).default([]),
+});
+
 export const sessionTabSchema = z.object({
   path: z.string().min(1),
   follow: z.boolean().default(true),
@@ -23,6 +38,8 @@ export const sessionTabSchema = z.object({
   ruleSetId: z.string().optional(),
   /** Encoding forced by the user for this tab; absent = detected from the file content. */
   encoding: encodingSchema.optional(),
+  /** Filter in force on this tab; absent = none. */
+  filter: filterSettingsSchema.optional(),
 });
 export type SessionTab = z.infer<typeof sessionTabSchema>;
 
