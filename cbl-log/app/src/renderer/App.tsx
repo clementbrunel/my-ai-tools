@@ -678,15 +678,6 @@ export function App() {
     [activeId],
   );
 
-  const activeFilterId = state.tabs.find((t) => t.info.tabId === activeId)?.filterId;
-  const fetchRows = useCallback(
-    async (first: number, count: number): Promise<Row[]> => {
-      if (!activeId) return [];
-      const engine = await withEngine();
-      return (await engine.request("getRows", { tabId: activeId, first, count, ...(activeFilterId ? { filterId: activeFilterId } : {}) })).rows;
-    },
-    [activeId, activeFilterId, withEngine],
-  );
   const onNotice = useCallback((text: string, isError = false) => setNotice({ text, isError }), []);
 
   const runtime = activeId ? runtimes.current.get(activeId) : undefined;
@@ -702,6 +693,16 @@ export function App() {
   const filterProgress = active ? filterStatus(active) : undefined;
   const filterCache = active?.filterId ? runtime?.filterCache : undefined;
   const filtered = isFilteredNow(active, runtime);
+  // Copy reads rows the way the viewport shows them: through the filter only while it is in force.
+  const copyFilterId = filtered ? active?.filterId : undefined;
+  const fetchRows = useCallback(
+    async (first: number, count: number): Promise<Row[]> => {
+      if (!activeId) return [];
+      const engine = await withEngine();
+      return (await engine.request("getRows", { tabId: activeId, first, count, ...(copyFilterId ? { filterId: copyFilterId } : {}) })).rows;
+    },
+    [activeId, copyFilterId, withEngine],
+  );
   const pausedAt = active?.pausedAt;
   // Frozen view: the viewport keeps the row counts of the moment of the pause.
   const shownFileRows = pausedAt ? Math.min(active!.total, pausedAt.total) : (active?.total ?? 0);
