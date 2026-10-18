@@ -89,15 +89,6 @@ export function App() {
   const [searchFocus, setSearchFocus] = useState(0);
   /** Incremented by Ctrl+Maj+F: the filter field takes the focus. */
   const [filterFocus, setFilterFocus] = useState(0);
-  /** The filter bar is shown by default; the status bar button hides it (the filter stays in force). */
-  const [filterBarOpen, setFilterBarOpen] = useState(true);
-  const focusFilterWhenShown = useRef(false);
-  useEffect(() => {
-    if (filterBarOpen && focusFilterWhenShown.current) {
-      focusFilterWhenShown.current = false;
-      setFilterFocus((n) => n + 1);
-    }
-  }, [filterBarOpen]);
   /** Scroll request for the view called `forKey` (a request meant for another view is ignored). */
   const [reveal, setReveal] = useState<{ row: number; nonce: number; align?: "center" | "top"; forKey: string } | undefined>();
   const revealNonce = useRef(0);
@@ -277,10 +268,11 @@ export function App() {
   const applyFilter = useCallback(
     async (tab: TabState) => {
       const tabId = tab.info.tabId;
-      if (tab.formatId === undefined && tab.filter.levels.length < LEVELS_COUNT) return;
+      if (tab.formatId === undefined && (tab.filter.levels.length < LEVELS_COUNT || tab.filter.foldTraces)) return;
       const format = tab.formatId ? formatsRef.current.find((f) => f.format.id === tab.formatId)?.format : undefined;
-      const filter = toLineFilter(tab.filter, !!format);
-      const key = JSON.stringify([filter, filter?.levels ? format : null]);
+      const filter = toLineFilter(tab.filter, !!format, format?.continuation === "not-line");
+      const needsFormat = !!filter && (!!filter.levels || !!filter.foldContinuation);
+      const key = JSON.stringify([filter, needsFormat ? format : null]);
       const previous = appliedFilters.current.get(tabId);
       if (previous === key || (previous === undefined && filter === null)) {
         appliedFilters.current.set(tabId, key); // a fresh tab without filter: nothing to undo in the engine
@@ -291,7 +283,7 @@ export function App() {
       const keepLine = topLine(tabId); // the view changes, the reader stays where they are
       try {
         const engine = await withEngine();
-        const { filterId } = await engine.request("setFilter", { tabId, filter, format: filter?.levels ? (format ?? null) : null });
+        const { filterId } = await engine.request("setFilter", { tabId, filter, format: needsFormat ? (format ?? null) : null });
         const rt = runtimes.current.get(tabId);
         if (!rt || seq !== filterSeq.current) return;
         if (filterId) {
@@ -307,8 +299,9 @@ export function App() {
         dispatch({ type: "filterApplied", tabId, filterId });
         if (keepLine !== undefined) {
           if (filterId) {
-            const where = await locate(tabId, filterId, keepLine, true);
-            if (seq === filterSeq.current) showAt(tabId, filterId, where.position, "top");
+            // keeping the position is a comfort: the filter is applied whatever happens to it
+            const where = await locate(tabId, filterId, keepLine, true).catch(() => undefined);
+            if (where && seq === filterSeq.current) showAt(tabId, filterId, where.position, "top");
           } else {
             showAt(tabId, null, keepLine, "top");
           }
@@ -639,11 +632,7 @@ export function App() {
         closeTab(activeId);
       } else if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "f" && activeId) {
         e.preventDefault();
-        if (filterBarOpen) setFilterFocus((n) => n + 1);
-        else {
-          focusFilterWhenShown.current = true;
-          setFilterBarOpen(true);
-        }
+        setFilterFocus((n) => n + 1);
       } else if (e.ctrlKey && e.key.toLowerCase() === "f" && activeId) {
         e.preventDefault();
         setSearchFocus((n) => n + 1);
@@ -664,7 +653,7 @@ export function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [activeId, active?.search, closeTab, findHit, filterBarOpen]);
+  }, [activeId, active?.search, closeTab, findHit]);
 
   const onFollowChange = useCallback(
     (follow: boolean) => {
@@ -861,7 +850,7 @@ export function App() {
               onNext={() => void findHit("next")}
               onPrev={() => void findHit("prev")}
             />
-            {filterBarOpen && <FilterBar settings={active.filter} onChange={onFilterChange} focusRequest={filterFocus} error={filterProgress?.error} />}
+            <FilterBar settings={active.filter} onChange={onFilterChange} focusRequest={filterFocus} error={filterProgress?.error} />
           </div>
           {active.state !== "following" && (
             <div className={`banner banner-${active.state}`} role="status">
@@ -911,11 +900,10 @@ export function App() {
             onToggleTheme={toggleTheme}
             onEncodingChange={(encoding) => void reopenWithEncoding(active.info.tabId, encoding)}
             canFilterLevels={!!activeFormat}
+            canFoldTraces={activeFormat?.format.continuation === "not-line"}
             onFilterChange={onFilterChange}
             filterSuspended={!!active.filterSuspended}
             onToggleFilterView={() => void toggleFilterView()}
-            filterBarOpen={filterBarOpen}
-            onToggleFilterBar={() => setFilterBarOpen((open) => !open)}
             filterShown={filtered && filterProgress ? { matches: filterProgress.matches, done: filterProgress.done } : undefined}
           />
         </>

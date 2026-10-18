@@ -291,6 +291,11 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, filt
               )
             : ""}
           {row?.truncated ? "…" : ""}
+          {row?.folded ? (
+            <span className="fold-badge" title="Lignes repliées sous celle-ci (double-clic : voir le détail)">
+              ▸ +{row.folded.toLocaleString("fr-FR")} ligne{row.folded > 1 ? "s" : ""}
+            </span>
+          ) : null}
         </span>
         {mark && <span className="roll-label">{rollMarkLabel(mark)}</span>}
       </div>,

@@ -36,10 +36,13 @@ export interface FilterRunOptions {
   filter: LineFilter;
   format: LogFormat | null;
   slices: readonly FilterSlice[];
+  /** End of the indexed part of the file. */
+  limit: number;
   maxWorkers: number;
   stallMs?: number | undefined;
   chunkSize?: number | undefined;
-  onLines(sliceIndex: number, lines: Uint32Array, levels: Uint8Array): void;
+  onLines(sliceIndex: number, lines: Uint32Array, levels: Uint8Array, folds: Uint32Array): void;
+  onTail(sliceIndex: number, line: number, offset: number): void;
   onSliceDone(sliceIndex: number): void;
   /** Called once: every slice done (no error), or the first failure. Never after `cancel()`. */
   onFinished(error: SearchError | undefined): void;
@@ -58,12 +61,14 @@ export class FilterRun {
         filter: opts.filter,
         format: opts.format,
         ...opts.slices[sliceIndex]!,
+        limit: opts.limit,
         chunkSize: opts.chunkSize ?? DEFAULT_FILTER_CHUNK,
       }),
       maxWorkers: opts.maxWorkers,
       stallMs: opts.stallMs,
       onMessage: (sliceIndex, msg) => {
-        if (msg.type === "lines") opts.onLines(sliceIndex, msg.lines, msg.levels);
+        if (msg.type === "lines") opts.onLines(sliceIndex, msg.lines, msg.levels, msg.folds);
+        else if (msg.type === "tail") opts.onTail(sliceIndex, msg.line, msg.offset);
       },
       onSliceDone: opts.onSliceDone,
       onFinished: opts.onFinished,

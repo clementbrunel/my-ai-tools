@@ -21,6 +21,11 @@ export interface LineFilter {
   include?: readonly TextMatcher[] | undefined;
   /** A line matching any of them is hidden (OR). */
   exclude?: readonly TextMatcher[] | undefined;
+  /**
+   * Hide the continuation lines (stack frames, wrapped SQL...) of the records: only the record heads are
+   * kept, each with the number of lines folded under it. Needs a format with `continuation: "not-line"`.
+   */
+  foldContinuation?: boolean | undefined;
 }
 
 /** Level of a row as carried between the engine and the renderer: 0 = none, 1.. = LEVELS index + 1. */
@@ -35,7 +40,7 @@ export function levelFromCode(code: number): Level | undefined {
 /** A filter that hides nothing is the same as no filter. */
 export function isFilterActive(filter: LineFilter | null | undefined): filter is LineFilter {
   if (!filter) return false;
-  return filter.levels !== undefined || (filter.include?.length ?? 0) > 0 || (filter.exclude?.length ?? 0) > 0;
+  return filter.levels !== undefined || (filter.include?.length ?? 0) > 0 || (filter.exclude?.length ?? 0) > 0 || !!filter.foldContinuation;
 }
 
 /** How many lines before a slice the engine reads to learn the level a continuation line inherits. */
@@ -45,6 +50,8 @@ export interface FilterVerdict {
   keep: boolean;
   /** Level of the line (own or inherited). */
   level: Level | undefined;
+  /** The line continues the record above it (and the folding of continuation lines is on). */
+  folded: boolean;
 }
 
 /**
@@ -56,7 +63,11 @@ export class FilterEvaluator {
   private readonly include: RegExp[];
   private readonly exclude: RegExp[];
   private readonly inherits: boolean;
+  private readonly fold: boolean;
   private carried: Level | undefined;
+  /** A record head has been seen: the lines that follow and are not heads continue it. */
+  private inRecord = false;
+  private lastWasHead = false;
 
   /** Throws when a text is not a valid regular expression. */
   constructor(
@@ -68,6 +79,12 @@ export class FilterEvaluator {
     this.include = (filter.include ?? []).map(compile);
     this.exclude = (filter.exclude ?? []).map(compile);
     this.inherits = format?.format.continuation === "not-line";
+    this.fold = !!filter.foldContinuation && this.inherits;
+  }
+
+  /** The line is not a record head although a record is open: a lookahead past a slice reads this. */
+  continues(text: string): boolean {
+    return this.inherits && !!this.format && !parseLine(this.format, text);
   }
 
   /** Feeds a line that is only used to learn the current record level. */
@@ -76,17 +93,26 @@ export class FilterEvaluator {
   }
 
   test(text: string): FilterVerdict {
+    const wasInRecord = this.inRecord;
     const level = this.levelOf(text);
-    if (this.levels && (level === undefined || !this.levels.has(level))) return { keep: false, level };
-    for (const re of this.exclude) if (re.test(text)) return { keep: false, level };
-    if (this.include.length > 0 && !this.include.some((re) => re.test(text))) return { keep: false, level };
-    return { keep: true, level };
+    const continuation = this.inherits && wasInRecord && !this.lastWasHead;
+    if (this.fold && continuation) return { keep: false, level, folded: true };
+    return this.judge(text, level);
+  }
+
+  private judge(text: string, level: Level | undefined): FilterVerdict {
+    if (this.levels && (level === undefined || !this.levels.has(level))) return { keep: false, level, folded: false };
+    for (const re of this.exclude) if (re.test(text)) return { keep: false, level, folded: false };
+    if (this.include.length > 0 && !this.include.some((re) => re.test(text))) return { keep: false, level, folded: false };
+    return { keep: true, level, folded: false };
   }
 
   private levelOf(text: string): Level | undefined {
     if (!this.format) return undefined;
     const parsed = parseLine(this.format, text);
+    this.lastWasHead = !!parsed;
     if (parsed) {
+      this.inRecord = true;
       this.carried = parsed.level;
       return parsed.level;
     }
@@ -102,18 +128,24 @@ export interface FilterSettings {
   levels: readonly Level[];
   include: readonly TextMatcher[];
   exclude: readonly TextMatcher[];
+  /** Fold the continuation lines (stack traces) under their record head. */
+  foldTraces: boolean;
 }
 
-export const defaultFilterSettings = (): FilterSettings => ({ levels: LEVELS, include: [], exclude: [] });
+export const defaultFilterSettings = (): FilterSettings => ({ levels: LEVELS, include: [], exclude: [], foldTraces: false });
 
-/** The engine filter for these settings, or null when nothing is hidden. `hasFormat`: levels are known. */
-export function toLineFilter(settings: FilterSettings | undefined, hasFormat: boolean): LineFilter | null {
+/**
+ * The engine filter for these settings, or null when nothing is hidden. `hasFormat`: levels are known;
+ * `canFold`: the format has continuation lines to fold.
+ */
+export function toLineFilter(settings: FilterSettings | undefined, hasFormat: boolean, canFold = false): LineFilter | null {
   if (!settings) return null;
   const restricted = hasFormat && settings.levels.length < LEVELS.length;
   const filter: LineFilter = {
     ...(restricted ? { levels: LEVELS.filter((l) => settings.levels.includes(l)) } : {}),
     ...(settings.include.length > 0 ? { include: settings.include } : {}),
     ...(settings.exclude.length > 0 ? { exclude: settings.exclude } : {}),
+    ...(settings.foldTraces && canFold ? { foldContinuation: true } : {}),
   };
   return isFilterActive(filter) ? filter : null;
 }

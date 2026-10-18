@@ -14,6 +14,8 @@ export interface Row {
   truncated: boolean;
   /** Level of the line (own or inherited), only reported by the filtered view. */
   level?: Level | undefined;
+  /** Filtered view with folding: lines hidden under this one (the continuation of its record). */
+  folded?: number | undefined;
 }
 
 export interface OpenParams {
