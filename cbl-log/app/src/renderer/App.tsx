@@ -76,6 +76,15 @@ export function App() {
   const [searchFocus, setSearchFocus] = useState(0);
   /** Incremented by Ctrl+Maj+F: the filter field takes the focus. */
   const [filterFocus, setFilterFocus] = useState(0);
+  /** The filter bar is shown by default; the status bar button hides it (the filter stays in force). */
+  const [filterBarOpen, setFilterBarOpen] = useState(true);
+  const focusFilterWhenShown = useRef(false);
+  useEffect(() => {
+    if (filterBarOpen && focusFilterWhenShown.current) {
+      focusFilterWhenShown.current = false;
+      setFilterFocus((n) => n + 1);
+    }
+  }, [filterBarOpen]);
   const [reveal, setReveal] = useState<{ row: number; nonce: number } | undefined>();
   const revealNonce = useRef(0);
   const viewRow = useRef(0);
@@ -553,7 +562,11 @@ export function App() {
         closeTab(activeId);
       } else if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "f" && activeId) {
         e.preventDefault();
-        setFilterFocus((n) => n + 1);
+        if (filterBarOpen) setFilterFocus((n) => n + 1);
+        else {
+          focusFilterWhenShown.current = true;
+          setFilterBarOpen(true);
+        }
       } else if (e.ctrlKey && e.key.toLowerCase() === "f" && activeId) {
         e.preventDefault();
         setSearchFocus((n) => n + 1);
@@ -571,7 +584,7 @@ export function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [activeId, active?.search, closeTab, findHit]);
+  }, [activeId, active?.search, closeTab, findHit, filterBarOpen]);
 
   const onFollowChange = useCallback(
     (follow: boolean) => {
@@ -682,7 +695,7 @@ export function App() {
             onNext={() => void findHit("next")}
             onPrev={() => void findHit("prev")}
           />
-          <FilterBar settings={active.filter} onChange={onFilterChange} focusRequest={filterFocus} error={filterProgress?.error} />
+          {filterBarOpen && <FilterBar settings={active.filter} onChange={onFilterChange} focusRequest={filterFocus} error={filterProgress?.error} />}
           {active.state !== "following" && (
             <div className={`banner banner-${active.state}`} role="status">
               {active.state === "missing" ? "Fichier absent, en attente…" : active.message ?? "Erreur de lecture du fichier."}
@@ -725,6 +738,8 @@ export function App() {
             onEncodingChange={(encoding) => void reopenWithEncoding(active.info.tabId, encoding)}
             canFilterLevels={!!activeFormat}
             onFilterChange={onFilterChange}
+            filterBarOpen={filterBarOpen}
+            onToggleFilterBar={() => setFilterBarOpen((open) => !open)}
             filterShown={filtered && filterProgress ? { matches: filterProgress.matches, done: filterProgress.done } : undefined}
           />
         </>

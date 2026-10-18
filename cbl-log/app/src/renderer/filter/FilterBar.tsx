@@ -28,8 +28,11 @@ export function FilterBar({ settings, onChange, focusRequest, error }: Props) {
   const [wholeWord, setWhole] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Only a request made after the bar appeared moves the focus (showing the bar does not).
+  const handled = useRef(focusRequest);
   useEffect(() => {
-    if (focusRequest === 0) return;
+    if (focusRequest === handled.current) return;
+    handled.current = focusRequest;
     inputRef.current?.focus();
     inputRef.current?.select();
   }, [focusRequest]);

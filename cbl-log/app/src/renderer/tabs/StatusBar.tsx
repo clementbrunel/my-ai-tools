@@ -46,11 +46,14 @@ interface Props {
   /** Levels can only be told apart in a file whose format is known. */
   canFilterLevels: boolean;
   onFilterChange(filter: FilterSettings): void;
+  /** The filter bar (texts to include / exclude) can be hidden; the filter stays in force. */
+  filterBarOpen: boolean;
+  onToggleFilterBar(): void;
   /** Lines shown by the filter in force (undefined = no filter). */
   filterShown?: { matches: number; done: boolean } | undefined;
 }
 
-export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules, dark, onToggleTheme, formatName, level, profiles, profileChoice, autoProfileName, onProfileChange, onEncodingChange, canFilterLevels, onFilterChange, filterShown }: Props) {
+export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules, dark, onToggleTheme, formatName, level, profiles, profileChoice, autoProfileName, onProfileChange, onEncodingChange, canFilterLevels, onFilterChange, filterBarOpen, onToggleFilterBar, filterShown }: Props) {
   return (
     <footer className="statusbar">
       <span className="status-path" title={tab.info.path}>
@@ -69,6 +72,15 @@ export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules
       <span title="Format de log détecté">{formatName ?? "brut"}</span>
       {level && <span title="Niveau de la dernière ligne affichée" className={`level-badge lvl-text-${level}`}>{level.toUpperCase()}</span>}
       <span>{formatBytes(tab.info.sizeBytes)}</span>
+      <button
+        type="button"
+        className={filterBarOpen ? "link filter-toggle on" : "link filter-toggle"}
+        aria-pressed={filterBarOpen}
+        onClick={onToggleFilterBar}
+        title={filterBarOpen ? "Masquer la barre de filtre (le filtre reste actif) — Ctrl+Maj+F" : "Afficher la barre de filtre — Ctrl+Maj+F"}
+      >
+        Filtre{tab.filter.include.length + tab.filter.exclude.length > 0 ? ` (${tab.filter.include.length + tab.filter.exclude.length})` : ""}
+      </button>
       <span className="level-pills" role="group" aria-label="Niveaux affichés" title={canFilterLevels ? "Niveaux affichés (les lignes de suite suivent leur enregistrement)" : "Filtre par niveau : format de log non reconnu"}>
         {LEVEL_PILLS.map((pill) => {
           const on = pillActive(tab.filter.levels, pill);

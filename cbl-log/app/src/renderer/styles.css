@@ -448,6 +448,11 @@ body {
   cursor: pointer;
 }
 
+.filter-toggle.on {
+  font-weight: 600;
+  text-decoration: underline;
+}
+
 .level-pills {
   display: inline-flex;
   gap: 2px;
