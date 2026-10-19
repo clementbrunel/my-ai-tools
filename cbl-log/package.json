@@ -1,7 +1,7 @@
 {
   "name": "cbl-log-workspace",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "workspaces": ["packages/*", "app"],
   "scripts": {
     "postinstall": "node scripts/install-electron.mjs",
