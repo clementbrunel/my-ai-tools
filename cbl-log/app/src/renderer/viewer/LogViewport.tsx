@@ -64,7 +64,8 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, filt
   const [viewportHeight, setViewportHeight] = useState(0);
   const [gotoOpen, setGotoOpen] = useState(false);
   const [selection, setSelection] = useState<Selection | undefined>();
-  const [, rerender] = useReducer((n: number) => n + 1, 0);
+  /** Bumped on every cache change, so that pages the cache dropped (invalidated in flight) are asked again. */
+  const [cacheVersion, rerender] = useReducer((n: number) => n + 1, 0);
   /** Real scroll position, updated on every scroll event (the `scrollTop` state only moves when the window must). */
   const scrollTopRef = useRef(0);
   const renderedRow = useRef(0);
@@ -131,7 +132,7 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, filt
   // Keep the pages under the viewport loaded (the cache de-duplicates and prefetches neighbours).
   useEffect(() => {
     cache.request(base + range.first, range.count, realTotal);
-  }, [cache, base, range.first, range.count, realTotal]);
+  }, [cache, base, range.first, range.count, realTotal, cacheVersion]);
 
   // Follow mode: stick to the end whenever the content or the viewport size changes. The scroll
   // events this triggers land at the bottom, so they keep follow on instead of switching it off.
@@ -249,8 +250,9 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, filt
     if (mark) classes.push("roll-start");
     if (isSelected(selection, lineRow)) classes.push("selected");
     const lineNo = filtered ? row?.lineNo : lineRow;
-    if (lineNo === currentMatchRow) classes.push("current-match");
-    if (lineNo === anchorLine) classes.push("anchor");
+    // a row not loaded yet has no line number: it must not pass for an absent match / anchor
+    if (lineNo !== undefined && lineNo === currentMatchRow) classes.push("current-match");
+    if (lineNo !== undefined && lineNo === anchorLine) classes.push("anchor");
     const level = levels[i - range.first];
     if (level) classes.push(`lvl-${level}`);
     rows.push(
