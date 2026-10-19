@@ -767,6 +767,11 @@ body {
   cursor: pointer;
 }
 
+.view-switch button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 .view-switch button.on {
   background: var(--accent);
   color: #fff;

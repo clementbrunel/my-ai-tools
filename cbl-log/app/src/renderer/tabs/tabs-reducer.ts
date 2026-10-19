@@ -189,9 +189,14 @@ export function tabsReducer(state: TabsState, action: TabsAction): TabsState {
     case "formatDetected":
       return updateTab(state, action.tabId, (t) => (t.formatId === action.formatId ? t : { ...t, formatId: action.formatId }));
     case "filterChanged":
-      // a new filter is meant to be seen: it ends the "full file" view
+      // a new filter is meant to be seen: it ends the "full file" view (the fold choice alone does not)
       return updateTab(state, action.tabId, (t) => {
         if (t.filter === action.filter) return t;
+        const foldOnly = t.filter.levels === action.filter.levels && t.filter.include === action.filter.include && t.filter.exclude === action.filter.exclude;
+        if (foldOnly) {
+          const { pausedAt: _paused, ...rest } = t;
+          return { ...rest, filter: action.filter };
+        }
         const { filterSuspended: _suspended, pausedAt: _paused, ...rest } = t;
         return { ...rest, filter: action.filter };
       });
@@ -199,7 +204,7 @@ export function tabsReducer(state: TabsState, action: TabsAction): TabsState {
       // keep `filterEvent`: the engine may have reported progress before its answer reached us
       return updateTab(state, action.tabId, (t) => {
         if (t.filterId === action.filterId) return t;
-        const { filterSuspended: _suspended, pausedAt: _paused, ...rest } = t;
+        const { pausedAt: _paused, ...rest } = t;
         return { ...rest, filterId: action.filterId };
       });
     case "paused":

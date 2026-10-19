@@ -6,6 +6,7 @@ import {
   createBuiltinRuleSets,
   createDefaultRuleSet,
   createWebSphereRuleSet,
+  defaultFilterSettings,
   defaultSettings,
   detectFormat,
   toLineFilter,
@@ -57,9 +58,9 @@ const NO_MARKS: never[] = [];
 /** Identifies what the viewport shows: a tab's file, or its filtered view (its remount key). */
 const viewKeyOf = (tabId: TabId, filterId: string | null | undefined): string => `${tabId}:${filterId ?? ""}`;
 
-/** The filtered view is the one on screen: a filter is in force, answered, and not set aside. */
+/** A filtered view is the one on screen: a filter (maybe only the fold of stack traces) is in force and answered. */
 function isFilteredNow(tab: TabState | undefined, rt: TabRuntime | undefined): boolean {
-  return !!tab?.filterId && !tab.filterSuspended && !!rt?.filterCache && rt.filterCacheId === tab.filterId;
+  return !!tab?.filterId && !!rt?.filterCache && rt.filterCacheId === tab.filterId;
 }
 
 /** The filter reads the current file only: the last rolling is where its view begins. */
@@ -238,6 +239,8 @@ export function App() {
    */
   const appliedFilters = useRef(new Map<TabId, string>());
   const filterSeq = useRef(0);
+  /** Where the next view change must land (double-click "in context"), instead of the current position. */
+  const pendingShow = useRef<{ tabId: TabId; line: number; align: "center" | "top" } | undefined>(undefined);
 
   /** Where line `row` falls in the filtered view; waits (a few seconds at most) until the scan covers it. */
   const locate = useCallback(
@@ -268,9 +271,11 @@ export function App() {
   const applyFilter = useCallback(
     async (tab: TabState) => {
       const tabId = tab.info.tabId;
-      if (tab.formatId === undefined && (tab.filter.levels.length < LEVELS_COUNT || tab.filter.foldTraces)) return;
+      // "Full file" lifts the levels and the text filters, but keeps the fold of stack traces as chosen
+      const settings = tab.filterSuspended ? { ...defaultFilterSettings(), foldTraces: tab.filter.foldTraces } : tab.filter;
+      if (tab.formatId === undefined && (settings.levels.length < LEVELS_COUNT || settings.foldTraces)) return;
       const format = tab.formatId ? formatsRef.current.find((f) => f.format.id === tab.formatId)?.format : undefined;
-      const filter = toLineFilter(tab.filter, !!format, format?.continuation === "not-line");
+      const filter = toLineFilter(settings, !!format, format?.continuation === "not-line");
       const needsFormat = !!filter && (!!filter.levels || !!filter.foldContinuation);
       const key = JSON.stringify([filter, needsFormat ? format : null]);
       const previous = appliedFilters.current.get(tabId);
@@ -280,7 +285,10 @@ export function App() {
       }
       appliedFilters.current.set(tabId, key);
       const seq = ++filterSeq.current;
-      const keepLine = topLine(tabId); // the view changes, the reader stays where they are
+      const target = pendingShow.current?.tabId === tabId ? pendingShow.current : undefined;
+      pendingShow.current = undefined;
+      const keepLine = target?.line ?? topLine(tabId); // the view changes, the reader stays where they are
+      const align = target?.align ?? "top";
       try {
         const engine = await withEngine();
         const { filterId } = await engine.request("setFilter", { tabId, filter, format: needsFormat ? (format ?? null) : null });
@@ -301,9 +309,9 @@ export function App() {
           if (filterId) {
             // keeping the position is a comfort: the filter is applied whatever happens to it
             const where = await locate(tabId, filterId, keepLine, true).catch(() => undefined);
-            if (where && seq === filterSeq.current) showAt(tabId, filterId, where.position, "top");
+            if (where && seq === filterSeq.current) showAt(tabId, filterId, where.position, align);
           } else {
-            showAt(tabId, null, keepLine, "top");
+            showAt(tabId, null, keepLine, align);
           }
         }
       } catch (err) {
@@ -731,36 +739,22 @@ export function App() {
     };
   }, [filtered, active?.info.tabId, active?.filterId, clearedBefore, filterProgress?.matches, locate]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /** Shows the full file although a filter is in force (or the filtered view again), at the same place. */
-  const toggleFilterView = useCallback(async () => {
-    const tab = active;
-    if (!tab?.filterId) return;
-    const tabId = tab.info.tabId;
-    try {
-      if (filtered) {
-        const line = topLine(tabId);
-        dispatch({ type: "filterSuspended", tabId, suspended: true });
-        if (line !== undefined) showAt(tabId, null, line, "top");
-      } else {
-        const where = await locate(tabId, tab.filterId, viewRow.current, true);
-        setAnchor(undefined);
-        dispatch({ type: "filterSuspended", tabId, suspended: false });
-        showAt(tabId, tab.filterId, where.position, "top");
-      }
-    } catch (err) {
-      setNotice({ text: `Filtre : ${err instanceof Error ? err.message : String(err)}`, isError: true });
-    }
-  }, [active, filtered, topLine, locate, showAt]);
+  /** Switches between the filtered view and the full file (the engine filter follows, the position is kept). */
+  const toggleFilterView = useCallback(() => {
+    if (!active) return;
+    setAnchor(undefined);
+    dispatch({ type: "filterSuspended", tabId: active.info.tabId, suspended: !active.filterSuspended });
+  }, [active]);
 
   /** Double-click on a line of the filtered view: the full file around it, the filter kept for later. */
   const showInContext = useCallback(
     (row: Row) => {
       if (!active) return;
       const tabId = active.info.tabId;
+      pendingShow.current = { tabId, line: row.lineNo, align: "center" };
       dispatch({ type: "follow", tabId, follow: false });
       dispatch({ type: "filterSuspended", tabId, suspended: true });
       setAnchor({ tabId, line: row.lineNo });
-      setReveal({ row: row.lineNo, nonce: ++revealNonce.current, align: "center", forKey: viewKeyOf(tabId, null) });
     },
     [active],
   );
@@ -783,7 +777,7 @@ export function App() {
   const activeTab = active;
   useEffect(() => {
     if (activeTab) void applyFilter(activeTab);
-  }, [activeTab?.info.tabId, activeTab?.filter, activeTab?.formatId, formats, applyFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeTab?.info.tabId, activeTab?.filter, activeTab?.filterSuspended, activeTab?.formatId, formats, applyFilter]); // eslint-disable-line react-hooks/exhaustive-deps
   const onFilterChange = useCallback(
     (filter: FilterSettings) => {
       if (activeId) dispatch({ type: "filterChanged", tabId: activeId, filter });
@@ -869,8 +863,8 @@ export function App() {
             filtered={filtered}
             reveal={reveal?.forKey === currentViewKey ? reveal : undefined}
             currentMatchRow={active.search?.current?.row}
-            anchorLine={anchor?.tabId === active.info.tabId && !filtered ? anchor.line : undefined}
-            onRowDoubleClick={filtered ? showInContext : undefined}
+            anchorLine={anchor?.tabId === active.info.tabId && (!filtered || active.filterSuspended) ? anchor.line : undefined}
+            onRowDoubleClick={filtered && !active.filterSuspended ? showInContext : undefined}
             onGotoLine={filtered ? (line) => void gotoFileLine(line) : undefined}
             fileRows={active.total}
             viewRowRef={filtered ? filteredViewRow : viewRow}
@@ -904,7 +898,8 @@ export function App() {
             canFoldTraces={activeFormat?.format.continuation === "not-line"}
             onFilterChange={onFilterChange}
             filterSuspended={!!active.filterSuspended}
-            onToggleFilterView={() => void toggleFilterView()}
+            hasFilter={toLineFilter(active.filter, !!activeFormat, activeFormat?.format.continuation === "not-line") !== null}
+            onToggleFilterView={toggleFilterView}
             filterShown={filtered && filterProgress ? { matches: filterProgress.matches, done: filterProgress.done } : undefined}
           />
         </>

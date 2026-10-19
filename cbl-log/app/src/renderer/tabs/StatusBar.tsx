@@ -51,13 +51,16 @@ interface Props {
   onTogglePause(): void;
   /** The full file is shown although a filter is in force. */
   filterSuspended: boolean;
+  /** Levels or text filters are set, so that a filtered view differs from the full file. */
+  hasFilter: boolean;
   /** Switches between the filtered view and the full file, keeping the position. */
   onToggleFilterView(): void;
   /** Lines shown by the filter in force (undefined = no filter). */
   filterShown?: { matches: number; done: boolean } | undefined;
 }
 
-export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules, dark, onToggleTheme, formatName, profiles, profileChoice, autoProfileName, onProfileChange, onEncodingChange, canFilterLevels, canFoldTraces, onFilterChange, filterSuspended, onToggleFilterView, pendingLines, onTogglePause, filterShown }: Props) {
+export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules, dark, onToggleTheme, formatName, profiles, profileChoice, autoProfileName, onProfileChange, onEncodingChange, canFilterLevels, canFoldTraces, onFilterChange, filterSuspended, hasFilter, onToggleFilterView, pendingLines, onTogglePause, filterShown }: Props) {
+  const full = filterSuspended || !hasFilter;
   return (
     <footer className="statusbar">
       <span className="line-count" title="Lignes affichées sur le total">
@@ -108,28 +111,27 @@ export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules
         />
         Replier les stack traces
       </label>
-      {tab.filterId && (
-        <span className="view-switch" role="group" aria-label="Vue affichée">
-          <button
-            type="button"
-            className={filterSuspended ? "" : "on"}
-            aria-pressed={!filterSuspended}
-            onClick={filterSuspended ? onToggleFilterView : undefined}
-            title="Lignes filtrées uniquement"
-          >
-            Filtré
-          </button>
-          <button
-            type="button"
-            className={filterSuspended ? "on" : ""}
-            aria-pressed={filterSuspended}
-            onClick={filterSuspended ? undefined : onToggleFilterView}
-            title="Tout le fichier, à la même position (double-clic sur une ligne : la voir dans son contexte)"
-          >
-            Fichier complet
-          </button>
-        </span>
-      )}
+      <span className="view-switch" role="group" aria-label="Vue affichée">
+        <button
+          type="button"
+          className={full ? "" : "on"}
+          aria-pressed={!full}
+          disabled={!hasFilter}
+          onClick={full ? onToggleFilterView : undefined}
+          title={hasFilter ? "Lignes filtrées uniquement" : "Aucun filtre de niveau ou de texte défini"}
+        >
+          Filtré
+        </button>
+        <button
+          type="button"
+          className={full ? "on" : ""}
+          aria-pressed={full}
+          onClick={full ? undefined : onToggleFilterView}
+          title="Tout le fichier, à la même position (double-clic sur une ligne filtrée : la voir dans son contexte). Les stack traces suivent la case « Replier »."
+        >
+          Fichier complet
+        </button>
+      </span>
       {tab.indexing !== undefined && <span>Indexation {Math.round(tab.indexing * 100)} %</span>}
       {tab.state !== "following" && <span className={`state-${tab.state}`}>{tab.state === "missing" ? "Fichier introuvable" : tab.message ?? "Erreur"}</span>}
       {tab.clearedBefore > 0 ? (
