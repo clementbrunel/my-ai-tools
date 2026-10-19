@@ -1,5 +1,6 @@
 # Windows x64 packaging: NSIS installer + portable .exe (NF-06).
-# No auto-update and no telemetry (NF-07): electron-updater is deliberately not a dependency.
+# No telemetry (NF-07). Updates come from the GitHub releases through app/src/main/updater.ts, which relies on
+# the artifactName below: electron-updater is deliberately not a dependency (monorepo tags, portable target).
 appId: dev.clementbrunel.cbl-log
 productName: cbl-log
 copyright: Copyright (c) Clement Brunel

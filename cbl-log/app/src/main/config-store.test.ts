@@ -17,12 +17,12 @@ const tempDir = (): string => {
 describe("settings store", () => {
   it("returns the defaults when the file is missing, without creating it", async () => {
     const dir = tempDir();
-    expect(await loadSettings(dir)).toEqual({ value: { schemaVersion: 1, theme: "system" } });
+    expect(await loadSettings(dir)).toEqual({ value: { schemaVersion: 1, theme: "system", checkForUpdates: true } });
   });
 
   it("round-trips a saved value", async () => {
     const dir = tempDir();
-    await saveSettings(dir, { schemaVersion: 1, theme: "dark" });
+    await saveSettings(dir, { schemaVersion: 1, theme: "dark", checkForUpdates: false });
     expect((await loadSettings(dir)).value.theme).toBe("dark");
   });
 

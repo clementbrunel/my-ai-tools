@@ -20,7 +20,7 @@ cd cbl-log
 npm install        # installe les dépendances (npm ci en CI)
 npm run dev        # reconstruit shared + engine puis lance l'app Electron en mode dev (electron-vite)
 npm run typecheck  # tsc --noEmit sur tous les workspaces
-npm test           # vitest (moteur)
+npm test           # vitest (moteur + app)
 npm run build      # build shared, engine puis app (sortie app/out)
 npm run package    # installeur NSIS + exe portable dans release/ (Windows x64)
 npm run package:dir  # idem sans installeur : release/win-unpacked/cbl-log.exe
@@ -29,7 +29,23 @@ npm run package:dir  # idem sans installeur : release/win-unpacked/cbl-log.exe
 ## Packaging et release
 
 `electron-builder.yml` produit `cbl-log-Setup-<version>.exe` (NSIS, installation par utilisateur) et `cbl-log-<version>-portable.exe`.
-Pas de télémétrie ni de mise à jour automatique (NF-07). Les exécutables ne sont pas signés : Windows SmartScreen peut afficher un avertissement.
+Pas de télémétrie (NF-07). Les exécutables ne sont pas signés : Windows SmartScreen peut afficher un avertissement
+au premier téléchargement depuis le navigateur.
+
+### Mise à jour depuis l'application
+
+Une fois installé, cbl-log se met à jour seul à partir des releases GitHub, sans retourner sur le dépôt :
+
+- **Au démarrage** (5 s après l'ouverture), l'app interroge l'API GitHub des releases `cbl-log-v*`. Si une version
+  plus récente existe, une fenêtre propose **Installer maintenant / Voir les notes / Plus tard**.
+- **Aide › Rechercher une mise à jour…** lance la même vérification à la demande (et dit si l'app est à jour).
+- *Installer maintenant* télécharge l'exécutable de la release (taille et SHA-256 vérifiés), puis :
+  - version installée : installeur NSIS en silencieux dans le même dossier, cbl-log redémarre et rouvre les onglets ;
+  - version portable : le nouveau `cbl-log-<version>-portable.exe` est posé à côté de l'actuel et lancé (l'ancien
+    peut être supprimé).
+- `"checkForUpdates": false` dans `%APPDATA%\cbl-log\settings.json` désactive la vérification au démarrage (le menu
+  reste disponible). C'est le seul accès réseau de l'application : une requête GET vers `api.github.com`, rien n'est
+  envoyé.
 
 Publier une version : poser un tag `cbl-log-vX.Y.Z` sur `main` et le pousser. Le job `release` du workflow
 `cbl-log – CI` construit les deux exécutables (version issue du tag) et les attache à une release GitHub.

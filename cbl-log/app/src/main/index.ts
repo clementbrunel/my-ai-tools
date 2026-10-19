@@ -9,6 +9,7 @@ import { loadFormats } from "./formats-store";
 import { EngineHost } from "./engine-process";
 import { loadRecent, saveRecent, withoutRecentFile, withRecentFile } from "./recent-store";
 import { loadRuleSets, saveRuleSet } from "./rules-store";
+import { checkForUpdates } from "./updater";
 
 // Settings live in %APPDATA%/cbl-log (architecture, section 8), not under the package name.
 // CBL_LOG_USER_DATA relocates it (portable use, isolated acceptance runs).
@@ -88,6 +89,10 @@ function buildMenu(): void {
         ],
       },
       { role: "viewMenu" },
+      {
+        label: "&Aide",
+        submenu: [{ label: "Rechercher une &mise à jour…", click: () => void checkForUpdates(mainWindow, true) }],
+      },
     ]),
   );
 }
@@ -179,6 +184,10 @@ if (!app.requestSingleInstanceLock()) {
     configWatcher.start();
     engine.start();
     createWindow();
+    // Startup check, off the critical path; packaged builds only (a dev build has nothing to install).
+    if (app.isPackaged && (await loadSettings(app.getPath("userData"))).value.checkForUpdates) {
+      setTimeout(() => void checkForUpdates(mainWindow, false), 5000);
+    }
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();
     });
