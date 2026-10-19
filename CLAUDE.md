@@ -37,6 +37,11 @@ one tested patch/minor PR per sub-project, majors listed in the `📦 Dépendanc
 hebdo` issue, and a review of ai-env-manager's catalogue. The perimeter (which sub-projects, which
 checks) is edited in `.claude/skills/weekly-deps/scope.json`.
 
+## Releasing a sub-project
+
+Tag `<tool>-vX.Y.Z` via `.claude/skills/release-tool/` so GitHub's "Source code" archive contains only
+that tool's directory (temporary `.gitattributes` export-ignore on the tagged commit, reverted on `main`).
+
 ## Common commands (per tool)
 
 ```bash
