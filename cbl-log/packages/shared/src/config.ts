@@ -9,6 +9,8 @@ export type Theme = z.infer<typeof themeSchema>;
 export const settingsSchema = z.object({
   schemaVersion: z.literal(1),
   theme: themeSchema.default("system"),
+  /** Looks for a newer GitHub release at startup (the only network access of the app, NF-07). */
+  checkForUpdates: z.boolean().default(true),
 });
 export type Settings = z.infer<typeof settingsSchema>;
 
@@ -60,7 +62,7 @@ export const recentSchema = z.object({
 });
 export type Recent = z.infer<typeof recentSchema>;
 
-export const defaultSettings = (): Settings => ({ schemaVersion: 1, theme: "system" });
+export const defaultSettings = (): Settings => ({ schemaVersion: 1, theme: "system", checkForUpdates: true });
 export const emptyRecent = (): Recent => ({ schemaVersion: 1, files: [] });
 export const emptySession = (): Session => ({ schemaVersion: 1, tabs: [] });
 
