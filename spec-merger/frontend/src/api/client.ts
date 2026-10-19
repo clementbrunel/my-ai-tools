@@ -1,6 +1,7 @@
 import axios from 'axios'
 
-export const client = axios.create({ baseURL: '/api' })
+// BASE_URL is "/" in dev and the deployment sub-path (e.g. "/spec-merger/") in a build.
+export const client = axios.create({ baseURL: `${import.meta.env.BASE_URL}api` })
 
 // Le backend renvoie toujours { message } (include-message: always, voir application.yml) :
 // on le remonte tel quel pour que l'UI affiche l'erreur réelle plutôt qu'un message générique.

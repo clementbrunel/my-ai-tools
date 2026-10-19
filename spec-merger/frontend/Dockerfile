@@ -3,6 +3,9 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 COPY . .
+# Deployment sub-path, e.g. --build-arg VITE_BASE=spec-merger
+ARG VITE_BASE=/
+ENV VITE_BASE=$VITE_BASE
 RUN npm run build
 
 FROM nginx:alpine
