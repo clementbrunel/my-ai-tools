@@ -27,8 +27,18 @@ export interface Account {
   iban: string | null
   currency: string
   type: AccountType
+  connectorType: ConnectorType
   currentBalance: number
   lastSyncedAt: string | null
+}
+
+export interface CreateManualAccountRequest {
+  label: string
+  type: AccountType
+  currency?: string
+  initialBalance: number
+  /** ISO date (yyyy-MM-dd) the balance was observed; omitted = now. */
+  date?: string
 }
 
 export interface NetWorth {

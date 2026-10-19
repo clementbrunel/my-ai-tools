@@ -54,6 +54,13 @@ l'institution, migration `V2`) → redirection vers le dashboard. Ensuite `POST 
 `/sessions/{id}` puis `/accounts/{uid}/details|balances|transactions`. `externalAccountId` = `identification_hash`
 (stable entre consentements). Consentement à renouveler à expiration (bouton « Reconnecter »).
 
+## Comptes manuels (Mon Petit Placement, SwissLife, Foyer, AFI-ESCA)
+
+Institutions `MANUAL` : `ManualConnector` ne découvre rien, les comptes et soldes se saisissent depuis le Dashboard.
+`POST /api/institutions/{id}/accounts` crée un compte (+ premier snapshot) ; `PUT /api/accounts/{id}/balance`
+met à jour `current_balance` et ajoute un `balance_snapshots`. Date optionnelle (défaut maintenant) : une date antérieure
+au dernier snapshot n'alimente que l'historique. Refusé (409) pour une institution non `MANUAL`.
+
 ## Woob (BNP Paribas)
 
 `WoobConnector` appelle la CLI woob (vérifiée sur woob 3.7 + module `bnp`) : `woob bank -b <backend> -f json -n 0 list`
