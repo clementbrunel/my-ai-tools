@@ -89,7 +89,10 @@ describe("filter on a tab", () => {
     expect(tabsReducer(aside, { type: "filterSuspended", tabId: "a", suspended: true })).toBe(aside);
     expect(tabsReducer(aside, { type: "filterSuspended", tabId: "a", suspended: false }).tabs[0]).not.toHaveProperty("filterSuspended");
     expect(tabsReducer(aside, { type: "filterChanged", tabId: "a", filter }).tabs[0]).not.toHaveProperty("filterSuspended");
-    expect(tabsReducer(aside, { type: "filterApplied", tabId: "a", filterId: "f2" }).tabs[0]).not.toHaveProperty("filterSuspended");
+    // the engine answering for the full-file view (a new filter id) must not end it
+    expect(tabsReducer(aside, { type: "filterApplied", tabId: "a", filterId: "f2" }).tabs[0]!.filterSuspended).toBe(true);
+    // the fold choice alone keeps the full file
+    expect(tabsReducer(aside, { type: "filterChanged", tabId: "a", filter: { ...aside.tabs[0]!.filter, foldTraces: true } }).tabs[0]!.filterSuspended).toBe(true);
   });
 
   it("is saved in the session unless it hides nothing", () => {
