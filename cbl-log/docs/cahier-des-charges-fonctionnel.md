@@ -172,7 +172,7 @@ Priorités : **P0** = MVP (parité BareTail utile), **P1** = V1 (ce qui justifie
 | NF-05  | **Recherche/filtre** : premiers résultats < 1 s, 1 Go filtré en < 3 s, progression visible, annulable  |
 | NF-11  | **Multi-logs** : 8 fichiers suivis simultanément (onglets + split), 1 000 lignes/s chacun, totalisant 10 Go, sans dégradation visible de l'UI ni dépassement de NF-02 |
 | NF-06  | **Windows 10/11 x64** uniquement ; installeur + version portable (`.exe` sans installation)             |
-| NF-07  | Hors ligne, aucune télémétrie, aucune donnée ne quitte la machine. Seule exception : la vérification des mises à jour (lecture des releases GitHub, désactivable via `checkForUpdates`) |
+| NF-07  | Hors ligne, aucune télémétrie, aucune donnée ne quitte la machine. Seule exception : la vérification des mises à jour (lecture des releases GitHub, désactivable via `checkForUpdates`). Le signalement de bug (Aide) n'envoie rien : il ouvre une issue pré-remplie dans le navigateur |
 | NF-08  | Lecture seule stricte sur les fichiers suivis : l'outil n'écrit jamais dans un log                      |
 | NF-09  | Robustesse : un fichier binaire, illisible ou supprimé ne fait jamais planter l'appli                   |
 | NF-10  | Accessibilité de base : navigation clavier complète, contrastes suffisants des thèmes par défaut        |

@@ -1126,3 +1126,56 @@ input.switch:checked::after {
   color: var(--muted);
   font-size: 11px;
 }
+
+.feedback-panel {
+  width: min(640px, 94vw);
+}
+
+.feedback-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: auto;
+  padding: 0 12px;
+  font-size: 12px;
+}
+
+.feedback-form > label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.feedback-form input:not([type="checkbox"]),
+.feedback-form textarea {
+  padding: 4px 6px;
+  border: 1px solid var(--control-border);
+  border-radius: 4px;
+  background: var(--control);
+  color: var(--fg);
+  font: inherit;
+}
+
+.feedback-form textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+
+.feedback-form > label.feedback-env {
+  flex-direction: row;
+  align-items: center;
+  color: var(--muted);
+}
+
+.feedback-form .view-switch {
+  align-self: flex-start;
+}
+
+.feedback-error {
+  margin: 0;
+  color: var(--lvl-error);
+}
+
+.feedback-form footer {
+  padding: 8px 0;
+}

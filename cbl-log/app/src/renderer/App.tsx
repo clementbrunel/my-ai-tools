@@ -27,6 +27,7 @@ import { subscribeEngine } from "./engine/client";
 import type { RpcClient } from "./engine/rpc-client";
 import { baseName, pathKey } from "./files/path-key";
 import { useFileDrop } from "./files/useFileDrop";
+import { FeedbackPanel } from "./feedback/FeedbackPanel";
 import { FilterBar } from "./filter/FilterBar";
 import { LevelPills } from "./filter/LevelPills";
 import { nextVisibleHit } from "./filter/filter-nav";
@@ -80,6 +81,7 @@ export function App() {
   const [notice, setNotice] = useState<{ text: string; isError: boolean } | undefined>();
   const [ruleSets, setRuleSets] = useState<RuleSet[]>(createBuiltinRuleSets);
   const [rulesOpen, setRulesOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [userFormats, setUserFormats] = useState<LogFormat[]>([]);
   const detecting = useRef(new Set<TabId>());
@@ -478,6 +480,7 @@ export function App() {
       else loadSettingsNow();
     });
   }, [loadRulesNow, loadSettingsNow, loadFormatsNow]);
+  useEffect(() => window.cblLog.onOpenFeedback(() => setFeedbackOpen(true)), []);
 
   /** Applies `edit` to one profile now and writes it to disk shortly after the last edit. */
   const editRuleSet = useCallback((setId: string, edit: (set: RuleSet) => RuleSet) => {
@@ -824,6 +827,9 @@ export function App() {
           }
           onClose={() => setRulesOpen(false)}
         />
+      )}
+      {feedbackOpen && (
+        <FeedbackPanel onClose={() => setFeedbackOpen(false)} onNotice={(text, isError) => setNotice({ text, isError })} />
       )}
       {!active || !runtime ? (
         <main className="placeholder">
