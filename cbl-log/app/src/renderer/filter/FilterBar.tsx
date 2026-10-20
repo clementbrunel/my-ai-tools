@@ -52,7 +52,7 @@ export function FilterBar({ settings, onChange, focusRequest, error }: Props) {
 
   return (
     <div className="filterbar" role="search" aria-label="Filtre">
-      <div className={invalid ? "field invalid" : "field"}>
+      <div className={invalid ? "field multiline invalid" : "field multiline"}>
         <svg className="field-icon" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" aria-hidden="true">
           <path d="M2 3h12L9.5 8.5V13l-3 1.5v-6z" />
         </svg>

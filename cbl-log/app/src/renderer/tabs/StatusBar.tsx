@@ -69,8 +69,20 @@ export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules
       <span className="status-meta">
         {formatBytes(tab.info.sizeBytes)} · <span title="Format de log détecté">{formatName ?? "brut"}</span>
       </span>
-      <span className="status-path" title={tab.info.path}>
-        {tab.info.path}
+      <span className="status-file">
+        <span className="status-path" title={tab.info.path}>
+          {tab.info.path}
+        </span>
+        <label className="profile-select" title="Encodage du fichier (le choix rouvre l'onglet et interrompt la recherche en cours)">
+          <select value={tab.encodingChoice ?? "auto"} onChange={(e) => onEncodingChange(e.target.value === "auto" ? undefined : (e.target.value as Encoding))} aria-label="Encodage">
+            <option value="auto">Auto ({encodingLabel(tab.info.encoding)})</option>
+            {ENCODING_LABELS.map((e) => (
+              <option key={e.value} value={e.value}>
+                {e.label}
+              </option>
+            ))}
+          </select>
+        </label>
       </span>
       {tab.indexing !== undefined && <span>Indexation {Math.round(tab.indexing * 100)} %</span>}
       {tab.state !== "following" && <span className={`state-${tab.state}`}>{tab.state === "missing" ? "Fichier introuvable" : tab.message ?? "Erreur"}</span>}
@@ -124,16 +136,6 @@ export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules
           ))}
         </select>
       </label>
-      <label className="profile-select" title="Encodage du fichier (le choix rouvre l'onglet et interrompt la recherche en cours)">
-        <select value={tab.encodingChoice ?? "auto"} onChange={(e) => onEncodingChange(e.target.value === "auto" ? undefined : (e.target.value as Encoding))} aria-label="Encodage">
-          <option value="auto">Auto ({encodingLabel(tab.info.encoding)})</option>
-          {ENCODING_LABELS.map((e) => (
-            <option key={e.value} value={e.value}>
-              {e.label}
-            </option>
-          ))}
-        </select>
-      </label>
       <span className="status-tools">
         <button type="button" className="icon-btn" onClick={onEditRules} title="Règles de surlignage (Ctrl+H)" aria-label="Règles de surlignage">
           <RulesIcon />
@@ -147,18 +149,20 @@ export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules
           {dark ? <MoonIcon /> : <SunIcon />}
         </button>
       </span>
-      <button
-        type="button"
-        className={pendingLines !== undefined ? "pause on" : "pause"}
-        aria-pressed={pendingLines !== undefined}
-        onClick={onTogglePause}
-        title={pendingLines !== undefined ? "Reprendre le rafraîchissement (Pause)" : "Figer la vue : les lignes qui arrivent sont gardées, affichées à la reprise (Pause)"}
-      >
-        <PauseIcon /> {pendingLines !== undefined ? `Pause (+${pendingLines.toLocaleString("fr-FR")})` : "Pause"}
-      </button>
-      <button type="button" className={tab.follow ? "follow on" : "follow"} aria-pressed={tab.follow} onClick={onToggleFollow} title="Suivre la fin du fichier (Ctrl+End)">
-        <FollowIcon /> Suivre
-      </button>
+      <span className="status-live">
+        <button
+          type="button"
+          className={pendingLines !== undefined ? "pause on" : "pause"}
+          aria-pressed={pendingLines !== undefined}
+          onClick={onTogglePause}
+          title={pendingLines !== undefined ? "Reprendre le rafraîchissement (Pause)" : "Figer la vue : les lignes qui arrivent sont gardées, affichées à la reprise (Pause)"}
+        >
+          <PauseIcon /> {pendingLines !== undefined ? `Pause (+${pendingLines.toLocaleString("fr-FR")})` : "Pause"}
+        </button>
+        <button type="button" className={tab.follow ? "follow on" : "follow"} aria-pressed={tab.follow} onClick={onToggleFollow} title="Suivre la fin du fichier (Ctrl+End)">
+          <FollowIcon /> Suivre
+        </button>
+      </span>
     </footer>
   );
 }

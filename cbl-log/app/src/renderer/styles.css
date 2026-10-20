@@ -699,6 +699,20 @@ body {
   border-color: #b3261e;
 }
 
+/* Filter: the chips wrap onto more lines when the bar is narrow, the field grows in height. */
+.field.multiline {
+  flex-wrap: wrap;
+  height: auto;
+  min-height: 30px;
+  padding-top: 3px;
+  padding-bottom: 3px;
+  row-gap: 4px;
+}
+
+.field.multiline input {
+  min-width: 12ch;
+}
+
 .field-icon {
   flex: none;
   margin-right: 6px;
@@ -806,9 +820,8 @@ body {
 }
 
 .chips {
-  display: inline-flex;
-  flex: none;
-  flex-wrap: nowrap;
+  display: contents;
+  flex-wrap: wrap;
   gap: 4px;
   margin-right: 4px;
 }
@@ -895,14 +908,16 @@ body {
 .level-pill.lvl-debug { --pill-color: var(--lvl-debug); }
 .level-pill.lvl-trace { --pill-color: var(--lvl-trace); }
 
+/* wraps onto a second line when the window is too narrow, rather than pushing Pause / Suivre out */
 .statusbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  gap: 4px 12px;
   flex: none;
-  height: 34px;
+  min-height: 34px;
   box-sizing: border-box;
-  padding: 0 12px;
+  padding: 4px 12px;
   background: var(--chrome);
   border-top: 1px solid var(--border);
   color: var(--muted);
@@ -922,8 +937,22 @@ body {
   background: var(--control-border);
 }
 
+/* path then encoding; takes the free width, the path is the part that gets shortened */
+.status-file {
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  gap: 8px;
+  /* the encoding always fits; the path only gets what is left (without this, its full length would wrap the bar) */
+  min-width: 20ch;
+}
+
+.status-file .profile-select {
+  flex: none;
+}
+
 .status-path {
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1050,6 +1079,14 @@ input.switch:checked::after {
 
 .icon-btn.cleared {
   color: #b06f00;
+}
+
+/* Pause / Suivre stay together in the bottom right corner, also when the bar wraps */
+.status-live {
+  display: inline-flex;
+  flex: none;
+  gap: 8px;
+  margin-left: auto;
 }
 
 .follow,
