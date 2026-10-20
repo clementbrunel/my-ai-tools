@@ -20,6 +20,8 @@ publish: null
 extraResources:
   - from: app/resources/icon.png
     to: icon.png
+  - from: app/resources/icon-light.png
+    to: icon-light.png
   - from: app/resources/avatar.png
     to: avatar.png
 win:

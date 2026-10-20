@@ -107,7 +107,8 @@ function buildMenu(): void {
 // Window / taskbar icon: shipped next to the asar via electron-builder extraResources when packaged.
 const resourcePath = (name: string): string =>
   app.isPackaged ? join(process.resourcesPath, name) : join(__dirname, "../../resources", name);
-const iconPath = (): string => resourcePath("icon.png");
+// Follows the theme in force (resources/icons/*.svg); the .exe/installer keep the dark icon.ico.
+const iconPath = (): string => resourcePath(nativeTheme.shouldUseDarkColors ? "icon.png" : "icon-light.png");
 // Author avatar shown by the splash and "À propos", independent of the app icon.
 const avatarPath = (): string => resourcePath("avatar.png");
 
@@ -189,6 +190,8 @@ if (!app.requestSingleInstanceLock()) {
 
   void app.whenReady().then(async () => {
     splashWindow = showSplash(app.getVersion(), iconPath(), avatarPath()); // first thing, before loading the config
+    // Theme switch in the app (themeSource) or system change: swap the window / taskbar icon.
+    nativeTheme.on("updated", () => mainWindow?.setIcon(iconPath()));
     recentFiles = (await loadRecent(app.getPath("userData"))).value.files;
     buildMenu();
     mkdirSync(rulesDir(), { recursive: true }); // so that the folders can be watched from the first run

@@ -3,6 +3,9 @@
   "private": true,
   "version": "1.1.0",
   "workspaces": ["packages/*", "app"],
+  "engines": {
+    "node": ">=24.13.1"
+  },
   "scripts": {
     "postinstall": "node scripts/install-electron.mjs",
     "dev": "npm run build -w @cbl-log/shared && npm run build -w @cbl-log/engine && npm run dev -w @cbl-log/app",
