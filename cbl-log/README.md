@@ -4,7 +4,7 @@ Visualiseur de logs temps réel pour Windows, portage moderne et personnalisable
 suivi instantané de fichiers de toute taille, **rolling géré sans perte de ligne**, surlignage regex,
 filtres, parseurs de format, profils, vue fusionnée multi-fichiers.
 
-> **Statut : version 1.1.0.**
+> **Statut : version 2.0.0.**
 
 - [Cahier des charges fonctionnel](./docs/cahier-des-charges-fonctionnel.md)
 - [Dossier d'architecture](./docs/architecture.md)
