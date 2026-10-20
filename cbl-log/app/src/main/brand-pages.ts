@@ -2,7 +2,7 @@
 // that it can be unit-tested. Both show the author's avatar (resources/avatar.png, passed as a data URL)
 // independently of the app icon, and colors follow the theme tokens of the renderer (styles.css).
 
-export const AUTHOR = "Clement Brunel";
+export const AUTHOR = "Clément Brunel";
 export const AUTHOR_URL = "https://github.com/clementbrunel";
 export const REPO_URL = "https://github.com/clementbrunel/my-ai-tools";
 
