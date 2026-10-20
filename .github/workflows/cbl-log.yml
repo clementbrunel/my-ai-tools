@@ -23,7 +23,8 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          node-version: 22
+          # Same major as the Node embedded by Electron (cbl-log/.nvmrc).
+          node-version-file: cbl-log/.nvmrc
           cache: npm
           cache-dependency-path: cbl-log/package-lock.json
 
@@ -47,7 +48,8 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          node-version: 22
+          # Same major as the Node embedded by Electron (cbl-log/.nvmrc).
+          node-version-file: cbl-log/.nvmrc
           cache: npm
           cache-dependency-path: cbl-log/package-lock.json
 
