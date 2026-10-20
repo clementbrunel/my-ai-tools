@@ -74,8 +74,29 @@ export function detectEncoding(sample: Buffer): Encoding {
   return isValidUtf8(sample) ? "utf-8" : "windows-1252";
 }
 
+/** What the engine needs from a decoder: whole-chunk decoding, no streaming. */
+export interface Decoder {
+  decode(input: Uint8Array): string;
+}
+
+// windows-1252 characters for bytes 0x80-0x9F (the 5 undefined bytes stay C1 controls, as in WHATWG).
+const CP1252_HIGH = "€\u0081‚ƒ„…†‡ˆ‰Š‹Œ\u008DŽ\u008F\u0090‘’“”•–—˜™š›œ\u009DžŸ";
+const C1 = /[\u0080-\u009f]/g;
+
+/**
+ * Node's TextDecoder("windows-1252") decodes 0x80-0x9F as ISO-8859-1 on recent versions (0x80 -> U+0080
+ * instead of €), so it is not used: exact latin1 decoding, then the windows-1252 remapping of that range.
+ */
+const windows1252: Decoder = {
+  decode(input) {
+    const text = Buffer.from(input.buffer, input.byteOffset, input.byteLength).toString("latin1");
+    return text.replace(C1, (c) => CP1252_HIGH[c.charCodeAt(0) - 0x80]!);
+  },
+};
+
 /** Decoder that keeps the BOM: the caller skips `bomLength` itself. */
-export function createDecoder(encoding: Encoding): TextDecoder {
+export function createDecoder(encoding: Encoding): Decoder {
   // WHATWG note: the iso-8859-1 label is an alias of windows-1252.
+  if (encoding === "windows-1252" || encoding === "iso-8859-1") return windows1252;
   return new TextDecoder(encoding, { fatal: false, ignoreBOM: true });
 }

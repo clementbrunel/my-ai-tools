@@ -40,6 +40,8 @@ describe("bomLength / decoder", () => {
     expect(createDecoder("utf-16be").decode(utf16be("é✓"))).toBe("é✓");
     expect(createDecoder("windows-1252").decode(Buffer.from([0xe9, 0x80]))).toBe("é€");
     expect(createDecoder("iso-8859-1").decode(Buffer.from([0xe9]))).toBe("é");
+    const high = Buffer.from(Array.from({ length: 32 }, (_, i) => 0x80 + i));
+    expect(createDecoder("windows-1252").decode(high)).toBe("€\u0081‚ƒ„…†‡ˆ‰Š‹Œ\u008DŽ\u008F\u0090‘’“”•–—˜™š›œ\u009DžŸ");
   });
 });
 
