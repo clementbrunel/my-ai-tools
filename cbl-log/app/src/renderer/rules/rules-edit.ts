@@ -29,13 +29,12 @@ export function removeRule(rules: readonly HighlightRule[], id: string): Highlig
   return rules.filter((rule) => rule.id !== id);
 }
 
-/** Moves a rule up (-1) or down (+1) in priority; no-op at the ends. */
-export function moveRule(rules: readonly HighlightRule[], id: string, delta: -1 | 1): HighlightRule[] {
+/** Moves a rule to `toIndex` (its final position in the list); no-op for an unknown id or an out-of-range index. */
+export function moveRuleTo(rules: readonly HighlightRule[], id: string, toIndex: number): HighlightRule[] {
   const from = rules.findIndex((rule) => rule.id === id);
-  const to = from + delta;
-  if (from === -1 || to < 0 || to >= rules.length) return [...rules];
+  if (from === -1 || toIndex < 0 || toIndex >= rules.length) return [...rules];
   const next = [...rules];
   const [moved] = next.splice(from, 1);
-  next.splice(to, 0, moved!);
+  next.splice(toIndex, 0, moved!);
   return next;
 }

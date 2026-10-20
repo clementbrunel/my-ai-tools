@@ -373,6 +373,31 @@ body {
   font-size: 12px;
 }
 
+.rule-grip {
+  cursor: grab;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+  padding: 2px 2px;
+  user-select: none;
+}
+
+.rule-grip:hover {
+  color: var(--accent);
+}
+
+.rule-row.dragging {
+  opacity: 0.4;
+}
+
+.rule-row.drop-before {
+  box-shadow: 0 -2px 0 0 var(--accent);
+}
+
+.rule-row.drop-after {
+  box-shadow: 0 2px 0 0 var(--accent);
+}
+
 .rule-row.invalid .rule-pattern {
   outline: 1px solid #b3261e;
 }
