@@ -112,49 +112,52 @@ export function SearchBar({ tabId, initial, status, focusRequest, onQuery, onNex
   return (
     <div className="searchblock">
       <div className="searchbar" role="search">
-        <input
-          ref={inputRef}
-          className={invalid ? "invalid" : ""}
-          value={fields.pattern}
-          placeholder="Rechercher (Ctrl+F)"
-          aria-label="Rechercher"
-          onChange={(e) => update({ pattern: e.target.value })}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              if (debouncer.pending) debouncer.flush(); // the query was still being typed: search it first
-              else if (e.shiftKey) onPrev();
-              else onNext();
-            } else if (e.key === "Escape") {
-              e.preventDefault();
-              if (fields.pattern !== "") clear();
-              else inputRef.current?.blur();
-            }
-          }}
-        />
-        <label title="Expression régulière">
-          <input type="checkbox" checked={fields.isRegex} onChange={(e) => update({ isRegex: e.target.checked })} /> .*
-        </label>
-        <label title="Respecter la casse">
-          <input type="checkbox" checked={fields.caseSensitive} onChange={(e) => update({ caseSensitive: e.target.checked })} /> Aa
-        </label>
-        <label title="Mot entier : ERROR ne trouve pas ERRORS ni MYERROR">
-          <input type="checkbox" checked={fields.wholeWord} onChange={(e) => update({ wholeWord: e.target.checked })} /> Mot
-        </label>
+        <div className={invalid ? "field invalid" : "field"}>
+          <SearchIcon />
+          <input
+            ref={inputRef}
+            value={fields.pattern}
+            placeholder="Rechercher (Ctrl+F)"
+            aria-label="Rechercher"
+            onChange={(e) => update({ pattern: e.target.value })}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                if (debouncer.pending) debouncer.flush(); // the query was still being typed: search it first
+                else if (e.shiftKey) onPrev();
+                else onNext();
+              } else if (e.key === "Escape") {
+                e.preventDefault();
+                if (fields.pattern !== "") clear();
+                else inputRef.current?.blur();
+              }
+            }}
+          />
+          <span className={invalid || (!typing && status?.error) ? "search-count error" : "search-count"} role="status">
+            {typing && !invalid ? "…" : describeSearch({ pattern: fields.pattern, invalid, status, ordinal: current?.ordinal ?? null })}
+          </span>
+          <button type="button" className={fields.isRegex ? "opt on" : "opt"} aria-pressed={fields.isRegex} onClick={() => update({ isRegex: !fields.isRegex })} title="Expression régulière">
+            .*
+          </button>
+          <button type="button" className={fields.caseSensitive ? "opt on" : "opt"} aria-pressed={fields.caseSensitive} onClick={() => update({ caseSensitive: !fields.caseSensitive })} title="Respecter la casse">
+            Aa
+          </button>
+          <button type="button" className={fields.wholeWord ? "opt on" : "opt"} aria-pressed={fields.wholeWord} onClick={() => update({ wholeWord: !fields.wholeWord })} title="Mot entier : ERROR ne trouve pas ERRORS ni MYERROR">
+            <u>ab</u>
+          </button>
+          <span className="field-sep" aria-hidden="true" />
+          <button type="button" className="opt" onClick={onPrev} title="Précédent (Maj+F3)" aria-label="Précédent">
+            ↑
+          </button>
+          <button type="button" className="opt" onClick={onNext} title="Suivant (F3)" aria-label="Suivant">
+            ↓
+          </button>
+          <button type="button" className="opt" onClick={clear} disabled={fields.pattern === ""} title="Vider la recherche (Échap)" aria-label="Vider la recherche">
+            ×
+          </button>
+        </div>
         <button type="button" className={helpOpen ? "help-toggle on" : "help-toggle"} onClick={() => setHelpOpen((v) => !v)} title="Aide à la saisie des expressions régulières" aria-label="Aide à la saisie" aria-expanded={helpOpen}>
           ?
-        </button>
-        <button type="button" onClick={onPrev} title="Précédent (Maj+F3)" aria-label="Précédent">
-          ↑
-        </button>
-        <button type="button" onClick={onNext} title="Suivant (F3)" aria-label="Suivant">
-          ↓
-        </button>
-        <span className={invalid || (!typing && status?.error) ? "search-count error" : "search-count"} role="status">
-          {typing && !invalid ? "…" : describeSearch({ pattern: fields.pattern, invalid, status, ordinal: current?.ordinal ?? null })}
-        </span>
-        <button type="button" onClick={clear} disabled={fields.pattern === ""} title="Vider la recherche (Échap)" aria-label="Vider la recherche">
-          ×
         </button>
       </div>
       {helpOpen && (
@@ -170,5 +173,14 @@ export function SearchBar({ tabId, initial, status, focusRequest, onQuery, onNex
         />
       )}
     </div>
+  );
+}
+
+function SearchIcon() {
+  return (
+    <svg className="field-icon" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+      <circle cx="7" cy="7" r="4.5" />
+      <path d="M10.5 10.5 14 14" />
+    </svg>
   );
 }
