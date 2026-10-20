@@ -9,12 +9,12 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 public class CorsConfig implements WebMvcConfigurer {
 
     @Value("${app.frontend-url}")
-    private String frontendUrl;
+    private String[] frontendUrls; // comma-separated in FRONTEND_URL
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/api/**")
-                .allowedOrigins(frontendUrl)
+                .allowedOrigins(frontendUrls)
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS");
     }
 }
