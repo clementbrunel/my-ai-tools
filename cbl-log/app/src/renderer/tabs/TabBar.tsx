@@ -7,9 +7,11 @@ interface Props {
   activeId: TabId | undefined;
   onActivate(tabId: TabId): void;
   onClose(tabId: TabId): void;
+  /** Opens files from the file dialog. */
+  onOpen(): void;
 }
 
-export function TabBar({ tabs, activeId, onActivate, onClose }: Props) {
+export function TabBar({ tabs, activeId, onActivate, onClose, onOpen }: Props) {
   return (
     <nav className="tabs" role="tablist">
       {tabs.map((tab) => {
@@ -47,6 +49,9 @@ export function TabBar({ tabs, activeId, onActivate, onClose }: Props) {
           </div>
         );
       })}
+      <button type="button" className="tab-add" onClick={onOpen} title="Ouvrir un fichier (Ctrl+O)" aria-label="Ouvrir un fichier">
+        +
+      </button>
     </nav>
   );
 }

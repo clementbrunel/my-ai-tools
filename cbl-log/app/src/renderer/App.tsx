@@ -28,6 +28,7 @@ import type { RpcClient } from "./engine/rpc-client";
 import { baseName, pathKey } from "./files/path-key";
 import { useFileDrop } from "./files/useFileDrop";
 import { FilterBar } from "./filter/FilterBar";
+import { LevelPills } from "./filter/LevelPills";
 import { nextVisibleHit } from "./filter/filter-nav";
 import { compileRules, highlightLine } from "./highlight/highlight";
 import { RulesEditor } from "./rules/RulesEditor";
@@ -834,7 +835,13 @@ export function App() {
         </main>
       ) : (
         <>
-          <TabBar tabs={state.tabs} activeId={activeId} onActivate={(tabId) => dispatch({ type: "activated", tabId })} onClose={closeTab} />
+          <TabBar
+            tabs={state.tabs}
+            activeId={activeId}
+            onActivate={(tabId) => dispatch({ type: "activated", tabId })}
+            onClose={closeTab}
+            onOpen={() => void window.cblLog.openFileDialog().then(openPaths)}
+          />
           <div className="toprow">
             <SearchBar
               tabId={active.info.tabId}
@@ -846,6 +853,7 @@ export function App() {
               onPrev={() => void findHit("prev")}
             />
             <FilterBar settings={active.filter} onChange={onFilterChange} focusRequest={filterFocus} error={filterProgress?.error} />
+            <LevelPills filter={active.filter} enabled={!!activeFormat} onChange={onFilterChange} />
           </div>
           {active.state !== "following" && (
             <div className={`banner banner-${active.state}`} role="status">
@@ -894,7 +902,6 @@ export function App() {
             formatName={activeFormat?.format.name || activeFormat?.format.id}
             onToggleTheme={toggleTheme}
             onEncodingChange={(encoding) => void reopenWithEncoding(active.info.tabId, encoding)}
-            canFilterLevels={!!activeFormat}
             canFoldTraces={activeFormat?.format.continuation === "not-line"}
             onFilterChange={onFilterChange}
             filterSuspended={!!active.filterSuspended}
