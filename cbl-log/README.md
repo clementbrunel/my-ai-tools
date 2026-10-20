@@ -11,6 +11,13 @@ filtres, parseurs de format, profils, vue fusionnée multi-fichiers.
 
 Pile : Electron + TypeScript + React (Windows 10/11).
 
+## Partager un profil de surlignage
+
+Dans **Règles de surlignage**, `Exporter…` enregistre le profil affiché dans un fichier `.json` à envoyer
+à vos collègues ; `Importer…` l'ajoute chez eux et l'applique à l'onglet affiché. Si un profil de même id
+existe déjà (deux versions du même profil), cbl-log propose de le remplacer ou de garder les deux. Le fichier
+exporté a le même format que ceux de `%APPDATA%\cbl-log\rules\` : il peut aussi y être déposé directement.
+
 ## Développement
 
 Monorepo npm workspaces : `packages/shared` (types + schémas zod), `packages/engine` (moteur TS pur Node, testé avec vitest), `app` (Electron + electron-vite + React 18).

@@ -16,6 +16,9 @@ interface Props {
   formatOptions: readonly { id: string; name: string }[];
   onToggleFormat(formatId: string): void;
   onCreate(name: string): void;
+  /** Sharing between colleagues: the edited profile to a file, a file to a new (or replaced) profile. */
+  onExport(): void;
+  onImport(): void;
   rules: readonly HighlightRule[];
   /** Rule id -> compile error, for rules whose regex is invalid. */
   errors: Record<string, string>;
@@ -25,7 +28,7 @@ interface Props {
 }
 
 /** Modal editor: edits apply to the open tabs immediately; the parent persists them. */
-export function RulesEditor({ sets, selectedId, choice, autoName, onChoose, formatOptions, onToggleFormat, onCreate, rules, errors, onChange, onReset, onClose }: Props) {
+export function RulesEditor({ sets, selectedId, choice, autoName, onChoose, formatOptions, onToggleFormat, onCreate, onExport, onImport, rules, errors, onChange, onReset, onClose }: Props) {
   const selected = sets.find((s) => s.id === selectedId);
   const [naming, setNaming] = useState(false);
   const [newName, setNewName] = useState("");
@@ -112,6 +115,14 @@ export function RulesEditor({ sets, selectedId, choice, autoName, onChoose, form
               Nouveau profil…
             </button>
           )}
+          <span className="profile-share">
+            <button type="button" onClick={onExport} title="Enregistre ce profil dans un fichier .json à envoyer à vos collègues">
+              Exporter…
+            </button>
+            <button type="button" onClick={onImport} title="Ajoute un profil reçu d'un collègue (fichier .json exporté depuis cbl-log)">
+              Importer…
+            </button>
+          </span>
           <span className="profile-formats">
             Proposé automatiquement pour les logs :{" "}
             {formatOptions.map((f) => (

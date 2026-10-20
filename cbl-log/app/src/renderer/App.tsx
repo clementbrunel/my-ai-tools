@@ -32,7 +32,7 @@ import { LevelPills } from "./filter/LevelPills";
 import { nextVisibleHit } from "./filter/filter-nav";
 import { compileRules, highlightLine } from "./highlight/highlight";
 import { RulesEditor } from "./rules/RulesEditor";
-import { autoRuleSet, pickRuleSet } from "./rules/rule-profile";
+import { autoRuleSet, importAsCopy, importKind, pickRuleSet, uniqueRuleSetId, withRuleSet } from "./rules/rule-profile";
 import { buildSession } from "./session/session-snapshot";
 import { StatusBar } from "./tabs/StatusBar";
 import { TabBar } from "./tabs/TabBar";
@@ -501,13 +501,54 @@ export function App() {
 
   const createRuleSet = useCallback(
     (name: string, base: RuleSet | undefined, onCreated?: (id: string) => void) => {
-      const slug = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "profil";
-      let id = slug;
-      for (let n = 2; ruleSets.some((s) => s.id === id); n++) id = `${slug}-${n}`;
+      const id = uniqueRuleSetId(ruleSets, name);
       const created: RuleSet = { schemaVersion: 1, id, name, formats: [], rules: (base ?? createDefaultRuleSet()).rules.map((r) => ({ ...r })) };
       setRuleSets((prev) => [...prev, created]);
       void window.cblLog.saveRuleSet(created).catch(() => undefined);
       onCreated?.(id);
+    },
+    [ruleSets],
+  );
+
+  /** Writes a profile to a file of the user's choice, to send it to colleagues. */
+  const exportRuleSet = useCallback((set: RuleSet) => {
+    window.cblLog
+      .exportRuleSet(set)
+      .then((path) => path && setNotice({ text: `Profil « ${set.name || set.id} » exporté : ${path}`, isError: false }))
+      .catch((err: unknown) => setNotice({ text: `Export impossible : ${err instanceof Error ? err.message : String(err)}`, isError: true }));
+  }, []);
+
+  /** Reads a profile shared by a colleague, stores it and applies it to the displayed tab. */
+  const importRuleSet = useCallback(
+    (onImported: (id: string) => void) => {
+      void window.cblLog.importRuleSet().then((result) => {
+        if (!result) return;
+        if (!result.ok) {
+          setNotice({ text: `Profil non importé : ${result.error}`, isError: true });
+          return;
+        }
+        let set = result.value;
+        const kind = importKind(ruleSets, set);
+        if (kind === "same") {
+          setNotice({ text: `Le profil « ${set.name || set.id} » est déjà à jour.`, isError: false });
+          onImported(set.id);
+          return;
+        }
+        if (kind === "conflict") {
+          const existing = ruleSets.find((s) => s.id === set.id);
+          const replace = window.confirm(
+            `Un profil « ${existing?.name || set.id} » existe déjà.\n\nOK : le remplacer par celui du fichier.\nAnnuler : garder les deux (le profil importé est ajouté sous un autre nom).`,
+          );
+          if (replace) clearTimeout(saveTimers.current.get(set.id)); // a pending save of the old rules must not undo the import
+          else set = importAsCopy(ruleSets, set);
+        }
+        setRuleSets((prev) => withRuleSet(prev, set));
+        window.cblLog
+          .saveRuleSet(set)
+          .then(() => setNotice({ text: `Profil « ${set.name || set.id} » importé.`, isError: false }))
+          .catch((err: unknown) => setNotice({ text: `Profil importé mais non enregistré : ${err instanceof Error ? err.message : String(err)}`, isError: true }));
+        onImported(set.id);
+      });
     },
     [ruleSets],
   );
@@ -813,6 +854,8 @@ export function App() {
             }))
           }
           onCreate={(name) => createRuleSet(name, editedSet, (id) => chooseProfile(id))}
+          onExport={() => exportRuleSet(editedSet)}
+          onImport={() => importRuleSet((id) => chooseProfile(id))}
           rules={editedSet.rules}
           errors={compiled.errors}
           onChange={(rules) => editRuleSet(editedSet.id, (set) => ({ ...set, rules }))}

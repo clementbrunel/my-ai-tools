@@ -1,7 +1,7 @@
 import { createBuiltinRuleSets, createDefaultRuleSet, createWebSphereRuleSet, type RuleSet } from "@cbl-log/shared";
 import { describe, expect, it } from "vitest";
 import { compileRules, highlightLine, withAlpha } from "../highlight/highlight";
-import { autoRuleSet, pickRuleSet } from "./rule-profile";
+import { autoRuleSet, importAsCopy, importKind, pickRuleSet, uniqueRuleSetId, withRuleSet } from "./rule-profile";
 
 const sets = createBuiltinRuleSets();
 const mine: RuleSet = { ...createDefaultRuleSet(), id: "mine", name: "Mine", formats: ["spring-boot"] };
@@ -56,5 +56,36 @@ describe("built-in WebSphere profile", () => {
   it("colors IBM message ids and exceptions", () => {
     expect(highlightLine(line("INFO", "SESN0066E: session lost"), compiled).lineBg).toBe(withAlpha("#d93025", 0.3));
     expect(highlightLine("Caused by: java.io.IOException: boom", compiled).segments.filter((s) => s.bg).map((s) => s.text)).toEqual(["Caused by:", "java.io.IOException"]);
+  });
+});
+
+describe("profile sharing (export / import)", () => {
+  it("derives a file-safe id that no profile uses", () => {
+    expect(uniqueRuleSetId(sets, "Équipe Paiement !")).toBe("equipe-paiement");
+    expect(uniqueRuleSetId(sets, "Défaut")).toBe("defaut");
+    expect(uniqueRuleSetId(sets, "default")).toBe("default-2");
+    expect(uniqueRuleSetId(sets, "***")).toBe("profil");
+  });
+
+  it("tells a new profile, an identical one and a conflicting one apart", () => {
+    expect(importKind(sets, mine)).toBe("new");
+    expect(importKind(sets, createDefaultRuleSet())).toBe("same");
+    expect(importKind(sets, { ...createDefaultRuleSet(), name: "Défaut de Paul" })).toBe("conflict");
+  });
+
+  it("imports a conflicting profile as a renamed copy, keeping its rules and formats", () => {
+    const theirs: RuleSet = { ...createWebSphereRuleSet(), name: "WebSphere", rules: [] };
+    const copy = importAsCopy(sets, theirs);
+    expect(copy.id).toBe("websphere-importe");
+    expect(copy.name).toBe("WebSphere (importé)");
+    expect(copy.formats).toEqual(["websphere-basic"]);
+    expect(importKind(sets, copy)).toBe("new");
+  });
+
+  it("adds a new profile or replaces the one with the same id, in place", () => {
+    expect(withRuleSet(sets, mine).map((s) => s.id)).toEqual(["default", "websphere", "mine"]);
+    const replaced = withRuleSet(sets, { ...createDefaultRuleSet(), name: "Autre" });
+    expect(replaced.map((s) => s.id)).toEqual(["default", "websphere"]);
+    expect(replaced[0]?.name).toBe("Autre");
   });
 });

@@ -519,7 +519,8 @@ body {
   font-size: 12px;
 }
 
-.profile-new {
+.profile-new,
+.profile-share {
   display: inline-flex;
   gap: 4px;
 }

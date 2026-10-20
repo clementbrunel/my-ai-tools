@@ -1,8 +1,8 @@
 // Persistence of highlighting rule sets: one `<id>.json` file per set in the `rules` directory of the
 // user data folder. Electron-free so it can be tested; the directory is passed in.
-import { mkdir, readdir, readFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
-import { createBuiltinRuleSets, createDefaultRuleSet, parseRuleSet, type RuleSet } from "@cbl-log/shared";
+import { createBuiltinRuleSets, createDefaultRuleSet, parseRuleSet, type ParseRuleSetResult, type RuleSet } from "@cbl-log/shared";
 import { writeJsonAtomic } from "./json-file";
 
 export interface LoadedRuleSets {
@@ -45,4 +45,22 @@ export async function loadRuleSets(dir: string): Promise<LoadedRuleSets> {
 export async function saveRuleSet(dir: string, set: RuleSet): Promise<string> {
   if (!SAFE_ID.test(set.id)) throw new Error(`Invalid rule set id: ${set.id}`);
   return writeJsonAtomic(join(dir, `${set.id}.json`), set);
+}
+
+/** A shared profile is a few KB: anything much larger is not one (and is not read into memory). */
+const MAX_PROFILE_BYTES = 1024 * 1024;
+
+/** Reads a profile file chosen by the user (shared by a colleague); never throws. */
+export async function readRuleSetFile(path: string): Promise<ParseRuleSetResult> {
+  try {
+    if ((await stat(path)).size > MAX_PROFILE_BYTES) return { ok: false, error: "Fichier trop volumineux pour être un profil de surlignage" };
+    return parseRuleSet(await readFile(path, "utf8"));
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/** Writes a profile to a file chosen by the user, in the same format as the rules folder (so it can also be dropped there). */
+export async function exportRuleSet(path: string, set: RuleSet): Promise<void> {
+  await writeJsonAtomic(path, set);
 }
