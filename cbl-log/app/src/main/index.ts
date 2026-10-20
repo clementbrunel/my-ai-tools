@@ -9,6 +9,7 @@ import { loadFormats } from "./formats-store";
 import { EngineHost } from "./engine-process";
 import { loadRecent, saveRecent, withoutRecentFile, withRecentFile } from "./recent-store";
 import { loadRuleSets, saveRuleSet } from "./rules-store";
+import { showSplash } from "./splash";
 import { checkForUpdates } from "./updater";
 
 // Settings live in %APPDATA%/cbl-log (architecture, section 8), not under the package name.
@@ -19,6 +20,8 @@ let configWatcher: ConfigWatcher | undefined;
 
 const engine = new EngineHost();
 let mainWindow: BrowserWindow | undefined;
+/** Startup splash, closed once the main window is painted (see splash.ts). */
+let splashWindow: BrowserWindow | undefined;
 let rendererReady = false;
 /** Paths received before the renderer listens (startup arguments, early second instance). */
 const pendingPaths: string[] = [];
@@ -124,7 +127,11 @@ function createWindow(): void {
     rendererReady = false;
   });
   engine.attachWindow(win);
-  win.once("ready-to-show", () => win.show());
+  win.once("ready-to-show", () => {
+    win.show();
+    if (splashWindow && !splashWindow.isDestroyed()) splashWindow.close();
+    splashWindow = undefined;
+  });
 
   const devUrl = process.env["ELECTRON_RENDERER_URL"];
   if (devUrl) {
@@ -174,6 +181,7 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   void app.whenReady().then(async () => {
+    splashWindow = showSplash(app.getVersion(), iconPath()); // first, before any disk access
     recentFiles = (await loadRecent(app.getPath("userData"))).value.files;
     buildMenu();
     mkdirSync(rulesDir(), { recursive: true }); // so that the folders can be watched from the first run
