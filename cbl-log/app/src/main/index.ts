@@ -9,7 +9,7 @@ import { loadFormats } from "./formats-store";
 import { EngineHost } from "./engine-process";
 import { loadRecent, saveRecent, withoutRecentFile, withRecentFile } from "./recent-store";
 import { loadRuleSets, saveRuleSet } from "./rules-store";
-import { showSplash } from "./splash";
+import { showAbout, showSplash } from "./brand-windows";
 import { checkForUpdates } from "./updater";
 
 // Settings live in %APPDATA%/cbl-log (architecture, section 8), not under the package name.
@@ -94,15 +94,22 @@ function buildMenu(): void {
       { role: "viewMenu" },
       {
         label: "&Aide",
-        submenu: [{ label: "Rechercher une &mise à jour…", click: () => void checkForUpdates(mainWindow, true) }],
+        submenu: [
+          { label: "Rechercher une &mise à jour…", click: () => void checkForUpdates(mainWindow, true) },
+          { type: "separator" },
+          { label: "À &propos de cbl-log", click: () => showAbout(mainWindow, app.getVersion(), iconPath(), avatarPath()) },
+        ],
       },
     ]),
   );
 }
 
 // Window / taskbar icon: shipped next to the asar via electron-builder extraResources when packaged.
-const iconPath = (): string =>
-  app.isPackaged ? join(process.resourcesPath, "icon.png") : join(__dirname, "../../resources/icon.png");
+const resourcePath = (name: string): string =>
+  app.isPackaged ? join(process.resourcesPath, name) : join(__dirname, "../../resources", name);
+const iconPath = (): string => resourcePath("icon.png");
+// Author avatar shown by the splash and "À propos", independent of the app icon.
+const avatarPath = (): string => resourcePath("avatar.png");
 
 function createWindow(): void {
   const win = new BrowserWindow({
@@ -181,7 +188,7 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   void app.whenReady().then(async () => {
-    splashWindow = showSplash(app.getVersion(), iconPath()); // first, before any disk access
+    splashWindow = showSplash(app.getVersion(), iconPath(), avatarPath()); // first thing, before loading the config
     recentFiles = (await loadRecent(app.getPath("userData"))).value.files;
     buildMenu();
     mkdirSync(rulesDir(), { recursive: true }); // so that the folders can be watched from the first run
