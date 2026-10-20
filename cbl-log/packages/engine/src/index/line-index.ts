@@ -1,4 +1,5 @@
-import { createDecoder, unitSize, type Decoder, type Encoding } from "../source/encoding.js";
+import type { TextDecoder } from "node:util";
+import { createDecoder, unitSize, type Encoding } from "../source/encoding.js";
 import { SourceError } from "../source/source.js";
 import type { Source } from "../source/source.js";
 import { CheckpointStore } from "./checkpoint-store.js";
@@ -35,7 +36,7 @@ export interface AppendResult {
 export class LineIndex {
   private source: Source;
   readonly encoding: Encoding;
-  private readonly decoder: Decoder;
+  private readonly decoder: TextDecoder;
   private readonly chunkSize: number;
   private readonly store = new CheckpointStore();
   private state: IndexState | null = null;
