@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync } from "node:fs";
-import { join } from "node:path";
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme } from "electron";
+import { dirname, join } from "node:path";
+import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeTheme, shell } from "electron";
 import type { RuleSet, Session, Settings } from "@cbl-log/shared";
 import { parseFileArgs } from "./cli-args";
 import { ConfigWatcher, type ConfigKind } from "./config-watcher";
@@ -167,7 +167,16 @@ if (!app.requestSingleInstanceLock()) {
     recentFiles = withRecentFile(recentFiles, path);
     persistRecent();
   });
-  ipcMain.handle("rules:load", () => loadRuleSets(rulesDir()));
+  ipcMain.handle("file:context-menu", (_event, path: string) => {
+    if (typeof path !== "string" || path === "") return;
+    Menu.buildFromTemplate([
+      { label: "Ouvrir le dossier du fichier", click: () => void shell.openPath(dirname(path)) },
+      { label: "Afficher dans l'explorateur", click: () => shell.showItemInFolder(path) },
+      { type: "separator" },
+      { label: "Copier le chemin", click: () => clipboard.writeText(path) },
+    ]).popup(mainWindow ? { window: mainWindow } : {});
+  });
+  ipcMain.handle("rules:load",() => loadRuleSets(rulesDir()));
   ipcMain.handle("rules:save", async (_event, set: RuleSet) => {
     configWatcher?.noteWrite(`rules/${set.id}.json`, await saveRuleSet(rulesDir(), set));
   });

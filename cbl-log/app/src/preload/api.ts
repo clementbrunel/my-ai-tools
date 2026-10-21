@@ -13,6 +13,8 @@ export interface CblLogApi {
   notifyReady(): void;
   /** Records a successfully opened file in the "Fichiers récents" menu (recent.json). */
   addRecentFile(path: string): Promise<void>;
+  /** Native context menu for a file (open its folder, show it in the file manager, copy its path). */
+  showFileContextMenu(path: string): Promise<void>;
   /** Highlighting rule sets from the user data folder (the default set is created on first run). */
   loadRuleSets(): Promise<{ sets: RuleSet[]; warnings: string[] }>;
   saveRuleSet(set: RuleSet): Promise<void>;

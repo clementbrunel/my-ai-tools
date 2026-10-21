@@ -70,7 +70,14 @@ export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules
         {formatBytes(tab.info.sizeBytes)} · <span title="Format de log détecté">{formatName ?? "brut"}</span>
       </span>
       <span className="status-file">
-        <span className="status-path" title={tab.info.path}>
+        <span
+          className="status-path"
+          title={`${tab.info.path}\nClic droit : ouvrir le dossier`}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            void window.cblLog.showFileContextMenu(tab.info.path);
+          }}
+        >
           {tab.info.path}
         </span>
         <label className="profile-select" title="Encodage du fichier (le choix rouvre l'onglet et interrompt la recherche en cours)">
