@@ -78,6 +78,24 @@ export class FileSource implements Source {
     }
   }
 
+  /**
+   * Swaps the OS handle for a fresh one on the same path. On an SMB share the client caches the
+   * attributes (size) of an open handle, so a file written from elsewhere looks frozen until the
+   * handle is closed; a new open fetches them again. The cached blocks stay valid (append-only).
+   * If the path is gone or replaced, the old handle is kept and the caller's identity check handles it.
+   */
+  async reopen(): Promise<void> {
+    const old = this.requireHandle();
+    let fresh: FileHandle;
+    try {
+      fresh = await open(this.path, "r");
+    } catch {
+      return;
+    }
+    this.handle = fresh;
+    await old.close().catch(() => {});
+  }
+
   /** Forgets the cached blocks (truncation / rolling detected by the caller). */
   invalidate(): void {
     this.cache.invalidate(this.id);

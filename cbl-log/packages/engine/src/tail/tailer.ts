@@ -21,7 +21,7 @@ import { SourceError, toSourceError } from "../source/source.js";
 import type { SourceIdentity } from "../source/source.js";
 import { LineIndex } from "../index/line-index.js";
 import type { NumberedLine } from "../index/lines.js";
-import { defaultPollInterval, getGlobalPollScheduler, type PollScheduler, type PollTask } from "./poll-scheduler.js";
+import { defaultPollInterval, getGlobalPollScheduler, isUncPath, type PollScheduler, type PollTask } from "./poll-scheduler.js";
 
 /** Anchor size: fingerprint of the bytes preceding the scanned offset. */
 export const ANCHOR_BYTES = 4096;
@@ -371,6 +371,8 @@ export class Tailer {
     const source = seg.source;
     let index = seg.index;
     if (!source || !index) return;
+    // UNC: the SMB client keeps serving a stale size on a long-lived handle (log looks frozen)
+    if (isUncPath(seg.path) && seg === this.cur) await source.reopen();
     const size = await source.size();
     if (size < index.scannedBytes || !(await this.anchorMatches(seg))) {
       await this.truncate(seg);
