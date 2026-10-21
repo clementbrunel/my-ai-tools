@@ -1,5 +1,4 @@
-import type { FileHandle } from "node:fs/promises";
-import { openReadOnly } from "./open-read.js";
+import { open, type FileHandle } from "node:fs/promises";
 import { BLOCK_SIZE, getGlobalBlockCache, type BlockCache } from "./block-cache.js";
 import { SourceError, toSourceError, type ReadOptions, type Source, type SourceIdentity } from "./source.js";
 
@@ -31,7 +30,7 @@ export class FileSource implements Source {
   static async open(path: string, options: FileSourceOptions = {}): Promise<FileSource> {
     let handle: FileHandle;
     try {
-      handle = await openReadOnly(path);
+      handle = await open(path, "r");
     } catch (err) {
       throw toSourceError(err, path);
     }

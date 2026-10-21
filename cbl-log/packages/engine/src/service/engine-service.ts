@@ -1,8 +1,7 @@
 // Engine request handler: owns one Tailer per open tab and speaks the protocol of
 // @cbl-log/shared over any message port. Pure Node (no Electron): the host provides a PortLike.
 import { randomUUID } from "node:crypto";
-import { stat } from "node:fs/promises";
-import { openReadOnly } from "../source/open-read.js";
+import { open, stat } from "node:fs/promises";
 import {
   FilterEvaluator,
   MAX_ROWS_PER_REQUEST,
@@ -306,7 +305,7 @@ function isRequest(msg: unknown): msg is EngineRequest {
 /** First bytes of the file, used for encoding and binary detection; throws a typed error. */
 async function sniff(path: string): Promise<Buffer> {
   try {
-    const handle = await openReadOnly(path);
+    const handle = await open(path, "r");
     try {
       const buf = Buffer.alloc(SNIFF_BYTES);
       const { bytesRead } = await handle.read(buf, 0, SNIFF_BYTES, 0);
