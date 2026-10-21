@@ -41,6 +41,8 @@ checks) is edited in `.claude/skills/weekly-deps/scope.json`.
 
 Tag `<tool>-vX.Y.Z` via `.claude/skills/release-tool/` so GitHub's "Source code" archive contains only
 that tool's directory (temporary `.gitattributes` export-ignore on the tagged commit, reverted on `main`).
+Release notes are the `## [X.Y.Z]` section of `<tool>/CHANGELOG.md`, written by hand in the version-bump
+PR (user-facing changes only), never GitHub's generated PR list.
 
 ## Common commands (per tool)
 
