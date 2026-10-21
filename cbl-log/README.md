@@ -35,7 +35,7 @@ npm run package:dir  # idem sans installeur : release/win-unpacked/cbl-log.exe
 
 ## Packaging et release
 
-`electron-builder.yml` produit `cbl-log-Setup-<version>.exe` (NSIS, installation par utilisateur) et `cbl-log-<version>-portable.exe`.
+`electron-builder.yml` produit `cbl-log-Setup-<version>.exe` (NSIS, installation par utilisateur) et `cbl-log-<version>-portable.exe`. Pour alléger les binaires, seules les locales Chromium `fr` et `en-US` sont embarquées et la compression est au maximum (`compression: maximum`).
 Pas de télémétrie (NF-07). Les exécutables ne sont pas signés : Windows SmartScreen peut afficher un avertissement
 au premier téléchargement depuis le navigateur.
 
@@ -50,7 +50,7 @@ Une fois installé, cbl-log se met à jour seul à partir des releases GitHub, s
   - version installée : installeur NSIS en silencieux dans le même dossier, cbl-log redémarre et rouvre les onglets ;
   - version portable : le nouveau `cbl-log-<version>-portable.exe` est posé à côté de l'actuel et lancé (l'ancien
     peut être supprimé).
-- `"checkForUpdates": false` dans `%APPDATA%\cbl-log\settings.json` désactive la vérification au démarrage (le menu
+- `"checkForUpdates": false` dans `%APPDATA%\cbl-log\settings.json` désactive la vérification au démarrage et toutes les heures (le menu
   reste disponible). C'est le seul accès réseau de l'application : une requête GET vers `api.github.com`, rien n'est
   envoyé.
 
