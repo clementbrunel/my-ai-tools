@@ -211,9 +211,14 @@ if (!app.requestSingleInstanceLock()) {
     configWatcher.start();
     engine.start();
     createWindow();
-    // Startup check, off the critical path; packaged builds only (a dev build has nothing to install).
-    if (app.isPackaged && (await loadSettings(app.getPath("userData"))).value.checkForUpdates) {
-      setTimeout(() => void checkForUpdates(mainWindow, false), 5000);
+    // Startup check, then hourly for sessions that are never closed; packaged builds only (a dev build has
+    // nothing to install). The setting is re-read at each tick so that toggling it applies without restart.
+    if (app.isPackaged) {
+      const autoCheck = async (): Promise<void> => {
+        if ((await loadSettings(app.getPath("userData"))).value.checkForUpdates) await checkForUpdates(mainWindow, false);
+      };
+      setTimeout(() => void autoCheck(), 5000);
+      setInterval(() => void autoCheck(), 60 * 60 * 1000);
     }
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();

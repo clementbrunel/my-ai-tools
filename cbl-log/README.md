@@ -43,7 +43,7 @@ Une fois installé, cbl-log se met à jour seul à partir des releases GitHub, s
   - version installée : installeur NSIS en silencieux dans le même dossier, cbl-log redémarre et rouvre les onglets ;
   - version portable : le nouveau `cbl-log-<version>-portable.exe` est posé à côté de l'actuel et lancé (l'ancien
     peut être supprimé).
-- `"checkForUpdates": false` dans `%APPDATA%\cbl-log\settings.json` désactive la vérification au démarrage (le menu
+- `"checkForUpdates": false` dans `%APPDATA%\cbl-log\settings.json` désactive la vérification au démarrage et toutes les heures (le menu
   reste disponible). C'est le seul accès réseau de l'application : une requête GET vers `api.github.com`, rien n'est
   envoyé.
 
