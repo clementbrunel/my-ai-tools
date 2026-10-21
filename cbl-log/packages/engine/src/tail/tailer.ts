@@ -21,7 +21,7 @@ import { SourceError, toSourceError } from "../source/source.js";
 import type { SourceIdentity } from "../source/source.js";
 import { LineIndex } from "../index/line-index.js";
 import type { NumberedLine } from "../index/lines.js";
-import { defaultPollInterval, getGlobalPollScheduler, type PollScheduler, type PollTask } from "./poll-scheduler.js";
+import { defaultPollInterval, getGlobalPollScheduler, isUncPath, type PollScheduler, type PollTask } from "./poll-scheduler.js";
 
 /** Anchor size: fingerprint of the bytes preceding the scanned offset. */
 export const ANCHOR_BYTES = 4096;
@@ -298,6 +298,8 @@ export class Tailer {
 
   private watchDirectory(): void {
     if (this.opts.watch === false) return;
+    // UNC: a change-notify watcher on the remote directory is suspected of stalling the writer; polling is enough
+    if (isUncPath(this.opts.path)) return;
     const target = basename(this.opts.path);
     try {
       const watcher = watch(dirname(this.opts.path), { persistent: false }, (type, filename) => {
