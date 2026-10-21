@@ -1,4 +1,5 @@
 import { existsSync, mkdirSync } from "node:fs";
+import { release } from "node:os";
 import { dirname, join } from "node:path";
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeTheme, shell } from "electron";
 import type { RuleSet, Session, Settings } from "@cbl-log/shared";
@@ -7,6 +8,8 @@ import { ConfigWatcher, type ConfigKind } from "./config-watcher";
 import { loadSession, loadSettings, saveSession, saveSettings } from "./config-store";
 import { loadFormats } from "./formats-store";
 import { EngineHost } from "./engine-process";
+import { buildIssueUrl, checkFlood, envLines, feedbackKey, validateDraft, withSent, type FeedbackDraft, type FeedbackEnv } from "./feedback";
+import { loadFeedbackHistory, saveFeedbackHistory } from "./feedback-store";
 import { loadRecent, saveRecent, withoutRecentFile, withRecentFile } from "./recent-store";
 import { loadRuleSets, saveRuleSet } from "./rules-store";
 import { showAbout, showSplash } from "./brand-windows";
@@ -96,12 +99,35 @@ function buildMenu(): void {
         label: "&Aide",
         submenu: [
           { label: "Rechercher une &mise à jour…", click: () => void checkForUpdates(mainWindow, true) },
+          { label: "&Signaler un bug / proposer une idée…", click: () => mainWindow?.webContents.send("feedback:open") },
           { type: "separator" },
           { label: "À &propos de cbl-log", click: () => showAbout(mainWindow, app.getVersion(), iconPath(), avatarPath()) },
         ],
       },
     ]),
   );
+}
+
+const feedbackEnv = (): FeedbackEnv => ({
+  version: app.getVersion(),
+  install: process.env["PORTABLE_EXECUTABLE_FILE"] ? "portable" : app.isPackaged ? "installée" : "dev",
+  os: `${process.platform === "win32" ? "Windows" : process.platform} ${release()} ${process.arch}`,
+  electron: process.versions.electron ?? "?",
+});
+
+/** Opens the pre-filled GitHub issue in the browser, unless the draft is invalid or the anti-flood refuses it. */
+async function submitFeedback(draft: FeedbackDraft): Promise<{ ok: true } | { ok: false; reason: string }> {
+  const invalid = validateDraft(draft);
+  if (invalid) return { ok: false, reason: invalid };
+  const dir = app.getPath("userData");
+  const history = (await loadFeedbackHistory(dir)).value;
+  const now = Date.now();
+  const key = feedbackKey(draft.kind, draft.title);
+  const flood = checkFlood(history, now, key);
+  if (!flood.ok) return flood;
+  await shell.openExternal(buildIssueUrl(draft, feedbackEnv()));
+  await saveFeedbackHistory(dir, withSent(history, now, draft.kind, key)).catch(() => undefined);
+  return { ok: true };
 }
 
 // Window / taskbar icon: shipped next to the asar via electron-builder extraResources when packaged.
@@ -192,6 +218,11 @@ if (!app.requestSingleInstanceLock()) {
   ipcMain.handle("formats:load", () => loadFormats(join(app.getPath("userData"), "formats")));
   ipcMain.handle("session:load", () => loadSession(app.getPath("userData")));
   ipcMain.handle("session:save", (_event, session: Session) => saveSession(app.getPath("userData"), session).then(() => undefined));
+  ipcMain.handle("feedback:status", async () => {
+    const flood = checkFlood((await loadFeedbackHistory(app.getPath("userData"))).value, Date.now());
+    return { env: envLines(feedbackEnv()), blocked: flood.ok ? undefined : flood.reason };
+  });
+  ipcMain.handle("feedback:submit", (_event, draft: FeedbackDraft) => submitFeedback(draft));
   ipcMain.on("renderer:ready", () => {
     rendererReady = true;
     sendFiles(pendingPaths.splice(0));

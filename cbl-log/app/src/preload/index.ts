@@ -22,6 +22,15 @@ const api: CblLogApi = {
   loadSession: () => ipcRenderer.invoke("session:load") as ReturnType<CblLogApi["loadSession"]>,
   saveSession: (session) => ipcRenderer.invoke("session:save", session) as Promise<void>,
   loadFormats: () => ipcRenderer.invoke("formats:load") as ReturnType<CblLogApi["loadFormats"]>,
+  onOpenFeedback: (cb) => {
+    const listener = (): void => cb();
+    ipcRenderer.on("feedback:open", listener);
+    return () => {
+      ipcRenderer.off("feedback:open", listener);
+    };
+  },
+  feedbackStatus: () => ipcRenderer.invoke("feedback:status") as ReturnType<CblLogApi["feedbackStatus"]>,
+  submitFeedback: (draft) => ipcRenderer.invoke("feedback:submit", draft) as ReturnType<CblLogApi["submitFeedback"]>,
   onConfigChanged: (cb) => {
     const listener = (_event: unknown, kind: "settings" | "rules" | "formats"): void => cb(kind);
     ipcRenderer.on("config:changed", listener);

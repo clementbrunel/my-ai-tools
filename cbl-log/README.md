@@ -47,5 +47,18 @@ Une fois installé, cbl-log se met à jour seul à partir des releases GitHub, s
   reste disponible). C'est le seul accès réseau de l'application : une requête GET vers `api.github.com`, rien n'est
   envoyé.
 
+### Signaler un bug / proposer une idée
+
+**Aide › Signaler un bug / proposer une idée…** ouvre un panneau (type Bug ou Idée, titre, description, case
+« Joindre la version et le système »). Le bouton **Ouvrir sur GitHub…** ouvre dans le navigateur la page
+« New issue » du dépôt, pré-remplie (titre préfixé `[cbl-log]`, labels `cbl-log` + `bug`/`enhancement`) :
+l'utilisateur relit et envoie l'issue avec son propre compte GitHub. L'application n'envoie rien elle-même et
+n'embarque aucun jeton (NF-07) ; aucun chemin de fichier ni contenu de log n'est ajouté.
+
+Anti-flood, en plus de celui de GitHub (compte et clic obligatoires) : 5 min minimum entre deux signalements,
+3 par 24 h glissantes, et un même titre (casse et accents ignorés) refusé pendant 30 jours. L'historique est
+dans `%APPDATA%\cbl-log\feedback.json`. Les labels passés dans l'URL ne s'appliquent que pour les comptes ayant
+le droit de trier les issues du dépôt ; pour les autres, le préfixe `[cbl-log]` du titre permet de les retrouver.
+
 Publier une version : poser un tag `cbl-log-vX.Y.Z` sur `main` et le pousser. Le job `release` du workflow
 `cbl-log – CI` construit les deux exécutables (version issue du tag) et les attache à une release GitHub.

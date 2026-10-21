@@ -1,5 +1,13 @@
 import type { LogFormat, RuleSet, Session, Settings } from "@cbl-log/shared";
 
+/** Report of "Aide > Signaler un bug / proposer une idée" (same shape as main/feedback.ts). */
+export interface FeedbackDraft {
+  kind: "bug" | "request";
+  title: string;
+  description: string;
+  includeEnv: boolean;
+}
+
 /** API exposed to the renderer through contextBridge (`window.cblLog`). */
 export interface CblLogApi {
   readonly version: string;
@@ -25,6 +33,12 @@ export interface CblLogApi {
   saveSession(session: Session): Promise<void>;
   /** A config file was edited outside the app (hot reload). */
   onConfigChanged(cb: (kind: "settings" | "rules" | "formats") => void): () => void;
+  /** "Aide > Signaler un bug / proposer une idée" was chosen. */
+  onOpenFeedback(cb: () => void): () => void;
+  /** Environment lines that can go in the report, and why a report cannot be opened now (anti-flood). */
+  feedbackStatus(): Promise<{ env: string[]; blocked?: string }>;
+  /** Opens the pre-filled GitHub issue in the browser; refused (with the reason) when invalid or too frequent. */
+  submitFeedback(draft: FeedbackDraft): Promise<{ ok: true } | { ok: false; reason: string }>;
   /** User log formats from the formats folder (built-in ones come with the app). */
   loadFormats(): Promise<{ formats: LogFormat[]; warnings: string[] }>;
 }
