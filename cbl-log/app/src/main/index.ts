@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { release } from "node:os";
-import { join } from "node:path";
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, shell } from "electron";
+import { dirname, join } from "node:path";
+import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeTheme, shell } from "electron";
 import type { RuleSet, Session, Settings } from "@cbl-log/shared";
 import { parseFileArgs } from "./cli-args";
 import { ConfigWatcher, type ConfigKind } from "./config-watcher";
@@ -193,7 +193,16 @@ if (!app.requestSingleInstanceLock()) {
     recentFiles = withRecentFile(recentFiles, path);
     persistRecent();
   });
-  ipcMain.handle("rules:load", () => loadRuleSets(rulesDir()));
+  ipcMain.handle("file:context-menu", (_event, path: string) => {
+    if (typeof path !== "string" || path === "") return;
+    Menu.buildFromTemplate([
+      { label: "Ouvrir le dossier du fichier", click: () => void shell.openPath(dirname(path)) },
+      { label: "Afficher dans l'explorateur", click: () => shell.showItemInFolder(path) },
+      { type: "separator" },
+      { label: "Copier le chemin", click: () => clipboard.writeText(path) },
+    ]).popup(mainWindow ? { window: mainWindow } : {});
+  });
+  ipcMain.handle("rules:load",() => loadRuleSets(rulesDir()));
   ipcMain.handle("rules:save", async (_event, set: RuleSet) => {
     configWatcher?.noteWrite(`rules/${set.id}.json`, await saveRuleSet(rulesDir(), set));
   });
@@ -233,9 +242,14 @@ if (!app.requestSingleInstanceLock()) {
     configWatcher.start();
     engine.start();
     createWindow();
-    // Startup check, off the critical path; packaged builds only (a dev build has nothing to install).
-    if (app.isPackaged && (await loadSettings(app.getPath("userData"))).value.checkForUpdates) {
-      setTimeout(() => void checkForUpdates(mainWindow, false), 5000);
+    // Startup check, then hourly for sessions that are never closed; packaged builds only (a dev build has
+    // nothing to install). The setting is re-read at each tick so that toggling it applies without restart.
+    if (app.isPackaged) {
+      const autoCheck = async (): Promise<void> => {
+        if ((await loadSettings(app.getPath("userData"))).value.checkForUpdates) await checkForUpdates(mainWindow, false);
+      };
+      setTimeout(() => void autoCheck(), 5000);
+      setInterval(() => void autoCheck(), 60 * 60 * 1000);
     }
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();

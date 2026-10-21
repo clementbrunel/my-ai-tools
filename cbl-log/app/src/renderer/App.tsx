@@ -202,6 +202,7 @@ export function App() {
           dispatch({ type: "follow", tabId: info.tabId, follow: restore.follow });
           dispatch({ type: "scrollRow", tabId: info.tabId, row: restore.scrollRow });
           if (restore.clearedBefore > 0) dispatch({ type: "clearedTo", tabId: info.tabId, row: restore.clearedBefore });
+          if (restore.customName) dispatch({ type: "renamed", tabId: info.tabId, name: restore.customName });
           if (restore.ruleSetId) dispatch({ type: "ruleSetChosen", tabId: info.tabId, ruleSetId: restore.ruleSetId });
           if (restore.filter) dispatch({ type: "filterChanged", tabId: info.tabId, filter: restore.filter });
         }
@@ -846,6 +847,7 @@ export function App() {
             activeId={activeId}
             onActivate={(tabId) => dispatch({ type: "activated", tabId })}
             onClose={closeTab}
+            onRename={(tabId, name) => dispatch({ type: "renamed", tabId, name })}
             onOpen={() => void window.cblLog.openFileDialog().then(openPaths)}
           />
           <div className="toprow">
