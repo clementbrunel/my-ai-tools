@@ -43,6 +43,8 @@ export const sessionTabSchema = z.object({
   encoding: encodingSchema.optional(),
   /** Filter in force on this tab; absent = none. */
   filter: filterSettingsSchema.optional(),
+  /** Name given by the user, shown instead of the file name; absent = file name. */
+  customName: z.string().optional(),
 });
 export type SessionTab = z.infer<typeof sessionTabSchema>;
 

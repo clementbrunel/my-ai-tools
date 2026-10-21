@@ -16,6 +16,7 @@ export function buildSession(tabs: readonly TabState[], activeId: TabId | undefi
       follow: tab.follow,
       scrollRow: tab === active ? Math.max(0, viewRow - tab.clearedBefore) : tab.scrollRow,
       clearedBefore: tab.clearedBefore,
+      ...(tab.customName ? { customName: tab.customName } : {}),
       ...(tab.ruleSetId ? { ruleSetId: tab.ruleSetId } : {}),
       ...(tab.encodingChoice ? { encoding: tab.encodingChoice } : {}),
       ...(isDefaultFilter(tab.filter) ? {} : { filter: { levels: [...tab.filter.levels], include: [...tab.filter.include], exclude: [...tab.filter.exclude], foldTraces: tab.filter.foldTraces } }),
