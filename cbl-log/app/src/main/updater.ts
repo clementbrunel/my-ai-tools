@@ -14,6 +14,8 @@ const portableExe = (): string | undefined => process.env["PORTABLE_EXECUTABLE_F
 const installKind = (): InstallKind => (portableExe() ? "portable" : "setup");
 
 let busy = false;
+/** Version the user postponed in this session: automatic checks stay silent about it, the menu still offers it. */
+let declinedVersion: string | undefined;
 
 async function fetchUpdate(): Promise<AvailableUpdate | undefined> {
   const res = await net.fetch(RELEASES_URL, { headers: { Accept: "application/vnd.github+json" } });
@@ -95,7 +97,10 @@ async function offer(update: AvailableUpdate, win: BrowserWindow | undefined): P
   const { response } = win ? await dialog.showMessageBox(win, options) : await dialog.showMessageBox(options);
   const choice = buttons[response];
   if (choice === "Voir les notes") void shell.openExternal(update.pageUrl);
-  if (choice !== "Installer maintenant") return;
+  if (choice !== "Installer maintenant") {
+    declinedVersion = update.version; // the hourly check will not nag again about this version
+    return;
+  }
   try {
     await install(update, win);
   } catch (err) {
@@ -105,14 +110,16 @@ async function offer(update: AvailableUpdate, win: BrowserWindow | undefined): P
 
 /**
  * Looks for a newer release. `manual`: started from the menu, so "up to date" and network errors are
- * reported; the automatic check at startup stays silent unless an update exists.
+ * reported; the automatic checks (startup, then hourly) stay silent unless a not-yet-postponed update exists.
  */
 export async function checkForUpdates(win: BrowserWindow | undefined, manual: boolean): Promise<void> {
   if (busy) return;
   busy = true;
   try {
     const update = await fetchUpdate();
-    if (update) await offer(update, win);
+    if (update) {
+      if (manual || update.version !== declinedVersion) await offer(update, win);
+    }
     else if (manual) {
       const options: Electron.MessageBoxOptions = { type: "info", title: "Mise à jour", message: `cbl-log ${app.getVersion()} est à jour.` };
       await (win ? dialog.showMessageBox(win, options) : dialog.showMessageBox(options));
