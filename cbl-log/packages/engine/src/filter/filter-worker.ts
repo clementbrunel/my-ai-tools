@@ -2,7 +2,8 @@
 // lines, evaluates the filter on each line and posts the numbers (and levels) of the retained ones.
 // When continuation lines are folded, it also counts those hidden under each retained record head,
 // reading past the end of its range until the next head.
-import { open, type FileHandle } from "node:fs/promises";
+import type { FileHandle } from "node:fs/promises";
+import { openReadOnly } from "../source/open-read.js";
 import { parentPort, workerData } from "node:worker_threads";
 import { FilterEvaluator, compileFormat, levelCode } from "@cbl-log/shared";
 import { createDecoder, isUtf16 } from "../source/encoding.js";
@@ -76,7 +77,7 @@ async function readLines(
 }
 
 async function run(job: FilterJob): Promise<void> {
-  const handle = await open(job.path, "r");
+  const handle = await openReadOnly(job.path);
   try {
     const evaluator = new FilterEvaluator(job.filter, job.format ? compileFormat(job.format) : undefined);
     const fold = !!job.filter.foldContinuation;

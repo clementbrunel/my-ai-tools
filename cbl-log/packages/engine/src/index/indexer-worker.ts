@@ -1,5 +1,5 @@
 // Entry point of the indexing worker (see worker-host.ts). Depends only on the pure scanner.
-import { open } from "node:fs/promises";
+import { openReadOnly } from "../source/open-read.js";
 import { parentPort, workerData } from "node:worker_threads";
 import { checkpointCountOf, IndexBuilder, initialIndexState, type IndexState } from "./scan.js";
 import type { WorkerJob, WorkerMessage } from "./worker-host.js";
@@ -12,7 +12,7 @@ function post(msg: WorkerMessage, transfer: ArrayBuffer[] = []): void {
 }
 
 async function run(job: WorkerJob): Promise<void> {
-  const handle = await open(job.path, "r");
+  const handle = await openReadOnly(job.path);
   try {
     let totalBytes = (await handle.stat()).size;
     let state: IndexState | null = job.start;

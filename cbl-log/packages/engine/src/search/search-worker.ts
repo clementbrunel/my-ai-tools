@@ -1,6 +1,6 @@
 // Entry point of a search worker (see search-host.ts): scans one byte range of a file, made of whole
 // lines, and posts the offsets of the lines that match. Depends only on the pure line scanner.
-import { open } from "node:fs/promises";
+import { openReadOnly } from "../source/open-read.js";
 import { parentPort, workerData } from "node:worker_threads";
 import { patternSource } from "@cbl-log/shared";
 import { createDecoder, isUtf16 } from "../source/encoding.js";
@@ -27,7 +27,7 @@ function rawNeedle(job: SearchJob): Buffer | undefined {
 }
 
 async function run(job: SearchJob): Promise<void> {
-  const handle = await open(job.path, "r");
+  const handle = await openReadOnly(job.path);
   try {
     const needle = rawNeedle(job);
     const regex = needle
