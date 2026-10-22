@@ -24,11 +24,13 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy;
 
 /**
- * Stateless OIDC resource server. With {@code app.security.enabled=false} everything is permitted
- * (dev / mock mode, behaviour unchanged); with {@code true}, every request except CORS preflights
- * needs a valid bearer access token. The caller's identity is deliberately not used yet — the
- * data is still keyed by the client-held session id — the token only proves the caller is
- * allowed in.
+ * Stateless OIDC resource server. With {@code app.security.enabled=false} (OIDC_ENABLED) everything
+ * is permitted (dev / mock mode, behaviour unchanged); with {@code true}, every request except
+ * CORS preflights needs a valid bearer JWT. In the deployed stack the login itself is done by
+ * oauth2-proxy in front of nginx, which forwards the user's JWT here: this check keeps the API
+ * protected even if nginx is bypassed (the backend port is published). The caller's identity is
+ * deliberately not used yet — the data is still keyed by the client-held session id — the token
+ * only proves the caller is allowed in.
  */
 @Configuration
 @EnableWebSecurity

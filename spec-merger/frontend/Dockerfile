@@ -6,16 +6,14 @@ COPY . .
 # Deployment sub-path, e.g. --build-arg VITE_BASE=spec-merger
 ARG VITE_BASE=/
 ENV VITE_BASE=$VITE_BASE
-# OIDC config is baked into the bundle at build time (empty = authentication disabled)
-ARG VITE_OIDC_AUTHORITY=
-ARG VITE_OIDC_CLIENT_ID=
-ENV VITE_OIDC_AUTHORITY=$VITE_OIDC_AUTHORITY
-ENV VITE_OIDC_CLIENT_ID=$VITE_OIDC_CLIENT_ID
 RUN npm run build
 
 FROM nginx:alpine
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY nginx/oidc-on /etc/nginx/oidc-on
+COPY nginx/oidc-off /etc/nginx/oidc-off
+COPY --chmod=755 docker-entrypoint.d/40-oidc.sh /docker-entrypoint.d/40-oidc.sh
 RUN mkdir -p /var/cache/nginx/client_temp \
              /var/cache/nginx/proxy_temp \
              /var/cache/nginx/fastcgi_temp \

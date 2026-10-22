@@ -45,13 +45,15 @@ app:
     mock: ${MISTRAL_MOCK:false}
 
   security:
-    # true : toute l'API (/api/**, Swagger inclus) exige un access token JWT émis par l'issuer
-    # OIDC (Keycloak). false (défaut, dev/mock) : aucune authentification, comme avant.
-    enabled: ${SECURITY_ENABLED:false}
+    # true : toute l'API (/api/**, Swagger inclus) exige un JWT OIDC (Keycloak) en
+    # `Authorization: Bearer` — fourni par oauth2-proxy via nginx, ou par tout client qui
+    # appelle l'API directement. false (défaut, dev/mock) : aucune authentification.
+    enabled: ${OIDC_ENABLED:false}
     # URL du realm Keycloak, ex. https://keycloak.example.org/realms/mon-realm — les clés
     # de signature sont découvertes via {issuer}/.well-known/openid-configuration.
     issuer-uri: ${OIDC_ISSUER_URI:}
-    # Optionnel : valeur exigée dans le claim `aud` du token (audience mapper Keycloak).
+    # Optionnel : valeur exigée dans le claim `aud`. Derrière oauth2-proxy le token transmis
+    # est l'ID token, dont l'audience est le client id Keycloak.
     audience: ${OIDC_AUDIENCE:}
 
 gitlab:
