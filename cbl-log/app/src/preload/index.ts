@@ -2,7 +2,7 @@ import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type { CblLogApi } from "./api";
 
 const api: CblLogApi = {
-  version: "2.0.0",
+  version: "2.1.0",
   openFileDialog: () => ipcRenderer.invoke("dialog:open-files") as Promise<string[]>,
   onOpenFiles: (cb) => {
     const listener = (_event: unknown, paths: string[]): void => cb(paths);

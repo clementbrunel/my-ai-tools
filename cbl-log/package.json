@@ -1,7 +1,7 @@
 {
   "name": "cbl-log-workspace",
   "private": true,
-  "version": "2.0.0",
+  "version": "2.1.0",
   "workspaces": ["packages/*", "app"],
   "engines": {
     "node": ">=24.13.1"
