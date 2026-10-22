@@ -2,7 +2,7 @@ import { existsSync, mkdirSync } from "node:fs";
 import { release } from "node:os";
 import { dirname, join } from "node:path";
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeTheme, shell } from "electron";
-import type { RuleSet, Session, Settings } from "@cbl-log/shared";
+import type { ParseRuleSetResult, RuleSet, Session, Settings } from "@cbl-log/shared";
 import { parseFileArgs } from "./cli-args";
 import { ConfigWatcher, type ConfigKind } from "./config-watcher";
 import { loadSession, loadSettings, saveSession, saveSettings } from "./config-store";
@@ -11,7 +11,7 @@ import { EngineHost } from "./engine-process";
 import { buildIssueUrl, checkFlood, envLines, feedbackKey, validateDraft, withSent, type FeedbackDraft, type FeedbackEnv } from "./feedback";
 import { loadFeedbackHistory, saveFeedbackHistory } from "./feedback-store";
 import { loadRecent, saveRecent, withoutRecentFile, withRecentFile } from "./recent-store";
-import { loadRuleSets, saveRuleSet } from "./rules-store";
+import { exportRuleSet, loadRuleSets, readRuleSetFile, saveRuleSet } from "./rules-store";
 import { showAbout, showSplash } from "./brand-windows";
 import { checkForUpdates } from "./updater";
 
@@ -49,6 +49,32 @@ async function pickFiles(): Promise<string[]> {
   };
   const result = mainWindow ? await dialog.showOpenDialog(mainWindow, options) : await dialog.showOpenDialog(options);
   return result.canceled ? [] : result.filePaths;
+}
+
+const profileFilters: Electron.FileFilter[] = [
+  { name: "Profil de surlignage cbl-log", extensions: ["json"] },
+  { name: "All files", extensions: ["*"] },
+];
+
+/** Asks where to save a profile, then writes it; resolves with the path written, or undefined if cancelled. */
+async function exportProfile(set: RuleSet): Promise<string | undefined> {
+  const options: Electron.SaveDialogOptions = {
+    title: "Exporter le profil de surlignage",
+    defaultPath: join(app.getPath("documents"), `${set.id}.json`),
+    filters: profileFilters,
+  };
+  const result = mainWindow ? await dialog.showSaveDialog(mainWindow, options) : await dialog.showSaveDialog(options);
+  if (result.canceled || !result.filePath) return undefined;
+  await exportRuleSet(result.filePath, set);
+  return result.filePath;
+}
+
+/** Asks for a profile file and reads it; resolves with undefined if cancelled. */
+async function importProfile(): Promise<ParseRuleSetResult | undefined> {
+  const options: Electron.OpenDialogOptions = { title: "Importer un profil de surlignage", properties: ["openFile"], filters: profileFilters };
+  const result = mainWindow ? await dialog.showOpenDialog(mainWindow, options) : await dialog.showOpenDialog(options);
+  const path = result.canceled ? undefined : result.filePaths[0];
+  return path ? readRuleSetFile(path) : undefined;
 }
 
 /** Files opened lately (recent.json), most recent first; filled at startup. */
@@ -206,6 +232,8 @@ if (!app.requestSingleInstanceLock()) {
   ipcMain.handle("rules:save", async (_event, set: RuleSet) => {
     configWatcher?.noteWrite(`rules/${set.id}.json`, await saveRuleSet(rulesDir(), set));
   });
+  ipcMain.handle("rules:export", (_event, set: RuleSet) => exportProfile(set));
+  ipcMain.handle("rules:import", () => importProfile());
   ipcMain.handle("settings:load", async () => {
     const loaded = await loadSettings(app.getPath("userData"));
     nativeTheme.themeSource = loaded.value.theme;

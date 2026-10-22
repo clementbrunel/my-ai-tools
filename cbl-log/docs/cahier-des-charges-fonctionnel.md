@@ -115,6 +115,7 @@ Priorités : **P0** = MVP (parité BareTail utile), **P1** = V1 (ce qui justifie
 | H-05   | Activer/désactiver une règle à la volée sans l'effacer                                                  | P0   |
 | H-06   | Surlignage temporaire « tout ce qui ressemble à la sélection » (double-clic sur un mot)                | P1   |
 | H-07   | Import des règles depuis un fichier de config BareTail (`.udm` / registre) pour migrer                  | P2   |
+| H-08   | **Export / import** d'un profil de surlignage (fichier `.json`) pour le partager entre collègues ; à l'import, un profil de même id est remplacé ou gardé en copie au choix | P1   |
 
 ### 3.5 Recherche et filtrage
 

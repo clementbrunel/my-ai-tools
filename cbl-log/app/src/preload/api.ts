@@ -1,4 +1,4 @@
-import type { LogFormat, RuleSet, Session, Settings } from "@cbl-log/shared";
+import type { LogFormat, ParseRuleSetResult, RuleSet, Session, Settings } from "@cbl-log/shared";
 
 /** Report of "Aide > Signaler un bug / proposer une idée" (same shape as main/feedback.ts). */
 export interface FeedbackDraft {
@@ -26,6 +26,10 @@ export interface CblLogApi {
   /** Highlighting rule sets from the user data folder (the default set is created on first run). */
   loadRuleSets(): Promise<{ sets: RuleSet[]; warnings: string[] }>;
   saveRuleSet(set: RuleSet): Promise<void>;
+  /** Save dialog + write, to share a profile; resolves with the path written (undefined if cancelled). */
+  exportRuleSet(set: RuleSet): Promise<string | undefined>;
+  /** Open dialog + validation of a shared profile file (undefined if cancelled); nothing is stored yet. */
+  importRuleSet(): Promise<ParseRuleSetResult | undefined>;
   /** settings.json (a missing file gives the defaults; an unusable one is reported in `warning`). */
   loadSettings(): Promise<{ value: Settings; warning?: string }>;
   saveSettings(settings: Settings): Promise<void>;
