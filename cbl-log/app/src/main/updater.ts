@@ -83,7 +83,7 @@ async function offer(update: AvailableUpdate, win: BrowserWindow | undefined): P
     title: "Mise à jour disponible",
     message: `cbl-log ${update.version} est disponible (version actuelle : ${app.getVersion()}).`,
     detail:
-      (update.notes ? `${truncate(update.notes, 1200)}\n\n` : "") +
+      (update.notes ? `Nouveautés :\n${truncate(update.notes, 1200)}\n\n` : "") +
       (canInstall
         ? portableExe()
           ? "La nouvelle version portable sera téléchargée à côté de l'actuelle puis lancée."
