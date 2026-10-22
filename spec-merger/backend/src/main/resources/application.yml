@@ -44,6 +44,16 @@ app:
     # (diff, édition/versioning du markdown, export) sans accès réseau à mistral-vibe.
     mock: ${MISTRAL_MOCK:false}
 
+  security:
+    # true : toute l'API (/api/**, Swagger inclus) exige un access token JWT émis par l'issuer
+    # OIDC (Keycloak). false (défaut, dev/mock) : aucune authentification, comme avant.
+    enabled: ${SECURITY_ENABLED:false}
+    # URL du realm Keycloak, ex. https://keycloak.example.org/realms/mon-realm — les clés
+    # de signature sont découvertes via {issuer}/.well-known/openid-configuration.
+    issuer-uri: ${OIDC_ISSUER_URI:}
+    # Optionnel : valeur exigée dans le claim `aud` du token (audience mapper Keycloak).
+    audience: ${OIDC_AUDIENCE:}
+
 gitlab:
   url: ${GITLAB_URL:}
   token: ${GITLAB_TOKEN:}

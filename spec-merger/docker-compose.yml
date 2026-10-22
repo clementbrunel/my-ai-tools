@@ -27,6 +27,9 @@ services:
       DB_USER: ${DB_USER}
       DB_PASS: ${DB_PASS}
       FRONTEND_URL: ${FRONTEND_URL}
+      SECURITY_ENABLED: ${SECURITY_ENABLED:-false}
+      OIDC_ISSUER_URI: ${OIDC_ISSUER_URI:-}
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE:-}
       MISTRAL_BASE_URL: ${MISTRAL_BASE_URL:-}
       MISTRAL_MODEL: ${MISTRAL_MODEL:-}
       # Non-blank default: Spring AI crashes at startup on an empty Mistral API key.
@@ -50,7 +53,11 @@ services:
     restart: unless-stopped
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        VITE_OIDC_AUTHORITY: ${VITE_OIDC_AUTHORITY:-}
+        VITE_OIDC_CLIENT_ID: ${VITE_OIDC_CLIENT_ID:-}
     container_name: specmerger-frontend
     ports:
       - "3001:80"

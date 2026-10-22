@@ -54,6 +54,27 @@ sample-demarche-word.md`, même démarche que `sample-demarche.jxml`) tant que `
 est activé (400 sinon) — même bouton, même endpoint `POST /api/spec/generate-from-word` que
 pour un vrai fichier, pas de flux dédié au mock.
 
+## Authentification OIDC (Keycloak)
+
+Désactivée par défaut (dev / mode mock : rien ne change). Pour l'activer :
+
+1. **Keycloak** : créer un client *public* dans le realm (Standard flow, PKCE `S256`, pas de
+   secret), avec l'URL du frontend en *Valid redirect URIs*, *Valid post logout redirect URIs* et
+   *Web origins*. Optionnel : un *audience mapper* pour poser une audience dédiée dans l'access token.
+2. **Backend** (`.env`) : `SECURITY_ENABLED=true`, `OIDC_ISSUER_URI=https://<keycloak>/realms/<realm>`,
+   et éventuellement `OIDC_AUDIENCE`. L'API devient un *resource server* sans état : tout `/api/**`
+   (Swagger compris) exige un `Authorization: Bearer <JWT>` dont la signature (JWKS de l'issuer),
+   l'issuer, l'expiration et, si configurée, l'audience sont vérifiés. Pas de cookie ni de session
+   serveur, donc pas de CSRF. L'application refuse de démarrer si `SECURITY_ENABLED=true` sans issuer.
+3. **Frontend** (`VITE_OIDC_AUTHORITY` = même URL de realm, `VITE_OIDC_CLIENT_ID`) : l'app redirige vers
+   Keycloak (Authorization Code + PKCE), garde les tokens en `sessionStorage` (perdus à la fermeture de
+   l'onglet), les renouvelle via refresh token et les joint à chaque appel `/api`. Ces variables sont
+   figées au build de l'image (`docker compose build` les lit dans `.env`).
+
+L'identité de l'utilisateur n'est **pas encore exploitée** : les générations restent rattachées à l'id de
+session (localStorage), le token ne fait qu'ouvrir l'accès. Prochaine étape : lire le claim `sub`
+(`@AuthenticationPrincipal Jwt`) dans `SessionService` pour rattacher les sessions à l'utilisateur.
+
 ## Gabarit de documentation attendue
 
 `backend/src/main/resources/templates/documentation-template.md` définit la forme que

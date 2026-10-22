@@ -6,6 +6,11 @@ COPY . .
 # Deployment sub-path, e.g. --build-arg VITE_BASE=spec-merger
 ARG VITE_BASE=/
 ENV VITE_BASE=$VITE_BASE
+# OIDC config is baked into the bundle at build time (empty = authentication disabled)
+ARG VITE_OIDC_AUTHORITY=
+ARG VITE_OIDC_CLIENT_ID=
+ENV VITE_OIDC_AUTHORITY=$VITE_OIDC_AUTHORITY
+ENV VITE_OIDC_CLIENT_ID=$VITE_OIDC_CLIENT_ID
 RUN npm run build
 
 FROM nginx:alpine
