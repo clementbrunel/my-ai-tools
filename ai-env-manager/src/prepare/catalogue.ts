@@ -65,7 +65,8 @@ export const CATALOGUE: CatalogueTool[] = [
     steps: [
       {
         label: "Installer le package Python",
-        command: "pip install headroom-ai",
+        command: "pip install 'headroom-ai[all]'",
+        manual: "ou uv tool install --python 3.13 'headroom-ai[all]' (CLI dans un env isolé) ; le paquet nu 'headroom-ai' n'inclut pas les extras proxy/MCP",
       },
       {
         label: "Mode proxy (optionnel, zero-code-change)",
@@ -73,7 +74,7 @@ export const CATALOGUE: CatalogueTool[] = [
       },
       {
         label: "Ajouter comme serveur MCP (optionnel)",
-        manual: "claude mcp add headroom -- headroom mcp  (dans le terminal Claude Code)",
+        manual: "headroom mcp install  (enregistre le serveur MCP dans les clients détectés, dont Claude Code ; nécessite l'extra [mcp] ou [all])",
       },
     ],
     conflictGroup: "token",
@@ -254,7 +255,7 @@ export const CATALOGUE: CatalogueTool[] = [
       {
         label: "Installer le CLI",
         command: "npm install -g openwiki",
-        manual: "Embarque better-sqlite3, un module natif : si npm bloque son script d'install (allowScripts), le binaire n'est jamais produit et openwiki échoue au lancement sur 'Could not locate the bindings file' — réinstaller avec 'npm install -g openwiki --allow-scripts=better-sqlite3 --foreground-scripts'",
+        manual: "Nécessite Node.js 22.22.0+. Embarque better-sqlite3, un module natif : si npm bloque son script d'install (allowScripts), le binaire n'est jamais produit et openwiki échoue au lancement sur 'Could not locate the bindings file' — réinstaller avec 'npm install -g openwiki --allow-scripts=better-sqlite3 --foreground-scripts'",
       },
       {
         label: "Derrière un proxy d'entreprise qui inspecte le TLS",
