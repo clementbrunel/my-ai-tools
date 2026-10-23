@@ -56,28 +56,26 @@ pour un vrai fichier, pas de flux dédié au mock.
 
 ## Authentification OIDC (Keycloak)
 
-Désactivée par défaut (`OIDC_ENABLED=false` : dev / mode mock, rien ne change). Quand elle est
-activée, le login est délégué à **oauth2-proxy**, branché dans le nginx du frontend :
+Désactivée par défaut (`OIDC_ENABLED=false` : dev / mode mock, rien ne change). L'application ne fait **pas** le
+login elle-même : elle attend qu'un proxy placé devant elle connecte l'utilisateur (Keycloak) et lui transmette son
+JWT. Ce proxy est fourni par le déploiement (par exemple un oauth2-proxy derrière lequel l'app est publiée), pas par
+ce dépôt.
 
 ```
-navigateur ──► nginx (frontend) ──auth_request──► oauth2-proxy ──► Keycloak
-                  │  cookie de session valide ? sinon 302 → login (pages) / 401 (API)
-                  └─ /api/ + Authorization: Bearer <JWT> ──► backend (re-valide le JWT)
+navigateur ──► proxy d'authentification ──► nginx (frontend) ──► /api/ ──► backend
+                 login Keycloak, session        Authorization: Bearer <JWT>   (re-valide le JWT)
 ```
 
-1. **Keycloak** : un client *confidentiel* (Standard flow, PKCE `S256`) avec
-   `<URL publique>/oauth2/callback` en *Valid redirect URI*, et l'URL de l'app en *Valid post logout
-   redirect URI*.
-2. **`.env`** : `OIDC_ENABLED=true`, `COMPOSE_PROFILES=oidc` (démarre le conteneur `oauth2-proxy`),
-   `OIDC_ISSUER_URI`, `OIDC_CLIENT_ID`/`OIDC_CLIENT_SECRET`, `OIDC_REDIRECT_URL`,
-   `OAUTH2_PROXY_COOKIE_SECRET`, et `OIDC_AUDIENCE=<client id>` pour que le backend exige l'audience.
-   Le détail de chaque variable est dans `.env.example`.
-3. **Ce que ça change** : tout le frontend et `/api/` exigent une session ; `/config.json` et
-   `/oauth2/*` restent publics. oauth2-proxy renouvelle le token (refresh) et nginx transmet l'ID
-   token au backend, qui en vérifie signature, issuer, expiration et audience : le backend
-   (port 8091 publié) reste protégé même si nginx est contourné. Le header affiche un bouton
-   **Se déconnecter** (`/oauth2/sign_out`, puis `OIDC_LOGOUT_REDIRECT` pour clore aussi la session
-   Keycloak). nginx lit `OIDC_ENABLED` au démarrage du conteneur : pas de rebuild pour l'activer.
+1. **Le proxy** connecte l'utilisateur et transmet l'**ID token** à l'API en `Authorization: Bearer <JWT>`
+   (avec oauth2-proxy : `set_authorization_header`, `cookie_refresh` sous la durée de vie du token, et
+   `auth_request` côté nginx). nginx laisse passer cet en-tête jusqu'au backend.
+2. **`.env`** : `OIDC_ENABLED=true`, `OIDC_ISSUER_URI`, et `OIDC_AUDIENCE=<client id du proxy>` pour que le backend
+   exige l'audience. Le détail de chaque variable est dans `.env.example`.
+3. **Ce que ça change** : toute l'API (`/api/**`, Swagger inclus) exige un JWT valide : signature, issuer,
+   expiration et audience sont vérifiés par le backend, qui reste protégé même si on le joint en contournant
+   le proxy (port 8091 publié). Le header affiche un bouton **Se déconnecter** (`<base>oauth2/sign_out`, que le proxy
+   doit servir sous le même préfixe que l'app, puis `OIDC_LOGOUT_REDIRECT` pour clore aussi la session Keycloak).
+   `OIDC_ENABLED` est lu au démarrage du conteneur : pas de rebuild pour l'activer.
 
 L'identité de l'utilisateur n'est **pas encore exploitée** : les générations restent rattachées à l'id de
 session (localStorage). Prochaine étape : lire le claim `sub` (`@AuthenticationPrincipal Jwt`) dans

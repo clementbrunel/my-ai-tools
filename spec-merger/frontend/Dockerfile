@@ -11,11 +11,9 @@ RUN npm run build
 FROM nginx:alpine
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
-COPY nginx/oidc-on /etc/nginx/oidc-on
-COPY nginx/oidc-off /etc/nginx/oidc-off
-COPY --chmod=755 docker-entrypoint.d/40-oidc.sh /docker-entrypoint.d/40-oidc.sh
+COPY --chmod=755 docker-entrypoint.d/40-config.sh /docker-entrypoint.d/40-config.sh
 # Defensive: a CRLF shebang (Windows checkout) makes the entrypoint fail with "not found".
-RUN sed -i 's/\r$//' /docker-entrypoint.d/40-oidc.sh /etc/nginx/oidc-on/* /etc/nginx/oidc-off/*
+RUN sed -i 's/\r$//' /docker-entrypoint.d/40-config.sh
 RUN mkdir -p /var/cache/nginx/client_temp \
              /var/cache/nginx/proxy_temp \
              /var/cache/nginx/fastcgi_temp \
