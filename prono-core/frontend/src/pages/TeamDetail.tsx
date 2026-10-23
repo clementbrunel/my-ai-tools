@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { getTeam, getTeamMatches } from '@/api/teams';
-import type { Team, Match } from '@/types';
+import type { Team, Match, MatchOutcome } from '@/types';
 import MatchRow from '@/components/MatchRow';
 import TeamLogo from '@/components/TeamLogo';
+import FormBadges, { OUTCOME_STYLES } from '@/components/FormBadges';
 
 type TeamTab = 'results' | 'upcoming';
 
@@ -60,6 +61,7 @@ const TeamDetail: React.FC = () => {
     );
   }
 
+  const { summary } = team;
   const results = matches.filter((m) => m.status === 'FINISHED');
   const upcoming = matches.filter((m) => m.status !== 'FINISHED');
 
@@ -89,6 +91,27 @@ const TeamDetail: React.FC = () => {
         </div>
         <div className="text-2xl font-black text-gray-900 dark:text-white">{team.name}</div>
       </div>
+
+      {/* ── Form summary ── */}
+      {summary.won + summary.draw + summary.lost > 0 && (
+        <div className="card space-y-4">
+          <div className="grid grid-cols-3 gap-2 text-center">
+            {([['W', summary.won], ['D', summary.draw], ['L', summary.lost]] as [MatchOutcome, number][]).map(([o, total]) => (
+              <div key={o} className={`rounded-xl py-3 ${OUTCOME_STYLES[o].tile}`}>
+                <div className="text-3xl font-black leading-none">{total}</div>
+                <div className="text-xs font-medium mt-1">{OUTCOME_STYLES[o].plural}</div>
+              </div>
+            ))}
+          </div>
+
+          {summary.recent.length > 0 && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-gray-500 dark:text-gray-400 mr-1">Forme</span>
+              <FormBadges outcomes={summary.recent} />
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Mobile: native select */}
       <div className="md:hidden">

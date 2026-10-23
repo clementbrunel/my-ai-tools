@@ -13,9 +13,12 @@ interface HeaderProps {
   onImportSession: (sessionId: string) => Promise<void>
   /** Clears the current session for a clean slate — see `resetSession`. */
   onReset: () => void
+  /** Signs the user out — only passed when the app runs behind OIDC, which is what shows the
+   * "Se déconnecter" button. */
+  onLogout?: () => void
 }
 
-function Header({ activeSessionId, hasSession, onImportSession, onReset }: HeaderProps) {
+function Header({ activeSessionId, hasSession, onImportSession, onReset, onLogout }: HeaderProps) {
   // Always mirrors activeSessionId — a new generation/merge, or loading a different session
   // (which reloads the page with the new id), both flow back here — but stays freely editable so
   // the user can paste a different session's id to load in its place.
@@ -70,7 +73,7 @@ function Header({ activeSessionId, hasSession, onImportSession, onReset }: Heade
   return (
     <header className="flex items-center gap-3 px-4 py-3 bg-gl-dark shadow-sm">
       <div className="flex items-center gap-2 shrink-0">
-        <img src="/favicon.svg" alt="" className="h-6 w-6 shrink-0" />
+        <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" className="h-6 w-6 shrink-0" />
         <span className="text-white font-semibold text-sm">Spec Doc/JXML Merger</span>
       </div>
 
@@ -122,6 +125,16 @@ function Header({ activeSessionId, hasSession, onImportSession, onReset }: Heade
             className="text-xs text-gray-300 hover:text-gl-danger border border-white/20 hover:border-gl-danger rounded px-2 py-1.5 transition-colors"
           >
             Nouvelle session
+          </button>
+        )}
+        {onLogout && (
+          <button
+            type="button"
+            onClick={onLogout}
+            title="Fermer la session d'authentification"
+            className="text-xs text-gray-300 hover:text-white border border-white/20 hover:border-white/40 rounded px-2 py-1.5 transition-colors"
+          >
+            Se déconnecter
           </button>
         )}
       </div>

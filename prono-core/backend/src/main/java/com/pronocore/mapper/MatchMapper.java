@@ -12,5 +12,7 @@ public interface MatchMapper {
 
     @Mapping(target = "externalLinks",
              expression = "java(match.getExternalLinks() != null ? match.getExternalLinks().toMap() : null)")
+    @Mapping(target = "teamASummary", ignore = true)
+    @Mapping(target = "teamBSummary", ignore = true)
     MatchResponse toResponse(Match match);
 }

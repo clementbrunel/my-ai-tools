@@ -15,7 +15,7 @@ Each tool lives in its own subdirectory with its own `package.json`, `src/`, and
 | `my-house/`        | `my-house`        | Home Assistant setup (NAS Docker or Pi 3B+ HAOS) + Somfy RTS/Zigbee      | wip |
 | `my-money-hub/`    | `my-money-hub`    | Personal multi-bank/insurance account aggregator (Java/Spring + React), self-hosted alternative to Linxo | wip |
 | `showcase/` | `showcase` | Static FR/EN catalogue page promoting my public apps (BienvenueBébé, prono-core, ai-env-manager) — Vite + React; cards driven by `src/apps.ts` | active |
-| `cbl-log/` | `cbl-log` | Real-time Windows log viewer, modern customizable BareTail replacement with rolling-file support (Electron + TypeScript + React) — spec phase, see `cbl-log/docs/` | wip |
+| `cbl-log/` | `cbl-log` | Real-time Windows log viewer, modern customizable BareTail replacement with rolling-file support (Electron + TypeScript + React) — v2.0.0, see `cbl-log/docs/` | active |
 | `spec-merger/` | `spec-merger` | Merges a project's Word spec with its JWAY JXML source into a single editable, version-tracked markdown (Java/Spring Boot + React + Postgres) | active |
 
 ## Adding a new tool
@@ -36,6 +36,13 @@ A Claude routine fires every Friday at midnight (Paris) and runs `.claude/skills
 one tested patch/minor PR per sub-project, majors listed in the `📦 Dépendances — tableau de bord
 hebdo` issue, and a review of ai-env-manager's catalogue. The perimeter (which sub-projects, which
 checks) is edited in `.claude/skills/weekly-deps/scope.json`.
+
+## Releasing a sub-project
+
+Tag `<tool>-vX.Y.Z` via `.claude/skills/release-tool/` so GitHub's "Source code" archive contains only
+that tool's directory (temporary `.gitattributes` export-ignore on the tagged commit, reverted on `main`).
+Release notes are the `## [X.Y.Z]` section of `<tool>/CHANGELOG.md`, written by hand in the version-bump
+PR (user-facing changes only), never GitHub's generated PR list.
 
 ## Common commands (per tool)
 

@@ -1,0 +1,46 @@
+# Windows x64 packaging: NSIS installer + portable .exe (NF-06).
+# No telemetry (NF-07). Updates come from the GitHub releases through app/src/main/updater.ts, which relies on
+# the artifactName below: electron-updater is deliberately not a dependency (monorepo tags, portable target).
+appId: dev.clementbrunel.cbl-log
+productName: cbl-log
+copyright: Copyright (c) Clement Brunel
+directories:
+  app: app
+  output: release
+asar: true
+# Vite bundles everything the main, engine and renderer need (workspace packages included): ship only
+# the build output, not node_modules (which would drag in workspace symlinks).
+files:
+  - out/**
+  - package.json
+  - "!node_modules/**"
+npmRebuild: false
+# Lighter installer/portable: max LZMA compression (slower build, same runtime) and only the Chromium
+# locales the UI needs (French UI, en-US is Chromium's mandatory fallback) instead of ~55 .pak files.
+compression: maximum
+electronLanguages:
+  - fr
+  - en-US
+publish: null
+# Runtime window icon (BrowserWindow.icon) and author avatar (splash, "À propos") live outside the asar.
+extraResources:
+  - from: app/resources/icon.png
+    to: icon.png
+  - from: app/resources/icon-light.png
+    to: icon-light.png
+  - from: app/resources/avatar.png
+    to: avatar.png
+win:
+  icon: app/resources/icon.ico
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  artifactName: ${productName}-Setup-${version}.exe
+portable:
+  artifactName: ${productName}-${version}-portable.exe

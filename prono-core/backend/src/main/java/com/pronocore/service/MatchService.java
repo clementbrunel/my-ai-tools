@@ -4,11 +4,15 @@ import com.pronocore.client.FootballDataClient;
 import com.pronocore.dto.request.CreateMatchRequest;
 import com.pronocore.dto.request.UpdateMatchScoreRequest;
 import com.pronocore.dto.response.FixtureImportResponse;
+import com.pronocore.dto.response.FootStandingResponse;
 import com.pronocore.dto.response.MatchResponse;
+import com.pronocore.dto.response.TeamRanking;
+import com.pronocore.dto.response.TeamSummaryResponse;
 import com.pronocore.entity.*;
 import com.pronocore.mapper.MatchMapper;
 import com.pronocore.repository.*;
 import com.pronocore.util.BetSettlement;
+import com.pronocore.util.TeamForm;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,6 +38,7 @@ public class MatchService {
     private final MatchExternalLinksRepository matchExternalLinksRepository;
     private final FootballDataClient           footballDataClient;
     private final DailyGageService             dailyGageService;
+    private final FootStandingsService         footStandingsService;
 
     // ---------------------------------------------------------------
     // Scoring constants
@@ -61,7 +66,37 @@ public class MatchService {
 
     @Transactional(readOnly = true)
     public MatchResponse getMatchById(Long id) {
-        return toEnrichedResponse(requireMatch(id));
+        Match match = requireMatch(id);
+        MatchResponse response = toEnrichedResponse(match);
+        Map<Long, TeamRanking> rankings = rankings(match);
+        response.setTeamASummary(summaryBefore(match, match.getTeamA().getId(), rankings));
+        response.setTeamBSummary(summaryBefore(match, match.getTeamB().getId(), rankings));
+        return response;
+    }
+
+    /** The team's record in this match's competition before it, with its current ranking if known. */
+    private TeamSummaryResponse summaryBefore(Match match, Long teamId, Map<Long, TeamRanking> rankings) {
+        List<Match> before = matchRepository.findFinishedByTeamBefore(
+                teamId, match.getCompetition().getId(), match.getMatchDate());
+        return TeamForm.summarize(before, teamId).withRanking(rankings.get(teamId));
+    }
+
+    /** Current league position by team id — a live table, so only meaningful before the match is over.
+     *  Best effort: if the table can't be fetched the match page just goes without rankings. */
+    private Map<Long, TeamRanking> rankings(Match match) {
+        Competition competition = match.getCompetition();
+        if (match.getStatus() == Match.Status.FINISHED || !footStandingsService.hasStandings(competition)) {
+            return Map.of();
+        }
+        try {
+            return footStandingsService.getStandings(competition.getId()).stream()
+                    .filter(row -> row.getTeamId() != null)
+                    .collect(Collectors.toMap(FootStandingResponse::getTeamId,
+                            row -> new TeamRanking(row.getPosition(), row.getPoints()), (a, b) -> a));
+        } catch (RuntimeException e) {
+            log.warn("League standings unavailable for match {}: {}", match.getId(), e.getMessage());
+            return Map.of();
+        }
     }
 
     @Transactional(readOnly = true)

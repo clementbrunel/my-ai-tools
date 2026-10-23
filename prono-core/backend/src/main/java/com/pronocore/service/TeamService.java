@@ -1,11 +1,12 @@
 package com.pronocore.service;
 
 import com.pronocore.dto.response.MatchResponse;
-import com.pronocore.dto.response.TeamResponse;
+import com.pronocore.dto.response.TeamDetailResponse;
 import com.pronocore.entity.Team;
 import com.pronocore.mapper.MatchMapper;
 import com.pronocore.repository.MatchRepository;
 import com.pronocore.repository.TeamRepository;
+import com.pronocore.util.TeamForm;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -22,10 +23,12 @@ public class TeamService {
     private final MatchMapper matchMapper;
 
     @Transactional(readOnly = true)
-    public TeamResponse getTeamById(Long id) {
+    public TeamDetailResponse getTeamById(Long id) {
         Team team = teamRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Team not found: " + id));
-        return new TeamResponse(team.getId(), team.getName(), team.getIso2(), team.getCrestUrl());
+        // All competitions mixed — hence no league ranking on this summary.
+        return new TeamDetailResponse(team.getId(), team.getName(), team.getIso2(), team.getCrestUrl(),
+                TeamForm.summarize(matchRepository.findFinishedByTeam(id), id));
     }
 
     @Transactional(readOnly = true)

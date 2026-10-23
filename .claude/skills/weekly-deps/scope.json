@@ -81,6 +81,17 @@
       ]
     },
     {
+      "name": "cbl-log",
+      "status": "wip",
+      "enabled": true,
+      "npm": [
+        "cbl-log"
+      ],
+      "checks": [
+        "cd cbl-log && npm ci && npm run typecheck && npm test && npm run build"
+      ]
+    },
+    {
       "name": "mottaret-watch",
       "status": "deprecated",
       "enabled": false,

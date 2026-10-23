@@ -1,0 +1,11 @@
+export { LineIndex, DEFAULT_CHUNK_SIZE } from "./line-index.js";
+export type { AppendResult, LineIndexOptions } from "./line-index.js";
+export { CheckpointStore } from "./checkpoint-store.js";
+export { CHECKPOINT_INTERVAL, IndexBuilder, initialIndexState, lineCountOf, scanChunk } from "./scan.js";
+export type { IndexState, LineEndHandler, ScanCarry } from "./scan.js";
+export { MAX_LINE_BYTES } from "./lines.js";
+export type { DecodedLine, NumberedLine } from "./lines.js";
+export { readTail } from "./tail.js";
+export type { TailResult } from "./tail.js";
+export { indexInWorker, setIndexerWorkerPath } from "./worker-host.js";
+export type { IndexBatch, IndexProgress, WorkerIndexOptions, WorkerIndexResult } from "./worker-host.js";

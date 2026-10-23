@@ -146,8 +146,11 @@ alloué dans un `SharedArrayBuffer` extensible pour être lu par les workers san
 - `offsetOf(line)` = `checkpoints[line / 64]` puis ≤ 63 `indexOf(0x0a)` sur un bloc (~10 Ko lu).
 - Indexation initiale : un worker lit par blocs de 1 Mo et accumule les fins de ligne ; progression
   publiée toutes les ~100 ms.
-- **La fin d'abord (F-03)** : à l'ouverture, lecture à rebours depuis EOF pour trouver les ~500 dernières
-  lignes, affichées immédiatement avec numéros provisoires ; l'indexation avant tourne en fond.
+- **La fin d'abord (F-03)** : `readTail` (lecture à rebours depuis EOF des ~500 dernières lignes) existe dans
+  le moteur mais n'est pas branché. À l'ouverture, `open` répond une fois l'indexation terminée ; l'UI
+  affiche un loader avec le pourcentage (événements `indexing` poussés sous l'`openId` fourni par le
+  renderer). L'affichage immédiat de la fin (#406) est reporté : l'important est le suivi/rolling après le
+  chargement initial.
 - UTF-16 : recherche de `0x0a 0x00` aligné sur 2 octets. Lignes très longues : affichage plafonné à 64 Ko.
 
 ### 4.3 Suivi et **rolling**
@@ -193,6 +196,7 @@ Points clés :
   (≤ un intervalle de polling, d'où 250 ms). Exception : en *copytruncate*, l'archive copiée contient ces
   octets → si une archive apparaît dont la taille ≥ notre offset, on y relit `[offset, fin]` pour **récupérer**
   les lignes manquantes avant le séparateur.
+- **Modèle de lignes (implémenté : `Tailer`, `packages/engine/src/tail/`)** : une liste de **segments**, un par fichier physique suivi (`{id, path, startRow, rowCount, startedBy, readable}`). Les numéros de ligne sont **globaux et ne décroissent jamais** : un rolling n’efface rien, l’UI dessine le séparateur (T-04d) à `startRow` de chaque segment d’id > 0. `rolled.at` = `startRow` du nouveau segment. Rename : l’ancien handle reste ouvert (lisible, au plus `maxRetainedSegments`, 3 par défaut). Copytruncate : l’archive retrouvée (taille ≥ offset, mêmes 4 Ko d’ancre) devient la source du segment précédent, qui rattrape `[offset, fin]` (événement `rows`, puis `rolled`). Truncate sans archive : segment `readable: false`, ses lignes restent comptées. L’ancre est prise avant l’offset **scanné** (là où l’indexation reprend).
 - **Coalescence** : au plus un événement `rows` par ~50 ms vers l'UI, quel que soit le débit.
 - Dernière ligne sans `\n` tenue « ouverte » et ré-émise si elle grandit.
 - **Archives (T-08)** : à partir du motif d'archive (déduit, ou déclaré dans le profil :
@@ -219,7 +223,7 @@ Format déclaratif en JSON (C-04), regex à groupes nommés :
 - Formats fournis : **WebSphere traditional, WebSphere Liberty, Liberty JSON** (P0), Spring Boot/Logback,
   Log4j2, JSON lines.
 
-Format WebSphere *générique, provisoire* — sera remplacé par le formatage réel fourni avant M2 (traditional `SystemOut.log` et Liberty `messages.log` partagent la même mise en page
+Format WebSphere `websphere-basic` (implémenté dans `packages/shared/src/formats.ts`, validé sur un `SystemOut.log` réel de WebSphere 9.0.5 : locale `M/d/yy`, fuseau `UTC`) — traditional `SystemOut.log` et Liberty `messages.log` partagent la même mise en page
 « basic » : `[10/14/26 10:02:11:204 CEST] 0000004a SystemOut     O Hello`) :
 
 ```json
@@ -237,6 +241,12 @@ Format WebSphere *générique, provisoire* — sera remplacé par le formatage r
 - L'ordre jour/mois dépend de la **locale du serveur** (`M/d/yy` en en_US, `dd/MM/yy` en fr_FR) : réglable
   par profil, avec détection automatique quand un jour > 12 apparaît.
 - Le fuseau est une abréviation (`CEST`, `UTC`) : table abréviation → décalage dans `settings.json`.
+- **Le niveau n'est presque jamais dans la lettre WebSphere** : les lignes `SystemOut` sont toutes de type `O`.
+  Le niveau réel est celui de la mise en page applicative qui suit (`user|canal|yyyyMMdd|heure|NIVEAU|logger|…`),
+  avec les niveaux de `java.util.logging` (`SEVERE`, `WARNING`, `INFO`, `CONFIG`, `FINE`, `FINER`, `FINEST`) :
+  le format les lit via `levelFallbacks` (la lettre `O` vaut `none`).
+- Les lignes qui ne commencent pas par l'en-tête (tabulation + `at …`, `Caused by:`, `… N more`, SQL sur plusieurs lignes,
+  ligne d'exception sans préfixe, bandeau d'environnement du début) sont des suites de l'enregistrement précédent.
 - Les identifiants de messages IBM (`CWWKZ0001I`, `WSVR0605W`, `…E`) servent de niveau de secours et
   fournissent des règles de surlignage par défaut (suffixe `E` rouge, `W` orange).
 - Liberty JSON (`WLP_LOGGING_MESSAGE_FORMAT=json`) : mapping `ibm_datetime`, `loglevel`, `module`, `message`.
@@ -255,6 +265,34 @@ Format WebSphere *générique, provisoire* — sera remplacé par le formatage r
 - **View** = ce que voit l'UI : `rows()` et `rowToLine(row)`. `PlainView`, `FilteredView` (tableau trié
   des lignes retenues + recherche dichotomique), `MergedView` (§ 4.6). Passer filtré ↔ complet en gardant
   la position (S-05) = conversion via le n° de ligne source.
+
+**Filtre de lignes (implémenté en M2, #431).** Plus simple que l'arbre de requête ci-dessus, qui reste
+la cible pour M4 :
+
+- `LineFilter { levels?, include?, exclude? }` (`packages/shared/src/filter.ts`) : une ligne est retenue
+  si son niveau est coché **et** qu'elle contient un texte `include` (s'il y en a) **et** aucun texte
+  `exclude`. Les textes se testent **ligne à ligne**, comme la recherche (mêmes options : regex, casse, mot entier).
+- Le niveau suit l'**enregistrement** : une ligne de suite (stack frame, SQL…) a le niveau de l'en-tête
+  qui la précède ; les lignes sans niveau sont masquées dès que les niveaux sont restreints. Sans format
+  reconnu, le niveau n'est pas filtrable.
+- `FilterSession` (`packages/engine/src/filter`) est calquée sur `SearchSession` : mêmes tranches (16 Mio, aux
+  checkpoints) sur le même pool (`SliceRun`), garde-fou regex compris. Chaque worker relit au plus 256 lignes
+  avant sa tranche (4 checkpoints) pour connaître le niveau de l'enregistrement en cours, puis renvoie les
+  n° de lignes retenues et leurs niveaux (`Uint32Array` + `Uint8Array`).
+- La vue filtrée n'expose que ce dont l'ordre est sûr : les tranches terminées en tête, plus les résultats
+  partiels de la première tranche inachevée. Les positions ne bougent donc jamais pendant le parcours.
+- Temps réel : sur `rows`, la session filtre la suite du fichier ; sur `rolled`, elle repart de zéro.
+- `getRows` accepte un `filterId` : `first`/`count` indexent alors les lignes retenues, dont le `lineNo`
+  reste celui du fichier. Le fichier courant seul est filtré (les anciens segments ne sont pas lisibles).
+- Mesuré sur 1 Gio (8,4 M lignes) : premiers résultats en ~0,25 s, filtre complet en ~2,5 s (NF-05).
+- La bascule filtré ↔ complet garde la position (`filterLocate` : n° de ligne du fichier → position dans la
+  vue filtrée) ; `Ctrl+G`, la navigation de recherche (les occurrences sur des lignes masquées sont sautées),
+  « Effacer » et le séparateur de rolling s'appliquent à la vue filtrée (#432).
+- **Repli des stack traces (#439)** : `foldContinuation` ajoute une condition au filtre. Les lignes de suite
+  sont masquées et chaque en-tête retenu porte le nombre de lignes repliées (`Row.folded`). Le worker les
+  compte, en lisant au-delà de la fin de sa tranche jusqu'au prochain en-tête ; si l'enregistrement va
+  jusqu'au bout de ce qui est indexé, la session le relit au parcours suivant pour que son compte soit exact.
+  Le double-clic (#432) déplie une stack trace en montrant le fichier complet autour d'elle.
 
 ### 4.6 Onglet « Tout » : vue fusionnée (M-01, P1)
 

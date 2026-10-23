@@ -3,11 +3,17 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 COPY . .
+# Deployment sub-path, e.g. --build-arg VITE_BASE=spec-merger
+ARG VITE_BASE=/
+ENV VITE_BASE=$VITE_BASE
 RUN npm run build
 
 FROM nginx:alpine
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --chmod=755 docker-entrypoint.d/40-config.sh /docker-entrypoint.d/40-config.sh
+# Defensive: a CRLF shebang (Windows checkout) makes the entrypoint fail with "not found".
+RUN sed -i 's/\r$//' /docker-entrypoint.d/40-config.sh
 RUN mkdir -p /var/cache/nginx/client_temp \
              /var/cache/nginx/proxy_temp \
              /var/cache/nginx/fastcgi_temp \

@@ -1,0 +1,1194 @@
+:root {
+  --bg: #ffffff;
+  --fg: #1b1f24;
+  --muted: #5b6570;
+  --border: #d0d5da;
+  --accent: #2f6fdc;
+  --gutter-bg: #f3f5f7;
+  /* window chrome (tab strip, command bar, status bar) */
+  --chrome: #f3f3f3;
+  --chrome-strip: #e9eaeb;
+  --control: #ffffff;
+  --control-border: #c9ced4;
+  --opt-on-bg: #e1ebfb;
+  --opt-on-fg: #1f56b5;
+  --include-bg: #e6f4ea;
+  --include-fg: #0d652d;
+  --exclude-bg: #fce8e6;
+  --exclude-fg: #a50e0e;
+  --segment-bg: #e3e5e8;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14171a;
+    --fg: #e6e9ec;
+    --muted: #8b95a0;
+    --border: #2d333a;
+    --accent: #3b82f6;
+    --gutter-bg: #1b1f23;
+    --chrome: #1c1f23;
+    --chrome-strip: #16191c;
+    --control: #22262b;
+    --control-border: #3a4048;
+    --opt-on-bg: rgba(59, 130, 246, 0.22);
+    --opt-on-fg: #93bbfb;
+    --include-bg: rgba(24, 128, 56, 0.22);
+    --include-fg: #7fd99a;
+    --exclude-bg: rgba(217, 48, 37, 0.2);
+    --exclude-fg: #f4a39c;
+    --segment-bg: #2a2f35;
+  }
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+}
+
+.placeholder {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.placeholder p {
+  color: var(--muted);
+}
+
+.app {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.toast {
+  position: fixed;
+  top: 8px;
+  right: 8px;
+  z-index: 10;
+  max-width: 60ch;
+  padding: 8px 12px;
+  border-radius: 4px;
+  background: #b3261e;
+  color: #fff;
+  cursor: pointer;
+}
+
+.badge {
+  padding: 0 6px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.dot-missing {
+  background: #d98e04;
+}
+
+.dot-error {
+  background: #b3261e;
+}
+
+.viewport-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.viewport {
+  flex: 1;
+  overflow-y: auto;
+  /* Always reserve the horizontal scrollbar: it would otherwise appear and disappear as long lines
+     scroll in and out of the window, resizing the viewport (and flickering) at every toggle. */
+  overflow-x: scroll;
+  position: relative;
+  outline: none;
+  font: 13px/18px Consolas, "Courier New", monospace;
+}
+
+.viewport-spacer {
+  position: relative;
+  min-width: 100%;
+  width: max-content;
+}
+
+.viewport-window {
+  position: absolute;
+  top: 0;
+  left: 0;
+  /* own compositor layer, opaque so that text keeps its sub-pixel antialiasing while scrolling */
+  will-change: transform;
+  background: var(--bg);
+  min-width: 100%;
+  width: max-content;
+}
+
+.log-row {
+  display: flex;
+  white-space: pre;
+  contain: layout paint;
+}
+
+.log-gutter {
+  position: sticky;
+  left: 0;
+  flex: none;
+  min-width: 8ch;
+  padding: 0 8px;
+  box-sizing: content-box;
+  background: var(--gutter-bg);
+  color: var(--muted);
+  text-align: right;
+  user-select: none;
+}
+
+/* Fixed slot (widest label: 5 chars) so the line numbers stay aligned whether or not a level is known. */
+.log-level {
+  display: inline-block;
+  width: 5ch;
+  margin-right: 1ch;
+  text-align: left;
+  font-size: 0.85em;
+}
+
+.log-row.lvl-fatal .log-level { color: var(--lvl-fatal); }
+.log-row.lvl-error .log-level { color: var(--lvl-error); }
+.log-row.lvl-warn .log-level { color: var(--lvl-warn); }
+.log-row.lvl-info .log-level { color: var(--lvl-info); }
+.log-row.lvl-debug .log-level { color: var(--lvl-debug); }
+.log-row.lvl-trace .log-level { color: var(--lvl-trace); }
+
+.log-text {
+  padding-left: 8px;
+}
+
+.goto {
+  position: absolute;
+  top: 8px;
+  right: 24px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.goto input {
+  margin-left: 8px;
+  width: 10ch;
+}
+
+.toast.info {
+  background: var(--accent);
+}
+
+.banner {
+  flex: none;
+  padding: 4px 12px;
+  background: #d98e04;
+  color: #1b1f24;
+  font-size: 12px;
+}
+
+.banner-error {
+  background: #b3261e;
+  color: #fff;
+}
+
+.log-row.roll-start {
+  border-top: 1px dashed var(--accent);
+  box-sizing: border-box;
+}
+
+.log-row.selected {
+  /* inset shadow, so it shows over a rule background set inline */
+  box-shadow: inset 0 0 0 100vw rgba(47, 111, 220, 0.25);
+}
+
+.log-row {
+  user-select: none;
+}
+
+.roll-label {
+  position: sticky;
+  right: 8px;
+  margin-left: auto;
+  padding: 0 8px;
+  background: var(--bg);
+  color: var(--accent);
+  font-size: 11px;
+}
+
+.link {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 8vh;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.modal {
+  width: min(960px, 94vw);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.modal header,
+.modal footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+}
+
+.modal header {
+  justify-content: space-between;
+}
+
+.modal h2 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.hint {
+  margin: 0;
+  padding: 0 12px 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.rules-list {
+  overflow: auto;
+  padding: 0 12px;
+}
+
+.rule-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.rule-grip {
+  cursor: grab;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+  padding: 2px 2px;
+  user-select: none;
+}
+
+.rule-grip:hover {
+  color: var(--accent);
+}
+
+.rule-row.dragging {
+  opacity: 0.4;
+}
+
+.rule-row.drop-before {
+  box-shadow: 0 -2px 0 0 var(--accent);
+}
+
+.rule-row.drop-after {
+  box-shadow: 0 2px 0 0 var(--accent);
+}
+
+.rule-row.invalid .rule-pattern {
+  outline: 1px solid #b3261e;
+}
+
+.rule-pattern {
+  flex: 1;
+  min-width: 14ch;
+  font-family: Consolas, "Courier New", monospace;
+}
+
+.rule-error {
+  flex-basis: 100%;
+  color: #b3261e;
+}
+
+.color-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.color-field input.unset {
+  opacity: 0.35;
+}
+
+.color-field input[type="color"] {
+  width: 28px;
+  height: 22px;
+  padding: 0;
+}
+
+.search-count {
+  flex: 1;
+  color: var(--muted);
+}
+
+.search-count.error {
+  color: #b3261e;
+}
+
+.log-row.anchor {
+  outline: 1px dashed var(--accent);
+  outline-offset: -1px;
+}
+
+.log-row.current-match {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+/* level marker: colored edge of the line-number gutter */
+:root {
+  --lvl-fatal: #a50e0e;
+  --lvl-error: #d93025;
+  --lvl-warn: #f29900;
+  --lvl-info: #1a73e8;
+  --lvl-debug: #80868b;
+  --lvl-trace: #a0a4a8;
+}
+
+.log-row.lvl-fatal .log-gutter { box-shadow: inset 3px 0 0 var(--lvl-fatal); }
+.log-row.lvl-error .log-gutter { box-shadow: inset 3px 0 0 var(--lvl-error); }
+.log-row.lvl-warn .log-gutter { box-shadow: inset 3px 0 0 var(--lvl-warn); }
+.log-row.lvl-info .log-gutter { box-shadow: inset 3px 0 0 var(--lvl-info); }
+.log-row.lvl-debug .log-gutter { box-shadow: inset 3px 0 0 var(--lvl-debug); }
+.log-row.lvl-trace .log-gutter { box-shadow: inset 3px 0 0 var(--lvl-trace); }
+
+/* faint background by level (fatal / error / warn), so that a block of errors reads at a glance.
+   A highlighting rule that colors the line sets its background inline and takes precedence. */
+.log-row.lvl-fatal { background-color: color-mix(in srgb, var(--lvl-fatal) 18%, transparent); }
+.log-row.lvl-error { background-color: color-mix(in srgb, var(--lvl-error) 12%, transparent); }
+.log-row.lvl-warn { background-color: color-mix(in srgb, var(--lvl-warn) 12%, transparent); }
+
+.regex-help {
+  flex: none;
+  max-height: 40vh;
+  overflow: auto;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--gutter-bg);
+  font-size: 12px;
+}
+
+.regex-help h3 {
+  margin: 6px 0 4px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.regex-help-note {
+  margin: 0 0 4px;
+}
+
+.regex-help code {
+  padding: 0 4px;
+  border-radius: 3px;
+  background: rgba(128, 128, 128, 0.2);
+  font-family: Consolas, "Courier New", monospace;
+}
+
+.regex-reading {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+
+.regex-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.regex-chips button {
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.regex-chips button:hover {
+  border-color: var(--accent);
+}
+
+.rule-help {
+  flex-basis: 100%;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.rules-sample {
+  padding: 0 12px 8px;
+  font-size: 12px;
+}
+
+.rules-sample input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 2px;
+  font-family: Consolas, "Courier New", monospace;
+}
+
+.sample-preview {
+  margin-top: 4px;
+  padding: 2px 6px;
+  border: 1px dashed var(--border);
+  font: 13px/18px Consolas, "Courier New", monospace;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.sample-hit {
+  color: #188038;
+  font-weight: 700;
+}
+
+.sample-miss {
+  color: var(--muted);
+}
+
+.profile-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 0 12px 8px;
+  font-size: 12px;
+}
+
+.profile-bar select,
+.profile-select select {
+  margin-left: 4px;
+  max-width: 22ch;
+  font-size: 12px;
+}
+
+.profile-new,
+.profile-share {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.profile-formats label {
+  margin-right: 8px;
+  white-space: nowrap;
+}
+
+.profile-select {
+  white-space: nowrap;
+}
+
+.toast.opening {
+  top: auto;
+  bottom: 32px;
+  cursor: default;
+}
+
+/* Placeholder in index.html until React mounts. */
+.boot-loader {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  width: 28px;
+  height: 28px;
+  margin: -14px 0 0 -14px;
+  border-radius: 50%;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  animation: boot-spin 0.8s linear infinite;
+}
+
+@keyframes boot-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---- Window chrome: tab strip, command bar, status bar. The log rows above keep their own look. ---- */
+
+.tabs {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  flex: none;
+  height: 38px;
+  padding: 0 8px;
+  box-sizing: border-box;
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: var(--chrome-strip);
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  box-sizing: border-box;
+  padding: 0 6px 0 12px;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 6px 6px 0 0;
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.tab:hover {
+  color: var(--fg);
+}
+
+.tab.active {
+  margin-bottom: -1px;
+  height: 33px;
+  border-color: var(--border);
+  background: var(--chrome);
+  color: var(--fg);
+  box-shadow: inset 0 2px var(--accent);
+}
+
+.tab-rename {
+  width: 140px;
+  height: 22px;
+  box-sizing: border-box;
+  padding: 0 4px;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+}
+
+.tab-close {
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 4px;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  visibility: hidden;
+}
+
+.tab-close:hover {
+  background: var(--segment-bg);
+}
+
+.tab:hover .tab-close,
+.tab.active .tab-close {
+  visibility: visible;
+}
+
+.tab-add {
+  align-self: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.tab-add:hover {
+  background: var(--segment-bg);
+  color: var(--fg);
+}
+
+/* Command bar: search on the left, filter in the middle, levels on the right; wraps when narrow. */
+.toprow {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px 12px;
+  padding: 8px 12px;
+  background: var(--chrome);
+  border-bottom: 1px solid var(--border);
+}
+
+.searchblock {
+  flex: 0 1 460px;
+  min-width: 0;
+}
+
+.searchbar,
+.filterbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.filterbar {
+  flex: 1 1 300px;
+  min-width: 0;
+}
+
+.field {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  height: 30px;
+  box-sizing: border-box;
+  padding: 0 4px 0 10px;
+  border: 1px solid var(--control-border);
+  border-radius: 4px;
+  background: var(--control);
+}
+
+.field:focus-within {
+  border-bottom: 2px solid var(--accent);
+}
+
+.field.invalid {
+  border-color: #b3261e;
+}
+
+/* Filter: the chips wrap onto more lines when the bar is narrow, the field grows in height. */
+.field.multiline {
+  flex-wrap: wrap;
+  height: auto;
+  min-height: 30px;
+  padding-top: 3px;
+  padding-bottom: 3px;
+  row-gap: 4px;
+}
+
+.field.multiline input {
+  min-width: 12ch;
+}
+
+.field-icon {
+  flex: none;
+  margin-right: 6px;
+  color: var(--muted);
+}
+
+.field input {
+  flex: 1;
+  min-width: 8ch;
+  border: 0;
+  outline: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+}
+
+.field .search-count {
+  flex: none;
+  padding: 0 6px;
+  white-space: nowrap;
+}
+
+.field-sep {
+  flex: none;
+  width: 1px;
+  height: 16px;
+  margin: 0 2px;
+  background: var(--control-border);
+}
+
+.opt {
+  flex: none;
+  min-width: 24px;
+  height: 22px;
+  padding: 0 5px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--muted);
+  font: 12px Consolas, "Courier New", monospace;
+  cursor: pointer;
+}
+
+.opt:hover:not(:disabled) {
+  background: var(--segment-bg);
+  color: var(--fg);
+}
+
+.opt.on {
+  background: var(--opt-on-bg);
+  color: var(--opt-on-fg);
+}
+
+.opt.include,
+.opt.exclude {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.opt.include:not(:disabled) {
+  color: var(--include-fg);
+}
+
+.opt.exclude:not(:disabled) {
+  color: var(--exclude-fg);
+}
+
+.opt.include:hover:not(:disabled) {
+  background: var(--include-bg);
+}
+
+.opt.exclude:hover:not(:disabled) {
+  background: var(--exclude-bg);
+}
+
+.opt:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.help-toggle {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--control-border);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.help-toggle.on {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+.searchblock .regex-help {
+  margin-top: 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.chips {
+  display: contents;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-right: 4px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 24ch;
+  padding: 1px 2px 1px 8px;
+  overflow: hidden;
+  border-radius: 10px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.chip.include {
+  background: var(--include-bg);
+  color: var(--include-fg);
+}
+
+.chip.exclude {
+  background: var(--exclude-bg);
+  color: var(--exclude-fg);
+}
+
+.chip button {
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.level-pills {
+  display: inline-flex;
+  flex: none;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.level-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  box-sizing: border-box;
+  padding: 0 8px;
+  border: 1px dashed var(--control-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+.level-pill.on {
+  border-style: solid;
+  background: var(--control);
+  color: var(--fg);
+}
+
+.level-pill:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.level-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1.5px var(--pill-color);
+}
+
+.level-pill.on .level-dot {
+  background: var(--pill-color);
+}
+
+.level-pill.lvl-error { --pill-color: var(--lvl-error); }
+.level-pill.lvl-warn { --pill-color: var(--lvl-warn); }
+.level-pill.lvl-info { --pill-color: var(--lvl-info); }
+.level-pill.lvl-debug { --pill-color: var(--lvl-debug); }
+.level-pill.lvl-trace { --pill-color: var(--lvl-trace); }
+
+/* wraps onto a second line when the window is too narrow, rather than pushing Pause / Suivre out */
+.statusbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  flex: none;
+  min-height: 34px;
+  box-sizing: border-box;
+  padding: 4px 12px;
+  background: var(--chrome);
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.line-count {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.status-sep {
+  flex: none;
+  width: 1px;
+  height: 14px;
+  background: var(--control-border);
+}
+
+/* path then encoding; takes the free width, the path is the part that gets shortened */
+.status-file {
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  gap: 8px;
+  /* the encoding always fits; the path only gets what is left (without this, its full length would wrap the bar) */
+  min-width: 20ch;
+}
+
+.status-file .profile-select {
+  flex: none;
+}
+
+.status-path {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.state-missing,
+.state-error {
+  color: #d98e04;
+}
+
+.view-switch {
+  display: inline-flex;
+  flex: none;
+  padding: 2px;
+  border-radius: 6px;
+  background: var(--segment-bg);
+}
+
+.view-switch button {
+  height: 22px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.view-switch button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.view-switch button.on {
+  background: var(--control);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  color: var(--fg);
+  cursor: default;
+}
+
+.fold-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.fold-toggle.disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* checkbox drawn as a switch */
+input.switch {
+  appearance: none;
+  position: relative;
+  flex: none;
+  width: 30px;
+  height: 16px;
+  margin: 0;
+  border-radius: 8px;
+  background: var(--control-border);
+  cursor: inherit;
+}
+
+input.switch::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.12s;
+}
+
+input.switch:checked {
+  background: var(--accent);
+}
+
+input.switch:checked::after {
+  transform: translateX(14px);
+}
+
+.profile-select select {
+  max-width: 26ch;
+  height: 24px;
+  padding: 0 4px;
+  border: 1px solid var(--control-border);
+  border-radius: 4px;
+  background: var(--control);
+  color: var(--fg);
+  font: inherit;
+}
+
+.status-tools {
+  display: inline-flex;
+  flex: none;
+  gap: 2px;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 26px;
+  height: 24px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.icon-btn:hover {
+  background: var(--segment-bg);
+  color: var(--fg);
+}
+
+.icon-btn.cleared {
+  color: #b06f00;
+}
+
+/* Pause / Suivre stay together in the bottom right corner, also when the bar wraps */
+.status-live {
+  display: inline-flex;
+  flex: none;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.follow,
+.pause {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 10px;
+  border: 1px solid var(--control-border);
+  border-radius: 4px;
+  background: var(--control);
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+}
+
+.follow.on {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.pause.on {
+  border-color: #f29900;
+  background: #f29900;
+  color: #000;
+}
+
+.fold-badge {
+  margin-left: 10px;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.feedback-panel {
+  width: min(640px, 94vw);
+}
+
+.feedback-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: auto;
+  padding: 0 12px;
+  font-size: 12px;
+}
+
+.feedback-form > label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.feedback-form input:not([type="checkbox"]),
+.feedback-form textarea {
+  padding: 4px 6px;
+  border: 1px solid var(--control-border);
+  border-radius: 4px;
+  background: var(--control);
+  color: var(--fg);
+  font: inherit;
+}
+
+.feedback-form textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+
+.feedback-form > label.feedback-env {
+  flex-direction: row;
+  align-items: center;
+  color: var(--muted);
+}
+
+.feedback-form .view-switch {
+  align-self: flex-start;
+}
+
+.feedback-error {
+  margin: 0;
+  color: var(--lvl-error);
+}
+
+.feedback-form footer {
+  padding: 8px 0;
+}

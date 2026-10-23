@@ -6,6 +6,7 @@ import Header from './components/Header'
 import MergeCollapsedPanel from './components/MergeCollapsedPanel'
 import MergePanel from './components/MergePanel'
 import SpecPanel from './components/SpecPanel'
+import { buildLogoutUrl, loadAppConfig, type AppConfig } from './api/appConfig'
 import { importSession, resetSession, useGenerationSession } from './hooks/useGenerationSession'
 
 // Keyed by spec+merge+code collapsed, in that order, as "0"/"1" — see gridColsClass below.
@@ -27,6 +28,10 @@ function App() {
   // merge becomes possible or already happened (e.g. a restored session). The user can still
   // collapse it back by hand at any point, e.g. when only doing one of the two docs.
   const [mergeCollapsed, setMergeCollapsed] = useState(true)
+  const [appConfig, setAppConfig] = useState<AppConfig | null>(null)
+  useEffect(() => {
+    void loadAppConfig().then(setAppConfig)
+  }, [])
   const {
     word,
     jxml,
@@ -68,6 +73,9 @@ function App() {
         hasSession={Boolean(word.id || jxml.id || merged.id)}
         onImportSession={importSession}
         onReset={resetSession}
+        onLogout={
+          appConfig?.oidcEnabled ? () => window.location.assign(buildLogoutUrl(appConfig)) : undefined
+        }
       />
 
       {/* Not rendered until any restore has finished, so CodePanel's initialGitlabSelection is

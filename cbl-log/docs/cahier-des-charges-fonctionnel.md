@@ -115,6 +115,7 @@ Priorités : **P0** = MVP (parité BareTail utile), **P1** = V1 (ce qui justifie
 | H-05   | Activer/désactiver une règle à la volée sans l'effacer                                                  | P0   |
 | H-06   | Surlignage temporaire « tout ce qui ressemble à la sélection » (double-clic sur un mot)                | P1   |
 | H-07   | Import des règles depuis un fichier de config BareTail (`.udm` / registre) pour migrer                  | P2   |
+| H-08   | **Export / import** d'un profil de surlignage (fichier `.json`) pour le partager entre collègues ; à l'import, un profil de même id est remplacé ou gardé en copie au choix | P1   |
 
 ### 3.5 Recherche et filtrage
 
@@ -172,7 +173,7 @@ Priorités : **P0** = MVP (parité BareTail utile), **P1** = V1 (ce qui justifie
 | NF-05  | **Recherche/filtre** : premiers résultats < 1 s, 1 Go filtré en < 3 s, progression visible, annulable  |
 | NF-11  | **Multi-logs** : 8 fichiers suivis simultanément (onglets + split), 1 000 lignes/s chacun, totalisant 10 Go, sans dégradation visible de l'UI ni dépassement de NF-02 |
 | NF-06  | **Windows 10/11 x64** uniquement ; installeur + version portable (`.exe` sans installation)             |
-| NF-07  | Hors ligne, aucune télémétrie, aucune donnée ne quitte la machine                                       |
+| NF-07  | Hors ligne, aucune télémétrie, aucune donnée ne quitte la machine. Seule exception : la vérification des mises à jour (lecture des releases GitHub, désactivable via `checkForUpdates`). Le signalement de bug (Aide) n'envoie rien : il ouvre une issue pré-remplie dans le navigateur |
 | NF-08  | Lecture seule stricte sur les fichiers suivis : l'outil n'écrit jamais dans un log                      |
 | NF-09  | Robustesse : un fichier binaire, illisible ou supprimé ne fait jamais planter l'appli                   |
 | NF-10  | Accessibilité de base : navigation clavier complète, contrastes suffisants des thèmes par défaut        |
@@ -245,5 +246,6 @@ Priorités : **P0** = MVP (parité BareTail utile), **P1** = V1 (ce qui justifie
 ## 10. Questions ouvertes
 
 1. **Format de config** : JSON retenu par défaut (cohérent avec le monorepo), TOML possible plus tard.
-2. **Formatage exact des logs WebSphere** (exemple de lignes + nom des archives) : à fournir avant M2 ;
-   il fixe le parseur par défaut, la locale des dates et la détection des archives (T-08).
+2. **Formatage exact des logs WebSphere** : *en partie levée* — un `SystemOut.log` réel a fixé le parseur par défaut
+   et la locale (`M/d/yy`, UTC). Reste à fournir : le nom des archives de rolling (détection T-08) et un exemple Liberty
+   (`messages.log` / JSON).

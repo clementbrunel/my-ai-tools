@@ -30,6 +30,28 @@ public interface MatchRepository extends JpaRepository<Match, Long> {
             """)
     List<Match> findByTeam_IdOrderByMatchDateDesc(@Param("teamId") Long teamId);
 
+    /** A team's FINISHED matches, most recent first. */
+    @Query("""
+            SELECT m FROM Match m JOIN FETCH m.teamA JOIN FETCH m.teamB JOIN FETCH m.competition
+            WHERE (m.teamA.id = :teamId OR m.teamB.id = :teamId)
+              AND m.status = com.pronocore.entity.Match.Status.FINISHED
+            ORDER BY m.matchDate DESC
+            """)
+    List<Match> findFinishedByTeam(@Param("teamId") Long teamId);
+
+    /** A team's FINISHED matches in one competition that kicked off before {@code before}, most recent first. */
+    @Query("""
+            SELECT m FROM Match m JOIN FETCH m.teamA JOIN FETCH m.teamB
+            WHERE (m.teamA.id = :teamId OR m.teamB.id = :teamId)
+              AND m.status = com.pronocore.entity.Match.Status.FINISHED
+              AND m.competition.id = :competitionId
+              AND m.matchDate < :before
+            ORDER BY m.matchDate DESC
+            """)
+    List<Match> findFinishedByTeamBefore(@Param("teamId") Long teamId,
+                                         @Param("competitionId") Long competitionId,
+                                         @Param("before") LocalDateTime before);
+
     /** All matches whose kick-off falls on the same calendar day as [startOfDay, endOfDay). */
     @Query("SELECT m FROM Match m WHERE m.matchDate >= :startOfDay AND m.matchDate < :endOfDay")
     List<Match> findByMatchDay(@Param("startOfDay") LocalDateTime startOfDay,

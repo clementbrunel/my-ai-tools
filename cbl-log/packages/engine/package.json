@@ -1,0 +1,17 @@
+{
+  "name": "@cbl-log/engine",
+  "version": "2.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" } },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.test.json",
+    "test": "tsc -p tsconfig.json && vitest run",
+    "bench": "tsc -p tsconfig.bench.json && node --expose-gc dist/bench-build/bench/run.js"
+  },
+  "dependencies": { "@cbl-log/shared": "*" },
+  "devDependencies": { "@types/node": "^22.0.0", "typescript": "^5.9.0", "vitest": "^5.0.5" }
+}

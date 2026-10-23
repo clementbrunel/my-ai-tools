@@ -1,0 +1,74 @@
+name: cbl-log – CI
+
+on:
+  push:
+    tags:
+      - "cbl-log-v*"
+    paths:
+      - "cbl-log/**"
+      - ".github/workflows/cbl-log.yml"
+  pull_request:
+    paths:
+      - "cbl-log/**"
+      - ".github/workflows/cbl-log.yml"
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: cbl-log
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          # Same major as the Node embedded by Electron (cbl-log/.nvmrc).
+          node-version-file: cbl-log/.nvmrc
+          cache: npm
+          cache-dependency-path: cbl-log/package-lock.json
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  # Tag cbl-log-vX.Y.Z -> installer + portable exe attached to a GitHub release (NF-06).
+  release:
+    if: startsWith(github.ref, 'refs/tags/cbl-log-v')
+    needs: build
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: cbl-log
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          # Same major as the Node embedded by Electron (cbl-log/.nvmrc).
+          node-version-file: cbl-log/.nvmrc
+          cache: npm
+          cache-dependency-path: cbl-log/package-lock.json
+
+      # Notes = the version's section of cbl-log/CHANGELOG.md (shown in the in-app update dialog).
+      # Fails before packaging when the section is missing, rather than falling back to GitHub's PR list.
+      - name: Release notes from CHANGELOG.md
+        shell: bash
+        run: node ../.claude/skills/release-tool/release-notes.mjs cbl-log "${GITHUB_REF_NAME#cbl-log-v}" > release-notes.md
+
+      - run: npm ci
+
+      - name: Package (version taken from the tag)
+        shell: bash
+        run: npm run package -- -c.extraMetadata.version="${GITHUB_REF_NAME#cbl-log-v}"
+
+      - name: Create the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#cbl-log-v}"
+          gh release create "$GITHUB_REF_NAME" release/*.exe --verify-tag --notes-file release-notes.md --title "cbl-log $version"
