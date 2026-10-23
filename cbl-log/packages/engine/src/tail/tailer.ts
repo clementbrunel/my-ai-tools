@@ -364,7 +364,39 @@ export class Tailer {
     }
     this.phaseValue = "following";
     this.setState("following");
-    await this.follow(cur);
+    try {
+      await this.follow(cur);
+    } catch (err) {
+      // The path still stats fine but the open handle fails: typically a network share whose handle
+      // went stale after a suspend/resume (Windows "UNKNOWN: unknown error, fstat"). Reopen and retry.
+      if (!(await this.reopen(cur))) throw err;
+      await this.follow(cur);
+    }
+  }
+
+  /** Replaces the segment's stale handle by a fresh one on the same file; false if that is not possible. */
+  private async reopen(seg: Segment): Promise<boolean> {
+    const index = seg.index;
+    const old = seg.source;
+    if (!index || !old) return false;
+    let fresh: FileSource;
+    try {
+      fresh = await FileSource.open(seg.path, this.opts.cache ? { cache: this.opts.cache } : {});
+    } catch {
+      return false;
+    }
+    try {
+      const identity = await fresh.identity();
+      if (identity.ino !== seg.identity.ino) throw new Error("another file");
+    } catch {
+      await fresh.close().catch(() => {});
+      return false;
+    }
+    old.invalidate();
+    index.setSource(fresh);
+    seg.source = fresh;
+    await old.close().catch(() => {});
+    return true;
   }
 
   private async follow(seg: Segment): Promise<void> {
