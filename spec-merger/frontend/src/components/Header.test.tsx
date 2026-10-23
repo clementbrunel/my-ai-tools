@@ -12,6 +12,7 @@ interface RenderOptions {
   hasSession?: boolean
   onImportSession?: (sessionId: string) => Promise<void>
   onReset?: () => void
+  onLogout?: () => void
 }
 
 function renderHeader(options: RenderOptions = {}) {
@@ -21,11 +22,24 @@ function renderHeader(options: RenderOptions = {}) {
       hasSession={options.hasSession ?? false}
       onImportSession={options.onImportSession ?? vi.fn()}
       onReset={options.onReset ?? vi.fn()}
+      onLogout={options.onLogout}
     />,
   )
 }
 
 describe('Header', () => {
+  it('hides the logout button when the app is not behind OIDC', () => {
+    renderHeader()
+    expect(screen.queryByRole('button', { name: 'Se déconnecter' })).toBeNull()
+  })
+
+  it('shows a logout button that calls onLogout when the app is behind OIDC', async () => {
+    const onLogout = vi.fn()
+    renderHeader({ onLogout })
+    await userEvent.click(screen.getByRole('button', { name: 'Se déconnecter' }))
+    expect(onLogout).toHaveBeenCalledTimes(1)
+  })
+
   it('renders the app name', () => {
     renderHeader()
     expect(screen.getByText('Spec Doc/JXML Merger')).toBeDefined()
