@@ -1,0 +1,5 @@
+# Scripts, Dockerfile and nginx config run in Linux containers: keep LF even on Windows checkouts.
+*.sh text eol=lf
+frontend/Dockerfile text eol=lf
+frontend/nginx.conf text eol=lf
+frontend/nginx/** text eol=lf

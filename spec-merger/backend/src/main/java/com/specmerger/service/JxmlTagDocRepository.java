@@ -167,7 +167,8 @@ public class JxmlTagDocRepository {
     // cleaning step directly with crafted snippets, instead of only indirectly through the
     // real jxml-tags/ fiches via findRelevantDocs.
     static String compactForPrompt(String content) {
-        String withoutExamples = XML_EXAMPLE_BLOCK.matcher(content).replaceAll("");
+        String normalized = content.replace("\r\n", "\n");
+        String withoutExamples = XML_EXAMPLE_BLOCK.matcher(normalized).replaceAll("");
         String withoutFooter = SOURCE_FOOTER.matcher(withoutExamples).replaceAll("");
         String withoutDanglingHeadings = DANGLING_HEADING.matcher(withoutFooter).replaceAll("");
         return withoutDanglingHeadings.replaceAll("\\n{3,}", "\n\n").strip();
