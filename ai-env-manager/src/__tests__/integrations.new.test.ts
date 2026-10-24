@@ -11,6 +11,7 @@ import { detectPonytail } from "../scanner/integrations/ponytail.js";
 import { detectCodeBurn } from "../scanner/integrations/codeburn.js";
 import { detectOpenwiki } from "../scanner/integrations/openwiki.js";
 import { detectCodealmanac } from "../scanner/integrations/codealmanac.js";
+import { detectClaudeMem } from "../scanner/integrations/claude-mem.js";
 import type { McpServer } from "../types.js";
 
 function makeTempDir(): { dir: string; cleanup: () => void } {
@@ -427,6 +428,31 @@ describe("detectCodealmanac", () => {
       expect(result.detected).toBe(true);
       expect(result.status).not.toBe("ok");
       expect(result.diagnostics.some((d) => d.includes("No wiki in this project yet"))).toBe(true);
+    } finally {
+      cleanup();
+    }
+  });
+});
+
+// --- detectClaudeMem ---
+
+describe("detectClaudeMem", () => {
+  it("has the integration name used by INTEGRATION_TO_TOOL", () => {
+    const { dir, cleanup } = makeTempDir();
+    try {
+      expect(detectClaudeMem(dir).name).toBe("Claude-Mem");
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("returns detected: true when CLAUDE.md references claude-mem", () => {
+    const { dir, cleanup } = makeTempDir();
+    try {
+      writeFileSync(join(dir, "CLAUDE.md"), "# Project\nMemory is handled by claude-mem.\n");
+      const result = detectClaudeMem(dir);
+      expect(result.detected).toBe(true);
+      expect(result.source).toContain("referenced in");
     } finally {
       cleanup();
     }
