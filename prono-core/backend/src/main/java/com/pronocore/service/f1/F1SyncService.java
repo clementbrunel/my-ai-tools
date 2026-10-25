@@ -126,6 +126,13 @@ public class F1SyncService {
             if (r.getExternalCircuitId() != null) byCircuitId.put(r.getExternalCircuitId(), r);
         }
 
+        // A round shift moves several rows at once, and Hibernate flushes the pending UPDATEs in no
+        // particular order (any query, e.g. syncOpenBetDeadlines, triggers a flush) — so two rows
+        // would transiently share a round and violate uq_race_competition_round. Park every
+        // existing row on a unique negative round first; the loop below assigns the final rounds.
+        for (Race r : existing) r.setRound(-r.getRound());
+        raceRepository.saveAllAndFlush(existing);
+
         int count = 0;
         Set<Race> matched = new HashSet<>();
         for (JsonNode raceNode : races) {
@@ -166,9 +173,13 @@ public class F1SyncService {
 
         // Seeded/removed races not present in jolpica's calendar: drop them unless a group already bet on them.
         for (Race race : existing) {
-            if (!matched.contains(race) && !betRepository.existsByRaceId(race.getId())) {
+            if (matched.contains(race)) continue;
+            race.setRound(-race.getRound()); // undo the parking
+            if (!betRepository.existsByRaceId(race.getId())) {
                 log.info("  🗑 Removing seeded round {} ({}) — not in the official calendar", race.getRound(), race.getName());
                 raceRepository.delete(race);
+            } else {
+                raceRepository.save(race);
             }
         }
         return count;
