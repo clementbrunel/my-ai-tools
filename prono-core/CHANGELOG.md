@@ -4,6 +4,23 @@ Historique des fonctionnalités et correctifs notables, ordonné par date décro
 
 ---
 
+## [1.0.0] — 2026-10-26
+
+Première version étiquetée, déployée en production le 26/10/2026.
+
+### Fonctionnalités
+- **Résultats F1 à valider avant règlement** : l'import jolpica n'enregistre plus qu'un brouillon du classement ; l'admin le relit dans l'onglet 🏎 F1, le corrige au besoin (lanterne rouge, pole…) puis le valide — seulement alors les paris sont réglés et l'email du jour part.
+- **Import automatique après le GP** : toutes les 30 min, les résultats des courses terminées sont récupérés (jusqu'à 48 h) et les admins reçoivent l'email « résultats à valider ». Activé par défaut ; `F1_AUTO_IMPORT_ENABLED=false` le désactive.
+- **Forme des équipes** : les pages équipe et match affichent les derniers résultats de chaque équipe (badges).
+
+### Correctifs
+- **Calendrier F1** : la synchronisation supporte les décalages de manches (course ajoutée ou annulée) sans erreur de doublon de numéro de manche.
+- **Synchronisation F1 plus légère** : les courses à venir ne sont plus interrogées inutilement, ce qui évite les erreurs « 429 » de jolpica.
+- Filtre « Terminés » des courses F1 : tri par date dans chaque mois.
+
+### Avant cette release
+Tout ce qui précède, jusqu'au correctif des deadlines de paris du 20/09/2026 (dernière version déployée avant la 1.0.0), est dans l'historique mensuel ci-dessous.
+
 ## Août 2026 (18)
 
 ### Fonctionnalités
