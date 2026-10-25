@@ -309,8 +309,11 @@ public class F1SyncService {
      */
     private List<Integer> syncResults(int season, Competition competition) {
         List<Integer> settled = new ArrayList<>();
+        LocalDateTime now = LocalDateTime.now();
         for (Race race : raceRepository.findByCompetition_IdOrderByRaceDateAsc(competition.getId())) {
             if (race.getStatus() == Race.Status.FINISHED) continue;
+            // Not started yet: jolpica has no classification, and the call only eats the rate limit.
+            if (race.getRaceDate() != null && race.getRaceDate().isAfter(now)) continue;
             throttle();
             if (fetchAndSettleResults(season, race, false)) settled.add(race.getRound());
         }
