@@ -22,7 +22,7 @@
         <jjwt.version>0.13.0</jjwt.version>
         <mapstruct.version>1.6.3</mapstruct.version>
         <lombok.version>1.18.48</lombok.version>
-        <springdoc.version>2.9.1</springdoc.version>
+        <springdoc.version>2.10.0</springdoc.version>
         <postgresql.version>42.7.13</postgresql.version>
         <h2.version>2.5.250</h2.version>
         <flyway.version>13.7.0</flyway.version>
