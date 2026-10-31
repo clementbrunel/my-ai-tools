@@ -191,7 +191,7 @@ flowchart LR
 
 ### 5.4 Performances du spool
 
-**Mesure** (bench Node dans `scratchpad`, Linux, implémentation naïve non optimisée) : démultiplexage
+**Mesure** (bench Node jetable, sous Linux, implémentation naïve non optimisée) : démultiplexage
 + retrait du préfixe horodaté + écriture en append par paquets de 64 Ko, sur 2 M lignes WebSphere de
 ~150 o (343 Mo de flux) : **~0,5 M lignes/s, 80–100 Mo/s, sur un seul cœur**.
 
