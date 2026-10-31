@@ -173,8 +173,12 @@ flowchart LR
   - **reprise sans doublon** : on mémorise le dernier timestamp écrit (petit `state.json` à côté du spool) ;
     à la reconnexion, `since=<secondes.nanos>` puis on saute les lignes dont le timestamp ≤ dernier écrit ;
   - plus tard, la vue fusionnée (un fichier « sidecar » de timestamps par ligne, hors MVP).
-- **Chargement initial** : `tail` configurable (défaut proposé : `all`, borné par le plafond du spool ;
-  Dozzle charge les 300 dernières lignes puis remonte à la demande — chez nous l'index rend `all` peu cher).
+- **Chargement initial** : comme Dozzle, seulement les **N dernières lignes** (`tail=N`, défaut 5 000,
+  réglable). Remonter plus loin ne peut pas se faire en ajoutant des lignes **avant** le contenu du spool :
+  les n° de ligne du moteur sont globaux et ne reculent jamais. On propose donc une action
+  « Charger plus d'historique » (×10, ou tout) qui **reconstruit** le spool : `tail=N'` jusqu'au dernier
+  timestamp écrit, puis le suivi reprend. La vue est réindexée (rapide : quelques Mo) et la position
+  conservée via le timestamp de la ligne visible.
 - **Écriture** : tampon + `FileHandle.write` en append, vidé toutes les ~50 ms ou à 64 Ko ; puis
   `tailer.poke()` (petit ajout : déclencher un `check()` immédiat au lieu d'attendre le tick de 250 ms).
 - **Rotation** : plafond par conteneur (défaut 256 Mo) → rename + create (§ 4.2).
@@ -185,7 +189,37 @@ flowchart LR
 - **Nettoyage** : spool supprimé à la fermeture de l'onglet (option « conserver » pour garder
   l'historique d'un conteneur supprimé) ; purge des spools orphelins au démarrage.
 
-### 5.4 Drivers de log
+### 5.4 Performances du spool
+
+**Mesure** (bench Node dans `scratchpad`, Linux, implémentation naïve non optimisée) : démultiplexage
++ retrait du préfixe horodaté + écriture en append par paquets de 64 Ko, sur 2 M lignes WebSphere de
+~150 o (343 Mo de flux) : **~0,5 M lignes/s, 80–100 Mo/s, sur un seul cœur**.
+
+| Poste | Coût à 10 000 lignes/s (≈ 1,5 Mo/s, cas extrême NF-04) | Coût typique (quelques dizaines de lignes/s) |
+|---|---|---|
+| CPU démux + écriture (moteur) | **~2 % d'un cœur** | négligeable |
+| Disque en écriture | 1,5 Mo/s séquentiels (un SSD en absorbe des centaines) | quelques Ko/s |
+| Disque en lecture | ~0 : le tailer relit ce qui vient d'être écrit, servi par le cache du système (page cache Windows) | ~0 |
+| Mémoire | constante : tampon d'écriture 64 Ko par conteneur + cache de blocs **global** existant (64 Mo) | idem |
+| Latence ajoutée | ≤ 50 ms (vidage du tampon) + `poke()` immédiat du tailer ; sans `poke()`, +250 ms (tick de polling) | idem |
+| Ouverture (`tail=5000`) | dockerd lit la fin du fichier `json-file` (~1 Mo), écriture + indexation : **< 0,3 s** au total | idem |
+| Espace disque | ≤ plafond par conteneur (256 Mo) × segments gardés ; avec `tail=N` le spool démarre petit | quelques Mo |
+
+À comparer : Dozzle fait exactement la même lecture côté démon ; l'indexation du spool est celle de
+n'importe quel fichier (déjà mesurée : 1 Gio indexé et filtré en ~2,5 s). Le spool n'est donc **pas** le
+goulot. Les deux vrais points à surveiller, hors cbl-log :
+
+- **dockerd** décode le JSON de son fichier `json-file` pour chaque ligne servie : à 10 000 lignes/s, de
+  l'ordre de quelques % de CPU dans la VM. C'est le même coût que `docker logs -f` ou Dozzle.
+- **Antivirus (Defender)** : il analyse surtout à l'ouverture/fermeture de fichier. On garde donc le handle
+  du spool **ouvert** pendant tout le suivi (pas d'open/close par écriture). Si une mesure sous Windows
+  montre un surcoût, exclure `%LOCALAPPDATA%\cbl-log\docker\`.
+- Usure SSD : seul un conteneur extrêmement bavard (1,5 Mo/s en continu ≈ 130 Go/jour) écrirait beaucoup ;
+  dans ce cas Docker écrit déjà autant dans son propre `json-file`. Non bloquant.
+
+À valider en recette sous Windows (lot 4) : le bench ci-dessus tourne sous Linux.
+
+### 5.5 Drivers de log
 
 L'API `logs` ne fonctionne qu'avec `json-file`, `local` et `journald`, ou avec le **dual logging**
 (Docker ≥ 20.10, actif par défaut) pour les autres drivers. Avec `log-driver: none` : rien à lire →
@@ -209,14 +243,11 @@ des stack traces : **rien à toucher**.
 
 ## 7. Cas particulier : la source de référence WebSphere
 
-Attention au périmètre : **l'API `logs` ne voit que stdout/stderr**. Or :
+**Validé** : sur le conteneur WebSphere de référence, tout (`SystemOut` compris) part déjà sur le stdout
+du conteneur. L'API `logs` suffit donc, et le format `websphere-basic` s'applique tel quel au spool
+(le préfixe horodaté de Docker est retiré avant écriture).
 
-- **WebSphere traditional** écrit `SystemOut.log` / `SystemErr.log` dans des **fichiers** du conteneur ;
-  sur stdout il n'y a souvent que le démarrage du serveur.
-- **Liberty** écrit `messages.log` en fichier **et** la console sur stdout (format contrôlé par
-  `WLP_LOGGING_CONSOLE_FORMAT` / `_SOURCE`, réglable pour y envoyer messages + trace).
-
-Pour les fichiers internes au conteneur, trois voies :
+Pour mémoire, si un autre conteneur écrivait ses logs dans des fichiers internes, trois voies :
 
 | Voie | Suivi temps réel | Lecture seule | Verdict |
 |---|---|---|---|
@@ -224,16 +255,17 @@ Pour les fichiers internes au conteneur, trois voies :
 | `GET /containers/{id}/archive?path=…` | ❌ (instantané tar) | ✅ | ⚠️ « ouvrir une copie » ponctuelle |
 | `POST /exec` + `tail -n +0 -F <fichier>` → spool | ✅ | ❌ (crée un exec dans le conteneur) | ⚠️ option explicite, hors MVP |
 
-Proposition : MVP = stdout/stderr. Dans le panneau Docker, afficher pour chaque conteneur ses **montages**
+Hors MVP. Plus tard, dans le panneau Docker, afficher pour chaque conteneur ses **montages**
 (`inspect().Mounts`) et proposer « ouvrir les fichiers du bind mount » quand un montage contient des
 `*.log` — ça relie les deux mondes sans casser la règle « lecture seule ».
 
 ## 8. Hors Docker Desktop local
 
-- **Docker du NAS** (cf. `my-house`) : même client via `DOCKER_HOST=tcp://nas:2375` → à déconseiller sans TLS.
-  Recommander un **docker-socket-proxy** en lecture seule (`CONTAINERS=1`, `EVENTS=1`, tout le reste à 0)
-  côté NAS, ou TLS (`tcp://…:2376` + certificats). `ssh://` : lot ultérieur (via `docker.exe` en
-  sous-processus `docker -H ssh://… system dial-stdio`, ce qui évite d'embarquer `ssh2`).
+- **Docker du NAS** (cf. `my-house`) : **reporté**. Le démon n'est joignable qu'en SSH sur le NAS (pas
+  d'API exposée sur le réseau). Piste pour plus tard, sans rien ouvrir côté NAS : un contexte
+  `ssh://user@nas`, le client passant par `docker -H ssh://… system dial-stdio` (la CLI ouvre la session
+  SSH et relaie l'API sur stdin/stdout) — même client GET-only, transport différent, pas de `ssh2` embarqué.
+  Prérequis à vérifier : clé SSH, et utilisateur NAS ayant accès au socket Docker.
 - **Docker Engine dans une distro WSL sans Docker Desktop** : le socket Unix de WSL n'est pas joignable
   depuis Windows ; passer par un contexte TCP. Hors périmètre.
 
@@ -244,7 +276,7 @@ Proposition : MVP = stdout/stderr. Dans le panneau Docker, afficher pour chaque 
 | **1. Client Docker** | Résolution d'endpoint (env, contextes), `/version`, liste, inspect, `/events`, `logs` + démultiplexeur, liste blanche GET ; tests vitest contre un faux démon (`http.createServer` écoutant sur un named pipe de test) | 2–3 j | API interne testée |
 | **2. Spool + moteur** | `LogSpooler` (reprise `since`, dédoublonnage, rotation, recréation), `Tailer.poke()`, `openTab` docker, nouveaux états/événements ; tests : conteneur arrêté/redémarré/recréé, coupure démon, trames coupées | 2–3 j | onglet docker ouvrable via le protocole |
 | **3. UI** | Panneau Docker, onglets, barre d'état, session/récents, réglages | 2–3 j | fonctionnalité utilisable |
-| **4. Recette** | Docker Desktop arrêté puis lancé, `compose up` qui recrée, conteneur bavard (10 000 lignes/s, NF-04), 8 conteneurs suivis (NF-11), Liberty en console JSON ; ajout à `docs/recette/` | 1–2 j | critères d'acceptation |
+| **4. Recette** | Docker Desktop arrêté puis lancé, `compose up` qui recrée, conteneur bavard (10 000 lignes/s, NF-04), 8 conteneurs suivis (NF-11), mesure CPU/latence du spool sous Windows avec Defender actif ; ajout à `docs/recette/` | 1–2 j | critères d'acceptation |
 
 **Total : ~8 à 11 jours.** Le lot 1 + 2 sans UI permet déjà de valider l'approche avec un onglet ouvert
 par URI.
@@ -253,7 +285,7 @@ par URI.
 
 | Risque | Parade |
 |---|---|
-| Conteneur très bavard → spool énorme | Plafond + rotation ; `initialTail` configurable |
+| Conteneur très bavard → spool énorme | `tail=N` à l'ouverture, plafond + rotation (§ 5.4) |
 | Doublons/trous à la reconnexion | `timestamps=1` + `since` + saut des timestamps ≤ dernier écrit ; test dédié |
 | `since` moins précis que le timestamp des lignes | On repart légèrement avant le dernier timestamp ; le dédoublonnage par timestamp absorbe le recouvrement |
 | Évolution des chemins/contextes Docker Desktop | On ne dépend que du pipe et des fichiers de contexte de la CLI (formats stables), jamais de l'intérieur de la VM |
@@ -266,6 +298,6 @@ par URI.
 1. **Spool fichier** plutôt qu'une source mémoire (réutilise tout le moteur).
 2. **Client HTTP maison GET-only** sur named pipe, pas de `dockerode`.
 3. Onglet rattaché au **service compose** (survit à la recréation du conteneur, séparateur « conteneur recréé »).
-4. MVP = **stdout/stderr** ; fichiers internes au conteneur via bind mount (existant), `exec tail -F` éventuel plus tard.
-5. Chargement initial par défaut : **tout l'historique**, borné par le plafond du spool (256 Mo) ?
-6. Docker distant (NAS) : dans un lot ultérieur, via socket-proxy en lecture seule ou TLS.
+4. ✅ **stdout/stderr** uniquement (WebSphere y écrit déjà tout).
+5. ✅ Chargement initial : **N dernières lignes** (défaut 5 000) + « Charger plus d'historique ».
+6. ✅ Docker du NAS : **reporté** (accès SSH uniquement) ; piste `ssh://` + `dial-stdio` notée au § 8.
