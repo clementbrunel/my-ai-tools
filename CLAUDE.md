@@ -14,7 +14,7 @@ Each tool lives in its own subdirectory with its own `package.json`, `src/`, and
 | `prono-core/`      | `prono-core`      | Full-stack World Cup 2026 betting app (Java/Spring + React)              | active |
 | `my-house/`        | `my-house`        | Home Assistant setup (NAS Docker or Pi 3B+ HAOS) + Somfy RTS/Zigbee      | wip |
 | `my-money-hub/`    | `my-money-hub`    | Personal multi-bank/insurance account aggregator (Java/Spring + React), self-hosted alternative to Linxo | wip |
-| `showcase/` | `showcase` | Static FR/EN catalogue page promoting my public apps (BienvenueBébé, prono-core, ai-env-manager) — Vite + React; cards driven by `src/apps.ts` | active |
+| `showcase/` | `showcase` | Static FR/EN catalogue page promoting my public apps (BienvenueBébé, prono-core, cbl-log, ai-env-manager) — Vite + React; cards driven by `src/apps.ts` | active |
 | `cbl-log/` | `cbl-log` | Real-time Windows log viewer, modern customizable BareTail replacement with rolling-file support (Electron + TypeScript + React) — v2.0.0, see `cbl-log/docs/` | active |
 | `spec-merger/` | `spec-merger` | Merges a project's Word spec with its JWAY JXML source into a single editable, version-tracked markdown (Java/Spring Boot + React + Postgres) | active |
 

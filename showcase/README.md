@@ -1,12 +1,12 @@
 # showcase
 
-Page catalogue statique (FR/EN) qui présente mes apps : **BienvenueBébé**, **prono-core**, **ai-env-manager**.
+Page catalogue statique (FR/EN) qui présente mes apps : **BienvenueBébé**, **prono-core**, **cbl-log**, **ai-env-manager**.
 Inspirée de polymorph.club. Servie par GitHub Pages sur https://clementbrunel.github.io (le build reste agnostique : `base: './'`).
 
 ## Ajouter / modifier une app
 
 Éditer le tableau `apps` dans [`src/apps.ts`](./src/apps.ts) (textes FR/EN, tags, liens, barre de progression « en cours »). Chaque app a un thème de scène et, pour BienvenueBébé et prono-core,
-une affiche générée par IA (`scene`) ; ai-env-manager garde son terminal dessiné.
+une affiche générée par IA (`scene`) ; cbl-log (fenêtre de log en direct) et ai-env-manager (terminal) gardent une illustration dessinée.
 Pour changer une affiche : déposer l'image dans `public/scenes/`, renseigner `scene` (et `sceneRatio` si du texte est posé dessus) dans `src/apps.ts`.
 
 ## Structure
@@ -16,8 +16,13 @@ src/
   apps.ts              catalogue (données) + liens du profil
   legal.ts             infos éditeur des mentions légales
   App.tsx              routage (#/ ou #/legal), langue, section active
-  scenes/              une scène par app : PronoCoreScene, BienvenueBebeScene, AiEnvManagerScene
+  scenes/              une scène par app : PronoCoreScene, BienvenueBebeScene, CblLogScene, AiEnvManagerScene
     index.ts           registre `stage` → composant
+    cbl-log/           démo cbl-log, un fichier par composant comme dans l'app :
+      LiveTail.tsx     fenêtre (état, flux, Suivre / Pause) qui assemble les suivants
+      TabBar, FilterField, LevelPills, LogLine, StatusBar
+      view.ts          logique d'affichage sans React (filtres, repli des traces)
+      data.ts          faux logs, onglets et textes (ajouter un onglet = une ligne dans `TABS`)
   fonts.ts             polices auto-hébergées (@fontsource, latin, graisses utilisées) — aucun appel à Google Fonts
   components/          SceneFrame (cadre commun), Hero, About, Dock (barre de nav), Legal, AppIcon, ProgressBar
   lib/                 scroll.ts (progression + fondu), nav.ts (hash, scène active), ui.ts (textes, langue, scroll doux)

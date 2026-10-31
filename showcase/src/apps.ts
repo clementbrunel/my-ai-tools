@@ -4,7 +4,7 @@ export type L10n = Record<Lang, string>
 export interface AppEntry {
   id: string
   name: string
-  stage: 'prono' | 'bbb' | 'cli'
+  stage: 'prono' | 'bbb' | 'cli' | 'tail'
   /** Generated poster (public/scenes/<id>.jpg) shown full-bleed behind the scene. Apps without one need an `art` in their scene component. */
   scene?: string
   /** width / height of `scene`. When set, scene overlays are anchored to the image (they stay on the same spot whatever the crop). */
@@ -60,6 +60,24 @@ export const apps: AppEntry[] = [
     },
     tags: ['React', 'Spring Boot', 'PostgreSQL'],
     links: [{ label: { fr: 'Jouer', en: 'Play' }, url: 'https://prono-core.top' }],
+  },
+  {
+    id: 'cbl-log',
+    name: 'cbl-log',
+    stage: 'tail',
+    theme: {
+      bg: 'radial-gradient(ellipse at 25% 40%, #1e2b4a 0%, #0f172a 55%, #070b16 100%)',
+      ink: '#e2e8f0', punch: '#22d3ee', punchInk: '#04222a', dark: true,
+      font: 'Inter,"Segoe UI",system-ui,sans-serif',
+    },
+    kind: { fr: 'App Windows · v2.1', en: 'Windows app · v2.1' },
+    headline: { fr: ['Tes logs en direct.', 'Sans perdre une ligne.'], en: ['Your logs, live.', 'Not a single line lost.'] },
+    description: {
+      fr: 'Le successeur moderne de BareTail : suit en temps réel des fichiers de toute taille, encaisse les rolling sans trou, surligne par regex, filtre, et fusionne plusieurs fichiers dans une seule vue.',
+      en: 'A modern successor to BareTail: tails files of any size in real time, survives log rollovers without a gap, highlights with regex, filters, and merges several files into one view.',
+    },
+    tags: ['Electron', 'TypeScript', 'React'],
+    links: [{ label: { fr: 'Télécharger pour Windows', en: 'Download for Windows' }, url: 'https://github.com/clementbrunel/my-ai-tools/releases?q=cbl-log&expanded=true' }],
   },
   {
     id: 'ai-env-manager',
