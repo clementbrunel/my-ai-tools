@@ -1,4 +1,4 @@
-// Fake log data and texts of the cbl-log scene (CblLogScene.tsx).
+// Fake log data and texts of the cbl-log demo (LiveTail.tsx).
 
 export type Level = 'ERROR' | 'WARN' | 'INFO' | 'DEBUG'
 export const LEVELS: Level[] = ['ERROR', 'WARN', 'INFO', 'DEBUG']
