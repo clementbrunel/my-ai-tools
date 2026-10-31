@@ -69,10 +69,12 @@ avec une version minimale supportée (proposition : **1.41**, Docker 20.10, 2020
 | Docker Desktop redémarre | flux coupés, `events` coupé | Reconnexion auto, reprise des logs par `since` (§ 5.3) sans doublon |
 | Démon trop ancien | `ApiVersion` < 1.41 | Message, fonction désactivée |
 
-### 3.5 Sécurité : **lecture seule imposée par le client**
+### 3.5 Sécurité : un client Docker limité aux consultations
 
-L'accès à l'API Docker équivaut à un accès administrateur sur la VM. Le client maison n'expose **que des
-`GET`** sur une liste blanche de routes (`/version`, `/containers/json`, `/containers/{id}/json`,
+cbl-log ne fait que lire, mais **le canal Docker, lui, permet tout** : arrêter ou supprimer un conteneur,
+lancer une commande dedans, monter le disque de la VM… (accès administrateur). Ce n'est pas un réglage
+utilisateur : c'est une protection dans le code, pour qu'aucun bug ni évolution future ne puisse agir sur
+les conteneurs. Le client maison n'envoie **que des `GET`** sur une liste blanche de routes (`/version`, `/containers/json`, `/containers/{id}/json`,
 `/containers/{id}/logs`, `/events`). C'est l'argument principal pour **ne pas** prendre `dockerode`
 (qui expose toute l'API, et tire `ssh2` avec une dépendance native optionnelle, contraire à
 « aucune dépendance native » du § 2.3 de l'archi).
@@ -165,8 +167,11 @@ flowchart LR
 
 ### 5.3 `LogSpooler` (cœur de la fonctionnalité)
 
-- **Clé d'un onglet = `contexte / projet compose / service`** (ou nom du conteneur hors compose), pas
-  l'id : ainsi un `docker compose up` qui recrée le conteneur reste dans le même onglet (rolling).
+- **Un onglet par conteneur, identifié par son nom** (`contexte / nom`), pas par son id. Docker garantit
+  qu'un nom est unique à un instant donné, et compose garde le même nom quand il recrée un conteneur
+  (`projet-service-1`). Résultat : un `docker compose up` qui recrée le conteneur (nouvel id) reste dans le
+  même onglet, avec un séparateur « conteneur recréé ». Un service à plusieurs réplicas (`web-1`, `web-2`)
+  donne un onglet par réplica.
 - On demande **toujours `timestamps=1`** : chaque ligne arrive préfixée `2026-10-31T10:02:11.123456789Z `.
   Le préfixe est **retiré avant écriture** (le spool contient les lignes telles que l'appli les a écrites,
   donc l'auto-détection de format WebSphere/Spring/… marche à l'identique) et sert à :
@@ -234,8 +239,8 @@ conteneur grisé dans la liste avec l'explication.
 | `engine/tail/tailer.ts` | `poke()` public (check immédiat) ; accepter un `rolled.reason` imposé pour le spool | petit |
 | `engine/service/engine-service.ts` | `openTab` : si `docker`, démarrer le spooler puis ouvrir un `Tailer` sur le chemin du spool ; `close` arrête le flux | moyen |
 | `engine/docker/*` | nouveau module (§ 5) | gros |
-| Renderer | panneau latéral **Docker** (liste groupée par projet compose, pastille d'état, filtre texte, double-clic = ouvrir, multi-sélection) ; icône baleine + nom du service dans l'onglet ; barre d'état « Docker · running depuis 10:02 » | moyen |
-| Session / récents | stocker l'URI `docker://<contexte>/<projet>/<service>` ; à la réouverture, se raccrocher au conteneur courant de ce service | petit |
+| Renderer | panneau latéral **Docker** (liste groupée par projet compose, pastille d'état, filtre texte, double-clic = ouvrir, multi-sélection) ; icône baleine + nom du conteneur dans l'onglet ; barre d'état « Docker · running depuis 10:02 » | moyen |
+| Session / récents | stocker l'URI `docker://<contexte>/<nom>` ; à la réouverture, se raccrocher au conteneur qui porte ce nom | petit |
 | `settings.json` (`config.ts`, zod) | `docker: { enabled, host?, initialTail, spoolMaxMb, keepSpoolOnClose }` | petit |
 
 Le format WebSphere, les règles de surlignage, les filtres de niveau, la recherche, `Ctrl+G`, le repli
@@ -295,9 +300,9 @@ par URI.
 
 ## 11. Décisions à valider
 
-1. **Spool fichier** plutôt qu'une source mémoire (réutilise tout le moteur).
-2. **Client HTTP maison GET-only** sur named pipe, pas de `dockerode`.
-3. Onglet rattaché au **service compose** (survit à la recréation du conteneur, séparateur « conteneur recréé »).
+1. ✅ **Spool fichier** plutôt qu'une source mémoire (réutilise tout le moteur).
+2. **Client HTTP maison** (sans `dockerode`), limité par construction aux consultations (§ 3.5).
+3. ✅ **Un onglet par conteneur**, identifié par son nom (survit à la recréation par compose).
 4. ✅ **stdout/stderr** uniquement (WebSphere y écrit déjà tout).
 5. ✅ Chargement initial : **N dernières lignes** (défaut 5 000) + « Charger plus d'historique ».
 6. ✅ Docker du NAS : **reporté** (accès SSH uniquement) ; piste `ssh://` + `dial-stdio` notée au § 8.
