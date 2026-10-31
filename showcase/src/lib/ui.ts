@@ -1,8 +1,8 @@
 import type { Lang } from '../apps'
 
 export const ui = {
-  fr: { sub: 'Apps & outils', scroll: 'Défiler', aboutT: 'Trois projets. Un développeur.', aboutP: 'Je conçois et développe des applications web et des outils pour développeurs. Écris-moi, ou regarde le code.', legal: 'Mentions légales' },
-  en: { sub: 'Apps & tools', scroll: 'Scroll', aboutT: 'Three projects. One developer.', aboutP: 'I design and build web apps and developer tools. Reach out, or read the code.', legal: 'Legal notice' },
+  fr: { sub: 'Apps & outils', scroll: 'Défiler', aboutT: 'Quatre projets. Un développeur.', aboutP: 'Je conçois et développe des applications web et des outils pour développeurs. Écris-moi, ou regarde le code.', legal: 'Mentions légales' },
+  en: { sub: 'Apps & tools', scroll: 'Scroll', aboutT: 'Four projects. One developer.', aboutP: 'I design and build web apps and developer tools. Reach out, or read the code.', legal: 'Legal notice' },
 } satisfies Record<Lang, Record<string, string>>
 
 export const initialLang = (): Lang => {
