@@ -698,14 +698,14 @@ export class Tailer {
     seg.lastUsed = Date.now();
     if (seg.source) return Promise.resolve(true);
     if (!seg.readable || !seg.index || !this.running) return Promise.resolve(false);
-    seg.waking ??= this.reopen(seg).finally(() => {
+    seg.waking ??= this.reopenDormant(seg).finally(() => {
       seg.waking = undefined;
     });
     return seg.waking;
   }
 
   /** Reopens a dormant segment's file, provided it is still the same file with the same indexed bytes. */
-  private async reopen(seg: Segment): Promise<boolean> {
+  private async reopenDormant(seg: Segment): Promise<boolean> {
     const index = seg.index;
     if (!index) return false;
     let source: FileSource | undefined;
