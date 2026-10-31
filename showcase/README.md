@@ -18,6 +18,7 @@ src/
   App.tsx              routage (#/ ou #/legal), langue, section active
   scenes/              une scène par app : PronoCoreScene, BienvenueBebeScene, CblLogScene, AiEnvManagerScene
     index.ts           registre `stage` → composant
+    cblLogData.ts      faux logs, onglets et textes de la démo cbl-log (ajouter un onglet = une ligne dans `TABS`)
   fonts.ts             polices auto-hébergées (@fontsource, latin, graisses utilisées) — aucun appel à Google Fonts
   components/          SceneFrame (cadre commun), Hero, About, Dock (barre de nav), Legal, AppIcon, ProgressBar
   lib/                 scroll.ts (progression + fondu), nav.ts (hash, scène active), ui.ts (textes, langue, scroll doux)
