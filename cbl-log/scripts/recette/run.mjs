@@ -215,12 +215,12 @@ async function rolling(mode, id, title, lossless) {
     const seq = sequenceReport(text, done.lastSeq);
     const separators = await collectSeparators(app.cdp);
     // Lines are lost when the tab counted fewer than the writer wrote. What is still READABLE afterwards
-    // is another matter: older rolled files are released after `maxRetainedSegments` (their rows stay counted).
+    // is another matter: rolled files stay readable as long as their archive exists (dormant segments are
+    // reopened on read); after a truncate without archive, the old rows stay counted but are gone.
     const missing = done.lastSeq + 1 - total;
     const ok = writerErrors.length === 0 && seq.duplicates === 0 && seq.outOfOrder === 0 && separators === 10 && (!lossless || missing === 0);
-    const notes = [
-      "Seules les lignes du fichier courant et des 3 derniers fichiers roulés restent lisibles dans l'interface ; les plus anciennes sont comptées mais libérées (archives du rolling : T-08, M5).",
-    ];
+    const notes = [];
+    if (!lossless) notes.push("Après une troncature sans archive, les lignes des fichiers précédents restent comptées mais ne sont plus lisibles (leur contenu a disparu).");
     if (!lossless) notes.push("Troncature sans archive pendant l'écriture : des lignes écrites entre deux contrôles peuvent disparaître avec le fichier (inhérent au truncate) ; doublons et désordre restent bloquants.");
     return result(id, title, "le rolling réussit à chaque fois côté serveur, aucune ligne dupliquée, séparateur affiché" + (lossless ? ", aucune ligne perdue" : ""), verdict(ok), {
       "lignes écrites": `${(done.lastSeq + 1).toLocaleString("fr-FR")} (10 rollings de 1 Mio)`,

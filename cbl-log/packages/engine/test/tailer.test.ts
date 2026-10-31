@@ -255,13 +255,63 @@ describe("Tailer", () => {
     expect(events.find((e) => e.type === "rolled")).toEqual({ type: "rolled", reason: "new-file", previous: a, at: 5 });
   });
 
-  it("releases segments beyond maxRetainedSegments (rows stay counted)", async () => {
-    const dir = await tempDir();
+  /** Rolled segments whose handle is open (white-box: the count is the point of the retention limit). */
+  const openHandles = (t: Tailer): number =>
+    (t as unknown as { segs: { source?: unknown }[]; cur?: unknown }).segs.filter((s) => s.source && s !== (t as unknown as { cur?: unknown }).cur).length;
+
+  async function renamedThrice(dir: string) {
     const path = join(dir, "a.log");
     writeFileSync(path, lines(0, 2));
     const { tailer } = await manual(path, { maxRetainedSegments: 1 });
     for (let k = 1; k <= 3; k++) {
       renameSync(path, join(dir, `a.${k}.log`));
+      writeFileSync(path, lines(k * 2, k * 2 + 2));
+      await tailer.check();
+    }
+    return tailer;
+  }
+
+  it("beyond maxRetainedSegments, rolled segments go dormant and their archive is reopened on read", async () => {
+    const dir = await tempDir();
+    const tailer = await renamedThrice(dir);
+    expect(tailer.totalRows).toBe(8);
+    expect(openHandles(tailer)).toBe(1);
+    expect(tailer.segments.map((s) => [s.path, s.readable])).toEqual([
+      [join(dir, "a.1.log"), true],
+      [join(dir, "a.2.log"), true],
+      [join(dir, "a.3.log"), true],
+      [join(dir, "a.log"), true],
+    ]);
+    expect(await texts(tailer)).toEqual(ids(0, 8));
+    expect(openHandles(tailer)).toBe(1); // woken for the read, put back to sleep afterwards
+    expect(await texts(tailer)).toEqual(ids(0, 8));
+  });
+
+  it("dormant segment whose archive was purged by the writer: unreadable, rows stay counted", async () => {
+    const dir = await tempDir();
+    const tailer = await renamedThrice(dir);
+    rmSync(join(dir, "a.1.log"));
+    expect((await tailer.getLines(0, 8)).map((l) => l.lineNo)).toEqual([2, 3, 4, 5, 6, 7]);
+    expect(tailer.totalRows).toBe(8);
+    expect(tailer.segments.map((s) => s.readable)).toEqual([false, true, true, true]);
+  });
+
+  it("dormant segment whose archive name now holds other content: not reopened", async () => {
+    const dir = await tempDir();
+    const tailer = await renamedThrice(dir);
+    rmSync(join(dir, "a.1.log"));
+    writeFileSync(join(dir, "a.1.log"), lines(0, 2, "Z"));
+    expect((await tailer.getLines(0, 2)).map((l) => l.text)).toEqual([]);
+    expect(tailer.segments[0]!.readable).toBe(false);
+  });
+
+  it("deletion + recreation beyond maxRetainedSegments: nothing to reopen, the segment is released", async () => {
+    const dir = await tempDir();
+    const path = join(dir, "a.log");
+    writeFileSync(path, lines(0, 2));
+    const { tailer } = await manual(path, { maxRetainedSegments: 1 });
+    for (let k = 1; k <= 3; k++) {
+      rmSync(path);
       writeFileSync(path, lines(k * 2, k * 2 + 2));
       await tailer.check();
     }
