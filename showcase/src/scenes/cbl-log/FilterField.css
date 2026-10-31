@@ -1,0 +1,18 @@
+/* filter field of the command bar: text / regex, include chips */
+.cbl-field { display:flex; flex:1 1 200px; flex-wrap:wrap; align-items:center; gap:3px; min-width:0; min-height:28px; padding:2px 3px 2px 9px; border:1px solid var(--ctl-bd); border-radius:4px; background:var(--ctl); color:var(--muted) }
+.cbl-field:focus-within { border-bottom:2px solid var(--acc) }
+.cbl-field.invalid { border-color:#d93025 }
+.cbl-field svg { flex:none; margin-right:4px }
+.cbl-field input { flex:1; min-width:10ch; border:0; outline:0; padding:0; background:none; color:var(--fg); font:inherit }
+.cbl-field input::placeholder { color:var(--muted) }
+.cbl-field .opt { min-width:22px; height:20px; padding:0 4px; border:1px solid transparent; border-radius:3px; background:none; color:var(--muted); font:600 11px var(--mono); cursor:pointer }
+.cbl-field .opt.on { border-color:var(--acc); background:rgba(59,130,246,.22); color:#93bbfb }
+.cbl-field .opt:disabled { opacity:.4; cursor:default }
+.cbl-field .opt.inc:not(:disabled) { color:#7fd99a }
+.cbl-field .sep { width:1px; height:14px; background:var(--ctl-bd); opacity:.18; margin:0 2px }
+.cbl-chip { display:inline-flex; align-items:center; gap:2px; padding:0 0 0 7px; border-radius:4px; background:rgba(24,128,56,.25); color:#7fd99a; font:11.5px var(--mono); line-height:20px }
+.cbl-chip button { padding:0 5px; border:0; background:none; color:inherit; cursor:pointer }
+
+@media (max-width:820px) and (max-height:700px) {
+  .cbl-field { min-height:24px }
+}

@@ -1,0 +1,7 @@
+/* about / contact */
+.about { display:grid; place-content:center; justify-items:center; text-align:center; padding:0 16px }
+.about-t { font:400 clamp(36px,6vw,80px)/1 var(--serif); max-width:14ch }
+.about-p { max-width:44ch; margin:20px 0; line-height:1.55; opacity:.75 }
+.links { display:flex; gap:12px }
+.links a { padding:11px 22px; border-radius:99px; border:1px solid currentColor; text-decoration:none; font-weight:600 } .links a:hover { background:var(--ink); color:var(--bg) }
+.about footer { position:absolute; bottom:90px; font-size:12px; opacity:.55 }

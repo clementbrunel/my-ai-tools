@@ -11,6 +11,8 @@ Pour changer une affiche : déposer l'image dans `public/scenes/`, renseigner `s
 
 ## Structure
 
+CSS : chaque composant importe sa feuille voisine (`Foo.tsx` → `import './Foo.css'`), avec ses propres règles mobiles (`@media (max-width:820px)`, et `and (max-height:700px)` pour les petits téléphones). Les retouches d'une app sur le bloc texte commun (`.appname`, `h2`) sont dans `scenes/<App>Scene.css`. `styles.css` est importé en premier dans `main.tsx` pour que les feuilles des composants passent après.
+
 ```
 src/
   apps.ts              catalogue (données) + liens du profil
@@ -29,6 +31,7 @@ src/
   fonts.ts             polices auto-hébergées (@fontsource, latin, graisses utilisées) — aucun appel à Google Fonts
   components/          SceneFrame (cadre commun) + SceneCopy (bloc texte), Hero, About, Dock (barre de nav), Legal, AppIcon, ProgressBar
   lib/                 scroll.ts (progression + fondu), nav.ts (hash, scène active), ui.ts (textes, langue, scroll doux)
+  styles.css           socle commun seulement : tokens (couleurs, polices), reset, sections de scroll (.scene / .sticky), reduced-motion
 ```
 
 Nouvelle app : entrée dans `apps.ts` + un composant dans `scenes/` (basé sur `SceneFrame`, son widget dans un dossier `scenes/<app>/` : `data.ts` + un fichier par composant ; `art` pour une illustration dessinée, `overlay` pour du texte posé sur une affiche) + une ligne dans `scenes/index.ts`.

@@ -1,4 +1,5 @@
 import type { Texts } from './data'
+import './WheelResult.css'
 
 /** Text under the wheel: invitation, `…` while spinning, then the forfeit drawn (announced to screen readers). */
 export default function WheelResult({ t, spinning, forfeit }: { t: Texts; spinning: boolean; forfeit: string | null }) {

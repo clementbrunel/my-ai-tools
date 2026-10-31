@@ -2,6 +2,7 @@ import { apps, heroScene, heroSceneRatio, type Lang } from '../apps'
 import { useScene } from '../lib/scroll'
 import { go, ui } from '../lib/ui'
 import AppIcon from './AppIcon'
+import './Hero.css'
 
 export default function Hero({ lang }: { lang: Lang }) {
   const [ref, o] = useScene<HTMLElement>(0.2, true)

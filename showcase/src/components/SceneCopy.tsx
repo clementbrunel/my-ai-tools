@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react'
 import type { AppEntry, Lang } from '../apps'
 import ProgressBar from './ProgressBar'
+import './SceneCopy.css'
 
 /** Text block of a scene: name, kind, headline (last part in the punch colour), description, tags, progress, links, then `extra`. */
 export default function SceneCopy({ app, lang, style, extra }: { app: AppEntry; lang: Lang; style: CSSProperties; extra?: ReactNode }) {

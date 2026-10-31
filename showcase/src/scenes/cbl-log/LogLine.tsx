@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import type { Texts } from './data'
 import { lvlClass, type Line } from './view'
+import './LogLine.css'
 
 const USER_RE = /(user=\w+)/
 /** Message with the default profile's `user=…` highlight. */

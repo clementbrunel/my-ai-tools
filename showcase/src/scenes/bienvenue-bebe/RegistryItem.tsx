@@ -1,3 +1,5 @@
+import './RegistryItem.css'
+
 /** One gift of the list, ticked when reserved. */
 export default function RegistryItem({ label, checked, onToggle }: { label: string; checked: boolean; onToggle: () => void }) {
   return (

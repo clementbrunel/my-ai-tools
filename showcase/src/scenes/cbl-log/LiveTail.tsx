@@ -7,6 +7,7 @@ import LevelPills from './LevelPills'
 import LogLine from './LogLine'
 import StatusBar from './StatusBar'
 import TabBar from './TabBar'
+import './LiveTail.css'
 
 /** cbl-log window, laid out like the app: tabs, command bar (filter + level pills), scrolling log, status bar. */
 export default function LiveTail({ lang }: { lang: Lang }) {

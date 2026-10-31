@@ -1,4 +1,5 @@
 import { commands } from './data'
+import './CommandButtons.css'
 
 /** One button per command, all disabled while a command is printing. */
 export default function CommandButtons({ label, busy, onRun }: { label: string; busy: boolean; onRun: (i: number) => void }) {

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Texts } from './data'
 import { validRegex, type Include } from './view'
+import './FilterField.css'
 
 /** Filter field of the command bar: Enter (or +) adds the text as an include chip, × removes it. */
 export default function FilterField({ t, includes, onChange }: { t: Texts; includes: Include[]; onChange: (l: Include[]) => void }) {

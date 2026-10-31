@@ -1,3 +1,5 @@
+import './AppIcon.css'
+
 /** Small app icons for the hero and the dock (ai-env-manager keeps its own drawn tile). */
 export default function AppIcon({ id, size = 46 }: { id: string; size?: number }) {
   const s = { width: size, height: size, borderRadius: size * 0.26 }
