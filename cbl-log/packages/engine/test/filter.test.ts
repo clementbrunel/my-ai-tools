@@ -172,6 +172,19 @@ describe("setFilter", () => {
     }
   });
 
+  it("gives the rows of a text-only filter their level when the format is sent (#457)", async () => {
+    const lines = makeLog(60);
+    const ctx = await open(lines);
+    const id = (await setFilter(ctx, { include: [{ pattern: "Cart", isRegex: false, caseSensitive: true }] }))!;
+    const rows = await readAll(ctx, id);
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.every((r) => r.level !== undefined)).toBe(true);
+
+    const bare = await ctx.ok("setFilter", { tabId: ctx.tabId, filter: { include: [{ pattern: "Cart", isRegex: false, caseSensitive: true }] }, format: null });
+    await waitFor(() => ctx.filterEvents(ctx.tabId).some((e) => e.id === bare.filterId && e.done), "filter done");
+    expect((await readAll(ctx, bare.filterId!)).every((r) => r.level === undefined)).toBe(true);
+  });
+
   it("reads a window of the filtered view", async () => {
     const lines = makeLog(300);
     const ctx = await open(lines);
