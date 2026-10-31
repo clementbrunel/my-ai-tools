@@ -1,0 +1,32 @@
+name: prono-core – Frontend CI
+
+on:
+  push:
+    paths:
+      - "prono-core/frontend/**"
+      - ".github/workflows/prono-core-frontend.yml"
+  pull_request:
+    paths:
+      - "prono-core/frontend/**"
+      - ".github/workflows/prono-core-frontend.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: prono-core/frontend
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          # Same major as prono-core/frontend/Dockerfile.
+          node-version: 22
+          cache: npm
+          cache-dependency-path: prono-core/frontend/package-lock.json
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
