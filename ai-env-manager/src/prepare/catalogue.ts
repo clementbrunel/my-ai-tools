@@ -200,7 +200,7 @@ export const CATALOGUE: CatalogueTool[] = [
       },
       {
         label: "Serveur MCP (optionnel, après un premier build)",
-        manual: "python -m graphify.serve graphify-out/graph.json",
+        manual: "graphify ./raw --mcp  (démarre le serveur MCP stdio ; remplacer ./raw par le dossier à indexer)",
       },
     ],
     conflictGroup: "memory",
