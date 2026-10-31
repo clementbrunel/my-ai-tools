@@ -165,6 +165,8 @@ a { color:inherit }
 .cbl-status .live { display:inline-flex; gap:8px; margin-left:auto }
 .cbl-status .pause, .cbl-status .follow { display:inline-flex; align-items:center; gap:6px; height:24px; padding:0 10px; border:1px solid var(--ctl-bd); border-radius:4px; background:var(--ctl); color:#e2e8f0; font:inherit; cursor:pointer }
 .cbl-status .follow.on { border-color:var(--acc); background:var(--acc); color:#fff; font-weight:600 }
+.cbl-status .follow:disabled { cursor:default }
+.cbl-status .follow:not(:disabled):hover, .cbl-status .pause:hover { border-color:var(--acc) }
 .cbl-status .pause.on { border-color:#f29900; background:#f29900; color:#000 }
 .cbl-hint { margin-top:12px; text-align:center; font:12px var(--mono); opacity:.55 }
 

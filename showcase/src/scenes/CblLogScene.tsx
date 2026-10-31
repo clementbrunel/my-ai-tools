@@ -154,7 +154,8 @@ function LiveTail({ lang }: { lang: Lang }) {
   const last = entries[entries.length - 1]
   const paused = frozenAt !== null
   const togglePause = () => setFrozenAt(paused ? null : last.id)
-  const toggleFollow = () => setFollow((f) => !f)
+  /** Suivre only brings the view back to the end; it is turned off by scrolling up. */
+  const resumeFollow = () => setFollow(true)
 
   // follow: stick to the end after every render (new line, unfolded trace, filter change…)
   useLayoutEffect(() => {
@@ -266,7 +267,7 @@ function LiveTail({ lang }: { lang: Lang }) {
               <svg {...icon}><path d="M5.5 3.5v9M10.5 3.5v9" strokeWidth={2.2} /></svg>
               {paused ? `${t.pause} (+${pending})` : t.pause}
             </button>
-            <button type="button" className={`follow ${follow ? 'on' : ''}`} aria-pressed={follow} onClick={toggleFollow}>
+            <button type="button" className={`follow ${follow ? 'on' : ''}`} aria-pressed={follow} disabled={follow} onClick={resumeFollow}>
               <svg {...icon}><path d="M8 2.5v9M4 8l4 4 4-4M3.5 14h9" /></svg>
               {t.follow}
             </button>
