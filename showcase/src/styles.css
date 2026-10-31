@@ -98,39 +98,52 @@ a { color:inherit }
 .term-btns button:hover:not(:disabled) { background:#16301f; transform:translateY(-1px) }
 .term-btns button:disabled { opacity:.4; cursor:default }
 
-/* cbl-log: Windows 11-style log window, colours from the app icon (cyan / green / amber on navy) */
+/* cbl-log: the app's dark theme (tabs, command bar with filter + level pills, status bar with fold switch and Pause / Suivre) on the icon's navy */
 [id=cbl-log] .appname { letter-spacing:-.035em }
-.cbl { width:min(600px,100%); min-width:0; border-radius:12px; background:#0b1120; border:1px solid #24324f; box-shadow:0 40px 90px -30px rgba(34,211,238,.28),0 0 0 1px rgba(255,255,255,.03); overflow:hidden; font:13px var(--sans) }
-.cbl-title { display:flex; align-items:center; gap:6px; padding:8px 10px 0; background:#0e1628 }
-.cbl-title img { margin:0 6px 6px 2px; border-radius:4px }
-.cbl-tab { padding:7px 14px; border-radius:8px 8px 0 0; font:12px var(--mono); opacity:.55; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; transition:color .3s }
-.cbl-tab.on { opacity:1; background:#0b1120; box-shadow:inset 0 2px #22d3ee; min-width:0 }
-.cbl-win { margin-left:auto; display:flex; gap:16px; padding:0 6px 6px }
+.cbl { --acc:#3b82f6; --bd:#24324f; --ctl:#141d33; --ctl-bd:#2e3b5a; --muted:#8b95a7; width:min(600px,100%); min-width:0; border-radius:10px; background:#0b1120; border:1px solid var(--bd); box-shadow:0 40px 90px -30px rgba(34,211,238,.28),0 0 0 1px rgba(255,255,255,.03); overflow:hidden; font:12px "Segoe UI",var(--sans) }
+.cbl-title { display:flex; align-items:flex-end; gap:4px; padding:6px 8px 0; background:#0a0f1d; border-bottom:1px solid var(--bd) }
+.cbl-title img { align-self:center; margin:0 6px 0 4px; border-radius:4px }
+.cbl-tabs { display:flex; gap:2px; min-width:0 }
+.cbl-tab { display:flex; align-items:center; gap:6px; height:30px; margin-bottom:-1px; padding:0 12px; border:1px solid transparent; border-bottom:0; border-radius:6px 6px 0 0; background:none; color:var(--muted); font:inherit; white-space:nowrap; cursor:pointer }
+.cbl-tab:hover { color:#e2e8f0 }
+.cbl-tab.on { background:#0e1628; border-color:var(--bd); color:#e2e8f0; box-shadow:inset 0 2px var(--acc) }
+.cbl-tab.add { align-self:center; height:auto; padding:0 8px; cursor:default }
+.cbl-tab .badge { padding:0 6px; border-radius:8px; background:var(--acc); color:#fff; font-size:11px; line-height:16px; animation:badge-pop .3s ease-out }
+@keyframes badge-pop { from { transform:scale(.6) } }
+.cbl-win { margin-left:auto; align-self:center; display:flex; gap:16px; padding:0 6px; color:#cbd5e1 }
 .cbl-win i { width:10px; height:1px; background:currentColor; opacity:.55 }
 .cbl-win i:nth-child(2) { height:9px; background:none; border:1px solid; opacity:.45 }
 .cbl-win i:nth-child(3) { height:12px; width:12px; background:linear-gradient(45deg,transparent 46%,currentColor 46% 54%,transparent 54%),linear-gradient(-45deg,transparent 46%,currentColor 46% 54%,transparent 54%); opacity:.55 }
-.cbl-bar { display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding:10px; border-bottom:1px solid #1d2840 }
-.cbl-sep { width:1px; height:18px; background:#24324f; margin:0 2px }
-.chip { display:inline-flex; align-items:center; gap:6px; padding:5px 10px; border-radius:6px; border:1px solid #2a3858; background:#111a2e; color:#94a3b8; font:600 11.5px var(--mono); cursor:pointer; transition:background .2s,color .2s,border-color .2s,transform .2s }
-.chip:hover { transform:translateY(-1px) }
-.chip.err.on { background:rgba(248,113,113,.18); border-color:#f87171; color:#fecaca }
-.chip.warn.on { background:rgba(251,191,36,.16); border-color:#fbbf24; color:#fde68a }
-.chip.rx.on { background:rgba(34,211,238,.16); border-color:#22d3ee; color:#a5f3fc }
-.chip.fold.on { background:rgba(52,211,153,.16); border-color:#34d399; color:#a7f3d0 }
-/* checkbox square: filled with a tick when the level / rule is on */
-.chip i { width:10px; height:10px; border-radius:3px; border:1.5px solid currentColor; opacity:.7; display:grid; place-items:center; font:normal 700 8px/1 var(--sans) }
-.chip.on i { opacity:1; background:currentColor }
-.chip.on i::after { content:'✓'; color:#0b1120 }
-.chip:not(.on) { opacity:.7 }
-.fold-badge { flex:none; margin-left:auto; padding:0 7px; border-radius:5px; border:1px solid rgba(34,211,238,.45); background:rgba(34,211,238,.08); color:#67e8f9; font:600 11px/19px "JetBrains Mono",ui-monospace,monospace; cursor:pointer; transition:background .2s }
-.fold-badge:hover, .fold-badge.open { background:rgba(34,211,238,.2) }
+/* command bar: filter field on the left, level pills on the right; wraps when narrow */
+.cbl-top { display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; padding:8px 10px; background:#0e1628; border-bottom:1px solid var(--bd) }
+.cbl-field { display:flex; flex:1 1 200px; flex-wrap:wrap; align-items:center; gap:3px; min-width:0; min-height:28px; padding:2px 3px 2px 9px; border:1px solid var(--ctl-bd); border-radius:4px; background:var(--ctl); color:var(--muted) }
+.cbl-field:focus-within { border-bottom:2px solid var(--acc) }
+.cbl-field.invalid { border-color:#d93025 }
+.cbl-field svg { flex:none; margin-right:4px }
+.cbl-field input { flex:1; min-width:10ch; border:0; outline:0; padding:0; background:none; color:#e2e8f0; font:inherit }
+.cbl-field input::placeholder { color:var(--muted) }
+.cbl-field .opt { min-width:22px; height:20px; padding:0 4px; border:1px solid transparent; border-radius:3px; background:none; color:var(--muted); font:600 11px var(--mono); cursor:pointer }
+.cbl-field .opt.on { border-color:var(--acc); background:rgba(59,130,246,.22); color:#93bbfb }
+.cbl-field .opt:disabled { opacity:.4; cursor:default }
+.cbl-field .opt.inc:not(:disabled) { color:#7fd99a }
+.cbl-field .sep { width:1px; height:14px; background:var(--ctl-bd) }
+.cbl-chip { display:inline-flex; align-items:center; gap:2px; padding:0 0 0 7px; border-radius:4px; background:rgba(24,128,56,.25); color:#7fd99a; font:11.5px var(--mono); line-height:20px }
+.cbl-chip button { padding:0 5px; border:0; background:none; color:inherit; cursor:pointer }
+.cbl-pills { display:inline-flex; gap:4px; margin-left:auto }
+.cbl-pill { display:inline-flex; align-items:center; gap:6px; height:28px; padding:0 8px; border:1px dashed var(--ctl-bd); border-radius:4px; background:none; color:var(--muted); font:600 11px "Segoe UI",var(--sans); letter-spacing:.02em; cursor:pointer }
+.cbl-pill.on { border-style:solid; background:var(--ctl); color:#e2e8f0 }
+.cbl-pill i { width:8px; height:8px; border-radius:2px; box-shadow:inset 0 0 0 1.5px var(--pc) }
+.cbl-pill.on i { background:var(--pc) }
+.cbl-pill.lvl-error { --pc:#f87171 } .cbl-pill.lvl-warn { --pc:#fbbf24 } .cbl-pill.lvl-info { --pc:#60a5fa } .cbl-pill.lvl-debug { --pc:#9aa0a6 }
+.fold-badge { flex:none; margin-left:10px; padding:0 6px; border:1px solid var(--ctl-bd); border-radius:8px; background:none; color:var(--muted); font:11px/17px "Segoe UI",var(--sans); cursor:pointer; transition:background .2s,color .2s }
+.fold-badge:hover, .fold-badge.open { background:var(--ctl); color:#e2e8f0 }
 .cbl-log { min-width:0; height:calc(11 * 23px + 12px); padding:6px 0; overflow:hidden; display:flex; flex-direction:column; justify-content:flex-end; font:12.5px/23px "JetBrains Mono",ui-monospace,monospace }
-.cbl-row { display:flex; gap:12px; padding-right:12px; white-space:nowrap; animation:cbl-in .35s ease-out; transition:background .25s }
+.cbl-row { display:flex; align-items:center; gap:12px; padding-right:12px; white-space:nowrap; animation:cbl-in .35s ease-out; transition:background .25s }
 @keyframes cbl-in { from { opacity:0; transform:translateY(6px) } }
 .cbl-row .ln { flex:none; width:46px; padding-right:8px; text-align:right; color:#475569; background:#0d1424 }
 .cbl-row .ts { color:#64748b }
 .cbl-row .lv { white-space:pre; color:#94a3b8 }
-.cbl-row .lv.error { color:#f87171 } .cbl-row .lv.warn { color:#fbbf24 } .cbl-row .lv.info { color:#34d399 }
+.cbl-row .lv.error { color:#f87171 } .cbl-row .lv.warn { color:#fbbf24 } .cbl-row .lv.info { color:#60a5fa }
 .cbl-row .msg { min-width:0; overflow:hidden; text-overflow:ellipsis; color:#cbd5e1 }
 .cbl-row mark { background:rgba(34,211,238,.22); color:#a5f3fc; border-radius:3px; padding:0 2px }
 .cbl-row.hl-err { background:rgba(248,113,113,.16) } .cbl-row.hl-err .msg { color:#fecaca }
@@ -138,11 +151,19 @@ a { color:inherit }
 .cbl-row.stack { background:rgba(248,113,113,.06); animation:cbl-unfold .25s ease-out }
 .cbl-row.stack .msg { white-space:pre; color:#fca5a5; opacity:.85 }
 @keyframes cbl-unfold { from { opacity:0; transform:translateY(-4px) } }
-.cbl-status { display:flex; justify-content:space-between; gap:10px; padding:7px 12px; border-top:1px solid #1d2840; background:#0e1628; font:11.5px var(--mono); color:#94a3b8 }
-.cbl-status .live { display:flex; align-items:center; gap:6px; color:#34d399 }
-.cbl-status .live.off { color:#fbbf24 } .cbl-status .live.off i { background:#fbbf24; animation:none }
-.cbl-status .live i { width:7px; height:7px; border-radius:50%; background:#34d399; box-shadow:0 0 0 0 rgba(52,211,153,.6); animation:pulse 1.6s infinite }
-@keyframes pulse { 70% { box-shadow:0 0 0 7px rgba(52,211,153,0) } 100% { box-shadow:0 0 0 0 rgba(52,211,153,0) } }
+/* status bar: count, meta, fold switch, then Pause / Suivre together in the bottom right corner */
+.cbl-status { display:flex; flex-wrap:wrap; align-items:center; gap:4px 12px; min-height:34px; padding:4px 10px 4px 12px; border-top:1px solid var(--bd); background:#0e1628; color:var(--muted); white-space:nowrap }
+.cbl-status .count { font-variant-numeric:tabular-nums }
+.cbl-status .sep { width:1px; height:14px; background:var(--ctl-bd) }
+.fold-toggle { display:inline-flex; align-items:center; gap:6px; color:#cbd5e1; cursor:pointer }
+.cbl input.switch { appearance:none; -webkit-appearance:none; position:relative; flex:none; width:30px; height:16px; margin:0; border-radius:8px; background:var(--ctl-bd); cursor:inherit; transition:background .15s }
+.cbl input.switch::after { content:""; position:absolute; top:3px; left:3px; width:10px; height:10px; border-radius:50%; background:#fff; transition:transform .12s }
+.cbl input.switch:checked { background:var(--acc) }
+.cbl input.switch:checked::after { transform:translateX(14px) }
+.cbl-status .live { display:inline-flex; gap:8px; margin-left:auto }
+.cbl-status .pause, .cbl-status .follow { display:inline-flex; align-items:center; gap:6px; height:24px; padding:0 10px; border:1px solid var(--ctl-bd); border-radius:4px; background:var(--ctl); color:#e2e8f0; font:inherit; cursor:pointer }
+.cbl-status .follow.on { border-color:var(--acc); background:var(--acc); color:#fff; font-weight:600 }
+.cbl-status .pause.on { border-color:#f29900; background:#f29900; color:#000 }
 .cbl-hint { margin-top:12px; text-align:center; font:12px var(--mono); opacity:.55 }
 
 /* ───────── poster scenes (prono-core, BienvenueBébé) ───────── */
@@ -234,8 +255,10 @@ a { color:inherit }
   .term pre { min-height:0; padding:14px; font-size:12px; line-height:1.6 }
   .cbl-log { height:calc(8 * 20px + 8px); padding:4px 0; font-size:11px; line-height:20px }
   .cbl-row { gap:8px } .cbl-row .ln { width:38px } .cbl-row .ts { display:none }
-  .cbl-tab:not(.on), .cbl-win { display:none }
-  .chip { padding:4px 8px; font-size:10.5px } .cbl-bar { padding:8px; gap:5px } .cbl-sep { display:none }
+  .cbl-tab.add, .cbl-win, .cbl-status .meta, .cbl-status .meta-sep { display:none }
+  .cbl-tab { padding:0 9px } .cbl-top { padding:6px 8px }
+  .cbl-pills { margin-left:0 } .cbl-pill { height:24px; padding:0 6px; font-size:10px }
+  .cbl-status { gap:4px 8px; padding:4px 8px } .cbl-status .pause, .cbl-status .follow { padding:0 7px }
   .cbl-hint { display:none }
   .lede { font-size:15px }
   .copy { max-width:none }
@@ -266,7 +289,7 @@ a { color:inherit }
   .term pre { padding:10px 12px; font-size:11px; line-height:1.5 }
   .dots { padding:9px 12px }
   .cbl-log { height:calc(5 * 18px + 6px); line-height:18px }
-  .cbl-status { padding:5px 10px; font-size:10.5px }
+  .cbl-status { font-size:11px } .cbl-status .count { display:none } .cbl-field { min-height:24px }
   [id=cbl-log] .lede { display:none }
   [id=ai-env-manager] h2 { font-size:20px }
   .lede { font-size:14px; margin-top:12px }

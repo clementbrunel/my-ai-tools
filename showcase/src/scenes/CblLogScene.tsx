@@ -2,13 +2,14 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Lang } from '../apps'
 import SceneFrame, { type SceneProps } from '../components/SceneFrame'
 
-type Level = 'INFO' | 'DEBUG' | 'WARN' | 'ERROR'
+type Level = 'ERROR' | 'WARN' | 'INFO' | 'DEBUG'
 interface Entry { id: number; n: number; time: string; level: Level; msg: string; stack?: string[] }
 /** One displayed line: an entry, or one line of its stack trace. */
 type Line = { kind: 'entry'; e: Entry } | { kind: 'stack'; e: Entry; i: number }
 
-/** Fake application log: [level, message, weight, stack trace]. `user=…` tokens are what the regex rule highlights. */
-const pool: [Level, string, number, string[]?][] = [
+type Pool = [Level, string, number, string[]?][]
+/** Fake application log: [level, message, weight, stack trace]. `user=…` tokens are highlighted by the default profile. */
+const appPool: Pool = [
   ['INFO', 'GET /api/orders 200 · 38 ms', 5],
   ['INFO', 'login ok user=alice', 3],
   ['DEBUG', 'cache hit ratio 0.93', 3],
@@ -32,9 +33,22 @@ const pool: [Level, string, number, string[]?][] = [
     '  ... 48 more',
   ]],
 ]
-const total = pool.reduce((s, p) => s + p[2], 0)
-const pick = () => {
-  let r = Math.random() * total
+/** Second tab: a server that writes less often, so its unseen-lines badge is easy to follow. */
+const serverPool: Pool = [
+  ['INFO', 'GET /health 200 · 2 ms', 4],
+  ['INFO', 'POST /api/payments 201 · 112 ms user=frank', 3],
+  ['DEBUG', 'gc pause 14 ms', 2],
+  ['WARN', 'disk usage 87 % on /var/log', 1],
+  ['ERROR', 'payment gateway unreachable user=grace', 1, [
+    'java.net.ConnectException: Connection refused',
+    '  at java.base/sun.nio.ch.Net.connect(Net.java:579)',
+    '  at com.shop.pay.GatewayClient.charge(GatewayClient.java:73)',
+    '  at com.shop.pay.PaymentService.pay(PaymentService.java:40)',
+  ]],
+]
+const LEVELS: Level[] = ['ERROR', 'WARN', 'INFO', 'DEBUG']
+const pick = (pool: Pool) => {
+  let r = Math.random() * pool.reduce((s, p) => s + p[2], 0)
   for (const p of pool) if ((r -= p[2]) < 0) return p
   return pool[0]
 }
@@ -45,50 +59,74 @@ const clock = (ago = 0) => {
 }
 
 let uid = 0
-const STEP_MS = 900
-const KEEP = 40
+const KEEP = 300
 const ROWS = 11
-const FIRST_LINE = 1281
-/** Indexes into `pool` for the lines shown on load: every rule has something to show right away. */
-const seed = [0, 1, 2, 5, 0, 4, 1, 7, 3, 6, 0]
+/** The two tabs: pool, first line number, lines shown on load (indexes into the pool), write period. */
+const TABS = {
+  app: { name: 'app.log', pool: appPool, first: 1281, seed: [0, 1, 2, 5, 0, 4, 1, 7, 3, 6, 0], every: 900 },
+  server: { name: 'server.log', pool: serverPool, first: 5402, seed: [0, 1, 0, 2, 0, 3, 1, 4, 0, 0, 1], every: 1400 },
+}
+type TabId = keyof typeof TABS
+const TAB_IDS = Object.keys(TABS) as TabId[]
+/** One value per tab, built the same way for all of them. */
+const perTab = <T,>(f: (id: TabId) => T) => Object.fromEntries(TAB_IDS.map((id) => [id, f(id)])) as Record<TabId, T>
+/** Copy of `s` with `v` added or removed. */
+const toggled = <T,>(s: Set<T>, v: T) => { const n = new Set(s); if (n.has(v)) n.delete(v); else n.add(v); return n }
 
-const make = (p: (typeof pool)[number], n: number, time: string): Entry =>
+const make = (p: Pool[number], n: number, time: string): Entry =>
   ({ id: uid++, n, time, level: p[0], msg: p[1], stack: p[3] })
 /** Next file line number: an entry with a stack trace uses one line per stack line too. */
 const next = (e: Entry) => e.n + 1 + (e.stack?.length ?? 0)
 
 const txt = {
-  fr: { rules: 'Niveaux et règles', fold: 'Replier les stack traces', lines: (n: number) => `ligne${n > 1 ? 's' : ''}`, follow: 'Suivi', paused: 'En pause', hint: 'Décoche un niveau pour le masquer, déplie une stack trace.' },
-  en: { rules: 'Levels and rules', fold: 'Fold stack traces', lines: (n: number) => `line${n > 1 ? 's' : ''}`, follow: 'Following', paused: 'Paused', hint: 'Untick a level to hide it, unfold a stack trace.' },
+  fr: { levels: 'Niveaux affichés', filter: 'Filtrer (Ctrl+Maj+F)', include: 'Inclure (Entrée)', regex: 'Expression régulière', remove: 'Retirer', fold: 'Replier les traces', lines: (n: number) => `ligne${n > 1 ? 's' : ''}`, of: 'sur', pause: 'Pause', follow: 'Suivre', hint: 'Décoche un niveau, filtre un texte (Entrée), déplie une stack trace.' },
+  en: { levels: 'Levels shown', filter: 'Filter (Ctrl+Shift+F)', include: 'Include (Enter)', regex: 'Regular expression', remove: 'Remove', fold: 'Fold traces', lines: (n: number) => `line${n > 1 ? 's' : ''}`, of: 'of', pause: 'Pause', follow: 'Follow', hint: 'Untick a level, filter a text (Enter), unfold a stack trace.' },
 }
 
 const USER_RE = /(user=\w+)/
+const icon = { width: 12, height: 12, viewBox: '0 0 16 16', fill: 'none', stroke: 'currentColor', strokeWidth: 1.5, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true } as const
 
-/** Message with `user=…` wrapped when the regex rule is on. */
-function Msg({ msg, regex }: { msg: string; regex: boolean }): ReactNode {
-  if (!regex) return msg
+/** Message with the default profile's `user=…` highlight. */
+function Msg({ msg }: { msg: string }): ReactNode {
   return msg.split(USER_RE).map((part, i) => (i % 2 ? <mark key={i}>{part}</mark> : part))
 }
 
-/** cbl-log window: lines stream in; the visitor filters levels, toggles a regex rule and folds / unfolds stack traces. */
+interface Include { pattern: string; regex: boolean }
+const matcher = (inc: Include) => {
+  if (!inc.regex) { const p = inc.pattern.toLowerCase(); return (s: string) => s.toLowerCase().includes(p) }
+  try { const re = new RegExp(inc.pattern, 'i'); return (s: string) => re.test(s) } catch { return () => false }
+}
+const validRegex = (s: string) => { try { new RegExp(s); return true } catch { return false } }
+
+/** cbl-log window, laid out like the app: level pills and filter in the command bar, fold switch and Pause / Suivre in the status bar. */
 function LiveTail({ lang }: { lang: Lang }) {
   const t = txt[lang]
-  const [entries, setEntries] = useState<Entry[]>(() => {
+  const [streams, setStreams] = useState(() => perTab((id) => {
+    const { pool, first, seed, every } = TABS[id]
     const out: Entry[] = []
-    seed.forEach((i, k) => out.push(make(pool[i], out.length ? next(out[out.length - 1]) : FIRST_LINE, clock((seed.length - k) * STEP_MS))))
+    seed.forEach((i, k) => out.push(make(pool[i], out.length ? next(out[out.length - 1]) : first, clock((seed.length - k) * every))))
     return out
-  })
-  const [show, setShow] = useState({ error: true, warn: true })
-  const [regex, setRegex] = useState(false)
+  }))
+  const [tab, setTab] = useState<TabId>('app')
+  /** New lines written in a tab that is not the active one (the badge on its title). */
+  const [unseen, setUnseen] = useState(() => perTab(() => 0))
+  const activeRef = useRef<TabId>('app')
+  activeRef.current = tab
+  const entries = streams[tab]
+  const [levels, setLevels] = useState<Set<Level>>(() => new Set(LEVELS))
+  const [includes, setIncludes] = useState<Include[]>([])
+  const [text, setText] = useState('')
+  const [isRegex, setRegex] = useState(false)
   const [fold, setFold] = useState(true)
   const [open, setOpen] = useState<Set<number>>(() => new Set())
-  const [hover, setHover] = useState(false)
+  const [follow, setFollow] = useState(true)
+  /** Last entry id shown while the view is frozen (Pause or Suivre off); null = live. */
+  const [frozenAt, setFrozenAt] = useState<number | null>(null)
+  const [paused, setPaused] = useState(false)
   const winRef = useRef<HTMLDivElement>(null)
   const visible = useRef(true)
-  const paused = useRef(false)
-  paused.current = hover
 
-  // only stream while the window is on screen, the tab visible and the pointer not on the log (time to click)
+  // only stream while the window is on screen and the tab visible
   useEffect(() => {
     const el = winRef.current
     if (!el || !('IntersectionObserver' in window)) return
@@ -98,42 +136,91 @@ function LiveTail({ lang }: { lang: Lang }) {
   }, [])
 
   useEffect(() => {
-    const id = window.setInterval(() => {
-      if (!visible.current || paused.current || document.hidden) return
-      setEntries((r) => [...r, make(pick(), next(r[r.length - 1]), clock())].slice(-KEEP))
-    }, STEP_MS)
-    return () => window.clearInterval(id)
+    const ids = TAB_IDS.map((id) => window.setInterval(() => {
+      if (!visible.current || document.hidden) return
+      setStreams((s) => ({ ...s, [id]: [...s[id], make(pick(TABS[id].pool), next(s[id][s[id].length - 1]), clock())].slice(-KEEP) }))
+      if (activeRef.current !== id) setUnseen((u) => ({ ...u, [id]: u[id] + 1 }))
+    }, TABS[id].every))
+    return () => ids.forEach(window.clearInterval)
   }, [])
 
+  const switchTab = (id: TabId) => {
+    if (id === tab) return
+    setTab(id)
+    setUnseen((u) => ({ ...u, [id]: 0 }))
+    setOpen(new Set()); setPaused(false); setFollow(true); setFrozenAt(null)
+  }
+
+  const last = entries[entries.length - 1]
+  const freeze = (on: boolean) => setFrozenAt(on ? last.id : null)
+  const togglePause = () => { const p = !paused; setPaused(p); if (p) freeze(true); else { freeze(!follow) } }
+  const toggleFollow = () => { const f = !follow; setFollow(f); if (f) { setPaused(false); freeze(false) } else freeze(true) }
+
+  const tests = includes.map(matcher)
   const lines: Line[] = []
+  let matched = 0
   for (const e of entries) {
-    if ((e.level === 'ERROR' && !show.error) || (e.level === 'WARN' && !show.warn)) continue
+    if (frozenAt !== null && e.id > frozenAt) break
+    if (!levels.has(e.level)) continue
+    if (tests.length && !tests.some((f) => f(e.msg))) continue
+    matched++
     lines.push({ kind: 'entry', e })
     if (e.stack && (!fold || open.has(e.id))) e.stack.forEach((_, i) => lines.push({ kind: 'stack', e, i }))
   }
   const shown = lines.slice(-ROWS)
-  const last = entries[entries.length - 1]
+  const pending = frozenAt === null ? 0 : entries.filter((e) => e.id > frozenAt).length
+  const totalLines = next(last) - 1
+  const filtered = levels.size < LEVELS.length || includes.length > 0
 
-  const toggleOpen = (id: number) => setOpen((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n })
-  const lvl = (e: Entry) => (e.level === 'ERROR' ? 'hl-err' : e.level === 'WARN' ? 'hl-warn' : '')
+  const toggleLevel = (l: Level) => setLevels((s) => toggled(s, l))
+  const toggleOpen = (id: number) => setOpen((s) => toggled(s, id))
+  const invalid = isRegex && text !== '' && !validRegex(text)
+  const add = () => {
+    if (!text.trim() || invalid) return
+    setIncludes((l) => [...l, { pattern: text.trim(), regex: isRegex }])
+    setText('')
+  }
 
   return (
     <div className="stage">
       <div className="cbl" ref={winRef}>
         <div className="cbl-title">
           <img src="./icons/cbl-log.svg" alt="" width={16} height={16} />
-          <span className="cbl-tab on">app.log</span>
-          <span className="cbl-tab">server.log</span>
+          <span className="cbl-tabs" role="tablist">
+            {TAB_IDS.map((id) => (
+              <button key={id} type="button" role="tab" aria-selected={tab === id} className={`cbl-tab ${tab === id ? 'on' : ''}`} onClick={() => switchTab(id)}>
+                {TABS[id].name}
+                {tab !== id && unseen[id] > 0 && <span className="badge">{unseen[id] > 999 ? '999+' : unseen[id]}</span>}
+              </button>
+            ))}
+          </span>
+          <span className="cbl-tab add" aria-hidden="true">+</span>
           <span className="cbl-win" aria-hidden="true"><i /><i /><i /></span>
         </div>
-        <div className="cbl-bar" role="group" aria-label={t.rules}>
-          <button type="button" className={`chip err ${show.error ? 'on' : ''}`} aria-pressed={show.error} onClick={() => setShow((s) => ({ ...s, error: !s.error }))}><i />ERROR</button>
-          <button type="button" className={`chip warn ${show.warn ? 'on' : ''}`} aria-pressed={show.warn} onClick={() => setShow((s) => ({ ...s, warn: !s.warn }))}><i />WARN</button>
-          <button type="button" className={`chip rx ${regex ? 'on' : ''}`} aria-pressed={regex} onClick={() => setRegex((v) => !v)}><i />/user=\w+/</button>
-          <span className="cbl-sep" />
-          <button type="button" className={`chip fold ${fold ? 'on' : ''}`} aria-pressed={fold} onClick={() => { setFold((v) => !v); setOpen(new Set()) }}><i />{t.fold}</button>
+        <div className="cbl-top">
+          <div className={`cbl-field ${invalid ? 'invalid' : ''}`} role="search">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" aria-hidden="true"><path d="M2 3h12L9.5 8.5V13l-3 1.5v-6z" /></svg>
+            {includes.map((inc, i) => (
+              <span key={`${inc.pattern}-${i}`} className="cbl-chip">+ {inc.pattern}
+                <button type="button" aria-label={`${t.remove} ${inc.pattern}`} onClick={() => setIncludes((l) => l.filter((_, k) => k !== i))}>×</button>
+              </span>
+            ))}
+            <input value={text} placeholder={includes.length ? '' : t.filter} aria-label={t.filter} title={t.include}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add() } else if (e.key === 'Escape') setText('') }} />
+            <button type="button" className={`opt ${isRegex ? 'on' : ''}`} aria-pressed={isRegex} title={t.regex} onClick={() => setRegex((v) => !v)}>.*</button>
+            <span className="sep" aria-hidden="true" />
+            <button type="button" className="opt inc" title={t.include} aria-label={t.include} disabled={!text.trim() || invalid} onClick={add}>+</button>
+          </div>
+          <span className="cbl-pills" role="group" aria-label={t.levels}>
+            {LEVELS.map((l) => (
+              <button key={l} type="button" role="checkbox" aria-checked={levels.has(l)} className={`cbl-pill lvl-${l.toLowerCase()} ${levels.has(l) ? 'on' : ''}`} onClick={() => toggleLevel(l)}>
+                <i aria-hidden="true" />{l}
+              </button>
+            ))}
+          </span>
         </div>
-        <div className="cbl-log" onPointerEnter={() => setHover(true)} onPointerLeave={() => setHover(false)}>
+        <div className="cbl-log">
           {shown.map((l) => l.kind === 'stack'
             ? (
               <div key={`${l.e.id}-${l.i}`} className="cbl-row stack">
@@ -142,11 +229,11 @@ function LiveTail({ lang }: { lang: Lang }) {
               </div>
             )
             : (
-              <div key={l.e.id} className={`cbl-row ${lvl(l.e)}`}>
+              <div key={l.e.id} className={`cbl-row ${l.e.level === 'ERROR' ? 'hl-err' : l.e.level === 'WARN' ? 'hl-warn' : ''}`}>
                 <span className="ln">{l.e.n}</span>
                 <span className="ts">{l.e.time}</span>
                 <span className={`lv ${l.e.level.toLowerCase()}`}>{l.e.level.padEnd(5)}</span>
-                <span className="msg"><Msg msg={l.e.msg} regex={regex} /></span>
+                <span className="msg"><Msg msg={l.e.msg} /></span>
                 {l.e.stack && fold && (
                   <button type="button" className={`fold-badge ${open.has(l.e.id) ? 'open' : ''}`} aria-expanded={open.has(l.e.id)} onClick={() => toggleOpen(l.e.id)}>
                     {open.has(l.e.id) ? '▾' : '▸'} +{l.e.stack.length} {t.lines(l.e.stack.length)}
@@ -156,8 +243,23 @@ function LiveTail({ lang }: { lang: Lang }) {
             ))}
         </div>
         <div className="cbl-status">
-          <span>UTF-8 · {(next(last) - 1).toLocaleString(lang)} {t.lines(2)}</span>
-          <span className={`live ${hover ? 'off' : ''}`}><i />{hover ? t.paused : t.follow}</span>
+          <span className="count">{filtered ? `${matched.toLocaleString(lang)} ${t.of} ${totalLines.toLocaleString(lang)} ${t.lines(2)}` : `${totalLines.toLocaleString(lang)} ${t.lines(2)}`}</span>
+          <span className="sep meta-sep" aria-hidden="true" />
+          <span className="meta">Spring Boot · UTF-8</span>
+          <label className="fold-toggle">
+            <input type="checkbox" role="switch" className="switch" checked={fold} onChange={() => { setFold((v) => !v); setOpen(new Set()) }} />
+            {t.fold}
+          </label>
+          <span className="live">
+            <button type="button" className={`pause ${paused ? 'on' : ''}`} aria-pressed={paused} onClick={togglePause}>
+              <svg {...icon}><path d="M5.5 3.5v9M10.5 3.5v9" strokeWidth={2.2} /></svg>
+              {paused ? `${t.pause} (+${pending})` : t.pause}
+            </button>
+            <button type="button" className={`follow ${follow ? 'on' : ''}`} aria-pressed={follow} onClick={toggleFollow}>
+              <svg {...icon}><path d="M8 2.5v9M4 8l4 4 4-4M3.5 14h9" /></svg>
+              {t.follow}
+            </button>
+          </span>
         </div>
       </div>
       <p className="cbl-hint">{t.hint}</p>
