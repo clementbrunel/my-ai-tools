@@ -18,17 +18,20 @@ src/
   App.tsx              routage (#/ ou #/legal), langue, section active
   scenes/              une scène par app : PronoCoreScene, BienvenueBebeScene, CblLogScene, AiEnvManagerScene
     index.ts           registre `stage` → composant
+    prono-core/        roue des gages : ForfeitWheel.tsx + WheelResult ; data.ts (gages, calcul du segment, textes)
+    bienvenue-bebe/    carte posée sur l'affiche : RegistryOnCard.tsx + RegistryItem ; data.ts (cadeaux, textes)
     cbl-log/           démo cbl-log, un fichier par composant comme dans l'app :
       LiveTail.tsx     fenêtre (état, flux, Suivre / Pause) qui assemble les suivants
       TabBar, FilterField, LevelPills, LogLine, StatusBar
       view.ts          logique d'affichage sans React (filtres, repli des traces)
       data.ts          faux logs, onglets et textes (ajouter un onglet = une ligne dans `TABS`)
+    ai-env-manager/    démo terminal : Terminal.tsx (état, défilement) + TermOutput, CommandButtons ; data.ts (scan, commandes, textes)
   fonts.ts             polices auto-hébergées (@fontsource, latin, graisses utilisées) — aucun appel à Google Fonts
-  components/          SceneFrame (cadre commun), Hero, About, Dock (barre de nav), Legal, AppIcon, ProgressBar
+  components/          SceneFrame (cadre commun) + SceneCopy (bloc texte), Hero, About, Dock (barre de nav), Legal, AppIcon, ProgressBar
   lib/                 scroll.ts (progression + fondu), nav.ts (hash, scène active), ui.ts (textes, langue, scroll doux)
 ```
 
-Nouvelle app : entrée dans `apps.ts` + un composant dans `scenes/` (basé sur `SceneFrame` ; `art` pour une illustration dessinée, `overlay` pour du texte posé sur une affiche) + une ligne dans `scenes/index.ts`.
+Nouvelle app : entrée dans `apps.ts` + un composant dans `scenes/` (basé sur `SceneFrame`, son widget dans un dossier `scenes/<app>/` : `data.ts` + un fichier par composant ; `art` pour une illustration dessinée, `overlay` pour du texte posé sur une affiche) + une ligne dans `scenes/index.ts`.
 
 ## Page d'accueil
 
