@@ -9,6 +9,7 @@ import {
   defaultFilterSettings,
   defaultSettings,
   detectFormat,
+  formatForFilter,
   toLineFilter,
   type CompiledFormat,
   type Encoding,
@@ -280,8 +281,9 @@ export function App() {
       if (tab.formatId === undefined && (settings.levels.length < LEVELS_COUNT || settings.foldTraces)) return;
       const format = tab.formatId ? formatsRef.current.find((f) => f.format.id === tab.formatId)?.format : undefined;
       const filter = toLineFilter(settings, !!format, format?.continuation === "not-line");
-      const needsFormat = !!filter && (!!filter.levels || !!filter.foldContinuation);
-      const key = JSON.stringify([filter, needsFormat ? format : null]);
+      // the engine takes the level of each kept row from the format, so any active filter carries it
+      const engineFormat = formatForFilter(filter, format);
+      const key = JSON.stringify([filter, engineFormat]);
       const previous = appliedFilters.current.get(tabId);
       if (previous === key || (previous === undefined && filter === null)) {
         appliedFilters.current.set(tabId, key); // a fresh tab without filter: nothing to undo in the engine
@@ -295,7 +297,7 @@ export function App() {
       const align = target?.align ?? "top";
       try {
         const engine = await withEngine();
-        const { filterId } = await engine.request("setFilter", { tabId, filter, format: needsFormat ? (format ?? null) : null });
+        const { filterId } = await engine.request("setFilter", { tabId, filter, format: engineFormat });
         const rt = runtimes.current.get(tabId);
         if (!rt || seq !== filterSeq.current) return;
         if (filterId) {
