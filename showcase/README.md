@@ -18,8 +18,11 @@ src/
   App.tsx              routage (#/ ou #/legal), langue, section active
   scenes/              une scène par app : PronoCoreScene, BienvenueBebeScene, AiEnvManagerScene
     index.ts           registre `stage` → composant
+    ai-env-manager/    démo terminal : Terminal.tsx (état, défilement) + TermOutput, CommandButtons ; data.ts (scan, commandes, textes)
+    prono-core/        roue des gages : ForfeitWheel.tsx + WheelResult ; data.ts (gages, calcul du segment, textes)
+    bienvenue-bebe/    carte posée sur l'affiche : RegistryOnCard.tsx + RegistryItem ; data.ts (cadeaux, textes)
   fonts.ts             polices auto-hébergées (@fontsource, latin, graisses utilisées) — aucun appel à Google Fonts
-  components/          SceneFrame (cadre commun), Hero, About, Dock (barre de nav), Legal, AppIcon, ProgressBar
+  components/          SceneFrame (cadre commun) + SceneCopy (bloc texte), Hero, About, Dock (barre de nav), Legal, AppIcon, ProgressBar
   lib/                 scroll.ts (progression + fondu), nav.ts (hash, scène active), ui.ts (textes, langue, scroll doux)
 ```
 
