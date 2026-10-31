@@ -60,7 +60,20 @@ l'étape 3. En mode « Windows containers », `docker_engine` pointe sur le mote
 `GET /version` au démarrage → `ApiVersion` du démon. On appelle ensuite `/v{min(ApiVersion, MAX_CLIENT)}/…`
 avec une version minimale supportée (proposition : **1.41**, Docker 20.10, 2020). En dessous : message clair.
 
-### 3.4 États et erreurs
+### 3.4 Validation de la connexion : ni OAuth ni identifiants
+
+Le named pipe est protégé par les **droits Windows** : seuls les membres du groupe local `docker-users`
+(ajouté par l'installeur de Docker Desktop) et les administrateurs peuvent l'ouvrir. L'identité est celle
+de la session Windows, transmise par le système à l'ouverture du pipe : rien à saisir ni à stocker dans
+cbl-log. Le compte Docker Hub (`docker login`) ne concerne que les registres d'images, pas le démon local.
+
+Validation = **`GET /_ping`** (réponse `OK`) puis `GET /version`, à l'ouverture du panneau Docker et à
+chaque reconnexion. Le résultat s'affiche dans le panneau (« Connecté à Docker Desktop 4.x, API 1.xx » ou
+l'erreur du tableau ci-dessous). Cas particulier : si une organisation impose la connexion à Docker
+Desktop (*enforce sign-in*), le moteur reste bloqué tant que l'utilisateur ne s'est pas connecté dans
+Docker Desktop ; cbl-log voit alors simplement « Docker indisponible ».
+
+### 3.5 États et erreurs
 
 | Situation | Symptôme | Comportement |
 |---|---|---|
@@ -69,7 +82,7 @@ avec une version minimale supportée (proposition : **1.41**, Docker 20.10, 2020
 | Docker Desktop redémarre | flux coupés, `events` coupé | Reconnexion auto, reprise des logs par `since` (§ 5.3) sans doublon |
 | Démon trop ancien | `ApiVersion` < 1.41 | Message, fonction désactivée |
 
-### 3.5 Sécurité : un client Docker limité aux consultations
+### 3.6 Sécurité : un client Docker limité aux consultations
 
 cbl-log ne fait que lire, mais **le canal Docker, lui, permet tout** : arrêter ou supprimer un conteneur,
 lancer une commande dedans, monter le disque de la VM… (accès administrateur). Ce n'est pas un réglage
@@ -301,7 +314,7 @@ par URI.
 ## 11. Décisions à valider
 
 1. ✅ **Spool fichier** plutôt qu'une source mémoire (réutilise tout le moteur).
-2. **Client HTTP maison** (sans `dockerode`), limité par construction aux consultations (§ 3.5).
+2. **Client HTTP maison** (sans `dockerode`), limité par construction aux consultations (§ 3.6).
 3. ✅ **Un onglet par conteneur**, identifié par son nom (survit à la recréation par compose).
 4. ✅ **stdout/stderr** uniquement (WebSphere y écrit déjà tout).
 5. ✅ Chargement initial : **N dernières lignes** (défaut 5 000) + « Charger plus d'historique ».
