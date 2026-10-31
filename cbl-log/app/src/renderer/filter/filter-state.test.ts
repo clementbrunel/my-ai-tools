@@ -1,4 +1,4 @@
-import { LEVELS, defaultFilterSettings, toLineFilter, type FilterSettings, type TextMatcher } from "@cbl-log/shared";
+import { LEVELS, SPRING_BOOT, defaultFilterSettings, formatForFilter, toLineFilter, type FilterSettings, type TextMatcher } from "@cbl-log/shared";
 import { describe, expect, it } from "vitest";
 import { initialTabsState, filterStatus, tabsReducer, type TabsAction } from "../tabs/tabs-reducer";
 import { buildSession } from "../session/session-snapshot";
@@ -57,6 +57,20 @@ describe("toLineFilter", () => {
   it("carries the texts", () => {
     const s: FilterSettings = { levels: LEVELS, include: [text("a")], exclude: [text("b")], foldTraces: false };
     expect(toLineFilter(s, false)).toEqual({ include: [text("a")], exclude: [text("b")] });
+  });
+});
+
+describe("formatForFilter (#457)", () => {
+  it("hands the format to the engine for a text-only filter, so the filtered view keeps its level colors", () => {
+    const s: FilterSettings = { ...defaultFilterSettings(), include: [text("Cart")] };
+    const filter = toLineFilter(s, true);
+    expect(filter).toEqual({ include: [text("Cart")] });
+    expect(formatForFilter(filter, SPRING_BOOT)).toBe(SPRING_BOOT);
+  });
+
+  it("sends no format without a filter or without a detected format", () => {
+    expect(formatForFilter(null, SPRING_BOOT)).toBeNull();
+    expect(formatForFilter({ include: [text("a")] }, undefined)).toBeNull();
   });
 });
 
