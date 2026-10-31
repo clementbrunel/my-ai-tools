@@ -17,19 +17,25 @@ const tempDir = (): string => {
 describe("settings store", () => {
   it("returns the defaults when the file is missing, without creating it", async () => {
     const dir = tempDir();
-    expect(await loadSettings(dir)).toEqual({ value: { schemaVersion: 1, theme: "system", checkForUpdates: true } });
+    expect(await loadSettings(dir)).toEqual({ value: { schemaVersion: 1, theme: "system", checkForUpdates: true, historyHours: 2, archivePatterns: {} } });
   });
 
   it("round-trips a saved value", async () => {
     const dir = tempDir();
-    await saveSettings(dir, { schemaVersion: 1, theme: "dark", checkForUpdates: false });
-    expect((await loadSettings(dir)).value.theme).toBe("dark");
+    await saveSettings(dir, { schemaVersion: 1, theme: "dark", checkForUpdates: false, historyHours: 6, archivePatterns: { "c:\\logs\\systemout.log": "SystemOut_\\d+\\.log" } });
+    const loaded = (await loadSettings(dir)).value;
+    expect(loaded.theme).toBe("dark");
+    expect(loaded.historyHours).toBe(6);
+    expect(loaded.archivePatterns).toEqual({ "c:\\logs\\systemout.log": "SystemOut_\\d+\\.log" });
   });
 
   it("fills in missing fields from the schema defaults", async () => {
     const dir = tempDir();
     writeFileSync(join(dir, "settings.json"), JSON.stringify({ schemaVersion: 1 }));
-    expect((await loadSettings(dir)).value.theme).toBe("system");
+    const loaded = (await loadSettings(dir)).value;
+    expect(loaded.theme).toBe("system");
+    expect(loaded.historyHours).toBe(2); // settings.json written before the history: 2 h by default
+    expect(loaded.archivePatterns).toEqual({});
   });
 
   it("ignores an invalid file with a warning and leaves it untouched", async () => {

@@ -1,4 +1,4 @@
-import { appendFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { MessageChannel } from "node:worker_threads";
 import type { EngineEvent, EngineMessage, EngineRequestMap, EngineResponse, TabInfo } from "@cbl-log/shared";
@@ -57,6 +57,37 @@ function connect(options?: EngineServiceOptions) {
 }
 
 describe("EngineService", () => {
+  it("historyHours: the recent archives of the directory come before the file, older ones are counted", async () => {
+    const dir = await tempDir();
+    const now = Date.now() / 1000;
+    const archive = (name: string, from: number, to: number, hoursAgo: number): string => {
+      const p = join(dir, name);
+      writeFileSync(p, lines(from, to));
+      utimesSync(p, now - hoursAgo * 3600, now - hoursAgo * 3600);
+      return p;
+    };
+    archive("SystemOut_26.10.21_06.00.00.log", 0, 50, 3);
+    const a1 = archive("SystemOut_26.10.21_08.00.00.log", 100, 110, 1.5);
+    const a2 = archive("SystemOut_26.10.21_09.00.00.log", 110, 115, 0.5);
+    const path = join(dir, "SystemOut.log");
+    writeFileSync(path, lines(115, 120));
+    const { ok } = connect();
+    const info = await ok("open", { path, historyHours: 2 });
+    expect(info.totalRows).toBe(20);
+    expect(info.history?.skipped).toBe(1);
+    expect(info.history?.hours).toBe(2);
+    expect(info.history?.files.map((f) => [f.path, f.startRow, f.rowCount])).toEqual([
+      [a1, 0, 10],
+      [a2, 10, 5],
+    ]);
+    expect(info.history?.files[0]!.mtimeMs).toBeGreaterThan(0);
+    const { rows } = await ok("getRows", { tabId: info.tabId, first: 0, count: 20 });
+    expect(rows.map((r) => r.text)).toEqual(lines(100, 120).trimEnd().split("\n"));
+
+    const alone = await ok("open", { path: join(dir, "SystemOut_26.10.21_06.00.00.log") });
+    expect(alone.history).toBeUndefined();
+  });
+
   it("open returns consistent TabInfo", async () => {
     const dir = await tempDir();
     const path = join(dir, "a.log");

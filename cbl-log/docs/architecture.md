@@ -199,8 +199,18 @@ Points clés :
 - **Modèle de lignes (implémenté : `Tailer`, `packages/engine/src/tail/`)** : une liste de **segments**, un par fichier physique suivi (`{id, path, startRow, rowCount, startedBy, readable}`). Les numéros de ligne sont **globaux et ne décroissent jamais** : un rolling n’efface rien, l’UI dessine le séparateur (T-04d) à `startRow` de chaque segment d’id > 0. `rolled.at` = `startRow` du nouveau segment. Rename : le segment prend le chemin de l’archive (retrouvée par identité) et son handle reste ouvert. Au-delà de `maxRetainedSegments` handles ouverts (3 par défaut), le segment le moins récemment lu passe **en sommeil** : handle fermé, index de lignes conservé ; le lire rouvre l’archive, après vérification de l’identité et des 4 Ko d’ancre ; une archive purgée par l’écrivain rend le segment `readable: false`. Moins de handles ouverts, donc moins de risque de gêner le rolling (T-04c). Copytruncate : l’archive retrouvée (taille ≥ offset, mêmes 4 Ko d’ancre) devient la source du segment précédent, qui rattrape `[offset, fin]` (événement `rows`, puis `rolled`). Truncate sans archive : segment `readable: false`, ses lignes restent comptées. L’ancre est prise avant l’offset **scanné** (là où l’indexation reprend).
 - **Coalescence** : au plus un événement `rows` par ~50 ms vers l'UI, quel que soit le débit.
 - Dernière ligne sans `\n` tenue « ouverte » et ré-émise si elle grandit.
-- **Archives (T-08)** : à partir du motif d'archive (déduit, ou déclaré dans le profil :
-  `app.%d{yyyy-MM-dd}.%i.log(.gz)?`), on liste les fichiers précédents, triés par date/index.
+- **Archives et historique continu (T-08, T-09 — implémenté : `tail/archives.ts`)** : à l'ouverture, les archives
+  du dossier modifiées depuis moins de `historyHours` (settings.json, 2 h par défaut ; 0 = le fichier seul) sont
+  indexées **avant** le fichier courant, une par segment (`startedBy: "history"`, en sommeil au-delà de 3 handles) :
+  l'onglet est un seul flux, séparé à chaque archive (« rolling 09:30:46 → SystemOut_26.10.21_09.30.46.log », heure
+  = date de modification). `TabInfo.history` donne les archives chargées et le nombre d'archives plus anciennes
+  laissées de côté (avertissement dans l'UI). Ordre : date de modification. Reconnaissance par nom : par défaut
+  `<base>[._-]…chiffre….<ext>` (WebSphere `SystemOut_26.10.21_09.30.46.log`, Liberty `messages_….0.log`, Logback
+  `app.2026-10-21.0.log`) ou `<nom>.<n>` (`app.log.1`) ; `.gz` non lu. Sinon, clic droit sur le chemin › *Désigner
+  une archive du rolling…* : le motif est appris de cet exemple (parties communes gardées, chiffres généralisés,
+  `learnArchivePattern`) et mémorisé par fichier dans `settings.json` (`archivePatterns`). La session enregistre les
+  positions à partir du début du fichier courant (les archives chargées changent d'une ouverture à l'autre).
+  Recherche et filtre ne portent encore que sur le fichier courant.
 
 ### 4.4 Parseurs de format et records
 

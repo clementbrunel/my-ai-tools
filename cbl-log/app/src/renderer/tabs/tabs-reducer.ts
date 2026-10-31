@@ -1,5 +1,5 @@
 import { defaultFilterSettings, type Encoding, type FilterSettings, type SearchError, type SearchQuery, type TabEvent, type TabId, type TabInfo } from "@cbl-log/shared";
-import type { RollMark } from "../viewer/roll-mark";
+import { historyMarks, type RollMark } from "../viewer/roll-mark";
 
 export type QueryEvent = Extract<TabEvent, { type: "query" }>;
 export type FilterEvent = Extract<TabEvent, { type: "filter" }>;
@@ -147,7 +147,7 @@ export function tabsReducer(state: TabsState, action: TabsAction): TabsState {
         unseen: 0,
         state: "following",
         scrollRow: 0,
-        marks: [],
+        marks: historyMarks(action.info.history),
         clearedBefore: 0,
         filter: defaultFilterSettings(),
         ...(action.encodingChoice ? { encodingChoice: action.encodingChoice } : {}),

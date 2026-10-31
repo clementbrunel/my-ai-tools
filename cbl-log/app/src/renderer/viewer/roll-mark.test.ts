@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { marksByRow, rollMarkLabel, type RollMark } from "./roll-mark";
+import { historyMarks, marksByRow, rollMarkLabel, type RollMark } from "./roll-mark";
 
 const at = new Date(2026, 9, 14, 10, 2, 11).getTime(); // local time, so the test is timezone-proof
 
@@ -28,5 +28,22 @@ describe("marksByRow", () => {
     ]);
     expect(map.size).toBe(2);
     expect(map.get(5)?.reason).toBe("new-file");
+  });
+});
+
+describe("historyMarks", () => {
+  it("puts a separator after each archive loaded at open, timed when it was rolled", () => {
+    const history = {
+      files: [
+        { path: "C:\\logs\\SystemOut_26.10.21_09.30.46.log", startRow: 0, rowCount: 100, mtimeMs: at },
+        { path: "C:\\logs\\SystemOut_26.10.21_09.34.12.log", startRow: 100, rowCount: 50, mtimeMs: at + 1000 },
+      ],
+      skipped: 0,
+      hours: 2,
+    };
+    const marks = historyMarks(history);
+    expect(marks.map((m) => m.row)).toEqual([100, 150]);
+    expect(rollMarkLabel(marks[0]!)).toBe("rolling 10:02:11 → SystemOut_26.10.21_09.30.46.log");
+    expect(historyMarks(undefined)).toEqual([]);
   });
 });

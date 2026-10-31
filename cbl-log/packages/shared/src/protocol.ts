@@ -27,6 +27,30 @@ export interface OpenParams {
    * tab id is only known once `open` has answered), so a loader can show the progress.
    */
   openId?: string;
+  /**
+   * Archives of the file (same directory, rolled names) modified within this many hours are loaded
+   * before it as one stream (T-09). 0 or absent: the file alone.
+   */
+  historyHours?: number;
+  /** Regex (source) the archive names must match; absent: the default rule (`<stem>_<date>.log`, `app.log.1`…). */
+  archivePattern?: string;
+}
+
+/** An archive loaded before the live file: its lines are rows [startRow, startRow + rowCount). */
+export interface HistoryFile {
+  path: string;
+  startRow: number;
+  rowCount: number;
+  /** Last modification (ms since epoch): when the writer rolled it. */
+  mtimeMs: number;
+}
+
+export interface TabHistory {
+  /** Oldest first; the live file starts right after the last one. */
+  files: HistoryFile[];
+  /** Older archives left out by `historyHours`. */
+  skipped: number;
+  hours: number;
 }
 
 export interface TabInfo {
@@ -37,6 +61,8 @@ export interface TabInfo {
   totalRows: number;
   /** "unknown" is accepted until line-ending detection is implemented. */
   lineEnding: "crlf" | "lf" | "unknown";
+  /** Archives loaded before the file (`historyHours` > 0). */
+  history?: TabHistory;
 }
 
 export interface GetRowsParams {
