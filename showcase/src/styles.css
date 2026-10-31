@@ -137,7 +137,9 @@ a { color:inherit }
 .cbl-pill.lvl-error { --pc:#f87171 } .cbl-pill.lvl-warn { --pc:#fbbf24 } .cbl-pill.lvl-info { --pc:#60a5fa } .cbl-pill.lvl-debug { --pc:#9aa0a6 }
 .fold-badge { flex:none; margin-left:10px; padding:0 6px; border:1px solid var(--ctl-bd); border-radius:8px; background:none; color:var(--muted); font:11px/17px "Segoe UI",var(--sans); cursor:pointer; transition:background .2s,color .2s }
 .fold-badge:hover, .fold-badge.open { background:var(--ctl); color:#e2e8f0 }
-.cbl-log { min-width:0; height:calc(11 * 23px + 12px); padding:6px 0; overflow:hidden; display:flex; flex-direction:column; justify-content:flex-end; font:12.5px/23px "JetBrains Mono",ui-monospace,monospace }
+.cbl-log { min-width:0; height:calc(11 * 23px + 12px); padding:6px 0; overflow-x:hidden; overflow-y:scroll; outline:0; font:12.5px/23px "JetBrains Mono",ui-monospace,monospace; scrollbar-width:thin; scrollbar-color:#475a85 #0d1424 }
+.cbl-log::-webkit-scrollbar { width:10px } .cbl-log::-webkit-scrollbar-track { background:#0d1424 }
+.cbl-log::-webkit-scrollbar-thumb { border:2px solid #0d1424; border-radius:6px; background:#475a85 } .cbl-log::-webkit-scrollbar-thumb:hover { background:#52648f }
 .cbl-row { display:flex; align-items:center; gap:12px; padding-right:12px; white-space:nowrap; animation:cbl-in .35s ease-out; transition:background .25s }
 @keyframes cbl-in { from { opacity:0; transform:translateY(6px) } }
 .cbl-row .ln { flex:none; width:46px; padding-right:8px; text-align:right; color:#475569; background:#0d1424 }

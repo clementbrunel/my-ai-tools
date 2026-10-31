@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import type { Lang } from '../apps'
 import SceneFrame, { type SceneProps } from '../components/SceneFrame'
 
@@ -59,8 +59,7 @@ const clock = (ago = 0) => {
 }
 
 let uid = 0
-const KEEP = 300
-const ROWS = 11
+const KEEP = 150
 /** The two tabs: pool, first line number, lines shown on load (indexes into the pool), write period. */
 const TABS = {
   app: { name: 'app.log', pool: appPool, first: 1281, seed: [0, 1, 2, 5, 0, 4, 1, 7, 3, 6, 0], every: 900 },
@@ -79,8 +78,8 @@ const make = (p: Pool[number], n: number, time: string): Entry =>
 const next = (e: Entry) => e.n + 1 + (e.stack?.length ?? 0)
 
 const txt = {
-  fr: { levels: 'Niveaux affichés', filter: 'Filtrer (Ctrl+Maj+F)', include: 'Inclure (Entrée)', regex: 'Expression régulière', remove: 'Retirer', fold: 'Replier les traces', lines: (n: number) => `ligne${n > 1 ? 's' : ''}`, of: 'sur', pause: 'Pause', follow: 'Suivre', hint: 'Décoche un niveau, filtre un texte (Entrée), déplie une stack trace.' },
-  en: { levels: 'Levels shown', filter: 'Filter (Ctrl+Shift+F)', include: 'Include (Enter)', regex: 'Regular expression', remove: 'Remove', fold: 'Fold traces', lines: (n: number) => `line${n > 1 ? 's' : ''}`, of: 'of', pause: 'Pause', follow: 'Follow', hint: 'Untick a level, filter a text (Enter), unfold a stack trace.' },
+  fr: { levels: 'Niveaux affichés', filter: 'Filtrer (Ctrl+Maj+F)', include: 'Inclure (Entrée)', regex: 'Expression régulière', remove: 'Retirer', fold: 'Replier les traces', lines: (n: number) => `ligne${n > 1 ? 's' : ''}`, of: 'sur', pause: 'Pause', follow: 'Suivre', hint: 'Décoche un niveau, filtre un texte, déplie une trace, remonte dans le log.' },
+  en: { levels: 'Levels shown', filter: 'Filter (Ctrl+Shift+F)', include: 'Include (Enter)', regex: 'Regular expression', remove: 'Remove', fold: 'Fold traces', lines: (n: number) => `line${n > 1 ? 's' : ''}`, of: 'of', pause: 'Pause', follow: 'Follow', hint: 'Untick a level, filter a text, unfold a trace, scroll up the log.' },
 }
 
 const USER_RE = /(user=\w+)/
@@ -119,11 +118,12 @@ function LiveTail({ lang }: { lang: Lang }) {
   const [isRegex, setRegex] = useState(false)
   const [fold, setFold] = useState(true)
   const [open, setOpen] = useState<Set<number>>(() => new Set())
+  /** Suivre: keep the view on the last line. Scrolling up turns it off, scrolling back to the end turns it on (as in the app). */
   const [follow, setFollow] = useState(true)
-  /** Last entry id shown while the view is frozen (Pause or Suivre off); null = live. */
+  /** Pause: last entry id rendered while the view is frozen; the lines written meanwhile are counted, shown on resume. */
   const [frozenAt, setFrozenAt] = useState<number | null>(null)
-  const [paused, setPaused] = useState(false)
   const winRef = useRef<HTMLDivElement>(null)
+  const logRef = useRef<HTMLDivElement>(null)
   const visible = useRef(true)
 
   // only stream while the window is on screen and the tab visible
@@ -148,13 +148,25 @@ function LiveTail({ lang }: { lang: Lang }) {
     if (id === tab) return
     setTab(id)
     setUnseen((u) => ({ ...u, [id]: 0 }))
-    setOpen(new Set()); setPaused(false); setFollow(true); setFrozenAt(null)
+    setOpen(new Set()); setFollow(true); setFrozenAt(null)
   }
 
   const last = entries[entries.length - 1]
-  const freeze = (on: boolean) => setFrozenAt(on ? last.id : null)
-  const togglePause = () => { const p = !paused; setPaused(p); if (p) freeze(true); else { freeze(!follow) } }
-  const toggleFollow = () => { const f = !follow; setFollow(f); if (f) { setPaused(false); freeze(false) } else freeze(true) }
+  const paused = frozenAt !== null
+  const togglePause = () => setFrozenAt(paused ? null : last.id)
+  const toggleFollow = () => setFollow((f) => !f)
+
+  // follow: stick to the end after every render (new line, unfolded trace, filter change…)
+  useLayoutEffect(() => {
+    const el = logRef.current
+    if (el && follow) el.scrollTop = el.scrollHeight
+  })
+  const onScroll = () => {
+    const el = logRef.current
+    if (!el) return
+    const atEnd = el.scrollHeight - el.scrollTop - el.clientHeight < 4
+    if (atEnd !== follow) setFollow(atEnd)
+  }
 
   const tests = includes.map(matcher)
   const lines: Line[] = []
@@ -167,7 +179,6 @@ function LiveTail({ lang }: { lang: Lang }) {
     lines.push({ kind: 'entry', e })
     if (e.stack && (!fold || open.has(e.id))) e.stack.forEach((_, i) => lines.push({ kind: 'stack', e, i }))
   }
-  const shown = lines.slice(-ROWS)
   const pending = frozenAt === null ? 0 : entries.filter((e) => e.id > frozenAt).length
   const totalLines = next(last) - 1
   const filtered = levels.size < LEVELS.length || includes.length > 0
@@ -220,8 +231,8 @@ function LiveTail({ lang }: { lang: Lang }) {
             ))}
           </span>
         </div>
-        <div className="cbl-log">
-          {shown.map((l) => l.kind === 'stack'
+        <div className="cbl-log" ref={logRef} onScroll={onScroll} tabIndex={0}>
+          {lines.map((l) => l.kind === 'stack'
             ? (
               <div key={`${l.e.id}-${l.i}`} className="cbl-row stack">
                 <span className="ln">{l.e.n + 1 + l.i}</span>
