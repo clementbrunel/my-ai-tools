@@ -3,10 +3,12 @@ import type { Lang } from '../apps'
 import SceneFrame, { type SceneProps } from '../components/SceneFrame'
 
 type Level = 'INFO' | 'DEBUG' | 'WARN' | 'ERROR'
-interface Row { id: number; n: number; time: string; level: Level; msg: string; roll?: boolean }
+interface Entry { id: number; n: number; time: string; level: Level; msg: string; stack?: string[] }
+/** One displayed line: an entry, or one line of its stack trace. */
+type Line = { kind: 'entry'; e: Entry } | { kind: 'stack'; e: Entry; i: number }
 
-/** Fake application log: [level, message, weight]. `user=…` tokens are what the regex rule highlights. */
-const pool: [Level, string, number][] = [
+/** Fake application log: [level, message, weight, stack trace]. `user=…` tokens are what the regex rule highlights. */
+const pool: [Level, string, number, string[]?][] = [
   ['INFO', 'GET /api/orders 200 · 38 ms', 5],
   ['INFO', 'login ok user=alice', 3],
   ['DEBUG', 'cache hit ratio 0.93', 3],
@@ -14,8 +16,21 @@ const pool: [Level, string, number][] = [
   ['INFO', 'nightly-export done · 12 480 rows', 2],
   ['WARN', 'pool: slow connection (812 ms) user=bob', 2],
   ['WARN', 'http 429 rate limited user=carol', 2],
-  ['ERROR', 'db timeout after 5000 ms on orders#42', 1],
-  ['ERROR', 'NullPointerException at OrderService.java:118', 1],
+  ['ERROR', 'db timeout on GET /api/orders/42', 1, [
+    'java.sql.SQLTimeoutException: query timed out after 5000 ms',
+    '  at com.zaxxer.hikari.pool.ProxyStatement.executeQuery(ProxyStatement.java:110)',
+    '  at com.shop.repo.OrderRepository.find(OrderRepository.java:57)',
+    '  at com.shop.service.OrderService.get(OrderService.java:42)',
+    '  at com.shop.api.OrderController.show(OrderController.java:31)',
+  ]],
+  ['ERROR', 'unhandled exception on POST /api/orders user=erin', 1, [
+    'java.lang.NullPointerException: customer is null',
+    '  at com.shop.service.OrderService.save(OrderService.java:118)',
+    '  at com.shop.api.OrderController.create(OrderController.java:64)',
+    '  at org.springframework.web.servlet.FrameworkServlet.service(FrameworkServlet.java:897)',
+    '  at jakarta.servlet.http.HttpServlet.service(HttpServlet.java:614)',
+    '  ... 48 more',
+  ]],
 ]
 const total = pool.reduce((s, p) => s + p[2], 0)
 const pick = () => {
@@ -30,15 +45,21 @@ const clock = (ago = 0) => {
 }
 
 let uid = 0
-const STEP_MS = 650
-const KEEP = 60
+const STEP_MS = 900
+const KEEP = 40
+const ROWS = 11
 const FIRST_LINE = 1281
-/** Indexes into `pool` for the lines shown on load. */
-const seed = [0, 1, 2, 5, 0, 7, 3, 0, 6]
+/** Indexes into `pool` for the lines shown on load: every rule has something to show right away. */
+const seed = [0, 1, 2, 5, 0, 4, 1, 7, 3, 6, 0]
+
+const make = (p: (typeof pool)[number], n: number, time: string): Entry =>
+  ({ id: uid++, n, time, level: p[0], msg: p[1], stack: p[3] })
+/** Next file line number: an entry with a stack trace uses one line per stack line too. */
+const next = (e: Entry) => e.n + 1 + (e.stack?.length ?? 0)
 
 const txt = {
-  fr: { rules: 'Règles de surlignage', errors: 'Erreurs seules', roll: 'Simuler un rolling', follow: 'Suivi', lines: 'lignes', lost: 'ligne perdue', rolled: 'rotation', hint: 'Active les règles, filtre, ou fais tourner le fichier.' },
-  en: { rules: 'Highlight rules', errors: 'Errors only', roll: 'Simulate a rollover', follow: 'Following', lines: 'lines', lost: 'line lost', rolled: 'rollover', hint: 'Toggle rules, filter, or roll the file over.' },
+  fr: { rules: 'Niveaux et règles', fold: 'Replier les stack traces', lines: (n: number) => `ligne${n > 1 ? 's' : ''}`, follow: 'Suivi', paused: 'En pause', hint: 'Décoche un niveau pour le masquer, déplie une stack trace.' },
+  en: { rules: 'Levels and rules', fold: 'Fold stack traces', lines: (n: number) => `line${n > 1 ? 's' : ''}`, follow: 'Following', paused: 'Paused', hint: 'Untick a level to hide it, unfold a stack trace.' },
 }
 
 const USER_RE = /(user=\w+)/
@@ -49,22 +70,25 @@ function Msg({ msg, regex }: { msg: string; regex: boolean }): ReactNode {
   return msg.split(USER_RE).map((part, i) => (i % 2 ? <mark key={i}>{part}</mark> : part))
 }
 
-/** cbl-log window: lines stream in, the visitor toggles highlight rules, the errors filter and a file rollover. */
+/** cbl-log window: lines stream in; the visitor filters levels, toggles a regex rule and folds / unfolds stack traces. */
 function LiveTail({ lang }: { lang: Lang }) {
   const t = txt[lang]
-  const [rows, setRows] = useState<Row[]>(() => {
-    // fixed first screen so every highlight rule has something to show right away
-    return seed.map((i, k) => ({ id: uid++, n: FIRST_LINE + k, time: clock((seed.length - k) * STEP_MS), level: pool[i][0], msg: pool[i][1] }))
+  const [entries, setEntries] = useState<Entry[]>(() => {
+    const out: Entry[] = []
+    seed.forEach((i, k) => out.push(make(pool[i], out.length ? next(out[out.length - 1]) : FIRST_LINE, clock((seed.length - k) * STEP_MS))))
+    return out
   })
-  const [rules, setRules] = useState({ error: true, warn: true, regex: false })
-  const [errorsOnly, setErrorsOnly] = useState(false)
-  const [rolls, setRolls] = useState(0)
-  const [file, setFile] = useState('app.log')
+  const [show, setShow] = useState({ error: true, warn: true })
+  const [regex, setRegex] = useState(false)
+  const [fold, setFold] = useState(true)
+  const [open, setOpen] = useState<Set<number>>(() => new Set())
+  const [hover, setHover] = useState(false)
   const winRef = useRef<HTMLDivElement>(null)
   const visible = useRef(true)
-  const timers = useRef<number[]>([])
+  const paused = useRef(false)
+  paused.current = hover
 
-  // only stream while the window is on screen (and the tab visible)
+  // only stream while the window is on screen, the tab visible and the pointer not on the log (time to click)
   useEffect(() => {
     const el = winRef.current
     if (!el || !('IntersectionObserver' in window)) return
@@ -75,57 +99,65 @@ function LiveTail({ lang }: { lang: Lang }) {
 
   useEffect(() => {
     const id = window.setInterval(() => {
-      if (!visible.current || document.hidden) return
-      const [level, msg] = pick()
-      setRows((r) => [...r, { id: uid++, n: r[r.length - 1].n + 1, time: clock(), level, msg }].slice(-KEEP))
+      if (!visible.current || paused.current || document.hidden) return
+      setEntries((r) => [...r, make(pick(), next(r[r.length - 1]), clock())].slice(-KEEP))
     }, STEP_MS)
-    return () => { window.clearInterval(id); timers.current.forEach(window.clearTimeout) }
+    return () => window.clearInterval(id)
   }, [])
 
-  const roll = () => {
-    setRolls((n) => n + 1)
-    setFile('app.log → app.1.log')
-    // the numbering restarts on the fresh file: the tail goes on with no gap
-    setRows((r) => [...r, { id: uid++, n: 0, time: clock(), level: 'INFO' as Level, msg: '', roll: true }].slice(-KEEP))
-    timers.current.push(window.setTimeout(() => setFile('app.log'), 1600))
+  const lines: Line[] = []
+  for (const e of entries) {
+    if ((e.level === 'ERROR' && !show.error) || (e.level === 'WARN' && !show.warn)) continue
+    lines.push({ kind: 'entry', e })
+    if (e.stack && (!fold || open.has(e.id))) e.stack.forEach((_, i) => lines.push({ kind: 'stack', e, i }))
   }
+  const shown = lines.slice(-ROWS)
+  const last = entries[entries.length - 1]
 
-  const shown = rows.filter((r) => r.roll || !errorsOnly || r.level === 'ERROR' || r.level === 'WARN').slice(-11)
-  const cls = (r: Row) => (r.level === 'ERROR' && rules.error ? 'hl-err' : r.level === 'WARN' && rules.warn ? 'hl-warn' : '')
-  const toggle = (k: keyof typeof rules) => setRules((s) => ({ ...s, [k]: !s[k] }))
+  const toggleOpen = (id: number) => setOpen((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n })
+  const lvl = (e: Entry) => (e.level === 'ERROR' ? 'hl-err' : e.level === 'WARN' ? 'hl-warn' : '')
 
   return (
     <div className="stage">
       <div className="cbl" ref={winRef}>
         <div className="cbl-title">
           <img src="./icons/cbl-log.svg" alt="" width={16} height={16} />
-          <span className="cbl-tab on">{file}</span>
+          <span className="cbl-tab on">app.log</span>
           <span className="cbl-tab">server.log</span>
           <span className="cbl-win" aria-hidden="true"><i /><i /><i /></span>
         </div>
         <div className="cbl-bar" role="group" aria-label={t.rules}>
-          <button type="button" className={`chip err ${rules.error ? 'on' : ''}`} aria-pressed={rules.error} onClick={() => toggle('error')}>ERROR</button>
-          <button type="button" className={`chip warn ${rules.warn ? 'on' : ''}`} aria-pressed={rules.warn} onClick={() => toggle('warn')}>WARN</button>
-          <button type="button" className={`chip rx ${rules.regex ? 'on' : ''}`} aria-pressed={rules.regex} onClick={() => toggle('regex')}>/user=\w+/</button>
+          <button type="button" className={`chip err ${show.error ? 'on' : ''}`} aria-pressed={show.error} onClick={() => setShow((s) => ({ ...s, error: !s.error }))}><i />ERROR</button>
+          <button type="button" className={`chip warn ${show.warn ? 'on' : ''}`} aria-pressed={show.warn} onClick={() => setShow((s) => ({ ...s, warn: !s.warn }))}><i />WARN</button>
+          <button type="button" className={`chip rx ${regex ? 'on' : ''}`} aria-pressed={regex} onClick={() => setRegex((v) => !v)}><i />/user=\w+/</button>
           <span className="cbl-sep" />
-          <button type="button" className={`chip flt ${errorsOnly ? 'on' : ''}`} aria-pressed={errorsOnly} onClick={() => setErrorsOnly((v) => !v)}>⏷ {t.errors}</button>
-          <button type="button" className="chip roll" onClick={roll}>↻ {t.roll}</button>
+          <button type="button" className={`chip fold ${fold ? 'on' : ''}`} aria-pressed={fold} onClick={() => { setFold((v) => !v); setOpen(new Set()) }}><i />{t.fold}</button>
         </div>
-        <div className="cbl-log" aria-hidden="true">
-          {shown.map((r) => r.roll
-            ? <div key={r.id} className="cbl-row roll"><span className="ln" /><span>── app.log → app.1.log · 0 {t.lost} ──</span></div>
+        <div className="cbl-log" onPointerEnter={() => setHover(true)} onPointerLeave={() => setHover(false)}>
+          {shown.map((l) => l.kind === 'stack'
+            ? (
+              <div key={`${l.e.id}-${l.i}`} className="cbl-row stack">
+                <span className="ln">{l.e.n + 1 + l.i}</span>
+                <span className="msg">{l.e.stack![l.i]}</span>
+              </div>
+            )
             : (
-              <div key={r.id} className={`cbl-row ${cls(r)}`}>
-                <span className="ln">{r.n}</span>
-                <span className="ts">{r.time}</span>
-                <span className={`lv ${r.level.toLowerCase()}`}>{r.level.padEnd(5)}</span>
-                <span className="msg"><Msg msg={r.msg} regex={rules.regex} /></span>
+              <div key={l.e.id} className={`cbl-row ${lvl(l.e)}`}>
+                <span className="ln">{l.e.n}</span>
+                <span className="ts">{l.e.time}</span>
+                <span className={`lv ${l.e.level.toLowerCase()}`}>{l.e.level.padEnd(5)}</span>
+                <span className="msg"><Msg msg={l.e.msg} regex={regex} /></span>
+                {l.e.stack && fold && (
+                  <button type="button" className={`fold-badge ${open.has(l.e.id) ? 'open' : ''}`} aria-expanded={open.has(l.e.id)} onClick={() => toggleOpen(l.e.id)}>
+                    {open.has(l.e.id) ? '▾' : '▸'} +{l.e.stack.length} {t.lines(l.e.stack.length)}
+                  </button>
+                )}
               </div>
             ))}
         </div>
         <div className="cbl-status">
-          <span>UTF-8 · {rows[rows.length - 1].n.toLocaleString(lang)} {t.lines}{rolls > 0 && ` · ${rolls} ${t.rolled}${rolls > 1 ? 's' : ''} · 0 ${t.lost}`}</span>
-          <span className="live"><i />{t.follow}</span>
+          <span>UTF-8 · {(next(last) - 1).toLocaleString(lang)} {t.lines(2)}</span>
+          <span className={`live ${hover ? 'off' : ''}`}><i />{hover ? t.paused : t.follow}</span>
         </div>
       </div>
       <p className="cbl-hint">{t.hint}</p>
