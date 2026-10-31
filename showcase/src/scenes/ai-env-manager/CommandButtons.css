@@ -1,0 +1,5 @@
+/* command buttons under the terminal */
+.term-btns { display:flex; flex-wrap:wrap; gap:8px; padding:0 18px 16px }
+.term-btns button { padding:6px 12px; border-radius:8px; border:1px solid #1f3a29; background:#0d1610; color:var(--punch); font:600 12px var(--mono); cursor:pointer; transition:background .2s,transform .2s }
+.term-btns button:hover:not(:disabled) { background:#16301f; transform:translateY(-1px) }
+.term-btns button:disabled { opacity:.4; cursor:default }

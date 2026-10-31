@@ -1,5 +1,6 @@
 import SceneFrame, { type SceneProps } from '../components/SceneFrame'
 import Terminal from './ai-env-manager/Terminal'
+import './AiEnvManagerScene.css'
 
 /** ai-env-manager: interactive terminal (ai-env-manager/) next to the copy. */
 export default function AiEnvManagerScene(props: SceneProps) {

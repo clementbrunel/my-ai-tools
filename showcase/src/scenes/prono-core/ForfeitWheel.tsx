@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Lang } from '../../apps'
 import { SPIN_MS, forfeits, landedSegment, nextRotation, txt } from './data'
 import WheelResult from './WheelResult'
+import './ForfeitWheel.css'
 
 /** Wheel of forfeits: click to spin, the segment under the top pointer is the loser's penalty. */
 export default function ForfeitWheel({ lang }: { lang: Lang }) {

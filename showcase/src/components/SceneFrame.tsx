@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import type { AppEntry, Lang } from '../apps'
 import { useScene } from '../lib/scroll'
 import SceneCopy from './SceneCopy'
+import './SceneFrame.css'
 
 export interface SceneProps { app: AppEntry; lang: Lang }
 

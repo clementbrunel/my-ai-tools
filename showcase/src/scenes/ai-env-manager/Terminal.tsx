@@ -3,6 +3,7 @@ import type { Lang } from '../../apps'
 import { STEP_MS, commands, scan, txt, type Line } from './data'
 import CommandButtons from './CommandButtons'
 import TermOutput from './TermOutput'
+import './Terminal.css'
 
 /** Terminal showing the scan; the command buttons append their output line by line. */
 export default function Terminal({ lang }: { lang: Lang }) {

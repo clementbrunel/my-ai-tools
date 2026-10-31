@@ -1,5 +1,6 @@
 import { LEVELS, type Level, type Texts } from './data'
 import { lvlClass } from './view'
+import './LevelPills.css'
 
 /** Level toggles of the command bar: a level switched off hides its lines (dashed border, empty square). */
 export default function LevelPills({ t, levels, onToggle }: { t: Texts; levels: Set<Level>; onToggle: (l: Level) => void }) {

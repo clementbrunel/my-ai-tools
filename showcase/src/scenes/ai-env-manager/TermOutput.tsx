@@ -1,4 +1,5 @@
 import { MAX_LINES, type Line } from './data'
+import './TermOutput.css'
 
 /** Last MAX_LINES lines of the terminal, blinking cursor after the newest one. */
 export default function TermOutput({ history }: { history: Line[] }) {

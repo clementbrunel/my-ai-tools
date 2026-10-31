@@ -1,4 +1,5 @@
 import { TABS, TAB_IDS, type TabId } from './data'
+import './TabBar.css'
 
 /** Title bar: app icon, one tab per log file (with its unseen-lines badge when inactive), window controls. */
 export default function TabBar({ tab, unseen, onSelect }: { tab: TabId; unseen: Record<TabId, number>; onSelect: (id: TabId) => void }) {

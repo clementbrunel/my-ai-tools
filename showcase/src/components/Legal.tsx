@@ -1,5 +1,6 @@
 import { publisher } from '../legal'
 import { profile, type Lang } from '../apps'
+import './Legal.css'
 
 const txt = {
   fr: {

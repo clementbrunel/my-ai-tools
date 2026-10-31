@@ -3,6 +3,7 @@ import type { Lang } from '../../apps'
 import ProgressBar from '../../components/ProgressBar'
 import { BABY, registryItems, txt } from './data'
 import RegistryItem from './RegistryItem'
+import './RegistryOnCard.css'
 
 /** Birth-registry list printed on the blank paper card of the poster (box in % of the image, lightly rotated). Items can be ticked. */
 export default function RegistryOnCard({ lang }: { lang: Lang }) {
