@@ -29,6 +29,46 @@ export interface Account {
   type: AccountType
   currentBalance: number
   lastSyncedAt: string | null
+  archived: boolean
+}
+
+export type LinxoAction = 'LINK' | 'CREATE_ACTIVE' | 'CREATE_ARCHIVED'
+
+export interface LinxoAccountChoice {
+  connection: string
+  account: string
+  action: LinxoAction
+  accountId: number | null
+}
+
+export interface LinxoAccountReport {
+  connection: string
+  account: string
+  rows: number
+  from: string | null
+  to: string | null
+  total: number
+  action: LinxoAction
+  accountId: number | null
+  accountLabel: string | null
+  imported: number
+  skippedDuplicate: number
+  skippedOverlap: number
+  syncStartsOn: string | null
+  balanceSnapshots: number
+}
+
+export interface LinxoImportReport {
+  dryRun: boolean
+  rowsRead: number
+  rowsRejected: number
+  errors: string[]
+  from: string | null
+  to: string | null
+  imported: number
+  skippedDuplicate: number
+  skippedOverlap: number
+  accounts: LinxoAccountReport[]
 }
 
 export interface NetWorth {

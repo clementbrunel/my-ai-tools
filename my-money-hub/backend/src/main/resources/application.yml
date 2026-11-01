@@ -8,6 +8,11 @@ spring:
     url: ${DB_URL:jdbc:postgresql://localhost:5433/mymoneyhub}
     username: ${DB_USER:mymoneyhub}
     password: ${DB_PASS:mymoneyhub}
+  servlet:
+    multipart:
+      # Linxo export covering ~13 years of history in one file
+      max-file-size: 50MB
+      max-request-size: 50MB
   jpa:
     hibernate:
       ddl-auto: validate

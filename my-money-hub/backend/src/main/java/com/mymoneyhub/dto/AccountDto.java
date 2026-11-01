@@ -13,6 +13,7 @@ public record AccountDto(
         String currency,
         Account.AccountType type,
         BigDecimal currentBalance,
-        LocalDateTime lastSyncedAt
+        LocalDateTime lastSyncedAt,
+        boolean archived
 ) {
 }

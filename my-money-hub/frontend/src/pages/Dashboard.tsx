@@ -3,11 +3,13 @@ import { fetchNetWorth, syncAll } from '@/api/accounts'
 import { connectInstitution, fetchInstitutions } from '@/api/institutions'
 import type { Institution, NetWorth } from '@/types'
 import AccountCard from '@/components/AccountCard'
+import LinxoImportModal from '@/components/LinxoImportModal'
 
 export default function Dashboard() {
   const [netWorth, setNetWorth] = useState<NetWorth | null>(null)
   const [syncing, setSyncing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [importing, setImporting] = useState(false)
   const [institutions, setInstitutions] = useState<Institution[]>([])
   // Set by the Enable Banking callback redirect (?connected=… / ?connectError=…)
   const [notice] = useState(() => {
@@ -59,13 +61,20 @@ export default function Dashboard() {
     return `Connecté jusqu'au ${until.toLocaleDateString('fr-FR')}`
   }
 
+  const archivedAccounts = netWorth?.accounts.filter((account) => account.archived) ?? []
+
   return (
     <div className="max-w-5xl mx-auto p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="page-title mb-0">My Money Hub</h1>
-        <button className="btn-primary" onClick={handleSync} disabled={syncing}>
-          {syncing ? 'Synchronisation…' : 'Synchroniser tout'}
-        </button>
+        <div className="flex gap-2">
+          <button className="btn-primary" onClick={() => setImporting(true)}>
+            Importer Linxo
+          </button>
+          <button className="btn-primary" onClick={handleSync} disabled={syncing}>
+            {syncing ? 'Synchronisation…' : 'Synchroniser tout'}
+          </button>
+        </div>
       </div>
 
       {error && <p className="text-mh-danger mb-4">{error}</p>}
@@ -100,10 +109,34 @@ export default function Dashboard() {
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {netWorth?.accounts.map((account) => (
-          <AccountCard key={account.id} account={account} />
-        ))}
+        {netWorth?.accounts
+          .filter((account) => !account.archived)
+          .map((account) => (
+            <AccountCard key={account.id} account={account} />
+          ))}
       </div>
+
+      {archivedAccounts.length > 0 && (
+        <details className="mt-8">
+          <summary className="cursor-pointer text-sm text-gray-500 dark:text-gray-400">
+            Comptes archivés ({archivedAccounts.length})
+          </summary>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+            {archivedAccounts.map((account) => (
+              <AccountCard key={account.id} account={account} />
+            ))}
+          </div>
+        </details>
+      )}
+
+      {importing && (
+        <LinxoImportModal
+          onClose={() => setImporting(false)}
+          onImported={() => {
+            load()
+          }}
+        />
+      )}
 
       {netWorth && netWorth.accounts.length === 0 && (
         <p className="text-gray-500 dark:text-gray-400 text-center mt-12">

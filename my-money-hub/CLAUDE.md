@@ -60,3 +60,16 @@ l'institution, migration `V2`) → redirection vers le dashboard. Ensuite `POST 
 puis `history <id@backend> <since>`. `Institution.externalRef` = nom du backend woob, configuré hors de l'app
 (`pip install woob && woob config add bnp`). Erreurs backend détectées sur stderr (`Error(bnp)` / `Bug(bnp)`, woob
 sortant parfois en 0 avec `[]`). Sync réel : `cd backend && WOOB_LIVE_BACKEND=bnp mvn test -Dtest=WoobConnectorLiveTest`.
+
+## Import d'historique Linxo
+
+`POST /api/import/linxo` (multipart `file`, `dryRun` — **true par défaut**, `choices` JSON) → `ImportService` + `importer/LinxoCsvParser`.
+Un même export mélange plusieurs comptes : regroupement par `(Nom de la connexion, Nom du compte)`. CSV Linxo : colonnes lues
+par nom d'en-tête, séparateur et encodage (UTF-8 / windows-1252) détectés, montants `1 234,56`, dates `JJ/MM/AAAA`.
+- **Comptes** : déjà connu (`external_account_id = linxo:<hash>` ou même connexion + libellé) → rattaché ; sinon créé sous une
+  institution `MANUAL` (archivé par défaut : `accounts.archived`, exclu du patrimoine). Choix par compte via `choices`
+  (`LINK` / `CREATE_ACTIVE` / `CREATE_ARCHIVED`), modifiable dans la modale « Importer Linxo » du dashboard.
+- **Transactions** : `source = LINXO`, `external_id` synthétique (hash date|montant|libellé|notes|n° d'occurrence) → réimport idempotent.
+  La synchro fait foi : lignes Linxo datées à partir de la 1re transaction `SYNC` du compte ignorées.
+- **Soldes** : l'export n'en contient pas — `balance_snapshots` de fin de mois (`source = LINXO`) recalculés depuis les opérations,
+  ancrés sur `current_balance` si le compte est synchronisé, sinon cumulés depuis 0 (relatifs).

@@ -44,6 +44,11 @@ public class Transaction {
     @Column(name = "external_id", length = 150)
     private String externalId;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 10)
+    @Builder.Default
+    private DataSource source = DataSource.SYNC;
+
     @Column(name = "created_at", nullable = false)
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();

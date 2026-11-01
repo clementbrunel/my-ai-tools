@@ -17,13 +17,15 @@ export default function AccountCard({ account }: { account: Account }) {
     <div className="card flex flex-col gap-1">
       <div className="flex items-center justify-between">
         <span className="text-sm text-gray-500 dark:text-gray-400">{account.institutionName}</span>
-        <span className="badge">{TYPE_LABELS[account.type]}</span>
+        <span className="badge">{account.archived ? 'Archivé' : TYPE_LABELS[account.type]}</span>
       </div>
       <span className="font-semibold text-gray-900 dark:text-white">{account.label}</span>
       <span className="text-2xl font-bold text-mh-primary dark:text-mh-accent">
         {formatAmount(account.currentBalance, account.currency)}
       </span>
-      {account.lastSyncedAt ? (
+      {account.archived ? (
+        <span className="text-xs text-gray-400">Compte clos — historique uniquement</span>
+      ) : account.lastSyncedAt ? (
         <span className="text-xs text-gray-400">
           Synchronisé le {new Date(account.lastSyncedAt).toLocaleString('fr-FR')}
         </span>
