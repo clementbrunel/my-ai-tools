@@ -52,52 +52,57 @@ export function FilterBar({ settings, onChange, focusRequest, error }: Props) {
 
   return (
     <div className="filterbar" role="search" aria-label="Filtre">
-      <input
-        ref={inputRef}
-        className={invalid ? "invalid" : ""}
-        value={text}
-        placeholder="Filtrer : texte à inclure ou à exclure (Ctrl+Maj+F)"
-        aria-label="Texte du filtre"
-        title={invalid ? `Regex invalide : ${invalid}` : "Entrée : inclure — Ctrl+Entrée : exclure"}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            e.preventDefault();
-            add(e.ctrlKey ? "exclude" : "include");
-          } else if (e.key === "Escape") {
-            e.preventDefault();
-            if (text !== "") setText("");
-            else inputRef.current?.blur();
-          }
-        }}
-      />
-      <label title="Expression régulière">
-        <input type="checkbox" checked={isRegex} onChange={(e) => setRegex(e.target.checked)} /> .*
-      </label>
-      <label title="Respecter la casse">
-        <input type="checkbox" checked={caseSensitive} onChange={(e) => setCase(e.target.checked)} /> Aa
-      </label>
-      <label title="Mot entier : ERROR ne trouve pas ERRORS ni MYERROR">
-        <input type="checkbox" checked={wholeWord} onChange={(e) => setWhole(e.target.checked)} /> Mot
-      </label>
-      <button type="button" onClick={() => add("include")} disabled={text === "" || !!invalid} title="Ne montrer que les lignes qui contiennent ce texte (Entrée)">
-        + Inclure
-      </button>
-      <button type="button" onClick={() => add("exclude")} disabled={text === "" || !!invalid} title="Masquer les lignes qui contiennent ce texte (Ctrl+Entrée)">
-        − Exclure
-      </button>
-      {chips.length > 0 && (
-        <span className="chips">
-          {chips.map(({ list, m, index }) => (
-            <span key={`${list}:${index}`} className={`chip ${list}`} title={`${list === "include" ? "Inclus" : "Exclu"} : ${describe(m)}`}>
-              <span aria-hidden="true">{list === "include" ? "+" : "−"}</span> {m.pattern}
-              <button type="button" aria-label={`Retirer ${m.pattern}`} onClick={() => onChange(removeMatcher(settings, list, index))}>
-                ×
-              </button>
-            </span>
-          ))}
-        </span>
-      )}
+      <div className={invalid ? "field multiline invalid" : "field multiline"}>
+        <svg className="field-icon" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" aria-hidden="true">
+          <path d="M2 3h12L9.5 8.5V13l-3 1.5v-6z" />
+        </svg>
+        {chips.length > 0 && (
+          <span className="chips">
+            {chips.map(({ list, m, index }) => (
+              <span key={`${list}:${index}`} className={`chip ${list}`} title={`${list === "include" ? "Inclus" : "Exclu"} : ${describe(m)}`}>
+                <span aria-hidden="true">{list === "include" ? "+" : "−"}</span> {m.pattern}
+                <button type="button" aria-label={`Retirer ${m.pattern}`} onClick={() => onChange(removeMatcher(settings, list, index))}>
+                  ×
+                </button>
+              </span>
+            ))}
+          </span>
+        )}
+        <input
+          ref={inputRef}
+          value={text}
+          placeholder="Filtrer (Ctrl+Maj+F)"
+          aria-label="Texte du filtre"
+          title={invalid ? `Regex invalide : ${invalid}` : "Entrée : inclure — Ctrl+Entrée : exclure (Ctrl+Maj+F)"}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              add(e.ctrlKey ? "exclude" : "include");
+            } else if (e.key === "Escape") {
+              e.preventDefault();
+              if (text !== "") setText("");
+              else inputRef.current?.blur();
+            }
+          }}
+        />
+        <button type="button" className={isRegex ? "opt on" : "opt"} aria-pressed={isRegex} onClick={() => setRegex(!isRegex)} title="Expression régulière">
+          .*
+        </button>
+        <button type="button" className={caseSensitive ? "opt on" : "opt"} aria-pressed={caseSensitive} onClick={() => setCase(!caseSensitive)} title="Respecter la casse">
+          Aa
+        </button>
+        <button type="button" className={wholeWord ? "opt on" : "opt"} aria-pressed={wholeWord} onClick={() => setWhole(!wholeWord)} title="Mot entier : ERROR ne trouve pas ERRORS ni MYERROR">
+          <u>ab</u>
+        </button>
+        <span className="field-sep" aria-hidden="true" />
+        <button type="button" className="opt include" onClick={() => add("include")} disabled={text === "" || !!invalid} title="Inclure : ne montrer que les lignes qui contiennent ce texte (Entrée)" aria-label="Inclure">
+          +
+        </button>
+        <button type="button" className="opt exclude" onClick={() => add("exclude")} disabled={text === "" || !!invalid} title="Exclure : masquer les lignes qui contiennent ce texte (Ctrl+Entrée)" aria-label="Exclure">
+          −
+        </button>
+      </div>
       {error && <span className="search-count error">{ERRORS[error]}</span>}
     </div>
   );

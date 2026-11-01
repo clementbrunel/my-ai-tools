@@ -4,12 +4,20 @@ Visualiseur de logs temps réel pour Windows, portage moderne et personnalisable
 suivi instantané de fichiers de toute taille, **rolling géré sans perte de ligne**, surlignage regex,
 filtres, parseurs de format, profils, vue fusionnée multi-fichiers.
 
-> **Statut : version 1.1.0.**
+> **Statut : version 2.1.0.**
 
 - [Cahier des charges fonctionnel](./docs/cahier-des-charges-fonctionnel.md)
 - [Dossier d'architecture](./docs/architecture.md)
+- [Analyse : logs des conteneurs Docker Desktop](./docs/analyse-docker-desktop.md)
 
 Pile : Electron + TypeScript + React (Windows 10/11).
+
+## Partager un profil de surlignage
+
+Dans **Règles de surlignage**, `Exporter…` enregistre le profil affiché dans un fichier `.json` à envoyer
+à vos collègues ; `Importer…` l'ajoute chez eux et l'applique à l'onglet affiché. Si un profil de même id
+existe déjà (deux versions du même profil), cbl-log propose de le remplacer ou de garder les deux. Le fichier
+exporté a le même format que ceux de `%APPDATA%\cbl-log\rules\` : il peut aussi y être déposé directement.
 
 ## Développement
 
@@ -28,7 +36,7 @@ npm run package:dir  # idem sans installeur : release/win-unpacked/cbl-log.exe
 
 ## Packaging et release
 
-`electron-builder.yml` produit `cbl-log-Setup-<version>.exe` (NSIS, installation par utilisateur) et `cbl-log-<version>-portable.exe`.
+`electron-builder.yml` produit `cbl-log-Setup-<version>.exe` (NSIS, installation par utilisateur) et `cbl-log-<version>-portable.exe`. Pour alléger les binaires, seules les locales Chromium `fr` et `en-US` sont embarquées et la compression est au maximum (`compression: maximum`).
 Pas de télémétrie (NF-07). Les exécutables ne sont pas signés : Windows SmartScreen peut afficher un avertissement
 au premier téléchargement depuis le navigateur.
 
@@ -43,9 +51,22 @@ Une fois installé, cbl-log se met à jour seul à partir des releases GitHub, s
   - version installée : installeur NSIS en silencieux dans le même dossier, cbl-log redémarre et rouvre les onglets ;
   - version portable : le nouveau `cbl-log-<version>-portable.exe` est posé à côté de l'actuel et lancé (l'ancien
     peut être supprimé).
-- `"checkForUpdates": false` dans `%APPDATA%\cbl-log\settings.json` désactive la vérification au démarrage (le menu
+- `"checkForUpdates": false` dans `%APPDATA%\cbl-log\settings.json` désactive la vérification au démarrage et toutes les heures (le menu
   reste disponible). C'est le seul accès réseau de l'application : une requête GET vers `api.github.com`, rien n'est
   envoyé.
+
+### Signaler un bug / proposer une idée
+
+**Aide › Signaler un bug / proposer une idée…** ouvre un panneau (type Bug ou Idée, titre, description, case
+« Joindre la version et le système »). Le bouton **Ouvrir sur GitHub…** ouvre dans le navigateur la page
+« New issue » du dépôt, pré-remplie (titre préfixé `[cbl-log]`, labels `cbl-log` + `bug`/`enhancement`) :
+l'utilisateur relit et envoie l'issue avec son propre compte GitHub. L'application n'envoie rien elle-même et
+n'embarque aucun jeton (NF-07) ; aucun chemin de fichier ni contenu de log n'est ajouté.
+
+Anti-flood, en plus de celui de GitHub (compte et clic obligatoires) : 5 min minimum entre deux signalements,
+3 par 24 h glissantes, et un même titre (casse et accents ignorés) refusé pendant 30 jours. L'historique est
+dans `%APPDATA%\cbl-log\feedback.json`. Les labels passés dans l'URL ne s'appliquent que pour les comptes ayant
+le droit de trier les issues du dépôt ; pour les autres, le préfixe `[cbl-log]` du titre permet de les retrouver.
 
 Publier une version : poser un tag `cbl-log-vX.Y.Z` sur `main` et le pousser. Le job `release` du workflow
 `cbl-log – CI` construit les deux exécutables (version issue du tag) et les attache à une release GitHub.

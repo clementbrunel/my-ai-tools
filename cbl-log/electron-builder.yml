@@ -15,11 +15,21 @@ files:
   - package.json
   - "!node_modules/**"
 npmRebuild: false
+# Lighter installer/portable: max LZMA compression (slower build, same runtime) and only the Chromium
+# locales the UI needs (French UI, en-US is Chromium's mandatory fallback) instead of ~55 .pak files.
+compression: maximum
+electronLanguages:
+  - fr
+  - en-US
 publish: null
-# Runtime window icon (BrowserWindow.icon) lives outside the asar.
+# Runtime window icon (BrowserWindow.icon) and author avatar (splash, "À propos") live outside the asar.
 extraResources:
   - from: app/resources/icon.png
     to: icon.png
+  - from: app/resources/icon-light.png
+    to: icon-light.png
+  - from: app/resources/avatar.png
+    to: avatar.png
 win:
   icon: app/resources/icon.ico
   target:

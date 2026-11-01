@@ -8,8 +8,8 @@ export type TabId = string;
 export type TabEvent =
   | { type: "rows"; total: number; appended: number }
   | { type: "indexing"; progress: number; provisional: boolean }
-  | { type: "rolled"; reason: "rename" | "truncate" | "new-file"; previous?: string; at: number }
-  | { type: "state"; state: "following" | "missing" | "error"; message?: string }
+  | { type: "rolled"; reason: "rename" | "truncate" | "new-file" | "recreated"; previous?: string; at: number }
+  | { type: "state"; state: "following" | "missing" | "error" | "stopped" | "waiting"; message?: string }
   | { type: "query"; id: string; matches: number; done: boolean; error?: SearchError }
   /** Progress of the line filter of the tab: `matches` lines are available in the filtered view. */
   | { type: "filter"; id: string; matches: number; done: boolean; error?: SearchError }

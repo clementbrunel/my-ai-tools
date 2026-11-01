@@ -23,7 +23,8 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          node-version: 22
+          # Same major as the Node embedded by Electron (cbl-log/.nvmrc).
+          node-version-file: cbl-log/.nvmrc
           cache: npm
           cache-dependency-path: cbl-log/package-lock.json
 
@@ -47,9 +48,16 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          node-version: 22
+          # Same major as the Node embedded by Electron (cbl-log/.nvmrc).
+          node-version-file: cbl-log/.nvmrc
           cache: npm
           cache-dependency-path: cbl-log/package-lock.json
+
+      # Notes = the version's section of cbl-log/CHANGELOG.md (shown in the in-app update dialog).
+      # Fails before packaging when the section is missing, rather than falling back to GitHub's PR list.
+      - name: Release notes from CHANGELOG.md
+        shell: bash
+        run: node ../.claude/skills/release-tool/release-notes.mjs cbl-log "${GITHUB_REF_NAME#cbl-log-v}" > release-notes.md
 
       - run: npm ci
 
@@ -63,4 +71,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           version="${GITHUB_REF_NAME#cbl-log-v}"
-          gh release create "$GITHUB_REF_NAME" release/*.exe --verify-tag --generate-notes --title "cbl-log $version"
+          gh release create "$GITHUB_REF_NAME" release/*.exe --verify-tag --notes-file release-notes.md --title "cbl-log $version"

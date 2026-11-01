@@ -21,4 +21,6 @@ public interface BalanceSnapshotRepository extends JpaRepository<BalanceSnapshot
     @Modifying
     @Query("delete from BalanceSnapshot b where b.account.id = :accountId and b.source = :source")
     void deleteByAccountIdAndSource(@Param("accountId") Long accountId, @Param("source") DataSource source);
+
+    boolean existsByAccountIdAndRecordedAtAfter(Long accountId, LocalDateTime after);
 }

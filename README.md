@@ -12,8 +12,8 @@ A personal collection of AI development tools for inspecting, diagnosing, and op
 | [`prono-core`](./prono-core/)         | Full-stack Ligue 1 and Formula 1 betting app for friends — Java/Spring Boot + React, deployed via private Docker registry on NAS  | active |
 | [`my-house`](./my-house/)             | Home Assistant setup guide (NAS Docker or Raspberry Pi 3B+ HAOS) with Somfy RTS (RFXCOM) and Zigbee integration   | wip |
 | [`my-money-hub`](./my-money-hub/)     | Personal account aggregator — Java/Spring Boot + React, self-hosted alternative to Linxo (Enable Banking API for Boursorama/N26/Revolut, woob scraping for BNP Paribas) | wip |
-| [`showcase`](./showcase/) | Static FR/EN catalogue page promoting my public apps (BienvenueBébé, prono-core, ai-env-manager) — Vite + React | active |
-| [`cbl-log`](./cbl-log/) | Real-time Windows log viewer — modern, customizable take on BareTail with rolling-file support (Electron + TypeScript + React). v1.1.0 | active |
+| [`showcase`](./showcase/) | Static FR/EN catalogue page promoting my public apps (BienvenueBébé, prono-core, cbl-log, ai-env-manager) — Vite + React | active |
+| [`cbl-log`](./cbl-log/) | Real-time Windows log viewer — modern, customizable take on BareTail with rolling-file support (Electron + TypeScript + React). v2.0.0 | active |
 | [`spec-merger`](./spec-merger/) | Merges a project's Word specification with its JWAY JXML source into a single, editable, version-tracked markdown — Java/Spring Boot + React + Postgres | active |
 
 ## Roadmap

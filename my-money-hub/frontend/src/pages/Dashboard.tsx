@@ -4,6 +4,7 @@ import { connectInstitution, fetchInstitutions } from '@/api/institutions'
 import type { Institution, NetWorth } from '@/types'
 import AccountCard from '@/components/AccountCard'
 import LinxoImportModal from '@/components/LinxoImportModal'
+import ManualAccountForm from '@/components/ManualAccountForm'
 
 export default function Dashboard() {
   const [netWorth, setNetWorth] = useState<NetWorth | null>(null)
@@ -11,6 +12,7 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null)
   const [importing, setImporting] = useState(false)
   const [institutions, setInstitutions] = useState<Institution[]>([])
+  const [manualInstitutions, setManualInstitutions] = useState<Institution[]>([])
   // Set by the Enable Banking callback redirect (?connected=… / ?connectError=…)
   const [notice] = useState(() => {
     const params = new URLSearchParams(window.location.search)
@@ -25,7 +27,9 @@ export default function Dashboard() {
   const load = useCallback(async () => {
     try {
       setNetWorth(await fetchNetWorth())
-      setInstitutions((await fetchInstitutions()).filter((i) => i.connectorType === 'ENABLE_BANKING'))
+      const all = await fetchInstitutions()
+      setInstitutions(all.filter((i) => i.connectorType === 'ENABLE_BANKING'))
+      setManualInstitutions(all.filter((i) => i.connectorType === 'MANUAL'))
       setError(null)
     } catch {
       setError('Impossible de charger les comptes — le backend est-il démarré ?')
@@ -108,11 +112,13 @@ export default function Dashboard() {
         </div>
       )}
 
+      {manualInstitutions.length > 0 && <ManualAccountForm institutions={manualInstitutions} onCreated={load} />}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {netWorth?.accounts
           .filter((account) => !account.archived)
           .map((account) => (
-            <AccountCard key={account.id} account={account} />
+            <AccountCard key={account.id} account={account} onBalanceUpdated={load} />
           ))}
       </div>
 
@@ -123,7 +129,7 @@ export default function Dashboard() {
           </summary>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
             {archivedAccounts.map((account) => (
-              <AccountCard key={account.id} account={account} />
+              <AccountCard key={account.id} account={account} onBalanceUpdated={load} />
             ))}
           </div>
         </details>

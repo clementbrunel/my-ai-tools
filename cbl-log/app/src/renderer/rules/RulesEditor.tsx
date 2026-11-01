@@ -3,7 +3,7 @@ import type { HighlightRule, RuleSet } from "@cbl-log/shared";
 import { compileRules, highlightLine, ruleMatches } from "../highlight/highlight";
 import { RegexHelp } from "../search/RegexHelp";
 import { insertAt } from "../search/regex-help";
-import { createRule, moveRule, removeRule, updateRule } from "./rules-edit";
+import { createRule, moveRuleTo, removeRule, updateRule } from "./rules-edit";
 
 interface Props {
   /** Profiles, the tab's choice ("auto" or an id) and what "auto" means for this tab: the editor edits the tab's profile. */
@@ -16,6 +16,9 @@ interface Props {
   formatOptions: readonly { id: string; name: string }[];
   onToggleFormat(formatId: string): void;
   onCreate(name: string): void;
+  /** Sharing between colleagues: the edited profile to a file, a file to a new (or replaced) profile. */
+  onExport(): void;
+  onImport(): void;
   rules: readonly HighlightRule[];
   /** Rule id -> compile error, for rules whose regex is invalid. */
   errors: Record<string, string>;
@@ -25,7 +28,7 @@ interface Props {
 }
 
 /** Modal editor: edits apply to the open tabs immediately; the parent persists them. */
-export function RulesEditor({ sets, selectedId, choice, autoName, onChoose, formatOptions, onToggleFormat, onCreate, rules, errors, onChange, onReset, onClose }: Props) {
+export function RulesEditor({ sets, selectedId, choice, autoName, onChoose, formatOptions, onToggleFormat, onCreate, onExport, onImport, rules, errors, onChange, onReset, onClose }: Props) {
   const selected = sets.find((s) => s.id === selectedId);
   const [naming, setNaming] = useState(false);
   const [newName, setNewName] = useState("");
@@ -57,6 +60,19 @@ export function RulesEditor({ sets, selectedId, choice, autoName, onChoose, form
     const done = insertAt(rule.pattern, input?.selectionStart ?? rule.pattern.length, input?.selectionEnd ?? rule.pattern.length, text);
     pendingCursor.current = { id: rule.id, cursor: done.cursor };
     patch(rule.id, { pattern: done.value, isRegex: true });
+  };
+  // drag & drop reordering: only the grip starts a drag (so text fields stay selectable)
+  const [dragId, setDragId] = useState<string | undefined>();
+  const [overId, setOverId] = useState<string | undefined>();
+  const endDrag = (): void => {
+    setDragId(undefined);
+    setOverId(undefined);
+  };
+  const dragIndex = rules.findIndex((r) => r.id === dragId);
+  const overIndex = rules.findIndex((r) => r.id === overId);
+  const dropClass = (id: string, index: number): string => {
+    if (dragId === undefined || overId !== id || id === dragId) return "";
+    return index > dragIndex ? " drop-after" : " drop-before";
   };
   const preview = sample === "" ? undefined : highlightLine(sample, compileRules(rules).compiled);
 
@@ -99,6 +115,14 @@ export function RulesEditor({ sets, selectedId, choice, autoName, onChoose, form
               Nouveau profil…
             </button>
           )}
+          <span className="profile-share">
+            <button type="button" onClick={onExport} title="Enregistre ce profil dans un fichier .json à envoyer à vos collègues">
+              Exporter…
+            </button>
+            <button type="button" onClick={onImport} title="Ajoute un profil reçu d'un collègue (fichier .json exporté depuis cbl-log)">
+              Importer…
+            </button>
+          </span>
           <span className="profile-formats">
             Proposé automatiquement pour les logs :{" "}
             {formatOptions.map((f) => (
@@ -126,7 +150,38 @@ export function RulesEditor({ sets, selectedId, choice, autoName, onChoose, form
         </div>
         <div className="rules-list">
           {rules.map((rule, index) => (
-            <div key={rule.id} className={errors[rule.id] ? "rule-row invalid" : "rule-row"}>
+            <div
+              key={rule.id}
+              className={`rule-row${errors[rule.id] ? " invalid" : ""}${dragId === rule.id ? " dragging" : ""}${dropClass(rule.id, index)}`}
+              onDragOver={(e) => {
+                if (dragId === undefined) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "move";
+                if (overId !== rule.id) setOverId(rule.id);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                if (dragId !== undefined && overIndex !== -1 && dragId !== rule.id) onChange(moveRuleTo(rules, dragId, index));
+                endDrag();
+              }}
+            >
+              <span
+                className="rule-grip"
+                draggable
+                role="img"
+                aria-label="Glisser pour réordonner"
+                title="Glisser-déposer pour changer la priorité"
+                onDragStart={(e) => {
+                  e.dataTransfer.effectAllowed = "move";
+                  e.dataTransfer.setData("text/plain", rule.id);
+                  const row = e.currentTarget.parentElement;
+                  if (row) e.dataTransfer.setDragImage(row, 12, 12);
+                  setDragId(rule.id);
+                }}
+                onDragEnd={endDrag}
+              >
+                ⠿
+              </span>
               <input
                 type="checkbox"
                 checked={rule.enabled}
@@ -169,12 +224,6 @@ export function RulesEditor({ sets, selectedId, choice, autoName, onChoose, form
               </select>
               <ColorField label="texte" value={rule.fg} onChange={(fg) => patch(rule.id, { fg })} />
               <ColorField label="fond" value={rule.bg} onChange={(bg) => patch(rule.id, { bg })} />
-              <button type="button" onClick={() => onChange(moveRule(rules, rule.id, -1))} disabled={index === 0} aria-label="Monter">
-                ↑
-              </button>
-              <button type="button" onClick={() => onChange(moveRule(rules, rule.id, 1))} disabled={index === rules.length - 1} aria-label="Descendre">
-                ↓
-              </button>
               <button type="button" onClick={() => onChange(removeRule(rules, rule.id))} aria-label="Supprimer">
                 🗑
               </button>

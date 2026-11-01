@@ -1,0 +1,8 @@
+/* birth-registry list printed on the poster's paper card: box on the card face, lightly rotated so lines descend to the right */
+.reg { position:absolute; left:30.3%; top:47%; width:12.4%; height:44%; container-type:inline-size; font-family:var(--hand) }
+.reg-in { height:100%; display:flex; flex-direction:column; transform:rotate(3.5deg); transform-origin:50% 50% }
+.reg-h { display:flex; flex-direction:column; font-size:13cqw; font-weight:700; line-height:1.05; margin:0 0 5cqw }
+.reg-h b { color:#d57a9f; font-size:22cqw; line-height:1 }
+.reg ul { flex:1; display:flex; flex-direction:column; justify-content:space-evenly; list-style:none }
+.reg .pbar { --pbar-h:3.4cqw; --pbar-track:#fbdde8; margin-top:4cqw }
+.reg-f { margin:3cqw 0 0; font:600 10cqw var(--hand); opacity:.65 }

@@ -1,6 +1,6 @@
 import type { HighlightRule } from "@cbl-log/shared";
 import { describe, expect, it } from "vitest";
-import { createRule, moveRule, newRuleId, removeRule, updateRule } from "./rules-edit";
+import { createRule, moveRuleTo, newRuleId, removeRule, updateRule } from "./rules-edit";
 
 const make = (...ids: string[]): HighlightRule[] =>
   ids.map((id) => ({ id, name: id, pattern: id, isRegex: false, caseSensitive: false, wholeWord: false, scope: "line", enabled: true }));
@@ -30,12 +30,12 @@ describe("rules-edit", () => {
     expect(ids(removeRule(make("a", "b", "c"), "b"))).toEqual(["a", "c"]);
   });
 
-  it("moves a rule up and down, and stays put at the ends", () => {
+  it("moves a rule to a target position, and ignores bad input", () => {
     const rules = make("a", "b", "c");
-    expect(ids(moveRule(rules, "b", -1))).toEqual(["b", "a", "c"]);
-    expect(ids(moveRule(rules, "b", 1))).toEqual(["a", "c", "b"]);
-    expect(ids(moveRule(rules, "a", -1))).toEqual(["a", "b", "c"]);
-    expect(ids(moveRule(rules, "c", 1))).toEqual(["a", "b", "c"]);
-    expect(ids(moveRule(rules, "zzz", 1))).toEqual(["a", "b", "c"]);
+    expect(ids(moveRuleTo(rules, "c", 0))).toEqual(["c", "a", "b"]);
+    expect(ids(moveRuleTo(rules, "a", 2))).toEqual(["b", "c", "a"]);
+    expect(ids(moveRuleTo(rules, "b", 1))).toEqual(["a", "b", "c"]);
+    expect(ids(moveRuleTo(rules, "a", 3))).toEqual(["a", "b", "c"]);
+    expect(ids(moveRuleTo(rules, "zzz", 0))).toEqual(["a", "b", "c"]);
   });
 });

@@ -9,6 +9,7 @@ const info = (name: string): TabInfo => ({
   encoding: "utf-8",
   sizeBytes: 1,
   totalRows: 100,
+  source: "file",
   lineEnding: "unknown",
 });
 const run = (...actions: TabsAction[]) => actions.reduce(tabsReducer, initialTabsState);
@@ -53,5 +54,12 @@ describe("buildSession", () => {
   it("never writes a negative position", () => {
     const s = run({ type: "opened", info: info("a") }, { type: "clearedTo", tabId: "a", row: 50 });
     expect(buildSession(s.tabs, s.activeId, 10).tabs[0]?.scrollRow).toBe(0);
+  });
+
+  it("persists the custom name only when set", () => {
+    const s = run({ type: "opened", info: info("a") }, { type: "opened", info: info("b") }, { type: "renamed", tabId: "b", name: "prod" });
+    const { tabs } = buildSession(s.tabs, s.activeId, 0);
+    expect(tabs[0]).not.toHaveProperty("customName");
+    expect(tabs[1]!.customName).toBe("prod");
   });
 });

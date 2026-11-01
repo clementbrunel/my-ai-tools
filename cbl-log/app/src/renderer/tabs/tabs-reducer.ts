@@ -20,7 +20,7 @@ export interface TabState {
   unseen: number;
   /** Indexing progress 0..1 while the file is being indexed, undefined otherwise. */
   indexing?: number;
-  state: "following" | "missing" | "error";
+  state: "following" | "missing" | "error" | "stopped" | "waiting";
   message?: string;
   /** First visible row, remembered when the tab is left. */
   scrollRow: number;
@@ -33,6 +33,8 @@ export interface TabState {
   formatId?: string | null;
   /** Highlighting profile chosen by the user for this tab; undefined = automatic (from the format). */
   ruleSetId?: string;
+  /** Name given by the user, shown instead of the file name; undefined = file name. */
+  customName?: string;
   /** Encoding forced by the user; undefined = the one detected by the engine (`info.encoding`). */
   encodingChoice?: Encoding;
   /** Latest progress event of the engine search (matched to `search.id` by searchStatus). */
@@ -86,6 +88,8 @@ export type TabsAction =
   | { type: "filterSuspended"; tabId: TabId; suspended: boolean }
   | { type: "paused"; tabId: TabId; total: number; matches?: number }
   | { type: "resumed"; tabId: TabId }
+  /** Empty / blank name = back to the file name. */
+  | { type: "renamed"; tabId: TabId; name: string }
   | { type: "ruleSetChosen"; tabId: TabId; ruleSetId: string | undefined }
   | { type: "clearedTo"; tabId: TabId; row: number }
   | { type: "clear"; tabId: TabId }
@@ -180,6 +184,13 @@ export function tabsReducer(state: TabsState, action: TabsAction): TabsState {
       });
     case "clear":
       return updateTab(state, action.tabId, (t) => (t.clearedBefore === t.total ? t : { ...t, clearedBefore: t.total }));
+    case "renamed":
+      return updateTab(state, action.tabId, (t) => {
+        const name = action.name.trim();
+        if ((t.customName ?? "") === name) return t;
+        const { customName: _previous, ...rest } = t;
+        return name ? { ...rest, customName: name } : rest;
+      });
     case "ruleSetChosen":
       return updateTab(state, action.tabId, (t) => {
         if (t.ruleSetId === action.ruleSetId) return t;

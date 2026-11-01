@@ -9,6 +9,7 @@ import {
   defaultFilterSettings,
   defaultSettings,
   detectFormat,
+  formatForFilter,
   toLineFilter,
   type CompiledFormat,
   type Encoding,
@@ -27,11 +28,13 @@ import { subscribeEngine } from "./engine/client";
 import type { RpcClient } from "./engine/rpc-client";
 import { baseName, pathKey } from "./files/path-key";
 import { useFileDrop } from "./files/useFileDrop";
+import { FeedbackPanel } from "./feedback/FeedbackPanel";
 import { FilterBar } from "./filter/FilterBar";
+import { LevelPills } from "./filter/LevelPills";
 import { nextVisibleHit } from "./filter/filter-nav";
 import { compileRules, highlightLine } from "./highlight/highlight";
 import { RulesEditor } from "./rules/RulesEditor";
-import { autoRuleSet, pickRuleSet } from "./rules/rule-profile";
+import { autoRuleSet, importAsCopy, importKind, pickRuleSet, uniqueRuleSetId, withRuleSet } from "./rules/rule-profile";
 import { buildSession } from "./session/session-snapshot";
 import { StatusBar } from "./tabs/StatusBar";
 import { TabBar } from "./tabs/TabBar";
@@ -79,6 +82,7 @@ export function App() {
   const [notice, setNotice] = useState<{ text: string; isError: boolean } | undefined>();
   const [ruleSets, setRuleSets] = useState<RuleSet[]>(createBuiltinRuleSets);
   const [rulesOpen, setRulesOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [userFormats, setUserFormats] = useState<LogFormat[]>([]);
   const detecting = useRef(new Set<TabId>());
@@ -199,6 +203,7 @@ export function App() {
           dispatch({ type: "follow", tabId: info.tabId, follow: restore.follow });
           dispatch({ type: "scrollRow", tabId: info.tabId, row: restore.scrollRow });
           if (restore.clearedBefore > 0) dispatch({ type: "clearedTo", tabId: info.tabId, row: restore.clearedBefore });
+          if (restore.customName) dispatch({ type: "renamed", tabId: info.tabId, name: restore.customName });
           if (restore.ruleSetId) dispatch({ type: "ruleSetChosen", tabId: info.tabId, ruleSetId: restore.ruleSetId });
           if (restore.filter) dispatch({ type: "filterChanged", tabId: info.tabId, filter: restore.filter });
         }
@@ -276,8 +281,9 @@ export function App() {
       if (tab.formatId === undefined && (settings.levels.length < LEVELS_COUNT || settings.foldTraces)) return;
       const format = tab.formatId ? formatsRef.current.find((f) => f.format.id === tab.formatId)?.format : undefined;
       const filter = toLineFilter(settings, !!format, format?.continuation === "not-line");
-      const needsFormat = !!filter && (!!filter.levels || !!filter.foldContinuation);
-      const key = JSON.stringify([filter, needsFormat ? format : null]);
+      // the engine takes the level of each kept row from the format, so any active filter carries it
+      const engineFormat = formatForFilter(filter, format);
+      const key = JSON.stringify([filter, engineFormat]);
       const previous = appliedFilters.current.get(tabId);
       if (previous === key || (previous === undefined && filter === null)) {
         appliedFilters.current.set(tabId, key); // a fresh tab without filter: nothing to undo in the engine
@@ -291,7 +297,7 @@ export function App() {
       const align = target?.align ?? "top";
       try {
         const engine = await withEngine();
-        const { filterId } = await engine.request("setFilter", { tabId, filter, format: needsFormat ? (format ?? null) : null });
+        const { filterId } = await engine.request("setFilter", { tabId, filter, format: engineFormat });
         const rt = runtimes.current.get(tabId);
         if (!rt || seq !== filterSeq.current) return;
         if (filterId) {
@@ -477,6 +483,7 @@ export function App() {
       else loadSettingsNow();
     });
   }, [loadRulesNow, loadSettingsNow, loadFormatsNow]);
+  useEffect(() => window.cblLog.onOpenFeedback(() => setFeedbackOpen(true)), []);
 
   /** Applies `edit` to one profile now and writes it to disk shortly after the last edit. */
   const editRuleSet = useCallback((setId: string, edit: (set: RuleSet) => RuleSet) => {
@@ -500,13 +507,54 @@ export function App() {
 
   const createRuleSet = useCallback(
     (name: string, base: RuleSet | undefined, onCreated?: (id: string) => void) => {
-      const slug = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "profil";
-      let id = slug;
-      for (let n = 2; ruleSets.some((s) => s.id === id); n++) id = `${slug}-${n}`;
+      const id = uniqueRuleSetId(ruleSets, name);
       const created: RuleSet = { schemaVersion: 1, id, name, formats: [], rules: (base ?? createDefaultRuleSet()).rules.map((r) => ({ ...r })) };
       setRuleSets((prev) => [...prev, created]);
       void window.cblLog.saveRuleSet(created).catch(() => undefined);
       onCreated?.(id);
+    },
+    [ruleSets],
+  );
+
+  /** Writes a profile to a file of the user's choice, to send it to colleagues. */
+  const exportRuleSet = useCallback((set: RuleSet) => {
+    window.cblLog
+      .exportRuleSet(set)
+      .then((path) => path && setNotice({ text: `Profil « ${set.name || set.id} » exporté : ${path}`, isError: false }))
+      .catch((err: unknown) => setNotice({ text: `Export impossible : ${err instanceof Error ? err.message : String(err)}`, isError: true }));
+  }, []);
+
+  /** Reads a profile shared by a colleague, stores it and applies it to the displayed tab. */
+  const importRuleSet = useCallback(
+    (onImported: (id: string) => void) => {
+      void window.cblLog.importRuleSet().then((result) => {
+        if (!result) return;
+        if (!result.ok) {
+          setNotice({ text: `Profil non importé : ${result.error}`, isError: true });
+          return;
+        }
+        let set = result.value;
+        const kind = importKind(ruleSets, set);
+        if (kind === "same") {
+          setNotice({ text: `Le profil « ${set.name || set.id} » est déjà à jour.`, isError: false });
+          onImported(set.id);
+          return;
+        }
+        if (kind === "conflict") {
+          const existing = ruleSets.find((s) => s.id === set.id);
+          const replace = window.confirm(
+            `Un profil « ${existing?.name || set.id} » existe déjà.\n\nOK : le remplacer par celui du fichier.\nAnnuler : garder les deux (le profil importé est ajouté sous un autre nom).`,
+          );
+          if (replace) clearTimeout(saveTimers.current.get(set.id)); // a pending save of the old rules must not undo the import
+          else set = importAsCopy(ruleSets, set);
+        }
+        setRuleSets((prev) => withRuleSet(prev, set));
+        window.cblLog
+          .saveRuleSet(set)
+          .then(() => setNotice({ text: `Profil « ${set.name || set.id} » importé.`, isError: false }))
+          .catch((err: unknown) => setNotice({ text: `Profil importé mais non enregistré : ${err instanceof Error ? err.message : String(err)}`, isError: true }));
+        onImported(set.id);
+      });
     },
     [ruleSets],
   );
@@ -812,6 +860,8 @@ export function App() {
             }))
           }
           onCreate={(name) => createRuleSet(name, editedSet, (id) => chooseProfile(id))}
+          onExport={() => exportRuleSet(editedSet)}
+          onImport={() => importRuleSet((id) => chooseProfile(id))}
           rules={editedSet.rules}
           errors={compiled.errors}
           onChange={(rules) => editRuleSet(editedSet.id, (set) => ({ ...set, rules }))}
@@ -824,6 +874,9 @@ export function App() {
           onClose={() => setRulesOpen(false)}
         />
       )}
+      {feedbackOpen && (
+        <FeedbackPanel onClose={() => setFeedbackOpen(false)} onNotice={(text, isError) => setNotice({ text, isError })} />
+      )}
       {!active || !runtime ? (
         <main className="placeholder">
           <h1>cbl-log</h1>
@@ -834,7 +887,14 @@ export function App() {
         </main>
       ) : (
         <>
-          <TabBar tabs={state.tabs} activeId={activeId} onActivate={(tabId) => dispatch({ type: "activated", tabId })} onClose={closeTab} />
+          <TabBar
+            tabs={state.tabs}
+            activeId={activeId}
+            onActivate={(tabId) => dispatch({ type: "activated", tabId })}
+            onClose={closeTab}
+            onRename={(tabId, name) => dispatch({ type: "renamed", tabId, name })}
+            onOpen={() => void window.cblLog.openFileDialog().then(openPaths)}
+          />
           <div className="toprow">
             <SearchBar
               tabId={active.info.tabId}
@@ -846,6 +906,7 @@ export function App() {
               onPrev={() => void findHit("prev")}
             />
             <FilterBar settings={active.filter} onChange={onFilterChange} focusRequest={filterFocus} error={filterProgress?.error} />
+            <LevelPills filter={active.filter} enabled={!!activeFormat} onChange={onFilterChange} />
           </div>
           {active.state !== "following" && (
             <div className={`banner banner-${active.state}`} role="status">
@@ -894,7 +955,6 @@ export function App() {
             formatName={activeFormat?.format.name || activeFormat?.format.id}
             onToggleTheme={toggleTheme}
             onEncodingChange={(encoding) => void reopenWithEncoding(active.info.tabId, encoding)}
-            canFilterLevels={!!activeFormat}
             canFoldTraces={activeFormat?.format.continuation === "not-line"}
             onFilterChange={onFilterChange}
             filterSuspended={!!active.filterSuspended}

@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1e2b4a"/>
+      <stop offset="1" stop-color="#0f172a"/>
+    </linearGradient>
+    <!-- Bars are cut around the lens so the magnifier reads at every size. -->
+    <mask id="cut" maskUnits="userSpaceOnUse" x="0" y="0" width="128" height="128">
+      <rect width="128" height="128" fill="#fff"/>
+      <circle cx="84" cy="76" r="27" fill="#000"/>
+    </mask>
+  </defs>
+  <rect x="4" y="4" width="120" height="120" rx="28" fill="url(#bg)"/>
+  <g mask="url(#cut)">
+    <rect x="20" y="28" width="68" height="14" rx="7" fill="#22d3ee"/>
+    <rect x="20" y="51" width="56" height="14" rx="7" fill="#34d399"/>
+    <rect x="20" y="74" width="50" height="14" rx="7" fill="#fbbf24"/>
+  </g>
+  <g fill="none" stroke="#f8fafc" stroke-linecap="round">
+    <circle cx="84" cy="76" r="18" stroke-width="7"/>
+    <path d="M97 89 L107 99" stroke-width="9"/>
+  </g>
+</svg>

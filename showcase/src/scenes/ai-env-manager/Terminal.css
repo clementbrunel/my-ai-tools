@@ -1,0 +1,9 @@
+/* terminal window (ai-env-manager) */
+.term { width:min(560px,100%); border-radius:14px; background:#070a08; border:1px solid #1f3a29; box-shadow:0 40px 80px -30px rgba(125,255,155,.25); overflow:hidden }
+.dots { display:flex; align-items:center; gap:7px; padding:12px 14px; border-bottom:1px solid #1f3a29 }
+.dots i { width:11px; height:11px; border-radius:50%; background:#ff5f57 } .dots i:nth-child(2) { background:#febc2e } .dots i:nth-child(3) { background:#28c840 }
+.dots span { margin-left:10px; font:12px var(--mono); opacity:.5 }
+
+@media (max-width:820px) and (max-height:700px) {
+  .dots { padding:9px 12px }
+}

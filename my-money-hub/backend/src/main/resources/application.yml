@@ -37,3 +37,7 @@ mymoneyhub:
   woob:
     binary-path: ${WOOB_BINARY_PATH:woob}
     timeout: ${WOOB_TIMEOUT:2m}
+  sync:
+    # Automatic sync of every institution. Spring cron: sec min hour day month weekday (default: daily 06:00).
+    enabled: ${SYNC_ENABLED:false}
+    cron: ${SYNC_CRON:0 0 6 * * *}

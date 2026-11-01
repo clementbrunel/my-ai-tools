@@ -8,6 +8,7 @@ const info = (tabId: string, totalRows = 10): TabInfo => ({
   encoding: "utf-8",
   sizeBytes: 100,
   totalRows,
+  source: "file",
   lineEnding: "unknown",
 });
 
@@ -174,5 +175,12 @@ describe("tabsReducer", () => {
 
   it("reset drops every tab", () => {
     expect(run({ type: "opened", info: info("a") }, { type: "reset" })).toEqual(initialTabsState);
+  });
+
+  it("renames a tab and goes back to the file name on a blank name", () => {
+    const named = tabsReducer(tabsReducer(initialTabsState, { type: "opened", info: info("a") }), { type: "renamed", tabId: "a", name: "  prod  " });
+    expect(named.tabs[0]!.customName).toBe("prod");
+    const reset = tabsReducer(named, { type: "renamed", tabId: "a", name: " " });
+    expect(reset.tabs[0]!.customName).toBeUndefined();
   });
 });

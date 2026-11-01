@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createDefaultRuleSet } from "@cbl-log/shared";
 import { afterEach, describe, expect, it } from "vitest";
-import { loadRuleSets, saveRuleSet } from "./rules-store";
+import { exportRuleSet, loadRuleSets, readRuleSetFile, saveRuleSet } from "./rules-store";
 
 const dirs: string[] = [];
 afterEach(() => {
@@ -70,5 +70,28 @@ describe("rules store", () => {
   it("refuses ids that could escape the directory", async () => {
     const set = { ...createDefaultRuleSet(), id: "../evil" };
     await expect(saveRuleSet(tempRoot(), set)).rejects.toThrow(/Invalid rule set id/);
+  });
+
+  it("round-trips an exported profile, and the file can also be dropped in the rules folder", async () => {
+    const root = tempRoot();
+    const shared = { ...createDefaultRuleSet(), id: "equipe", name: "Équipe", formats: ["spring-boot"] };
+    const path = join(root, "partage", "equipe.json");
+    await exportRuleSet(path, shared);
+    expect(await readRuleSetFile(path)).toEqual({ ok: true, value: shared });
+    const dir = join(root, "rules");
+    await loadRuleSets(dir);
+    writeFileSync(join(dir, "equipe.json"), readFileSync(path, "utf8"));
+    expect((await loadRuleSets(dir)).sets.map((s) => s.id)).toContain("equipe");
+  });
+
+  it("reports an unreadable, invalid or oversized profile file instead of throwing", async () => {
+    const root = tempRoot();
+    expect((await readRuleSetFile(join(root, "absent.json"))).ok).toBe(false);
+    writeFileSync(join(root, "bad.json"), "{ pas du json");
+    expect(await readRuleSetFile(join(root, "bad.json"))).toMatchObject({ ok: false, error: expect.stringContaining("Invalid JSON") });
+    writeFileSync(join(root, "other.json"), JSON.stringify({ schemaVersion: 1, theme: "dark" }));
+    expect((await readRuleSetFile(join(root, "other.json"))).ok).toBe(false);
+    writeFileSync(join(root, "big.json"), "x".repeat(2 * 1024 * 1024));
+    expect(await readRuleSetFile(join(root, "big.json"))).toMatchObject({ ok: false, error: expect.stringContaining("volumineux") });
   });
 });

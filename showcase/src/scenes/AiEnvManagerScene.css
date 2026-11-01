@@ -1,0 +1,8 @@
+/* ai-env-manager headline tweaks: prompt-like name */
+[id=ai-env-manager] .appname { font-weight:700; font-size:clamp(26px,2.9vw,44px); letter-spacing:-.03em; white-space:nowrap }
+[id=ai-env-manager] .appname::before { content:'$ '; opacity:.55 }
+[id=ai-env-manager] h2 { font-size:clamp(22px,2.4vw,36px); line-height:1.2 }
+
+@media (max-width:820px) and (max-height:700px) {
+  [id=ai-env-manager] .appname { font-size:26px }
+}

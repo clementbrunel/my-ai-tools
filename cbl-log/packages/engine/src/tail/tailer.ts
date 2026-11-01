@@ -6,10 +6,15 @@
 // at `startRow` = total of the previous segments. A rolling therefore erases nothing; the UI draws
 // the T-04d separator at `segment.startRow` (id > 0).
 // A segment stays readable as long as its content is:
-//   - rename: we keep the handle open on the renamed file (readable, delete sharing);
+//   - rename: the segment's path becomes the archive (found by identity); its handle stays open
+//     (readable, delete sharing);
+//   - dated name: the old file does not move, the segment keeps its path;
 //   - copytruncate with the archive found: the segment is re-pointed at the archive;
-//   - truncate without archive: the content is gone, segment `readable: false` (rows stay counted);
-//   - beyond `maxRetainedSegments` readable segments, the oldest is released (handle closed).
+//   - truncate without archive (or deletion): the content is gone, segment `readable: false` (rows
+//     stay counted);
+//   - beyond `maxRetainedSegments` open handles, the least recently read segment goes DORMANT: handle
+//     closed, line index kept. Reading it reopens its archive (same identity, same bytes before the
+//     indexed offset); an archive purged by the writer makes it unreadable.
 import { watch, type BigIntStats, type FSWatcher } from "node:fs";
 import { readdir, stat } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
@@ -61,7 +66,7 @@ export interface TailerOptions {
   chunkSize?: number;
   /** Coalescing window of `rows` events (default 50 ms). */
   coalesceMs?: number;
-  /** Readable segments kept (handles open) besides the current one (default 3). */
+  /** Rolled segments whose handle stays open besides the current one (default 3); the others go dormant. */
   maxRetainedSegments?: number;
   /** Copytruncate recovery from the archive (default true). */
   recoverCopytruncate?: boolean;
@@ -91,6 +96,12 @@ interface Segment {
   anchor: Buffer;
   /** Offset just after the anchor bytes (the scanned offset when the anchor was taken). */
   anchorEnd: number;
+  /** `path` is this segment's own file (archive, or dated name): it can be closed and reopened. */
+  reopenable: boolean;
+  /** Reads in progress: a segment being read is never put to sleep. */
+  readers: number;
+  lastUsed: number;
+  waking: Promise<boolean> | undefined;
 }
 
 function errCode(err: unknown): string | undefined {
@@ -115,6 +126,9 @@ export class Tailer {
   private lastCheckAt = 0;
   private nextSegmentId = 0;
   private pendingRoll: { reason: RolledReason; previous?: string } | undefined;
+  private forcedRoll: RolledReason | undefined;
+  private pokeRunning = false;
+  private pokeAgain = false;
   private publicState: { state: string; message?: string } | undefined;
 
   private rowsDirty = false;
@@ -184,6 +198,34 @@ export class Tailer {
     return run;
   }
 
+  /**
+   * Immediate check, without waiting for the next poll tick: the writer of a spool file calls it
+   * after each append. Fire-and-forget; pokes arriving during a check are merged into one more check.
+   */
+  poke(): void {
+    if (!this.running) return;
+    if (this.pokeRunning) {
+      this.pokeAgain = true;
+      return;
+    }
+    this.pokeRunning = true;
+    void (async () => {
+      try {
+        do {
+          this.pokeAgain = false;
+          await this.check();
+        } while (this.pokeAgain && this.running);
+      } finally {
+        this.pokeRunning = false;
+      }
+    })();
+  }
+
+  /** The next rolling detected will be reported with this reason (the spool writer knows better than the heuristics). */
+  expectRoll(reason: RolledReason): void {
+    this.forcedRoll = reason;
+  }
+
   /** Lines [first, first+count) in global numbering; unreadable segments are skipped. */
   async getLines(first: number, count: number): Promise<NumberedLine[]> {
     // A read that races a truncation / archive switch is retried after a check() has reconciled the
@@ -208,7 +250,9 @@ export class Tailer {
       if (!seg.readable || !index) continue;
       const from = Math.max(first, start) - start;
       const n = Math.min(end, stop) - start - from;
+      seg.readers++;
       try {
+        if (!(await this.wake(seg))) continue; // archive gone: the segment is now unreadable
         const read = await index.getLines(from, n);
         // The live file may have been truncated while we read: offsets then point into new content.
         // Drop those lines (the next check() reconciles) rather than return the wrong text.
@@ -220,8 +264,11 @@ export class Tailer {
       } catch {
         // file modified under our feet (truncation in progress) or source closed by a switch
         dropped = true;
+      } finally {
+        seg.readers--;
       }
     }
+    if (this.running) await this.enforceRetention();
     return { lines: out, dropped };
   }
 
@@ -359,12 +406,52 @@ export class Tailer {
       await this.drain(cur); // T-04b: no line lost before the switch
       this.phaseValue = "switching";
       this.pendingRoll = await this.classifyRoll(cur, target);
+      if (this.forcedRoll) {
+        this.pendingRoll = { ...this.pendingRoll, reason: this.forcedRoll };
+        this.forcedRoll = undefined;
+      }
+      if (this.pendingRoll.previous) {
+        cur.path = this.pendingRoll.previous; // the renamed archive, or the dated file left behind
+        cur.reopenable = true;
+      }
       await this.openSegment(target);
       return;
     }
     this.phaseValue = "following";
     this.setState("following");
-    await this.follow(cur);
+    try {
+      await this.follow(cur);
+    } catch (err) {
+      // The path still stats fine but the open handle fails: typically a network share whose handle
+      // went stale after a suspend/resume (Windows "UNKNOWN: unknown error, fstat"). Reopen and retry.
+      if (!(await this.reopen(cur))) throw err;
+      await this.follow(cur);
+    }
+  }
+
+  /** Replaces the segment's stale handle by a fresh one on the same file; false if that is not possible. */
+  private async reopen(seg: Segment): Promise<boolean> {
+    const index = seg.index;
+    const old = seg.source;
+    if (!index || !old) return false;
+    let fresh: FileSource;
+    try {
+      fresh = await FileSource.open(seg.path, this.opts.cache ? { cache: this.opts.cache } : {});
+    } catch {
+      return false;
+    }
+    try {
+      const identity = await fresh.identity();
+      if (identity.ino !== seg.identity.ino) throw new Error("another file");
+    } catch {
+      await fresh.close().catch(() => {});
+      return false;
+    }
+    old.invalidate();
+    index.setSource(fresh);
+    seg.source = fresh;
+    await old.close().catch(() => {});
+    return true;
   }
 
   private async follow(seg: Segment): Promise<void> {
@@ -484,6 +571,7 @@ export class Tailer {
     const oldSource = seg.source;
     if (!index || !oldSource) return;
     const oldScanned = index.scannedBytes;
+    const livePath = seg.path;
     oldSource.invalidate();
 
     let previous: string | undefined;
@@ -493,6 +581,9 @@ export class Tailer {
         const before = index.lineCount;
         await index.appendFrom(archive.source);
         seg.source = archive.source;
+        seg.identity = await archive.source.identity();
+        seg.path = archive.path;
+        seg.reopenable = true;
         await oldSource.close().catch(() => {});
         previous = archive.path;
         this.noteRows(index.lineCount - before);
@@ -505,7 +596,7 @@ export class Tailer {
     }
     this.pendingRoll = { reason: "truncate", ...(previous ? { previous } : {}) };
     this.cur = undefined; // if the path vanished meanwhile, the next tick reopens a segment
-    await this.openSegment(seg.path);
+    await this.openSegment(livePath);
   }
 
   private async freeze(seg: Segment): Promise<void> {
@@ -593,6 +684,10 @@ export class Tailer {
         identity,
         anchor: Buffer.alloc(0),
         anchorEnd: 0,
+        reopenable: false,
+        readers: 0,
+        lastUsed: Date.now(),
+        waking: undefined,
       };
       await this.refreshAnchor(seg);
       const roll = first ? undefined : (this.pendingRoll ?? { reason: "new-file" as const });
@@ -613,9 +708,62 @@ export class Tailer {
     }
   }
 
+  /**
+   * Keeps at most `maxRetainedSegments` rolled segments with an open handle, the most recently read
+   * ones. The others go dormant (index kept, handle closed) when their file can be reopened, and are
+   * released otherwise. Segments being read are left alone.
+   */
   private async enforceRetention(): Promise<void> {
     const max = this.opts.maxRetainedSegments ?? DEFAULT_MAX_RETAINED_SEGMENTS;
-    const old = this.segs.filter((s) => s !== this.cur && s.readable);
-    for (const seg of old.slice(0, Math.max(0, old.length - max))) await this.release(seg);
+    const open = this.segs.filter((s) => s !== this.cur && s.readable && s.source).sort((a, b) => a.lastUsed - b.lastUsed);
+    for (const seg of open.slice(0, Math.max(0, open.length - max))) {
+      if (seg.readers > 0 || seg.waking) continue;
+      if (!seg.reopenable) {
+        await this.release(seg);
+        continue;
+      }
+      const source = seg.source;
+      seg.source = undefined;
+      await source?.close().catch(() => {});
+    }
+  }
+
+  /** Makes sure a readable segment has an open source; false if its archive can no longer be read. */
+  private wake(seg: Segment): Promise<boolean> {
+    seg.lastUsed = Date.now();
+    if (seg.source) return Promise.resolve(true);
+    if (!seg.readable || !seg.index || !this.running) return Promise.resolve(false);
+    seg.waking ??= this.reopenDormant(seg).finally(() => {
+      seg.waking = undefined;
+    });
+    return seg.waking;
+  }
+
+  /** Reopens a dormant segment's file, provided it is still the same file with the same indexed bytes. */
+  private async reopenDormant(seg: Segment): Promise<boolean> {
+    const index = seg.index;
+    if (!index) return false;
+    let source: FileSource | undefined;
+    try {
+      source = await FileSource.open(seg.path, this.opts.cache ? { cache: this.opts.cache } : {});
+      const identity = await source.identity();
+      const sameIdentity = seg.identity.ino === "0" || identity.ino === seg.identity.ino;
+      const len = seg.anchor.length;
+      const bytes = len > 0 ? await source.readAt(seg.anchorEnd - len, len, { cache: false }) : Buffer.alloc(0);
+      if (!sameIdentity || (await source.size()) < index.scannedBytes || !bytes.equals(seg.anchor)) {
+        throw new SourceError("ENOENT", seg.path, `${seg.path} is no longer the rolled file`);
+      }
+    } catch {
+      await source?.close().catch(() => {});
+      if (seg.readable && !seg.source) await this.freeze(seg);
+      return false;
+    }
+    if (!this.running || !seg.readable) {
+      await source.close().catch(() => {});
+      return false;
+    }
+    seg.source = source;
+    index.setSource(source);
+    return true;
   }
 }

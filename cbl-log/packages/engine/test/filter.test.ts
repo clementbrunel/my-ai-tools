@@ -39,7 +39,7 @@ function connect(options?: EngineServiceOptions) {
   const pending = new Map<number, (r: EngineResponse) => void>();
   port2.on("message", (m: EngineMessage) => {
     if (m.kind === "event") events.push(m);
-    else pending.get(m.id)?.(m);
+    else if (m.kind === "response") pending.get(m.id)?.(m);
   });
   let nextId = 1;
   cleanups.push(async () => {
@@ -170,6 +170,19 @@ describe("setFilter", () => {
       expect(rows.map((r) => r.text)).toEqual(want.map((w) => lines[w.line]));
       expect(ctx.filterEvents(ctx.tabId).filter((e) => e.id === id).at(-1)).toMatchObject({ done: true, matches: want.length });
     }
+  });
+
+  it("gives the rows of a text-only filter their level when the format is sent (#457)", async () => {
+    const lines = makeLog(60);
+    const ctx = await open(lines);
+    const id = (await setFilter(ctx, { include: [{ pattern: "Cart", isRegex: false, caseSensitive: true }] }))!;
+    const rows = await readAll(ctx, id);
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.every((r) => r.level !== undefined)).toBe(true);
+
+    const bare = await ctx.ok("setFilter", { tabId: ctx.tabId, filter: { include: [{ pattern: "Cart", isRegex: false, caseSensitive: true }] }, format: null });
+    await waitFor(() => ctx.filterEvents(ctx.tabId).some((e) => e.id === bare.filterId && e.done), "filter done");
+    expect((await readAll(ctx, bare.filterId!)).every((r) => r.level === undefined)).toBe(true);
   });
 
   it("reads a window of the filtered view", async () => {
