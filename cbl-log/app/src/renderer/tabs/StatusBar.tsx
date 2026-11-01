@@ -55,10 +55,12 @@ interface Props {
   onToggleFilterView(): void;
   /** Lines shown by the filter in force (undefined = no filter). */
   filterShown?: { matches: number; done: boolean } | undefined;
+  /** Docker tab: status text ("Docker · running depuis 10:02") and the "load more history" action. */
+  docker?: { status: string; loading: boolean; onLoadMore(): void } | undefined;
 }
 
 
-export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules, dark, onToggleTheme, formatName, profiles, profileChoice, autoProfileName, onProfileChange, onEncodingChange, canFoldTraces, onFilterChange, filterSuspended, hasFilter, onToggleFilterView, pendingLines, onTogglePause, filterShown }: Props) {
+export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules, dark, onToggleTheme, formatName, profiles, profileChoice, autoProfileName, onProfileChange, onEncodingChange, canFoldTraces, onFilterChange, filterSuspended, hasFilter, onToggleFilterView, pendingLines, onTogglePause, filterShown, docker }: Props) {
   const full = filterSuspended || !hasFilter;
   return (
     <footer className="statusbar">
@@ -69,6 +71,16 @@ export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules
       <span className="status-meta">
         {formatBytes(tab.info.sizeBytes)} · <span title="Format de log détecté">{formatName ?? "brut"}</span>
       </span>
+      {docker ? (
+        <span className="status-file">
+          <span className="status-path docker-status" title={`${tab.docker?.context}/${tab.docker?.name}\nCopie locale : ${tab.info.path}`}>
+            {docker.status}
+          </span>
+          <button type="button" disabled={docker.loading} onClick={docker.onLoadMore} title="Remonter plus loin dans l'historique du conteneur (×10 ; la copie locale est reconstruite)">
+            {docker.loading ? "Chargement…" : "Charger plus d'historique"}
+          </button>
+        </span>
+      ) : (
       <span className="status-file">
         <span
           className="status-path"
@@ -91,8 +103,9 @@ export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules
           </select>
         </label>
       </span>
+      )}
       {tab.indexing !== undefined && <span>Indexation {Math.round(tab.indexing * 100)} %</span>}
-      {tab.state !== "following" && <span className={`state-${tab.state}`}>{tab.state === "missing" ? "Fichier introuvable" : tab.message ?? "Erreur"}</span>}
+      {!docker && tab.state !== "following" && <span className={`state-${tab.state}`}>{tab.state === "missing" ? "Fichier introuvable" : tab.message ?? "Erreur"}</span>}
       {tab.clearedBefore > 0 && (
         <button type="button" className="icon-btn cleared" onClick={onUnclear} title={`${tab.clearedBefore.toLocaleString("fr-FR")} ligne(s) masquée(s) — cliquer pour tout réafficher`} aria-label="Réafficher les lignes masquées">
           <TrashIcon /> {tab.clearedBefore.toLocaleString("fr-FR")} ✕

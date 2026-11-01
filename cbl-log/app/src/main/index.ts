@@ -2,7 +2,7 @@ import { existsSync, mkdirSync } from "node:fs";
 import { release } from "node:os";
 import { dirname, join } from "node:path";
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeTheme, shell } from "electron";
-import type { ParseRuleSetResult, RuleSet, Session, Settings } from "@cbl-log/shared";
+import { parseDockerUri, type ParseRuleSetResult, type RuleSet, type Session, type Settings } from "@cbl-log/shared";
 import { parseFileArgs } from "./cli-args";
 import { ConfigWatcher, type ConfigKind } from "./config-watcher";
 import { loadSession, loadSettings, saveSession, saveSettings } from "./config-store";
@@ -86,7 +86,7 @@ function persistRecent(): void {
 }
 
 function openRecent(path: string): void {
-  if (!existsSync(path)) {
+  if (!parseDockerUri(path) && !existsSync(path)) {
     recentFiles = withoutRecentFile(recentFiles, path);
     persistRecent();
   }
@@ -268,6 +268,7 @@ if (!app.requestSingleInstanceLock()) {
       mainWindow?.webContents.send("config:changed", kind);
     });
     configWatcher.start();
+    engine.setDockerSettings((await loadSettings(app.getPath("userData"))).value.docker);
     engine.start();
     createWindow();
     // Startup check, then hourly for sessions that are never closed; packaged builds only (a dev build has

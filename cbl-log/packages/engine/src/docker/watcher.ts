@@ -1,8 +1,8 @@
 // ContainerWatcher: keeps the container list up to date from /containers/json and /events, and
 // tells its listeners (throttled) whenever it changed or Docker became (un)available.
 import type { DockerContainerInfo, DockerListResult } from "@cbl-log/shared";
-import type { DockerClient, DockerContainerSummary } from "./client.js";
-import { toDockerError } from "./errors.js";
+import type { DockerClient, DockerContainerSummary, DockerVersionInfo } from "./client.js";
+import { toDockerError, type DockerError } from "./errors.js";
 
 export type WatcherSnapshot = DockerListResult;
 
@@ -12,6 +12,8 @@ export interface ContainerWatcherOptions {
   throttleMs?: number;
   /** Delay before reconnecting the event stream (default 2 s). */
   retryMs?: number;
+  /** Docker context reported in the snapshots (default "default"). */
+  context?: string;
 }
 
 export class ContainerWatcher {
@@ -19,7 +21,10 @@ export class ContainerWatcher {
   private readonly throttleMs: number;
   private readonly retryMs: number;
   private readonly listeners = new Set<(s: WatcherSnapshot) => void>();
-  private readonly drivers = new Map<string, string>();
+  /** Driver and start time per container, inspected again when its state changes. */
+  private readonly details = new Map<string, { state: string; logDriver: string | undefined; startedAt: string | undefined }>();
+  private readonly context: string;
+  private versionInfo: DockerVersionInfo | undefined;
   private current: WatcherSnapshot = { status: "unavailable", containers: [] };
   private ac: AbortController | undefined;
   private timer: NodeJS.Timeout | undefined;
@@ -30,6 +35,7 @@ export class ContainerWatcher {
     this.client = options.client;
     this.throttleMs = options.throttleMs ?? 300;
     this.retryMs = options.retryMs ?? 2000;
+    this.context = options.context ?? "default";
   }
 
   get snapshot(): WatcherSnapshot {
@@ -91,13 +97,20 @@ export class ContainerWatcher {
   private async doRefresh(): Promise<void> {
     let next: WatcherSnapshot;
     try {
-      if (!this.client.negotiatedApiVersion) await this.client.connect();
+      if (!this.client.negotiatedApiVersion) this.versionInfo = await this.client.connect();
       const list = await this.client.listContainers(true);
       const containers = await Promise.all(list.map((c) => this.describe(c)));
       containers.sort((a, b) => a.name.localeCompare(b.name));
-      next = { status: "connected", containers };
+      for (const id of this.details.keys()) if (!list.some((c) => c.id === id)) this.details.delete(id);
+      next = {
+        status: "connected",
+        context: this.context,
+        ...(this.versionInfo ? { version: this.versionInfo.version, apiVersion: this.client.negotiatedApiVersion ?? this.versionInfo.apiVersion } : {}),
+        containers,
+      };
     } catch (err) {
-      next = { status: "unavailable", error: toDockerError(err).message, containers: [] };
+      const e = toDockerError(err);
+      next = { status: "unavailable", error: e.message, errorCode: errorKind(e), context: this.context, containers: [] };
     }
     this.current = next;
     const key = JSON.stringify(next);
@@ -107,15 +120,17 @@ export class ContainerWatcher {
   }
 
   private async describe(c: DockerContainerSummary): Promise<DockerContainerInfo> {
-    let driver = this.drivers.get(c.id);
-    if (driver === undefined) {
+    let known = this.details.get(c.id);
+    if (!known || known.state !== c.state) {
       try {
-        driver = (await this.client.inspect(c.id)).logDriver;
-        this.drivers.set(c.id, driver);
+        const d = await this.client.inspect(c.id);
+        known = { state: c.state, logDriver: d.logDriver, startedAt: d.startedAt };
+        this.details.set(c.id, known);
       } catch {
-        driver = undefined; // removed meanwhile: shown as readable, the next refresh drops it
+        known = undefined; // removed meanwhile: shown as readable, the next refresh drops it
       }
     }
+    const driver = known?.logDriver;
     const project = c.labels["com.docker.compose.project"];
     const service = c.labels["com.docker.compose.service"];
     return {
@@ -127,7 +142,12 @@ export class ContainerWatcher {
       ...(project ? { composeProject: project } : {}),
       ...(service ? { composeService: service } : {}),
       ...(driver ? { logDriver: driver } : {}),
+      ...(known?.startedAt ? { startedAt: known.startedAt } : {}),
       readable: driver !== "none",
     };
   }
+}
+
+function errorKind(e: DockerError): "NOT_RUNNING" | "ACCESS_DENIED" | "API_TOO_OLD" | "OTHER" {
+  return e.code === "NOT_RUNNING" || e.code === "ACCESS_DENIED" || e.code === "API_TOO_OLD" ? e.code : "OTHER";
 }

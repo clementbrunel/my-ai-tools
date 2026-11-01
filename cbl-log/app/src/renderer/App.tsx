@@ -8,10 +8,13 @@ import {
   createWebSphereRuleSet,
   defaultFilterSettings,
   defaultSettings,
+  dockerUri,
   detectFormat,
   formatForFilter,
+  parseDockerUri,
   toLineFilter,
   type CompiledFormat,
+  type DockerListResult,
   type Encoding,
   type FilterSettings,
   type LogFormat,
@@ -28,6 +31,8 @@ import { subscribeEngine } from "./engine/client";
 import type { RpcClient } from "./engine/rpc-client";
 import { baseName, pathKey } from "./files/path-key";
 import { useFileDrop } from "./files/useFileDrop";
+import { DockerPanel } from "./docker/DockerPanel";
+import { dockerStatusText } from "./docker/docker-panel";
 import { FeedbackPanel } from "./feedback/FeedbackPanel";
 import { FilterBar } from "./filter/FilterBar";
 import { LevelPills } from "./filter/LevelPills";
@@ -84,7 +89,14 @@ export function App() {
   const [rulesOpen, setRulesOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [settings, setSettings] = useState<Settings>(defaultSettings);
+  /** Docker side panel: shown or not, and the last container list of the engine. */
+  const [dockerOpen, setDockerOpen] = useState(false);
+  const [dockerList, setDockerList] = useState<DockerListResult | undefined>();
+  /** Docker tabs whose history is being extended. */
+  const [loadingMore, setLoadingMore] = useState<ReadonlySet<TabId>>(new Set());
   const [userFormats, setUserFormats] = useState<LogFormat[]>([]);
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
   const detecting = useRef(new Set<TabId>());
   const sessionReady = useRef(false);
   /** Last session written (or loaded): reopened if the engine process restarts. */
@@ -177,6 +189,25 @@ export function App() {
     };
   }, [resetTabs]);
 
+  // Docker: the engine lists the containers and pushes every change, as long as the feature is enabled.
+  const dockerEnabled = settings.docker.enabled;
+  useEffect(() => {
+    if (!dockerEnabled) {
+      setDockerList(undefined);
+      return;
+    }
+    let offList: (() => void) | undefined;
+    const offSubscribe = subscribeEngine((engine) => {
+      offList?.();
+      offList = engine.onDockerContainers(setDockerList);
+      engine.request("dockerSubscribe", {}).then(setDockerList, (err: unknown) => setDockerList({ status: "unavailable", error: err instanceof Error ? err.message : String(err), containers: [] }));
+    });
+    return () => {
+      offList?.();
+      offSubscribe();
+    };
+  }, [dockerEnabled]);
+
   /**
    * Opens one file in a tab (or activates its tab); `restore` re-applies a saved session position.
    * The encoding is forced when `opts.encoding` (or the restored tab) says so, else detected by the engine.
@@ -185,19 +216,27 @@ export function App() {
     async (path: string, restore?: SessionTab, opts: { encoding?: Encoding; index?: number } = {}): Promise<{ ok: true } | { ok: false; message: string }> => {
       const engine = await withEngine();
       const key = pathKey(path);
+      const docker = parseDockerUri(path);
       const existing = [...runtimes.current.entries()].find(([, rt]) => rt.pathKey === key);
       if (existing) {
         dispatch({ type: "activated", tabId: existing[0] });
         return { ok: true };
       }
       const openId = crypto.randomUUID();
-      setOpening((o) => ({ ...o, [openId]: { name: baseName(path), progress: 0 } }));
+      setOpening((o) => ({ ...o, [openId]: { name: docker?.name ?? baseName(path), progress: 0 } }));
       try {
-        const encoding = opts.encoding ?? restore?.encoding;
-        const info = await engine.request("open", encoding ? { path, openId, encoding } : { path, openId });
+        const encoding = docker ? undefined : (opts.encoding ?? restore?.encoding);
+        const info = await engine.request(
+          "open",
+          docker
+            ? { docker: { ...docker, initialTail: settingsRef.current.docker.initialTail }, openId }
+            : encoding
+              ? { path, openId, encoding }
+              : { path, openId },
+        );
         const cache = new PageCache(async (first, count) => (await engine.request("getRows", { tabId: info.tabId, first, count })).rows);
         runtimes.current.set(info.tabId, { cache, total: info.totalRows, pathKey: key, filterTotal: 0 });
-        dispatch({ type: "opened", info, ...(encoding ? { encodingChoice: encoding } : {}), ...(opts.index !== undefined ? { index: opts.index } : {}) });
+        dispatch({ type: "opened", info, ...(docker ? { docker } : {}), ...(encoding ? { encodingChoice: encoding } : {}), ...(opts.index !== undefined ? { index: opts.index } : {}) });
         void detectRef.current(info.tabId);
         if (restore) {
           dispatch({ type: "follow", tabId: info.tabId, follow: restore.follow });
@@ -365,6 +404,55 @@ export function App() {
       runtimes.current.delete(tabId);
       dispatch({ type: "closed", tabId });
       void withEngine().then((engine) => engine.request("close", { tabId }).catch(() => undefined));
+    },
+    [withEngine],
+  );
+
+  /** Opens containers of the panel (by name) in tabs. */
+  const openContainers = useCallback(
+    async (names: string[]) => {
+      const context = dockerList?.context ?? "default";
+      for (const name of names) {
+        const uri = dockerUri({ context, name });
+        const result = await openFile(uri);
+        if (result.ok) void window.cblLog.addRecentFile(uri).catch(() => undefined);
+        else setNotice({ text: `${name} : ${result.message}`, isError: true });
+      }
+    },
+    [dockerList?.context, openFile],
+  );
+
+  /** "Charger plus d'historique": the engine rebuilds the spool with 10x more lines; the view stays on its line. */
+  const loadMoreHistory = useCallback(
+    async (tabId: TabId) => {
+      const tab = stateRef.current.tabs.find((t) => t.info.tabId === tabId);
+      if (!tab?.docker) return;
+      setLoadingMore((s) => new Set(s).add(tabId));
+      try {
+        const engine = await withEngine();
+        const tail = Math.max(settingsRef.current.docker.initialTail, tab.total) * 10;
+        const result = await engine.request("dockerLoadMore", { tabId, tail });
+        const rt = runtimes.current.get(tabId);
+        if (rt) {
+          rt.cache.invalidateFrom(0);
+          rt.total = result.totalRows;
+          rt.filterCache?.invalidateFrom(0);
+          rt.filterTotal = 0;
+        }
+        dispatch({ type: "reloaded", tabId, total: result.totalRows, addedBefore: result.addedBefore });
+        if (stateRef.current.activeId === tabId && !tab.follow && !isFilteredNow(tab, rt)) {
+          setReveal({ row: viewRow.current + result.addedBefore, nonce: ++revealNonce.current, align: "top", forKey: viewKeyOf(tabId, null) });
+        }
+        setNotice({ text: result.addedBefore > 0 ? `${result.addedBefore.toLocaleString("fr-FR")} ligne(s) d'historique ajoutée(s).` : "Tout l'historique disponible est déjà chargé.", isError: false });
+      } catch (err) {
+        setNotice({ text: `Historique : ${err instanceof Error ? err.message : String(err)}`, isError: true });
+      } finally {
+        setLoadingMore((s) => {
+          const next = new Set(s);
+          next.delete(tabId);
+          return next;
+        });
+      }
     },
     [withEngine],
   );
@@ -686,6 +774,9 @@ export function App() {
       if (e.ctrlKey && e.key.toLowerCase() === "w" && activeId) {
         e.preventDefault();
         closeTab(activeId);
+      } else if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "d" && settingsRef.current.docker.enabled) {
+        e.preventDefault();
+        setDockerOpen((o) => !o);
       } else if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "f" && activeId) {
         e.preventDefault();
         setFilterFocus((n) => n + 1);
@@ -877,6 +968,11 @@ export function App() {
       {feedbackOpen && (
         <FeedbackPanel onClose={() => setFeedbackOpen(false)} onNotice={(text, isError) => setNotice({ text, isError })} />
       )}
+      <div className="workspace">
+      {dockerEnabled && dockerOpen && (
+        <DockerPanel list={dockerList} openNames={new Set(state.tabs.flatMap((t) => (t.docker ? [t.docker.name] : [])))} onOpen={(names) => void openContainers(names)} onClose={() => setDockerOpen(false)} />
+      )}
+      <div className="main">
       {!active || !runtime ? (
         <main className="placeholder">
           <h1>cbl-log</h1>
@@ -884,6 +980,11 @@ export function App() {
           <button type="button" onClick={() => void window.cblLog.openFileDialog().then(openPaths)}>
             Ouvrir…
           </button>
+          {dockerEnabled && !dockerOpen && (
+            <button type="button" onClick={() => setDockerOpen(true)}>
+              Conteneurs Docker…
+            </button>
+          )}
         </main>
       ) : (
         <>
@@ -894,6 +995,7 @@ export function App() {
             onClose={closeTab}
             onRename={(tabId, name) => dispatch({ type: "renamed", tabId, name })}
             onOpen={() => void window.cblLog.openFileDialog().then(openPaths)}
+            docker={dockerEnabled ? { open: dockerOpen, onToggle: () => setDockerOpen((o) => !o) } : undefined}
           />
           <div className="toprow">
             <SearchBar
@@ -908,9 +1010,13 @@ export function App() {
             <FilterBar settings={active.filter} onChange={onFilterChange} focusRequest={filterFocus} error={filterProgress?.error} />
             <LevelPills filter={active.filter} enabled={!!activeFormat} onChange={onFilterChange} />
           </div>
-          {active.state !== "following" && (
+          {active.state !== "following" && !(active.docker && active.state === "stopped") && (
             <div className={`banner banner-${active.state}`} role="status">
-              {active.state === "missing" ? "Fichier absent, en attente…" : active.message ?? "Erreur de lecture du fichier."}
+              {active.docker
+                ? (active.message ?? (active.state === "waiting" ? "En attente de Docker…" : "Erreur de lecture du conteneur."))
+                : active.state === "missing"
+                  ? "Fichier absent, en attente…"
+                  : active.message ?? "Erreur de lecture du fichier."}
             </div>
           )}
           <LogViewport
@@ -960,10 +1066,21 @@ export function App() {
             filterSuspended={!!active.filterSuspended}
             hasFilter={toLineFilter(active.filter, !!activeFormat, activeFormat?.format.continuation === "not-line") !== null}
             onToggleFilterView={toggleFilterView}
+            docker={
+              active.docker
+                ? {
+                    status: dockerStatusText(active.state, dockerList?.containers.find((c) => c.name === active.docker?.name)),
+                    loading: loadingMore.has(active.info.tabId),
+                    onLoadMore: () => void loadMoreHistory(active.info.tabId),
+                  }
+                : undefined
+            }
             filterShown={filtered && filterProgress ? { matches: filterProgress.matches, done: filterProgress.done } : undefined}
           />
         </>
       )}
+      </div>
+      </div>
     </div>
   );
 }

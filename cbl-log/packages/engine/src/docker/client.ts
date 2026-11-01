@@ -44,6 +44,8 @@ export interface DockerContainerDetails {
   state: string;
   tty: boolean;
   logDriver: string;
+  /** `State.StartedAt`, absent when the container never started. */
+  startedAt?: string;
   labels: Record<string, string>;
   composeProject?: string;
   composeService?: string;
@@ -148,6 +150,7 @@ export class DockerClient {
       state: String(c.State?.Status ?? ""),
       tty: c.Config?.Tty === true,
       logDriver: String(c.HostConfig?.LogConfig?.Type ?? ""),
+      ...(c.State?.StartedAt && !String(c.State.StartedAt).startsWith("0001-") ? { startedAt: String(c.State.StartedAt) } : {}),
       labels,
       composeProject: labels["com.docker.compose.project"],
       composeService: labels["com.docker.compose.service"],
