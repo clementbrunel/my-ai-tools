@@ -26,6 +26,7 @@ import { SourceError, toSourceError } from "../source/source.js";
 import type { SourceIdentity } from "../source/source.js";
 import { LineIndex } from "../index/line-index.js";
 import type { NumberedLine } from "../index/lines.js";
+import type { SearchTarget } from "../search/session.js";
 import { defaultPollInterval, getGlobalPollScheduler, type PollScheduler, type PollTask } from "./poll-scheduler.js";
 
 /** Anchor size: fingerprint of the bytes preceding the scanned offset. */
@@ -181,7 +182,7 @@ export class Tailer {
    * The readable segments with their line index, oldest first: what engine-side scans (search, filter)
    * read. `id` is stable across rollings; `path` is the file to read now (the archive once rolled).
    */
-  get scanTargets(): { id: number; path: string; encoding: Encoding; startRow: number; index: LineIndex }[] {
+  get scanTargets(): SearchTarget[] {
     return this.segs
       .filter((seg) => seg.readable && seg.index)
       .map((seg) => ({ id: seg.id, path: seg.path, encoding: seg.index!.encoding, startRow: seg.startRow, index: seg.index! }));
@@ -204,13 +205,6 @@ export class Tailer {
       seg.readers--;
       if (this.running) await this.enforceRetention();
     }
-  }
-
-  /** The segment being followed, with its line index. */
-  get currentTarget(): { path: string; encoding: Encoding; startRow: number; index: LineIndex } | undefined {
-    const seg = this.cur;
-    if (!seg?.index || !seg.readable) return undefined;
-    return { path: seg.path, encoding: seg.index.encoding, startRow: seg.startRow, index: seg.index };
   }
 
   on(listener: (event: TailEvent) => void): () => void {

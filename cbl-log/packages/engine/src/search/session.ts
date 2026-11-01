@@ -88,7 +88,7 @@ function lowerBound(values: Float64Array, value: number): number {
 export class SearchSession {
   readonly id = randomUUID();
   private parts = new Map<number, Part>();
-  private run: { search: SearchRun; part: Part; base: number } | undefined;
+  private run: { id: number; search: SearchRun; part: Part; base: number } | undefined;
   private error: SearchError | undefined;
   private dirty = false;
   private disposed = false;
@@ -132,8 +132,9 @@ export class SearchSession {
    * have read the new file at the old file's offsets.
    */
   rolled(): void {
-    if (this.disposed || this.error) return;
+    if (this.disposed) return;
     this.cancelRun();
+    this.error = undefined;
     if (this.liveId !== undefined) this.parts.delete(this.liveId);
     this.dirty = false;
     this.scan();
@@ -187,23 +188,30 @@ export class SearchSession {
     const target = targets[found.at]!;
     const offset = found.offset;
     const line = await this.useIndex(target.id, (index) => index.lineAtOffset(offset));
-    if (line === undefined) return none;
+    // the stream may have moved during the await (rolling, eviction): answer from what is there now
+    const part = this.parts.get(target.id);
+    if (line === undefined || !part) return none;
     let ordinal = 0;
     for (let i = 0; i < found.at; i++) ordinal += this.parts.get(targets[i]!.id)?.count ?? 0;
-    ordinal += rank(this.parts.get(target.id)!, offset);
-    return { row: target.startRow + line, ordinal, matches, done, wrapped };
+    ordinal += rank(part, offset);
+    return { row: target.startRow + line, ordinal, matches: this.matches, done: this.done, wrapped };
   }
 
   // ---------------------------------------------------------------------------------------------
 
-  /** The files of the stream, oldest first; drops the results of the files that left it. */
+  /**
+   * The files of the stream, oldest first. A scan running on a file that left the stream is cancelled
+   * and started again on the others (reads call this too, hence the deferred restart).
+   */
   private sync(): readonly SearchTarget[] {
     const targets = this.getTargets();
-    const ids = new Set(targets.map((t) => t.id));
-    for (const id of [...this.parts.keys()]) {
-      if (ids.has(id)) continue;
-      if (this.run && this.parts.get(id) === this.run.part) this.cancelRun();
-      this.parts.delete(id);
+    const run = this.run;
+    if (run && !targets.some((t) => t.id === run.id)) {
+      this.cancelRun();
+      this.dirty = true;
+      queueMicrotask(() => {
+        if (!this.disposed && !this.error && !this.run) this.scan();
+      });
     }
     return targets;
   }
@@ -245,11 +253,14 @@ export class SearchSession {
 
   /** Searches the first file with unsearched lines (oldest first); emits once there is none left. */
   private scan(): void {
+    const targets = this.sync();
     if (this.run) {
       this.dirty = true;
       return;
     }
-    const targets = this.sync();
+    this.dirty = false;
+    const ids = new Set(targets.map((t) => t.id));
+    for (const id of [...this.parts.keys()]) if (!ids.has(id)) this.parts.delete(id);
     this.liveId = targets.at(-1)?.id;
     for (const target of targets) {
       const part = this.partOf(target.id);
@@ -271,7 +282,8 @@ export class SearchSession {
   private startRun(target: SearchTarget, part: Part, slices: Slice[], limit: number): void {
     const base = part.slices.length;
     for (let i = 0; i < slices.length; i++) part.slices.push({ chunks: [] });
-    const run: { search: SearchRun; part: Part; base: number } = {
+    const run: { id: number; search: SearchRun; part: Part; base: number } = {
+      id: target.id,
       part,
       base,
       search: new SearchRun({

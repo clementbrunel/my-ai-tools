@@ -74,7 +74,7 @@ function checkpointAt(offsets: Float64Array, offset: number): number {
 export class FilterSession {
   readonly id = randomUUID();
   private parts = new Map<number, Part>();
-  private run: { filter: FilterRun; part: Part; base: number } | undefined;
+  private run: { id: number; filter: FilterRun; part: Part; base: number } | undefined;
   private error: SearchError | undefined;
   private dirty = false;
   private disposed = false;
@@ -129,8 +129,9 @@ export class FilterSession {
    * have read the new file at the old file's offsets.
    */
   rolled(): void {
-    if (this.disposed || this.error) return;
+    if (this.disposed) return;
     this.cancelRun();
+    this.error = undefined;
     if (this.liveId !== undefined) this.parts.delete(this.liveId);
     this.dirty = false;
     this.scan();
@@ -215,14 +216,19 @@ export class FilterSession {
 
   // ---------------------------------------------------------------------------------------------
 
-  /** The files of the stream, oldest first; drops the results of the files that left it. */
+  /**
+   * The files of the stream, oldest first. A scan running on a file that left the stream is cancelled
+   * and started again on the others (reads call this too, hence the deferred restart).
+   */
   private sync(): readonly FilterTarget[] {
     const targets = this.getTargets();
-    const ids = new Set(targets.map((t) => t.id));
-    for (const id of [...this.parts.keys()]) {
-      if (ids.has(id)) continue;
-      if (this.run && this.parts.get(id) === this.run.part) this.cancelRun();
-      this.parts.delete(id);
+    const run = this.run;
+    if (run && !targets.some((t) => t.id === run.id)) {
+      this.cancelRun();
+      this.dirty = true;
+      queueMicrotask(() => {
+        if (!this.disposed && !this.error && !this.run) this.scan();
+      });
     }
     return targets;
   }
@@ -291,11 +297,14 @@ export class FilterSession {
 
   /** Filters the first file with unfiltered lines (oldest first); emits once there is none left. */
   private scan(): void {
+    const targets = this.sync();
     if (this.run) {
       this.dirty = true;
       return;
     }
-    const targets = this.sync();
+    this.dirty = false;
+    const ids = new Set(targets.map((t) => t.id));
+    for (const id of [...this.parts.keys()]) if (!ids.has(id)) this.parts.delete(id);
     this.liveId = targets.at(-1)?.id;
     for (const target of targets) {
       const index = target.index;
@@ -328,7 +337,8 @@ export class FilterSession {
   private startRun(target: FilterTarget, part: Part, work: FilterSlice[], limit: number, limitLine: number): void {
     const base = part.slices.length;
     for (let i = 0; i < work.length; i++) part.slices.push({ lines: [], levels: [], folds: [], count: 0, done: false });
-    const run: { filter: FilterRun; part: Part; base: number } = {
+    const run: { id: number; filter: FilterRun; part: Part; base: number } = {
+      id: target.id,
       part,
       base,
       filter: new FilterRun({
