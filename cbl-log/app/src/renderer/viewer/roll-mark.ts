@@ -10,6 +10,8 @@ export interface RollMark {
   previous?: string;
   /** Time the event was received (ms since epoch). */
   at: number;
+  /** "All" tab: label of the source that rolled. */
+  source?: string;
 }
 
 const pad = (n: number): string => String(n).padStart(2, "0");
@@ -21,6 +23,10 @@ export function formatClock(timestamp: number): string {
 
 /** Text of the separator, e.g. "rolling 10:02:11 → app.log.1" or "tronqué 10:02:11". */
 export function rollMarkLabel(mark: RollMark): string {
+  return mark.source ? `${mark.source} : ${plainLabel(mark)}` : plainLabel(mark);
+}
+
+function plainLabel(mark: RollMark): string {
   const time = formatClock(mark.at);
   if (mark.reason === "recreated") return `conteneur recréé ${time}`;
   if (mark.reason === "truncate") {

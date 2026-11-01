@@ -209,4 +209,39 @@ describe("tabsReducer", () => {
     expect(s.tabs[0]).toMatchObject({ total: 1100, scrollRow: 1020, clearedBefore: 1050 });
     expect(s.tabs[0]?.marks[0]?.row).toBe(1060);
   });
+
+  describe("All tab", () => {
+    const merged = (sources: string[], totalRows = 10): TabInfo => ({
+      tabId: "all",
+      source: "merged",
+      path: "",
+      encoding: "utf-8",
+      sizeBytes: 0,
+      totalRows,
+      lineEnding: "unknown",
+      merged: { sources: sources.map((s) => ({ tabId: s, label: s })) },
+    });
+
+    it("opens first with its sources, a fixed name and no file to save", () => {
+      const s = run({ type: "opened", info: info("a") }, { type: "opened", info: merged(["a"]), index: 0 });
+      expect(s.tabs.map((t) => t.info.tabId)).toEqual(["all", "a"]);
+      expect(s.tabs[0]).toMatchObject({ merged: { sources: [{ tabId: "a", label: "a" }], hidden: [] } });
+      expect(tabLabel(s.tabs[0]!)).toBe("Tout");
+      expect(tabUri(s.tabs[0]!)).toBe("merged://all");
+    });
+
+    it("starts over when its sources change, keeping the sources the user hid", () => {
+      let s = run({ type: "opened", info: info("a") }, { type: "opened", info: info("b") }, { type: "opened", info: merged(["a", "b"], 20), index: 0 });
+      s = tabsReducer(s, { type: "event", tabId: "all", event: { type: "rolled", reason: "rename", at: 7, source: "a" }, receivedAt: 5 });
+      s = tabsReducer(s, { type: "mergedHidden", tabId: "all", hidden: ["b"] });
+      s = tabsReducer(s, { type: "mergedUpdated", info: merged(["a"], 4) });
+      expect(s.tabs[0]).toMatchObject({ total: 4, marks: [], merged: { sources: [{ tabId: "a", label: "a" }], hidden: ["b"] } });
+    });
+
+    it("marks the rolling of a source with its name", () => {
+      let s = run({ type: "opened", info: merged(["a"]) });
+      s = tabsReducer(s, { type: "event", tabId: "all", event: { type: "rolled", reason: "rename", at: 7, previous: "C:\\logs\\a.log.1", source: "srv1" }, receivedAt: 5 });
+      expect(s.tabs[0]!.marks).toEqual([{ row: 7, reason: "rename", at: 5, previous: "C:\\logs\\a.log.1", source: "srv1" }]);
+    });
+  });
 });

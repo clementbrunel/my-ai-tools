@@ -14,7 +14,9 @@ export function liveStartRow(tab: Pick<TabState, "info">): number {
  * state only learns when the viewport is left. Rows are counted from the start of the live file: the
  * archives loaded before it will differ at the next open.
  */
-export function buildSession(tabs: readonly TabState[], activeId: TabId | undefined, viewRow: number): Session {
+export function buildSession(allTabs: readonly TabState[], activeId: TabId | undefined, viewRow: number): Session {
+  // the "All" tab is not saved: it is opened again from the tabs
+  const tabs = allTabs.filter((t) => !t.merged);
   const active = tabs.find((t) => t.info.tabId === activeId);
   return {
     schemaVersion: 1,

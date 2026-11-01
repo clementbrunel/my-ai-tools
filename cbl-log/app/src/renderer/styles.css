@@ -641,6 +641,61 @@ body {
   visibility: visible;
 }
 
+.tab-all {
+  flex: none;
+  margin-left: 4px;
+  padding: 2px 10px;
+  border: 1px solid var(--border, #8884);
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.tab-all:hover {
+  background: var(--hover, #8882);
+}
+
+.merged-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  padding: 4px 10px;
+  font-size: 12px;
+  border-bottom: 1px solid var(--border, #8884);
+}
+
+.merged-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+
+.merged-source.off {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.merged-chip {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.log-source {
+  display: inline-block;
+  min-width: 7ch;
+  max-width: 14ch;
+  margin-right: 8px;
+  padding-left: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+  font-weight: 600;
+}
+
 .tab-add {
   align-self: center;
   flex: none;

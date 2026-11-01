@@ -14,9 +14,11 @@ interface Props {
   onOpen(): void;
   /** Docker panel toggle (absent when the feature is disabled). */
   docker?: { open: boolean; onToggle(): void } | undefined;
+  /** Opens the "All" tab (absent when it is open or there is nothing to merge). */
+  onOpenAll?: (() => void) | undefined;
 }
 
-export function TabBar({ tabs, activeId, onActivate, onClose, onRename, onOpen, docker }: Props) {
+export function TabBar({ tabs, activeId, onActivate, onClose, onRename, onOpen, docker, onOpenAll }: Props) {
   const [editing, setEditing] = useState<TabId | undefined>(undefined);
   const cancelled = useRef(false);
 
@@ -94,6 +96,11 @@ export function TabBar({ tabs, activeId, onActivate, onClose, onRename, onOpen, 
           </div>
         );
       })}
+      {onOpenAll && (
+        <button type="button" className="tab-all" onClick={onOpenAll} title="Onglet « Tout » : les fichiers ouverts entrelacés par horodatage" aria-label="Ouvrir l'onglet Tout">
+          Tout
+        </button>
+      )}
       <button type="button" className="tab-add" onClick={onOpen} title="Ouvrir un fichier (Ctrl+O)" aria-label="Ouvrir un fichier">
         +
       </button>
