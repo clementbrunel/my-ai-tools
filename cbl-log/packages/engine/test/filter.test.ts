@@ -39,7 +39,7 @@ function connect(options?: EngineServiceOptions) {
   const pending = new Map<number, (r: EngineResponse) => void>();
   port2.on("message", (m: EngineMessage) => {
     if (m.kind === "event") events.push(m);
-    else pending.get(m.id)?.(m);
+    else if (m.kind === "response") pending.get(m.id)?.(m);
   });
   let nextId = 1;
   cleanups.push(async () => {

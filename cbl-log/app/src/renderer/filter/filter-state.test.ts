@@ -75,7 +75,7 @@ describe("formatForFilter (#457)", () => {
 });
 
 describe("filter on a tab", () => {
-  const info = { tabId: "a", path: "C:/logs/a.log", encoding: "utf-8", sizeBytes: 1, totalRows: 10, lineEnding: "unknown" } as const;
+  const info = { tabId: "a", source: "file", path: "C:/logs/a.log", encoding: "utf-8", sizeBytes: 1, totalRows: 10, lineEnding: "unknown" } as const;
   const run = (...actions: TabsAction[]) => actions.reduce(tabsReducer, initialTabsState);
 
   it("starts unfiltered and is changed by the user", () => {
@@ -125,7 +125,7 @@ describe("describeFilterCount", () => {
 });
 
 describe("pause", () => {
-  const info = { tabId: "a", path: "C:/logs/a.log", encoding: "utf-8", sizeBytes: 1, totalRows: 100, lineEnding: "unknown" } as const;
+  const info = { tabId: "a", source: "file", path: "C:/logs/a.log", encoding: "utf-8", sizeBytes: 1, totalRows: 100, lineEnding: "unknown" } as const;
   const run = (...actions: TabsAction[]) => actions.reduce(tabsReducer, initialTabsState);
 
   it("freezes the row counts of the moment, and resumes", () => {

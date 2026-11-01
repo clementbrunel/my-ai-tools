@@ -20,7 +20,7 @@ export interface TabState {
   unseen: number;
   /** Indexing progress 0..1 while the file is being indexed, undefined otherwise. */
   indexing?: number;
-  state: "following" | "missing" | "error";
+  state: "following" | "missing" | "error" | "stopped" | "waiting";
   message?: string;
   /** First visible row, remembered when the tab is left. */
   scrollRow: number;

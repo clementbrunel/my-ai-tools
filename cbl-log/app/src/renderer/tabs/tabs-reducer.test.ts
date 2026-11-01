@@ -8,6 +8,7 @@ const info = (tabId: string, totalRows = 10): TabInfo => ({
   encoding: "utf-8",
   sizeBytes: 100,
   totalRows,
+  source: "file",
   lineEnding: "unknown",
 });
 
