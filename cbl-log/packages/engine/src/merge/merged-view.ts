@@ -35,6 +35,8 @@ const MAX_SOURCES = 255;
 /** A record read from a source, waiting to be merged. */
 interface Pending {
   ts: number;
+  /** Line of the source holding its head. */
+  first: number;
   lines: number;
   /** When its head line was read: it is merged once older than the re-ordering window. */
   arrival: number;
@@ -50,6 +52,8 @@ interface SourceState {
   lastTs: number;
   /** Lines of the source already merged. */
   merged: number;
+  /** Ranges of lines [from, to) of the source that are gone (content truncated without archive), ascending. */
+  holes: { from: number; to: number }[];
 }
 
 export class MergedView {
@@ -66,7 +70,7 @@ export class MergedView {
   constructor(sources: readonly MergeSource[], options: MergedViewOptions = {}) {
     if (sources.length === 0 || sources.length > MAX_SOURCES) throw new RangeError(`a merge takes 1 to ${MAX_SOURCES} sources`);
     for (const source of sources) if (!source.format.format.timestamp) throw new Error(`${source.label}: its format has no timestamp`);
-    this.states = sources.map((source) => ({ source, next: source.startLine ?? 0, queue: [], open: undefined, lastTs: Number.NEGATIVE_INFINITY, merged: 0 }));
+    this.states = sources.map((source) => ({ source, next: source.startLine ?? 0, queue: [], open: undefined, lastTs: Number.NEGATIVE_INFINITY, merged: 0, holes: [] }));
     this.windowMs = options.windowMs ?? DEFAULT_WINDOW_MS;
     this.chunk = options.chunkLines ?? DEFAULT_CHUNK_LINES;
     this.now = options.now ?? Date.now;
@@ -106,17 +110,17 @@ export class MergedView {
     const k = this.states.length;
     const c = Math.floor(row / CHECKPOINT_ROWS);
     const source = this.srcOf[row]!;
-    let line = this.counts[c * k + source]!;
-    for (let r = c * CHECKPOINT_ROWS; r < row; r++) if (this.srcOf[r] === source) line++;
-    return { source, line: line + (this.states[source]!.source.startLine ?? 0) };
+    let rel = this.counts[c * k + source]!;
+    for (let r = c * CHECKPOINT_ROWS; r < row; r++) if (this.srcOf[r] === source) rel++;
+    return { source, line: lineOf(this.states[source]!, rel) };
   }
 
   /** Merged row showing line `line` of `source`, undefined when that line is not merged (yet). */
   rowOf(source: number, line: number): number | undefined {
     const state = this.states[source];
     if (!state) return undefined;
-    const rel = line - (state.source.startLine ?? 0);
-    if (rel < 0 || rel >= state.merged) return undefined;
+    const rel = relOf(state, line);
+    if (rel === undefined || rel < 0 || rel >= state.merged) return undefined;
     const k = this.states.length;
     // last checkpoint whose counter of `source` is <= rel
     let low = 0;
@@ -137,12 +141,16 @@ export class MergedView {
 
   /** Rows [first, first+count) with their texts; consecutive lines of one source are read together. */
   async rows(first: number, count: number): Promise<{ row: number; source: number; line: number; text: string }[]> {
-    const end = Math.min(this.length, first + count);
     const out: { row: number; source: number; line: number; text: string }[] = [];
-    for (let row = Math.max(0, first); row < end; ) {
-      const at = this.locate(row)!;
+    // the view can change while a read is awaited (rows taken out): stop at what is still there
+    for (let row = Math.max(0, first); row < Math.min(this.length, first + count); ) {
+      const at = this.locate(row);
+      if (!at) break;
+      const end = Math.min(this.length, first + count);
       let n = 1;
-      while (row + n < end && this.srcOf[row + n] === at.source) n++;
+      // a run of one source stops at a hole: the lines on both sides are not consecutive
+      const hole = this.states[at.source]!.holes.find((h) => h.from > at.line);
+      while (row + n < end && this.srcOf[row + n] === at.source && (!hole || at.line + n < hole.from)) n++;
       const texts = await this.states[at.source]!.source.read(at.line, n);
       for (let i = 0; i < n; i++) out.push({ row: row + i, source: at.source, line: at.line + i, text: texts[i] ?? "" });
       row += n;
@@ -150,29 +158,67 @@ export class MergedView {
     return out;
   }
 
+  /**
+   * Lines [from, to) of a source are gone (a file truncated without archive): their rows leave the view in one
+   * linear pass, and they are never read again. Returns the number of rows removed.
+   */
+  dropLines(source: number, from: number, to: number): number {
+    const state = this.states[source];
+    if (!state || to <= from) return 0;
+    // records still waiting to be merged that touch the range
+    const outside = (r: Pending): boolean => r.first + r.lines <= from || r.first >= to;
+    state.queue = state.queue.filter(outside);
+    if (state.open && !outside(state.open)) state.open = undefined;
+    const kept = new Uint8Array(this.length);
+    let count = 0;
+    let removed = 0;
+    let rel = 0;
+    for (let r = 0; r < this.length; r++) {
+      const s = this.srcOf[r]!;
+      if (s === source) {
+        const line = lineOf(state, rel++);
+        if (line >= from && line < to) {
+          removed++;
+          continue;
+        }
+      }
+      kept[count++] = s;
+    }
+    addHole(state, from, to);
+    if (removed > 0) {
+      state.merged -= removed;
+      this.rebuild(kept.subarray(0, count));
+    }
+    return removed;
+  }
+
   /** Takes the rows of a source out of the view (truncated file): one linear pass over the source bytes. */
   drop(source: number): void {
     const state = this.states[source];
     if (!state) return;
     const kept = this.srcOf.subarray(0, this.length).filter((s) => s !== source);
-    this.srcOf = new Uint8Array(Math.max(1 << 16, kept.length * 2));
-    this.srcOf.set(kept);
-    this.length = 0;
-    this.checkpoints = 0;
-    this.counts.fill(0);
+    this.rebuild(kept);
+    state.holes = [];
     state.queue = [];
     state.open = undefined;
     state.merged = 0;
     state.lastTs = Number.NEGATIVE_INFINITY;
     // what the source holds now is read again from its start by the next update
     state.next = state.source.startLine ?? 0;
-    // the counters were built with the dropped source: rebuild them over the kept rows
-    this.pushCheckpoint();
     for (const st of this.states) st.merged = 0;
-    for (let i = 0; i < kept.length; i++) {
-      this.append(kept[i]!, 1);
-      this.states[kept[i]!]!.merged++;
-    }
+    for (let i = 0; i < kept.length; i++) this.states[kept[i]!]!.merged++;
+  }
+
+  /** Starts the index over with these rows (their sources, in order). */
+  private rebuild(kept: Uint8Array): void {
+    this.srcOf = new Uint8Array(Math.max(1 << 16, kept.length * 2));
+    this.srcOf.set(kept);
+    this.length = 0;
+    this.checkpoints = 0;
+    this.counts.fill(0);
+    this.pushCheckpoint();
+    const rows = this.srcOf.slice(0, kept.length);
+    for (let i = 0; i < rows.length; i++) this.append(rows[i]!, 1);
   }
 
   // ---------------------------------------------------------------------------------------------
@@ -184,17 +230,25 @@ export class MergedView {
     const inherits = source.format.format.continuation === "not-line";
     const total = source.lineCount();
     while (state.next < total) {
-      const count = Math.min(this.chunk, total - state.next);
+      // lines that are gone are not read: jump over the hole, and stop a read at the next one
+      const inHole = state.holes.find((h) => state.next >= h.from && state.next < h.to);
+      if (inHole) {
+        state.next = inHole.to;
+        continue;
+      }
+      const nextHole = state.holes.find((h) => h.from > state.next);
+      const limit = nextHole ? Math.min(total, nextHole.from) : total;
+      const count = Math.min(this.chunk, limit - state.next);
       const texts = await source.read(state.next, count);
       const arrival = this.now();
-      for (const text of texts) {
+      for (const [index, text] of texts.entries()) {
         const parsed = parseLine(source.format, text);
         if (parsed || !inherits || !state.open) {
           // a head line (or any line without continuation): a new record
           if (state.open) state.queue.push(state.open);
           const ts = parsed?.ts !== undefined ? parseTimestamp(parsed.ts, pattern, source.timestampOptions) : undefined;
           if (ts !== undefined) state.lastTs = ts;
-          state.open = { ts: state.lastTs, lines: 1, arrival };
+          state.open = { ts: state.lastTs, first: state.next + index, lines: 1, arrival };
         } else state.open.lines++;
       }
       state.next += texts.length;
@@ -255,4 +309,33 @@ export class MergedView {
     }
     this.checkpoints++;
   }
+}
+
+/** Line of the source shown by its `rel`-th merged row (counting only the lines that are not gone). */
+function lineOf(state: SourceState, rel: number): number {
+  let line = rel + (state.source.startLine ?? 0);
+  for (const h of state.holes) if (line >= h.from) line += h.to - h.from;
+  return line;
+}
+
+/** Inverse of `lineOf`; undefined for a line that is gone. */
+function relOf(state: SourceState, line: number): number | undefined {
+  let gone = 0;
+  for (const h of state.holes) {
+    if (line >= h.to) gone += h.to - h.from;
+    else if (line >= h.from) return undefined;
+  }
+  return line - (state.source.startLine ?? 0) - gone;
+}
+
+/** Adds [from, to) to the holes of a source, merging the ranges that touch. */
+function addHole(state: SourceState, from: number, to: number): void {
+  const holes = [...state.holes, { from, to }].sort((a, b) => a.from - b.from);
+  const merged: { from: number; to: number }[] = [];
+  for (const h of holes) {
+    const last = merged[merged.length - 1];
+    if (last && h.from <= last.to) last.to = Math.max(last.to, h.to);
+    else merged.push({ ...h });
+  }
+  state.holes = merged;
 }

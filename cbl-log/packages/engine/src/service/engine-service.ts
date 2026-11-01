@@ -9,13 +9,19 @@ import {
   MAX_ROWS_PER_REQUEST,
   compileFormat,
   isFilterActive,
+  levelCode,
+  levelFromCode,
+  patternSource,
   type Encoding,
   type EngineEvent,
   type EngineMessage,
   type EngineOp,
   type EngineRequest,
   type EngineRequestMap,
+  type CompiledFormat,
   type EngineResponse,
+  type LineFilter,
+  type SearchQuery,
   type FilterLocateParams,
   type FilterLocation,
   type DockerListResult,
@@ -23,8 +29,10 @@ import {
   type DockerLoadMoreResult,
   type FilterStarted,
   type GetRowsParams,
+  type MergedLocateParams,
   type OpenMergedParams,
   type OpenParams,
+  type Row,
   type RowsResult,
   type SearchHit,
   type SearchNextParams,
@@ -39,6 +47,7 @@ import {
 import { detectEncoding, isUtf16, looksBinary } from "../source/encoding.js";
 import { SourceError, toSourceError } from "../source/source.js";
 import { FilterSession, type FilterSessionOptions } from "../filter/session.js";
+import { MergedScan, type RowTest } from "../merge/merged-scan.js";
 import { MergedView, type MergedViewOptions } from "../merge/merged-view.js";
 import { SearchSession, type SearchSessionOptions } from "../search/session.js";
 import { findArchives, type ArchiveFile, type ArchiveScan } from "../tail/archives.js";
@@ -110,6 +119,13 @@ interface Tab {
 interface MergedTab {
   view: MergedView;
   sources: { tabId: TabId; label: string }[];
+  /** Format of each source, for the levels of the filter. */
+  formats: CompiledFormat[];
+  search?: MergedScan;
+  filter?: MergedScan;
+  /** Their definitions, kept to scan again when the sources change. */
+  searchQuery?: SearchQuery;
+  lineFilter?: LineFilter;
   port: PortLike;
   unsubscribe: () => void;
   timer: NodeJS.Timeout | undefined;
@@ -135,6 +151,7 @@ export class EngineService {
   private readonly detachers = new Set<() => void>();
   private readonly dockerOptions: EngineDockerOptions;
   private readonly mergeOptions: MergedViewOptions;
+  private readonly mergeScanOptions: { chunkRows?: number; throttleMs?: number } = {};
   private dockerClient: DockerClient | undefined;
   private watcher: ContainerWatcher | undefined;
   private readonly dockerSubs = new Map<PortLike, () => void>();
@@ -172,6 +189,7 @@ export class EngineService {
     open: (params, port) => this.openTab(params, port),
     getRows: (params) => this.getRows(params),
     openMerged: (params, port) => this.openMerged(params, port),
+    mergedLocate: (params) => this.mergedLocate(params),
     close: (params) => this.closeTab(params.tabId),
     search: (params, port) => this.startSearch(params, port),
     searchNext: (params) => this.searchNext(params),
@@ -426,6 +444,8 @@ export class EngineService {
   }
 
   private async startSearch(params: SearchParams, port: PortLike): Promise<SearchStarted> {
+    const merged = this.merged.get(params.tabId);
+    if (merged) return this.startMergedSearch(merged, params, port);
     const tab = this.requireTab(params.tabId);
     tab.search?.dispose();
     tab.search = undefined;
@@ -451,6 +471,8 @@ export class EngineService {
   }
 
   private async startFilter(params: SetFilterParams, port: PortLike): Promise<FilterStarted> {
+    const merged = this.merged.get(params.tabId);
+    if (merged) return this.startMergedFilter(merged, params, port);
     const tab = this.requireTab(params.tabId);
     tab.filter?.dispose();
     tab.filter = undefined;
@@ -477,6 +499,14 @@ export class EngineService {
   }
 
   private async filterLocate(params: FilterLocateParams): Promise<FilterLocation> {
+    const merged = this.merged.get(params.tabId);
+    if (merged) {
+      const scan = merged.filter;
+      if (!scan || scan.id !== params.filterId) return { position: 0, exact: false, covered: true };
+      const row = Math.max(0, Math.floor(Number(params.row) || 0));
+      const position = scan.lowerBound(row);
+      return { position, exact: position < scan.matches && scan.rowAt(position) === row, covered: scan.done || row < scan.scannedRows };
+    }
     const tab = this.requireTab(params.tabId);
     const session = tab.filter;
     if (!session || session.id !== params.filterId) return { position: 0, exact: false, covered: true };
@@ -484,6 +514,8 @@ export class EngineService {
   }
 
   private async searchNext(params: SearchNextParams): Promise<SearchHit> {
+    const merged = this.merged.get(params.tabId);
+    if (merged) return this.mergedSearchNext(merged, params);
     const session = this.requireTab(params.tabId).search;
     if (!session || session.id !== params.searchId) {
       return { row: null, ordinal: null, matches: 0, done: true, wrapped: false };
@@ -495,6 +527,8 @@ export class EngineService {
     const merged = this.merged.get(tabId);
     if (merged) {
       this.disposeMerged(merged);
+      merged.search?.dispose();
+      merged.filter?.dispose();
       this.merged.delete(tabId);
       return;
     }
@@ -514,6 +548,7 @@ export class EngineService {
     const tabId = params.tabId ?? randomUUID();
     const previous = this.merged.get(tabId);
     if (previous) this.disposeMerged(previous);
+    const formats = params.sources.map((s) => compileFormat(s.format));
     const readers = params.sources.map((source) => {
       const tab = this.requireTab(source.tabId);
       return {
@@ -530,23 +565,44 @@ export class EngineService {
     const merged: MergedTab = {
       view,
       sources: params.sources.map((s) => ({ tabId: s.tabId, label: s.label })),
+      formats,
+      ...(previous?.searchQuery ? { searchQuery: previous.searchQuery } : {}),
+      ...(previous?.lineFilter ? { lineFilter: previous.lineFilter } : {}),
       port,
       unsubscribe: () => {},
       timer: undefined,
       busy: Promise.resolve(),
       closed: false,
     };
+    // content that is already gone (a truncation without archive, a purged archive) is never read
+    params.sources.forEach((source, index) => this.dropGoneLines(merged, index, source.tabId));
     await view.update(true);
-    const offs = params.sources.map((source) =>
+    const offs = params.sources.map((source, index) =>
       this.tabs.get(source.tabId)!.tailer.on((event) => {
         if (event.type === "rows") this.scheduleMerge(tabId, merged);
         else if (event.type === "rolled") {
           // the separator names the source it belongs to and falls where the view is now
           this.emitEvent(port, tabId, { ...event, source: source.label, at: merged.view.rowCount });
+          // a truncation without archive: the old lines are no longer readable, they leave the view
+          merged.busy = merged.busy.then(() => {
+            if (merged.closed || this.dropGoneLines(merged, index, source.tabId) === 0) return;
+            merged.search?.rebind(merged.view);
+            merged.filter?.rebind(merged.view);
+            this.emitEvent(port, tabId, { type: "rows", total: merged.view.rowCount, appended: 0 });
+          });
         }
       }),
     );
     merged.unsubscribe = () => offs.forEach((off) => off());
+    // the search and the filter in force go on over the new sources (same ids)
+    if (previous?.search) {
+      merged.search = previous.search;
+      merged.search.rebind(view);
+    }
+    if (previous?.filter) {
+      merged.filter = previous.filter;
+      merged.filter.rebind(view);
+    }
     this.merged.set(tabId, merged);
     return {
       tabId,
@@ -560,6 +616,17 @@ export class EngineService {
     };
   }
 
+  /** Takes out of the view the lines of a source whose content is gone (segments no longer readable). */
+  private dropGoneLines(merged: MergedTab, source: number, sourceTabId: TabId): number {
+    const tab = this.tabs.get(sourceTabId);
+    if (!tab) return 0;
+    let removed = 0;
+    for (const seg of tab.tailer.segments) {
+      if (!seg.readable && seg.rowCount > 0) removed += merged.view.dropLines(source, seg.startRow, seg.startRow + seg.rowCount);
+    }
+    return removed;
+  }
+
   private scheduleMerge(tabId: TabId, merged: MergedTab): void {
     if (merged.timer || merged.closed) return;
     merged.timer = setTimeout(() => {
@@ -570,7 +637,11 @@ export class EngineService {
         await merged.view.update().catch(() => 0);
         if (merged.closed) return;
         const appended = merged.view.rowCount - before;
-        if (appended > 0) this.emitEvent(merged.port, tabId, { type: "rows", total: merged.view.rowCount, appended });
+        if (appended > 0) {
+          this.emitEvent(merged.port, tabId, { type: "rows", total: merged.view.rowCount, appended });
+          merged.search?.extend();
+          merged.filter?.extend();
+        }
         // records still inside the re-ordering window: come back
         if (merged.view.hasPending) this.scheduleMerge(tabId, merged);
       });
@@ -579,6 +650,7 @@ export class EngineService {
 
   private disposeMerged(merged: MergedTab): void {
     merged.closed = true;
+    // a re-merge hands them to the new tab state (see openMerged); a close disposes them there
     clearTimeout(merged.timer);
     merged.unsubscribe();
   }
@@ -587,10 +659,105 @@ export class EngineService {
     const start = Math.max(0, Math.floor(Number(params.first) || 0));
     const wanted = Math.min(MAX_ROWS_PER_REQUEST, Math.max(0, Math.floor(Number(params.count) || 0)));
     const total = merged.view.rowCount;
-    // the search and the filter do not cover the merged view yet
-    if (params.filterId !== undefined || wanted === 0) return { first: start, rows: [], total };
-    const rows = (await merged.view.rows(start, wanted)).map((r) => ({ lineNo: r.row, text: r.text, truncated: false, source: r.source }));
+    if (params.filterId !== undefined) return this.getMergedFilteredRows(merged, params.filterId, start, wanted);
+    if (wanted === 0) return { first: start, rows: [], total };
+    const rows = (await merged.view.rows(start, wanted)).map((r) => ({ lineNo: r.row, text: r.text, truncated: false, source: r.source, sourceLine: r.line }));
     return { first: start, rows, total: merged.view.rowCount };
+  }
+
+  private async getMergedFilteredRows(merged: MergedTab, filterId: string, start: number, wanted: number): Promise<RowsResult> {
+    const scan = merged.filter;
+    // the filter was replaced or removed meanwhile: nothing to show for the old one
+    if (!scan || scan.id !== filterId) return { first: start, rows: [], total: 0 };
+    const total = scan.matches;
+    const n = Math.min(wanted, Math.max(0, total - start));
+    const rows: Row[] = [];
+    for (let i = 0; i < n; ) {
+      let j = i + 1;
+      while (j < n && scan.rowAt(start + j) === scan.rowAt(start + j - 1) + 1) j++;
+      const run = await merged.view.rows(scan.rowAt(start + i), j - i);
+      run.forEach((r, k) => {
+        const level = levelFromCode(scan.levelAt(start + i + k));
+        rows.push({ lineNo: r.row, text: r.text, truncated: false, source: r.source, sourceLine: r.line, ...(level ? { level } : {}) });
+      });
+      i = j;
+    }
+    return { first: start, rows, total: scan.matches };
+  }
+
+  private async startMergedSearch(merged: MergedTab, params: SearchParams, port: PortLike): Promise<SearchStarted> {
+    merged.search?.dispose();
+    delete merged.search;
+    delete merged.searchQuery;
+    const { query } = params;
+    if (!query || query.pattern === "") return { searchId: null };
+    let regex: RegExp;
+    try {
+      regex = new RegExp(patternSource(query), query.caseSensitive ? "" : "i");
+    } catch (err) {
+      throw new SourceError("BAD_QUERY", "", err instanceof Error ? err.message : String(err));
+    }
+    merged.searchQuery = query;
+    const test: RowTest = (_source, text) => (regex.test(text) ? 0 : -1);
+    const scan = new MergedScan(merged.view, () => test, (e) => this.emitEvent(port, params.tabId, { type: "query", ...e }), this.mergeScanOptions);
+    merged.search = scan;
+    scan.start();
+    return { searchId: scan.id };
+  }
+
+  private async startMergedFilter(merged: MergedTab, params: SetFilterParams, port: PortLike): Promise<FilterStarted> {
+    merged.filter?.dispose();
+    delete merged.filter;
+    delete merged.lineFilter;
+    const { filter } = params;
+    if (!isFilterActive(filter)) return { filterId: null };
+    // the folding of stack traces is not offered here: the head of a record can come from another source
+    const lineFilter: LineFilter = { ...filter, foldContinuation: false };
+    try {
+      new FilterEvaluator(lineFilter, undefined);
+    } catch (err) {
+      throw new SourceError("BAD_QUERY", "", err instanceof Error ? err.message : String(err));
+    }
+    merged.lineFilter = lineFilter;
+    const makeTest = (): RowTest => {
+      // one evaluator per source: each carries the level of the record being read in its own file
+      const evaluators = merged.formats.map((format) => new FilterEvaluator(lineFilter, format));
+      return (source, text) => {
+        const verdict = evaluators[source]!.test(text);
+        return verdict.keep ? levelCode(verdict.level) : -1;
+      };
+    };
+    const scan = new MergedScan(merged.view, makeTest, (e) => this.emitEvent(port, params.tabId, { type: "filter", ...e }), this.mergeScanOptions);
+    merged.filter = scan;
+    scan.start();
+    return { filterId: scan.id };
+  }
+
+  private async mergedSearchNext(merged: MergedTab, params: SearchNextParams): Promise<SearchHit> {
+    const scan = merged.search;
+    if (!scan || scan.id !== params.searchId) return { row: null, ordinal: null, matches: 0, done: true, wrapped: false };
+    const matches = scan.matches;
+    const done = scan.done;
+    const from = Math.floor(Number(params.fromRow) || 0);
+    let index: number;
+    if (params.dir === "next") index = scan.lowerBound(from + 1);
+    else index = scan.lowerBound(from) - 1;
+    let wrapped = false;
+    if (index < 0 || index >= matches) {
+      // nothing further: go around once the scan is complete
+      if (!done || matches === 0) return { row: null, ordinal: null, matches, done, wrapped: false };
+      wrapped = true;
+      index = params.dir === "next" ? 0 : matches - 1;
+    }
+    return { row: scan.rowAt(index), ordinal: index + 1, matches, done, wrapped };
+  }
+
+  private async mergedLocate(params: MergedLocateParams): Promise<{ row: number | null }> {
+    const merged = this.merged.get(params.tabId);
+    if (!merged) throw new SourceError("UNKNOWN", "", `Unknown tab: ${String(params.tabId)}`);
+    const source = merged.sources.findIndex((s) => s.tabId === params.sourceTabId);
+    if (source < 0) return { row: null };
+    return { row: merged.view.rowOf(source, Math.max(0, Math.floor(Number(params.line) || 0))) ?? null };
   }
 
   private requireTab(tabId: TabId): Tab {
