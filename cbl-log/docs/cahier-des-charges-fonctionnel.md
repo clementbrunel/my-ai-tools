@@ -280,7 +280,7 @@ Critères ajoutés en v0.5 (recette : [`recette/README.md`](./recette/README.md)
 | Surlignage (§ 3.4) | H-01 à H-05, H-08 (export / import de profil) | |
 | Recherche / filtre (§ 3.5) | S-01 à S-05 (sur tout le flux, archives comprises) | |
 | Multi-fichiers (§ 3.6) | M-01, M-01b, M-01c, M-01d, M-01e | |
-| Sessions (§ 3.7) | C-01, C-03, C-04 (WebSphere basic, Spring Boot) | 🔜 C-04 : profils de log **Log4j2**, **WebSphere Liberty** (`messages.log` et JSON), JSON lines |
+| Sessions (§ 3.7) | C-01, C-03, C-04 (WebSphere basic, Spring Boot) | 🔜 C-04 (#515) : profils de log **Log4j2**, **WebSphere Liberty** (`messages.log` et JSON), JSON lines |
 | Copie (§ 3.8) | B-01, B-05 | |
 | Docker (§ 3.9) | D-01 à D-10 | |
 | Hors cahier, livré | mise à jour intégrée (GitHub releases), signalement de bug pré-rempli, installeur NSIS + portable, icône / écran de démarrage / À propos | |
