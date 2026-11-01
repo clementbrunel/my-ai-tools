@@ -1380,5 +1380,14 @@ input.switch:checked::after {
 }
 
 .docker-status {
+  flex: none;
   color: var(--fg);
+}
+
+.status-file.docker-file {
+  flex: none;
+}
+
+.status-file > button {
+  flex: none;
 }

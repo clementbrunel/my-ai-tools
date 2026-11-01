@@ -72,7 +72,7 @@ export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules
         {formatBytes(tab.info.sizeBytes)} · <span title="Format de log détecté">{formatName ?? "brut"}</span>
       </span>
       {docker ? (
-        <span className="status-file">
+        <span className="status-file docker-file">
           <span className="status-path docker-status" title={`${tab.docker?.context}/${tab.docker?.name}\nCopie locale : ${tab.info.path}`}>
             {docker.status}
           </span>
