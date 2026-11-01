@@ -38,6 +38,7 @@ public class AccountService {
     public NetWorthDto netWorth() {
         List<Account> accounts = accountRepository.findAll();
         BigDecimal total = accounts.stream()
+                .filter(account -> !account.isArchived())
                 .map(Account::getCurrentBalance)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         return new NetWorthDto(total, accounts.stream().map(this::toDto).toList());
@@ -104,7 +105,8 @@ public class AccountService {
                 account.getType(),
                 account.getInstitution().getConnectorType(),
                 account.getCurrentBalance(),
-                account.getLastSyncedAt()
+                account.getLastSyncedAt(),
+                account.isArchived()
         );
     }
 }
