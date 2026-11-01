@@ -173,6 +173,8 @@ describe("EngineService with a Docker container", () => {
     const { ok, containerEvents } = await connect();
     const list = await ok("dockerList", {});
     expect(list.status).toBe("connected");
+    expect([list.version, list.apiVersion]).toEqual(["27.0.1", "1.45"]);
+    expect(list.context).toBeTruthy();
     expect(list.containers.map((c) => [c.name, c.readable])).toEqual([
       ["quiet", false],
       ["web", true],

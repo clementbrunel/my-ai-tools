@@ -22,6 +22,7 @@ export function formatClock(timestamp: number): string {
 /** Text of the separator, e.g. "rolling 10:02:11 → app.log.1" or "tronqué 10:02:11". */
 export function rollMarkLabel(mark: RollMark): string {
   const time = formatClock(mark.at);
+  if (mark.reason === "recreated") return `conteneur recréé ${time}`;
   if (mark.reason === "truncate") {
     return mark.previous ? `tronqué ${time} → ${baseName(mark.previous)}` : `tronqué ${time}`;
   }

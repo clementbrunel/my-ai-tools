@@ -62,4 +62,12 @@ describe("buildSession", () => {
     expect(tabs[0]).not.toHaveProperty("customName");
     expect(tabs[1]!.customName).toBe("prod");
   });
+
+  it("writes a Docker tab as its docker:// URI, not as its spool file", () => {
+    const docker = { ...info("spool"), source: "docker" as const, path: "C:/Users/me/AppData/Local/cbl-log/docker/default/web-1.log" };
+    const s = run({ type: "opened", info: docker, docker: { context: "default", name: "web-1" } });
+    const session = buildSession(s.tabs, s.activeId, 0);
+    expect(session.tabs[0]?.path).toBe("docker://default/web-1");
+    expect(session.activePath).toBe("docker://default/web-1");
+  });
 });

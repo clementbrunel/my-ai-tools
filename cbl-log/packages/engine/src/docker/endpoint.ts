@@ -76,3 +76,12 @@ export function resolveEndpoint(opts: ResolveEndpointOptions = {}): DockerEndpoi
   const host = opts.settingsHost?.trim() || env.DOCKER_HOST?.trim() || contextHost(opts, read) || DEFAULT_DOCKER_HOST;
   return parseDockerHost(host);
 }
+
+/** Name of the Docker CLI context in force ("default" when none): the folder of the spools, the `docker://` authority. */
+export function currentContextName(opts: ResolveEndpointOptions = {}): string {
+  const env = opts.env ?? process.env;
+  const read = opts.readFile ?? defaultReadFile;
+  const dockerDir = env.DOCKER_CONFIG || join(opts.homeDir ?? homedir(), ".docker");
+  const config = parseJson(read(join(dockerDir, "config.json"))) as { currentContext?: string } | undefined;
+  return env.DOCKER_CONTEXT || config?.currentContext || "default";
+}

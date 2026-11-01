@@ -34,3 +34,5 @@ export * from "./formats.js";
 export * from "./pattern.js";
 
 export * from "./filter.js";
+
+export * from "./docker-uri.js";

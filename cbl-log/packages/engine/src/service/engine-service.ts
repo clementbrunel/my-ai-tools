@@ -41,6 +41,7 @@ import { SearchSession, type SearchSessionOptions } from "../search/session.js";
 import { Tailer } from "../tail/tailer.js";
 import { DockerClient } from "../docker/client.js";
 import { DockerError } from "../docker/errors.js";
+import { currentContextName } from "../docker/endpoint.js";
 import { ContainerWatcher } from "../docker/watcher.js";
 import { LogSpooler, purgeSpools, type SpoolerOptions } from "../docker/spooler.js";
 
@@ -325,7 +326,7 @@ export class EngineService {
   private containerWatcher(): ContainerWatcher {
     const o = this.dockerOptions;
     this.dockerClient ??= o.client ?? new DockerClient(o.host ? { settingsHost: o.host } : {});
-    return (this.watcher ??= new ContainerWatcher({ client: this.dockerClient, ...o.watcher }));
+    return (this.watcher ??= new ContainerWatcher({ client: this.dockerClient, context: currentContextName(o.host ? { settingsHost: o.host } : {}), ...o.watcher }));
   }
 
   /** "Load more history": the spool is rebuilt with a bigger `tail` and the tab re-indexed in place. */
