@@ -2,6 +2,7 @@ package com.mymoneyhub.controller;
 
 import com.mymoneyhub.dto.AccountDto;
 import com.mymoneyhub.dto.NetWorthDto;
+import com.mymoneyhub.dto.NetWorthPointDto;
 import com.mymoneyhub.dto.UpdateBalanceRequest;
 import com.mymoneyhub.service.AccountService;
 import jakarta.validation.Valid;
@@ -25,6 +26,11 @@ public class AccountController {
     @GetMapping("/net-worth")
     public NetWorthDto netWorth() {
         return accountService.netWorth();
+    }
+
+    @GetMapping("/net-worth/history")
+    public List<NetWorthPointDto> netWorthHistory() {
+        return accountService.netWorthHistory();
     }
 
     @PutMapping("/{id}/balance")
