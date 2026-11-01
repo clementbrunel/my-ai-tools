@@ -46,3 +46,23 @@ Mêmes données, mêmes débits, mêmes durées, mêmes seuils (voir l'en-tête 
 | M5 | Redémarrer Docker Desktop (menu de la zone de notification) pendant le suivi d'un conteneur qui écrit | reconnexion automatique, reprise sans doublon (comparer les numéros de séquence), séparateur « conteneur recréé » absent si le conteneur survit | |
 
 Astuce pour M4/M5 : `docker run -d --name bavard --label cbl-log-recette -v "$PWD/scripts/recette:/s:ro" node:22-alpine node /s/docker-writer.mjs --rate 10000 --seconds 3600` (les lignes portent leur numéro de séquence : `#seq#`).
+
+## Onglet « Tout » (M3, commentaire de l'issue #486)
+
+Mesuré par la recette fichier (`npm run recette -- --only m1,m1b,m3 [--merge-size 200M|1G]`, scénarios dans `scripts/recette/merged.mjs`, historique et comparaison avec les autres scénarios) :
+
+| Point du commentaire | Scénario |
+|---|---|
+| 2 puis 4 fichiers de 200 Mo à 1 Go : clic → première page, → fin de fusion, mémoire du moteur | **M1** (2 fichiers), **M1B** (4 fichiers) |
+| Les autres onglets restent fluides pendant la fusion | M1 / M1B (images du premier onglet pendant la fusion, p99 ≤ 50 ms) |
+| 8 sources en follow à 1 000 lignes/s avec « Tout » ouvert : délai d'apparition, CPU du moteur | **M3** |
+| Cocher / décocher une source : durée de la refusion | M1 / M1B |
+
+Les seuils sont ceux, indicatifs, du commentaire (première page < 1 s, fusion complète < 5 s, délai ≈ 2,25 s).
+
+À faire à la main :
+
+| # | Scénario | Résultat |
+|---|---|---|
+| M6 | Recherche et filtre dans « Tout » sur ce volume (premiers résultats, durée totale, à comparer à NF-05 : 1 Go filtré en < 3 s). **Non automatisé** : le filtre ne couvre pas encore l'onglet « Tout » (`App.tsx`, `applyFilter`). | |
+| M7 | **Décision** : si la fusion initiale dépasse quelques secondes ou gêne les autres onglets (M1B), passer la lecture et le parsing des horodatages dans les workers (`docs/architecture.md` § 4.6). | |

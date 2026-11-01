@@ -3,6 +3,7 @@
 //   npm run package:dir && npm run recette -- --size 1G [--only r1,r2,...] [--out docs/recette-mvp.md] [--history docs/recette/history.jsonl]
 //   --source file|docker|both   file = recette MVP (default); docker = same data on Docker Desktop containers (issue #486,
 //                               needs Docker running); both = the two, then the comparison. Docker scenarios: d1,d2,d2b,d3,d5,d4,d7.
+//   --merge-size 200M  (files of the "All" tab scenarios m1, m1b, m3)
 //   --docker-out <md>  --compare-out <md>  --docker-seed 128M  --docker-image node:22-alpine
 //
 // The app runs with an isolated config folder (CBL_LOG_USER_DATA) and is driven over the DevTools
@@ -14,6 +15,7 @@ import { cpus, platform, release, tmpdir, totalmem } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { compareReport, readHistory } from "./compare.mjs";
+import { mergeFollow, mergeOpen } from "./merged.mjs";
 import { DOCKER_IDS, MANUAL, d1, d2, d2b, d3, d4, d5andD6, d7, prepareEnv, removeRecetteContainers } from "./docker.mjs";
 import { copyAllRows, cpuPercent, cpuTimes, defenderState, fmt, launch, memory, now, openInRunningApp, page, percentile, quit, result, separatorLabels, sleep, tempDir, verdict, waitFor } from "./lib.mjs";
 
@@ -34,6 +36,7 @@ const dockerOutFile = opt("docker-out", "");
 const compareOutFile = opt("compare-out", "");
 const dockerImage = opt("docker-image", "node:22-alpine");
 const dockerSeed = opt("docker-seed", "128M");
+const mergeSize = opt("merge-size", "200M");
 const historyFile = opt("history", "");
 const benchDir = join(root, "packages/engine/dist/bench-build/bench");
 const writerJs = join(benchDir, "writer.js");
@@ -559,6 +562,12 @@ async function main() {
     await run(results, "r4", r4);
     await run(results, "r67", r6andR7);
     await run(results, "r8", () => r8(ctx));
+    if (["m1", "m1b", "m3"].some(want)) {
+      const mergeEnv = { exe, nextPort, mergeFile: await generatedFile(mergeSize), mergeLabel: mergeSize.replace(/(d)([MG])$/, "$1 $2io") };
+      await run(results, "m1", () => mergeOpen(mergeEnv, 2));
+      await run(results, "m1b", () => mergeOpen(mergeEnv, 4));
+      await run(results, "m3", () => mergeFollow(mergeEnv, runWriter));
+    }
     record("file", results);
     if (outFile) write(outFile, toMarkdown(results, meta, "file"));
     all.push(...results);
