@@ -1,7 +1,7 @@
 # cbl-log — Cahier des charges fonctionnel
 
 > Statut : **v0.5 — à jour de ce qui est développé (v2.1.0 + onglet « Tout » + conteneurs Docker)**. L'avancement par exigence est au § 11.
-> v0.5 : conteneurs Docker Desktop (§ 3.9, D-01 à D-10), onglet « Tout » livré (M-01 à M-01e, A-07), historique du rolling chargé avec le fichier (T-08/T-09), recherche et filtre sur tout le flux, recette automatisée fichier + Docker (§ 7, [`recette/`](./recette/README.md)) ; M4 et M5 non planifiés.
+> v0.5 : conteneurs Docker Desktop (§ 3.9, D-01 à D-10), onglet « Tout » livré (M-01 à M-01e, A-07), historique du rolling chargé avec le fichier (T-08/T-09), recherche et filtre sur tout le flux, recette automatisée fichier + Docker (§ 7, [`recette/`](./recette/README.md)). Le périmètre est ramené à ce qui est livré ou à venir : les exigences abandonnées sont retirées (§ 5).
 > v0.4 : rolling confirmé (même nom + archives à côté), bind mount Windows, format de log fourni plus tard.
 > v0.3 : source de référence = WebSphere en conteneur Docker, perf 10 Go conservée (plusieurs logs en parallèle).
 > v0.2 : nom `cbl-log`, Windows seul, priorité au fichier `.log` en rolling, pas de version terminal,
@@ -20,9 +20,7 @@ selon des mots-clés. Il n'a pas évolué depuis des années et montre ses limit
 | Pas de filtre ni de recherche avancée (réservés à la Pro)  | Impossible d'isoler un flux dans un log verbeux     |
 | Aucune compréhension du format (niveau, timestamp, JSON)   | Logs JSON illisibles, pas de saut par horodatage    |
 | Un onglet = un fichier, pas de fusion chronologique        | Corréler app + proxy + DB impose de jongler         |
-| Pas de session persistée, pas de profils par projet        | On reconfigure tout à chaque ouverture              |
-| Pas de signets, pas d'annotation, pas d'export de sélection| Partage d'un incident laborieux                     |
-| Pas d'alertes                                              | Il faut garder un œil sur la fenêtre                |
+| Pas de session persistée        | On reconfigure tout à chaque ouverture              |
 
 **Objectif** : un outil perso, moderne, **pour Windows**, qui conserve la qualité n°1 de BareTail
 (*ouvrir n'importe quel fichier, même énorme, et le suivre instantanément*) — y compris à travers le
@@ -49,9 +47,9 @@ Cas d'usage de référence :
 - **UC2 — Ouvrir un gros log a posteriori** (plusieurs Go) pour analyser un incident.
 - **UC3 — Isoler un flux** : n'afficher que les `ERROR`, ou que les lignes d'un `traceId`.
 - **UC4 — Corréler plusieurs fichiers** (app + nginx) dans une vue chronologique unique.
-- **UC5 — Retrouver sa config** : rouvrir « le projet prono-core » avec ses fichiers, règles et filtres.
-- **UC6 — Être prévenu** quand un motif apparaît (ex. `OutOfMemoryError`) sans regarder l'écran.
-- **UC7 — Partager un extrait** : copier/exporter une plage ou une sélection filtrée.
+- **UC5 — Retrouver sa session** : rouvrir l'appli avec ses onglets, ses règles et ses positions.
+- **UC6 — Lire un conteneur Docker** sans bind mount ni configuration.
+- **UC7 — Partager un extrait** : copier une sélection.
 
 ## 3. Périmètre
 
@@ -68,10 +66,6 @@ Priorités : **P0** = MVP (parité BareTail utile), **P1** = V1 (ce qui justifie
 | F-05   | Encodages : UTF-8 (défaut), UTF-16 LE/BE (BOM), Latin-1/Windows-1252 ; sélection manuelle possible     | P0   |
 | F-06   | Fins de ligne `\n`, `\r\n`, `\r` ; lignes très longues tronquées à l'affichage (seuil configurable)    | P0   |
 | F-07   | Fichiers sur partage réseau (SMB/NFS) **et volumes Docker Desktop** (bind mount d'un dossier Windows, ou `\\wsl$\…`) — fonctionnement par polling, les événements FS n'y étant pas fiables | P0 |
-| F-08   | Ouvrir un fichier compressé `.gz` en lecture seule (sans suivi temps réel)                             | P2   |
-| F-09   | Suivre un **motif de fichiers** (`C:\logs\app-*.log`) et basculer sur le plus récent (rolling par nom daté) | P1 |
-| F-10   | Source = sortie d'une commande (`docker logs -f x`, `kubectl logs -f`, `journalctl -f`) ou stdin — **Docker est couvert nativement par D-01 à D-10** | P2   |
-| F-11   | Source distante via SSH (tail d'un fichier sur une autre machine)                                      | P2   |
 
 ### 3.2 Suivi temps réel
 
@@ -94,16 +88,13 @@ Priorités : **P0** = MVP (parité BareTail utile), **P1** = V1 (ce qui justifie
 
 | ID     | Exigence                                                                                              | Prio |
 |--------|-------------------------------------------------------------------------------------------------------|------|
-| A-01   | **Un onglet par fichier**, réordonnables, avec indicateur d'activité ; vue scindée (split horizontal/vertical) de 2 à 4 fichiers | P0 (onglets) / P1 (split) |
+| A-01   | **Un onglet par fichier** (ou par conteneur), renommable, avec indicateur d'activité                  | P0   |
 | A-02   | Défilement fluide sur des millions de lignes (liste virtualisée), barre de défilement fidèle          | P0   |
-| A-03   | Numéros de ligne, retour à la ligne (wrap) activable, police monospace configurable, zoom             | P0   |
+| A-03   | Numéros de ligne, police monospace                                                                      | P0   |
 | A-04   | Thèmes clair / sombre / système                                                                        | P0   |
-| A-05   | **Minimap** / gouttière montrant la position des lignes surlignées et des résultats de recherche      | P1   |
 | A-06   | Aller à la ligne N, aller au début / à la fin                                                          | P0   |
 | A-07   | Aller à un **horodatage** (si le format est reconnu)                                                    | P1   |
 | A-08   | Lignes multi-lignes (stack traces) regroupées et repliables sous la ligne qui les précède              | P1   |
-| A-09   | Affichage JSON : une ligne JSON est rendue en colonnes choisies (`ts`, `level`, `msg`) + détail dépliable | P1 |
-| A-10   | Vue en colonnes pour les formats structurés (timestamp, niveau, logger, message)                       | P2   |
 
 ### 3.4 Surlignage (highlighting)
 
@@ -112,10 +103,8 @@ Priorités : **P0** = MVP (parité BareTail utile), **P1** = V1 (ce qui justifie
 | H-01   | Règles ordonnées : motif (texte ou **regex**), sensibilité à la casse, couleur texte + fond            | P0   |
 | H-02   | Portée : **ligne entière** ou **seulement le fragment** correspondant                                  | P0   |
 | H-03   | Règles par défaut fournies (`ERROR`, `WARN`, `INFO`, `DEBUG`, `Exception`, `Caused by`)                | P0   |
-| H-04   | Jeux de règles nommés, réutilisables, attachables à un profil (cf. § 3.7)                              | P1   |
+| H-04   | Jeux de règles nommés, réutilisables                              | P1   |
 | H-05   | Activer/désactiver une règle à la volée sans l'effacer                                                  | P0   |
-| H-06   | Surlignage temporaire « tout ce qui ressemble à la sélection » (double-clic sur un mot)                | P1   |
-| H-07   | Import des règles depuis un fichier de config BareTail (`.udm` / registre) pour migrer                  | P2   |
 | H-08   | **Export / import** d'un profil de surlignage (fichier `.json`) pour le partager entre collègues ; à l'import, un profil de même id est remplacé ou gardé en copie au choix | P1   |
 
 ### 3.5 Recherche et filtrage
@@ -127,9 +116,6 @@ Priorités : **P0** = MVP (parité BareTail utile), **P1** = V1 (ce qui justifie
 | S-03   | Filtres combinables (ET / OU), filtre par **niveau** (cases ERROR/WARN/INFO/DEBUG)                     | P1   |
 | S-04   | Le filtre s'applique aussi aux lignes qui arrivent en temps réel                                       | P1   |
 | S-05   | Basculer filtré ↔ complet en conservant la position (« montrer le contexte autour de cette ligne »)    | P1   |
-| S-06   | Contexte : afficher N lignes avant/après chaque résultat (comme `grep -C`)                             | P2   |
-| S-07   | Historique des recherches/filtres récents                                                              | P1   |
-| S-08   | Filtre par plage horaire (de… à…)                                                                      | P2   |
 
 ### 3.6 Multi-fichiers
 
@@ -138,29 +124,22 @@ Priorités : **P0** = MVP (parité BareTail utile), **P1** = V1 (ce qui justifie
 | M-01   | **Onglet « Tout »** (épinglé en premier) : vue centralisée de tous les fichiers ouverts (ou d'une sélection), entrelacés par horodatage, en temps réel | P1 |
 | M-01b  | Dans la vue fusionnée, chaque ligne porte l'**étiquette et la couleur de sa source** (ex. `srv1`, `srv2`), avec cases pour masquer/afficher une source | P1 |
 | M-01c  | Depuis la vue fusionnée, « ouvrir dans l'onglet du fichier » saute à la même ligne dans son onglet (et inversement) | P1 |
-| M-01d  | Filtres, surlignage, recherche et alertes fonctionnent à l'identique dans la vue fusionnée               | P1   |
+| M-01d  | Filtres, surlignage et recherche fonctionnent à l'identique dans la vue fusionnée               | P1   |
 | M-01e  | Les rollings de chaque source apparaissent dans la vue fusionnée comme des séparateurs étiquetés         | P1   |
-| M-02   | Rechercher dans tous les onglets ouverts                                                                | P2   |
 
 ### 3.7 Sessions, profils, personnalisation
 
 | ID     | Exigence                                                                                              | Prio |
 |--------|-------------------------------------------------------------------------------------------------------|------|
 | C-01   | Restauration de la session à la réouverture (onglets, position, follow, filtres actifs)                | P0   |
-| C-02   | **Profils** nommés : ensemble de fichiers/motifs + jeu de règles + parseur + filtres (« prono-core dev ») | P1 |
 | C-03   | Configuration stockée en **fichiers texte lisibles** (JSON/TOML) éditables à la main et versionnables  | P0   |
-| C-04   | **Parseurs de format** déclaratifs (regex à groupes nommés : `ts`, `level`, `logger`, `msg`) ; formats fournis : **WebSphere traditional** (`SystemOut.log`), **WebSphere Liberty** (`messages.log`, et JSON logging), Spring Boot/Logback, JSON lines | **P0** pour WebSphere, P1 pour les autres |
-| C-05   | Raccourcis clavier configurables ; palette de commandes (`Ctrl+Shift+P`)                               | P1   |
-| C-06   | Point d'extension pour scripts/plugins utilisateur (transformation ou action sur ligne)                 | P2   |
+| C-04   | **Parseurs de format** déclaratifs (regex à groupes nommés : `ts`, `level`, `logger`, `msg`) ; formats fournis : **WebSphere traditional** (`SystemOut.log`) et Spring Boot ; **à ajouter** : **Log4j2**, **WebSphere Liberty** (`messages.log` et JSON logging), JSON lines | **P0** pour WebSphere, P1 pour les autres |
 
-### 3.8 Signets, export, alertes
+### 3.8 Copie et effacement
 
 | ID     | Exigence                                                                                              | Prio |
 |--------|-------------------------------------------------------------------------------------------------------|------|
 | B-01   | Copier la sélection (avec ou sans numéros de ligne)                                                     | P0   |
-| B-02   | **Signets** sur des lignes, navigation entre signets, note facultative ; persistés par fichier          | P1   |
-| B-03   | Exporter la vue courante (filtrée) ou une plage vers un fichier                                         | P1   |
-| B-04   | **Alertes** : règle → notification système (+ son facultatif), avec anti-rafale (1 notif / N s)       | P1   |
 | B-05   | Effacer la vue (« clear ») : masquer tout ce qui précède, comme un `clear` de terminal                  | P0   |
 
 ### 3.9 Conteneurs Docker (Docker Desktop)
@@ -194,7 +173,7 @@ Hors périmètre : stats CPU/mémoire, shell, démarrer/arrêter un conteneur (c
 | NF-03  | **Indexation** : ≥ 300 Mo/s sur SSD local                                                               |
 | NF-04  | **Débit temps réel** : absorber 10 000 lignes/s en follow sans figer l'UI (rendu ≤ 60 fps, coalescé), pour un fichier comme pour un conteneur Docker (D-09) |
 | NF-05  | **Recherche/filtre** : premiers résultats < 1 s, 1 Go filtré en < 3 s, progression visible, annulable  |
-| NF-11  | **Multi-logs** : 8 fichiers suivis simultanément (onglets + split), 1 000 lignes/s chacun, totalisant 10 Go, sans dégradation visible de l'UI ni dépassement de NF-02 |
+| NF-11  | **Multi-logs** : 8 fichiers suivis simultanément (onglets), 1 000 lignes/s chacun, totalisant 10 Go, sans dégradation visible de l'UI ni dépassement de NF-02 |
 | NF-06  | **Windows 10/11 x64** uniquement ; installeur + version portable (`.exe` sans installation)             |
 | NF-07  | Hors ligne, aucune télémétrie, aucune donnée ne quitte la machine. Seule exception : la vérification des mises à jour (lecture des releases GitHub, désactivable via `checkForUpdates`). Le signalement de bug (Aide) n'envoie rien : il ouvre une issue pré-remplie dans le navigateur |
 | NF-08  | Lecture seule stricte sur les fichiers suivis : l'outil n'écrit jamais dans un log                      |
@@ -207,20 +186,21 @@ Hors périmètre : stats CPU/mémoire, shell, démarrer/arrêter un conteneur (c
 - Édition des fichiers de log.
 - Requêtage type SQL/LogQL (éventuellement P2+ si le besoin émerge).
 - Multi-utilisateur, partage en ligne.
+- Abandonnés volontairement : signets, alertes, export, palette de commandes, minimap, zoom et retour à la ligne, split view, profils complets, sources commande / SSH / stdin, archives `.gz`, plugins, import BareTail.
 
 ## 6. Interface — esquisse
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│ ☰  [app.log ●12] [nginx/access.log] [merge: app+nginx] [+]        ⌕  ⚙  ◐    │
+│ [Tout] [app.log ●12] [nginx/access.log] [🐳 web-1] [+]            ⌕  ⚙  ◐    │
 ├──────────────────────────────────────────────────────────────────────────────┤
 │ Filtre: [level ≥ WARN] [traceId=ab12 ×]  [+ include] [+ exclude]   1 204 / 3,2 M│
 ├────┬─────────────────────────────────────────────────────────────────────┬───┤
-│1201│ 2026-10-14 10:02:11.204  INFO  c.p.Api   GET /bets 200 12ms         │ ▒ │
-│1202│ 2026-10-14 10:02:11.390  WARN  c.p.Pool  pool 90% used              │ ▒ │← minimap
-│1203│ 2026-10-14 10:02:12.007  ERROR c.p.Db    Connection refused      ▸  │ █ │
+│1201│ 2026-10-14 10:02:11.204  INFO  c.p.Api   GET /bets 200 12ms         │   │
+│1202│ 2026-10-14 10:02:11.390  WARN  c.p.Pool  pool 90% used              │   │
+│1203│ 2026-10-14 10:02:12.007  ERROR c.p.Db    Connection refused      ▸  │   │
 │    │   ▸ 34 lignes de stack trace                                        │   │
-│1238│ 2026-10-14 10:02:12.010  INFO  c.p.Api   retry 1/3                  │ ▒ │
+│1238│ 2026-10-14 10:02:12.010  INFO  c.p.Api   retry 1/3                  │   │
 ├────┴─────────────────────────────────────────────────────────────────────┴───┤
 │ UTF-8 · LF · 2,4 Go · indexé 100 % · ⏵ FOLLOW · Spring Boot · règles: défaut │
 └──────────────────────────────────────────────────────────────────────────────┘
@@ -259,12 +239,9 @@ Critères ajoutés en v0.5 (recette : [`recette/README.md`](./recette/README.md)
 |-------|---------------------------------------------------------------------------------|------|
 | M0    | Squelette Electron + moteur de lecture/indexation/rolling testé seul (tests + script de bench) | ✅ livré |
 | M1    | MVP P0 : onglets, follow, rotation, surlignage, recherche, session              | ✅ livré |
-| M2    | Filtres, format WebSphere + autres parseurs, regroupement multi-lignes, niveaux | ✅ livré (filtres, niveaux, repli, pause, WebSphere + Spring Boot ; reste : autres formats, F-09, S-07) |
+| M2    | Filtres, format WebSphere + autres parseurs, regroupement multi-lignes, niveaux | ✅ livré (filtres, niveaux, repli, pause, WebSphere + Spring Boot) ; reste : formats Log4j2 et Liberty |
 | M3    | **Onglet « Tout » (vue fusionnée)**, aller à l'horodatage                       | ✅ livré (#504 à #510) |
 | Docker | Conteneurs Docker Desktop (§ 3.9)                                              | ✅ livré (#483 à #485) ; recette à exécuter dans #393 |
-| M4    | Profils, signets, alertes, export, palette de commandes, split view             | ⏸ non planifié (issue #396 fermée) |
-| M5    | JSON, archives du rolling (T-08), minimap                                       | ⏸ non planifié (#397 fermée) ; T-08/T-09 livrés autrement (archives chargées avec le fichier) |
-| M6+   | P2 : sources commande/stdin/SSH, `.gz`, plugins, import BareTail                 | ⏸ non planifié |
 
 ## 9. Décisions prises (v0.4)
 
@@ -272,7 +249,7 @@ Critères ajoutés en v0.5 (recette : [`recette/README.md`](./recette/README.md)
 |---------------------|------------------------------------------------------------------------------|
 | Nom                 | `cbl-log`                                                                    |
 | OS                  | Windows 10/11 uniquement                                                     |
-| Source prioritaire  | `.log` WebSphere écrit par un conteneur Docker dans un volume, **avec rolling ~100 Mo** ; commandes/SSH restent P2 |
+| Source prioritaire  | `.log` WebSphere écrit par un conteneur Docker dans un volume, **avec rolling ~100 Mo**, ou lu sur le stdout du conteneur (D-01 à D-10) |
 | Montage Docker      | Bind mount vers un dossier Windows (événements NTFS disponibles + polling en filet) |
 | Format de log       | Format WebSphere exact fourni plus tard ; d'ici là, format « brut » + parseur WebSphere « basic » générique |
 | Perf                | Objectifs 10 Go conservés (plusieurs logs ouverts en même temps) + NF-11     |
@@ -293,22 +270,18 @@ Critères ajoutés en v0.5 (recette : [`recette/README.md`](./recette/README.md)
 
 ## 11. Avancement par exigence (au 2026-11-01)
 
-Établi d'après le code de `main` et les issues fermées. ✅ livré · 🟡 partiel · ⏸ non fait (non planifié).
+Établi d'après le code de `main`. ✅ livré · 🟡 partiel · 🔜 à venir.
 
-| Domaine | ✅ Livré | 🟡 Partiel | ⏸ Non fait |
-|---|---|---|---|
-| Ouverture (§ 3.1) | F-01 (dialogue, glisser-déposer, ligne de commande, récents), F-02, F-03, F-04, F-05, F-07 | F-06 (fins de ligne ; troncature des lignes très longues non vérifiée) | F-08 (`.gz` : `GzSource` non écrite), F-09 (motif de fichiers), F-10 (hors Docker), F-11 |
-| Suivi (§ 3.2) | T-01 à T-05, T-04b/c/d, T-06, T-07, T-08 et T-09 (archives chargées avec le fichier, `historyHours`) | | |
-| Affichage (§ 3.3) | A-02, A-03 (numéros de ligne), A-04, A-06, A-07 (`Ctrl+G` ligne ou heure), A-08 (repli des stack traces) | A-01 (onglets renommables ; ni réordonnables ni split), A-03 (retour à la ligne / zoom non vérifiés) | A-05 (minimap), A-09, A-10 |
-| Surlignage (§ 3.4) | H-01, H-02, H-03, H-04, H-05, H-08 (export / import de profil) | | H-06, H-07 |
-| Recherche / filtre (§ 3.5) | S-01, S-02, S-03, S-04, S-05 (sur tout le flux, archives comprises) | | S-06, S-07, S-08 |
-| Multi-fichiers (§ 3.6) | M-01, M-01b, M-01c, M-01d, M-01e | | M-02 |
-| Sessions (§ 3.7) | C-01, C-03, C-04 (WebSphere basic, Spring Boot) | C-04 (Liberty, JSON lines, Log4j2 manquent) | C-02, C-05, C-06 |
-| Signets / export / alertes (§ 3.8) | B-01, B-05 | | B-02, B-03, B-04 |
-| Docker (§ 3.9) | D-01 à D-10 | | |
-| Hors cahier, livré | mise à jour intégrée (GitHub releases), signalement de bug pré-rempli, installeur NSIS + portable, icône / écran de démarrage / À propos | | |
-| Non fonctionnel (§ 4) | NF-06, NF-07, NF-08 (à mesurer : NF-01 à NF-05, NF-11 par la recette #393 / #486) | | |
-
-Lecture : les jalons **M4** et **M5** (profils, signets, alertes, export, palette, split view, JSON, minimap) n'ont pas de
-suite planifiée ; leurs issues #396 et #397 sont fermées « non planifié ». L'issue #394 (M2) est fermée alors que F-09, S-07 et
-les formats Log4j2 / Liberty JSON qu'elle citait ne sont pas faits.
+| Domaine | ✅ Livré | 🟡 Partiel / 🔜 À venir |
+|---|---|---|
+| Ouverture (§ 3.1) | F-01 (dialogue, glisser-déposer, ligne de commande, récents), F-02, F-03, F-04, F-05, F-07 | 🟡 F-06 : fins de ligne livrées ; troncature des lignes très longues non vérifiée |
+| Suivi (§ 3.2) | T-01 à T-05, T-04b/c/d, T-06, T-07, T-08 et T-09 (archives chargées avec le fichier, `historyHours`) | |
+| Affichage (§ 3.3) | A-01 (onglets renommables), A-02, A-03 (numéros de ligne), A-04, A-06, A-07 (`Ctrl+G` ligne ou heure), A-08 (repli des stack traces) | |
+| Surlignage (§ 3.4) | H-01 à H-05, H-08 (export / import de profil) | |
+| Recherche / filtre (§ 3.5) | S-01 à S-05 (sur tout le flux, archives comprises) | |
+| Multi-fichiers (§ 3.6) | M-01, M-01b, M-01c, M-01d, M-01e | |
+| Sessions (§ 3.7) | C-01, C-03, C-04 (WebSphere basic, Spring Boot) | 🔜 C-04 : profils de log **Log4j2**, **WebSphere Liberty** (`messages.log` et JSON), JSON lines |
+| Copie (§ 3.8) | B-01, B-05 | |
+| Docker (§ 3.9) | D-01 à D-10 | |
+| Hors cahier, livré | mise à jour intégrée (GitHub releases), signalement de bug pré-rempli, installeur NSIS + portable, icône / écran de démarrage / À propos | |
+| Non fonctionnel (§ 4) | NF-06, NF-07, NF-08 | NF-01 à NF-05, NF-11 à mesurer par la recette (#393) |

@@ -67,8 +67,6 @@ le plus sensible du rolling (T-04c) est réglé par défaut.
 | Encodages                       | `TextDecoder` (utf-8, utf-16le/be, windows-1252, iso-8859-1)         |
 | Regex                           | `RegExp` JS (flag `d` pour les positions de fragments)               |
 | Surveillance FS                 | `fs.watch` sur le **dossier** (ReadDirectoryChangesW) + polling `fs.stat` |
-| Archives `.gz` (T-08)           | `zlib.createGunzip` (natif)                                          |
-| Notifications (B-04)            | `Notification` d'Electron (toasts Windows)                           |
 | Tests                           | `vitest` (moteur), Playwright-Electron pour quelques tests bout en bout |
 | Packaging                       | `electron-builder` → installeur NSIS + `.exe` portable               |
 
@@ -94,7 +92,7 @@ flowchart LR
     IDX[LineIndex creux<br/>SharedArrayBuffer]
     RD[Reader positionnel<br/>+ cache de blocs]
     VIEW[Views<br/>plain / filtered / merged]
-    POOL[[Pool worker_threads<br/>indexation, filtres, minimap]]
+    POOL[[Pool worker_threads<br/>indexation, filtres]]
     DK[DockerClient + LogSpooler<br/>flux → fichier tampon]
   end
 
@@ -104,7 +102,7 @@ flowchart LR
 
   subgraph Renderer["Renderer (React)"]
     VP[Viewport virtualisé<br/>+ surlignage]
-    UI[Onglets, filtres, palette, minimap]
+    UI[Onglets, filtres, recherche, panneau Docker]
   end
 
   F1 & F0 --> TR --> IDX
@@ -128,8 +126,8 @@ flowchart LR
 
 ### 4.1 Lecture
 
-- Interface `Source` : `size()`, `readAt(offset, length)`, `identity()`, `close()` ; `FileSource` en P0,
-  `GzSource` en P1 (archives du rolling), `CommandSource`/`SshSource` éventuellement plus tard.
+- Interface `Source` : `size()`, `readAt(offset, length)`, `identity()`, `close()` ; `FileSource` (fichiers et fichiers tampon
+  des conteneurs Docker, § 4.8).
 - Lectures positionnelles par blocs de 64 Ko, cache LRU de blocs **global à toutes les sources** (64 Mo).
 - **Pas de lecture de tout le fichier** ni de `readFile` / `createReadStream` sur la vue courante.
 - ⚠️ Partage Windows : vérifié par un test d'intégration Windows (un process garde le fichier ouvert
@@ -184,7 +182,6 @@ stateDiagram-v2
   Truncated --> Following: reset index, séparateur « tronqué »
   Following --> Missing: chemin absent (entre rename et create)
   Missing --> Switching: fichier réapparu
-  Following --> Switching: motif F-09 → un fichier plus récent apparaît
 ```
 
 Points clés :
@@ -344,7 +341,7 @@ au-dessus des index des sources.
   rows sont retirées (passe linéaire sur le `Uint8Array`, quelques ms).
 - **Affichage** : colonne étiquette (`srv1`, `srv2`…) + liseré de couleur par source ; cases pour masquer
   une source (= filtre `Field source`) ; « ouvrir dans l'onglet du fichier » via `rowToLine` (M-01c).
-- Filtres, surlignage, recherche et alertes passent par les mêmes mécanismes (M-01d).
+- Filtres, surlignage et recherche passent par les mêmes mécanismes (M-01d).
 - Prérequis : chaque source a un format reconnu avec timestamp ; sinon elle est proposée mais grisée.
 
 **Livré (#504 à #510, M-01 à M-01e et A-07).**
@@ -376,11 +373,6 @@ au-dessus des index des sources.
   contrairement à la recherche d'un fichier) ; pas de repli des stack traces ni de surlignage propre à chaque source (le
   profil de l'onglet « Tout » s'applique à toutes les lignes). **À mesurer** : recette M1–M4 (`recette/README.md`) ;
   décision workers si la fusion initiale dépasse quelques secondes ou gêne les autres onglets.
-
-### 4.7 Alertes (B-04)
-
-Règles `{ query, cooldownSec, sound }` évaluées sur les lignes **ajoutées** uniquement, dans le tailer ;
-déclenchement → message au main → toast Windows + badge sur l'onglet.
 
 ### 4.8 Conteneurs Docker (Docker Desktop)
 
@@ -456,7 +448,7 @@ optionnelle, contraire à « aucune dépendance native »).
 | **A. Spool fichier** | Le flux est écrit en append dans un fichier local ; le moteur l'ouvre comme un log normal | ✅ **retenu** : réutilise 100 % du moteur, mémoire constante, marche pour des Go de logs |
 | B. `MemorySource` | Buffer en RAM qui implémente `Source` | ❌ le `Tailer` dépend de `FileSource` ; RAM proportionnelle aux logs (contraire à NF-02) |
 | C. Lire le `json-file` du démon | `/var/lib/docker/containers/<id>/…-json.log` dans la VM | ❌ inaccessible proprement depuis Windows, chemin variable, JSON par ligne, faux avec le driver `local` |
-| D. `docker logs -f` en sous-processus (F-10) | Spawn de la CLI, stdout → spool | ⚠️ dépend de `docker.exe`, un processus par conteneur, pas de liste ni d'événements |
+| D. `docker logs -f` en sous-processus | Spawn de la CLI, stdout → spool | ⚠️ dépend de `docker.exe`, un processus par conteneur, pas de liste ni d'événements |
 
 Le spool transforme « flux » en « fichier qui grossit », que cbl-log sait déjà traiter. Les cas Docker tombent sur des
 mécanismes **déjà testés** du tailer :
@@ -564,8 +556,7 @@ traces : **rien à toucher**.
 Le surlignage ne concerne que les ~100 lignes affichées : il est fait **dans le renderer**, avec les
 mêmes `RegExp` que le moteur (même syntaxe partout, H-01). Les règles « fragment » utilisent le flag
 `d` (`match.indices`) pour les positions. Coût négligeable, et changer une règle se voit immédiatement
-sans aller-retour IPC. La minimap (A-05) est calculée par un worker du moteur (règle dominante par
-tranche, ~2 000 cases).
+sans aller-retour IPC.
 
 ## 6. API moteur ↔ renderer
 
@@ -582,8 +573,6 @@ Messages typés (types partagés dans `packages/shared`), sur le `MessagePort` :
 | `search(tab, query, fromRow, dir)`        | prochain résultat                                    |
 | `goto(tab, { line } \| { ts })`           | n° de row                                            |
 | `setFollow`, `setPaused`                  | T-02, T-06                                           |
-| `listArchives(tab)`, `openArchive(path)`  | T-08                                                 |
-| `export(tab, range, path)`                | B-03                                                 |
 
 Événements poussés (throttlés ~50 ms) :
 
@@ -602,12 +591,11 @@ Le renderer ne demande que ce qu'il affiche : en follow, à chaque `rows`, il fa
 
 ## 7. Renderer (React)
 
-- **Viewport virtualisé maison** : hauteur de ligne fixe sans wrap → position = `row × h` ; seules ~2× les
+- **Viewport virtualisé maison** : hauteur de ligne fixe → position = `row × h` ; seules ~2× les
   lignes visibles sont dans le DOM ; barre de défilement mise à l'échelle au-delà de ~33 M px.
-- Wrap : hauteurs mesurées sur la fenêtre visible seulement ; défilement approximatif par ligne (assumé).
 - Cache de pages (200 lignes, LRU) + préchargement de la page suivante.
-- Composants : `TabBar`, `SplitLayout`, `FilterBar`, `LogViewport`, `RollingSeparator`, `Minimap`,
-  `StatusBar`, `CommandPalette`, `RulesEditor`, `ProfilesDialog`, `ArchivesPanel`.
+- Composants : `TabBar`, `FilterBar`, `SearchBar`, `LogViewport`, `StatusBar`, `RulesEditor`, `MergedLegend`,
+  `DockerPanel`.
 - Thèmes en variables CSS (clair/sombre/système, suit le thème Windows via `nativeTheme`).
 - Plan B si le DOM ne suit pas : rendu du viewport en `<canvas>`, sans changer l'API.
 
@@ -620,8 +608,6 @@ settings.json          # thème, police, polling, historyHours, archivePatterns,
 session.json           # onglets, positions, follow, filtres (écrit à la fermeture + toutes les 30 s)
 rules\<id>.json        # jeux de règles de surlignage
 formats\<id>.json      # parseurs (en plus des formats intégrés)
-profiles\<id>.json     # fichier/motif + motif d'archives + règles + format + filtres + alertes
-bookmarks\<hash>.json  # signets par fichier
 ```
 
 Chaque fichier porte `schemaVersion` (migrations au chargement), validé par un schéma (`zod`) ; dossier
