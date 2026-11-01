@@ -12,7 +12,6 @@ Docker**. Code : `scripts/recette/`.
 | `recette-docker.md` | Dernier rapport de la recette Docker (généré) |
 | `comparaison.md` | Itération précédente → dernière, et fichier ↔ Docker (généré) |
 | `history.jsonl` | Une ligne par exécution et par source (`file` / `docker`) : date, commit, machine, état de Defender, résultats et valeurs numériques |
-| [`docker-manuel.md`](./docker-manuel.md) | Scénarios qui demandent une personne (Docker Desktop arrêté, autre compte…) |
 
 ## Les trois familles de scénarios
 
@@ -47,7 +46,7 @@ Mêmes lignes WebSphere générées, même format d'écrivain (`#seq#heure#`, é
 | D7 | R7 | Onglets conteneur rouverts depuis la session ; tampon supprimé à la fermeture d'un onglet ; tampons orphelins purgés au lancement | 0 tampon restant |
 
 Le **plafond de 256 Mo**, **Docker Desktop arrêté ou redémarré**, le **compte hors `docker-users`** et le **conteneur
-WebSphere réel** restent manuels ([`docker-manuel.md`](./docker-manuel.md)). **Defender** : son état (actif / inactif) est
+WebSphere réel** restent manuels (§ « Scénarios manuels » ci-dessous). **Defender** : son état (actif / inactif) est
 consigné dans chaque rapport ; la mesure NF-04 n'a de valeur qu'avec Defender actif.
 
 ### 3. Onglet « Tout » (M1 à M4) : la fusion par horodatage
@@ -62,6 +61,22 @@ Fichiers copiés d'un log généré (`--merge-size`, 200M par défaut, jusqu'à 
 
 **Décision attendue** : si la fusion initiale dépasse quelques secondes ou gêne les autres onglets (M1B), déplacer la
 lecture et le parsing des horodatages dans les workers existants ([architecture § 4.6](../architecture.md)).
+
+## Scénarios manuels
+
+Ce qu'un script ne peut pas faire (arrêter Docker Desktop, changer de compte Windows). À exécuter sur le poste Windows avec
+Docker Desktop, avec **Defender actif**, sur l'application packagée ; noter la date, le commit et le résultat.
+
+| # | Scénario | Attendu | Résultat |
+|---|---|---|---|
+| X1 | Quitter Docker Desktop, lancer cbl-log (session avec onglets conteneur), puis démarrer Docker Desktop | panneau Docker « indisponible » avec message, connexion automatique au démarrage de Docker, onglets repris sans relancer cbl-log | |
+| X2 | Lancer cbl-log avec un compte hors du groupe `docker-users` | message clair (accès refusé au démon, groupe à rejoindre), pas de plantage | |
+| X3 | Ouvrir le conteneur WebSphere de référence (tout sur stdout) | `websphere-basic` détecté, niveaux colorés, filtres de niveau, repli des stack traces | |
+| X4 | Conteneur bavard jusqu'au plafond de 256 Mo du tampon (`docker.spoolMaxMb` par défaut) | rotation, séparateur affiché, aucune ligne dupliquée, CPU stable | |
+| X5 | Redémarrer Docker Desktop (menu de la zone de notification) pendant le suivi d'un conteneur qui écrit | reconnexion automatique, reprise sans doublon (comparer les numéros de séquence), séparateur « conteneur recréé » absent si le conteneur survit | |
+
+Pour X4 et X5, un conteneur bavard dont les lignes portent leur numéro de séquence (`#seq#`) :
+`docker run -d --name bavard --label cbl-log-recette -v "$PWD/scripts/recette:/s:ro" node:22-alpine node /s/docker-writer.mjs --rate 10000 --seconds 3600`.
 
 ## Comparer
 

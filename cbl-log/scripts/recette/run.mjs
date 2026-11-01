@@ -458,7 +458,7 @@ function toMarkdown(results, meta, kind = "file") {
   }
   if (docker) {
     lines.push(
-      "## Scénarios manuels (à cocher à la main, voir `docs/recette/docker-manuel.md`)",
+      "## Scénarios manuels (à cocher à la main, voir `docs/recette/README.md`, § Scénarios manuels)",
       "",
       ...MANUAL.map((m) => `- [ ] ${m}`),
       "",
