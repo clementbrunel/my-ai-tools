@@ -331,6 +331,14 @@ au-dessus des index des sources.
 - Filtres, surlignage, recherche et alertes passent par les mêmes mécanismes (M-01d).
 - Prérequis : chaque source a un format reconnu avec timestamp ; sinon elle est proposée mais grisée.
 
+**État (#504)** : `packages/engine/src/merge/merged-view.ts` implémente la `MergedView` seule (pas encore branchée
+au `EngineService` ni à l'UI) : un octet « source » par row + compteurs tous les 64 rows (`locate` row → source/ligne,
+`rowOf` ligne → row), fusion par `(timestamp réel, n° de source)` au niveau du **record** (un en-tête et ses lignes de
+suite restent ensemble), fuseaux pris en compte (`parseTimestamp`). Temps réel : un record n'est fusionné qu'après
+`windowMs` (2 s) et seulement quand plus aucun record connu, en cours de lecture compris, n'est plus ancien ; un record
+arrivé encore plus tard est ajouté en fin sans toucher aux rows déjà publiées. `drop(source)` retire les rows d'une source
+tronquée. Limite : les sources sont lues dans le processus du moteur (pas encore par les workers), à mesurer (#393).
+
 ### 4.7 Alertes (B-04)
 
 Règles `{ query, cooldownSec, sound }` évaluées sur les lignes **ajoutées** uniquement, dans le tailer ;
