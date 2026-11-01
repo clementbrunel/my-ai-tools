@@ -18,6 +18,8 @@ export interface Row {
   folded?: number | undefined;
   /** "All" tab: index of the source the line comes from (`MergedInfo.sources`); its `lineNo` is the merged row. */
   source?: number | undefined;
+  /** "All" tab: line of that source (its own tab's row) this line is. */
+  sourceLine?: number | undefined;
 }
 
 /** A Docker container opened as a tab: identified by its name, not by its id (analysis § 5.3). */
@@ -94,6 +96,14 @@ export interface MergedSourceParams {
   label: string;
   /** Format of the source: it must have a `timestamp`. */
   format: LogFormat;
+}
+
+export interface MergedLocateParams {
+  /** The "All" tab. */
+  tabId: TabId;
+  /** A source of it, and a line (row) of that source's own tab. */
+  sourceTabId: TabId;
+  line: number;
 }
 
 export interface OpenMergedParams {
@@ -252,6 +262,8 @@ export interface EngineRequestMap {
   filterLocate: { params: FilterLocateParams; result: FilterLocation };
   /** Opens (or re-merges) the "All" tab: the given tabs interleaved by timestamp (M-01). */
   openMerged: { params: OpenMergedParams; result: TabInfo };
+  /** Row of the "All" tab showing a line of one of its sources; null when that line is not merged (yet). */
+  mergedLocate: { params: MergedLocateParams; result: { row: number | null } };
   dockerList: { params: Record<string, never>; result: DockerListResult };
   /** Same answer as `dockerList`, then `dockerContainers` events are pushed to the requesting port. */
   dockerSubscribe: { params: Record<string, never>; result: DockerListResult };

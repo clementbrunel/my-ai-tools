@@ -355,6 +355,17 @@ n'est pas enregistré dans la session, et affiche étiquette + liseré de couleu
 refusionnant les autres. Pas encore : filtre, recherche, surlignage par source, « ouvrir dans l'onglet du fichier » (lot 3, #506).
 Une source tronquée n'est pas retirée de la vue (`MergedView.drop` n'est pas encore appelé).
 
+**Recherche, filtre et navigation dans « Tout » (#506)** : `MergedScan` (`merge/merged-scan.ts`) lit les rows fusionnées
+par blocs de 2 000 et garde les rows retenues (et leur niveau) ; la recherche et le filtre de l'onglet fusionné
+passent par `search` / `searchNext` / `setFilter` / `getRows(filterId)` / `filterLocate` comme pour un fichier. Le filtre
+de niveau utilise le format de chaque source (un `FilterEvaluator` par source, qui porte le niveau de son record en cours).
+Quand les sources changent (`openMerged` sur le même id), la recherche et le filtre en cours sont gardés (mêmes ids) et
+relancés sur la nouvelle vue. `Row.source` / `Row.sourceLine` donnent la ligne dans le fichier d'origine ; `mergedLocate`
+donne la row fusionnée d'une ligne d'une source (M-01c) : double-clic sur une ligne de « Tout » → même ligne dans l'onglet
+du fichier, double-clic sur une ligne d'un fichier fusionné → même ligne dans « Tout ». Limites : lecture dans le
+processus du moteur (pas de garde-fou contre une regex catastrophique, contrairement à la recherche d'un fichier), pas de
+repli des stack traces ni de surlignage propre à chaque source (le profil de l'onglet « Tout » s'applique à toutes les lignes).
+
 ### 4.7 Alertes (B-04)
 
 Règles `{ query, cooldownSec, sound }` évaluées sur les lignes **ajoutées** uniquement, dans le tailer ;
