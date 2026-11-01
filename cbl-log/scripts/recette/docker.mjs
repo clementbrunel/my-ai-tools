@@ -1,4 +1,4 @@
-// Docker scenarios of the acceptance run (issue #486): the SAME data, rates, durations and thresholds as the file run
+// Docker scenarios of the acceptance run (issue #393): the SAME data, rates, durations and thresholds as the file run
 // (run.mjs), so that `compare.mjs` can put the two side by side.
 //
 //   file run        Docker run   same data

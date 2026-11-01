@@ -1,11 +1,13 @@
 # cbl-log — Dossier d'architecture
 
-> Statut : **v0.4 — validé pour démarrer M0** — compagnon du [cahier des charges fonctionnel](./cahier-des-charges-fonctionnel.md).
+> Statut : **v0.5 — à jour de ce qui est livré (M0 à M3, Docker)** — compagnon du [cahier des charges fonctionnel](./cahier-des-charges-fonctionnel.md).
 > Les identifiants `F-xx`, `T-xx`, `NF-xx`… renvoient aux exigences de ce dernier.
 > v0.2 : passage de Tauri/Rust à **Electron + TypeScript** (langage maîtrisé), cible Windows seule,
 > rolling au premier plan, pas de CLI/TUI.
 > v0.3 : source de référence WebSphere dans Docker (truncate ou rename), volumes Docker Desktop,
 > format WebSphere, onglet « Tout » (vue fusionnée), multi-logs (NF-11).
+> v0.5 : lecture des conteneurs Docker Desktop (§ 4.8, ex-analyse dédiée), onglet « Tout » livré (§ 4.6), recette
+> fichier + Docker (§ 10, [`recette/`](./recette/README.md)).
 
 ## 1. Principes directeurs
 
@@ -93,6 +95,11 @@ flowchart LR
     RD[Reader positionnel<br/>+ cache de blocs]
     VIEW[Views<br/>plain / filtered / merged]
     POOL[[Pool worker_threads<br/>indexation, filtres, minimap]]
+    DK[DockerClient + LogSpooler<br/>flux → fichier tampon]
+  end
+
+  subgraph Docker["Docker Desktop (§ 4.8)"]
+    DD[(dockerd)]
   end
 
   subgraph Renderer["Renderer (React)"]
@@ -101,6 +108,8 @@ flowchart LR
   end
 
   F1 & F0 --> TR --> IDX
+  DD -- "named pipe, GET seulement" --> DK -- append --> SP[(tampon du conteneur)]
+  SP --> TR
   F1 & F0 --> RD
   IDX --> VIEW
   POOL --> IDX & VIEW
@@ -133,6 +142,7 @@ flowchart LR
 | **Bind mount** `-v C:\logs\srv1:/logs`          | `C:\logs\srv1\SystemOut.log`    | oui (NTFS)    | ✅ recommandé |
 | Volume nommé (vit dans la VM Linux)            | `\\wsl.localhost\docker-desktop…\` (chemin variable selon la version) | non | ⚠️ polling seul, chemin instable |
 | Docker sur une autre machine (NAS, serveur)    | partage SMB `\\nas\logs\…`      | peu fiables   | ✅ polling 1 s |
+| **Sortie standard du conteneur** (stdout/stderr) | API Docker → fichier tampon local (§ 4.8) | sans objet (écrit par cbl-log) | ✅ pour tout conteneur dont le log part sur stdout, sans bind mount |
 
 Côté Linux, un rename ou un truncate fait par WebSphere n'est jamais bloqué par un handle ouvert
 côté Windows (bind mount : le partage « delete » de libuv suffit ; volume/SMB : sémantique Linux).
@@ -337,43 +347,217 @@ au-dessus des index des sources.
 - Filtres, surlignage, recherche et alertes passent par les mêmes mécanismes (M-01d).
 - Prérequis : chaque source a un format reconnu avec timestamp ; sinon elle est proposée mais grisée.
 
-**État (#504)** : `packages/engine/src/merge/merged-view.ts` implémente la `MergedView` seule (pas encore branchée
-au `EngineService` ni à l'UI) : un octet « source » par row + compteurs tous les 64 rows (`locate` row → source/ligne,
-`rowOf` ligne → row), fusion par `(timestamp réel, n° de source)` au niveau du **record** (un en-tête et ses lignes de
-suite restent ensemble), fuseaux pris en compte (`parseTimestamp`). Temps réel : un record n'est fusionné qu'après
-`windowMs` (2 s) et seulement quand plus aucun record connu, en cours de lecture compris, n'est plus ancien ; un record
-arrivé encore plus tard est ajouté en fin sans toucher aux rows déjà publiées. `drop(source)` retire les rows d'une source
-tronquée. Limite : les sources sont lues dans le processus du moteur (pas encore par les workers), à mesurer (#393).
+**Livré (#504 à #510, M-01 à M-01e et A-07).**
 
-**Onglet « Tout » (#505)** : `openMerged({ sources: [{ tabId, label, format }], tabId? })` fusionne des onglets déjà ouverts
-(les sources sont lues par leurs `Tailer`) ; `getRows` sur l'onglet fusionné rend des `Row` avec `source` (index dans
-`TabInfo.merged.sources`) et `lineNo` = row fusionnée. Le moteur suit les `rows` des sources (tick de 250 ms, relancé tant que
-des records attendent la fenêtre) et pousse un `rows` sur l'onglet ; un `rolled` d'une source est relayé avec son nom (`source`)
-à la position courante de la vue fusionnée (séparateur « srv1 : rolling … »). Côté renderer, l'onglet est inséré en premier,
-suit les onglets (un onglet ouvert / fermé, un format détecté ou une case cochée relance `openMerged` sur le même id),
-n'est pas enregistré dans la session, et affiche étiquette + liseré de couleur par source. Les cases masquent une source en
-refusionnant les autres. Pas encore : filtre, recherche, surlignage par source, « ouvrir dans l'onglet du fichier » (lot 3, #506).
-
-**Recherche, filtre et navigation dans « Tout » (#506)** : `MergedScan` (`merge/merged-scan.ts`) lit les rows fusionnées
-par blocs de 2 000 et garde les rows retenues (et leur niveau) ; la recherche et le filtre de l'onglet fusionné
-passent par `search` / `searchNext` / `setFilter` / `getRows(filterId)` / `filterLocate` comme pour un fichier. Le filtre
-de niveau utilise le format de chaque source (un `FilterEvaluator` par source, qui porte le niveau de son record en cours).
-Quand les sources changent (`openMerged` sur le même id), la recherche et le filtre en cours sont gardés (mêmes ids) et
-relancés sur la nouvelle vue. `Row.source` / `Row.sourceLine` donnent la ligne dans le fichier d'origine ; `mergedLocate`
-donne la row fusionnée d'une ligne d'une source (M-01c) : double-clic sur une ligne de « Tout » → même ligne dans l'onglet
-du fichier, double-clic sur une ligne d'un fichier fusionné → même ligne dans « Tout ». **Contenu disparu.** Une source tronquée sans archive (ou une archive purgée) garde ses rows comptées côté `Tailer`
-mais n'est plus lisible (`segments[].readable = false`) : sur un événement `rolled`, le moteur retire de la vue les rows de
-ces lignes (`MergedView.dropLines`, une passe linéaire sur les octets « source »), ne les relit plus (les « trous » de
-chaque source sont sautés à la lecture et dans la correspondance row ↔ ligne), relance la recherche et le filtre sur la vue
-et pousse un `rows` ; le renderer invalide tout son cache. Une troncature récupérée dans une archive garde ses rows.
-Limites : lecture dans le
-processus du moteur (pas de garde-fou contre une regex catastrophique, contrairement à la recherche d'un fichier), pas de
-repli des stack traces ni de surlignage propre à chaque source (le profil de l'onglet « Tout » s'applique à toutes les lignes).
+- **`MergedView`** (`merge/merged-view.ts`) : un octet « source » par row + compteurs tous les 64 rows (`locate` row →
+  source/ligne, `rowOf` ligne → row), fusion par `(timestamp réel, n° de source)` au niveau du **record** (un en-tête et ses
+  lignes de suite restent ensemble), fuseaux pris en compte (`parseTimestamp`). Temps réel : un record n'est fusionné
+  qu'après `windowMs` (2 s) et seulement quand plus aucun record connu, en cours de lecture compris, n'est plus ancien ; un
+  record arrivé encore plus tard est ajouté en fin sans toucher aux rows déjà publiées.
+- **Onglet « Tout »** : `openMerged({ sources: [{ tabId, label, format }], tabId? })` fusionne des onglets déjà ouverts (les
+  sources sont lues par leurs `Tailer`) ; `getRows` rend des `Row` avec `source` (index dans `TabInfo.merged.sources`),
+  `sourceLine` (ligne dans le fichier d'origine) et `lineNo` = row fusionnée. Le moteur suit les `rows` des sources (tick de
+  250 ms, relancé tant que des records attendent la fenêtre) et pousse un `rows` sur l'onglet ; un `rolled` d'une source est
+  relayé avec son nom à la position courante (séparateur « srv1 : rolling … »). Côté renderer, l'onglet est inséré en
+  premier, suit les onglets (ouverture / fermeture, format détecté ou case cochée relancent `openMerged` sur le même id),
+  n'est pas enregistré dans la session, et affiche étiquette + liseré de couleur par source ; les cases masquent une source
+  en refusionnant les autres. Proposé quand au moins deux onglets ont un format reconnu avec horodatage.
+- **Recherche, filtre et navigation** : `MergedScan` (`merge/merged-scan.ts`) lit les rows fusionnées par blocs de 2 000 et
+  garde les rows retenues (et leur niveau) ; la recherche et le filtre passent par `search` / `searchNext` / `setFilter` /
+  `getRows(filterId)` / `filterLocate` comme pour un fichier. Le filtre de niveau utilise le format de chaque source (un
+  `FilterEvaluator` par source). Quand les sources changent, la recherche et le filtre en cours sont gardés (mêmes ids) et
+  relancés. `mergedLocate` donne la row fusionnée d'une ligne d'une source (M-01c) : double-clic sur une ligne de « Tout »
+  → même ligne dans l'onglet du fichier, et inversement. `Ctrl+G` accepte une heure (A-07).
+- **Contenu disparu** : une source tronquée sans archive (ou une archive purgée) garde ses rows comptées côté `Tailer` mais
+  n'est plus lisible (`segments[].readable = false`) ; sur un événement `rolled`, le moteur retire de la vue les rows de ces
+  lignes (`MergedView.dropLines`, une passe linéaire sur les octets « source »), saute les « trous » à la lecture, relance
+  recherche et filtre et pousse un `rows` ; le renderer invalide son cache. Une troncature récupérée dans une archive garde ses rows.
+- **Limites** : lecture dans le processus du moteur (pas de worker, pas de garde-fou contre une regex catastrophique
+  contrairement à la recherche d'un fichier) ; pas de repli des stack traces ni de surlignage propre à chaque source (le
+  profil de l'onglet « Tout » s'applique à toutes les lignes). **À mesurer** : recette M1–M4 (`recette/README.md`) ;
+  décision workers si la fusion initiale dépasse quelques secondes ou gêne les autres onglets.
 
 ### 4.7 Alertes (B-04)
 
 Règles `{ query, cooldownSec, sound }` évaluées sur les lignes **ajoutées** uniquement, dans le tailer ;
 déclenchement → message au main → toast Windows + badge sur l'onglet.
+
+### 4.8 Conteneurs Docker (Docker Desktop)
+
+**Livré (#483, #484, #485).** Depuis cbl-log, on liste les conteneurs de Docker Desktop et on ouvre leurs logs
+(stdout/stderr) dans un onglet, en suivi temps réel, avec toutes les fonctions existantes (recherche, filtres,
+niveaux, surlignage, repli des stack traces, onglet « Tout »). Le modèle est celui de **Dozzle**, mais depuis Windows.
+Exigences : D-01 à D-10 du cahier des charges.
+
+| Question | Réponse |
+|---|---|
+| Une appli externe peut-elle parler à Docker Desktop ? | **Oui, sans rien configurer.** Docker Desktop expose l'API du démon sur le *named pipe* `\\.\pipe\docker_engine`, ouvert à tout membre du groupe `docker-users` (ajouté par l'installeur) : c'est ce qu'utilise `docker.exe`. |
+| Différence avec Dozzle ? | Dozzle est un serveur Go **dans un conteneur** qui monte `/var/run/docker.sock`. cbl-log fait la même chose **depuis Windows** via le named pipe : même API HTTP, seul le transport change. |
+| Où est la difficulté ? | Pas dans la connexion, mais dans le **moteur** : index creux, lecture positionnelle, tailer, recherche et filtres supposent une `Source` **fichier à accès aléatoire**. Docker fournit un **flux** HTTP. |
+| Solution | Un **spool** : le flux est recopié en continu dans un fichier local (`%LOCALAPPDATA%\cbl-log\docker\<contexte>\<conteneur>.log`) que le moteur ouvre comme n'importe quel log. **Aucun changement** dans l'index, le tailer, la recherche et les filtres. |
+| Dépendances | Aucune : client HTTP minimal sur `node:http` (`socketPath` accepte un named pipe). Pas de `dockerode`. |
+
+Tout vit dans le `utilityProcess` moteur (`packages/engine/src/docker/`), testable avec vitest comme le reste.
+
+```mermaid
+flowchart LR
+  subgraph DD["Docker Desktop (VM WSL2)"]
+    D[(dockerd)]
+  end
+  subgraph Engine["utilityProcess « engine »"]
+    C[DockerClient<br/>GET-only, npipe]
+    W[ContainerWatcher<br/>/containers/json + /events]
+    S[LogSpooler<br/>1 par conteneur ouvert]
+    T[Tailer existant]
+    I[LineIndex / recherche / filtres]
+  end
+  F[("%LOCALAPPDATA%\cbl-log\docker\…\nom.log")]
+  R[Renderer : panneau Docker + onglets]
+  D -- "\\.\pipe\docker_engine" --> C
+  C --> W & S
+  S -- append --> F
+  F --> T --> I
+  S -. "poke() après écriture" .-> T
+  W -- "dockerContainers (événement)" --> R
+  I <-- MessagePort --> R
+```
+
+#### Connexion au démon
+
+- **Transport** : `node:http` avec `socketPath` (named pipe Windows, socket Unix ou TCP : le client est portable).
+- **Endpoint** (`docker/endpoint.ts`, même ordre que la CLI) : `docker.host` de `settings.json`, puis `DOCKER_HOST`
+  (`npipe://…`, `tcp://…`), puis le contexte Docker courant (`~/.docker/config.json` → `currentContext` →
+  `contexts/meta/<sha256(nom)>/meta.json`), puis `npipe:////./pipe/docker_engine`. Le nom du contexte (`default`,
+  `desktop-linux`…) est le dossier des spools et l'autorité des URI `docker://<contexte>/<nom>`.
+- **Version d'API** : `GET /version` au démarrage ; on appelle `/v{min(ApiVersion, client)}/…`, minimum **1.41**
+  (Docker 20.10) ; en dessous, message clair.
+- **Validation** : ni OAuth ni identifiants. Le pipe est protégé par les droits Windows (`docker-users`, administrateurs) ;
+  l'identité est celle de la session. Validation = `GET /_ping` puis `GET /version`, à l'ouverture du panneau et à
+  chaque reconnexion ; le résultat s'affiche dans l'en-tête du panneau. Le compte Docker Hub ne concerne pas le démon local.
+  Si l'organisation impose la connexion à Docker Desktop (*enforce sign-in*), cbl-log voit « Docker indisponible ».
+
+| Situation | Symptôme | Comportement |
+|---|---|---|
+| Docker Desktop pas lancé | `ENOENT` sur le pipe | Panneau « Docker indisponible », nouvel essai toutes les 5 s (backoff jusqu'à 30 s) ; les onglets ouverts passent en `waiting` |
+| Utilisateur hors `docker-users` | `EACCES` / `EPERM` | « ajoutez votre compte au groupe docker-users puis reconnectez-vous » |
+| Docker Desktop redémarre | flux et `events` coupés | Reconnexion automatique, reprise des logs par `since` sans doublon |
+| Démon trop ancien | `ApiVersion` < 1.41 | Message, fonction désactivée |
+
+**Sécurité : un client limité aux consultations.** Le canal Docker permet tout (arrêter, supprimer, exécuter une
+commande, monter le disque de la VM). Ce n'est pas un réglage : le client n'envoie **que des `GET`** sur une liste
+blanche de routes (`/version`, `/_ping`, `/containers/json`, `/containers/{id}/json`, `/containers/{id}/logs`,
+`/events`). C'est aussi pourquoi on n'utilise pas `dockerode` (toute l'API, plus `ssh2` et sa dépendance native
+optionnelle, contraire à « aucune dépendance native »).
+
+#### Pourquoi un spool
+
+| Option | Principe | Verdict |
+|---|---|---|
+| **A. Spool fichier** | Le flux est écrit en append dans un fichier local ; le moteur l'ouvre comme un log normal | ✅ **retenu** : réutilise 100 % du moteur, mémoire constante, marche pour des Go de logs |
+| B. `MemorySource` | Buffer en RAM qui implémente `Source` | ❌ le `Tailer` dépend de `FileSource` ; RAM proportionnelle aux logs (contraire à NF-02) |
+| C. Lire le `json-file` du démon | `/var/lib/docker/containers/<id>/…-json.log` dans la VM | ❌ inaccessible proprement depuis Windows, chemin variable, JSON par ligne, faux avec le driver `local` |
+| D. `docker logs -f` en sous-processus (F-10) | Spawn de la CLI, stdout → spool | ⚠️ dépend de `docker.exe`, un processus par conteneur, pas de liste ni d'événements |
+
+Le spool transforme « flux » en « fichier qui grossit », que cbl-log sait déjà traiter. Les cas Docker tombent sur des
+mécanismes **déjà testés** du tailer :
+
+| Événement Docker | Ce que fait le spool | Ce que voit le tailer |
+|---|---|---|
+| Nouvelles lignes | append | `rows` |
+| Conteneur arrêté | ferme le flux, garde le fichier | rien + état `stopped` |
+| Conteneur redémarré (même id) | rouvre le flux avec `since`, continue en append | `rows` |
+| Conteneur **recréé** (`compose up` : nouvel id, même nom) | renomme le spool en archive, crée un nouveau `<nom>.log` | rolling rename + create → séparateur « conteneur recréé » (`rolled.reason = "recreated"`) |
+| Spool > plafond (256 Mo par défaut) | rename + create | rolling, 3 archives gardées |
+
+#### Composants
+
+- **`DockerClient`** (`client.ts`) : `version()`, `listContainers()`, `inspect(id)`, `events(signal)`, `logs(id, { since, tail, follow }, signal)`.
+  `AbortSignal` pour couper un flux à la fermeture d'onglet. **Démultiplexage** (`demux.ts`) : sans TTY
+  (`inspect().Config.Tty === false`) le flux est multiplexé par trames `[stream, 0, 0, 0, taille uint32 BE]` + charge ;
+  avec TTY il est brut. Testé avec des trames coupées n'importe où.
+- **`ContainerWatcher`** (`watcher.ts`) : `listContainers(all)` puis flux `/events` filtré `type=container` pour tenir la
+  liste à jour sans polling ; expose id, nom, image, état, `StartedAt`, projet/service compose, driver de log ; pousse
+  l'événement global `dockerContainers` (throttlé) aux renderers abonnés.
+- **`LogSpooler`** (`spooler.ts`), un par conteneur ouvert :
+  - **Un onglet par conteneur, identifié par son nom** (`contexte / nom`), pas par son id : un nom est unique à un
+    instant donné et compose le garde quand il recrée un conteneur. Un service à plusieurs réplicas donne un onglet par réplica.
+  - On demande **toujours `timestamps=1`** ; le préfixe `2026-10-31T10:02:11.123456789Z ` est **retiré avant écriture** (le spool
+    contient les lignes telles que l'appli les a écrites : l'auto-détection de format marche à l'identique) et sert à la
+    **reprise sans doublon** : dernier timestamp écrit mémorisé dans un `state.json` à côté du spool ; à la reconnexion
+    `since=<secondes.nanos>` puis saut des lignes dont le timestamp ≤ dernier écrit.
+  - **Chargement initial** : les **N dernières lignes** (`tail=N`, défaut 5 000, `docker.initialTail`). Remonter plus loin ne
+    peut pas ajouter de lignes *avant* le contenu du spool (les n° de ligne du moteur ne reculent jamais) :
+    « Charger plus d'historique » (×10) **reconstruit** le spool (`tail=N'` jusqu'au dernier timestamp écrit, puis le suivi
+    reprend) ; la vue est réindexée et la position conservée via le timestamp de la ligne visible (`dockerLoadMore`).
+  - **Écriture** : tampon + `FileHandle.write` en append vidé toutes les ~50 ms ou à 64 Ko, handle gardé **ouvert**
+    (Defender analyse surtout à l'ouverture/fermeture) ; puis `tailer.poke()` (check immédiat au lieu du tick de 250 ms).
+  - **Rotation** : plafond `docker.spoolMaxMb` → rename + create. **stderr** mélangé à stdout dans l'ordre d'arrivée.
+    **Lignes > 16 Ko** : Docker les coupe en plusieurs messages sans `\n`, qui se recollent dans le fichier.
+  - **Nettoyage** : spool supprimé à la fermeture de l'onglet (`docker.keepSpoolOnClose` pour le garder) ; purge des
+    spools orphelins au démarrage.
+- **Drivers de log** : l'API `logs` ne fonctionne qu'avec `json-file`, `local` et `journald`, ou avec le *dual logging*
+  (Docker ≥ 20.10, actif par défaut). Avec `log-driver: none`, le conteneur est grisé avec l'explication.
+
+#### Performances du spool
+
+Bench Node jetable (Linux, version non optimisée) : démultiplexage + retrait du préfixe + écriture par paquets de 64 Ko,
+2 M de lignes WebSphere (343 Mo) : **~0,5 M lignes/s, 80–100 Mo/s, un seul cœur**.
+
+| Poste | À 10 000 lignes/s (≈ 1,5 Mo/s, NF-04) | Typique (dizaines de lignes/s) |
+|---|---|---|
+| CPU démux + écriture (moteur) | **~2 % d'un cœur** (attendu ; mesuré par D2B) | négligeable |
+| Disque en écriture | 1,5 Mo/s séquentiels | quelques Ko/s |
+| Disque en lecture | ~0 : le tailer relit ce qui vient d'être écrit (cache de pages Windows) | ~0 |
+| Mémoire | constante : tampon 64 Ko par conteneur + cache de blocs global (64 Mo) | idem |
+| Latence ajoutée | ≤ 50 ms (tampon) + `poke()` ; sans `poke()`, +250 ms | idem |
+| Ouverture (`tail=5000`) | dockerd lit la fin du `json-file` (~1 Mo) : **< 0,3 s** au total (mesuré par D1) | idem |
+| Espace disque | ≤ plafond (256 Mo) × segments gardés | quelques Mo |
+
+Le spool n'est pas le goulot (1 Gio indexé et filtré en ~2,5 s pour n'importe quel fichier). Points à surveiller hors
+cbl-log : **dockerd** décode le JSON de son fichier pour chaque ligne servie (quelques % de CPU dans la VM à
+10 000 lignes/s, comme `docker logs -f` ou Dozzle) ; **Defender** (si une mesure sous Windows montre un surcoût, exclure
+`%LOCALAPPDATA%\cbl-log\docker\`, l'état de Defender est consigné dans chaque rapport de recette) ; usure SSD seulement
+pour un conteneur extrêmement bavard (1,5 Mo/s ≈ 130 Go/jour, déjà écrits par Docker dans son propre `json-file`).
+**Ces chiffres sont validés par la recette Docker** ([`recette/README.md`](./recette/README.md)).
+
+#### Intégration
+
+| Zone | Ce qui existe |
+|---|---|
+| `shared/protocol.ts` | `OpenParams` : `path` **ou** `docker: { context, name, initialTail }` ; `TabInfo.source` ; requêtes `dockerSubscribe`, `dockerLoadMore` ; événement global `dockerContainers` ; états `stopped` / `waiting` ; `rolled.reason = "recreated"` |
+| `shared/docker-uri.ts` | URI `docker://<contexte>/<nom>` (session, fichiers récents) |
+| `tail/tailer.ts` | `poke()` public ; `rolled.reason` imposé par le spool |
+| `service/engine-service.ts` | `openTab` : si `docker`, démarre le spooler puis ouvre un `Tailer` sur le spool ; `close` arrête le flux |
+| Renderer | panneau latéral Docker (`Ctrl+Maj+D` ; liste groupée par projet compose, pastille d'état, filtre texte, double-clic, multi-sélection), icône baleine, barre d'état « Docker · running depuis 10:02 », « Charger plus d'historique » |
+| Session / récents | `docker://<contexte>/<nom>` ; à la réouverture on se raccroche au conteneur du même nom |
+| `settings.json` | `docker: { enabled, host?, initialTail, spoolMaxMb, keepSpoolOnClose }` |
+
+Le format WebSphere, les règles de surlignage, les filtres de niveau, la recherche, `Ctrl+G`, le repli des stack
+traces : **rien à toucher**.
+
+#### Source de référence WebSphere, bind mount et hors Docker Desktop
+
+- Sur le conteneur WebSphere de référence, tout (`SystemOut` compris) part sur le stdout du conteneur : l'API `logs` suffit
+  et `websphere-basic` s'applique tel quel au spool.
+- Si un conteneur écrit dans des fichiers internes : **bind mount** vers un dossier Windows (voie principale, § 4.1) ;
+  `GET /containers/{id}/archive?path=…` (instantané, lecture seule) ; `POST /exec` + `tail -F` (crée un exec dans le
+  conteneur, **hors MVP**). Plus tard : afficher les montages (`inspect().Mounts`) et proposer « ouvrir les fichiers du bind mount ».
+- **Docker du NAS** : reporté (démon joignable en SSH seulement). Piste : contexte `ssh://user@nas` via
+  `docker -H ssh://… system dial-stdio` (même client GET-only, autre transport, pas de `ssh2`).
+- **Docker Engine dans une distro WSL sans Docker Desktop** : le socket Unix de WSL n'est pas joignable depuis Windows ;
+  passer par un contexte TCP. Hors périmètre.
+
+#### Risques propres au Docker
+
+| Risque | Parade |
+|---|---|
+| Conteneur très bavard → spool énorme | `tail=N` à l'ouverture, plafond + rotation |
+| Doublons / trous à la reconnexion | `timestamps=1` + `since` + saut des timestamps ≤ dernier écrit ; tests dédiés (D5, D6 de la recette) |
+| `since` moins précis que le timestamp des lignes | On repart un peu avant ; le dédoublonnage par timestamp absorbe le recouvrement |
+| Évolution des chemins/contextes Docker Desktop | On ne dépend que du pipe et des fichiers de contexte de la CLI, jamais de l'intérieur de la VM |
+| Sécurité (API Docker = admin) | Client GET-only à liste blanche ; aucune action sur les conteneurs |
+| Fichiers de spool qui traînent | Purge au démarrage ; `%LOCALAPPDATA%` (pas `%APPDATA%` : pas d'itinérance) |
+| Antivirus qui scanne le spool | Écritures groupées (50 ms / 64 Ko), handle ouvert ; exclure le dossier si besoin |
 
 ## 5. Surlignage : dans le renderer
 
@@ -389,7 +573,9 @@ Messages typés (types partagés dans `packages/shared`), sur le `MessagePort` :
 
 | Requête                                   | Réponse / rôle                                       |
 |-------------------------------------------|------------------------------------------------------|
-| `open({ path \| pattern, encoding? })`    | `TabId`                                              |
+| `open({ path \| docker, encoding? })`     | `TabId` (fichier, ou conteneur Docker § 4.8)         |
+| `openMerged({ sources, tabId? })`         | onglet « Tout » (§ 4.6)                              |
+| `dockerSubscribe`, `dockerLoadMore`       | liste des conteneurs puis événements ; « Charger plus d'historique » (§ 4.8) |
 | `close(tab)`                              |                                                      |
 | `getRows(tab, first, count)`              | lignes décodées + n° source + infos record/repli + marqueurs de rolling |
 | `setQuery(tab, query \| null)`            | `QueryId`                                            |
@@ -405,8 +591,8 @@ Messages typés (types partagés dans `packages/shared`), sur le `MessagePort` :
 type TabEvent =
   | { type: "rows"; total: number; appended: number }
   | { type: "indexing"; progress: number; provisional: boolean }
-  | { type: "rolled"; reason: "rename" | "truncate" | "new-file"; previous?: string; at: number }
-  | { type: "state"; state: "following" | "missing" | "error"; message?: string }
+  | { type: "rolled"; reason: "rename" | "truncate" | "new-file" | "recreated"; previous?: string; at: number }
+  | { type: "state"; state: "following" | "missing" | "stopped" | "waiting" | "error"; message?: string }
   | { type: "query"; id: string; matches: number; done: boolean }
   | { type: "alert"; ruleId: string; line: number };
 ```
@@ -430,7 +616,7 @@ Le renderer ne demande que ce qu'il affiche : en follow, à chaque `rows`, il fa
 `%APPDATA%\cbl-log\` :
 
 ```
-settings.json          # thème, police, polling, raccourcis…
+settings.json          # thème, police, polling, historyHours, archivePatterns, docker…
 session.json           # onglets, positions, follow, filtres (écrit à la fermeture + toutes les 30 s)
 rules\<id>.json        # jeux de règles de surlignage
 formats\<id>.json      # parseurs (en plus des formats intégrés)
@@ -452,10 +638,11 @@ cbl-log/
 ├── electron-builder.yml
 ├── packages/
 │   ├── shared/                # types des messages, schémas zod de la config
-│   └── engine/                # TS pur Node : source, index, tailer/rolling, format, query, view, merge
+│   └── engine/                # TS pur Node : source, index, tailer/rolling, format, query, view, merge, docker
 │       ├── src/
 │       ├── test/              # vitest : index, rolling (rename/create, truncate, nom daté), encodages
 │       └── bench/             # générateur de gros logs + mesures NF-01..NF-05
+├── scripts/recette/           # recette automatisée sur l'appli packagée (fichier, Docker, « Tout »)
 └── app/
     ├── main/                  # processus principal : fenêtres, config, notifications, utilityProcess
     ├── preload/               # contextBridge
@@ -476,7 +663,9 @@ bugs subtils (rolling, offsets, encodages).
 - Test bout en bout avec un conteneur **WebSphere Liberty** (`icr.io/appcafe/open-liberty`) dans un bind
   mount, `maxFileSize=1` (critère d'acceptation n°3).
 - Vue fusionnée : ordre global, sources masquées, retrait d'une source tronquée.
+- Docker : faux démon sur un named pipe de test (`FakeDocker`) : trames coupées, conteneur arrêté / redémarré / recréé, coupure du démon.
 - Bench : `npm run bench -- --size 10G` mesure ouverture, indexation, `getRows`, filtre.
+- **Recette** (`npm run recette`, [`recette/README.md`](./recette/README.md)) : l'appli **packagée** est pilotée par DevTools sur un jeu de données généré ; la recette *fichier* (R1–R8), la recette *Docker* (D1–D7, mêmes données, débits et seuils sur des conteneurs) et l'onglet « Tout » (M1–M4) alimentent `recette/history.jsonl`, d'où `recette/comparaison.md` (itération précédente, fichier ↔ Docker).
 - **CI GitHub Actions sur `windows-latest`** : `npm ci`, typecheck, `vitest`, build ; sur tag `cbl-log-v*`,
   `electron-builder` publie installeur + portable en release GitHub.
 - Ajout à `.claude/skills/weekly-deps/scope.json` dès que le `package.json` existe (npm, déjà supporté).
@@ -495,6 +684,8 @@ bugs subtils (rolling, offsets, encodages).
 | Volume Docker nommé (`\\wsl.localhost\…`) lent / sans événements | Recommander un **bind mount** vers un dossier Windows (`-v C:\logs\srv1:/opt/IBM/…/logs`) ; polling dans tous les cas |
 | Locale/fuseau des timestamps WebSphere                      | Réglage par profil + détection, table de fuseaux configurable         |
 | DOM trop lent en follow intensif                            | Modèle pull + coalescence ; plan B canvas                               |
+| Fusion « Tout » lue dans le processus moteur (pas de worker) | Mesurée par la recette (M1–M4) ; si la fusion initiale dépasse quelques secondes ou gêne les autres onglets, déplacer lecture + parsing des horodatages dans les workers |
+| Conteneurs Docker : doublons à la reconnexion, spool énorme, API Docker = admin | Voir les risques de § 4.8 (reprise par `since`, plafond, client GET-only) |
 
 ## 12. Décisions à valider
 
@@ -503,3 +694,4 @@ bugs subtils (rolling, offsets, encodages).
 3. Index **creux K = 64** dans un `SharedArrayBuffer`, lecture positionnelle.
 4. Surlignage **dans le renderer**, filtres/recherche **dans le moteur**.
 5. Config en **JSON** validée par `zod`.
+6. Conteneurs Docker : **spool fichier** (pas de source mémoire), **client HTTP maison GET-only** (pas de `dockerode`), **un onglet par conteneur identifié par son nom**, N dernières lignes (5 000) + « Charger plus d'historique », Docker du NAS reporté (§ 4.8).

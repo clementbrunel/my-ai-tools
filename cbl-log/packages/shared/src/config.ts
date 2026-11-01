@@ -6,7 +6,7 @@ import { LEVELS } from "./formats.js";
 export const themeSchema = z.enum(["system", "dark", "light"]);
 export type Theme = z.infer<typeof themeSchema>;
 
-/** Reading of Docker Desktop container logs (analysis § 5, § 6). Engine options apply at the next launch. */
+/** Reading of Docker Desktop container logs (architecture § 4.8). Engine options apply at the next launch. */
 export const dockerSettingsSchema = z.object({
   /** Shows the Docker panel and talks to the daemon. */
   enabled: z.boolean().default(true),

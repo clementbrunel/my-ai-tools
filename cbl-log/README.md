@@ -8,7 +8,7 @@ filtres, parseurs de format, profils, vue fusionnée multi-fichiers.
 
 - [Cahier des charges fonctionnel](./docs/cahier-des-charges-fonctionnel.md)
 - [Dossier d'architecture](./docs/architecture.md)
-- [Analyse : logs des conteneurs Docker Desktop](./docs/analyse-docker-desktop.md)
+- [Recette (fichier, Docker, onglet « Tout »)](./docs/recette/README.md)
 
 Pile : Electron + TypeScript + React (Windows 10/11).
 

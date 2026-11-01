@@ -22,7 +22,7 @@ export interface Row {
   sourceLine?: number | undefined;
 }
 
-/** A Docker container opened as a tab: identified by its name, not by its id (analysis § 5.3). */
+/** A Docker container opened as a tab: identified by its name, not by its id (architecture § 4.8). */
 export interface DockerOpenParams {
   /** Docker context the container lives in (folder name of its spool, label of its tab). */
   context: string;

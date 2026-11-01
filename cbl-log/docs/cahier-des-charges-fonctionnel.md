@@ -1,6 +1,7 @@
 # cbl-log — Cahier des charges fonctionnel
 
-> Statut : **v0.4 — validé pour démarrer le développement (M0)**.
+> Statut : **v0.5 — à jour de ce qui est développé (v2.1.0 + onglet « Tout » + conteneurs Docker)**. L'avancement par exigence est au § 11.
+> v0.5 : conteneurs Docker Desktop (§ 3.9, D-01 à D-10), onglet « Tout » livré (M-01 à M-01e, A-07), historique du rolling chargé avec le fichier (T-08/T-09), recherche et filtre sur tout le flux, recette automatisée fichier + Docker (§ 7, [`recette/`](./recette/README.md)) ; M4 et M5 non planifiés.
 > v0.4 : rolling confirmé (même nom + archives à côté), bind mount Windows, format de log fourni plus tard.
 > v0.3 : source de référence = WebSphere en conteneur Docker, perf 10 Go conservée (plusieurs logs en parallèle).
 > v0.2 : nom `cbl-log`, Windows seul, priorité au fichier `.log` en rolling, pas de version terminal,
@@ -69,7 +70,7 @@ Priorités : **P0** = MVP (parité BareTail utile), **P1** = V1 (ce qui justifie
 | F-07   | Fichiers sur partage réseau (SMB/NFS) **et volumes Docker Desktop** (bind mount d'un dossier Windows, ou `\\wsl$\…`) — fonctionnement par polling, les événements FS n'y étant pas fiables | P0 |
 | F-08   | Ouvrir un fichier compressé `.gz` en lecture seule (sans suivi temps réel)                             | P2   |
 | F-09   | Suivre un **motif de fichiers** (`C:\logs\app-*.log`) et basculer sur le plus récent (rolling par nom daté) | P1 |
-| F-10   | Source = sortie d'une commande (`docker logs -f x`, `kubectl logs -f`, `journalctl -f`) ou stdin       | P2   |
+| F-10   | Source = sortie d'une commande (`docker logs -f x`, `kubectl logs -f`, `journalctl -f`) ou stdin — **Docker est couvert nativement par D-01 à D-10** | P2   |
 | F-11   | Source distante via SSH (tail d'un fichier sur une autre machine)                                      | P2   |
 
 ### 3.2 Suivi temps réel
@@ -162,6 +163,28 @@ Priorités : **P0** = MVP (parité BareTail utile), **P1** = V1 (ce qui justifie
 | B-04   | **Alertes** : règle → notification système (+ son facultatif), avec anti-rafale (1 notif / N s)       | P1   |
 | B-05   | Effacer la vue (« clear ») : masquer tout ce qui précède, comme un `clear` de terminal                  | P0   |
 
+### 3.9 Conteneurs Docker (Docker Desktop)
+
+Lire les logs (stdout/stderr) des conteneurs de Docker Desktop directement depuis cbl-log, sans bind mount ni
+configuration, avec toutes les fonctions existantes (recherche, filtres, niveaux, surlignage, repli des stack traces,
+onglet « Tout »). Conception : [architecture § 4.8](./architecture.md).
+
+| ID     | Exigence                                                                                              | Prio |
+|--------|-------------------------------------------------------------------------------------------------------|------|
+| D-01   | **Panneau Docker** (`Ctrl+Maj+D`) : conteneurs groupés par projet compose, pastille d'état, filtre texte, mise à jour en direct, ouverture par double-clic ou multi-sélection | P1 |
+| D-02   | **Un onglet par conteneur** (icône baleine + nom), identifié par son **nom** ; logs stdout/stderr en suivi temps réel, mêmes fonctions qu'un fichier | P1 |
+| D-03   | Connexion **sans configuration** au démon (named pipe de Docker Desktop, endpoint résolu comme la CLI : réglage, `DOCKER_HOST`, contexte courant) ; messages clairs (Docker non lancé, compte hors `docker-users`, version trop ancienne) ; reconnexion automatique | P1 |
+| D-04   | **Lecture seule stricte** : le client n'envoie que des `GET` sur une liste blanche de routes (NF-08 étendu) | P1 |
+| D-05   | Ouverture sur les **N dernières lignes** (5 000 par défaut) en < 0,3 s ; « Charger plus d'historique » (×10) en gardant la position | P1 |
+| D-06   | Conteneur arrêté puis redémarré : **aucune ligne perdue ni dupliquée** ; conteneur **recréé** (`docker compose up`) : même onglet, séparateur « conteneur recréé » | P1 |
+| D-07   | Session et fichiers récents retiennent `docker://<contexte>/<nom>` et se raccrochent au conteneur du même nom | P1 |
+| D-08   | Copie locale des logs (fichier tampon) plafonnée (256 Mo, rotation), supprimée à la fermeture de l'onglet, purgée au lancement si orpheline | P1 |
+| D-09   | Débit : un conteneur à **10 000 lignes/s** coûte ~2 % d'un cœur au moteur et s'affiche en ≤ 100 ms, **Defender actif** ; **8 conteneurs** suivis ensemble (NF-04, NF-11) | P1 |
+| D-10   | Un conteneur sans log lisible (`log-driver: none`) est grisé avec l'explication | P1 |
+
+Hors périmètre : stats CPU/mémoire, shell, démarrer/arrêter un conteneur (cbl-log reste en lecture seule) ; Docker du NAS
+(reporté, accessible en SSH seulement) ; Docker Engine dans une distro WSL sans Docker Desktop.
+
 ## 4. Exigences non fonctionnelles
 
 | ID     | Exigence                                                                                              |
@@ -169,7 +192,7 @@ Priorités : **P0** = MVP (parité BareTail utile), **P1** = V1 (ce qui justifie
 | NF-01  | **Démarrage** : fenêtre affichée < 2 s ; fin d'un fichier de 10 Go visible < 1 s après ouverture        |
 | NF-02  | **Mémoire** : < 400 Mo au total (dont ~150 Mo de socle Electron) pour un fichier de 10 Go, indépendant de la taille du contenu |
 | NF-03  | **Indexation** : ≥ 300 Mo/s sur SSD local                                                               |
-| NF-04  | **Débit temps réel** : absorber 10 000 lignes/s en follow sans figer l'UI (rendu ≤ 60 fps, coalescé)    |
+| NF-04  | **Débit temps réel** : absorber 10 000 lignes/s en follow sans figer l'UI (rendu ≤ 60 fps, coalescé), pour un fichier comme pour un conteneur Docker (D-09) |
 | NF-05  | **Recherche/filtre** : premiers résultats < 1 s, 1 Go filtré en < 3 s, progression visible, annulable  |
 | NF-11  | **Multi-logs** : 8 fichiers suivis simultanément (onglets + split), 1 000 lignes/s chacun, totalisant 10 Go, sans dégradation visible de l'UI ni dépassement de NF-02 |
 | NF-06  | **Windows 10/11 x64** uniquement ; installeur + version portable (`.exe` sans installation)             |
@@ -218,17 +241,30 @@ Priorités : **P0** = MVP (parité BareTail utile), **P1** = V1 (ce qui justifie
 6. Règles de surlignage regex appliquées, modifiables à chaud, persistées.
 7. Fermer / rouvrir l'appli : mêmes onglets, mêmes positions, mêmes règles.
 
+Critères ajoutés en v0.5 (recette : [`recette/README.md`](./recette/README.md), issue #393) :
+
+9. **Docker** (D1 à D7 de la recette) : ouverture d'un conteneur sur ses 5 000 dernières lignes en < 0,3 s ; conteneur arrêté
+   puis redémarré sans perte ni doublon ; conteneur recréé dans le même onglet avec séparateur ; conteneur à 10 000 lignes/s
+   (CPU du moteur ~2 % d'un cœur, délai ≤ 100 ms, Defender actif) ; 8 conteneurs suivis ; rotation du tampon ; tampons
+   nettoyés. Même jeu de données que les critères 1 à 8 pour comparer fichier et Docker.
+10. **Onglet « Tout »** (M1 à M4 de la recette) : première page < 1 s, fusion complète de 2 puis 4 fichiers de 200 Mo à 1 Go
+    en quelques secondes sans gêner les autres onglets, 8 sources en follow (délai ≈ 2,25 s), recherche et filtre
+    (comparés à NF-05) ; décision sur le passage de la fusion dans les workers.
+11. **Scénarios manuels** : Docker Desktop arrêté puis lancé, compte hors `docker-users`, conteneur WebSphere réel,
+    redémarrage de Docker Desktop pendant le suivi.
+
 ## 8. Jalons proposés
 
-| Jalon | Contenu                                                                         |
-|-------|---------------------------------------------------------------------------------|
-| M0    | Squelette Electron + moteur de lecture/indexation/rolling testé seul (tests + script de bench) |
-| M1    | MVP P0 : onglets, follow, rotation, surlignage, recherche, session              |
-| M2    | Filtres, format WebSphere + autres parseurs, regroupement multi-lignes, niveaux |
-| M3    | **Onglet « Tout » (vue fusionnée)**, aller à l'horodatage                       |
-| M4    | Profils, signets, alertes, export, palette de commandes, split view             |
-| M5    | JSON, archives du rolling (T-08), minimap                                       |
-| M6+   | P2 : sources commande/stdin/SSH, `.gz`, plugins, import BareTail                 |
+| Jalon | Contenu                                                                         | État |
+|-------|---------------------------------------------------------------------------------|------|
+| M0    | Squelette Electron + moteur de lecture/indexation/rolling testé seul (tests + script de bench) | ✅ livré |
+| M1    | MVP P0 : onglets, follow, rotation, surlignage, recherche, session              | ✅ livré |
+| M2    | Filtres, format WebSphere + autres parseurs, regroupement multi-lignes, niveaux | ✅ livré (filtres, niveaux, repli, pause, WebSphere + Spring Boot ; reste : autres formats, F-09, S-07) |
+| M3    | **Onglet « Tout » (vue fusionnée)**, aller à l'horodatage                       | ✅ livré (#504 à #510) |
+| Docker | Conteneurs Docker Desktop (§ 3.9)                                              | ✅ livré (#483 à #485) ; recette à exécuter dans #393 |
+| M4    | Profils, signets, alertes, export, palette de commandes, split view             | ⏸ non planifié (issue #396 fermée) |
+| M5    | JSON, archives du rolling (T-08), minimap                                       | ⏸ non planifié (#397 fermée) ; T-08/T-09 livrés autrement (archives chargées avec le fichier) |
+| M6+   | P2 : sources commande/stdin/SSH, `.gz`, plugins, import BareTail                 | ⏸ non planifié |
 
 ## 9. Décisions prises (v0.4)
 
@@ -242,6 +278,9 @@ Priorités : **P0** = MVP (parité BareTail utile), **P1** = V1 (ce qui justifie
 | Perf                | Objectifs 10 Go conservés (plusieurs logs ouverts en même temps) + NF-11     |
 | Version terminal    | Non                                                                          |
 | Pile                | TypeScript de bout en bout (Electron + React) — cf. architecture § 2         |
+| Conteneurs Docker   | API du démon via le named pipe de Docker Desktop (client GET-only maison, pas de `dockerode`), copie du flux dans un fichier tampon ouvert comme un log ; un onglet par nom de conteneur ; N dernières lignes (5 000) ; Docker du NAS reporté — cf. architecture § 4.8 |
+| Onglet « Tout »     | Fusion par horodatage dans le processus moteur (fenêtre de 2 s) ; passage dans les workers décidé d'après la recette (M1 à M4) |
+| Recette             | Automatisée sur l'appli packagée (`npm run recette`) : fichier, Docker, « Tout » ; historique et comparaison fichier ↔ Docker — cf. `recette/README.md` |
 
 ## 10. Questions ouvertes
 
@@ -249,3 +288,27 @@ Priorités : **P0** = MVP (parité BareTail utile), **P1** = V1 (ce qui justifie
 2. **Formatage exact des logs WebSphere** : *en partie levée* — un `SystemOut.log` réel a fixé le parseur par défaut
    et la locale (`M/d/yy`, UTC) ; les archives de rolling s'appellent `SystemOut_yy.MM.dd_HH.mm.ss.log` (reconnues
    par T-08, autres noms appris d'un exemple). Reste à fournir : un exemple Liberty (`messages.log` / JSON).
+3. **Docker Desktop** : *levée* — sur le conteneur WebSphere de référence, tout (`SystemOut` compris) part sur le stdout du
+   conteneur, l'API `logs` suffit (architecture § 4.8). À valider par les scénarios manuels de la recette.
+
+## 11. Avancement par exigence (au 2026-11-01)
+
+Établi d'après le code de `main` et les issues fermées. ✅ livré · 🟡 partiel · ⏸ non fait (non planifié).
+
+| Domaine | ✅ Livré | 🟡 Partiel | ⏸ Non fait |
+|---|---|---|---|
+| Ouverture (§ 3.1) | F-01 (dialogue, glisser-déposer, ligne de commande, récents), F-02, F-03, F-04, F-05, F-07 | F-06 (fins de ligne ; troncature des lignes très longues non vérifiée) | F-08 (`.gz` : `GzSource` non écrite), F-09 (motif de fichiers), F-10 (hors Docker), F-11 |
+| Suivi (§ 3.2) | T-01 à T-05, T-04b/c/d, T-06, T-07, T-08 et T-09 (archives chargées avec le fichier, `historyHours`) | | |
+| Affichage (§ 3.3) | A-02, A-03 (numéros de ligne), A-04, A-06, A-07 (`Ctrl+G` ligne ou heure), A-08 (repli des stack traces) | A-01 (onglets renommables ; ni réordonnables ni split), A-03 (retour à la ligne / zoom non vérifiés) | A-05 (minimap), A-09, A-10 |
+| Surlignage (§ 3.4) | H-01, H-02, H-03, H-04, H-05, H-08 (export / import de profil) | | H-06, H-07 |
+| Recherche / filtre (§ 3.5) | S-01, S-02, S-03, S-04, S-05 (sur tout le flux, archives comprises) | | S-06, S-07, S-08 |
+| Multi-fichiers (§ 3.6) | M-01, M-01b, M-01c, M-01d, M-01e | | M-02 |
+| Sessions (§ 3.7) | C-01, C-03, C-04 (WebSphere basic, Spring Boot) | C-04 (Liberty, JSON lines, Log4j2 manquent) | C-02, C-05, C-06 |
+| Signets / export / alertes (§ 3.8) | B-01, B-05 | | B-02, B-03, B-04 |
+| Docker (§ 3.9) | D-01 à D-10 | | |
+| Hors cahier, livré | mise à jour intégrée (GitHub releases), signalement de bug pré-rempli, installeur NSIS + portable, icône / écran de démarrage / À propos | | |
+| Non fonctionnel (§ 4) | NF-06, NF-07, NF-08 (à mesurer : NF-01 à NF-05, NF-11 par la recette #393 / #486) | | |
+
+Lecture : les jalons **M4** et **M5** (profils, signets, alertes, export, palette, split view, JSON, minimap) n'ont pas de
+suite planifiée ; leurs issues #396 et #397 sont fermées « non planifié ». L'issue #394 (M2) est fermée alors que F-09, S-07 et
+les formats Log4j2 / Liberty JSON qu'elle citait ne sont pas faits.
