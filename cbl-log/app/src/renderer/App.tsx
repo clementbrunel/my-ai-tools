@@ -334,13 +334,13 @@ export function App() {
   }, []);
   const applyFilter = useCallback(
     async (tab: TabState) => {
-      if (tab.merged) return; // the filter does not cover the "All" tab yet
       const tabId = tab.info.tabId;
       // "Full file" lifts the levels and the text filters, but keeps the fold of stack traces as chosen
+      // (the "All" tab has the formats of its sources and does not fold stack traces)
       const settings = tab.filterSuspended ? { ...defaultFilterSettings(), foldTraces: tab.filter.foldTraces } : tab.filter;
-      if (tab.formatId === undefined && (settings.levels.length < LEVELS_COUNT || settings.foldTraces)) return;
+      if (!tab.merged && tab.formatId === undefined && (settings.levels.length < LEVELS_COUNT || settings.foldTraces)) return;
       const format = tab.formatId ? formatsRef.current.find((f) => f.format.id === tab.formatId)?.format : undefined;
-      const filter = toLineFilter(settings, !!format, format?.continuation === "not-line");
+      const filter = toLineFilter(tab.merged ? { ...settings, foldTraces: false } : settings, !!format || !!tab.merged, format?.continuation === "not-line");
       // the engine takes the level of each kept row from the format, so any active filter carries it
       const engineFormat = formatForFilter(filter, format);
       const key = JSON.stringify([filter, engineFormat]);
@@ -747,7 +747,7 @@ export function App() {
 
   const runSearch = useCallback(
     async (query: SearchQuery | null) => {
-      if (!activeId || stateRef.current.tabs.find((t) => t.info.tabId === activeId)?.merged) return;
+      if (!activeId) return;
       try {
         const engine = await withEngine();
         const { searchId } = await engine.request("search", { tabId: activeId, query });
@@ -980,8 +980,9 @@ export function App() {
     if (active.pausedAt) dispatch({ type: "resumed", tabId: active.info.tabId });
     else dispatch({ type: "paused", tabId: active.info.tabId, total: active.total, ...(filtered ? { matches: filterProgress?.matches ?? 0 } : {}) });
   };
+  const currentViewKey = active ? viewKeyOf(active.info.tabId, filtered ? active.filterId : null) : "";
   // the "All" tab shows another view each time its sources change: its viewport starts over
-  const currentViewKey = active ? viewKeyOf(active.info.tabId, filtered ? active.filterId : null) + (active.merged ? `:${active.merged.sources.map((s) => s.tabId).join(",")}` : "") : "";
+  const viewportKey = currentViewKey + (active?.merged ? `:${active.merged.sources.map((s) => s.tabId).join(",")}` : "");
 
   // "Clear" in the filtered view hides the retained lines before the cleared origin.
   const clearedBefore = active?.clearedBefore ?? 0;
@@ -1017,6 +1018,49 @@ export function App() {
       setAnchor({ tabId, line: row.lineNo });
     },
     [active],
+  );
+
+
+  /** "All" tab, double-click on a line: the same line in the tab of its file (M-01c). */
+  const openInSource = useCallback((row: Row) => {
+    const { tabs } = stateRef.current;
+    const merged = tabs.find((t) => t.info.tabId === stateRef.current.activeId)?.merged;
+    const sourceTabId = row.source === undefined ? undefined : merged?.sources[row.source]?.tabId;
+    const target = tabs.find((t) => t.info.tabId === sourceTabId);
+    if (!target || row.sourceLine === undefined) return;
+    const tabId = target.info.tabId;
+    dispatch({ type: "follow", tabId, follow: false });
+    // a filter of that tab could hide the line: show the whole file, the filter stays for later
+    if (target.filterId && !target.filterSuspended) dispatch({ type: "filterSuspended", tabId, suspended: true });
+    dispatch({ type: "activated", tabId });
+    setAnchor({ tabId, line: row.sourceLine });
+    setReveal({ row: row.sourceLine, nonce: ++revealNonce.current, align: "center", forKey: viewKeyOf(tabId, null) });
+  }, []);
+
+  /** Double-click on a line of a file that the "All" tab merges: the same line in that tab. */
+  const openInAll = useCallback(
+    async (row: Row) => {
+      const { tabs, activeId: current } = stateRef.current;
+      const merged = tabs.find((t) => t.merged);
+      if (!merged || !current) return;
+      try {
+        const engine = await withEngine();
+        const { row: mergedRow } = await engine.request("mergedLocate", { tabId: merged.info.tabId, sourceTabId: current, line: row.lineNo });
+        if (mergedRow === null) {
+          setNotice({ text: "Cette ligne n'est pas (encore) dans l'onglet Tout : source masquée, ou ligne trop récente.", isError: false });
+          return;
+        }
+        const tabId = merged.info.tabId;
+        dispatch({ type: "follow", tabId, follow: false });
+        if (merged.filterId && !merged.filterSuspended) dispatch({ type: "filterSuspended", tabId, suspended: true });
+        dispatch({ type: "activated", tabId });
+        setAnchor({ tabId, line: mergedRow });
+        setReveal({ row: mergedRow, nonce: ++revealNonce.current, align: "center", forKey: viewKeyOf(tabId, null) });
+      } catch (err) {
+        setNotice({ text: `Onglet Tout : ${err instanceof Error ? err.message : String(err)}`, isError: true });
+      }
+    },
+    [withEngine],
   );
 
   /** Ctrl+G with a time (A-07): bisection on the file's timestamps, answers the line to go to. */
@@ -1159,7 +1203,6 @@ export function App() {
               onToggle={toggleMergedSource}
             />
           )}
-          {!active.merged && (
           <div className="toprow">
             <SearchBar
               tabId={active.info.tabId}
@@ -1171,9 +1214,8 @@ export function App() {
               onPrev={() => void findHit("prev")}
             />
             <FilterBar settings={active.filter} onChange={onFilterChange} focusRequest={filterFocus} error={filterProgress?.error} />
-            <LevelPills filter={active.filter} enabled={!!activeFormat} onChange={onFilterChange} />
+            <LevelPills filter={active.filter} enabled={!!activeFormat || !!active.merged} onChange={onFilterChange} />
           </div>
-          )}
           {active.state !== "following" && !(active.docker && active.state === "stopped") && (
             <div className={`banner banner-${active.state}`} role="status">
               {active.docker
@@ -1184,7 +1226,7 @@ export function App() {
             </div>
           )}
           <LogViewport
-            key={currentViewKey}
+            key={viewportKey}
             cache={filtered && filterCache ? filterCache : runtime.cache}
             total={filtered ? shownMatches : shownFileRows}
             base={filtered ? filterBase : active.clearedBefore}
@@ -1195,7 +1237,15 @@ export function App() {
             reveal={reveal?.forKey === currentViewKey ? reveal : undefined}
             currentMatchRow={active.search?.current?.row}
             anchorLine={anchor?.tabId === active.info.tabId && (!filtered || active.filterSuspended) ? anchor.line : undefined}
-            onRowDoubleClick={filtered && !active.filterSuspended ? showInContext : undefined}
+            onRowDoubleClick={
+              active.merged
+                ? openInSource
+                : filtered && !active.filterSuspended
+                  ? showInContext
+                  : mergedTab?.merged?.sources.some((s) => s.tabId === active.info.tabId)
+                    ? (row) => void openInAll(row)
+                    : undefined
+            }
             onGotoLine={filtered ? (line) => void gotoFileLine(line) : undefined}
             onGotoTime={activeFormat?.format.timestamp ? gotoTime : undefined}
             sources={active.merged?.sources.map((s) => ({ label: s.label, color: mergeCandidates.find((c) => c.tab.info.tabId === s.tabId)?.color ?? "#8e8e93" }))}
