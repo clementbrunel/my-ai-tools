@@ -1,7 +1,7 @@
 // Helpers of the acceptance run (issue #393): launch the packaged app, drive it over the Chrome
 // DevTools Protocol and measure it from the outside (process memory, frame times, DOM).
 import { execFileSync, spawn } from "node:child_process";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -138,3 +138,77 @@ export const page = {
   })()`,
   stopSampler: `(() => { window.__s.stop = true; clearInterval(window.__s.timer); return JSON.stringify(window.__s); })()`,
 };
+
+export const fmt = (n, digits = 0) => (Number.isFinite(n) ? n.toFixed(digits) : "n/a");
+export const verdict = (ok) => (ok ? "PASS" : "FAIL");
+/** `values` = the numbers worth comparing between runs / sources (see compare.mjs); `measures` = what the report shows. */
+export const result = (id, title, criterion, status, measures, notes = [], values = {}) => ({ id, title, criterion, status, measures, notes, values });
+
+/** Reads the copy of every row of the active tab (Ctrl+A, Ctrl+C) from the clipboard. */
+export async function copyAllRows(cdp) {
+  await cdp.ev("document.querySelector('.viewport').focus()");
+  await cdp.key("a", "KeyA", 2);
+  await sleep(200);
+  await cdp.key("c", "KeyC", 2);
+  await waitFor(() => cdp.ev("/copiée/.test(document.querySelector('.toast')?.innerText ?? '')"), "copy done", 60_000, 200);
+  return cdp.ev("navigator.clipboard.readText()", true);
+}
+
+/** Scrolls the whole tab in steps small enough that every rolling separator gets rendered once; returns their labels. */
+export async function separatorLabels(cdp) {
+  return cdp.ev(
+    `(async () => {
+      const v = document.querySelector('.viewport'); const seen = new Set(); const step = 100 * 18;
+      const raf = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      for (let top = 0; top <= v.scrollHeight; top += step) {
+        v.scrollTop = top; await raf();
+        document.querySelectorAll('.roll-label').forEach((l) => seen.add(l.innerText));
+      }
+      return [...seen];
+    })()`,
+    true,
+  );
+}
+
+/**
+ * CPU time (ms) consumed so far by the cbl-log processes: `engine` = the utility process(es) that are not the
+ * network service (the log engine, where the Docker spooler lives), `total` = every cbl-log process.
+ */
+export function cpuTimes() {
+  const script =
+    "Get-CimInstance Win32_Process -Filter \"Name like 'cbl-log%'\" | ForEach-Object { '{0}|{1}' -f ($_.UserModeTime + $_.KernelModeTime), $_.CommandLine }";
+  const out = execFileSync("powershell", ["-NoProfile", "-Command", script], { encoding: "utf8" });
+  let engine = 0;
+  let total = 0;
+  for (const line of out.split(/\r?\n/).filter(Boolean)) {
+    const bar = line.indexOf("|");
+    const ms = Number(line.slice(0, bar)) / 10_000; // 100 ns units
+    const cmd = line.slice(bar + 1);
+    total += ms || 0;
+    if (cmd.includes("--type=utility") && !cmd.includes("network.mojom")) engine += ms || 0;
+  }
+  return { engine, total, at: performance.now() };
+}
+
+/** CPU used between two `cpuTimes()` samples, in % of ONE core. */
+export function cpuPercent(a, b) {
+  const wall = b.at - a.at;
+  return { engine: ((b.engine - a.engine) / wall) * 100, total: ((b.total - a.total) / wall) * 100 };
+}
+
+/** Whether Windows Defender real-time protection is on (the NF-04 measure must be taken with it active). */
+export function defenderState() {
+  try {
+    const out = execFileSync("powershell", ["-NoProfile", "-Command", "(Get-MpComputerStatus).RealTimeProtectionEnabled"], { encoding: "utf8" }).trim();
+    return out === "True" ? "actif" : out === "False" ? "INACTIF" : "inconnu";
+  } catch {
+    return "inconnu";
+  }
+}
+
+/** Writes settings.json (and optionally session.json) in the isolated config folder, before the app starts. */
+export function writeConfig(userData, { docker = {}, session } = {}) {
+  const settings = { schemaVersion: 1, theme: "system", checkForUpdates: false, historyHours: 2, archivePatterns: {}, docker: { enabled: true, ...docker } };
+  writeFileSync(join(userData, "settings.json"), JSON.stringify(settings, null, 2));
+  if (session) writeFileSync(join(userData, "session.json"), JSON.stringify({ schemaVersion: 1, ...session }, null, 2));
+}
