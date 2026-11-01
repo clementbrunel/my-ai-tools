@@ -169,7 +169,8 @@ export function App() {
             rt.cache.invalidateFrom(Math.max(0, rt.total - 1));
             rt.total = event.total;
           } else if (event.type === "rolled") {
-            rt.cache.invalidateFrom(event.at);
+            // "All" tab: a source whose content is gone leaves the view, the rows after it move up
+            rt.cache.invalidateFrom(event.source !== undefined ? 0 : event.at);
             // the filter keeps the results of the rolled file, but a vanished one (truncated without
             // archive) takes its lines out of the view: re-read it, its size comes with the next event
             rt.filterCache?.invalidateFrom(0);
