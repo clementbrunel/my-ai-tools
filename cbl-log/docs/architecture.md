@@ -305,6 +305,12 @@ la cible pour M4 :
 - La bascule filtré ↔ complet garde la position (`filterLocate` : n° de ligne du fichier → position dans la
   vue filtrée) ; `Ctrl+G`, la navigation de recherche (les occurrences sur des lignes masquées sont sautées),
   « Effacer » et le séparateur de rolling s'appliquent à la vue filtrée (#432).
+- **Aller à une heure (A-07)** : `Ctrl+G` accepte aussi `10:02`, `10:02:11.204`, `2026-10-14 10:02` ou `14/10/2026 10:02`
+  quand le format a un horodatage. Côté renderer (`formats/goto-time.ts`) : dichotomie sur les lignes du fichier
+  (≈ log2(n) lectures de 64 lignes par `getRows`), le timestamp d'une ligne de suite étant celui de l'en-tête qui la
+  suit ; comparaison à l'heure **affichée** (le fuseau du log est ignoré, `parseTimestamp(…, { ignoreZone })`) ; une
+  heure seule prend la date de la ligne affichée. Le journal est supposé chronologique. En vue filtrée, la ligne
+  trouvée passe par `filterLocate` comme un numéro de ligne.
 - **Repli des stack traces (#439)** : `foldContinuation` ajoute une condition au filtre. Les lignes de suite
   sont masquées et chaque en-tête retenu porte le nombre de lignes repliées (`Row.folded`). Le worker les
   compte, en lisant au-delà de la fin de sa tranche jusqu'au prochain en-tête ; si l'enregistrement va

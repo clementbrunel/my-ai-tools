@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { CompiledFormat, Row } from "@cbl-log/shared";
+import type { GotoTimeResult } from "../formats/goto-time";
 import { computeRowLevels } from "../formats/row-levels";
 import type { HighlightResult } from "../highlight/highlight";
 import type { PageCache } from "./page-cache";
@@ -42,6 +43,8 @@ interface Props {
   onRowDoubleClick?: ((row: Row) => void) | undefined;
   /** Filtered view: go to a line number of the file (the view finds where it falls). */
   onGotoLine?: ((line: number) => void) | undefined;
+  /** "Go to" accepts a time too when the format has timestamps: resolves to the 1-based line of the file. */
+  onGotoTime?: ((text: string) => Promise<GotoTimeResult>) | undefined;
   /** Number of lines of the file, for the "go to line" range of a filtered view. */
   fileRows?: number | undefined;
   /** Receives the first visible row, so the search can start from where the user is. */
@@ -57,7 +60,7 @@ interface Props {
 }
 
 /** Virtualized, fixed-height-row view of a tab's lines. Follow mode keeps the end in view. */
-export function LogViewport({ cache, total: realTotal, base, marks, format, filtered = false, highlight, follow, reveal, currentMatchRow, anchorLine, onRowDoubleClick, onGotoLine, fileRows, viewRowRef, initialRow, onFollowChange, onLeave, fetchRows, onNotice }: Props) {
+export function LogViewport({ cache, total: realTotal, base, marks, format, filtered = false, highlight, follow, reveal, currentMatchRow, anchorLine, onRowDoubleClick, onGotoLine, onGotoTime, fileRows, viewRowRef, initialRow, onFollowChange, onLeave, fetchRows, onNotice }: Props) {
   const total = Math.max(0, realTotal - base);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
@@ -326,31 +329,56 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, filt
             if (filtered) onGotoLine?.(line);
             else scrollToRow(line - 1 - base);
           }}
+          {...(onGotoTime ? { onGotoTime } : {})}
+          onNotice={onNotice}
         />
       )}
     </div>
   );
 }
 
-function GotoLine({ min, max, onGoto, onClose }: { min: number; max: number; onGoto(line: number): void; onClose(): void }) {
+function GotoLine({
+  min,
+  max,
+  onGoto,
+  onGotoTime,
+  onNotice,
+  onClose,
+}: {
+  min: number;
+  max: number;
+  onGoto(line: number): void;
+  onGotoTime?: (text: string) => Promise<GotoTimeResult>;
+  onNotice(text: string, isError?: boolean): void;
+  onClose(): void;
+}) {
   const [value, setValue] = useState("");
   return (
     <form
       className="goto"
       onSubmit={(e) => {
         e.preventDefault();
-        const line = Number.parseInt(value, 10);
-        if (Number.isFinite(line)) onGoto(Math.min(Math.max(line, min), max));
+        if (onGotoTime && !/^\d*$/.test(value.trim())) {
+          void onGotoTime(value).then((result) => {
+            if ("line" in result) {
+              onGoto(Math.min(Math.max(result.line, min), max));
+              if (result.note) onNotice(result.note);
+            } else onNotice(result.error, true);
+          });
+        } else {
+          const line = Number.parseInt(value, 10);
+          if (Number.isFinite(line)) onGoto(Math.min(Math.max(line, min), max));
+        }
         onClose();
       }}
     >
       <label>
-        Aller à la ligne ({min}–{max})
+        Aller à la ligne ({min}–{max}){onGotoTime ? " ou à l'heure (10:02, 2026-10-14 10:02:11)" : ""}
         <input
           autoFocus
-          inputMode="numeric"
+          inputMode={onGotoTime ? "text" : "numeric"}
           value={value}
-          onChange={(e) => setValue(e.target.value.replace(/\D/g, ""))}
+          onChange={(e) => setValue(onGotoTime ? e.target.value : e.target.value.replace(/\D/g, ""))}
           onKeyDown={(e) => {
             if (e.key === "Escape") onClose();
           }}
