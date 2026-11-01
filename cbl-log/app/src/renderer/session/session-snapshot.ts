@@ -1,6 +1,6 @@
 import type { Session, TabId } from "@cbl-log/shared";
 import { isDefaultFilter } from "../filter/filter-state";
-import type { TabState } from "../tabs/tabs-reducer";
+import { tabUri, type TabState } from "../tabs/tabs-reducer";
 
 /** First row of the live file: the archives loaded with it come before (see TabInfo.history). */
 export function liveStartRow(tab: Pick<TabState, "info">): number {
@@ -23,7 +23,7 @@ export function buildSession(tabs: readonly TabState[], activeId: TabId | undefi
       const top = tab === active ? Math.max(viewRow, tab.clearedBefore) : tab.clearedBefore + tab.scrollRow;
       const cleared = Math.max(0, tab.clearedBefore - live);
       return {
-        path: tab.info.path,
+        path: tabUri(tab),
         follow: tab.follow,
         scrollRow: Math.max(0, top - live - cleared),
         clearedBefore: cleared,
@@ -33,6 +33,6 @@ export function buildSession(tabs: readonly TabState[], activeId: TabId | undefi
         ...(isDefaultFilter(tab.filter) ? {} : { filter: { levels: [...tab.filter.levels], include: [...tab.filter.include], exclude: [...tab.filter.exclude], foldTraces: tab.filter.foldTraces } }),
       };
     }),
-    ...(active ? { activePath: active.info.path } : {}),
+    ...(active ? { activePath: tabUri(active) } : {}),
   };
 }

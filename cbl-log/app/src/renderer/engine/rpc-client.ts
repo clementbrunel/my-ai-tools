@@ -1,4 +1,4 @@
-import type { EngineMessage, EngineOp, EngineRequestMap, TabEvent, TabId } from "@cbl-log/shared";
+import type { DockerListResult, EngineMessage, EngineOp, EngineRequestMap, TabEvent, TabId } from "@cbl-log/shared";
 
 /** Minimal port surface, implemented by a DOM MessagePort (see client.ts) or a node one in tests. */
 export interface MinimalPort {
@@ -30,6 +30,7 @@ export class RpcClient {
   private readonly pending = new Map<number, Pending>();
   private readonly tabListeners = new Map<TabId, Set<(event: TabEvent) => void>>();
   private readonly anyListeners = new Set<(tabId: TabId, event: TabEvent) => void>();
+  private readonly dockerListeners = new Set<(snapshot: DockerListResult) => void>();
   private readonly detach: () => void;
 
   constructor(
@@ -66,6 +67,12 @@ export class RpcClient {
     return () => this.anyListeners.delete(cb);
   }
 
+  /** Container list pushed by the engine after `dockerSubscribe`. */
+  onDockerContainers(cb: (snapshot: DockerListResult) => void): () => void {
+    this.dockerListeners.add(cb);
+    return () => this.dockerListeners.delete(cb);
+  }
+
   /** Rejects every in-flight request and stops listening. */
   dispose(): void {
     this.detach();
@@ -76,6 +83,7 @@ export class RpcClient {
     }
     this.tabListeners.clear();
     this.anyListeners.clear();
+    this.dockerListeners.clear();
   }
 
   private onMessage(msg: EngineMessage): void {
@@ -87,6 +95,9 @@ export class RpcClient {
       clearTimeout(p.timer);
       if (msg.ok) p.resolve(msg.result);
       else p.reject(new EngineRequestError(msg.error.code, msg.error.message));
+    } else if (msg.kind === "dockerContainers") {
+      const { kind: _kind, ...snapshot } = msg;
+      for (const cb of [...this.dockerListeners]) cb(snapshot);
     } else if (msg.kind === "event") {
       for (const cb of [...(this.tabListeners.get(msg.tabId) ?? [])]) cb(msg.event);
       for (const cb of [...this.anyListeners]) cb(msg.tabId, msg.event);

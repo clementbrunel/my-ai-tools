@@ -67,6 +67,22 @@ Une fois installé, cbl-log se met à jour seul à partir des releases GitHub, s
   reste disponible). C'est le seul accès réseau de l'application : une requête GET vers `api.github.com`, rien n'est
   envoyé.
 
+### Conteneurs Docker (Docker Desktop)
+
+Le bouton baleine de la barre d'onglets (ou `Ctrl+Maj+D`) ouvre le panneau **Docker** : conteneurs groupés par projet
+compose, pastille d'état (running / exited), filtre texte, double-clic pour ouvrir, `Ctrl` / `Maj` + clic puis
+*Ouvrir* pour plusieurs à la fois. L'en-tête indique la connexion (« Connecté à Docker Desktop 4.x, API 1.xx ») ou
+ce qu'il faut faire (Docker non lancé, compte hors groupe `docker-users`, version trop ancienne). Lecture seule.
+
+- Un onglet par conteneur (icône baleine + nom). Il est identifié par le **nom** : si `docker compose up` recrée le
+  conteneur, l'onglet continue et un séparateur « conteneur recréé » apparaît.
+- Barre d'état : « Docker · running depuis 10:02 », « arrêté » ou « en attente de Docker ». *Charger plus
+  d'historique* remonte ×10 plus loin (la copie locale des logs est reconstruite, la position est conservée).
+- Session et fichiers récents retiennent `docker://<contexte>/<nom>` et se raccrochent au conteneur du même nom.
+- Réglages (`settings.json`, pris en compte au prochain lancement sauf `enabled` et `initialTail`) :
+  `"docker": { "enabled": true, "host": "tcp://127.0.0.1:2375", "initialTail": 5000, "spoolMaxMb": 256, "keepSpoolOnClose": false }`
+  (`host` absent : `DOCKER_HOST`, puis le contexte Docker courant, puis le pipe de Docker Desktop).
+
 ### Signaler un bug / proposer une idée
 
 **Aide › Signaler un bug / proposer une idée…** ouvre un panneau (type Bug ou Idée, titre, description, case

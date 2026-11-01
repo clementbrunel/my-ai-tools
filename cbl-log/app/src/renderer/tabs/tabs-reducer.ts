@@ -1,4 +1,5 @@
-import { defaultFilterSettings, type Encoding, type FilterSettings, type SearchError, type SearchQuery, type TabEvent, type TabId, type TabInfo } from "@cbl-log/shared";
+import { defaultFilterSettings, dockerUri, type DockerRef, type Encoding, type FilterSettings, type SearchError, type SearchQuery, type TabEvent, type TabId, type TabInfo } from "@cbl-log/shared";
+import { baseName } from "../files/path-key";
 import { historyMarks, type RollMark } from "../viewer/roll-mark";
 
 export type QueryEvent = Extract<TabEvent, { type: "query" }>;
@@ -14,6 +15,8 @@ export interface SearchState {
 
 export interface TabState {
   info: TabInfo;
+  /** Docker tab: the container it follows, by name (`info.path` is then its spool file). */
+  docker?: DockerRef;
   total: number;
   follow: boolean;
   /** Rows appended while the tab was not the active one. */
@@ -54,6 +57,16 @@ export interface TabState {
   filterEvent?: FilterEvent;
 }
 
+/** Name shown on the tab: the user's, else the container's, else the file's. */
+export function tabLabel(tab: TabState): string {
+  return tab.customName ?? tab.docker?.name ?? baseName(tab.info.path);
+}
+
+/** What identifies the tab in the session and in the recent list: the file path, or the `docker://` URI. */
+export function tabUri(tab: TabState): string {
+  return tab.docker ? dockerUri(tab.docker) : tab.info.path;
+}
+
 /** Lines available in the filtered view, or undefined while there is no filter in force (or no answer yet). */
 export function filterStatus(tab: TabState): { matches: number; done: boolean; error?: SearchError } | undefined {
   if (!tab.filterId || tab.filterEvent?.id !== tab.filterId) return undefined;
@@ -75,7 +88,7 @@ export interface TabsState {
 
 export type TabsAction =
   /** `index`: position in the tab bar (default: last), used when a tab is reopened in place. */
-  | { type: "opened"; info: TabInfo; encodingChoice?: Encoding; index?: number }
+  | { type: "opened"; info: TabInfo; docker?: DockerRef; encodingChoice?: Encoding; index?: number }
   | { type: "closed"; tabId: TabId }
   | { type: "activated"; tabId: TabId }
   | { type: "event"; tabId: TabId; event: TabEvent; receivedAt: number }
@@ -96,6 +109,7 @@ export type TabsAction =
   | { type: "unclear"; tabId: TabId }
   | { type: "follow"; tabId: TabId; follow: boolean }
   | { type: "scrollRow"; tabId: TabId; row: number }
+  | { type: "reloaded"; tabId: TabId; total: number; addedBefore: number }
   | { type: "reset" };
 
 export const initialTabsState: TabsState = { tabs: [], activeId: undefined };
@@ -142,6 +156,7 @@ export function tabsReducer(state: TabsState, action: TabsAction): TabsState {
     case "opened": {
       const tab: TabState = {
         info: action.info,
+        ...(action.docker ? { docker: action.docker } : {}),
         total: action.info.totalRows,
         follow: true,
         unseen: 0,
@@ -245,6 +260,15 @@ export function tabsReducer(state: TabsState, action: TabsAction): TabsState {
       return updateTab(state, action.tabId, (t) => (t.follow === action.follow ? t : { ...t, follow: action.follow }));
     case "scrollRow":
       return updateTab(state, action.tabId, (t) => (t.scrollRow === action.row ? t : { ...t, scrollRow: action.row }));
+    case "reloaded":
+      // "load more history": the spool was rebuilt, older lines now come first; marks and cleared origin shift with them
+      return updateTab(state, action.tabId, (t) => ({
+        ...t,
+        total: action.total,
+        scrollRow: t.scrollRow + action.addedBefore,
+        clearedBefore: t.clearedBefore > 0 ? t.clearedBefore + action.addedBefore : 0,
+        marks: t.marks.map((m) => ({ ...m, row: m.row + action.addedBefore })),
+      }));
     case "reset":
       return initialTabsState;
   }

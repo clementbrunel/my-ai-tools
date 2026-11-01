@@ -1,6 +1,6 @@
 import type { TabInfo } from "@cbl-log/shared";
 import { describe, expect, it } from "vitest";
-import { initialTabsState, searchStatus, tabsReducer, type TabsAction, type TabsState } from "./tabs-reducer";
+import { initialTabsState, searchStatus, tabLabel, tabUri, tabsReducer, type TabsAction, type TabsState } from "./tabs-reducer";
 
 const info = (tabId: string, totalRows = 10): TabInfo => ({
   tabId,
@@ -188,5 +188,25 @@ describe("tabsReducer", () => {
     expect(named.tabs[0]!.customName).toBe("prod");
     const reset = tabsReducer(named, { type: "renamed", tabId: "a", name: " " });
     expect(reset.tabs[0]!.customName).toBeUndefined();
+  });
+
+  it("labels a Docker tab with the container name and gives it a docker:// URI", () => {
+    const s = run({ type: "opened", info: { ...info("a"), source: "docker" }, docker: { context: "default", name: "web-1" } });
+    expect(tabLabel(s.tabs[0]!)).toBe("web-1");
+    expect(tabUri(s.tabs[0]!)).toBe("docker://default/web-1");
+    const renamed = run({ type: "opened", info: info("a"), docker: { context: "c", name: "n" } }, { type: "renamed", tabId: "a", name: "API" });
+    expect(tabLabel(renamed.tabs[0]!)).toBe("API");
+  });
+
+  it("shifts the position, the cleared origin and the separators when older history is loaded", () => {
+    const s = run(
+      { type: "opened", info: info("a", 100) },
+      { type: "scrollRow", tabId: "a", row: 20 },
+      { type: "clearedTo", tabId: "a", row: 50 },
+      { type: "event", tabId: "a", event: { type: "rolled", reason: "recreated", at: 60 }, receivedAt: 1 },
+      { type: "reloaded", tabId: "a", total: 1100, addedBefore: 1000 },
+    );
+    expect(s.tabs[0]).toMatchObject({ total: 1100, scrollRow: 1020, clearedBefore: 1050 });
+    expect(s.tabs[0]?.marks[0]?.row).toBe(1060);
   });
 });

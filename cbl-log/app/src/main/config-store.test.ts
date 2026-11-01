@@ -2,6 +2,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { defaultSettings } from "@cbl-log/shared";
 import { loadSession, loadSettings, saveSession, saveSettings } from "./config-store";
 
 const dirs: string[] = [];
@@ -17,12 +18,12 @@ const tempDir = (): string => {
 describe("settings store", () => {
   it("returns the defaults when the file is missing, without creating it", async () => {
     const dir = tempDir();
-    expect(await loadSettings(dir)).toEqual({ value: { schemaVersion: 1, theme: "system", checkForUpdates: true, historyHours: 2, archivePatterns: {} } });
+    expect(await loadSettings(dir)).toEqual({ value: defaultSettings() });
   });
 
   it("round-trips a saved value", async () => {
     const dir = tempDir();
-    await saveSettings(dir, { schemaVersion: 1, theme: "dark", checkForUpdates: false, historyHours: 6, archivePatterns: { "c:\\logs\\systemout.log": "SystemOut_\\d+\\.log" } });
+    await saveSettings(dir, { ...defaultSettings(), theme: "dark", checkForUpdates: false, historyHours: 6, archivePatterns: { "c:\\logs\\systemout.log": "SystemOut_\\d+\\.log" } });
     const loaded = (await loadSettings(dir)).value;
     expect(loaded.theme).toBe("dark");
     expect(loaded.historyHours).toBe(6);
@@ -36,6 +37,18 @@ describe("settings store", () => {
     expect(loaded.theme).toBe("system");
     expect(loaded.historyHours).toBe(2); // settings.json written before the history: 2 h by default
     expect(loaded.archivePatterns).toEqual({});
+  });
+
+  it("reads the docker section, with defaults for what is missing", async () => {
+    const dir = tempDir();
+    writeFileSync(join(dir, "settings.json"), JSON.stringify({ schemaVersion: 1, docker: { host: "tcp://127.0.0.1:2375", initialTail: 100 } }));
+    expect((await loadSettings(dir)).value.docker).toEqual({ enabled: true, host: "tcp://127.0.0.1:2375", initialTail: 100, spoolMaxMb: 256, keepSpoolOnClose: false });
+  });
+
+  it("rejects an out-of-range docker setting", async () => {
+    const dir = tempDir();
+    writeFileSync(join(dir, "settings.json"), JSON.stringify({ schemaVersion: 1, docker: { initialTail: 0 } }));
+    expect((await loadSettings(dir)).warning).toMatch(/^settings\.json/);
   });
 
   it("ignores an invalid file with a warning and leaves it untouched", async () => {
