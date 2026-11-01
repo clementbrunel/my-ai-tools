@@ -2,6 +2,8 @@
 // @cbl-log/shared over any message port. Pure Node (no Electron): the host provides a PortLike.
 import { randomUUID } from "node:crypto";
 import { open, stat } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   FilterEvaluator,
   MAX_ROWS_PER_REQUEST,
@@ -16,6 +18,9 @@ import {
   type EngineResponse,
   type FilterLocateParams,
   type FilterLocation,
+  type DockerListResult,
+  type DockerLoadMoreParams,
+  type DockerLoadMoreResult,
   type FilterStarted,
   type GetRowsParams,
   type OpenParams,
@@ -34,8 +39,12 @@ import { detectEncoding, isUtf16, looksBinary } from "../source/encoding.js";
 import { SourceError, toSourceError } from "../source/source.js";
 import { FilterSession, type FilterSessionOptions } from "../filter/session.js";
 import { SearchSession, type SearchSessionOptions } from "../search/session.js";
-import { findArchives, type ArchiveScan } from "../tail/archives.js";
+import { findArchives, type ArchiveFile, type ArchiveScan } from "../tail/archives.js";
 import { Tailer } from "../tail/tailer.js";
+import { DockerClient } from "../docker/client.js";
+import { DockerError } from "../docker/errors.js";
+import { ContainerWatcher } from "../docker/watcher.js";
+import { LogSpooler, purgeSpools, type SpoolerOptions } from "../docker/spooler.js";
 
 /** Minimal message port: adapters wrap MessagePortMain (Electron) or node:worker_threads ports. */
 export interface PortLike {
@@ -51,6 +60,25 @@ export interface EngineServiceOptions {
   search?: SearchSessionOptions;
   /** Same for the filter pool. */
   filter?: FilterSessionOptions;
+  docker?: EngineDockerOptions;
+}
+
+export interface EngineDockerOptions {
+  /** Default: a client on the endpoint resolved from `host`, DOCKER_HOST and the current context. */
+  client?: DockerClient;
+  /** `docker.host` of settings.json. */
+  host?: string;
+  /** Folder of the spools (default `%LOCALAPPDATA%/cbl-log/docker`). */
+  spoolRoot?: string;
+  /** Lines loaded when a container is opened (default 5 000). */
+  initialTail?: number;
+  /** Size at which a spool is rotated (default 256 MiB). */
+  spoolMaxBytes?: number;
+  /** Keep the spool when the tab is closed (and leftovers at the next start). */
+  keepSpoolOnClose?: boolean;
+  /** Timing overrides (tests). */
+  spooler?: Pick<SpoolerOptions, "flushMs" | "flushBytes" | "retryMs" | "maxRetryMs" | "pollMs" | "maxArchives">;
+  watcher?: { throttleMs?: number; retryMs?: number };
 }
 
 export const DEFAULT_WORKER_THRESHOLD_BYTES = 64 * 1024 * 1024;
@@ -60,6 +88,12 @@ const HOUR_MS = 3_600_000;
 
 interface Tab {
   tailer: Tailer;
+  /** Docker tab: the writer of the file the tailer follows. */
+  spooler?: LogSpooler;
+  /** Docker tab: `context/name`. */
+  dockerKey?: string;
+  encoding: Encoding;
+  openId?: string;
   search?: SearchSession;
   filter?: FilterSession;
   /** Port that opened the tab: the only one receiving its events. */
@@ -78,11 +112,17 @@ export class EngineService {
   private readonly filterOptions: FilterSessionOptions;
   private readonly tabs = new Map<TabId, Tab>();
   private readonly detachers = new Set<() => void>();
+  private readonly dockerOptions: EngineDockerOptions;
+  private dockerClient: DockerClient | undefined;
+  private watcher: ContainerWatcher | undefined;
+  private readonly dockerSubs = new Map<PortLike, () => void>();
+  private purged: Promise<void> | undefined;
 
   constructor(options: EngineServiceOptions = {}) {
     this.threshold = options.indexWithWorkerAboveBytes ?? DEFAULT_WORKER_THRESHOLD_BYTES;
     this.searchOptions = options.search ?? {};
     this.filterOptions = options.filter ?? {};
+    this.dockerOptions = options.docker ?? {};
   }
 
   /** Starts serving requests received on `port`. Returns a function that detaches it. */
@@ -91,6 +131,8 @@ export class EngineService {
     const detach = (): void => {
       off();
       this.detachers.delete(detach);
+      this.dockerSubs.get(port)?.();
+      this.dockerSubs.delete(port);
       for (const [tabId, tab] of [...this.tabs]) if (tab.port === port) void this.closeTab(tabId);
     };
     this.detachers.add(detach);
@@ -100,6 +142,7 @@ export class EngineService {
   async dispose(): Promise<void> {
     for (const detach of [...this.detachers]) detach();
     await Promise.all([...this.tabs.keys()].map((id) => this.closeTab(id)));
+    this.watcher?.stop();
   }
 
   private readonly handlers: { [K in EngineOp]: Handler<K> } = {
@@ -110,6 +153,9 @@ export class EngineService {
     searchNext: (params) => this.searchNext(params),
     setFilter: (params, port) => this.startFilter(params, port),
     filterLocate: (params) => this.filterLocate(params),
+    dockerList: () => this.dockerList(),
+    dockerSubscribe: (_params, port) => this.dockerSubscribe(port),
+    dockerLoadMore: (params) => this.dockerLoadMore(params),
   };
 
   private async handle(msg: unknown, port: PortLike): Promise<void> {
@@ -120,7 +166,7 @@ export class EngineService {
       if (!handler) throw new SourceError("UNKNOWN", "", `Unknown request: ${String(msg.op)}`);
       response = { kind: "response", id: msg.id, ok: true, result: await handler(msg.params as never, port) };
     } catch (err) {
-      const code = err instanceof SourceError ? err.code : "UNKNOWN";
+      const code = err instanceof SourceError ? err.code : err instanceof DockerError ? `DOCKER_${err.code}` : "UNKNOWN";
       const message = err instanceof Error ? err.message : String(err);
       response = { kind: "response", id: msg.id, ok: false, error: { code, message } };
     }
@@ -136,50 +182,148 @@ export class EngineService {
   }
 
   private async openTab(params: OpenParams, port: PortLike): Promise<TabInfo> {
+    if (params.docker) return this.openDockerTab(params, port);
     const { path } = params;
     if (typeof path !== "string" || path === "") throw new SourceError("ENOENT", String(path), "Missing file path");
+    return this.openAt(randomUUID(), path, params, port, "file");
+  }
 
+  /** Starts the spooler of a container, then follows its spool file like any other log. */
+  private async openDockerTab(params: OpenParams, port: PortLike): Promise<TabInfo> {
+    const { context, name, initialTail } = params.docker!;
+    if (!context || !name) throw new SourceError("UNKNOWN", "", "Missing Docker context or container name");
+    const key = `${context}/${name}`;
+    if ([...this.tabs.values()].some((t) => t.dockerKey === key)) {
+      throw new SourceError("UNKNOWN", "", `Container already open: ${key}`);
+    }
+    const o = this.dockerOptions;
+    const root = o.spoolRoot ?? join(process.env["LOCALAPPDATA"] ?? tmpdir(), "cbl-log", "docker");
+    if (!o.keepSpoolOnClose) await (this.purged ??= purgeSpools(root));
+    const tabId = randomUUID();
+    const ref: { tab?: Tab; last: { state: "following" | "stopped" | "waiting" | "error"; message?: string | undefined } } = {
+      last: { state: "following" },
+    };
+    const spooler = new LogSpooler({
+      client: (this.dockerClient ??= o.client ?? new DockerClient(o.host ? { settingsHost: o.host } : {})),
+      dir: join(root, fileSafe(context)),
+      name: fileSafe(name),
+      ...(o.spoolMaxBytes !== undefined ? { maxBytes: o.spoolMaxBytes } : {}),
+      initialTail: initialTail ?? o.initialTail ?? 5000,
+      ...o.spooler,
+      onWrite: () => ref.tab?.tailer.poke(),
+      onRecreated: () => ref.tab?.tailer.expectRoll("recreated"),
+      onState: (state, message) => {
+        ref.last = { state, message };
+        if (ref.tab) this.emitEvent(ref.tab.port, tabId, { type: "state", state, ...(message ? { message } : {}) });
+      },
+    });
+    await spooler.start(); // throws a DockerError: Docker down, container missing or unreadable
+    try {
+      const info = await this.openAt(tabId, spooler.path, { ...params, encoding: params.encoding ?? "utf-8" }, port, "docker", {
+        spooler,
+        dockerKey: key,
+      });
+      ref.tab = this.tabs.get(tabId);
+      this.emitEvent(port, tabId, { type: "state", state: ref.last.state, ...(ref.last.message ? { message: ref.last.message } : {}) });
+      return info;
+    } catch (err) {
+      await spooler.stop({ remove: !o.keepSpoolOnClose });
+      throw err;
+    }
+  }
+
+  /** Opens `path` in a new tab: encoding / binary checks, tailer, initial indexing. */
+  private async openAt(
+    tabId: TabId,
+    path: string,
+    params: OpenParams,
+    port: PortLike,
+    source: TabInfo["source"],
+    docker?: Pick<Tab, "spooler" | "dockerKey">,
+  ): Promise<TabInfo> {
     const size = await sizeOf(path);
     const sniffed = await sniff(path);
     const encoding: Encoding = params.encoding ?? detectEncoding(sniffed);
     if (!isUtf16(encoding) && looksBinary(sniffed)) throw new SourceError("BINARY", path, `Binary file: ${path}`);
 
-    const tabId = randomUUID();
-    const hours = Number(params.historyHours) > 0 ? Number(params.historyHours) : 0;
+    // a Docker spool has no archives next to it
+    const hours = source === "file" && Number(params.historyHours) > 0 ? Number(params.historyHours) : 0;
     const scan: ArchiveScan =
       hours > 0 ? await findArchives(path, { pattern: params.archivePattern, since: Date.now() - hours * HOUR_MS }) : { loaded: [], skipped: 0 };
-    // one progress for the whole stream: the archives, then the live file
-    const sizes = new Map<string, number>(scan.loaded.map((a) => [a.path, a.size]));
-    sizes.set(path, size);
-    const totalBytes = [...sizes.values()].reduce((a, b) => a + b, 0);
+    const totalBytes = scan.loaded.reduce((n, a) => n + a.size, size);
     const showProgress = totalBytes > this.threshold;
-    let doneBytes = 0;
+    const tab: Tab = {
+      tailer: undefined as unknown as Tailer,
+      port,
+      unsubscribe: () => {},
+      encoding,
+      ...(params.openId ? { openId: params.openId } : {}),
+      ...docker,
+    };
+    const emitIndexing = this.wireTailer(tabId, tab, path, { size, history: scan.loaded });
+    this.tabs.set(tabId, tab);
+    try {
+      await tab.tailer.start();
+    } catch (err) {
+      await this.closeTab(tabId);
+      throw toSourceError(err, path);
+    }
+    if (showProgress) emitIndexing(1, true);
+    if (tab.tailer.phase === "missing" || tab.tailer.phase === "error") {
+      await this.closeTab(tabId);
+      throw new SourceError("ENOENT", path, `File not readable: ${path}`);
+    }
+    const info: TabInfo = { tabId, source, path, encoding, sizeBytes: size, totalRows: tab.tailer.totalRows, lineEnding: "unknown" };
+    if (hours > 0) info.history = historyOf(tab.tailer, scan, hours);
+    return info;
+  }
+
+  /**
+   * Creates the tailer of a tab and forwards its events (keeping search and filter in step).
+   * `initial`: the file's size and the archives loaded before it, indexed with one progress for the
+   * whole stream (large files in a worker); absent: plain indexing, no progress.
+   * Returns the throttled emitter of `indexing` events.
+   */
+  private wireTailer(
+    tabId: TabId,
+    tab: Tab,
+    path: string,
+    initial?: { size: number; history: readonly ArchiveFile[] },
+  ): (progress: number, force?: boolean) => void {
+    const port = tab.port;
     let lastIndexingAt = 0;
     const emitIndexing = (progress: number, force = false): void => {
       const now = Date.now();
       if (!force && now - lastIndexingAt < INDEXING_THROTTLE_MS) return;
       lastIndexingAt = now;
-      this.emitEvent(port, params.openId ?? tabId, { type: "indexing", progress, provisional: false });
+      this.emitEvent(port, tab.openId ?? tabId, { type: "indexing", progress, provisional: false });
     };
+    const sizes = new Map<string, number>((initial?.history ?? []).map((a) => [a.path, a.size]));
+    if (initial) sizes.set(path, initial.size);
+    const totalBytes = [...sizes.values()].reduce((a, b) => a + b, 0);
+    const showProgress = totalBytes > this.threshold;
     const ratio = (bytes: number): number => (totalBytes > 0 ? Math.min(1, bytes / totalBytes) : 1);
-
-    const tailer = new Tailer({
+    let doneBytes = 0;
+    tab.tailer = new Tailer({
       path,
-      encoding,
-      history: scan.loaded.map((a) => a.path),
-      initialIndexer: async (index, file) => {
-        const fileSize = sizes.get(file) ?? 0;
-        if (fileSize > this.threshold) {
-          await index.indexWithWorker({ onProgress: (p) => showProgress && emitIndexing(ratio(doneBytes + p.bytesRead)) });
-        } else {
-          await index.appendFrom();
-        }
-        doneBytes += fileSize;
-        if (showProgress) emitIndexing(ratio(doneBytes));
-      },
+      encoding: tab.encoding,
+      history: (initial?.history ?? []).map((a) => a.path),
+      initialIndexer: initial
+        ? async (index, file) => {
+            const fileSize = sizes.get(file) ?? 0;
+            if (fileSize > this.threshold) {
+              await index.indexWithWorker({ onProgress: (p) => showProgress && emitIndexing(ratio(doneBytes + p.bytesRead)) });
+            } else {
+              await index.appendFrom();
+            }
+            doneBytes += fileSize;
+            if (showProgress) emitIndexing(ratio(doneBytes));
+          }
+        : undefined,
     });
-    const tab: Tab = { tailer, port, unsubscribe: () => {} };
-    tab.unsubscribe = tailer.on((event) => {
+    tab.unsubscribe = tab.tailer.on((event) => {
+      // a Docker tab's state is the spooler's (following / stopped / waiting), not the file's
+      if (tab.spooler && event.type === "state" && event.state === "following") return;
       this.emitEvent(port, tabId, event);
       // keep the search and the filter of the tab in step with the file
       if (event.type === "rows") {
@@ -190,21 +334,48 @@ export class EngineService {
         tab.filter?.restart();
       }
     });
-    this.tabs.set(tabId, tab);
+    return emitIndexing;
+  }
+
+  private async dockerList(): Promise<DockerListResult> {
+    return this.containerWatcher().list();
+  }
+
+  private async dockerSubscribe(port: PortLike): Promise<DockerListResult> {
+    const watcher = this.containerWatcher();
+    if (!this.dockerSubs.has(port)) {
+      this.dockerSubs.set(
+        port,
+        watcher.subscribe((snapshot) => this.send(port, { kind: "dockerContainers", ...snapshot })),
+      );
+    }
+    return watcher.list();
+  }
+
+  private containerWatcher(): ContainerWatcher {
+    const o = this.dockerOptions;
+    this.dockerClient ??= o.client ?? new DockerClient(o.host ? { settingsHost: o.host } : {});
+    return (this.watcher ??= new ContainerWatcher({ client: this.dockerClient, ...o.watcher }));
+  }
+
+  /** "Load more history": the spool is rebuilt with a bigger `tail` and the tab re-indexed in place. */
+  private async dockerLoadMore(params: DockerLoadMoreParams): Promise<DockerLoadMoreResult> {
+    const tab = this.requireTab(params.tabId);
+    const spooler = tab.spooler;
+    if (!spooler) throw new SourceError("UNKNOWN", "", "Not a Docker tab");
+    const before = tab.tailer.totalRows;
+    tab.unsubscribe();
+    await tab.tailer.close();
     try {
-      await tailer.start();
-    } catch (err) {
-      await this.closeTab(tabId);
-      throw toSourceError(err, path);
+      await spooler.rebuild(params.tail);
+    } finally {
+      this.wireTailer(params.tabId, tab, spooler.path);
+      await tab.tailer.start();
+      tab.search?.restart();
+      tab.filter?.restart();
     }
-    if (showProgress) emitIndexing(1, true);
-    if (tailer.phase === "missing" || tailer.phase === "error") {
-      await this.closeTab(tabId);
-      throw new SourceError("ENOENT", path, `File not readable: ${path}`);
-    }
-    const info: TabInfo = { tabId, path, encoding, sizeBytes: size, totalRows: tailer.totalRows, lineEnding: "unknown" };
-    if (hours > 0) info.history = historyOf(tailer, scan, hours);
-    return info;
+    const totalRows = tab.tailer.totalRows;
+    return { tabId: params.tabId, totalRows, addedBefore: Math.max(0, totalRows - before) };
   }
 
   private async getRows(params: GetRowsParams): Promise<RowsResult> {
@@ -301,6 +472,7 @@ export class EngineService {
     tab.search?.dispose();
     tab.filter?.dispose();
     tab.unsubscribe();
+    await tab.spooler?.stop({ remove: !this.dockerOptions.keepSpoolOnClose }); // cuts the stream first
     await tab.tailer.close();
   }
 
@@ -355,4 +527,9 @@ async function sizeOf(path: string): Promise<number> {
   } catch (err) {
     throw toSourceError(err, path);
   }
+}
+
+/** Folder / file name made of a Docker context or container name. */
+function fileSafe(name: string): string {
+  return name.replace(/[<>:"/\\|?*\x00-\x1f]/g, "_");
 }

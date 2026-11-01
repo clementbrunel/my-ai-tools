@@ -9,6 +9,7 @@ const info = (name: string): TabInfo => ({
   encoding: "utf-8",
   sizeBytes: 1,
   totalRows: 100,
+  source: "file",
   lineEnding: "unknown",
 });
 const run = (...actions: TabsAction[]) => actions.reduce(tabsReducer, initialTabsState);

@@ -133,6 +133,9 @@ export class Tailer {
   private nextSegmentId = 0;
   private liveOpened = false;
   private pendingRoll: { reason: RolledReason; previous?: string } | undefined;
+  private forcedRoll: RolledReason | undefined;
+  private pokeRunning = false;
+  private pokeAgain = false;
   private publicState: { state: string; message?: string } | undefined;
 
   private rowsDirty = false;
@@ -201,6 +204,34 @@ export class Tailer {
     const run = this.queue.then(() => this.doCheck());
     this.queue = run;
     return run;
+  }
+
+  /**
+   * Immediate check, without waiting for the next poll tick: the writer of a spool file calls it
+   * after each append. Fire-and-forget; pokes arriving during a check are merged into one more check.
+   */
+  poke(): void {
+    if (!this.running) return;
+    if (this.pokeRunning) {
+      this.pokeAgain = true;
+      return;
+    }
+    this.pokeRunning = true;
+    void (async () => {
+      try {
+        do {
+          this.pokeAgain = false;
+          await this.check();
+        } while (this.pokeAgain && this.running);
+      } finally {
+        this.pokeRunning = false;
+      }
+    })();
+  }
+
+  /** The next rolling detected will be reported with this reason (the spool writer knows better than the heuristics). */
+  expectRoll(reason: RolledReason): void {
+    this.forcedRoll = reason;
   }
 
   /** Lines [first, first+count) in global numbering; unreadable segments are skipped. */
@@ -383,6 +414,10 @@ export class Tailer {
       await this.drain(cur); // T-04b: no line lost before the switch
       this.phaseValue = "switching";
       this.pendingRoll = await this.classifyRoll(cur, target);
+      if (this.forcedRoll) {
+        this.pendingRoll = { ...this.pendingRoll, reason: this.forcedRoll };
+        this.forcedRoll = undefined;
+      }
       if (this.pendingRoll.previous) {
         cur.path = this.pendingRoll.previous; // the renamed archive, or the dated file left behind
         cur.reopenable = true;

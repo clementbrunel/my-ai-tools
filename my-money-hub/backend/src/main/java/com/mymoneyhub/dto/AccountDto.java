@@ -15,6 +15,7 @@ public record AccountDto(
         Account.AccountType type,
         Institution.ConnectorType connectorType,
         BigDecimal currentBalance,
-        LocalDateTime lastSyncedAt
+        LocalDateTime lastSyncedAt,
+        boolean archived
 ) {
 }

@@ -18,8 +18,20 @@ export interface Row {
   folded?: number | undefined;
 }
 
+/** A Docker container opened as a tab: identified by its name, not by its id (analysis § 5.3). */
+export interface DockerOpenParams {
+  /** Docker context the container lives in (folder name of its spool, label of its tab). */
+  context: string;
+  /** Container name: stays the same when `compose up` recreates the container. */
+  name: string;
+  /** Lines loaded at opening (default 5 000). */
+  initialTail?: number;
+}
+
 export interface OpenParams {
-  path: string;
+  /** File to follow. Absent for a Docker container (`docker` is given instead). */
+  path?: string;
+  docker?: DockerOpenParams;
   /** Default: detected from the file content. */
   encoding?: Encoding;
   /**
@@ -55,6 +67,9 @@ export interface TabHistory {
 
 export interface TabInfo {
   tabId: TabId;
+  /** Where the lines come from: a file, or a Docker container copied to a spool file. */
+  source: "file" | "docker";
+  /** The followed file; for a Docker tab, its spool. */
   path: string;
   encoding: Encoding;
   sizeBytes: number;
@@ -157,6 +172,42 @@ export interface FilterLocation {
   covered: boolean;
 }
 
+/** A container as listed in the Docker panel. */
+export interface DockerContainerInfo {
+  id: string;
+  name: string;
+  image: string;
+  /** Docker state: running, exited, paused, restarting… */
+  state: string;
+  /** Human status ("Up 2 hours"). */
+  status: string;
+  composeProject?: string;
+  composeService?: string;
+  logDriver?: string;
+  /** false: the daemon cannot serve its logs (log driver `none`). */
+  readable: boolean;
+}
+
+export interface DockerListResult {
+  /** "unavailable": Docker Desktop is not running, or access is denied (see `error`). */
+  status: "connected" | "unavailable";
+  error?: string;
+  containers: DockerContainerInfo[];
+}
+
+export interface DockerLoadMoreParams {
+  tabId: TabId;
+  /** Lines to load; "all" for the whole history. */
+  tail: number | "all";
+}
+
+export interface DockerLoadMoreResult {
+  tabId: TabId;
+  totalRows: number;
+  /** Rows added BEFORE the previous content: shift the position by this much to stay on the same line. */
+  addedBefore: number;
+}
+
 // Follow, goto and pause (T-06) are renderer-only state (pull model): the engine keeps reading and
 // the renderer simply stops asking for the rows that arrived after the pause.
 
@@ -168,6 +219,11 @@ export interface EngineRequestMap {
   searchNext: { params: SearchNextParams; result: SearchHit };
   setFilter: { params: SetFilterParams; result: FilterStarted };
   filterLocate: { params: FilterLocateParams; result: FilterLocation };
+  dockerList: { params: Record<string, never>; result: DockerListResult };
+  /** Same answer as `dockerList`, then `dockerContainers` events are pushed to the requesting port. */
+  dockerSubscribe: { params: Record<string, never>; result: DockerListResult };
+  /** Rebuilds the spool of a Docker tab with a bigger `tail`; the tab keeps its id. */
+  dockerLoadMore: { params: DockerLoadMoreParams; result: DockerLoadMoreResult };
 }
 
 export type EngineOp = keyof EngineRequestMap;
@@ -191,7 +247,12 @@ export interface EngineEvent {
   event: TabEvent;
 }
 
-export type EngineMessage = EngineResponse | EngineEvent;
+/** Global event (not tied to a tab): the container list changed, or Docker became (un)available. */
+export interface DockerContainersEvent extends DockerListResult {
+  kind: "dockerContainers";
+}
+
+export type EngineMessage = EngineResponse | EngineEvent | DockerContainersEvent;
 
 /** Hard cap on the rows returned by one `getRows` request (the service clamps). */
 export const MAX_ROWS_PER_REQUEST = 2000;
