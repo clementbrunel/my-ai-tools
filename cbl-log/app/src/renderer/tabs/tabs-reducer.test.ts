@@ -21,6 +21,12 @@ describe("tabsReducer", () => {
     expect(s.tabs[0]).toMatchObject({ total: 42, follow: true, unseen: 0, state: "following" });
   });
 
+  it("starts with a separator after each archive loaded with the file", () => {
+    const history = { files: [{ path: "C:\\logs\\a_26.10.21_09.30.46.log", startRow: 0, rowCount: 30, mtimeMs: 1 }], skipped: 2, hours: 2 };
+    const s = run({ type: "opened", info: { ...info("a", 42), history } });
+    expect(s.tabs[0]!.marks).toEqual([{ row: 30, reason: "rename", previous: "C:\\logs\\a_26.10.21_09.30.46.log", at: 1 }]);
+  });
+
   it("remembers a forced encoding, and opens a tab at a given position", () => {
     const s = run(
       { type: "opened", info: info("a") },

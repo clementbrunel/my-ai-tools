@@ -23,14 +23,20 @@ describe("settings store", () => {
 
   it("round-trips a saved value", async () => {
     const dir = tempDir();
-    await saveSettings(dir, { ...defaultSettings(), theme: "dark", checkForUpdates: false });
-    expect((await loadSettings(dir)).value.theme).toBe("dark");
+    await saveSettings(dir, { ...defaultSettings(), theme: "dark", checkForUpdates: false, historyHours: 6, archivePatterns: { "c:\logs\systemout.log": "SystemOut_\d+\.log" } });
+    const loaded = (await loadSettings(dir)).value;
+    expect(loaded.theme).toBe("dark");
+    expect(loaded.historyHours).toBe(6);
+    expect(loaded.archivePatterns).toEqual({ "c:\logs\systemout.log": "SystemOut_\d+\.log" });
   });
 
   it("fills in missing fields from the schema defaults", async () => {
     const dir = tempDir();
     writeFileSync(join(dir, "settings.json"), JSON.stringify({ schemaVersion: 1 }));
-    expect((await loadSettings(dir)).value.theme).toBe("system");
+    const loaded = (await loadSettings(dir)).value;
+    expect(loaded.theme).toBe("system");
+    expect(loaded.historyHours).toBe(2); // settings.json written before the history: 2 h by default
+    expect(loaded.archivePatterns).toEqual({});
   });
 
   it("reads the docker section, with defaults for what is missing", async () => {

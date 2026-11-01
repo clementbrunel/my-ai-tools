@@ -247,5 +247,5 @@ Priorités : **P0** = MVP (parité BareTail utile), **P1** = V1 (ce qui justifie
 
 1. **Format de config** : JSON retenu par défaut (cohérent avec le monorepo), TOML possible plus tard.
 2. **Formatage exact des logs WebSphere** : *en partie levée* — un `SystemOut.log` réel a fixé le parseur par défaut
-   et la locale (`M/d/yy`, UTC). Reste à fournir : le nom des archives de rolling (détection T-08) et un exemple Liberty
-   (`messages.log` / JSON).
+   et la locale (`M/d/yy`, UTC) ; les archives de rolling s'appellent `SystemOut_yy.MM.dd_HH.mm.ss.log` (reconnues
+   par T-08, autres noms appris d'un exemple). Reste à fournir : un exemple Liberty (`messages.log` / JSON).

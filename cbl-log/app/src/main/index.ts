@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { release } from "node:os";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeTheme, shell } from "electron";
 import { parseDockerUri, type ParseRuleSetResult, type RuleSet, type Session, type Settings } from "@cbl-log/shared";
 import { parseFileArgs } from "./cli-args";
@@ -49,6 +49,22 @@ async function pickFiles(): Promise<string[]> {
   };
   const result = mainWindow ? await dialog.showOpenDialog(mainWindow, options) : await dialog.showOpenDialog(options);
   return result.canceled ? [] : result.filePaths;
+}
+
+/** Lets the user point at one archive of `path`: the renderer learns the archive name pattern from it. */
+async function designateArchive(path: string): Promise<void> {
+  const options: Electron.OpenDialogOptions = {
+    title: `Une archive de ${basename(path)}`,
+    defaultPath: dirname(path),
+    properties: ["openFile"],
+    filters: [
+      { name: "Logs", extensions: ["log", "txt", "out"] },
+      { name: "All files", extensions: ["*"] },
+    ],
+  };
+  const result = mainWindow ? await dialog.showOpenDialog(mainWindow, options) : await dialog.showOpenDialog(options);
+  const archive = result.filePaths[0];
+  if (!result.canceled && archive) mainWindow?.webContents.send("archive:designated", path, archive);
 }
 
 const profileFilters: Electron.FileFilter[] = [
@@ -226,6 +242,8 @@ if (!app.requestSingleInstanceLock()) {
       { label: "Afficher dans l'explorateur", click: () => shell.showItemInFolder(path) },
       { type: "separator" },
       { label: "Copier le chemin", click: () => clipboard.writeText(path) },
+      { type: "separator" },
+      { label: "Désigner une archive du rolling…", click: () => void designateArchive(path) },
     ]).popup(mainWindow ? { window: mainWindow } : {});
   });
   ipcMain.handle("rules:load",() => loadRuleSets(rulesDir()));

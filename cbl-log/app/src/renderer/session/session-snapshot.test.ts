@@ -15,6 +15,22 @@ const info = (name: string): TabInfo => ({
 const run = (...actions: TabsAction[]) => actions.reduce(tabsReducer, initialTabsState);
 
 describe("buildSession", () => {
+  it("counts rows from the start of the live file, not of the archives loaded before it", () => {
+    const history = { files: [{ path: "C:/logs/a_1.log", startRow: 0, rowCount: 1000, mtimeMs: 1 }], skipped: 0, hours: 2 };
+    const s = run(
+      { type: "opened", info: { ...info("a"), totalRows: 1100, history } },
+      { type: "opened", info: { ...info("b"), totalRows: 1100, history } },
+      { type: "follow", tabId: "a", follow: false },
+      { type: "scrollRow", tabId: "a", row: 1040 },
+      { type: "clearedTo", tabId: "b", row: 1030 },
+    );
+    const [a, b] = buildSession(s.tabs, "b", 1055).tabs;
+    expect(a).toMatchObject({ scrollRow: 40, clearedBefore: 0 });
+    expect(b).toMatchObject({ scrollRow: 25, clearedBefore: 30 });
+    // a position inside the archives is not kept: they will have changed
+    expect(buildSession(s.tabs, "a", 500).tabs[0]).toMatchObject({ scrollRow: 0, clearedBefore: 0 });
+  });
+
   it("is empty without tabs", () => {
     expect(buildSession([], undefined, 0)).toEqual({ schemaVersion: 1, tabs: [] });
   });

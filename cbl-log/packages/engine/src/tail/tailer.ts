@@ -38,7 +38,8 @@ const MAX_DIR_ENTRIES = 2000;
 const WATCH_MIN_SPACING_MS = 50;
 
 export type TailerPhase = "idle" | "following" | "draining" | "switching" | "truncated" | "missing" | "error";
-export type SegmentOrigin = "initial" | RolledReason;
+/** "history": an archive loaded before the live file at open (T-09); "initial": the live file then. */
+export type SegmentOrigin = "history" | "initial" | RolledReason;
 
 /** A followed physical file; see the file header for the numbering model. */
 export interface TailSegment {
@@ -74,7 +75,12 @@ export interface TailerOptions {
    * Indexing of the FIRST file (default: appendFrom on the current thread). For a very large
    * file, pass `(i) => i.indexWithWorker()`.
    */
-  initialIndexer?: (index: LineIndex) => Promise<void>;
+  initialIndexer?: (index: LineIndex, path: string) => Promise<void>;
+  /**
+   * Archives loaded before the live file, oldest first (T-09). Each becomes a segment that is not
+   * followed and can be put to sleep; one that cannot be read is skipped.
+   */
+  history?: readonly string[];
   /**
    * Chooses the file to follow at each tick (dated-name pattern, F-09). A path different from the
    * current one triggers Draining then Switching (`new-file`); `undefined` = no file (Missing).
@@ -125,6 +131,7 @@ export class Tailer {
   private queue: Promise<void> = Promise.resolve();
   private lastCheckAt = 0;
   private nextSegmentId = 0;
+  private liveOpened = false;
   private pendingRoll: { reason: RolledReason; previous?: string } | undefined;
   private forcedRoll: RolledReason | undefined;
   private pokeRunning = false;
@@ -186,6 +193,7 @@ export class Tailer {
   async start(): Promise<void> {
     if (this.running) return;
     this.running = true;
+    for (const path of this.opts.history ?? []) await this.openHistory(path);
     this.watchDirectory();
     this.task = this.scheduler.add(() => this.check(), this.opts.pollIntervalMs ?? defaultPollInterval(this.opts.path));
     await this.check();
@@ -650,9 +658,49 @@ export class Tailer {
     return undefined;
   }
 
+  /** Indexes an archive as a segment before the live file; an archive that cannot be read is skipped. */
+  private async openHistory(path: string): Promise<void> {
+    let source: FileSource | undefined;
+    try {
+      source = await FileSource.open(path, this.opts.cache ? { cache: this.opts.cache } : {});
+      const identity = await source.identity();
+      const sample = await source.readAt(0, 4096, { cache: false });
+      const index = this.newIndex(source, this.opts.encoding ?? detectEncoding(sample));
+      if (this.opts.initialIndexer) await this.opts.initialIndexer(index, path);
+      else await index.appendFrom();
+      if (index.lineCount === 0) {
+        await source.close().catch(() => {});
+        return;
+      }
+      const seg: Segment = {
+        id: this.nextSegmentId++,
+        path,
+        startRow: this.totalRows,
+        startedBy: "history",
+        readable: true,
+        frozenRows: 0,
+        source,
+        index,
+        identity,
+        anchor: Buffer.alloc(0),
+        anchorEnd: 0,
+        reopenable: true,
+        readers: 0,
+        lastUsed: Date.now(),
+        waking: undefined,
+      };
+      await this.refreshAnchor(seg);
+      this.segs.push(seg);
+      await this.enforceRetention();
+      this.noteRows(index.lineCount);
+    } catch {
+      await source?.close().catch(() => {});
+    }
+  }
+
   /** Opens `target` as a new segment (first file, rolling or reappeared file). */
   private async openSegment(target: string): Promise<void> {
-    const first = this.segs.length === 0;
+    const first = !this.liveOpened;
     let source: FileSource;
     try {
       source = await FileSource.open(target, this.opts.cache ? { cache: this.opts.cache } : {});
@@ -668,7 +716,7 @@ export class Tailer {
       const identity = await source.identity();
       const sample = await source.readAt(0, 4096, { cache: false });
       const index = this.newIndex(source, this.opts.encoding ?? detectEncoding(sample));
-      if (first && this.opts.initialIndexer) await this.opts.initialIndexer(index);
+      if (first && this.opts.initialIndexer) await this.opts.initialIndexer(index, target);
       else await index.appendFrom();
 
       const startRow = this.totalRows;
@@ -695,6 +743,7 @@ export class Tailer {
       this.flushRows(); // the `rows` preceding the rolling must not count the new segment's lines
       this.segs.push(seg);
       this.cur = seg;
+      this.liveOpened = true;
       await this.enforceRetention();
       this.phaseValue = "following";
       this.setState("following");

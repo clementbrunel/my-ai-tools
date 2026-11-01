@@ -31,6 +31,7 @@ import {
   type SearchStarted,
   type SetFilterParams,
   type TabEvent,
+  type TabHistory,
   type TabId,
   type TabInfo,
 } from "@cbl-log/shared";
@@ -38,6 +39,7 @@ import { detectEncoding, isUtf16, looksBinary } from "../source/encoding.js";
 import { SourceError, toSourceError } from "../source/source.js";
 import { FilterSession, type FilterSessionOptions } from "../filter/session.js";
 import { SearchSession, type SearchSessionOptions } from "../search/session.js";
+import { findArchives, type ArchiveFile, type ArchiveScan } from "../tail/archives.js";
 import { Tailer } from "../tail/tailer.js";
 import { DockerClient } from "../docker/client.js";
 import { DockerError } from "../docker/errors.js";
@@ -83,6 +85,7 @@ export interface EngineDockerOptions {
 export const DEFAULT_WORKER_THRESHOLD_BYTES = 64 * 1024 * 1024;
 const SNIFF_BYTES = 4096;
 const INDEXING_THROTTLE_MS = 100;
+const HOUR_MS = 3_600_000;
 
 interface Tab {
   tailer: Tailer;
@@ -244,7 +247,12 @@ export class EngineService {
     const encoding: Encoding = params.encoding ?? detectEncoding(sniffed);
     if (!isUtf16(encoding) && looksBinary(sniffed)) throw new SourceError("BINARY", path, `Binary file: ${path}`);
 
-    const useWorker = size > this.threshold;
+    // a Docker spool has no archives next to it
+    const hours = source === "file" && Number(params.historyHours) > 0 ? Number(params.historyHours) : 0;
+    const scan: ArchiveScan =
+      hours > 0 ? await findArchives(path, { pattern: params.archivePattern, since: Date.now() - hours * HOUR_MS }) : { loaded: [], skipped: 0 };
+    const totalBytes = scan.loaded.reduce((n, a) => n + a.size, size);
+    const showProgress = totalBytes > this.threshold;
     const tab: Tab = {
       tailer: undefined as unknown as Tailer,
       port,
@@ -253,7 +261,7 @@ export class EngineService {
       ...(params.openId ? { openId: params.openId } : {}),
       ...docker,
     };
-    const emitIndexing = this.wireTailer(tabId, tab, path, useWorker);
+    const emitIndexing = this.wireTailer(tabId, tab, path, { size, history: scan.loaded });
     this.tabs.set(tabId, tab);
     try {
       await tab.tailer.start();
@@ -261,19 +269,28 @@ export class EngineService {
       await this.closeTab(tabId);
       throw toSourceError(err, path);
     }
-    if (useWorker) emitIndexing(1, true);
+    if (showProgress) emitIndexing(1, true);
     if (tab.tailer.phase === "missing" || tab.tailer.phase === "error") {
       await this.closeTab(tabId);
       throw new SourceError("ENOENT", path, `File not readable: ${path}`);
     }
-    return { tabId, source, path, encoding, sizeBytes: size, totalRows: tab.tailer.totalRows, lineEnding: "unknown" };
+    const info: TabInfo = { tabId, source, path, encoding, sizeBytes: size, totalRows: tab.tailer.totalRows, lineEnding: "unknown" };
+    if (hours > 0) info.history = historyOf(tab.tailer, scan, hours);
+    return info;
   }
 
   /**
    * Creates the tailer of a tab and forwards its events (keeping search and filter in step).
+   * `initial`: the file's size and the archives loaded before it, indexed with one progress for the
+   * whole stream (large files in a worker); absent: plain indexing, no progress.
    * Returns the throttled emitter of `indexing` events.
    */
-  private wireTailer(tabId: TabId, tab: Tab, path: string, useWorker: boolean): (progress: number, force?: boolean) => void {
+  private wireTailer(
+    tabId: TabId,
+    tab: Tab,
+    path: string,
+    initial?: { size: number; history: readonly ArchiveFile[] },
+  ): (progress: number, force?: boolean) => void {
     const port = tab.port;
     let lastIndexingAt = 0;
     const emitIndexing = (progress: number, force = false): void => {
@@ -282,14 +299,27 @@ export class EngineService {
       lastIndexingAt = now;
       this.emitEvent(port, tab.openId ?? tabId, { type: "indexing", progress, provisional: false });
     };
+    const sizes = new Map<string, number>((initial?.history ?? []).map((a) => [a.path, a.size]));
+    if (initial) sizes.set(path, initial.size);
+    const totalBytes = [...sizes.values()].reduce((a, b) => a + b, 0);
+    const showProgress = totalBytes > this.threshold;
+    const ratio = (bytes: number): number => (totalBytes > 0 ? Math.min(1, bytes / totalBytes) : 1);
+    let doneBytes = 0;
     tab.tailer = new Tailer({
       path,
       encoding: tab.encoding,
-      initialIndexer: useWorker
-        ? (index) =>
-            index.indexWithWorker({
-              onProgress: (p) => emitIndexing(p.totalBytes > 0 ? Math.min(1, p.bytesRead / p.totalBytes) : 1),
-            })
+      history: (initial?.history ?? []).map((a) => a.path),
+      initialIndexer: initial
+        ? async (index, file) => {
+            const fileSize = sizes.get(file) ?? 0;
+            if (fileSize > this.threshold) {
+              await index.indexWithWorker({ onProgress: (p) => showProgress && emitIndexing(ratio(doneBytes + p.bytesRead)) });
+            } else {
+              await index.appendFrom();
+            }
+            doneBytes += fileSize;
+            if (showProgress) emitIndexing(ratio(doneBytes));
+          }
         : undefined,
     });
     tab.unsubscribe = tab.tailer.on((event) => {
@@ -340,7 +370,7 @@ export class EngineService {
     try {
       await spooler.rebuild(params.tail);
     } finally {
-      this.wireTailer(params.tabId, tab, spooler.path, false);
+      this.wireTailer(params.tabId, tab, spooler.path);
       await tab.tailer.start();
       tab.search?.restart();
       tab.filter?.restart();
@@ -481,6 +511,15 @@ async function sniff(path: string): Promise<Buffer> {
 }
 
 /** Size of a regular file; typed errors for a missing file or a directory. */
+/** Archives that made it into the tab (an unreadable one is skipped by the tailer). */
+function historyOf(tailer: Tailer, scan: ArchiveScan, hours: number): TabHistory {
+  const mtimes = new Map(scan.loaded.map((a) => [a.path, a.mtimeMs]));
+  const files = tailer.segments
+    .filter((seg) => seg.startedBy === "history")
+    .map((seg) => ({ path: seg.path, startRow: seg.startRow, rowCount: seg.rowCount, mtimeMs: mtimes.get(seg.path) ?? 0 }));
+  return { files, skipped: scan.skipped, hours };
+}
+
 async function sizeOf(path: string): Promise<number> {
   try {
     const info = await stat(path);

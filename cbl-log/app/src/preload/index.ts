@@ -15,6 +15,13 @@ const api: CblLogApi = {
   notifyReady: () => ipcRenderer.send("renderer:ready"),
   addRecentFile: (path) => ipcRenderer.invoke("recent:add", path) as Promise<void>,
   showFileContextMenu: (path) => ipcRenderer.invoke("file:context-menu", path) as Promise<void>,
+  onArchiveDesignated: (cb) => {
+    const listener = (_event: unknown, path: string, archive: string): void => cb(path, archive);
+    ipcRenderer.on("archive:designated", listener);
+    return () => {
+      ipcRenderer.off("archive:designated", listener);
+    };
+  },
   loadRuleSets: () => ipcRenderer.invoke("rules:load") as ReturnType<CblLogApi["loadRuleSets"]>,
   saveRuleSet: (set) => ipcRenderer.invoke("rules:save", set) as Promise<void>,
   exportRuleSet: (set) => ipcRenderer.invoke("rules:export", set) as ReturnType<CblLogApi["exportRuleSet"]>,

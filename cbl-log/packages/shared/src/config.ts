@@ -28,6 +28,10 @@ export const settingsSchema = z.object({
   theme: themeSchema.default("system"),
   /** Looks for a newer GitHub release at startup (the only network access of the app, NF-07). */
   checkForUpdates: z.boolean().default(true),
+  /** Rolled archives of a file modified within this many hours are loaded before it (T-09); 0 = the file alone. */
+  historyHours: z.number().min(0).max(720).default(2),
+  /** Archive name pattern learned for a followed file (path key → regex source), see learnArchivePattern. */
+  archivePatterns: z.record(z.string(), z.string()).default({}),
   docker: dockerSettingsSchema.default(() => defaultDockerSettings()),
 });
 export type Settings = z.infer<typeof settingsSchema>;
@@ -52,7 +56,7 @@ export const filterSettingsSchema = z.object({
 export const sessionTabSchema = z.object({
   path: z.string().min(1),
   follow: z.boolean().default(true),
-  /** First visible row, relative to `clearedBefore`. */
+  /** First visible row, relative to `clearedBefore`. Rows count from the start of the live file (not of its archives). */
   scrollRow: z.number().int().min(0).default(0),
   clearedBefore: z.number().int().min(0).default(0),
   /** Highlighting profile chosen for this tab; absent = automatic (from the detected format). */
@@ -82,7 +86,7 @@ export const recentSchema = z.object({
 });
 export type Recent = z.infer<typeof recentSchema>;
 
-export const defaultSettings = (): Settings => ({ schemaVersion: 1, theme: "system", checkForUpdates: true, docker: defaultDockerSettings() });
+export const defaultSettings = (): Settings => ({ schemaVersion: 1, theme: "system", checkForUpdates: true, historyHours: 2, archivePatterns: {}, docker: defaultDockerSettings() });
 export const emptyRecent = (): Recent => ({ schemaVersion: 1, files: [] });
 export const emptySession = (): Session => ({ schemaVersion: 1, tabs: [] });
 

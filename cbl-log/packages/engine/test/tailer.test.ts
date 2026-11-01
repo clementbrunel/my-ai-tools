@@ -320,6 +320,29 @@ describe("Tailer", () => {
     expect((await tailer.getLines(0, 8)).map((l) => l.lineNo)).toEqual([4, 5, 6, 7]);
   });
 
+  it("history: archives loaded before the live file as one stream, no rolled event, then rolling as usual", async () => {
+    const dir = await tempDir();
+    const path = join(dir, "a.log");
+    writeFileSync(join(dir, "a.1.log"), lines(0, 3));
+    writeFileSync(join(dir, "a.2.log"), lines(3, 5));
+    writeFileSync(path, lines(5, 8));
+    const history = [join(dir, "a.1.log"), join(dir, "gone.log"), join(dir, "a.2.log")];
+    const { tailer, events } = await manual(path, { history, maxRetainedSegments: 1 });
+    expect(tailer.segments.map((s) => [s.path, s.startRow, s.rowCount, s.startedBy])).toEqual([
+      [join(dir, "a.1.log"), 0, 3, "history"],
+      [join(dir, "a.2.log"), 3, 2, "history"],
+      [path, 5, 3, "initial"],
+    ]);
+    expect(events.some((e) => e.type === "rolled")).toBe(false);
+    expect(openHandles(tailer)).toBe(1);
+    expect(await texts(tailer)).toEqual(ids(0, 8));
+    renameSync(path, join(dir, "a.3.log"));
+    writeFileSync(path, lines(8, 10));
+    await tailer.check();
+    expect(events.find((e) => e.type === "rolled")).toEqual({ type: "rolled", reason: "rename", previous: join(dir, "a.3.log"), at: 8 });
+    expect(await texts(tailer)).toEqual(ids(0, 10));
+  });
+
   it("last line without terminator: counted, then completed without duplicate", async () => {
     const path = join(await tempDir(), "a.log");
     writeFileSync(path, "abc\ndef");

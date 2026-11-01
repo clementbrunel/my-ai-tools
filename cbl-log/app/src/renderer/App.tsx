@@ -11,6 +11,7 @@ import {
   dockerUri,
   detectFormat,
   formatForFilter,
+  learnArchivePattern,
   parseDockerUri,
   toLineFilter,
   type CompiledFormat,
@@ -40,7 +41,7 @@ import { nextVisibleHit } from "./filter/filter-nav";
 import { compileRules, highlightLine } from "./highlight/highlight";
 import { RulesEditor } from "./rules/RulesEditor";
 import { autoRuleSet, importAsCopy, importKind, pickRuleSet, uniqueRuleSetId, withRuleSet } from "./rules/rule-profile";
-import { buildSession } from "./session/session-snapshot";
+import { buildSession, liveStartRow } from "./session/session-snapshot";
 import { StatusBar } from "./tabs/StatusBar";
 import { TabBar } from "./tabs/TabBar";
 import { filterStatus, initialTabsState, searchStatus, tabsReducer, type TabState } from "./tabs/tabs-reducer";
@@ -89,14 +90,14 @@ export function App() {
   const [rulesOpen, setRulesOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [settings, setSettings] = useState<Settings>(defaultSettings);
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
   /** Docker side panel: shown or not, and the last container list of the engine. */
   const [dockerOpen, setDockerOpen] = useState(false);
   const [dockerList, setDockerList] = useState<DockerListResult | undefined>();
   /** Docker tabs whose history is being extended. */
   const [loadingMore, setLoadingMore] = useState<ReadonlySet<TabId>>(new Set());
   const [userFormats, setUserFormats] = useState<LogFormat[]>([]);
-  const settingsRef = useRef(settings);
-  settingsRef.current = settings;
   const detecting = useRef(new Set<TabId>());
   const sessionReady = useRef(false);
   /** Last session written (or loaded): reopened if the engine process restarts. */
@@ -226,22 +227,37 @@ export function App() {
       setOpening((o) => ({ ...o, [openId]: { name: docker?.name ?? baseName(path), progress: 0 } }));
       try {
         const encoding = docker ? undefined : (opts.encoding ?? restore?.encoding);
+        const { historyHours, archivePatterns } = settingsRef.current;
+        const archivePattern = archivePatterns[key];
         const info = await engine.request(
           "open",
           docker
             ? { docker: { ...docker, initialTail: settingsRef.current.docker.initialTail }, openId }
-            : encoding
-              ? { path, openId, encoding }
-              : { path, openId },
+            : {
+                path,
+                openId,
+                historyHours,
+                ...(encoding ? { encoding } : {}),
+                ...(archivePattern ? { archivePattern } : {}),
+              },
         );
         const cache = new PageCache(async (first, count) => (await engine.request("getRows", { tabId: info.tabId, first, count })).rows);
         runtimes.current.set(info.tabId, { cache, total: info.totalRows, pathKey: key, filterTotal: 0 });
         dispatch({ type: "opened", info, ...(docker ? { docker } : {}), ...(encoding ? { encodingChoice: encoding } : {}), ...(opts.index !== undefined ? { index: opts.index } : {}) });
         void detectRef.current(info.tabId);
+        const skipped = info.history?.skipped ?? 0;
+        if (skipped > 0) {
+          setNotice({
+            text: `${baseName(path)} : ${skipped} archive${skipped > 1 ? "s" : ""} de plus de ${info.history!.hours} h non chargée${skipped > 1 ? "s" : ""} (durée réglable : « historyHours » dans settings.json)`,
+            isError: false,
+          });
+        }
         if (restore) {
           dispatch({ type: "follow", tabId: info.tabId, follow: restore.follow });
-          dispatch({ type: "scrollRow", tabId: info.tabId, row: restore.scrollRow });
-          if (restore.clearedBefore > 0) dispatch({ type: "clearedTo", tabId: info.tabId, row: restore.clearedBefore });
+          // saved rows count from the start of the live file (see buildSession)
+          const live = liveStartRow({ info });
+          if (restore.clearedBefore > 0) dispatch({ type: "clearedTo", tabId: info.tabId, row: live + restore.clearedBefore });
+          dispatch({ type: "scrollRow", tabId: info.tabId, row: restore.clearedBefore > 0 ? restore.scrollRow : live + restore.scrollRow });
           if (restore.customName) dispatch({ type: "renamed", tabId: info.tabId, name: restore.customName });
           if (restore.ruleSetId) dispatch({ type: "ruleSetChosen", tabId: info.tabId, ruleSetId: restore.ruleSetId });
           if (restore.filter) dispatch({ type: "filterChanged", tabId: info.tabId, filter: restore.filter });
@@ -572,6 +588,29 @@ export function App() {
     });
   }, [loadRulesNow, loadSettingsNow, loadFormatsNow]);
   useEffect(() => window.cblLog.onOpenFeedback(() => setFeedbackOpen(true)), []);
+
+  // "Désigner une archive du rolling…": the archive names of this file are learned from the one picked,
+  // remembered in settings.json, and the tab is reopened with its archives.
+  useEffect(
+    () =>
+      window.cblLog.onArchiveDesignated((path, archive) => {
+        let pattern: string;
+        try {
+          pattern = learnArchivePattern(path, archive);
+        } catch (err) {
+          setNotice({ text: `${baseName(archive)} : ${err instanceof Error ? err.message : String(err)}`, isError: true });
+          return;
+        }
+        const next: Settings = { ...settingsRef.current, archivePatterns: { ...settingsRef.current.archivePatterns, [pathKey(path)]: pattern } };
+        settingsRef.current = next;
+        setSettings(next);
+        void window.cblLog.saveSettings(next).catch(() => undefined);
+        setNotice({ text: `Archives de ${baseName(path)} reconnues d'après ${baseName(archive)}`, isError: false });
+        const tab = stateRef.current.tabs.find((t) => pathKey(t.info.path) === pathKey(path));
+        if (tab) void reopenWithEncoding(tab.info.tabId, tab.encodingChoice);
+      }),
+    [reopenWithEncoding],
+  );
 
   /** Applies `edit` to one profile now and writes it to disk shortly after the last edit. */
   const editRuleSet = useCallback((setId: string, edit: (set: RuleSet) => RuleSet) => {

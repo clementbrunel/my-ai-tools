@@ -12,6 +12,18 @@ filtres, parseurs de format, profils, vue fusionnée multi-fichiers.
 
 Pile : Electron + TypeScript + React (Windows 10/11).
 
+## Rolling : archives chargées avec le fichier
+
+À l'ouverture de `SystemOut.log`, les archives laissées à côté par le rolling (`SystemOut_26.10.21_09.30.46.log`…)
+modifiées depuis moins de **2 h** sont chargées avant lui : l'onglet se lit comme un seul fichier, avec un
+séparateur à chaque archive. Quand des archives plus anciennes existent, un avertissement le signale.
+
+- La durée se règle dans `%APPDATA%\cbl-log\settings.json` : `"historyHours": 6` (0 = le fichier seul).
+- Noms reconnus d'office : `<nom>_<date>.log` (WebSphere, Liberty), `<nom>.<date>.<n>.log` (Logback), `<nom>.log.1`.
+  Pour un autre nommage, clic droit sur le chemin du fichier › **Désigner une archive du rolling…** et choisir une
+  archive : cbl-log en déduit le motif, le retient pour ce fichier et rouvre l'onglet.
+- La recherche et le filtre ne portent pour l'instant que sur le fichier courant.
+
 ## Partager un profil de surlignage
 
 Dans **Règles de surlignage**, `Exporter…` enregistre le profil affiché dans un fichier `.json` à envoyer

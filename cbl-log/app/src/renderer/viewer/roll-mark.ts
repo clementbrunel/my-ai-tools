@@ -1,4 +1,4 @@
-import type { RolledReason } from "@cbl-log/shared";
+import type { RolledReason, TabHistory } from "@cbl-log/shared";
 import { baseName } from "../files/path-key";
 
 /** A rolling / truncation seen while following: drawn as a separator before row `row`. */
@@ -27,6 +27,11 @@ export function rollMarkLabel(mark: RollMark): string {
     return mark.previous ? `tronqué ${time} → ${baseName(mark.previous)}` : `tronqué ${time}`;
   }
   return mark.previous ? `rolling ${time} → ${baseName(mark.previous)}` : `rolling ${time}`;
+}
+
+/** Separators between the archives loaded at open and before the live file, timed when each was rolled. */
+export function historyMarks(history: TabHistory | undefined): RollMark[] {
+  return (history?.files ?? []).map((file) => ({ row: file.startRow + file.rowCount, reason: "rename", previous: file.path, at: file.mtimeMs }));
 }
 
 /** Marks by row, for the renderer (several marks on the same row keep the latest). */
