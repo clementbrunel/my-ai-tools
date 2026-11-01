@@ -4,6 +4,8 @@ export type DockerErrorCode =
   | "API_TOO_OLD" // daemon ApiVersion below the supported minimum
   | "FORBIDDEN" // request refused by the read-only client (method or route)
   | "BAD_ENDPOINT" // unusable DOCKER_HOST / context endpoint
+  | "NOT_FOUND" // no container carries the requested name
+  | "UNREADABLE" // the container's log driver (`none`) keeps no logs the daemon can serve
   | "HTTP" // the daemon answered with a non-2xx status
   | "CONNECTION"; // any other transport failure
 

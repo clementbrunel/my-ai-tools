@@ -13,3 +13,7 @@ export { DEFAULT_DOCKER_HOST, parseDockerHost, resolveEndpoint } from "./endpoin
 export type { DockerEndpoint, ResolveEndpointOptions } from "./endpoint.js";
 export { DockerError, toDockerError } from "./errors.js";
 export type { DockerErrorCode } from "./errors.js";
+export { LogSpooler, purgeSpools, DEFAULT_INITIAL_TAIL, DEFAULT_SPOOL_MAX_BYTES } from "./spooler.js";
+export type { SpoolState, SpoolerOptions } from "./spooler.js";
+export { ContainerWatcher } from "./watcher.js";
+export type { ContainerWatcherOptions, WatcherSnapshot } from "./watcher.js";
