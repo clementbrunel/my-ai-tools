@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import type { TabId } from "@cbl-log/shared";
-import { baseName } from "../files/path-key";
-import type { TabState } from "./tabs-reducer";
+import { WhaleIcon } from "../docker/DockerPanel";
+import { tabLabel, tabUri, type TabState } from "./tabs-reducer";
 
 interface Props {
   tabs: TabState[];
@@ -12,16 +12,26 @@ interface Props {
   onRename(tabId: TabId, name: string): void;
   /** Opens files from the file dialog. */
   onOpen(): void;
+  /** Docker panel toggle (absent when the feature is disabled). */
+  docker?: { open: boolean; onToggle(): void } | undefined;
 }
 
-export function TabBar({ tabs, activeId, onActivate, onClose, onRename, onOpen }: Props) {
+export function TabBar({ tabs, activeId, onActivate, onClose, onRename, onOpen, docker }: Props) {
   const [editing, setEditing] = useState<TabId | undefined>(undefined);
   const cancelled = useRef(false);
 
   return (
     <nav className="tabs" role="tablist">
+      {docker && (
+        <button type="button" className={docker.open ? "tab-docker on" : "tab-docker"} aria-pressed={docker.open} onClick={docker.onToggle} title="Conteneurs Docker (Ctrl+Maj+D)" aria-label="Panneau Docker">
+          <WhaleIcon />
+        </button>
+      )}
       {tabs.map((tab) => {
-        const { tabId, path } = tab.info;
+        const { tabId } = tab.info;
+        const path = tabUri(tab);
+        const label = tabLabel(tab);
+        const defaultName = tab.docker?.name ?? path.split(/[\/]/).pop() ?? path;
         const active = tabId === activeId;
         return (
           <div
@@ -44,14 +54,14 @@ export function TabBar({ tabs, activeId, onActivate, onClose, onRename, onOpen }
               <input
                 className="tab-rename"
                 autoFocus
-                defaultValue={tab.customName ?? baseName(path)}
+                defaultValue={label}
                 aria-label="Nom de l'onglet"
                 onFocus={(e) => e.currentTarget.select()}
                 onClick={(e) => e.stopPropagation()}
                 onDoubleClick={(e) => e.stopPropagation()}
                 onBlur={(e) => {
                   const name = e.currentTarget.value.trim();
-                  if (!cancelled.current) onRename(tabId, name === baseName(path) ? "" : name);
+                  if (!cancelled.current) onRename(tabId, name === defaultName ? "" : name);
                   cancelled.current = false;
                   setEditing(undefined);
                 }}
@@ -66,7 +76,7 @@ export function TabBar({ tabs, activeId, onActivate, onClose, onRename, onOpen }
               />
             ) : (
               <span className="tab-name">
-                {tab.customName ?? baseName(path)}
+                {tab.docker && <WhaleIcon />} {label}
               </span>
             )}
             {!active && tab.unseen > 0 && <span className="badge">{tab.unseen > 999 ? "999+" : tab.unseen}</span>}

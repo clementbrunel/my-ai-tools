@@ -184,6 +184,8 @@ export interface DockerContainerInfo {
   composeProject?: string;
   composeService?: string;
   logDriver?: string;
+  /** ISO time the container last started (absent when never started). */
+  startedAt?: string;
   /** false: the daemon cannot serve its logs (log driver `none`). */
   readable: boolean;
 }
@@ -192,6 +194,13 @@ export interface DockerListResult {
   /** "unavailable": Docker Desktop is not running, or access is denied (see `error`). */
   status: "connected" | "unavailable";
   error?: string;
+  /** Kind of failure when unavailable: lets the UI explain what to do. */
+  errorCode?: "NOT_RUNNING" | "ACCESS_DENIED" | "API_TOO_OLD" | "OTHER";
+  /** Docker context the containers live in (folder of the spools, part of the `docker://` URI). */
+  context?: string;
+  /** Docker Engine version and negotiated API version, when connected. */
+  version?: string;
+  apiVersion?: string;
   containers: DockerContainerInfo[];
 }
 

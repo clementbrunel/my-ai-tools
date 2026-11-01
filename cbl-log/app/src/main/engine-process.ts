@@ -1,4 +1,6 @@
 import { join } from "node:path";
+import type { DockerSettings } from "@cbl-log/shared";
+import { DOCKER_ENV, encodeDockerEnv } from "../engine/docker-options";
 import { MessageChannelMain, utilityProcess, type BrowserWindow, type UtilityProcess } from "electron";
 
 /** Holds the engine utilityProcess; restarts it if it dies (open tabs are lost, acceptable in M1). */
@@ -6,12 +8,19 @@ export class EngineHost {
   private child: UtilityProcess | undefined;
   private readonly windows = new Set<BrowserWindow>();
   private stopped = false;
+  private dockerEnv: string | undefined;
+
+  /** Docker options of settings.json, read by the engine when it starts (so: before `start`). */
+  setDockerSettings(docker: DockerSettings): void {
+    this.dockerEnv = encodeDockerEnv(docker);
+  }
 
   start(): void {
     this.stopped = false;
     const child = utilityProcess.fork(join(__dirname, "engine.js"), [], {
       serviceName: "cbl-log-engine",
       stdio: "inherit",
+      env: { ...process.env, ...(this.dockerEnv ? { [DOCKER_ENV]: this.dockerEnv } : {}) },
     });
     this.child = child;
     child.once("exit", (code) => {

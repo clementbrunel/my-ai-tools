@@ -8,6 +8,7 @@ import {
   DockerError,
   LogDemuxer,
   compareApiVersions,
+  currentContextName,
   parseDockerHost,
   resolveEndpoint,
 } from "../src/docker/index";
@@ -82,6 +83,14 @@ describe("endpoint resolution", () => {
     const env = { DOCKER_HOST: "tcp://env:1" };
     expect(resolveEndpoint({ settingsHost: "tcp://settings:2", env, readFile: none })).toEqual({ host: "settings", port: 2 });
     expect(resolveEndpoint({ env, readFile: none })).toEqual({ host: "env", port: 1 });
+  });
+
+  it("names the current Docker context", () => {
+    const files: Record<string, string> = { [join("/h", ".docker", "config.json")]: JSON.stringify({ currentContext: "desktop-linux" }) };
+    const readFile = (p: string) => files[p];
+    expect(currentContextName({ env: {}, homeDir: "/h", readFile })).toBe("desktop-linux");
+    expect(currentContextName({ env: { DOCKER_CONTEXT: "other" }, homeDir: "/h", readFile })).toBe("other");
+    expect(currentContextName({ env: {}, homeDir: "/h", readFile: () => undefined })).toBe("default");
   });
 
   it("reads the current Docker context", () => {

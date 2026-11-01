@@ -14,6 +14,10 @@ describe("rollMarkLabel", () => {
     expect(rollMarkLabel({ row: 1, reason: "truncate", previous: "/var/log/app.log.1", at })).toBe("tronqué 10:02:11 → app.log.1");
   });
 
+  it("says the container was recreated", () => {
+    expect(rollMarkLabel({ row: 1, reason: "recreated", at })).toBe("conteneur recréé 10:02:11");
+  });
+
   it("works without an archive for a new file", () => {
     expect(rollMarkLabel({ row: 1, reason: "new-file", at })).toBe("rolling 10:02:11");
   });

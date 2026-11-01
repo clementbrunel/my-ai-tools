@@ -6,6 +6,23 @@ import { LEVELS } from "./formats.js";
 export const themeSchema = z.enum(["system", "dark", "light"]);
 export type Theme = z.infer<typeof themeSchema>;
 
+/** Reading of Docker Desktop container logs (analysis § 5, § 6). Engine options apply at the next launch. */
+export const dockerSettingsSchema = z.object({
+  /** Shows the Docker panel and talks to the daemon. */
+  enabled: z.boolean().default(true),
+  /** Daemon address (`npipe://…`, `tcp://…`); absent = DOCKER_HOST, then the current Docker context. */
+  host: z.string().min(1).optional(),
+  /** Lines loaded when a container is opened. */
+  initialTail: z.number().int().min(1).max(1_000_000).default(5000),
+  /** Size at which the spool file of a container is rotated, in MiB. */
+  spoolMaxMb: z.number().int().min(1).max(100_000).default(256),
+  /** Keeps the spool file when the tab is closed (history of a removed container). */
+  keepSpoolOnClose: z.boolean().default(false),
+});
+export type DockerSettings = z.infer<typeof dockerSettingsSchema>;
+
+export const defaultDockerSettings = (): DockerSettings => dockerSettingsSchema.parse({});
+
 export const settingsSchema = z.object({
   schemaVersion: z.literal(1),
   theme: themeSchema.default("system"),
@@ -15,6 +32,7 @@ export const settingsSchema = z.object({
   historyHours: z.number().min(0).max(720).default(2),
   /** Archive name pattern learned for a followed file (path key → regex source), see learnArchivePattern. */
   archivePatterns: z.record(z.string(), z.string()).default({}),
+  docker: dockerSettingsSchema.default(() => defaultDockerSettings()),
 });
 export type Settings = z.infer<typeof settingsSchema>;
 
@@ -68,7 +86,7 @@ export const recentSchema = z.object({
 });
 export type Recent = z.infer<typeof recentSchema>;
 
-export const defaultSettings = (): Settings => ({ schemaVersion: 1, theme: "system", checkForUpdates: true, historyHours: 2, archivePatterns: {} });
+export const defaultSettings = (): Settings => ({ schemaVersion: 1, theme: "system", checkForUpdates: true, historyHours: 2, archivePatterns: {}, docker: defaultDockerSettings() });
 export const emptyRecent = (): Recent => ({ schemaVersion: 1, files: [] });
 export const emptySession = (): Session => ({ schemaVersion: 1, tabs: [] });
 
