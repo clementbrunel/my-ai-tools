@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 @Slf4j
-@ConditionalOnProperty(prefix = "mymoneyhub.sync", name = "enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(prefix = "mymoneyhub.sync", name = "enabled", havingValue = "true", matchIfMissing = false)
 public class SyncScheduler {
 
     private final SyncService syncService;

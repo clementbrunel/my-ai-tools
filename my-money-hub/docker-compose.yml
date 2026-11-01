@@ -30,7 +30,7 @@ services:
       ENABLE_BANKING_PRIVATE_KEY_PATH: ${ENABLE_BANKING_PRIVATE_KEY_PATH:-}
       ENABLE_BANKING_REDIRECT_URL: ${ENABLE_BANKING_REDIRECT_URL:-http://localhost:3001/api/enable-banking/callback}
       ENABLE_BANKING_FRONTEND_URL: ${ENABLE_BANKING_FRONTEND_URL:-http://localhost:3001/}
-      SYNC_ENABLED: ${SYNC_ENABLED:-true}
+      SYNC_ENABLED: ${SYNC_ENABLED:-false}
       SYNC_CRON: ${SYNC_CRON:-0 0 6 * * *}
       TZ: Europe/Paris
     depends_on:
