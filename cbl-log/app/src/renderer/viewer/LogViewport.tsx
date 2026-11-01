@@ -45,6 +45,8 @@ interface Props {
   onGotoLine?: ((line: number) => void) | undefined;
   /** "Go to" accepts a time too when the format has timestamps: resolves to the 1-based line of the file. */
   onGotoTime?: ((text: string) => Promise<GotoTimeResult>) | undefined;
+  /** "All" tab: label and colour of each source, indexed by `Row.source`. */
+  sources?: { label: string; color: string }[] | undefined;
   /** Number of lines of the file, for the "go to line" range of a filtered view. */
   fileRows?: number | undefined;
   /** Receives the first visible row, so the search can start from where the user is. */
@@ -60,7 +62,7 @@ interface Props {
 }
 
 /** Virtualized, fixed-height-row view of a tab's lines. Follow mode keeps the end in view. */
-export function LogViewport({ cache, total: realTotal, base, marks, format, filtered = false, highlight, follow, reveal, currentMatchRow, anchorLine, onRowDoubleClick, onGotoLine, onGotoTime, fileRows, viewRowRef, initialRow, onFollowChange, onLeave, fetchRows, onNotice }: Props) {
+export function LogViewport({ cache, total: realTotal, base, marks, format, filtered = false, highlight, follow, reveal, currentMatchRow, anchorLine, onRowDoubleClick, onGotoLine, onGotoTime, sources, fileRows, viewRowRef, initialRow, onFollowChange, onLeave, fetchRows, onNotice }: Props) {
   const total = Math.max(0, realTotal - base);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
@@ -280,6 +282,11 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, filt
         }}
       >
         <span className="log-gutter">
+          {row?.source !== undefined && sources?.[row.source] && (
+            <span className="log-source" style={{ color: sources[row.source]!.color, boxShadow: `inset 3px 0 0 ${sources[row.source]!.color}` }}>
+              {sources[row.source]!.label}
+            </span>
+          )}
           <span className="log-level">{level?.toUpperCase()}</span>
           {filtered ? (row ? row.lineNo + 1 : "") : lineRow + 1}
         </span>

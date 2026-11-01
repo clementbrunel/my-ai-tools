@@ -345,6 +345,16 @@ suite restent ensemble), fuseaux pris en compte (`parseTimestamp`). Temps réel 
 arrivé encore plus tard est ajouté en fin sans toucher aux rows déjà publiées. `drop(source)` retire les rows d'une source
 tronquée. Limite : les sources sont lues dans le processus du moteur (pas encore par les workers), à mesurer (#393).
 
+**Onglet « Tout » (#505)** : `openMerged({ sources: [{ tabId, label, format }], tabId? })` fusionne des onglets déjà ouverts
+(les sources sont lues par leurs `Tailer`) ; `getRows` sur l'onglet fusionné rend des `Row` avec `source` (index dans
+`TabInfo.merged.sources`) et `lineNo` = row fusionnée. Le moteur suit les `rows` des sources (tick de 250 ms, relancé tant que
+des records attendent la fenêtre) et pousse un `rows` sur l'onglet ; un `rolled` d'une source est relayé avec son nom (`source`)
+à la position courante de la vue fusionnée (séparateur « srv1 : rolling … »). Côté renderer, l'onglet est inséré en premier,
+suit les onglets (un onglet ouvert / fermé, un format détecté ou une case cochée relance `openMerged` sur le même id),
+n'est pas enregistré dans la session, et affiche étiquette + liseré de couleur par source. Les cases masquent une source en
+refusionnant les autres. Pas encore : filtre, recherche, surlignage par source, « ouvrir dans l'onglet du fichier » (lot 3, #506).
+Une source tronquée n'est pas retirée de la vue (`MergedView.drop` n'est pas encore appelé).
+
 ### 4.7 Alertes (B-04)
 
 Règles `{ query, cooldownSec, sound }` évaluées sur les lignes **ajoutées** uniquement, dans le tailer ;

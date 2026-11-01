@@ -16,6 +16,8 @@ export interface Row {
   level?: Level | undefined;
   /** Filtered view with folding: lines hidden under this one (the continuation of its record). */
   folded?: number | undefined;
+  /** "All" tab: index of the source the line comes from (`MergedInfo.sources`); its `lineNo` is the merged row. */
+  source?: number | undefined;
 }
 
 /** A Docker container opened as a tab: identified by its name, not by its id (analysis § 5.3). */
@@ -68,7 +70,7 @@ export interface TabHistory {
 export interface TabInfo {
   tabId: TabId;
   /** Where the lines come from: a file, or a Docker container copied to a spool file. */
-  source: "file" | "docker";
+  source: "file" | "docker" | "merged";
   /** The followed file; for a Docker tab, its spool. */
   path: string;
   encoding: Encoding;
@@ -78,6 +80,26 @@ export interface TabInfo {
   lineEnding: "crlf" | "lf" | "unknown";
   /** Archives loaded before the file (`historyHours` > 0). */
   history?: TabHistory;
+  /** "All" tab (`source: "merged"`): the tabs it interleaves. */
+  merged?: MergedInfo;
+}
+
+/** The tabs merged by an "All" tab, in the order of `Row.source`. */
+export interface MergedInfo {
+  sources: { tabId: TabId; label: string }[];
+}
+
+export interface MergedSourceParams {
+  tabId: TabId;
+  label: string;
+  /** Format of the source: it must have a `timestamp`. */
+  format: LogFormat;
+}
+
+export interface OpenMergedParams {
+  sources: MergedSourceParams[];
+  /** Re-merge an existing "All" tab (other sources): it keeps its id. */
+  tabId?: TabId;
 }
 
 export interface GetRowsParams {
@@ -228,6 +250,8 @@ export interface EngineRequestMap {
   searchNext: { params: SearchNextParams; result: SearchHit };
   setFilter: { params: SetFilterParams; result: FilterStarted };
   filterLocate: { params: FilterLocateParams; result: FilterLocation };
+  /** Opens (or re-merges) the "All" tab: the given tabs interleaved by timestamp (M-01). */
+  openMerged: { params: OpenMergedParams; result: TabInfo };
   dockerList: { params: Record<string, never>; result: DockerListResult };
   /** Same answer as `dockerList`, then `dockerContainers` events are pushed to the requesting port. */
   dockerSubscribe: { params: Record<string, never>; result: DockerListResult };

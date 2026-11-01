@@ -95,6 +95,11 @@ export class MergedView {
     return this.length - before;
   }
 
+  /** Records read but not merged yet: `update()` has more to do once the window has passed. */
+  get hasPending(): boolean {
+    return this.states.some((st) => st.queue.length > 0 || st.open !== undefined);
+  }
+
   /** (source, line of the source) shown at merged row `row`; undefined past the end. */
   locate(row: number): { source: number; line: number } | undefined {
     if (row < 0 || row >= this.length) return undefined;

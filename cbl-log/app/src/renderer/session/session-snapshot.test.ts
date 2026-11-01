@@ -31,6 +31,13 @@ describe("buildSession", () => {
     expect(buildSession(s.tabs, "a", 500).tabs[0]).toMatchObject({ scrollRow: 0, clearedBefore: 0 });
   });
 
+  it("does not save the All tab", () => {
+    const all: TabInfo = { ...info("all"), source: "merged", path: "", merged: { sources: [{ tabId: "a", label: "a" }] } };
+    const s = run({ type: "opened", info: info("a") }, { type: "opened", info: all, index: 0 });
+    expect(s.activeId).toBe("all");
+    expect(buildSession(s.tabs, "all", 0)).toEqual({ schemaVersion: 1, tabs: [expect.objectContaining({ path: "C:/logs/a.log" })] });
+  });
+
   it("is empty without tabs", () => {
     expect(buildSession([], undefined, 0)).toEqual({ schemaVersion: 1, tabs: [] });
   });
