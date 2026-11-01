@@ -574,13 +574,22 @@ export class EngineService {
       busy: Promise.resolve(),
       closed: false,
     };
+    // content that is already gone (a truncation without archive, a purged archive) is never read
+    params.sources.forEach((source, index) => this.dropGoneLines(merged, index, source.tabId));
     await view.update(true);
-    const offs = params.sources.map((source) =>
+    const offs = params.sources.map((source, index) =>
       this.tabs.get(source.tabId)!.tailer.on((event) => {
         if (event.type === "rows") this.scheduleMerge(tabId, merged);
         else if (event.type === "rolled") {
           // the separator names the source it belongs to and falls where the view is now
           this.emitEvent(port, tabId, { ...event, source: source.label, at: merged.view.rowCount });
+          // a truncation without archive: the old lines are no longer readable, they leave the view
+          merged.busy = merged.busy.then(() => {
+            if (merged.closed || this.dropGoneLines(merged, index, source.tabId) === 0) return;
+            merged.search?.rebind(merged.view);
+            merged.filter?.rebind(merged.view);
+            this.emitEvent(port, tabId, { type: "rows", total: merged.view.rowCount, appended: 0 });
+          });
         }
       }),
     );
@@ -605,6 +614,17 @@ export class EngineService {
       lineEnding: "unknown",
       merged: { sources: merged.sources },
     };
+  }
+
+  /** Takes out of the view the lines of a source whose content is gone (segments no longer readable). */
+  private dropGoneLines(merged: MergedTab, source: number, sourceTabId: TabId): number {
+    const tab = this.tabs.get(sourceTabId);
+    if (!tab) return 0;
+    let removed = 0;
+    for (const seg of tab.tailer.segments) {
+      if (!seg.readable && seg.rowCount > 0) removed += merged.view.dropLines(source, seg.startRow, seg.startRow + seg.rowCount);
+    }
+    return removed;
   }
 
   private scheduleMerge(tabId: TabId, merged: MergedTab): void {

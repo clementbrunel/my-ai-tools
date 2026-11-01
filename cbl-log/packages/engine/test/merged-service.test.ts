@@ -117,6 +117,40 @@ describe("the All tab", { timeout: 30_000 }, () => {
     expect((await c.ok("getRows", { tabId: info.tabId, first: 0, count: 5 })).rows.map((r) => [message(r.text), r.source])).toEqual([["b2", 0]]);
   });
 
+  it("takes a source truncated without archive out of the view, and goes on with what it writes next", async () => {
+    const dir = await tempDir();
+    const a = join(dir, "a.log");
+    const b = join(dir, "b.log");
+    const old = Array.from({ length: 30 }, (_, i) => line(i % 60, `old${i}`)).join("");
+    writeFileSync(a, old);
+    writeFileSync(b, line(2, "b2") + line(4, "b4"));
+    const c = connect({ merge: { windowMs: 100 } });
+    const tabA = await c.ok("open", { path: a });
+    const tabB = await c.ok("open", { path: b });
+    const info = await c.ok("openMerged", {
+      sources: [
+        { tabId: tabA.tabId, label: "srv1", format: SPRING_BOOT },
+        { tabId: tabB.tabId, label: "srv2", format: SPRING_BOOT },
+      ],
+    });
+    expect(info.totalRows).toBe(32);
+
+    writeFileSync(a, line(10, "fresh")); // shorter than before: truncated, and no archive to recover it from
+    await waitFor(async () => {
+      const rows = (await c.ok("getRows", { tabId: info.tabId, first: 0, count: 100 })).rows;
+      return rows.length === 3 && rows.some((r) => message(r.text) === "fresh");
+    }, "old lines out, new line in");
+    const rows = (await c.ok("getRows", { tabId: info.tabId, first: 0, count: 100 })).rows;
+    expect(rows.map((r) => [message(r.text), r.source])).toEqual([
+      ["b2", 1],
+      ["b4", 1],
+      ["fresh", 0],
+    ]);
+    // the new line is the 31st of the source (rows stay counted), shown at merged row 2
+    expect(await c.ok("mergedLocate", { tabId: info.tabId, sourceTabId: tabA.tabId, line: 30 })).toEqual({ row: 2 });
+    expect(await c.ok("mergedLocate", { tabId: info.tabId, sourceTabId: tabA.tabId, line: 5 })).toEqual({ row: null });
+  });
+
   it("rejects an unknown source and a format without timestamp", async () => {
     const dir = await tempDir();
     const a = join(dir, "a.log");

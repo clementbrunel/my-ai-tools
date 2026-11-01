@@ -144,6 +144,70 @@ describe("MergedView", () => {
     });
   });
 
+  describe("lines that are gone", () => {
+    const build = async () => {
+      const a = new MemorySource("a");
+      const b = new MemorySource("b");
+      for (let i = 0; i < 100; i++) {
+        a.lines.push(head(i * 2, `a${i}`));
+        b.lines.push(head(i * 2 + 1, `b${i}`));
+      }
+      const view = new MergedView([a, b]);
+      await view.update(true);
+      return { a, b, view };
+    };
+
+    it("takes their rows out and keeps the others mapped to the right lines", async () => {
+      const { a, view } = await build();
+      expect(view.dropLines(0, 40, 60)).toBe(20);
+      expect(view.rowCount).toBe(180);
+      const shown = await view.rows(0, view.rowCount);
+      expect(shown.filter((r) => r.source === 0).map((r) => r.line)).toEqual([...Array(40).keys(), ...Array.from({ length: 40 }, (_, i) => 60 + i)]);
+      for (const r of shown) expect(r.text).toBe((r.source === 0 ? a : (await build()).b).lines[r.line]);
+      expect(view.rowOf(0, 39)).toBeDefined();
+      expect(view.rowOf(0, 50)).toBeUndefined();
+      expect(view.rowOf(0, 60)).toBe(shown.findIndex((r) => r.source === 0 && r.line === 60));
+      // the source b is untouched
+      expect(shown.filter((r) => r.source === 1)).toHaveLength(100);
+    });
+
+    it("does not read them when the source grows, and drops nothing twice", async () => {
+      const { a, view } = await build();
+      view.dropLines(0, 40, 60);
+      expect(view.dropLines(0, 45, 55)).toBe(0);
+      a.lines.push(head(500 % 600, "a-new"));
+      await view.update(true);
+      const last = (await view.rows(view.rowCount - 1, 1))[0]!;
+      expect([last.source, last.line, last.text]).toEqual([0, 100, a.lines[100]]);
+      expect(view.rowCount).toBe(181);
+    });
+
+    it("skips them on the first read of a source whose content is already gone", async () => {
+      const a = new MemorySource("a");
+      for (let i = 0; i < 10; i++) a.lines.push(i >= 3 && i < 6 ? "" : head(i, `a${i}`));
+      const read: number[] = [];
+      const spy = { ...a, label: "a", format: spring, startLine: 0, lineCount: () => a.lines.length, read: async (first: number, count: number) => (read.push(first), a.read(first, count)) } as MergeSource;
+      const view = new MergedView([spy], { chunkLines: 100 });
+      view.dropLines(0, 3, 6);
+      await view.update(true);
+      expect(view.rowCount).toBe(7);
+      expect(read).toEqual([0, 6]); // never inside the hole
+      expect((await view.rows(0, 7)).map((r) => r.line)).toEqual([0, 1, 2, 6, 7, 8, 9]);
+    });
+
+    it("forgets the records still waiting that touch the range", async () => {
+      let now = 0;
+      const a = new MemorySource("a", [head(1, "a1"), head(2, "a2"), head(3, "a3")]);
+      const view = new MergedView([a], { windowMs: 1000, now: () => now });
+      await view.update(); // read, not merged yet (inside the window)
+      expect(view.rowCount).toBe(0);
+      view.dropLines(0, 1, 2);
+      now = 5000;
+      await view.update();
+      expect((await view.rows(0, 5)).map((r) => r.line)).toEqual([0, 2]);
+    });
+  });
+
   it("drops the rows of a truncated source and merges what it holds afterwards", async () => {
     const a = new MemorySource("a");
     const b = new MemorySource("b");

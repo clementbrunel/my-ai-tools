@@ -353,7 +353,6 @@ des records attendent la fenêtre) et pousse un `rows` sur l'onglet ; un `rolled
 suit les onglets (un onglet ouvert / fermé, un format détecté ou une case cochée relance `openMerged` sur le même id),
 n'est pas enregistré dans la session, et affiche étiquette + liseré de couleur par source. Les cases masquent une source en
 refusionnant les autres. Pas encore : filtre, recherche, surlignage par source, « ouvrir dans l'onglet du fichier » (lot 3, #506).
-Une source tronquée n'est pas retirée de la vue (`MergedView.drop` n'est pas encore appelé).
 
 **Recherche, filtre et navigation dans « Tout » (#506)** : `MergedScan` (`merge/merged-scan.ts`) lit les rows fusionnées
 par blocs de 2 000 et garde les rows retenues (et leur niveau) ; la recherche et le filtre de l'onglet fusionné
@@ -362,7 +361,12 @@ de niveau utilise le format de chaque source (un `FilterEvaluator` par source, q
 Quand les sources changent (`openMerged` sur le même id), la recherche et le filtre en cours sont gardés (mêmes ids) et
 relancés sur la nouvelle vue. `Row.source` / `Row.sourceLine` donnent la ligne dans le fichier d'origine ; `mergedLocate`
 donne la row fusionnée d'une ligne d'une source (M-01c) : double-clic sur une ligne de « Tout » → même ligne dans l'onglet
-du fichier, double-clic sur une ligne d'un fichier fusionné → même ligne dans « Tout ». Limites : lecture dans le
+du fichier, double-clic sur une ligne d'un fichier fusionné → même ligne dans « Tout ». **Contenu disparu.** Une source tronquée sans archive (ou une archive purgée) garde ses rows comptées côté `Tailer`
+mais n'est plus lisible (`segments[].readable = false`) : sur un événement `rolled`, le moteur retire de la vue les rows de
+ces lignes (`MergedView.dropLines`, une passe linéaire sur les octets « source »), ne les relit plus (les « trous » de
+chaque source sont sautés à la lecture et dans la correspondance row ↔ ligne), relance la recherche et le filtre sur la vue
+et pousse un `rows` ; le renderer invalide tout son cache. Une troncature récupérée dans une archive garde ses rows.
+Limites : lecture dans le
 processus du moteur (pas de garde-fou contre une regex catastrophique, contrairement à la recherche d'un fichier), pas de
 repli des stack traces ni de surlignage propre à chaque source (le profil de l'onglet « Tout » s'applique à toutes les lignes).
 
