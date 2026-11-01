@@ -44,6 +44,7 @@ import { autoRuleSet, importAsCopy, importKind, pickRuleSet, uniqueRuleSetId, wi
 import { buildSession, liveStartRow } from "./session/session-snapshot";
 import { StatusBar } from "./tabs/StatusBar";
 import { TabBar } from "./tabs/TabBar";
+import { findRowAtTime, parseGotoInput, resolveTarget, wallClockOf, type GotoTimeResult } from "./formats/goto-time";
 import { filterStatus, initialTabsState, searchStatus, tabsReducer, type TabState } from "./tabs/tabs-reducer";
 import { SearchBar } from "./search/SearchBar";
 import { LogViewport } from "./viewer/LogViewport";
@@ -939,6 +940,34 @@ export function App() {
     [active],
   );
 
+  /** Ctrl+G with a time (A-07): bisection on the file's timestamps, answers the line to go to. */
+  const gotoTime = useCallback(
+    async (text: string): Promise<GotoTimeResult> => {
+      if (!active) return { error: "Aucun fichier ouvert." };
+      const format = active.formatId ? formatsRef.current.find((f) => f.format.id === active.formatId) : undefined;
+      if (!format?.format.timestamp) return { error: "Aller à une heure : ce fichier n'a pas de format reconnu avec horodatage." };
+      const target = parseGotoInput(text);
+      if (!target) return { error: "Heure non reconnue (exemples : 10:02, 10:02:11.204, 2026-10-14 10:02, 14/10/2026 10:02)." };
+      try {
+        const engine = await withEngine();
+        const tabId = active.info.tabId;
+        const readTexts = async (first: number, count: number): Promise<string[]> =>
+          count <= 0 ? [] : (await engine.request("getRows", { tabId, first, count })).rows.map((r) => r.text);
+        const from = active.clearedBefore;
+        const to = active.total;
+        const reference = wallClockOf(format, await readTexts(Math.min(Math.max(viewRow.current, from), Math.max(from, to - 1)), 64)) ?? wallClockOf(format, await readTexts(from, 64));
+        if (reference === undefined) return { error: "Aller à une heure : aucun horodatage lisible dans ce fichier." };
+        const found = await findRowAtTime({ readTexts, compiled: format, from, to }, resolveTarget(target, reference));
+        const line = Math.min(found.row, Math.max(to - 1, from)) + 1;
+        const note = found.after ? "Heure après la dernière ligne du fichier : fin affichée." : found.before ? "Heure avant la première ligne du fichier : début affiché." : undefined;
+        return { line, ...(note ? { note } : {}) };
+      } catch (err) {
+        return { error: `Aller à une heure : ${err instanceof Error ? err.message : String(err)}` };
+      }
+    },
+    [active, withEngine],
+  );
+
   /** Ctrl+G in the filtered view: the line number is the file's, the view goes to the nearest retained line. */
   const gotoFileLine = useCallback(
     async (line: number) => {
@@ -1074,6 +1103,7 @@ export function App() {
             anchorLine={anchor?.tabId === active.info.tabId && (!filtered || active.filterSuspended) ? anchor.line : undefined}
             onRowDoubleClick={filtered && !active.filterSuspended ? showInContext : undefined}
             onGotoLine={filtered ? (line) => void gotoFileLine(line) : undefined}
+            onGotoTime={activeFormat?.format.timestamp ? gotoTime : undefined}
             fileRows={active.total}
             viewRowRef={filtered ? filteredViewRow : viewRow}
             fetchRows={fetchRows}
