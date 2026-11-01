@@ -1,6 +1,6 @@
 /** Parses a user-typed amount, accepting French ("1 234,56") and English ("1234.56") notation. NaN if invalid. */
 export function parseAmount(input: string): number {
-  const normalized = input.replace(/[\s  ]/g, '').replace(',', '.')
+  const normalized = input.replace(/[\s\u00a0\u202f]/g, '').replace(',', '.')
   if (!/^-?\d+(\.\d{1,2})?$/.test(normalized)) return NaN
   return Number(normalized)
 }
