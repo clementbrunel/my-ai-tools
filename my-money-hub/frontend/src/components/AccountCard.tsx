@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Account } from '@/types'
-import { updateBalance } from '@/api/accounts'
+import { mergeAccount, updateBalance } from '@/api/accounts'
 import { apiErrorMessage, parseAmount, todayIso } from '@/utils/amount'
 
 const TYPE_LABELS: Record<Account['type'], string> = {
@@ -19,15 +19,38 @@ interface Props {
   account: Account
   /** Called after a manual balance was saved so the parent can refresh the net worth. */
   onBalanceUpdated?: () => void
+  /** All accounts: offers the "Fusionner avec…" action (archived/imported cards only) with the other accounts as targets. */
+  allAccounts?: Account[]
 }
 
-export default function AccountCard({ account, onBalanceUpdated }: Props) {
+export default function AccountCard({ account, onBalanceUpdated, allAccounts = [] }: Props) {
   const isManual = account.connectorType === 'MANUAL' && !account.archived
   const [editing, setEditing] = useState(false)
   const [amount, setAmount] = useState('')
   const [date, setDate] = useState(todayIso())
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [merging, setMerging] = useState(false)
+  const [mergeTarget, setMergeTarget] = useState('')
+  const mergeCandidates = allAccounts.filter((a) => a.id !== account.id && a.currency === account.currency)
+  const canMerge = account.connectorType === 'MANUAL' && mergeCandidates.length > 0
+
+  async function handleMerge(e: React.FormEvent) {
+    e.preventDefault()
+    const target = mergeCandidates.find((a) => a.id === Number(mergeTarget))
+    if (!target) return
+    if (!window.confirm(`Fusionner « ${account.label} » dans « ${target.institutionName} — ${target.label} » ? Le compte importé sera supprimé et son historique rattaché.`)) return
+    setSaving(true)
+    try {
+      await mergeAccount(account.id, target.id)
+      setMerging(false)
+      onBalanceUpdated?.()
+    } catch (err) {
+      setFormError(apiErrorMessage(err, 'Impossible de fusionner les comptes.'))
+    } finally {
+      setSaving(false)
+    }
+  }
 
   function startEditing() {
     setAmount(String(account.currentBalance).replace('.', ','))
@@ -73,6 +96,41 @@ export default function AccountCard({ account, onBalanceUpdated }: Props) {
         </span>
       ) : (
         <span className="text-xs text-gray-400">{isManual ? 'Jamais saisi' : 'Jamais synchronisé'}</span>
+      )}
+
+      {canMerge && !merging && (
+        <button
+          className="btn-secondary mt-2"
+          onClick={() => {
+            setFormError(null)
+            setMergeTarget('')
+            setMerging(true)
+          }}
+        >
+          Fusionner avec…
+        </button>
+      )}
+
+      {canMerge && merging && (
+        <form className="mt-2 flex flex-col gap-2" onSubmit={handleMerge}>
+          <select className="input" value={mergeTarget} onChange={(e) => setMergeTarget(e.target.value)} required>
+            <option value="">Compte à conserver…</option>
+            {mergeCandidates.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.institutionName} — {a.label}
+              </option>
+            ))}
+          </select>
+          {formError && <p className="text-mh-danger text-sm">{formError}</p>}
+          <div className="flex gap-2">
+            <button type="submit" className="btn-primary flex-1" disabled={saving || !mergeTarget}>
+              {saving ? 'Fusion…' : 'Fusionner'}
+            </button>
+            <button type="button" className="btn-secondary" onClick={() => setMerging(false)} disabled={saving}>
+              Annuler
+            </button>
+          </div>
+        </form>
       )}
 
       {isManual && !editing && (

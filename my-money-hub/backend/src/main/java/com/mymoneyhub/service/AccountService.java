@@ -95,7 +95,7 @@ public class AccountService {
         }
     }
 
-    private AccountDto toDto(Account account) {
+    AccountDto toDto(Account account) {
         return new AccountDto(
                 account.getId(),
                 account.getInstitution().getName(),

@@ -129,7 +129,7 @@ export default function Dashboard() {
           </summary>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
             {archivedAccounts.map((account) => (
-              <AccountCard key={account.id} account={account} onBalanceUpdated={load} />
+              <AccountCard key={account.id} account={account} onBalanceUpdated={load} allAccounts={netWorth?.accounts} />
             ))}
           </div>
         </details>
