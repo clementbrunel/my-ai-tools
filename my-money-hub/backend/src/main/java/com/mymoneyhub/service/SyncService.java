@@ -45,8 +45,16 @@ public class SyncService {
                 .collect(Collectors.toMap(BankConnector::supports, Function.identity()));
     }
 
+    /** Syncs every institution; a failing connector is logged and never blocks the others. */
     public void syncAll() {
-        institutionRepository.findAll().forEach(this::syncInstitution);
+        for (Institution institution : institutionRepository.findAll()) {
+            try {
+                syncInstitution(institution);
+            } catch (Exception e) {
+                log.error("Sync failed for institution {} ({}): {}",
+                        institution.getName(), institution.getConnectorType(), e.getMessage(), e);
+            }
+        }
     }
 
     @Transactional
