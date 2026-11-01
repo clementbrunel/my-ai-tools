@@ -210,7 +210,7 @@ Points clés :
   une archive du rolling…* : le motif est appris de cet exemple (parties communes gardées, chiffres généralisés,
   `learnArchivePattern`) et mémorisé par fichier dans `settings.json` (`archivePatterns`). La session enregistre les
   positions à partir du début du fichier courant (les archives chargées changent d'une ouverture à l'autre).
-  Recherche et filtre ne portent encore que sur le fichier courant.
+  Recherche et filtre portent sur tout le flux (une part de résultats par segment, cf. filtre plus bas).
 
 ### 4.4 Parseurs de format et records
 
@@ -291,9 +291,16 @@ la cible pour M4 :
   n° de lignes retenues et leurs niveaux (`Uint32Array` + `Uint8Array`).
 - La vue filtrée n'expose que ce dont l'ordre est sûr : les tranches terminées en tête, plus les résultats
   partiels de la première tranche inachevée. Les positions ne bougent donc jamais pendant le parcours.
-- Temps réel : sur `rows`, la session filtre la suite du fichier ; sur `rolled`, elle repart de zéro.
+- **Tout le flux** : la session (comme `SearchSession`) parcourt les segments lisibles du `Tailer` (`scanTargets` :
+  archives chargées, fichiers roulés, fichier courant), le plus ancien d'abord, et garde ses résultats **par
+  segment** (n° de ligne / offset relatifs au fichier, `startRow` ajouté à la lecture). Un segment en sommeil
+  est lu par chemin par les workers ; la recherche passe par `Tailer.withIndex` pour convertir offset ↔ ligne.
+- Temps réel : sur `rows`, la session traite la suite ; sur `rolled`, elle garde les résultats des fichiers
+  déjà roulés (un fichier renommé garde ses octets), oublie ceux d'un segment devenu illisible, et reprend en
+  entier, depuis son nouveau chemin, le fichier qui était courant : entre le renommage et sa détection, un
+  worker ouvrant le chemin courant a pu lire le nouveau fichier aux offsets de l'ancien.
 - `getRows` accepte un `filterId` : `first`/`count` indexent alors les lignes retenues, dont le `lineNo`
-  reste celui du fichier. Le fichier courant seul est filtré (les anciens segments ne sont pas lisibles).
+  reste celui du flux.
 - Mesuré sur 1 Gio (8,4 M lignes) : premiers résultats en ~0,25 s, filtre complet en ~2,5 s (NF-05).
 - La bascule filtré ↔ complet garde la position (`filterLocate` : n° de ligne du fichier → position dans la
   vue filtrée) ; `Ctrl+G`, la navigation de recherche (les occurrences sur des lignes masquées sont sautées),

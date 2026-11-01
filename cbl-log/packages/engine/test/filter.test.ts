@@ -1,4 +1,4 @@
-import { appendFileSync, renameSync, writeFileSync } from "node:fs";
+import { appendFileSync, renameSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { MessageChannel } from "node:worker_threads";
 import {
@@ -233,20 +233,54 @@ describe("setFilter", () => {
     expect(summary(await readAll(ctx, id))).toEqual(want);
   });
 
-  it("starts over on the new file after a rolling", async () => {
+  it("after a rolling, keeps the results of the rolled file and filters the new one after them", async () => {
     const lines = makeLog(100);
     const ctx = await open(lines);
     const id = (await setFilter(ctx, { levels: ["error"] }))!;
-    expect((await readAll(ctx, id)).length).toBeGreaterThan(0);
+    const before = expected(lines, { levels: ["error"] });
+    expect((await readAll(ctx, id)).length).toBe(before.length);
 
     renameSync(ctx.path, join(ctx.dir, "a.1.log"));
     const fresh = makeLog(30);
     writeFileSync(ctx.path, fresh.join("\n") + "\n");
-    const want = expected(fresh, { levels: ["error"] });
+    const after = expected(fresh, { levels: ["error"] });
     const startRow = lines.length;
-    await waitFor(async () => (await readAll(ctx, id)).length === want.length && want.length > 0, "filter restarted after rolling", 20_000, 50);
+    const want = [...before.map((w) => w.line), ...after.map((w) => startRow + w.line)];
+    await waitFor(async () => (await readAll(ctx, id)).length === want.length && after.length > 0, "new file filtered after rolling", 20_000, 50);
     // line numbers stay global: the new file starts after the previous one
-    expect((await readAll(ctx, id)).map((r) => r.lineNo)).toEqual(want.map((w) => startRow + w.line));
+    expect((await readAll(ctx, id)).map((r) => r.lineNo)).toEqual(want);
+  });
+});
+
+describe("filter over the archives loaded with the file", () => {
+  it("filters every archive then the live file as one view, archives dormant or not", async () => {
+    const dir = await tempDir();
+    const now = Date.now() / 1000;
+    const files: string[][] = [];
+    for (let k = 0; k < 5; k++) {
+      const lines = makeLog(40 + k * 5);
+      const p = join(dir, `a_26.10.21_0${k}.00.00.log`);
+      writeFileSync(p, lines.join("\n") + "\n");
+      utimesSync(p, now - 600 + k * 60, now - 600 + k * 60);
+      files.push(lines);
+    }
+    const live = makeLog(30);
+    const path = join(dir, "a.log");
+    writeFileSync(path, live.join("\n") + "\n");
+    files.push(live);
+    const c = connect({ filter: { sliceBytes: 1500, maxWorkers: 3, stallMs: 3000 } });
+    const info = await c.ok("open", { path, historyHours: 1 });
+    const ctx: Ctx = { ...c, tabId: info.tabId, path, dir };
+    const filter: LineFilter = { levels: ["error"] };
+    const id = (await setFilter(ctx, filter))!;
+    const want: { line: number; level: Level | undefined }[] = [];
+    let startRow = 0;
+    for (const lines of files) {
+      for (const w of expected(lines, filter)) want.push({ line: startRow + w.line, level: w.level });
+      startRow += lines.length;
+    }
+    expect(summary(await readAll(ctx, id))).toEqual(want);
+    expect(await ctx.ok("filterLocate", { tabId: ctx.tabId, filterId: id, row: want[7]!.line })).toEqual({ position: 7, exact: true, covered: true });
   });
 });
 
@@ -271,17 +305,23 @@ describe("filterLocate", () => {
     expect(await locate(lines.length + 50)).toEqual({ position: want.length, exact: false, covered: true });
   });
 
-  it("answers for the current file only after a rolling (numbers stay global)", async () => {
-    const ctx = await open(makeLog(60));
+  it("answers across the rolled file and the new one (numbers stay global)", async () => {
+    const first = makeLog(60);
+    const ctx = await open(first);
     const id = (await setFilter(ctx, { levels: ["error"] }))!;
-    const startRow = makeLog(60).length;
+    const before = expected(first, { levels: ["error"] }).map((w) => w.line);
+    const startRow = first.length;
     renameSync(ctx.path, join(ctx.dir, "a.1.log"));
     const fresh = makeLog(40);
     writeFileSync(ctx.path, fresh.join("\n") + "\n");
-    const want = expected(fresh, { levels: ["error"] }).map((w) => w.line);
-    await waitFor(async () => (await readAll(ctx, id)).length === want.length && want.length > 0, "filter restarted", 20_000, 50);
-    expect(await ctx.ok("filterLocate", { tabId: ctx.tabId, filterId: id, row: 3 })).toMatchObject({ position: 0 });
-    expect(await ctx.ok("filterLocate", { tabId: ctx.tabId, filterId: id, row: startRow + want[2]! })).toEqual({ position: 2, exact: true, covered: true });
+    const after = expected(fresh, { levels: ["error"] }).map((w) => w.line);
+    await waitFor(async () => (await readAll(ctx, id)).length === before.length + after.length && after.length > 0, "new file filtered", 20_000, 50);
+    expect(await ctx.ok("filterLocate", { tabId: ctx.tabId, filterId: id, row: before[1]! })).toEqual({ position: 1, exact: true, covered: true });
+    expect(await ctx.ok("filterLocate", { tabId: ctx.tabId, filterId: id, row: startRow + after[2]! })).toEqual({
+      position: before.length + 2,
+      exact: true,
+      covered: true,
+    });
   });
 
   it("knows nothing of a replaced filter", async () => {

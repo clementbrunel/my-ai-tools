@@ -177,7 +177,36 @@ export class Tailer {
     }));
   }
 
-  /** The segment being followed, with its line index: what engine-side scans (search) read. */
+  /**
+   * The readable segments with their line index, oldest first: what engine-side scans (search, filter)
+   * read. `id` is stable across rollings; `path` is the file to read now (the archive once rolled).
+   */
+  get scanTargets(): { id: number; path: string; encoding: Encoding; startRow: number; index: LineIndex }[] {
+    return this.segs
+      .filter((seg) => seg.readable && seg.index)
+      .map((seg) => ({ id: seg.id, path: seg.path, encoding: seg.index!.encoding, startRow: seg.startRow, index: seg.index! }));
+  }
+
+  /**
+   * Runs `fn` on the line index of segment `id` with its file open (a dormant segment is woken for the
+   * time of the call); undefined when the segment is no longer readable.
+   */
+  async withIndex<T>(id: number, fn: (index: LineIndex) => Promise<T>): Promise<T | undefined> {
+    const seg = this.segs.find((s) => s.id === id);
+    if (!seg?.readable || !seg.index) return undefined;
+    seg.readers++;
+    try {
+      if (!(await this.wake(seg)) || !seg.index) return undefined;
+      return await fn(seg.index);
+    } catch {
+      return undefined;
+    } finally {
+      seg.readers--;
+      if (this.running) await this.enforceRetention();
+    }
+  }
+
+  /** The segment being followed, with its line index. */
   get currentTarget(): { path: string; encoding: Encoding; startRow: number; index: LineIndex } | undefined {
     const seg = this.cur;
     if (!seg?.index || !seg.readable) return undefined;

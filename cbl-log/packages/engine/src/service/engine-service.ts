@@ -331,8 +331,8 @@ export class EngineService {
         tab.search?.extend();
         tab.filter?.extend();
       } else if (event.type === "rolled") {
-        tab.search?.restart();
-        tab.filter?.restart();
+        tab.search?.rolled();
+        tab.filter?.rolled();
       }
     });
     return emitIndexing;
@@ -415,7 +415,8 @@ export class EngineService {
     }
     const session = new SearchSession(
       query,
-      () => tab.tailer.currentTarget,
+      () => tab.tailer.scanTargets,
+      (id, fn) => tab.tailer.withIndex(id, fn),
       (event) => this.emitEvent(port, params.tabId, event),
       this.searchOptions,
     );
@@ -440,7 +441,7 @@ export class EngineService {
     const session = new FilterSession(
       filter,
       format,
-      () => tab.tailer.currentTarget,
+      () => tab.tailer.scanTargets,
       (first, count) => tab.tailer.getLines(first, count),
       (event) => this.emitEvent(port, params.tabId, event),
       this.filterOptions,
@@ -454,8 +455,7 @@ export class EngineService {
     const tab = this.requireTab(params.tabId);
     const session = tab.filter;
     if (!session || session.id !== params.filterId) return { position: 0, exact: false, covered: true };
-    const startRow = tab.tailer.currentTarget?.startRow ?? 0;
-    return session.locate(Math.max(0, Math.floor(Number(params.row) || 0) - startRow));
+    return session.locate(Math.max(0, Math.floor(Number(params.row) || 0)));
   }
 
   private async searchNext(params: SearchNextParams): Promise<SearchHit> {
