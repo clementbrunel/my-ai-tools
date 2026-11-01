@@ -18,3 +18,5 @@ export * from "./search/index.js";
 export * from "./filter/index.js";
 
 export * from "./docker/index.js";
+
+export * from "./merge/index.js";
