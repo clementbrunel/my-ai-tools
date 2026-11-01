@@ -305,6 +305,12 @@ la cible pour M4 :
 - La bascule filtré ↔ complet garde la position (`filterLocate` : n° de ligne du fichier → position dans la
   vue filtrée) ; `Ctrl+G`, la navigation de recherche (les occurrences sur des lignes masquées sont sautées),
   « Effacer » et le séparateur de rolling s'appliquent à la vue filtrée (#432).
+- **Aller à une heure (A-07)** : `Ctrl+G` accepte aussi `10:02`, `10:02:11.204`, `2026-10-14 10:02` ou `14/10/2026 10:02`
+  quand le format a un horodatage. Côté renderer (`formats/goto-time.ts`) : dichotomie sur les lignes du fichier
+  (≈ log2(n) lectures de 64 lignes par `getRows`), le timestamp d'une ligne de suite étant celui de l'en-tête qui la
+  suit ; comparaison à l'heure **affichée** (le fuseau du log est ignoré, `parseTimestamp(…, { ignoreZone })`) ; une
+  heure seule prend la date de la ligne affichée. Le journal est supposé chronologique. En vue filtrée, la ligne
+  trouvée passe par `filterLocate` comme un numéro de ligne.
 - **Repli des stack traces (#439)** : `foldContinuation` ajoute une condition au filtre. Les lignes de suite
   sont masquées et chaque en-tête retenu porte le nombre de lignes repliées (`Row.folded`). Le worker les
   compte, en lisant au-delà de la fin de sa tranche jusqu'au prochain en-tête ; si l'enregistrement va
@@ -330,6 +336,24 @@ au-dessus des index des sources.
   une source (= filtre `Field source`) ; « ouvrir dans l'onglet du fichier » via `rowToLine` (M-01c).
 - Filtres, surlignage, recherche et alertes passent par les mêmes mécanismes (M-01d).
 - Prérequis : chaque source a un format reconnu avec timestamp ; sinon elle est proposée mais grisée.
+
+**État (#504)** : `packages/engine/src/merge/merged-view.ts` implémente la `MergedView` seule (pas encore branchée
+au `EngineService` ni à l'UI) : un octet « source » par row + compteurs tous les 64 rows (`locate` row → source/ligne,
+`rowOf` ligne → row), fusion par `(timestamp réel, n° de source)` au niveau du **record** (un en-tête et ses lignes de
+suite restent ensemble), fuseaux pris en compte (`parseTimestamp`). Temps réel : un record n'est fusionné qu'après
+`windowMs` (2 s) et seulement quand plus aucun record connu, en cours de lecture compris, n'est plus ancien ; un record
+arrivé encore plus tard est ajouté en fin sans toucher aux rows déjà publiées. `drop(source)` retire les rows d'une source
+tronquée. Limite : les sources sont lues dans le processus du moteur (pas encore par les workers), à mesurer (#393).
+
+**Onglet « Tout » (#505)** : `openMerged({ sources: [{ tabId, label, format }], tabId? })` fusionne des onglets déjà ouverts
+(les sources sont lues par leurs `Tailer`) ; `getRows` sur l'onglet fusionné rend des `Row` avec `source` (index dans
+`TabInfo.merged.sources`) et `lineNo` = row fusionnée. Le moteur suit les `rows` des sources (tick de 250 ms, relancé tant que
+des records attendent la fenêtre) et pousse un `rows` sur l'onglet ; un `rolled` d'une source est relayé avec son nom (`source`)
+à la position courante de la vue fusionnée (séparateur « srv1 : rolling … »). Côté renderer, l'onglet est inséré en premier,
+suit les onglets (un onglet ouvert / fermé, un format détecté ou une case cochée relance `openMerged` sur le même id),
+n'est pas enregistré dans la session, et affiche étiquette + liseré de couleur par source. Les cases masquent une source en
+refusionnant les autres. Pas encore : filtre, recherche, surlignage par source, « ouvrir dans l'onglet du fichier » (lot 3, #506).
+Une source tronquée n'est pas retirée de la vue (`MergedView.drop` n'est pas encore appelé).
 
 ### 4.7 Alertes (B-04)
 

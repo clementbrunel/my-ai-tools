@@ -23,6 +23,7 @@ import {
   type DockerLoadMoreResult,
   type FilterStarted,
   type GetRowsParams,
+  type OpenMergedParams,
   type OpenParams,
   type RowsResult,
   type SearchHit,
@@ -38,6 +39,7 @@ import {
 import { detectEncoding, isUtf16, looksBinary } from "../source/encoding.js";
 import { SourceError, toSourceError } from "../source/source.js";
 import { FilterSession, type FilterSessionOptions } from "../filter/session.js";
+import { MergedView, type MergedViewOptions } from "../merge/merged-view.js";
 import { SearchSession, type SearchSessionOptions } from "../search/session.js";
 import { findArchives, type ArchiveFile, type ArchiveScan } from "../tail/archives.js";
 import { Tailer } from "../tail/tailer.js";
@@ -62,6 +64,8 @@ export interface EngineServiceOptions {
   /** Same for the filter pool. */
   filter?: FilterSessionOptions;
   docker?: EngineDockerOptions;
+  /** Re-ordering window of the "All" tab (tests shorten it). */
+  merge?: MergedViewOptions;
 }
 
 export interface EngineDockerOptions {
@@ -102,6 +106,21 @@ interface Tab {
   unsubscribe: () => void;
 }
 
+/** An "All" tab: its sources are other tabs, followed through their tailers. */
+interface MergedTab {
+  view: MergedView;
+  sources: { tabId: TabId; label: string }[];
+  port: PortLike;
+  unsubscribe: () => void;
+  timer: NodeJS.Timeout | undefined;
+  /** Serializes the updates of the view (one at a time). */
+  busy: Promise<void>;
+  closed: boolean;
+}
+
+/** Delay between a source event and the update of the merged view. */
+const MERGE_TICK_MS = 250;
+
 type Handler<K extends EngineOp> = (
   params: EngineRequestMap[K]["params"],
   port: PortLike,
@@ -112,8 +131,10 @@ export class EngineService {
   private readonly searchOptions: SearchSessionOptions;
   private readonly filterOptions: FilterSessionOptions;
   private readonly tabs = new Map<TabId, Tab>();
+  private readonly merged = new Map<TabId, MergedTab>();
   private readonly detachers = new Set<() => void>();
   private readonly dockerOptions: EngineDockerOptions;
+  private readonly mergeOptions: MergedViewOptions;
   private dockerClient: DockerClient | undefined;
   private watcher: ContainerWatcher | undefined;
   private readonly dockerSubs = new Map<PortLike, () => void>();
@@ -124,6 +145,7 @@ export class EngineService {
     this.searchOptions = options.search ?? {};
     this.filterOptions = options.filter ?? {};
     this.dockerOptions = options.docker ?? {};
+    this.mergeOptions = options.merge ?? {};
   }
 
   /** Starts serving requests received on `port`. Returns a function that detaches it. */
@@ -142,13 +164,14 @@ export class EngineService {
 
   async dispose(): Promise<void> {
     for (const detach of [...this.detachers]) detach();
-    await Promise.all([...this.tabs.keys()].map((id) => this.closeTab(id)));
+    await Promise.all([...this.merged.keys(), ...this.tabs.keys()].map((id) => this.closeTab(id)));
     this.watcher?.stop();
   }
 
   private readonly handlers: { [K in EngineOp]: Handler<K> } = {
     open: (params, port) => this.openTab(params, port),
     getRows: (params) => this.getRows(params),
+    openMerged: (params, port) => this.openMerged(params, port),
     close: (params) => this.closeTab(params.tabId),
     search: (params, port) => this.startSearch(params, port),
     searchNext: (params) => this.searchNext(params),
@@ -380,6 +403,8 @@ export class EngineService {
   }
 
   private async getRows(params: GetRowsParams): Promise<RowsResult> {
+    const merged = this.merged.get(params.tabId);
+    if (merged) return this.getMergedRows(merged, params);
     const { tailer, filter } = this.requireTab(params.tabId);
     const start = Math.max(0, Math.floor(Number(params.first) || 0));
     const wanted = Math.min(MAX_ROWS_PER_REQUEST, Math.max(0, Math.floor(Number(params.count) || 0)));
@@ -467,6 +492,12 @@ export class EngineService {
   }
 
   private async closeTab(tabId: TabId): Promise<void> {
+    const merged = this.merged.get(tabId);
+    if (merged) {
+      this.disposeMerged(merged);
+      this.merged.delete(tabId);
+      return;
+    }
     const tab = this.tabs.get(tabId);
     if (!tab) return;
     this.tabs.delete(tabId);
@@ -475,6 +506,91 @@ export class EngineService {
     tab.unsubscribe();
     await tab.spooler?.stop({ remove: !this.dockerOptions.keepSpoolOnClose }); // cuts the stream first
     await tab.tailer.close();
+  }
+
+  /** Opens the "All" tab over open tabs, or re-merges it with other sources (it keeps its id). */
+  private async openMerged(params: OpenMergedParams, port: PortLike): Promise<TabInfo> {
+    if (params.sources.length === 0) throw new SourceError("UNKNOWN", "", "A merge needs at least one source");
+    const tabId = params.tabId ?? randomUUID();
+    const previous = this.merged.get(tabId);
+    if (previous) this.disposeMerged(previous);
+    const readers = params.sources.map((source) => {
+      const tab = this.requireTab(source.tabId);
+      return {
+        label: source.label,
+        format: compileFormat(source.format),
+        lineCount: () => (this.tabs.get(source.tabId) ?? tab).tailer.totalRows,
+        read: async (first: number, count: number): Promise<string[]> => {
+          const live = this.tabs.get(source.tabId);
+          return live ? (await live.tailer.getLines(first, count)).map((l) => l.text) : [];
+        },
+      };
+    });
+    const view = new MergedView(readers, this.mergeOptions);
+    const merged: MergedTab = {
+      view,
+      sources: params.sources.map((s) => ({ tabId: s.tabId, label: s.label })),
+      port,
+      unsubscribe: () => {},
+      timer: undefined,
+      busy: Promise.resolve(),
+      closed: false,
+    };
+    await view.update(true);
+    const offs = params.sources.map((source) =>
+      this.tabs.get(source.tabId)!.tailer.on((event) => {
+        if (event.type === "rows") this.scheduleMerge(tabId, merged);
+        else if (event.type === "rolled") {
+          // the separator names the source it belongs to and falls where the view is now
+          this.emitEvent(port, tabId, { ...event, source: source.label, at: merged.view.rowCount });
+        }
+      }),
+    );
+    merged.unsubscribe = () => offs.forEach((off) => off());
+    this.merged.set(tabId, merged);
+    return {
+      tabId,
+      source: "merged",
+      path: "",
+      encoding: "utf-8",
+      sizeBytes: 0,
+      totalRows: view.rowCount,
+      lineEnding: "unknown",
+      merged: { sources: merged.sources },
+    };
+  }
+
+  private scheduleMerge(tabId: TabId, merged: MergedTab): void {
+    if (merged.timer || merged.closed) return;
+    merged.timer = setTimeout(() => {
+      merged.timer = undefined;
+      merged.busy = merged.busy.then(async () => {
+        if (merged.closed) return;
+        const before = merged.view.rowCount;
+        await merged.view.update().catch(() => 0);
+        if (merged.closed) return;
+        const appended = merged.view.rowCount - before;
+        if (appended > 0) this.emitEvent(merged.port, tabId, { type: "rows", total: merged.view.rowCount, appended });
+        // records still inside the re-ordering window: come back
+        if (merged.view.hasPending) this.scheduleMerge(tabId, merged);
+      });
+    }, MERGE_TICK_MS);
+  }
+
+  private disposeMerged(merged: MergedTab): void {
+    merged.closed = true;
+    clearTimeout(merged.timer);
+    merged.unsubscribe();
+  }
+
+  private async getMergedRows(merged: MergedTab, params: GetRowsParams): Promise<RowsResult> {
+    const start = Math.max(0, Math.floor(Number(params.first) || 0));
+    const wanted = Math.min(MAX_ROWS_PER_REQUEST, Math.max(0, Math.floor(Number(params.count) || 0)));
+    const total = merged.view.rowCount;
+    // the search and the filter do not cover the merged view yet
+    if (params.filterId !== undefined || wanted === 0) return { first: start, rows: [], total };
+    const rows = (await merged.view.rows(start, wanted)).map((r) => ({ lineNo: r.row, text: r.text, truncated: false, source: r.source }));
+    return { first: start, rows, total: merged.view.rowCount };
   }
 
   private requireTab(tabId: TabId): Tab {

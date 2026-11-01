@@ -263,6 +263,8 @@ const TOKEN = /yyyy|yy|MM|M|dd|d|HH|H|mm|ss|SSS|z|[^yMdHmsSz]+/g;
 interface TimestampOptions {
   order?: DateOrder;
   zoneOffsets?: Readonly<Record<string, number>>;
+  /** Read the clock as written, whatever its zone (to compare with a time typed by the user). */
+  ignoreZone?: boolean;
 }
 
 /**
@@ -331,7 +333,7 @@ export function parseTimestamp(ts: string, pattern: string, options: TimestampOp
   const ms = v["ms"] !== undefined ? Math.round(Number(`0.${v["ms"]}`) * 1000) : 0;
   let offsetMinutes = 0;
   const zone = v["zone"];
-  if (zone !== undefined) {
+  if (zone !== undefined && !options.ignoreZone) {
     const numeric = /^([+-])(\d{2}):?(\d{2})$/.exec(zone);
     if (numeric) offsetMinutes = (numeric[1] === "-" ? -1 : 1) * (Number(numeric[2]) * 60 + Number(numeric[3]));
     else {

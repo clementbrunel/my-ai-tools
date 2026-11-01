@@ -42,9 +42,11 @@ import { compileRules, highlightLine } from "./highlight/highlight";
 import { RulesEditor } from "./rules/RulesEditor";
 import { autoRuleSet, importAsCopy, importKind, pickRuleSet, uniqueRuleSetId, withRuleSet } from "./rules/rule-profile";
 import { buildSession, liveStartRow } from "./session/session-snapshot";
+import { MergedLegend, SOURCE_COLORS, type LegendSource } from "./tabs/MergedLegend";
 import { StatusBar } from "./tabs/StatusBar";
 import { TabBar } from "./tabs/TabBar";
-import { filterStatus, initialTabsState, searchStatus, tabsReducer, type TabState } from "./tabs/tabs-reducer";
+import { findRowAtTime, parseGotoInput, resolveTarget, wallClockOf, type GotoTimeResult } from "./formats/goto-time";
+import { filterStatus, initialTabsState, searchStatus, tabLabel, tabsReducer, type TabState } from "./tabs/tabs-reducer";
 import { SearchBar } from "./search/SearchBar";
 import { LogViewport } from "./viewer/LogViewport";
 import { PageCache } from "./viewer/page-cache";
@@ -277,7 +279,7 @@ export function App() {
   /** (Re)detects the log format of a tab from its first lines; stays raw (null) when none fits. */
   const detectTab = useCallback(
     async (tabId: TabId) => {
-      if (detecting.current.has(tabId)) return;
+      if (detecting.current.has(tabId) || stateRef.current.tabs.find((t) => t.info.tabId === tabId)?.merged) return;
       detecting.current.add(tabId);
       try {
         const engine = await withEngine();
@@ -332,6 +334,7 @@ export function App() {
   }, []);
   const applyFilter = useCallback(
     async (tab: TabState) => {
+      if (tab.merged) return; // the filter does not cover the "All" tab yet
       const tabId = tab.info.tabId;
       // "Full file" lifts the levels and the text filters, but keeps the fold of stack traces as chosen
       const settings = tab.filterSuspended ? { ...defaultFilterSettings(), foldTraces: tab.filter.foldTraces } : tab.filter;
@@ -744,7 +747,7 @@ export function App() {
 
   const runSearch = useCallback(
     async (query: SearchQuery | null) => {
-      if (!activeId) return;
+      if (!activeId || stateRef.current.tabs.find((t) => t.info.tabId === activeId)?.merged) return;
       try {
         const engine = await withEngine();
         const { searchId } = await engine.request("search", { tabId: activeId, query });
@@ -868,6 +871,82 @@ export function App() {
 
   const onNotice = useCallback((text: string, isError = false) => setNotice({ text, isError }), []);
 
+  // "All" tab (M-01): the file tabs with a recognized timestamp interleaved. It follows the tabs: one
+  // opened or closed, a format detected or a box ticked re-merges it (it keeps its place and id).
+  const mergeCandidates = useMemo(
+    () =>
+      state.tabs
+        .filter((t) => !t.merged)
+        .map((tab, index) => {
+          const format = tab.formatId ? formats.find((f) => f.format.id === tab.formatId)?.format : undefined;
+          return { tab, color: SOURCE_COLORS[index % SOURCE_COLORS.length]!, format: format?.timestamp ? format : undefined };
+        }),
+    [state.tabs, formats],
+  );
+  const mergedTab = state.tabs.find((t) => t.merged);
+  const [mergeVersion, setMergeVersion] = useState(0);
+  const remerging = useRef(false);
+  const mergeFailedKey = useRef("");
+  const applyMerge = useCallback(
+    async (wanted: { tab: TabState; format: LogFormat }[], existingId?: TabId) => {
+      const engine = await withEngine();
+      const info = await engine.request("openMerged", {
+        sources: wanted.map(({ tab, format }) => ({ tabId: tab.info.tabId, label: tabLabel(tab), format })),
+        ...(existingId ? { tabId: existingId } : {}),
+      });
+      runtimes.current.get(info.tabId)?.cache.clear();
+      const cache = new PageCache(async (first, count) => (await engine.request("getRows", { tabId: info.tabId, first, count })).rows);
+      runtimes.current.set(info.tabId, { cache, total: info.totalRows, pathKey: "merged://all", filterTotal: 0 });
+      dispatch(existingId ? { type: "mergedUpdated", info } : { type: "opened", info, index: 0 });
+    },
+    [withEngine],
+  );
+  const openAllTab = useCallback(async () => {
+    const wanted = mergeCandidates.flatMap((c) => (c.format ? [{ tab: c.tab, format: c.format }] : []));
+    if (wanted.length === 0) {
+      setNotice({ text: "Onglet Tout : aucun fichier ouvert n'a un format reconnu avec horodatage.", isError: true });
+      return;
+    }
+    try {
+      await applyMerge(wanted);
+    } catch (err) {
+      setNotice({ text: `Onglet Tout : ${err instanceof Error ? err.message : String(err)}`, isError: true });
+    }
+  }, [mergeCandidates, applyMerge]);
+  useEffect(() => {
+    if (!mergedTab?.merged || remerging.current) return;
+    if (mergeCandidates.every((c) => !c.format)) {
+      closeTab(mergedTab.info.tabId);
+      return;
+    }
+    const hidden = new Set(mergedTab.merged.hidden);
+    const wanted = mergeCandidates.flatMap((c) => (c.format && !hidden.has(c.tab.info.tabId) ? [{ tab: c.tab, format: c.format }] : []));
+    if (wanted.length === 0) return;
+    const keyOf = (list: { tabId: TabId; label: string }[]): string => list.map((s) => `${s.tabId}\u0000${s.label}`).join("\u0001");
+    const key = keyOf(wanted.map(({ tab }) => ({ tabId: tab.info.tabId, label: tabLabel(tab) })));
+    if (key === keyOf(mergedTab.merged.sources) || key === mergeFailedKey.current) return;
+    remerging.current = true;
+    applyMerge(wanted, mergedTab.info.tabId)
+      .catch((err: unknown) => {
+        mergeFailedKey.current = key;
+        setNotice({ text: `Onglet Tout : ${err instanceof Error ? err.message : String(err)}`, isError: true });
+      })
+      .finally(() => {
+        remerging.current = false;
+        setMergeVersion((v) => v + 1);
+      });
+  }, [mergedTab, mergeCandidates, mergeVersion, applyMerge, closeTab]);
+  const toggleMergedSource = useCallback(
+    (tabId: TabId) => {
+      if (!mergedTab?.merged) return;
+      const hidden = mergedTab.merged.hidden.includes(tabId) ? mergedTab.merged.hidden.filter((id) => id !== tabId) : [...mergedTab.merged.hidden, tabId];
+      // at least one source stays
+      if (mergeCandidates.every((c) => !c.format || hidden.includes(c.tab.info.tabId))) return;
+      dispatch({ type: "mergedHidden", tabId: mergedTab.info.tabId, hidden });
+    },
+    [mergedTab, mergeCandidates],
+  );
+
   const runtime = activeId ? runtimes.current.get(activeId) : undefined;
   // the rules editor works on the profile in force for the active tab
   const editedSet = activeRuleSet ?? createWebSphereRuleSet();
@@ -901,7 +980,8 @@ export function App() {
     if (active.pausedAt) dispatch({ type: "resumed", tabId: active.info.tabId });
     else dispatch({ type: "paused", tabId: active.info.tabId, total: active.total, ...(filtered ? { matches: filterProgress?.matches ?? 0 } : {}) });
   };
-  const currentViewKey = active ? viewKeyOf(active.info.tabId, filtered ? active.filterId : null) : "";
+  // the "All" tab shows another view each time its sources change: its viewport starts over
+  const currentViewKey = active ? viewKeyOf(active.info.tabId, filtered ? active.filterId : null) + (active.merged ? `:${active.merged.sources.map((s) => s.tabId).join(",")}` : "") : "";
 
   // "Clear" in the filtered view hides the retained lines before the cleared origin.
   const clearedBefore = active?.clearedBefore ?? 0;
@@ -937,6 +1017,34 @@ export function App() {
       setAnchor({ tabId, line: row.lineNo });
     },
     [active],
+  );
+
+  /** Ctrl+G with a time (A-07): bisection on the file's timestamps, answers the line to go to. */
+  const gotoTime = useCallback(
+    async (text: string): Promise<GotoTimeResult> => {
+      if (!active) return { error: "Aucun fichier ouvert." };
+      const format = active.formatId ? formatsRef.current.find((f) => f.format.id === active.formatId) : undefined;
+      if (!format?.format.timestamp) return { error: "Aller à une heure : ce fichier n'a pas de format reconnu avec horodatage." };
+      const target = parseGotoInput(text);
+      if (!target) return { error: "Heure non reconnue (exemples : 10:02, 10:02:11.204, 2026-10-14 10:02, 14/10/2026 10:02)." };
+      try {
+        const engine = await withEngine();
+        const tabId = active.info.tabId;
+        const readTexts = async (first: number, count: number): Promise<string[]> =>
+          count <= 0 ? [] : (await engine.request("getRows", { tabId, first, count })).rows.map((r) => r.text);
+        const from = active.clearedBefore;
+        const to = active.total;
+        const reference = wallClockOf(format, await readTexts(Math.min(Math.max(viewRow.current, from), Math.max(from, to - 1)), 64)) ?? wallClockOf(format, await readTexts(from, 64));
+        if (reference === undefined) return { error: "Aller à une heure : aucun horodatage lisible dans ce fichier." };
+        const found = await findRowAtTime({ readTexts, compiled: format, from, to }, resolveTarget(target, reference));
+        const line = Math.min(found.row, Math.max(to - 1, from)) + 1;
+        const note = found.after ? "Heure après la dernière ligne du fichier : fin affichée." : found.before ? "Heure avant la première ligne du fichier : début affiché." : undefined;
+        return { line, ...(note ? { note } : {}) };
+      } catch (err) {
+        return { error: `Aller à une heure : ${err instanceof Error ? err.message : String(err)}` };
+      }
+    },
+    [active, withEngine],
   );
 
   /** Ctrl+G in the filtered view: the line number is the file's, the view goes to the nearest retained line. */
@@ -1037,7 +1145,21 @@ export function App() {
             onRename={(tabId, name) => dispatch({ type: "renamed", tabId, name })}
             onOpen={() => void window.cblLog.openFileDialog().then(openPaths)}
             docker={dockerEnabled ? { open: dockerOpen, onToggle: () => setDockerOpen((o) => !o) } : undefined}
+            onOpenAll={!mergedTab && mergeCandidates.filter((c) => c.format).length >= 2 ? () => void openAllTab() : undefined}
           />
+          {active.merged && (
+            <MergedLegend
+              sources={mergeCandidates.map<LegendSource>((c) => ({
+                tabId: c.tab.info.tabId,
+                label: tabLabel(c.tab),
+                color: c.color,
+                shown: !active.merged!.hidden.includes(c.tab.info.tabId),
+                unavailable: c.format ? undefined : "Format sans horodatage reconnu",
+              }))}
+              onToggle={toggleMergedSource}
+            />
+          )}
+          {!active.merged && (
           <div className="toprow">
             <SearchBar
               tabId={active.info.tabId}
@@ -1051,6 +1173,7 @@ export function App() {
             <FilterBar settings={active.filter} onChange={onFilterChange} focusRequest={filterFocus} error={filterProgress?.error} />
             <LevelPills filter={active.filter} enabled={!!activeFormat} onChange={onFilterChange} />
           </div>
+          )}
           {active.state !== "following" && !(active.docker && active.state === "stopped") && (
             <div className={`banner banner-${active.state}`} role="status">
               {active.docker
@@ -1074,6 +1197,8 @@ export function App() {
             anchorLine={anchor?.tabId === active.info.tabId && (!filtered || active.filterSuspended) ? anchor.line : undefined}
             onRowDoubleClick={filtered && !active.filterSuspended ? showInContext : undefined}
             onGotoLine={filtered ? (line) => void gotoFileLine(line) : undefined}
+            onGotoTime={activeFormat?.format.timestamp ? gotoTime : undefined}
+            sources={active.merged?.sources.map((s) => ({ label: s.label, color: mergeCandidates.find((c) => c.tab.info.tabId === s.tabId)?.color ?? "#8e8e93" }))}
             fileRows={active.total}
             viewRowRef={filtered ? filteredViewRow : viewRow}
             fetchRows={fetchRows}
