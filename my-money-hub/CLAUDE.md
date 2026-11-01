@@ -80,3 +80,6 @@ par nom d'en-tête, séparateur et encodage (UTF-8 / windows-1252) détectés, m
   La synchro fait foi : lignes Linxo datées à partir de la 1re transaction `SYNC` du compte ignorées.
 - **Soldes** : l'export n'en contient pas — `balance_snapshots` de fin de mois (`source = LINXO`) recalculés depuis les opérations,
   ancrés sur `current_balance` si le compte est synchronisé, sinon cumulés depuis 0 (relatifs).
+- **Fusion** : `POST /api/accounts/{id}/merge` (`{targetId}`) → `AccountMergeService`. Survivant = le compte d'une institution synchronisée
+  (sinon la cible) ; transactions + snapshots déplacés, lignes `LINXO` datées à partir de la 1re transaction `SYNC` supprimées, snapshots
+  `LINXO` recalculés (ancrés sur le solde synchronisé), l'autre compte supprimé. Action « Fusionner avec… » sur les cartes de comptes archivés.

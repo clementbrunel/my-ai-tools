@@ -241,7 +241,7 @@ public class ImportService {
     }
 
     /** Replaces the account's LINXO snapshots with month-end balances rebuilt from all its operations. */
-    private int rebuildBalanceHistory(Account account, boolean created) {
+    int rebuildBalanceHistory(Account account, boolean created) {
         List<Operation> operations = jdbc.query(
                 "SELECT booking_date, amount FROM transactions WHERE account_id = ? ORDER BY booking_date",
                 (rs, i) -> new Operation(rs.getDate(1).toLocalDate(), rs.getBigDecimal(2)), account.getId());
