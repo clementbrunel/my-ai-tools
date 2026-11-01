@@ -1,7 +1,7 @@
 // Acceptance run of the MVP criteria (cahier des charges, section 7; issue #393) on the PACKAGED app.
 //
 //   npm run package:dir && npm run recette -- --size 1G [--only r1,r2,...] [--out docs/recette-mvp.md] [--history docs/recette/history.jsonl]
-//   --source file|docker|both   file = recette MVP (default); docker = same data on Docker Desktop containers (issue #486,
+//   --source file|docker|both   file = recette MVP (default); docker = same data on Docker Desktop containers (issue #393,
 //                               needs Docker running); both = the two, then the comparison. Docker scenarios: d1,d2,d2b,d3,d5,d4,d7.
 //   --merge-size 200M  (files of the "All" tab scenarios m1, m1b, m3)
 //   --docker-out <md>  --compare-out <md>  --docker-seed 128M  --docker-image node:22-alpine
@@ -15,7 +15,7 @@ import { cpus, platform, release, tmpdir, totalmem } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { compareReport, readHistory } from "./compare.mjs";
-import { mergeFollow, mergeOpen } from "./merged.mjs";
+import { mergeFollow, mergeOpen, mergeQuery } from "./merged.mjs";
 import { DOCKER_IDS, MANUAL, d1, d2, d2b, d3, d4, d5andD6, d7, prepareEnv, removeRecetteContainers } from "./docker.mjs";
 import { copyAllRows, cpuPercent, cpuTimes, defenderState, fmt, launch, memory, now, openInRunningApp, page, percentile, quit, result, separatorLabels, sleep, tempDir, verdict, waitFor } from "./lib.mjs";
 
@@ -434,7 +434,7 @@ function toMarkdown(results, meta, kind = "file") {
   const icon = { PASS: "✅", FAIL: "❌", "NON RÉALISÉ": "⏭️" };
   const docker = kind === "docker";
   const lines = [
-    docker ? "# Recette Docker Desktop cbl-log (lot 4, issue #486)" : "# Recette MVP cbl-log (critères P0, cahier des charges § 7)",
+    docker ? "# Recette Docker Desktop cbl-log (issue #393)" : "# Recette MVP cbl-log (critères P0, cahier des charges § 7)",
     "",
     `Exécutée le ${meta.date} sur l'application **packagée** (\`release/win-unpacked/cbl-log.exe\`), version ${meta.version}, par \`npm run recette\` (\`scripts/recette/\`).`,
     "",
@@ -458,7 +458,7 @@ function toMarkdown(results, meta, kind = "file") {
   }
   if (docker) {
     lines.push(
-      "## Scénarios manuels (à cocher à la main, voir `docs/recette/docker-manuel.md`)",
+      "## Scénarios manuels (à cocher à la main, voir `docs/recette/README.md`, § Scénarios manuels)",
       "",
       ...MANUAL.map((m) => `- [ ] ${m}`),
       "",
@@ -562,11 +562,12 @@ async function main() {
     await run(results, "r4", r4);
     await run(results, "r67", r6andR7);
     await run(results, "r8", () => r8(ctx));
-    if (["m1", "m1b", "m3"].some(want)) {
+    if (["m1", "m1b", "m3", "m4"].some(want)) {
       const mergeEnv = { exe, nextPort, mergeFile: await generatedFile(mergeSize), mergeLabel: mergeSize.replace(/(d)([MG])$/, "$1 $2io") };
       await run(results, "m1", () => mergeOpen(mergeEnv, 2));
       await run(results, "m1b", () => mergeOpen(mergeEnv, 4));
       await run(results, "m3", () => mergeFollow(mergeEnv, runWriter));
+      await run(results, "m4", () => mergeQuery(mergeEnv));
     }
     record("file", results);
     if (outFile) write(outFile, toMarkdown(results, meta, "file"));

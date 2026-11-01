@@ -24,11 +24,15 @@ const METRICS = [
   { key: "merge_first_ms", label: "« Tout » : clic → première page", unit: "ms", ids: ["m1", "m1b"] },
   { key: "merge_full_ms", label: "« Tout » : clic → fusion complète", unit: "ms", ids: ["m1", "m1b"] },
   { key: "toggle_ms", label: "« Tout » : refusion (source décochée)", unit: "ms", ids: ["m1", "m1b"] },
-  { key: "engine_mem_mib", label: "mémoire du moteur", unit: "Mio", ids: ["m1", "m1b", "m3"] },
+  { key: "engine_mem_mib", label: "mémoire du moteur", unit: "Mio", ids: ["m1", "m1b", "m3", "m4"] },
   { key: "lat_p50", label: "« Tout » : délai d'apparition, p50", unit: "ms", ids: ["m3"] },
   { key: "lat_p95", label: "« Tout » : délai d'apparition, p95", unit: "ms", ids: ["m3"] },
   { key: "frame_p99", label: "« Tout » : durée des images, p99", unit: "ms", ids: ["m1", "m1b", "m3"] },
   { key: "cpu_engine_pct", label: "« Tout » : CPU du moteur (% d'un cœur)", unit: "%", ids: ["m3"] },
+  { key: "search_first_ms", label: "« Tout » : recherche, premiers résultats", unit: "ms", ids: ["m4"] },
+  { key: "search_full_ms", label: "« Tout » : recherche, compteur stabilisé", unit: "ms", ids: ["m4"] },
+  { key: "filter_first_ms", label: "« Tout » : filtre, premières lignes", unit: "ms", ids: ["m4"] },
+  { key: "filter_full_ms", label: "« Tout » : filtre, barre d'état stabilisée", unit: "ms", ids: ["m4"] },
   { key: "missing", label: "lignes manquantes", unit: "", ids: ["r3-rename", "d3", "r8", "d4"] },
 ];
 
@@ -106,7 +110,7 @@ export function compareReport(history) {
   }
 
   for (const [source, title, ids] of [
-    ["file", "2. Recette fichier : itération précédente → dernière", ["r1", "r2", "r2b", "r3-rename", "r8", "m1", "m1b", "m3"]],
+    ["file", "2. Recette fichier : itération précédente → dernière", ["r1", "r2", "r2b", "r3-rename", "r8", "m1", "m1b", "m3", "m4"]],
     ["docker", "3. Recette Docker : itération précédente → dernière", ["d1", "d2", "d2b", "d3", "d4"]],
   ]) {
     lines.push("", `## ${title}`, "", "| Scénario | Mesure | Précédente | Dernière | Écart |", "|---|---|---|---|---|");

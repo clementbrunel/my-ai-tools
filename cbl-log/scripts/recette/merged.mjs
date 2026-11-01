@@ -1,12 +1,11 @@
-// Scenarios of the "All" tab (M3, issues #395 / #393; asked in a comment of #486): does the merge, which runs in the
+// Scenarios of the "All" tab (M3, issues #395 / #393; asked in a comment of #486, tracked in #393): does the merge, which runs in the
 // engine process (no workers), hold on real volumes? Same generated WebSphere files and writer as the rest of the run.
 //
 //   m1  2 files, m1b  4 files : click -> first page, click -> merge complete, engine memory, fluidity of another tab
 //                               during the merge, duration of a full re-merge (untick / tick a source)
 //   m3  8 sources followed at 1 000 lines/s each with "All" open (NF-11): delay before the lines show up, engine CPU
 //
-// Not measured: search and filter in the "All" tab (the filter does not cover it yet, see App.tsx `applyFilter`);
-// listed in docs/recette/docker-manuel.md.
+//   m4  search and filter inside the "All" tab (4 files): first results, total duration (NF-05)
 import { execFileSync } from "node:child_process";
 import { copyFileSync } from "node:fs";
 import { join } from "node:path";
@@ -94,7 +93,7 @@ export async function mergeOpen(env, count) {
         "recocher la source (refusion)": `${fmt(reticked)} ms`,
       },
       [
-        "Décision (issue #486) : si la fusion initiale dépasse quelques secondes ou gêne les autres onglets, passer la lecture et le parsing des horodatages dans les workers existants.",
+        "Décision (issue #393) : si la fusion initiale dépasse quelques secondes ou gêne les autres onglets, passer la lecture et le parsing des horodatages dans les workers existants.",
         "Fichiers copiés du même log généré : les horodatages se recoupent, cas le plus défavorable pour l'entrelacement.",
       ],
       { merge_first_ms: firstMs, merge_full_ms: fullMs, engine_mem_mib: memAfter, frame_p99: p99dt, toggle_ms: unticked },
@@ -153,4 +152,83 @@ export async function mergeFollow(env, runWriter) {
   }
 }
 
-export const MERGED_IDS = ["m1", "m1b", "m3"];
+const PATTERN = "ServletWrappe"; // ~3 % of the generated lines
+const stableFor = async (app, expr, ms, timeout) => {
+  let last;
+  let since = now();
+  const deadline = now() + timeout;
+  for (;;) {
+    const v = await app.cdp.ev(expr);
+    if (v !== last) {
+      last = v;
+      since = now();
+    } else if (now() - since >= ms) return { value: v, settledAt: since };
+    if (now() > deadline) throw new Error(`Timed out: ${expr}`);
+    await sleep(25);
+  }
+};
+
+/** m4: search and filter inside the "All" tab on 4 files (NF-05: first results < 1 s, 1 Go filtered in < 3 s). */
+export async function mergeQuery(env) {
+  const count = 4;
+  const dir = tempDir("m4");
+  const files = Array.from({ length: count }, (_, i) => join(dir, `srv${i + 1}.log`));
+  for (const f of files) copyFileSync(env.mergeFile, f);
+  const app = await launch({ exe: env.exe, args: files, userData: tempDir("m4ud"), port: env.nextPort() });
+  try {
+    await waitFor(async () => (await tabs(app)) === count, `${count} tabs`, 180_000, 500);
+    await waitFor(() => app.cdp.ev("!!document.querySelector('.tab-all')"), "All button", 120_000, 250);
+    await sleep(1500);
+    const totals = await fileTotals(app, count);
+    const sum = totals.reduce((a, b) => a + b, 0);
+    await app.cdp.ev("document.querySelector('.tab-all').click()");
+    await waitFor(async () => (await mergedOpen(app)) && (await app.cdp.ev(page.totalLines)) === sum, "merge complete", 300_000, 50);
+    await sleep(1000);
+
+    // search (Ctrl+F)
+    await app.cdp.ev("document.querySelector('.viewport').focus()");
+    await app.cdp.key("f", "KeyF", 2);
+    await waitFor(() => app.cdp.ev("document.activeElement?.getAttribute('aria-label') === 'Rechercher'"), "search field focused");
+    const t0 = now();
+    await app.cdp.send("Input.insertText", { text: PATTERN });
+    const countText = `document.querySelector('.search-count')?.innerText ?? ''`;
+    await waitFor(async () => /\d/.test(await app.cdp.ev(countText)), "first search result", 120_000, 10);
+    const searchFirstMs = now() - t0;
+    const searched = await stableFor(app, countText, 800, 300_000);
+    const searchFullMs = searched.settledAt - t0;
+    await app.cdp.key("Escape", "Escape", 0, 27);
+
+    // filter (Ctrl+Maj+F), then Enter = include
+    await app.cdp.key("F", "KeyF", 2 | 8, 70);
+    await waitFor(() => app.cdp.ev("document.activeElement?.getAttribute('aria-label') === 'Texte du filtre'"), "filter field focused");
+    await app.cdp.send("Input.insertText", { text: PATTERN });
+    const t1 = now();
+    await app.cdp.key("Enter", "Enter", 0, 13);
+    const shown = `(() => { const r = [...document.querySelectorAll('.log-row .log-text')]; return r.length > 0 && r.every((e) => e.innerText.includes(${JSON.stringify(PATTERN)})); })()`;
+    await waitFor(() => app.cdp.ev(shown), "first filtered rows", 120_000, 10);
+    const filterFirstMs = now() - t1;
+    const filtered = await stableFor(app, "document.querySelector('.statusbar').innerText", 800, 300_000);
+    const filterFullMs = filtered.settledAt - t1;
+    const ok = searchFirstMs <= 1000 && filterFirstMs <= 1000;
+    return result(
+      "m4",
+      `Onglet « Tout » : recherche et filtre sur ${count} fichiers de ${env.mergeLabel}`,
+      "premiers résultats < 1 s, durée totale à comparer à NF-05 (1 Go filtré en < 3 s sur un fichier seul)",
+      verdict(ok),
+      {
+        "contenu": `${count} × ${env.mergeLabel} = ${sum.toLocaleString("fr-FR")} lignes ; motif « ${PATTERN} »`,
+        "recherche : premiers résultats": `${fmt(searchFirstMs)} ms (seuil 1 000 ms)`,
+        "recherche : compteur stabilisé": `${fmt(searchFullMs)} ms (« ${searched.value} »)`,
+        "filtre : premières lignes filtrées": `${fmt(filterFirstMs)} ms (seuil 1 000 ms)`,
+        "filtre : barre d'état stabilisée": `${fmt(filterFullMs)} ms`,
+        "mémoire du moteur": `${engineMemoryMiB()} Mio`,
+      },
+      ["« Stabilisé » = valeur inchangée pendant 800 ms (l'interface ne signale pas explicitement la fin) ; durée totale = instant du dernier changement."],
+      { search_first_ms: searchFirstMs, search_full_ms: searchFullMs, filter_first_ms: filterFirstMs, filter_full_ms: filterFullMs, engine_mem_mib: engineMemoryMiB() },
+    );
+  } finally {
+    await quit(app, { graceful: false });
+  }
+}
+
+export const MERGED_IDS = ["m1", "m1b", "m3", "m4"];

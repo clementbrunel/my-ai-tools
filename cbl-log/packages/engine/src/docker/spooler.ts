@@ -1,5 +1,5 @@
 // LogSpooler: copies the log stream of ONE container (identified by its name) into a local file
-// that the engine opens like any other log (analysis § 4, 5.3, 5.4). The Docker timestamp prefix
+// that the engine opens like any other log (architecture § 4.8). The Docker timestamp prefix
 // is stripped before writing and remembered in a state file, so every reconnection resumes
 // without losing or duplicating a line.
 import { mkdir, open, readFile, rename, rm, stat, writeFile, type FileHandle } from "node:fs/promises";

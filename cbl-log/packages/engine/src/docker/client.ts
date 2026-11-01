@@ -8,7 +8,7 @@ import { LogDemuxer } from "./demux.js";
 export const MIN_API_VERSION = "1.41";
 export const MAX_API_VERSION = "1.47";
 
-/** Read-only client: only these routes are reachable (analysis § 3.6). */
+/** Read-only client: only these routes are reachable (architecture § 4.8). */
 const ALLOWED_ROUTES: readonly RegExp[] = [
   /^\/_ping$/,
   /^\/version$/,
