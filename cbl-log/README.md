@@ -22,7 +22,7 @@ séparateur à chaque archive. Quand des archives plus anciennes existent, un av
 - Noms reconnus d'office : `<nom>_<date>.log` (WebSphere, Liberty), `<nom>.<date>.<n>.log` (Logback), `<nom>.log.1`.
   Pour un autre nommage, clic droit sur le chemin du fichier › **Désigner une archive du rolling…** et choisir une
   archive : cbl-log en déduit le motif, le retient pour ce fichier et rouvre l'onglet.
-- La recherche et le filtre ne portent pour l'instant que sur le fichier courant.
+- La recherche et le filtre portent sur tout le flux : archives chargées, fichiers roulés pendant le suivi, fichier courant.
 
 ## Partager un profil de surlignage
 

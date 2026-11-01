@@ -1,4 +1,4 @@
-import { appendFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, renameSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { MessageChannel } from "node:worker_threads";
 import type { EngineEvent, EngineMessage, EngineRequestMap, EngineResponse, SearchQuery, TabEvent } from "@cbl-log/shared";
@@ -153,6 +153,44 @@ describe("search", { timeout: 30_000 }, () => {
     await waitFor(() => finalEvent(ctx, id).matches === 6 && finalEvent(ctx, id).done, "results extended");
     const last = await ctx.ok("searchNext", { tabId: ctx.tabId, searchId: id, fromRow: 0, dir: "prev" });
     expect(last.row).toBe(202); // wraps to the last match
+  });
+
+  it("searches the archives loaded with the file too, and navigates across files (some of them dormant)", async () => {
+    const dir = await tempDir();
+    const now = Date.now() / 1000;
+    // 5 archives of 100 lines, oldest first, then the live file: 1 match every 50 lines
+    for (let k = 0; k < 5; k++) {
+      const p = join(dir, `a_26.10.21_0${k}.00.00.log`);
+      writeFileSync(p, makeLines(100, 50, `NEEDLE${k}`).join("\n") + "\n");
+      utimesSync(p, now - 600 + k * 60, now - 600 + k * 60);
+    }
+    const path = join(dir, "a.log");
+    writeFileSync(path, makeLines(100, 50, "NEEDLE5").join("\n") + "\n");
+    const c = connect({ search: { sliceBytes: 2048, maxWorkers: 2, stallMs: 2000 } });
+    const info = await c.ok("open", { path, historyHours: 1 });
+    expect(info.history?.files).toHaveLength(5);
+    const ctx = { ...c, tabId: info.tabId, path };
+    const id = await search(ctx, { pattern: "NEEDLE" });
+    expect(finalEvent(ctx, id).matches).toBe(12);
+    const nav = (fromRow: number, dir: "next" | "prev") => ctx.ok("searchNext", { tabId: ctx.tabId, searchId: id, fromRow, dir });
+    expect(await nav(-1, "next")).toMatchObject({ row: 0, ordinal: 1 });
+    expect(await nav(60, "next")).toMatchObject({ row: 100, ordinal: 3 }); // into the next archive
+    expect(await nav(260, "prev")).toMatchObject({ row: 250, ordinal: 6 });
+    expect(await nav(560, "next")).toMatchObject({ row: 0, ordinal: 1, wrapped: true });
+    expect(await nav(0, "prev")).toMatchObject({ row: 550, ordinal: 12, wrapped: true });
+    const { rows } = await ctx.ok("getRows", { tabId: ctx.tabId, first: 150, count: 1 });
+    expect(rows[0]!.text).toContain("NEEDLE1");
+  });
+
+  it("keeps the results of the rolled file and searches the new one after a rolling", async () => {
+    const ctx = await openLines(makeLines(200, 50)); // matches at rows 0, 50, 100, 150
+    const id = await search(ctx, { pattern: "NEEDLE" });
+    renameSync(ctx.path, join(ctx.path + ".1"));
+    writeFileSync(ctx.path, makeLines(100, 50).join("\n") + "\n"); // rows 200..299: matches at 200, 250
+    await waitFor(() => finalEvent(ctx, id).matches === 6 && finalEvent(ctx, id).done, "new file searched");
+    const nav = (fromRow: number, dir: "next" | "prev") => ctx.ok("searchNext", { tabId: ctx.tabId, searchId: id, fromRow, dir });
+    expect(await nav(160, "next")).toMatchObject({ row: 200, ordinal: 5 });
+    expect(await nav(200, "prev")).toMatchObject({ row: 150, ordinal: 4 });
   });
 
   it("a new search replaces the previous one", async () => {

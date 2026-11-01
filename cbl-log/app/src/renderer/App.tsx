@@ -168,8 +168,10 @@ export function App() {
             rt.total = event.total;
           } else if (event.type === "rolled") {
             rt.cache.invalidateFrom(event.at);
-            // the filter starts over on the new file: nothing of its view can be trusted
+            // the filter keeps the results of the rolled file, but a vanished one (truncated without
+            // archive) takes its lines out of the view: re-read it, its size comes with the next event
             rt.filterCache?.invalidateFrom(0);
+            // the count is stale too: the next filter event must re-read the view from its start
             rt.filterTotal = 0;
           } else if (event.type === "filter" && rt.filterCache && rt.filterCacheId === event.id) {
             // the view only grows at its end, unless the filter started over
