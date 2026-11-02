@@ -2,6 +2,7 @@ name: prono-core – Frontend CI
 
 on:
   push:
+    branches: ["**"]
     paths:
       - "prono-core/frontend/**"
       - ".github/workflows/prono-core-frontend.yml"

@@ -2,6 +2,7 @@ name: cbl-log – CI
 
 on:
   push:
+    branches: ["**"]
     tags:
       - "cbl-log-v*"
     paths:
