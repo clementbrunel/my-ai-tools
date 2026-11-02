@@ -9,7 +9,7 @@
 import { execFileSync } from "node:child_process";
 import { copyFileSync } from "node:fs";
 import { join } from "node:path";
-import { cpuPercent, cpuTimes, fmt, launch, now, page, percentile, quit, result, sleep, tempDir, verdict, waitFor } from "./lib.mjs";
+import { cpuPercent, cpuTimes, cpuTimesAt, fmt, launch, now, page, percentile, quit, result, sleep, tempDir, verdict, waitFor } from "./lib.mjs";
 
 const tabs = (app) => app.cdp.ev("document.querySelectorAll('.tab').length");
 const mergedOpen = (app) => app.cdp.ev("!!document.querySelector('.merged-legend')");
@@ -34,6 +34,35 @@ async function fileTotals(app, count) {
     out.push(await app.cdp.ev(page.totalLines));
   }
   return out;
+}
+
+/** Waits until the active tab stops growing (total unchanged for `quietMs`); `settledAt` is when it last changed. */
+async function settledTotal(app, quietMs = 600, timeout = 300_000) {
+  let last = -1;
+  let since = now();
+  const deadline = now() + timeout;
+  for (;;) {
+    const total = await app.cdp.ev(page.totalLines);
+    if (total !== last) {
+      last = total;
+      since = now();
+    } else if (now() - since >= quietMs) return { total, settledAt: since };
+    if (now() > deadline) throw new Error("Timed out: the All tab keeps growing");
+    await sleep(25);
+  }
+}
+
+const loadMoreButton = "[...document.querySelectorAll('.statusbar button')].find((b) => /Charger plus/.test(b.innerText))";
+
+/** Clicks the "load more history" button (×10, then everything) until the "All" tab holds `expected` lines or there is no more. */
+async function loadAllHistory(app, expected) {
+  for (let step = 0; step < 6; step++) {
+    const { total } = await settledTotal(app);
+    if (total >= expected || !(await app.cdp.ev(`!!(${loadMoreButton})`))) return total;
+    await app.cdp.ev(`(${loadMoreButton}).click()`);
+    await sleep(300);
+  }
+  return (await settledTotal(app)).total;
 }
 
 const tabByText = (re) => `[...document.querySelectorAll('.tab')].find((t) => ${re}.test(t.innerText))`;
@@ -61,12 +90,18 @@ export async function mergeOpen(env, count) {
     await app.cdp.ev(`(${tabByText("/Tout/")}).click()`);
     await waitFor(async () => (await mergedOpen(app)) && (await app.cdp.ev(page.rowCount)), "first page of the merge", 120_000, 5);
     const firstMs = now() - t0;
-    await waitFor(async () => (await mergedOpen(app)) && (await app.cdp.ev(page.totalLines)) === sum, "merge complete", 300_000, 50);
-    const fullMs = now() - t0;
+    // the tab opens on a window of the last lines (see MergedInfo.window): that is what a user waits for
+    const { total: windowRows, settledAt } = await settledTotal(app);
+    const windowMs = settledAt - t0;
     const s = JSON.parse(await app.cdp.ev(page.stopSampler));
-    const memAfter = engineMemoryMiB();
+    const memWindow = engineMemoryMiB();
     const p99dt = percentile(s.dt, 99);
     const maxDt = Math.max(...s.dt);
+    // then the whole history, like the former behaviour: "Charger plus d'historique" until nothing is left
+    const tFull = now();
+    const loaded = await loadAllHistory(app, sum);
+    const fullMs = now() - tFull;
+    const memAfter = engineMemoryMiB();
 
     // untick / tick a source: full re-merge
     const toggle = async (expected) => {
@@ -77,17 +112,19 @@ export async function mergeOpen(env, count) {
     };
     const unticked = await toggle(sum - totals[0]);
     const reticked = await toggle(sum);
-    const ok = firstMs <= MERGE_FIRST_PAGE_MS && fullMs <= MERGE_FULL_MS && p99dt <= 50;
+    const ok = firstMs <= MERGE_FIRST_PAGE_MS && windowMs <= MERGE_FULL_MS && p99dt <= 50 && loaded === sum;
     return result(
       id,
       `Onglet « Tout » : ${count} fichiers de ${env.mergeLabel}`,
-      `première page < ${MERGE_FIRST_PAGE_MS} ms, fusion complète < ${MERGE_FULL_MS / 1000} s (seuils indicatifs), les autres onglets restent fluides (p99 ≤ 50 ms)`,
+      `première page < ${MERGE_FIRST_PAGE_MS} ms, fenêtre par défaut affichée < ${MERGE_FULL_MS / 1000} s (seuils indicatifs), les autres onglets restent fluides (p99 ≤ 50 ms) ; tout l'historique chargeable`,
       verdict(ok),
       {
         "contenu": `${count} × ${env.mergeLabel} = ${sum.toLocaleString("fr-FR")} lignes`,
         "clic → première page": `${fmt(firstMs)} ms (seuil ${MERGE_FIRST_PAGE_MS} ms)`,
-        "clic → fusion complète": `${fmt(fullMs)} ms (seuil ${MERGE_FULL_MS} ms)`,
-        "mémoire du moteur, avant → après la fusion": `${memBefore} → ${memAfter} Mio (≈ ${fmt(((memAfter - memBefore) * 1048576) / sum, 2)} octet par ligne fusionnée ; attendu ~1)`,
+        "clic → fenêtre par défaut fusionnée": `${fmt(windowMs)} ms, ${windowRows.toLocaleString("fr-FR")} lignes (seuil ${MERGE_FULL_MS} ms)`,
+        "mémoire du moteur, avant → après la fenêtre": `${memBefore} → ${memWindow} Mio`,
+        "tout l'historique (clics sur « Charger plus d'historique »)": `${fmt(fullMs)} ms pour ${loaded.toLocaleString("fr-FR")} lignes sur ${sum.toLocaleString("fr-FR")} (attente de stabilité de 0,6 s par étape comprise)`,
+        "mémoire du moteur, historique complet": `${memAfter} Mio (≈ ${fmt(((memAfter - memBefore) * 1048576) / sum, 2)} octet par ligne fusionnée ; attendu ~1)`,
         "fluidité d'un autre onglet pendant la fusion": `p99 ${fmt(p99dt, 1)} ms, max ${fmt(maxDt)} ms, ${s.dt.filter((d) => d > 100).length} images > 100 ms sur ${s.dt.length}`,
         "décocher une source (refusion)": `${fmt(unticked)} ms`,
         "recocher la source (refusion)": `${fmt(reticked)} ms`,
@@ -96,7 +133,7 @@ export async function mergeOpen(env, count) {
         "Décision (issue #393) : si la fusion initiale dépasse quelques secondes ou gêne les autres onglets, passer la lecture et le parsing des horodatages dans les workers existants.",
         "Fichiers copiés du même log généré : les horodatages se recoupent, cas le plus défavorable pour l'entrelacement.",
       ],
-      { merge_first_ms: firstMs, merge_full_ms: fullMs, engine_mem_mib: memAfter, frame_p99: p99dt, toggle_ms: unticked },
+      { merge_first_ms: firstMs, merge_window_ms: windowMs, merge_full_ms: fullMs, engine_mem_mib: memAfter, frame_p99: p99dt, toggle_ms: unticked },
     );
   } finally {
     await quit(app, { graceful: false });
@@ -116,21 +153,26 @@ export async function mergeFollow(env, runWriter) {
     const totals = await fileTotals(app, 8);
     const sum = totals.reduce((a, b) => a + b, 0);
     await app.cdp.ev("document.querySelector('.tab-all').click()");
-    await waitFor(async () => (await mergedOpen(app)) && (await app.cdp.ev(page.totalLines)) === sum, "merge complete", 300_000, 50);
+    await waitFor(() => mergedOpen(app), "All tab", 60_000, 25);
+    const { total: baseRows } = await settledTotal(app); // the default window of the tab
     await sleep(1000);
     await app.cdp.ev(page.startSampler);
     const cpu0 = cpuTimes();
     await runWriter(files, 1000, 20);
-    const cpu1 = cpuTimes();
+    const writerEnd = now();
+    await sleep(300); // the last lines still get displayed and counted
+    await app.cdp.ev(page.endLatency);
     await sleep(3500); // merge window (2 s) + engine tick
     const s = JSON.parse(await app.cdp.ev(page.stopSampler));
+
+    const cpu1 = cpuTimesAt(writerEnd); // after the sampler: the PowerShell sample must not slow the last lines down
     const total = await app.cdp.ev(page.totalLines);
     const cpu = cpuPercent(cpu0, cpu1);
     const mem = engineMemoryMiB();
     const p50 = percentile(s.lat, 50);
     const p95 = percentile(s.lat, 95);
     const p99dt = percentile(s.dt, 99);
-    const expected = sum + 8 * 20_000;
+    const expected = baseRows + 8 * 20_000;
     const ok = total === expected && p95 <= 2750 && p99dt <= 50;
     return result(
       "m3",
@@ -182,7 +224,9 @@ export async function mergeQuery(env) {
     const totals = await fileTotals(app, count);
     const sum = totals.reduce((a, b) => a + b, 0);
     await app.cdp.ev("document.querySelector('.tab-all').click()");
-    await waitFor(async () => (await mergedOpen(app)) && (await app.cdp.ev(page.totalLines)) === sum, "merge complete", 300_000, 50);
+    await waitFor(() => mergedOpen(app), "All tab", 60_000, 25);
+    // search and filter are measured over the whole content (NF-05), not over the default window
+    await loadAllHistory(app, sum);
     await sleep(1000);
 
     // search (Ctrl+F)

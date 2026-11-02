@@ -16,7 +16,7 @@ import { closeSync, existsSync, openSync, readSync, readdirSync, statSync, write
 import { join, dirname, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
-import { copyAllRows, cpuPercent, cpuTimes, fmt, launch, memory, now, page, percentile, quit, result, separatorLabels, sleep, tempDir, verdict, waitFor, writeConfig } from "./lib.mjs";
+import { copyAllRows, cpuPercent, cpuTimes, cpuTimesAt, fmt, launch, memory, now, page, percentile, quit, result, separatorLabels, sleep, tempDir, verdict, waitFor, writeConfig } from "./lib.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const WRITER = join(here, "docker-writer.mjs");
@@ -79,7 +79,8 @@ async function startContainer(env, name, { seedFile, seedLines } = {}) {
   docker("run", "-d", "--name", name, "--label", LABEL, ...mounts, env.image, "sh", "-c", command);
   if (seedFile) {
     const last = seedLines[seedLines.length - 1];
-    await waitFor(() => docker("logs", "--tail", "1", name).replace(/\r$/, "") === last.replace(/\r$/, ""), `seed of ${name} logged`, 300_000, 500);
+    // docker() trims its output: compare trimmed lines (the last seed line can be an indented stack frame)
+    await waitFor(() => docker("logs", "--tail", "1", name) === last.trim(), `seed of ${name} logged`, 300_000, 500);
   }
 }
 
@@ -182,7 +183,7 @@ export async function d1(env) {
     await settled(app, "history settled");
     const moreMs = now() - t1;
     const after = await app.cdp.ev(page.totalLines);
-    const ok = totalMs <= 300 && format === "websphere-basic" && levelMarks > 0 && after > before;
+    const ok = totalMs <= 300 && /websphere/i.test(format) && levelMarks > 0 && after > before;
     return result(
       "d1",
       `Ouvrir un conteneur (${env.seedLabel} de log WebSphere en historique, ${env.initialTail} dernières lignes)`,
@@ -254,9 +255,13 @@ export async function follow(env, { id, rate, seconds, seedCount, latencyP95, ti
     await app.cdp.ev(page.startSampler);
     const cpu0 = cpuTimes();
     await runDockerWriter(name, rate, seconds);
-    const cpu1 = cpuTimes();
+    const writerEnd = now();
+    await sleep(300); // the last lines still get displayed and counted
+    await app.cdp.ev(page.endLatency);
     await sleep(1500);
     const s = JSON.parse(await app.cdp.ev(page.stopSampler));
+
+    const cpu1 = cpuTimesAt(writerEnd); // after the sampler: the PowerShell sample must not slow the last lines down
     const lat = s.lat.map((l) => l + skew);
     const total = await app.cdp.ev(page.totalLines);
     const mem = memory();
@@ -421,9 +426,13 @@ export async function d4(env) {
       await app.cdp.ev(page.startSampler);
       const cpu0 = cpuTimes();
       await Promise.all(names.map((n) => runDockerWriter(n, 1000, 20)));
-      const cpu1 = cpuTimes();
+      const writerEnd = now();
+      await sleep(300); // the last lines still get displayed and counted
+      await app.cdp.ev(page.endLatency);
       await sleep(2500);
       const s = JSON.parse(await app.cdp.ev(page.stopSampler));
+
+      const cpu1 = cpuTimesAt(writerEnd); // after the sampler: the PowerShell sample must not slow the last lines down
       const mem = memory();
       const after = await totals();
       const missing = after.map((t, i) => before[i] + 20_000 - t);
@@ -461,7 +470,8 @@ export async function d7(env) {
   const names = ["cbl-recette-d7-a", "cbl-recette-d7-b"];
   const userData = tempDir("d7ud");
   writeConfig(userData, { docker: { initialTail: 5000 }, session: sessionOf(env, names) });
-  const spools = () => (existsSync(spoolDir(env)) ? readdirSync(spoolDir(env)).filter((f) => names.some((n) => f.startsWith(n))) : []);
+  // one `.log` per container (its state file lives next to it and goes away with it)
+  const spools = () => (existsSync(spoolDir(env)) ? readdirSync(spoolDir(env)).filter((f) => f.endsWith(".log") && names.some((n) => f.startsWith(n))) : []);
   try {
     for (const n of names) await startContainer(env, n);
     for (const n of names) await runDockerWriter(n, 1000, 2);

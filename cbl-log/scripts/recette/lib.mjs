@@ -133,9 +133,11 @@ export const page = {
     window.__s.timer = setInterval(() => {
       const rows = document.querySelectorAll('.log-row'); const row = rows[rows.length - 1]; if (!row) return;
       const m = /#(\\d+)#(\\d+)#/.exec(row.querySelector('.log-text').innerText);
-      if (m) { window.__s.lastSeq = Math.max(window.__s.lastSeq, Number(m[1])); window.__s.lat.push(Date.now() - Number(m[2])); }
+      if (m) { window.__s.lastSeq = Math.max(window.__s.lastSeq, Number(m[1])); if (!window.__s.noLat) window.__s.lat.push(Date.now() - Number(m[2])); }
     }, 100);
   })()`,
+  /** Stops recording latencies (the writer is done): the age of the last line keeps growing while nothing is written, which is no latency. */
+  endLatency: `(() => { window.__s.noLat = true; })()`,
   stopSampler: `(() => { window.__s.stop = true; clearInterval(window.__s.timer); return JSON.stringify(window.__s); })()`,
 };
 
@@ -189,6 +191,12 @@ export function cpuTimes() {
   }
   return { engine, total, at: performance.now() };
 }
+
+/**
+ * `cpuTimes()` taken later but dated `at` (a `now()` of the end of the measured window). The sample spawns a PowerShell
+ * that loads the machine for ~1 s: taken while lines are still being displayed, it inflates the latency tail (p95).
+ */
+export const cpuTimesAt = (at) => ({ ...cpuTimes(), at });
 
 /** CPU used between two `cpuTimes()` samples, in % of ONE core. */
 export function cpuPercent(a, b) {

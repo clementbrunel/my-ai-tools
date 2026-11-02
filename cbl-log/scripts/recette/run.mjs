@@ -17,7 +17,7 @@ import { fileURLToPath } from "node:url";
 import { compareReport, readHistory } from "./compare.mjs";
 import { mergeFollow, mergeOpen, mergeQuery } from "./merged.mjs";
 import { DOCKER_IDS, MANUAL, d1, d2, d2b, d3, d4, d5andD6, d7, prepareEnv, removeRecetteContainers } from "./docker.mjs";
-import { copyAllRows, cpuPercent, cpuTimes, defenderState, fmt, launch, memory, now, openInRunningApp, page, percentile, quit, result, separatorLabels, sleep, tempDir, verdict, waitFor } from "./lib.mjs";
+import { copyAllRows, cpuPercent, cpuTimes, cpuTimesAt, defenderState, fmt, launch, memory, now, openInRunningApp, page, percentile, quit, result, separatorLabels, sleep, tempDir, verdict, waitFor } from "./lib.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const argv = process.argv.slice(2);
@@ -154,9 +154,13 @@ async function follow({ id, rate, seconds, latencyP95, title, criterion }) {
     await app.cdp.ev(page.startSampler);
     const cpu0 = cpuTimes();
     await runWriter([file], rate, seconds);
-    const cpu1 = cpuTimes();
+    const writerEnd = now();
+    await sleep(300); // the last lines still get displayed and counted
+    await app.cdp.ev(page.endLatency);
     await sleep(1500);
     const s = JSON.parse(await app.cdp.ev(page.stopSampler));
+
+    const cpu1 = cpuTimesAt(writerEnd); // after the sampler: the PowerShell sample must not slow the last lines down
     const total = await app.cdp.ev(page.totalLines);
     const mem = memory();
     const cpu = cpuPercent(cpu0, cpu1);
@@ -394,9 +398,13 @@ async function r8(ctx) {
     await app.cdp.ev(page.startSampler);
     const cpu0 = cpuTimes();
     await runWriter(files, 1000, 20);
-    const cpu1 = cpuTimes();
+    const writerEnd = now();
+    await sleep(300); // the last lines still get displayed and counted
+    await app.cdp.ev(page.endLatency);
     await sleep(2000);
     const s = JSON.parse(await app.cdp.ev(page.stopSampler));
+
+    const cpu1 = cpuTimesAt(writerEnd); // after the sampler: the PowerShell sample must not slow the last lines down
     const mem = memory();
     const after = await totals();
     const missing = after.map((t, i) => before[i] + 20_000 - t);

@@ -79,9 +79,9 @@ export function readHistory(file) {
 const runsWith = (history, source, id) => history.filter((run) => run.source === source && run.results.some((r) => r.id === id));
 const valueOf = (run, id, key) => run?.results.find((r) => r.id === id)?.values?.[key];
 
-const show = (v, unit) => (v === undefined ? "—" : `${Number.isInteger(v) ? v : v.toFixed(1)}${unit ? ` ${unit}` : ""}`);
+const show = (v, unit) => (v === undefined || v === null ? "—" : `${Number.isInteger(v) ? v : v.toFixed(1)}${unit ? ` ${unit}` : ""}`);
 function delta(from, to, unit) {
-  if (from === undefined || to === undefined) return "—";
+  if (from === undefined || to === undefined || from === null || to === null) return "—";
   const d = to - from;
   if (d === 0) return "=";
   const pct = from !== 0 ? ` (${d > 0 ? "+" : ""}${((d / from) * 100).toFixed(0)} %)` : "";
