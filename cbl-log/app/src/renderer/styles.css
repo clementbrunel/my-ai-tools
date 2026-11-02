@@ -1329,6 +1329,21 @@ input.switch:checked::after {
   font-size: 18px;
 }
 
+.update-date {
+  margin-left: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.badge {
+  margin-left: 6px;
+  padding: 0 8px;
+  border-radius: 9px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+}
+
 .update-versions strong {
   color: var(--accent);
 }

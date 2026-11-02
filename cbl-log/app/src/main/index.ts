@@ -12,7 +12,7 @@ import { buildIssueUrl, checkFlood, envLines, feedbackKey, validateDraft, withSe
 import { loadFeedbackHistory, saveFeedbackHistory } from "./feedback-store";
 import { loadRecent, saveRecent, withoutRecentFile, withRecentFile } from "./recent-store";
 import { exportRuleSet, loadRuleSets, readRuleSetFile, saveRuleSet } from "./rules-store";
-import { showAbout, showReleaseNotes, showSplash } from "./brand-windows";
+import { showAbout, showSplash } from "./brand-windows";
 import type { UpdateAction } from "./update-check";
 import { checkForUpdates, handleUpdateAction } from "./updater";
 
@@ -144,7 +144,7 @@ function buildMenu(): void {
           { label: "Rechercher une &mise à jour…", click: () => void checkForUpdates(mainWindow, true) },
           { label: "&Signaler un bug / proposer une idée…", click: () => mainWindow?.webContents.send("feedback:open") },
           { type: "separator" },
-          { label: "&Notes de version…", click: () => showReleaseNotes(mainWindow, app.getVersion(), iconPath()) },
+          { label: "&Notes de version…", click: () => mainWindow?.webContents.send("notes:open") },
           { type: "separator" },
           { label: "À &propos de cbl-log", click: () => showAbout(mainWindow, app.getVersion(), iconPath(), avatarPath()) },
         ],

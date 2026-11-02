@@ -40,6 +40,13 @@ const api: CblLogApi = {
   },
   feedbackStatus: () => ipcRenderer.invoke("feedback:status") as ReturnType<CblLogApi["feedbackStatus"]>,
   submitFeedback: (draft) => ipcRenderer.invoke("feedback:submit", draft) as ReturnType<CblLogApi["submitFeedback"]>,
+  onOpenReleaseNotes: (cb) => {
+    const listener = (): void => cb();
+    ipcRenderer.on("notes:open", listener);
+    return () => {
+      ipcRenderer.off("notes:open", listener);
+    };
+  },
   onUpdateState: (cb) => {
     const listener = (_event: unknown, state: Parameters<typeof cb>[0]): void => cb(state);
     ipcRenderer.on("update:state", listener);

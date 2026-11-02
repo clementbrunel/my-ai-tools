@@ -36,6 +36,7 @@ import { DockerPanel } from "./docker/DockerPanel";
 import { dockerStatusText } from "./docker/docker-panel";
 import { FeedbackPanel } from "./feedback/FeedbackPanel";
 import { UpdatePanel } from "./update/UpdatePanel";
+import { ReleaseNotesPanel } from "./update/ReleaseNotesPanel";
 import type { UpdatePanelState } from "../main/update-check";
 import { FilterBar } from "./filter/FilterBar";
 import { LevelPills } from "./filter/LevelPills";
@@ -95,6 +96,7 @@ export function App() {
   const [ruleSets, setRuleSets] = useState<RuleSet[]>(createBuiltinRuleSets);
   const [rulesOpen, setRulesOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
   const [updateState, setUpdateState] = useState<UpdatePanelState | null>(null);
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const settingsRef = useRef(settings);
@@ -600,6 +602,7 @@ export function App() {
   }, [loadRulesNow, loadSettingsNow, loadFormatsNow]);
   useEffect(() => window.cblLog.onOpenFeedback(() => setFeedbackOpen(true)), []);
   useEffect(() => window.cblLog.onUpdateState(setUpdateState), []);
+  useEffect(() => window.cblLog.onOpenReleaseNotes(() => setNotesOpen(true)), []);
 
   // "Désigner une archive du rolling…": the archive names of this file are learned from the one picked,
   // remembered in settings.json, and the tab is reopened with its archives.
@@ -1200,6 +1203,7 @@ export function App() {
       {feedbackOpen && (
         <FeedbackPanel onClose={() => setFeedbackOpen(false)} onNotice={(text, isError) => setNotice({ text, isError })} />
       )}
+      {notesOpen && <ReleaseNotesPanel current={window.cblLog.version} onClose={() => setNotesOpen(false)} />}
       {updateState && <UpdatePanel state={updateState} onClose={() => setUpdateState(null)} />}
       <div className="workspace">
       {dockerEnabled && dockerOpen && (

@@ -1,6 +1,6 @@
-import { useEffect } from "react";
+import { Modal } from "../ui/Modal";
 import type { UpdatePanelState } from "../../main/update-check";
-import { parseInline, parseNotes } from "../../main/release-notes";
+import { Notes } from "./Notes";
 
 interface Props {
   state: UpdatePanelState;
@@ -10,25 +10,6 @@ interface Props {
 
 const mb = (bytes: number): string => `${(bytes / 1024 / 1024).toFixed(1)} Mo`;
 
-/** Same rendering rules as the "Notes de version" window: bullets and paragraphs with bold / code. */
-function Notes({ body }: { body: string }) {
-  const { bullets, paragraphs } = parseNotes(body);
-  const inline = (text: string) =>
-    parseInline(text).map((t, i) => (t.kind === "strong" ? <strong key={i}>{t.text}</strong> : t.kind === "code" ? <code key={i}>{t.text}</code> : t.text));
-  return (
-    <div className="update-notes">
-      {paragraphs.map((p, i) => (
-        <p key={i}>{inline(p)}</p>
-      ))}
-      <ul>
-        {bullets.map((b, i) => (
-          <li key={i}>{inline(b)}</li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
 /** In-app modal for the update flow (replaces the native message boxes): offer, download progress, "up to date", errors. */
 export function UpdatePanel({ state, onClose }: Props) {
   const dismiss = (): void => {
@@ -36,13 +17,6 @@ export function UpdatePanel({ state, onClose }: Props) {
     onClose();
   };
   const locked = state.kind === "downloading";
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent): void => {
-      if (e.key === "Escape" && !locked) dismiss();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  });
 
   let title = "Mise à jour";
   let body: JSX.Element;
@@ -125,19 +99,9 @@ export function UpdatePanel({ state, onClose }: Props) {
   }
 
   return (
-    <div className="modal-backdrop" onMouseDown={locked ? undefined : dismiss}>
-      <div className="modal update-panel" role="dialog" aria-label={title} onMouseDown={(e) => e.stopPropagation()}>
-        <header>
-          <h2>{title}</h2>
-          {!locked && (
-            <button type="button" onClick={dismiss} aria-label="Fermer">
-              ×
-            </button>
-          )}
-        </header>
-        <div className="update-body">{body}</div>
-        {!locked && <footer>{footer}</footer>}
-      </div>
-    </div>
+    <Modal title={title} className="update-panel" onClose={dismiss} locked={locked}>
+      <div className="update-body">{body}</div>
+      {!locked && <footer>{footer}</footer>}
+    </Modal>
   );
 }
