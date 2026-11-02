@@ -13,7 +13,8 @@ import { loadFeedbackHistory, saveFeedbackHistory } from "./feedback-store";
 import { loadRecent, saveRecent, withoutRecentFile, withRecentFile } from "./recent-store";
 import { exportRuleSet, loadRuleSets, readRuleSetFile, saveRuleSet } from "./rules-store";
 import { showAbout, showReleaseNotes, showSplash } from "./brand-windows";
-import { checkForUpdates } from "./updater";
+import type { UpdateAction } from "./update-check";
+import { checkForUpdates, handleUpdateAction } from "./updater";
 
 // Settings live in %APPDATA%/cbl-log (architecture, section 8), not under the package name.
 // CBL_LOG_USER_DATA relocates it (portable use, isolated acceptance runs).
@@ -271,6 +272,7 @@ if (!app.requestSingleInstanceLock()) {
     return { env: envLines(feedbackEnv()), blocked: flood.ok ? undefined : flood.reason };
   });
   ipcMain.handle("feedback:submit", (_event, draft: FeedbackDraft) => submitFeedback(draft));
+  ipcMain.on("update:action", (_event, action: UpdateAction) => handleUpdateAction(action));
   ipcMain.on("renderer:ready", () => {
     rendererReady = true;
     sendFiles(pendingPaths.splice(0));

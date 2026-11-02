@@ -23,12 +23,39 @@ export function parseChangelog(markdown: string): ReleaseEntry[] {
 const escapeHtml = (text: string): string =>
   text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
-/** Inline markdown (bold, code, links reduced to their text) on an already escaped line. */
+export interface InlineToken {
+  text: string;
+  kind: "text" | "strong" | "code";
+}
+
+/** Inline markdown (bold, code; links reduced to their text) as tokens: shared by the notes window (HTML) and the update panel (React). */
+export function parseInline(text: string): InlineToken[] {
+  const tokens: InlineToken[] = [];
+  const re = /\*\*([^*]+)\*\*|`([^`]+)`/g;
+  const plain = text.replace(/\[([^\]]+)\]\([^)]*\)/g, "$1");
+  let last = 0;
+  for (let m = re.exec(plain); m; m = re.exec(plain)) {
+    if (m.index > last) tokens.push({ text: plain.slice(last, m.index), kind: "text" });
+    tokens.push(m[1] !== undefined ? { text: m[1], kind: "strong" } : { text: m[2]!, kind: "code" });
+    last = m.index + m[0].length;
+  }
+  if (last < plain.length) tokens.push({ text: plain.slice(last), kind: "text" });
+  return tokens;
+}
+
 const inline = (text: string): string =>
-  escapeHtml(text)
-    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
-    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-    .replace(/`([^`]+)`/g, "<code>$1</code>");
+  parseInline(text)
+    .map((t) => (t.kind === "strong" ? `<strong>${escapeHtml(t.text)}</strong>` : t.kind === "code" ? `<code>${escapeHtml(t.text)}</code>` : escapeHtml(t.text)))
+    .join("");
+
+/** Lines of a release body split into bullets and paragraphs (same rule as the notes window). */
+export function parseNotes(body: string): { bullets: string[]; paragraphs: string[] } {
+  const lines = body.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  return {
+    bullets: lines.filter((l) => /^[-*]\s/.test(l)).map((l) => l.replace(/^[-*]\s+/, "")),
+    paragraphs: lines.filter((l) => !/^[-*]\s/.test(l)),
+  };
+}
 
 const MONTHS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
 function frenchDate(iso: string): string {
