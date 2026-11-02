@@ -142,4 +142,24 @@ describe("PageCache", () => {
     expect(cache.getRow(PAGE_SIZE + 4)).toMatchObject({ lineNo: lineOf(PAGE_SIZE + 4), text: `r${PAGE_SIZE + 4}` });
     expect(cache.getRow(2)?.text).toBe("r2");
   });
+
+  it("readableEnd stops at the last row present while the new lines load", async () => {
+    const cache = new PageCache(async (first, count) => makeRows(first, Math.min(count, 50 - first)));
+    cache.request(0, 10, 50);
+    await flush();
+    expect(cache.readableEnd(50)).toBe(50);
+    expect(cache.readableEnd(60)).toBe(50); // 10 new lines not fetched yet
+    expect(new PageCache(async () => []).readableEnd(60)).toBe(60); // nothing loaded: nothing to wait on
+  });
+
+  it("keeps an in-flight answer on append invalidation, then refetches", async () => {
+    const { calls, fetch } = manualFetcher(0);
+    const cache = new PageCache(fetch);
+    cache.request(0, 10, 100);
+    cache.invalidateFrom(50, true);
+    calls[0]!.resolve(makeRows(0, 100));
+    await flush();
+    expect(cache.getRow(5)?.text).toBe("v1:5"); // shown, not discarded
+    expect(cache.missingPages(0, 10, 100)).toEqual([0]); // but stale: will be refetched
+  });
 });

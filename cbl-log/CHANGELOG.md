@@ -5,6 +5,10 @@ La section `## [X.Y.Z]` est reprise telle quelle comme notes de la release GitHu
 et affichée dans la fenêtre « Mise à jour disponible » de l'application : rédigez-la pour un
 utilisateur (pas de noms de branches, de PR ni de tâches internes).
 
+## [Non publié]
+
+- **Suivi en direct** : fin du scintillement en bas de l'écran quand un log défile vite en mode tail (les nouvelles lignes n'apparaissent plus vides avant d'être remplies).
+
 ## [3.0.0] — 2026-11-02
 
 - **Conteneurs Docker** : un nouveau panneau (Ctrl+Maj+D) liste les conteneurs de Docker Desktop ; un double-clic ouvre ses logs dans un onglet, suivis en direct. Le suivi reprend après l'arrêt ou le redémarrage du conteneur ou de Docker Desktop, et un conteneur recréé (`docker compose up`) reste dans le même onglet, avec un séparateur. « Charger plus d'historique » remonte plus loin. La copie locale des logs est plafonnée (256 Mo par défaut, réglable) et supprimée à la fermeture de l'onglet.
