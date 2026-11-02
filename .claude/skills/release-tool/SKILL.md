@@ -14,12 +14,37 @@ Tag convention: `<tool>-vX.Y.Z` (e.g. `cbl-log-v1.0.0`). The tool's own workflow
 (`.github/workflows/<tool>.yml`, e.g. `cbl-log.yml`) builds and publishes on that tag; if the tool has
 none, the tag alone is the deliverable — say so.
 
+## Merge mode (ask first)
+
+**Before anything else, at the start of every release request, ask the user** (AskUserQuestion) who
+merges the PRs of this release. The answer applies to this release only; never carry it over to the
+next one, never assume it.
+
+- **Manuel (default, recommended option)**: Claude opens the PRs and hands them over; the user merges.
+  Steps below that say "merge" mean "wait for the user to merge, then continue".
+- **Auto**: Claude merges the PRs of this release itself, without further confirmation (version-bump
+  PR, release PR, showcase PR), once the guardrails hold:
+  - all required checks are green (`pull_request_read` → checks); if red or pending, wait/fix, never
+    merge on red, never skip or disable a check;
+  - no unresolved review comment or requested change, PR not draft, no merge conflict;
+  - merge method per PR: version-bump PR → the repo's usual method (squash); **release PR → merge
+    commit, always** (step 7); showcase PR → squash;
+  - merge only PRs opened by this release run, never anything else;
+  - after each merge, check the merge landed on `main` before the next step (the tag target must be
+    in `main`'s history);
+  - on any doubt or failure (CI red twice, conflict, ambiguous state), stop and fall back to manual:
+    tell the user what is blocking.
+  Report in the hand-over which PRs were auto-merged and with which method.
+
+If the user gave no answer or an unclear one, treat it as **Manuel**.
+
 ## Steps
 
 1. **Version bump + changelog first, merged.** The tool's version (package.json files, lockfile, any
    hardcoded version, README/status) is bumped through a normal PR, which also adds the
    `## [X.Y.Z] — YYYY-MM-DD` section to `<tool>/CHANGELOG.md` (see **Changelog** below); merged into
-   `main`, CI green. Check this before anything else; stop and say so if not. Check the notes with
+   `main`, CI green (in Auto mode, Claude merges it once green). Check this before anything else
+(after the merge-mode question); stop and say so if not. Check the notes with
    `node .claude/skills/release-tool/release-notes.mjs <tool> X.Y.Z`.
 2. `git fetch origin main`, then create `release/<tool>-vX.Y.Z` from `origin/main`.
 3. `node .claude/skills/release-tool/gen-gitattributes.mjs <tool>` then commit **A**:
@@ -29,11 +54,12 @@ none, the tag alone is the deliverable — say so.
 6. `git revert --no-edit HEAD` (commit **B**), push the branch, open a PR labelled `<tool>`
    (see the `github-issue-pr` skill).
 7. **Merge the PR with a merge commit — never squash or rebase**, otherwise commit A (the tag target)
-   would not be in `main`'s history. Say it explicitly when handing the PR over.
+   would not be in `main`'s history. Manual mode: say it explicitly when handing the PR over.
+   Auto mode: merge it yourself with `merge_pull_request` (`merge_method: "merge"`) once checks are green.
 8. Follow the workflow run and report the release URL once published.
 9. **Update the showcase** for the released tool (see **Showcase** below) — a separate PR labelled
    `showcase`, once the release is published. Never skip this step silently: if nothing changes,
-   say why in the hand-over.
+   say why in the hand-over. Auto mode also covers merging this PR (checks green, squash).
 
 ## Changelog
 

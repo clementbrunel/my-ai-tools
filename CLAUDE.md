@@ -41,6 +41,8 @@ checks) is edited in `.claude/skills/weekly-deps/scope.json`.
 
 Tag `<tool>-vX.Y.Z` via `.claude/skills/release-tool/` so GitHub's "Source code" archive contains only
 that tool's directory (temporary `.gitattributes` export-ignore on the tagged commit, reverted on `main`).
+Each release request starts with a question: merges stay manual (default) or **auto mode** (Claude
+merges the release's PRs itself once checks are green).
 Release notes are the `## [X.Y.Z]` section of `<tool>/CHANGELOG.md`, written by hand in the version-bump
 PR (user-facing changes only), never GitHub's generated PR list.
 
