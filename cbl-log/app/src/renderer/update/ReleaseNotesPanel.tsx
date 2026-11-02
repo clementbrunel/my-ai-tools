@@ -1,6 +1,7 @@
 import { useState } from "react";
 import changelog from "../../../../CHANGELOG.md?raw";
 import { parseChangelog } from "../../main/release-notes";
+import { Button } from "../ui/Button";
 import { Modal } from "../ui/Modal";
 import { Notes } from "./Notes";
 
@@ -32,16 +33,16 @@ export function ReleaseNotesPanel({ current, onClose }: { current: string; onClo
         )}
       </div>
       <footer>
-        <button type="button" disabled={index >= entries.length - 1} onClick={() => setIndex(index + 1)}>
+        <Button disabled={index >= entries.length - 1} onClick={() => setIndex(index + 1)}>
           ‹ Plus ancienne
-        </button>
+        </Button>
         <span className="hint">{entries.length > 0 ? `${index + 1} / ${entries.length}` : ""}</span>
-        <button type="button" disabled={index === 0} onClick={() => setIndex(index - 1)}>
+        <Button disabled={index === 0} onClick={() => setIndex(index - 1)}>
           Plus récente ›
-        </button>
-        <button type="button" onClick={onClose}>
+        </Button>
+        <Button onClick={onClose}>
           Fermer
-        </button>
+        </Button>
       </footer>
     </Modal>
   );

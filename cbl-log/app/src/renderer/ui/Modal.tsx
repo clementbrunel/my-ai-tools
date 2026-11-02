@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from "react";
+import { Button } from "./Button";
 
 interface Props {
   title: string;
@@ -28,9 +29,9 @@ export function Modal({ title, onClose, className, locked, children }: Props) {
         <header>
           <h2>{title}</h2>
           {!locked && (
-            <button type="button" onClick={onClose} aria-label="Fermer">
+            <Button variant="ghost" onClick={onClose} aria-label="Fermer">
               ×
-            </button>
+            </Button>
           )}
         </header>
         {children}
