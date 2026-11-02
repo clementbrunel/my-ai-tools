@@ -22,6 +22,8 @@ export class LogDemuxer extends Transform {
   override _transform(chunk: Buffer, _enc: BufferEncoding, cb: TransformCallback): void {
     const buf = this.pending.length > 0 ? Buffer.concat([this.pending, chunk]) : chunk;
     this.pending = Buffer.alloc(0);
+    // one frame per log line: the payloads of a chunk are pushed together, not one stream push per line
+    const payloads: Buffer[] = [];
     let pos = 0;
     while (pos < buf.length) {
       if (this.remaining === 0) {
@@ -34,10 +36,12 @@ export class LogDemuxer extends Transform {
       const take = Math.min(this.remaining, buf.length - pos);
       const payload = buf.subarray(pos, pos + take);
       this.onFrame?.(this.kind, payload);
-      this.push(payload);
+      payloads.push(payload);
       this.remaining -= take;
       pos += take;
     }
+    if (payloads.length === 1) this.push(payloads[0]);
+    else if (payloads.length > 1) this.push(Buffer.concat(payloads));
     if (pos < buf.length) this.pending = Buffer.from(buf.subarray(pos));
     cb();
   }

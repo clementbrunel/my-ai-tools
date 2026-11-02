@@ -326,13 +326,9 @@ export class LogSpooler {
   private emit(line: Buffer): void {
     this.buf.push(line);
     this.bufBytes += line.length;
-    // state as of this line: what `write` persists once the bytes are on disk
-    this.pendingState = { ...this.st, archives: [...this.st.archives] };
     if (this.bufBytes >= this.flushBytes) void this.flush();
     else this.flushTimer ??= setTimeout(() => void this.flush(), this.flushMs);
   }
-
-  private pendingState: StateFile | undefined;
 
   /** Writes the buffered lines (serialized with any write in progress). Never rejects. */
   private flush(): Promise<void> {
@@ -350,7 +346,9 @@ export class LogSpooler {
   private async write(): Promise<void> {
     if (this.bufBytes === 0 || !this.fh) return;
     const data = Buffer.concat(this.buf);
-    const snapshot = this.pendingState ?? this.st;
+    // the state as of the last buffered line (lines are buffered as they are read), copied once per write: it is
+    // what gets persisted once the bytes are on disk, while more lines may be read during the write
+    const snapshot = { ...this.st };
     this.buf = [];
     this.bufBytes = 0;
     if (this.size > 0 && this.size + data.length > this.maxBytes) await this.rotate(`r${Date.now().toString(36)}`);
@@ -384,7 +382,6 @@ export class LogSpooler {
     }
     this.st = { sameCount: 0, loaded: false, containerId: newId, archives: this.st.archives };
     this.persisted = this.st;
-    this.pendingState = undefined;
     this.tail = this.initialTail;
     this.endedFor = undefined;
     this.stateDirty = true;

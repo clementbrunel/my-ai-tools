@@ -20,12 +20,15 @@ afterEach(async () => {
   await fake.down();
 });
 
-async function connect() {
+/** `leftovers` runs before the engine starts: what a previous run left in the spool folder. */
+async function connect(spoolMaxBytes?: number, leftovers?: (spoolRoot: string) => Promise<void>) {
   const spoolRoot = await tempDir();
+  await leftovers?.(spoolRoot);
   const service = new EngineService({
     docker: {
       client: fake.client(),
       spoolRoot,
+      ...(spoolMaxBytes !== undefined ? { spoolMaxBytes } : {}),
       spooler: { flushMs: 5, retryMs: 20, maxRetryMs: 40, pollMs: 20 },
       watcher: { throttleMs: 10, retryMs: 20 },
     },
@@ -127,6 +130,21 @@ describe("EngineService with a Docker container", () => {
     expect(await rows(tabId)).toEqual([...nums(0, 3), "new 1", "new 2"]);
   });
 
+  it("never shows the spool file as missing while it rotates", async () => {
+    fake.add("web", { lines: [] });
+    const { ok, tabEvents } = await connect(2_000);
+    const { tabId } = await ok("open", { docker });
+    for (let batch = 0; batch < 6; batch++) {
+      fake.log("web", ...Array.from({ length: 50 }, (_, i) => `rotating ${batch} ${i} ${"x".repeat(30)}`));
+      await new Promise((resolve) => setTimeout(resolve, 60));
+    }
+    await waitFor(() => tabEvents("rolled").length > 0, "a rotation");
+    await waitFor(async () => (await ok("getRows", { tabId, first: 0, count: 1 })).total === 300, "all rows counted");
+    const states = tabEvents("state").map((e) => (e.type === "state" ? e.state : ""));
+    expect(states).not.toContain("missing");
+    expect(states.at(-1)).toBe("following");
+  });
+
   it("loads more history in place and tells how many rows were added before", async () => {
     fake.add("web", { lines: nums(0, 40) });
     const { ok, rows } = await connect();
@@ -148,9 +166,14 @@ describe("EngineService with a Docker container", () => {
     await ok("close", { tabId });
     expect(readdirSync(dir)).toEqual([]);
 
-    const { ok: ok2, spoolRoot: root2 } = await connect();
-    const stale = join(root2, "old-context");
-    await import("node:fs/promises").then((fs) => fs.mkdir(stale, { recursive: true }).then(() => fs.writeFile(join(stale, "gone.log"), "x")));
+    let stale = "";
+    const { ok: ok2 } = await connect(undefined, async (root) => {
+      stale = join(root, "old-context");
+      const fs = await import("node:fs/promises");
+      await fs.mkdir(stale, { recursive: true });
+      await fs.writeFile(join(stale, "gone.log"), "x");
+    });
+    await waitFor(() => !existsSync(stale), "leftovers purged at startup, before any Docker tab");
     await ok2("open", { docker });
     expect(existsSync(stale)).toBe(false);
   });

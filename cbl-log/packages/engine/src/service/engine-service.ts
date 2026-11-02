@@ -175,8 +175,19 @@ export class EngineService {
     this.mergeOptions = options.merge ?? {};
   }
 
+  private spoolRoot(): string {
+    return this.dockerOptions.spoolRoot ?? join(process.env["LOCALAPPDATA"] ?? tmpdir(), "cbl-log", "docker");
+  }
+
+  /** Removes the spool files left by a previous run (once; a Docker tab waits for it before creating its own). */
+  private purgeOrphanSpools(): Promise<void> {
+    if (this.dockerOptions.keepSpoolOnClose) return Promise.resolve();
+    return (this.purged ??= purgeSpools(this.spoolRoot()));
+  }
+
   /** Starts serving requests received on `port`. Returns a function that detaches it. */
   attach(port: PortLike): () => void {
+    void this.purgeOrphanSpools(); // at startup, before any tab exists (D-08)
     const off = port.onMessage((msg) => void this.handle(msg, port));
     const detach = (): void => {
       off();
@@ -249,8 +260,8 @@ export class EngineService {
       throw new SourceError("UNKNOWN", "", `Container already open: ${key}`);
     }
     const o = this.dockerOptions;
-    const root = o.spoolRoot ?? join(process.env["LOCALAPPDATA"] ?? tmpdir(), "cbl-log", "docker");
-    if (!o.keepSpoolOnClose) await (this.purged ??= purgeSpools(root));
+    const root = this.spoolRoot();
+    await this.purgeOrphanSpools(); // normally done since the engine started; a no-op then
     const tabId = randomUUID();
     const ref: { tab?: Tab; last: { state: "following" | "stopped" | "waiting" | "error"; message?: string | undefined } } = {
       last: { state: "following" },
@@ -374,8 +385,9 @@ export class EngineService {
         : undefined,
     });
     tab.unsubscribe = tab.tailer.on((event) => {
-      // a Docker tab's state is the spooler's (following / stopped / waiting), not the file's
-      if (tab.spooler && event.type === "state" && event.state === "following") return;
+      // a Docker tab's state is the spooler's (following / stopped / waiting), not the file's: the spool file is
+      // briefly absent while it rotates, which is no news to the user (and its "following" would be dropped here)
+      if (tab.spooler && event.type === "state" && event.state !== "error") return;
       this.emitEvent(port, tabId, event);
       // keep the search and the filter of the tab in step with the file
       if (event.type === "rows") {
