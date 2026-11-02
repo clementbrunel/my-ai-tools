@@ -30,6 +30,19 @@ async function manual(path: string, extra: Partial<TailerOptions> = {}) {
   return { tailer, events };
 }
 
+/** A scheduler that tells every interval a task is given. */
+function spyScheduler(): { scheduler: PollScheduler; intervals: number[] } {
+  const scheduler = new PollScheduler();
+  const intervals: number[] = [];
+  const add = scheduler.add.bind(scheduler);
+  scheduler.add = (run, ms) => {
+    const task = add(run, ms);
+    intervals.push(ms);
+    return { ...task, setInterval: (n: number) => (intervals.push(n), task.setInterval(n)) };
+  };
+  return { scheduler, intervals };
+}
+
 describe("Tailer", () => {
   it("indexes on open then follows appends (real polling + watch)", async () => {
     const path = join(await tempDir(), "app.log");
@@ -353,5 +366,33 @@ describe("Tailer", () => {
     await tailer.check();
     expect(tailer.isLastLineOpen).toBe(false);
     expect((await tailer.getLines(0, 10)).map((l) => l.text)).toEqual(["abc", "defghi", "jkl"]);
+  });
+
+  it("polls a local file faster while it grows, but not one given an explicit interval", async () => {
+    const dir = await tempDir();
+    const path = join(dir, "grow.log");
+    writeFileSync(path, lines(0, 3));
+    const hot = spyScheduler();
+    const tailer = new Tailer({ path, scheduler: hot.scheduler, watch: false, cache: new BlockCache() });
+    cleanups.push(async () => {
+      await tailer.stop();
+      hot.scheduler.close();
+    });
+    await tailer.start();
+    expect(hot.intervals).toEqual([250]);
+    appendFileSync(path, lines(3, 6));
+    tailer.poke();
+    await waitFor(() => hot.intervals.includes(100), "the fast pace");
+
+    const fixed = spyScheduler();
+    const other = new Tailer({ path, scheduler: fixed.scheduler, pollIntervalMs: 20, watch: false, cache: new BlockCache() });
+    cleanups.push(async () => {
+      await other.stop();
+      fixed.scheduler.close();
+    });
+    await other.start();
+    appendFileSync(path, lines(6, 9));
+    await waitFor(async () => other.totalRows === 9, "rows seen");
+    expect(fixed.intervals).toEqual([20]);
   });
 });

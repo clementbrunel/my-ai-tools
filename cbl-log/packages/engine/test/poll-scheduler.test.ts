@@ -17,6 +17,18 @@ describe("PollScheduler", () => {
     expect(defaultPollInterval("\\\\nas\\share\\a.log")).toBe(1000);
   });
 
+  it("setInterval changes the pace of a task, a shorter one bringing its next tick forward", async () => {
+    scheduler = new PollScheduler();
+    let runs = 0;
+    const task = scheduler.add(() => void runs++, 3_600_000);
+    task.setInterval(20);
+    await waitFor(() => runs >= 3, "ticks at the new pace");
+    task.setInterval(3_600_000);
+    const seen = runs;
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    expect(runs - seen).toBeLessThanOrEqual(1); // the tick already armed may still fire
+  });
+
   it("staggers the first ticks", async () => {
     scheduler = new PollScheduler();
     const firstRun: number[] = [];

@@ -27,7 +27,7 @@ import type { SourceIdentity } from "../source/source.js";
 import { LineIndex } from "../index/line-index.js";
 import type { NumberedLine } from "../index/lines.js";
 import type { SearchTarget } from "../search/session.js";
-import { defaultPollInterval, getGlobalPollScheduler, type PollScheduler, type PollTask } from "./poll-scheduler.js";
+import { defaultPollInterval, getGlobalPollScheduler, isUncPath, type PollScheduler, type PollTask } from "./poll-scheduler.js";
 
 /** Anchor size: fingerprint of the bytes preceding the scanned offset. */
 export const ANCHOR_BYTES = 4096;
@@ -37,6 +37,9 @@ const MAX_DRAIN_PASSES = 16;
 const MAX_ARCHIVE_CANDIDATES = 25;
 const MAX_DIR_ENTRIES = 2000;
 const WATCH_MIN_SPACING_MS = 50;
+/** A local file that is growing is polled this often, for this long after its last growth (the slow pace is 250 ms). */
+const HOT_POLL_MS = 100;
+const HOT_FOR_MS = 3_000;
 
 export type TailerPhase = "idle" | "following" | "draining" | "switching" | "truncated" | "missing" | "error";
 /** "history": an archive loaded before the live file at open (T-09); "initial": the live file then. */
@@ -131,6 +134,10 @@ export class Tailer {
   private watcher: FSWatcher | undefined;
   private queue: Promise<void> = Promise.resolve();
   private lastCheckAt = 0;
+  private basePollMs = 0;
+  private canPollHot = false;
+  private polledHot = false;
+  private hotUntil = 0;
   private nextSegmentId = 0;
   private liveOpened = false;
   private pendingRoll: { reason: RolledReason; previous?: string } | undefined;
@@ -218,7 +225,10 @@ export class Tailer {
     this.running = true;
     for (const path of this.opts.history ?? []) await this.openHistory(path);
     this.watchDirectory();
-    this.task = this.scheduler.add(() => this.check(), this.opts.pollIntervalMs ?? defaultPollInterval(this.opts.path));
+    this.basePollMs = this.opts.pollIntervalMs ?? defaultPollInterval(this.opts.path);
+    // a local file that is not given an interval is polled faster while it grows (see `noteRows`)
+    this.canPollHot = this.opts.pollIntervalMs === undefined && !isUncPath(this.opts.path);
+    this.task = this.scheduler.add(() => this.check(), this.basePollMs);
     await this.check();
   }
 
@@ -337,6 +347,17 @@ export class Tailer {
     }
   }
 
+  /** While the file grows it is polled every HOT_POLL_MS; HOT_FOR_MS after the last growth it goes back to the slow pace. */
+  private pollHot(grew: boolean): void {
+    if (!this.canPollHot) return;
+    const now = Date.now();
+    if (grew) this.hotUntil = now + HOT_FOR_MS;
+    const hot = now < this.hotUntil;
+    if (hot === this.polledHot) return;
+    this.polledHot = hot;
+    this.task?.setInterval(hot ? HOT_POLL_MS : this.basePollMs);
+  }
+
   private noteRows(delta: number): void {
     this.rowsAppended += Math.max(0, delta);
     this.rowsDirty = true;
@@ -401,6 +422,7 @@ export class Tailer {
     this.lastCheckAt = Date.now();
     try {
       await this.step();
+      this.pollHot(false); // back to the slow pace once the file has been quiet for a while
     } catch (err) {
       if (!this.running) return;
       this.phaseValue = "error";
@@ -521,6 +543,7 @@ export class Tailer {
       seg.anchor = fresh.anchor;
       seg.anchorEnd = fresh.anchorEnd;
       this.noteRows(index.lineCount - before);
+      this.pollHot(true); // the file is growing: look at it more often for a while
     }
   }
 
