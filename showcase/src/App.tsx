@@ -4,7 +4,7 @@ import About from './components/About'
 import Dock from './components/Dock'
 import Hero from './components/Hero'
 import Legal from './components/Legal'
-import { useActiveScene, useHash } from './lib/nav'
+import { useActiveScene, useHash, useSceneLinks } from './lib/nav'
 import { initialLang } from './lib/ui'
 import { scenes } from './scenes'
 import './App.css'
@@ -15,6 +15,7 @@ export default function App() {
   const legal = hash === '#/legal'
   const active = useActiveScene(!legal)
   const activeApp = apps.find((a) => a.id === active)
+  useSceneLinks(legal, active)
   const dark = activeApp ? activeApp.theme.dark : true
 
   useEffect(() => {

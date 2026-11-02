@@ -1,4 +1,5 @@
 import { apps, profile } from '../apps'
+import { sceneHash } from '../lib/nav'
 import { go, scrollToY } from '../lib/ui'
 import AppIcon from './AppIcon'
 import './Dock.css'
@@ -11,7 +12,7 @@ export default function Dock({ active, dark }: { active: string; dark: boolean }
       <a className="mono" href="#/" aria-label="Accueil" onClick={(e) => { e.preventDefault(); scrollToY(0) }}>CB</a>
       <span className="sep" />
       {apps.map((a) => (
-        <a key={a.id} href={`#${a.id}`} className={`dk ${active === a.id ? 'on' : ''}`} onClick={(e) => go(e, a.id)}>
+        <a key={a.id} href={sceneHash(a.id)} className={`dk ${active === a.id ? 'on' : ''}`} onClick={(e) => go(e, a.id)}>
           <AppIcon id={a.id} size={36} />
           <span className="lbl"><span>{a.name}</span></span>
         </a>

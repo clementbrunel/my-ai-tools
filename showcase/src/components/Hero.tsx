@@ -1,5 +1,6 @@
 import { apps, heroScene, heroSceneRatio, type Lang } from '../apps'
 import { useScene } from '../lib/scroll'
+import { sceneHash } from '../lib/nav'
 import { go, ui } from '../lib/ui'
 import AppIcon from './AppIcon'
 import './Hero.css'
@@ -13,7 +14,7 @@ export default function Hero({ lang }: { lang: Lang }) {
         {heroScene ? <div className="hero-bg" style={{ backgroundImage: `url(${heroScene})`, ['--ar' as string]: heroSceneRatio }} /> : <div className="halo" />}
         <h1><span>Clément</span><em>Brunel</em></h1>
         <p className="sub">{t.sub}</p>
-        <div className="icons">{apps.map((a) => <a key={a.id} href={`#${a.id}`} aria-label={a.name} onClick={(e) => go(e, a.id)}><AppIcon id={a.id} size={64} /><span>{a.name}</span></a>)}</div>
+        <div className="icons">{apps.map((a) => <a key={a.id} href={sceneHash(a.id)} aria-label={a.name} onClick={(e) => go(e, a.id)}><AppIcon id={a.id} size={64} /><span>{a.name}</span></a>)}</div>
         <p className="cue">{t.scroll}<i /></p>
       </div>
     </section>
