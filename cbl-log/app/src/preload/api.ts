@@ -1,3 +1,4 @@
+import type { UpdateAction, UpdatePanelState } from "../main/update-check";
 import type { LogFormat, ParseRuleSetResult, RuleSet, Session, Settings } from "@cbl-log/shared";
 
 /** Report of "Aide > Signaler un bug / proposer une idée" (same shape as main/feedback.ts). */
@@ -47,4 +48,10 @@ export interface CblLogApi {
   submitFeedback(draft: FeedbackDraft): Promise<{ ok: true } | { ok: false; reason: string }>;
   /** User log formats from the formats folder (built-in ones come with the app). */
   loadFormats(): Promise<{ formats: LogFormat[]; warnings: string[] }>;
+  /** "Aide > Notes de version…" was chosen. */
+  onOpenReleaseNotes(cb: () => void): () => void;
+  /** State of the in-app update panel (null: closed by the main process). */
+  onUpdateState(cb: (state: UpdatePanelState | null) => void): () => void;
+  /** Answer to the "update available" panel. */
+  updateAction(action: UpdateAction): void;
 }
