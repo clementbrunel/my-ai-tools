@@ -63,7 +63,10 @@ interface Props {
 
 /** Virtualized, fixed-height-row view of a tab's lines. Follow mode keeps the end in view. */
 export function LogViewport({ cache, total: realTotal, base, marks, format, filtered = false, highlight, follow, reveal, currentMatchRow, anchorLine, onRowDoubleClick, onGotoLine, onGotoTime, sources, fileRows, viewRowRef, initialRow, onFollowChange, onLeave, fetchRows, onNotice }: Props) {
-  const total = Math.max(0, realTotal - base);
+  // Following a growing file: show only the rows the cache can already give. The new lines are being
+  // fetched; rendering them now would paint blank rows at the bottom that fill in a moment later.
+  const shownTotal = follow ? cache.readableEnd(realTotal) : realTotal;
+  const total = Math.max(0, shownTotal - base);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);

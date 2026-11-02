@@ -13,7 +13,10 @@ interface Page {
 }
 
 interface InFlight {
+  /** Its answer is discarded. */
   stale: boolean;
+  /** The file grew since the request left: the answer is still good to show, but a refetch must follow. */
+  outdated: boolean;
 }
 
 /**
@@ -72,12 +75,38 @@ export class PageCache {
     }
   }
 
-  /** Rows from `row` on are outdated (growth of the last line, truncation, rolling). */
-  invalidateFrom(row: number): void {
+  /**
+   * Number of leading rows (at most `total`) readable right now: the end of the last row present in the
+   * cache. While a growing file's new lines are being fetched, the viewport shows up to there instead
+   * of a blank tail that would flicker. `total` when nothing at all is loaded, or when the gap is
+   * larger than a page (jump, burst of lines): those rows must be requested, so they stay in range.
+   */
+  readableEnd(total: number): number {
+    if (total <= 0) return 0;
+    const lastPage = Math.floor((total - 1) / PAGE_SIZE);
+    for (let p = lastPage; p >= Math.max(0, lastPage - 1); p--) {
+      const page = this.pages.get(p);
+      if (!page) continue;
+      for (let i = Math.min(total - p * PAGE_SIZE, PAGE_SIZE) - 1; i >= 0; i--) {
+        if (page.rows[i]) return p * PAGE_SIZE + i + 1;
+      }
+    }
+    return total;
+  }
+
+  /**
+   * Rows from `row` on are outdated (growth of the last line, truncation, rolling).
+   * `append`: the file only grew, so an answer already in flight stays usable (it is shown, then
+   * refetched) instead of being thrown away — otherwise a file growing faster than a round trip to
+   * the engine would never get its new lines on screen.
+   */
+  invalidateFrom(row: number, append = false): void {
     const from = Math.floor(Math.max(0, row) / PAGE_SIZE);
     for (const [index, page] of this.pages) if (index >= from) page.stale = true;
     for (const [index, flight] of this.inFlight) {
-      if (index >= from) {
+      if (index < from) continue;
+      if (append) flight.outdated = true;
+      else {
         flight.stale = true; // its answer is discarded
         this.inFlight.delete(index);
       }
@@ -93,14 +122,14 @@ export class PageCache {
   }
 
   private load(index: number): void {
-    const flight: InFlight = { stale: false };
+    const flight: InFlight = { stale: false, outdated: false };
     this.inFlight.set(index, flight);
     const start = index * PAGE_SIZE;
     this.fetchRows(start, PAGE_SIZE).then(
       (rows) => {
         if (flight.stale) return;
         this.inFlight.delete(index);
-        const page: Page = { rows: [], stale: false };
+        const page: Page = { rows: [], stale: flight.outdated };
         rows.forEach((row, rank) => {
           page.rows[this.positional ? rank : row.lineNo - start] = row;
         });

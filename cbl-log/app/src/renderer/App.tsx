@@ -173,7 +173,7 @@ export function App() {
         if (rt) {
           if (event.type === "rows") {
             // the last line may have been open: re-read from the previous end
-            rt.cache.invalidateFrom(Math.max(0, rt.total - 1));
+            rt.cache.invalidateFrom(Math.max(0, rt.total - 1), true);
             rt.total = event.total;
           } else if (event.type === "rolled") {
             // "All" tab: a source whose content is gone leaves the view, the rows after it move up
@@ -185,7 +185,8 @@ export function App() {
             rt.filterTotal = 0;
           } else if (event.type === "filter" && rt.filterCache && rt.filterCacheId === event.id) {
             // the view only grows at its end, unless the filter started over
-            rt.filterCache.invalidateFrom(event.matches < rt.filterTotal ? 0 : Math.max(0, rt.filterTotal - 1));
+            if (event.matches < rt.filterTotal) rt.filterCache.invalidateFrom(0);
+            else rt.filterCache.invalidateFrom(Math.max(0, rt.filterTotal - 1), true);
             rt.filterTotal = event.matches;
           }
         }
