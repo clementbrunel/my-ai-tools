@@ -42,12 +42,13 @@ const Slot: React.FC<Props> = ({ slot, driver, locked, armed, tall, onArm, onCle
       >
         {driver ? (
           <div
+            key={driver.id}
             ref={dragProps.setNodeRef}
             {...dragProps.listeners}
             {...dragProps.attributes}
             className={`flex flex-col items-center ${dragProps.isDragging ? 'opacity-30' : ''} ${locked ? '' : 'cursor-grab active:cursor-grabbing'}`}
           >
-            <MiniF1Car color={driver.constructorColor} size={tall ? 52 : 44} />
+            <MiniF1Car key={`${driver.id}-${driver.constructorColor}`} color={driver.constructorColor} size={tall ? 52 : 44} />
             <span className="text-xs font-black text-gray-900 dark:text-white">{driver.code}</span>
           </div>
         ) : (
