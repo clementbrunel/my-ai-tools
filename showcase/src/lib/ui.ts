@@ -36,9 +36,12 @@ export function scrollToY(target: number) {
  * Smooth-scroll to a scene. Scenes fade in/out with scroll progress, so landing on the section's top edge
  * would leave it transparent: aim for the middle of its scroll range, where it is fully visible.
  */
+export function sceneY(id: string) {
+  const el = document.getElementById(id)
+  return el ? el.offsetTop + Math.max(0, el.offsetHeight - innerHeight) * 0.5 : 0
+}
+
 export function go(e: React.MouseEvent, id: string) {
   e.preventDefault()
-  const el = document.getElementById(id)
-  if (!el) return
-  scrollToY(el.offsetTop + Math.max(0, el.offsetHeight - innerHeight) * 0.5)
+  if (document.getElementById(id)) scrollToY(sceneY(id))
 }

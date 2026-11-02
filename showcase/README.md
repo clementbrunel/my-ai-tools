@@ -17,7 +17,7 @@ CSS : chaque composant importe sa feuille voisine (`Foo.tsx` → `import './Foo.
 src/
   apps.ts              catalogue (données) + liens du profil
   legal.ts             infos éditeur des mentions légales
-  App.tsx              routage (#/ ou #/legal), langue, section active
+  App.tsx              routage (#/, #/legal, #/<app>), langue, section active
   scenes/              une scène par app : PronoCoreScene, BienvenueBebeScene, CblLogScene, AiEnvManagerScene
     index.ts           registre `stage` → composant
     prono-core/        roue des gages : ForfeitWheel.tsx + WheelResult ; data.ts (gages, calcul du segment, textes)
@@ -35,6 +35,14 @@ src/
 ```
 
 Nouvelle app : entrée dans `apps.ts` + un composant dans `scenes/` (basé sur `SceneFrame`, son widget dans un dossier `scenes/<app>/` : `data.ts` + un fichier par composant ; `art` pour une illustration dessinée, `overlay` pour du texte posé sur une affiche) + une ligne dans `scenes/index.ts`.
+
+## Liens directs vers une scène
+
+Chaque scène a une URL partageable : `https://clementbrunel.github.io/#/<id>` avec `<id>` = `id` de l'app dans `apps.ts`
+(`#/bienvenuebebe`, `#/prono-core`, `#/cbl-log`, `#/ai-env-manager`). L'ancien format `#<id>` reste accepté.
+L'adresse suit le scroll (sans polluer l'historique) : copier l'URL du navigateur partage donc toujours la scène affichée.
+Le titre de l'onglet suit aussi. Limite : le fragment `#` n'est pas lu par les robots, l'aperçu (Open Graph) reste celui de l'accueil.
+Logique dans `src/lib/nav.ts` (`useSceneLinks`). Une nouvelle app dans `apps.ts` a son lien automatiquement.
 
 ## Page d'accueil
 
