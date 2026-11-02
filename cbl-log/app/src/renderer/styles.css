@@ -283,6 +283,72 @@ body {
   justify-content: space-between;
 }
 
+/* Buttons of the modals (ui/Button.tsx) */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 26px;
+  padding: 3px 12px;
+  border: 1px solid var(--control-border);
+  border-radius: 5px;
+  background: var(--control);
+  color: var(--fg);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.12s, border-color 0.12s, box-shadow 0.12s;
+}
+
+.btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--opt-on-bg);
+  color: var(--opt-on-fg);
+}
+
+.btn:active:not(:disabled) {
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.btn-primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.btn-primary:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+  filter: brightness(1.12);
+}
+
+.btn-ghost {
+  min-height: 24px;
+  padding: 1px 7px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  border-color: var(--control-border);
+  background: var(--segment-bg);
+  color: var(--fg);
+}
+
 .modal h2 {
   margin: 0;
   font-size: 15px;
@@ -1380,12 +1446,6 @@ input.switch:checked::after {
   width: 100%;
   height: 10px;
   accent-color: var(--accent);
-}
-
-.update-panel button.primary {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: #fff;
 }
 
 /* ---- Docker panel ---- */

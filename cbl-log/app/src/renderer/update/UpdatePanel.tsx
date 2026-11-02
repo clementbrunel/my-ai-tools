@@ -1,3 +1,4 @@
+import { Button } from "../ui/Button";
 import { Modal } from "../ui/Modal";
 import type { UpdatePanelState } from "../../main/update-check";
 import { Notes } from "./Notes";
@@ -47,16 +48,16 @@ export function UpdatePanel({ state, onClose }: Props) {
       footer = (
         <>
           {state.canInstall && (
-            <button type="button" className="primary" autoFocus onClick={() => window.cblLog.updateAction("install")}>
+            <Button variant="primary" autoFocus onClick={() => window.cblLog.updateAction("install")}>
               Mettre à jour
-            </button>
+            </Button>
           )}
-          <button type="button" onClick={() => window.cblLog.updateAction("notes")}>
+          <Button onClick={() => window.cblLog.updateAction("notes")}>
             Page de la release
-          </button>
-          <button type="button" onClick={dismiss}>
+          </Button>
+          <Button onClick={dismiss}>
             Plus tard
-          </button>
+          </Button>
         </>
       );
       break;
@@ -78,9 +79,9 @@ export function UpdatePanel({ state, onClose }: Props) {
     case "uptodate":
       body = <p className="update-message">cbl-log {state.current} est à jour.</p>;
       footer = (
-        <button type="button" className="primary" autoFocus onClick={dismiss}>
+        <Button variant="primary" autoFocus onClick={dismiss}>
           OK
-        </button>
+        </Button>
       );
       break;
     case "error":
@@ -91,9 +92,9 @@ export function UpdatePanel({ state, onClose }: Props) {
         </p>
       );
       footer = (
-        <button type="button" autoFocus onClick={dismiss}>
+        <Button autoFocus onClick={dismiss}>
           Fermer
-        </button>
+        </Button>
       );
       break;
   }

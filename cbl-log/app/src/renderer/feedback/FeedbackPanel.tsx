@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Button } from "../ui/Button";
 import { Modal } from "../ui/Modal";
 import type { FeedbackDraft } from "../../preload/api";
 import { DESCRIPTION_MAX, TITLE_MAX, validateDraft } from "../../main/feedback";
@@ -105,12 +106,12 @@ export function FeedbackPanel({ onClose, onNotice }: Props) {
           </p>
         )}
         <footer>
-          <button type="submit" disabled={busy || !!blocked || (tried && !!invalid)}>
+          <Button variant="primary" type="submit" disabled={busy || !!blocked || (tried && !!invalid)}>
             Ouvrir sur GitHub…
-          </button>
-          <button type="button" onClick={onClose}>
+          </Button>
+          <Button onClick={onClose}>
             Annuler
-          </button>
+          </Button>
         </footer>
       </form>
     </Modal>

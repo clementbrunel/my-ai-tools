@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { HighlightRule, RuleSet } from "@cbl-log/shared";
 import { compileRules, highlightLine, ruleMatches } from "../highlight/highlight";
+import { Button } from "../ui/Button";
 import { Modal } from "../ui/Modal";
 import { RegexHelp } from "../search/RegexHelp";
 import { insertAt } from "../search/regex-help";
@@ -95,20 +96,20 @@ export function RulesEditor({ sets, selectedId, choice, autoName, onChoose, form
             }}
           >
             <input autoFocus value={newName} onChange={(ev) => setNewName(ev.target.value)} placeholder="Nom du nouveau profil" onKeyDown={(ev) => ev.key === "Escape" && setNaming(false)} />
-            <button type="submit">Créer</button>
+            <Button type="submit">Créer</Button>
           </form>
         ) : (
-          <button type="button" onClick={() => setNaming(true)} title="Crée un profil à partir des règles affichées">
+          <Button onClick={() => setNaming(true)} title="Crée un profil à partir des règles affichées">
             Nouveau profil…
-          </button>
+          </Button>
         )}
         <span className="profile-share">
-          <button type="button" onClick={onExport} title="Enregistre ce profil dans un fichier .json à envoyer à vos collègues">
+          <Button onClick={onExport} title="Enregistre ce profil dans un fichier .json à envoyer à vos collègues">
             Exporter…
-          </button>
-          <button type="button" onClick={onImport} title="Ajoute un profil reçu d'un collègue (fichier .json exporté depuis cbl-log)">
+          </Button>
+          <Button onClick={onImport} title="Ajoute un profil reçu d'un collègue (fichier .json exporté depuis cbl-log)">
             Importer…
-          </button>
+          </Button>
         </span>
         <span className="profile-formats">
           Proposé automatiquement pour les logs :{" "}
@@ -211,9 +212,9 @@ export function RulesEditor({ sets, selectedId, choice, autoName, onChoose, form
             </select>
             <ColorField label="texte" value={rule.fg} onChange={(fg) => patch(rule.id, { fg })} />
             <ColorField label="fond" value={rule.bg} onChange={(bg) => patch(rule.id, { bg })} />
-            <button type="button" onClick={() => onChange(removeRule(rules, rule.id))} aria-label="Supprimer">
+            <Button variant="ghost" onClick={() => onChange(removeRule(rules, rule.id))} aria-label="Supprimer">
               🗑
-            </button>
+            </Button>
             {errors[rule.id] && <span className="rule-error">{errors[rule.id]}</span>}
             {helpFor === rule.id && (
               <div className="rule-help">
@@ -233,12 +234,12 @@ export function RulesEditor({ sets, selectedId, choice, autoName, onChoose, form
         ))}
       </div>
       <footer>
-        <button type="button" onClick={() => onChange([...rules, createRule(rules)])}>
+        <Button onClick={() => onChange([...rules, createRule(rules)])}>
           Ajouter une règle
-        </button>
-        <button type="button" onClick={onReset}>
+        </Button>
+        <Button onClick={onReset}>
           Rétablir les règles par défaut
-        </button>
+        </Button>
       </footer>
     </Modal>
   );
@@ -248,9 +249,9 @@ function ColorField({ label, value, onChange }: { label: string; value: string |
   return (
     <span className="color-field" title={`Couleur du ${label}`}>
       <input type="color" value={value ?? "#808080"} onChange={(e) => onChange(e.target.value)} aria-label={`Couleur du ${label}`} className={value ? "" : "unset"} />
-      <button type="button" onClick={() => onChange(undefined)} disabled={!value} aria-label={`Aucune couleur de ${label}`}>
+      <Button variant="ghost" onClick={() => onChange(undefined)} disabled={!value} aria-label={`Aucune couleur de ${label}`}>
         ∅
-      </button>
+      </Button>
     </span>
   );
 }
