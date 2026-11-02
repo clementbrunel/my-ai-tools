@@ -8,6 +8,11 @@ spring:
     url: ${DB_URL:jdbc:postgresql://localhost:5433/mymoneyhub}
     username: ${DB_USER:mymoneyhub}
     password: ${DB_PASS:mymoneyhub}
+  servlet:
+    multipart:
+      # Linxo export covering ~13 years of history in one file
+      max-file-size: 50MB
+      max-request-size: 50MB
   jpa:
     hibernate:
       ddl-auto: validate
@@ -32,3 +37,7 @@ mymoneyhub:
   woob:
     binary-path: ${WOOB_BINARY_PATH:woob}
     timeout: ${WOOB_TIMEOUT:2m}
+  sync:
+    # Automatic sync of every institution. Spring cron: sec min hour day month weekday (default: daily 06:00).
+    enabled: ${SYNC_ENABLED:false}
+    cron: ${SYNC_CRON:0 0 6 * * *}

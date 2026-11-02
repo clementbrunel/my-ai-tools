@@ -2,7 +2,7 @@ import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type { CblLogApi } from "./api";
 
 const api: CblLogApi = {
-  version: "2.1.0",
+  version: "3.1.0",
   openFileDialog: () => ipcRenderer.invoke("dialog:open-files") as Promise<string[]>,
   onOpenFiles: (cb) => {
     const listener = (_event: unknown, paths: string[]): void => cb(paths);
@@ -15,6 +15,13 @@ const api: CblLogApi = {
   notifyReady: () => ipcRenderer.send("renderer:ready"),
   addRecentFile: (path) => ipcRenderer.invoke("recent:add", path) as Promise<void>,
   showFileContextMenu: (path) => ipcRenderer.invoke("file:context-menu", path) as Promise<void>,
+  onArchiveDesignated: (cb) => {
+    const listener = (_event: unknown, path: string, archive: string): void => cb(path, archive);
+    ipcRenderer.on("archive:designated", listener);
+    return () => {
+      ipcRenderer.off("archive:designated", listener);
+    };
+  },
   loadRuleSets: () => ipcRenderer.invoke("rules:load") as ReturnType<CblLogApi["loadRuleSets"]>,
   saveRuleSet: (set) => ipcRenderer.invoke("rules:save", set) as Promise<void>,
   exportRuleSet: (set) => ipcRenderer.invoke("rules:export", set) as ReturnType<CblLogApi["exportRuleSet"]>,
@@ -33,6 +40,21 @@ const api: CblLogApi = {
   },
   feedbackStatus: () => ipcRenderer.invoke("feedback:status") as ReturnType<CblLogApi["feedbackStatus"]>,
   submitFeedback: (draft) => ipcRenderer.invoke("feedback:submit", draft) as ReturnType<CblLogApi["submitFeedback"]>,
+  onOpenReleaseNotes: (cb) => {
+    const listener = (): void => cb();
+    ipcRenderer.on("notes:open", listener);
+    return () => {
+      ipcRenderer.off("notes:open", listener);
+    };
+  },
+  onUpdateState: (cb) => {
+    const listener = (_event: unknown, state: Parameters<typeof cb>[0]): void => cb(state);
+    ipcRenderer.on("update:state", listener);
+    return () => {
+      ipcRenderer.off("update:state", listener);
+    };
+  },
+  updateAction: (action) => ipcRenderer.send("update:action", action),
   onConfigChanged: (cb) => {
     const listener = (_event: unknown, kind: "settings" | "rules" | "formats"): void => cb(kind);
     ipcRenderer.on("config:changed", listener);

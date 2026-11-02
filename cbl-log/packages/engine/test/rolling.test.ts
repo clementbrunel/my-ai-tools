@@ -71,6 +71,8 @@ interface Scenario {
   syncRoll?: boolean;
   rolls?: number;
   rollBytes?: number;
+  /** Default 100: every rolled handle stays open. */
+  maxRetainedSegments?: number;
 }
 
 async function runScenario(scenario: Scenario) {
@@ -117,7 +119,7 @@ async function runScenario(scenario: Scenario) {
     path: first,
     scheduler,
     pollIntervalMs: 25,
-    maxRetainedSegments: 100,
+    maxRetainedSegments: scenario.maxRetainedSegments ?? 100,
     cache: new BlockCache(),
     ...(resolvePath ? { resolvePath } : {}),
   });
@@ -169,6 +171,12 @@ function expectLossless(r: Awaited<ReturnType<typeof runScenario>>): void {
   expect(r.collector.seen.at(-1)).toBe(r.lastSeq);
 }
 
+/** Re-reads the whole tab afterwards, like scrolling back to the top: every written line must be there. */
+async function expectWholeHistoryReadable(r: Awaited<ReturnType<typeof runScenario>>): Promise<void> {
+  const seq = (await r.tailer.getLines(0, r.tailer.totalRows)).map((l) => Number(LINE_RE.exec(l.text)?.[1]));
+  expect(seq).toEqual(Array.from({ length: r.lastSeq + 1 }, (_, i) => i));
+}
+
 describe("rolling with a simulated writer process", () => {
   it("rename + create: 10 rolls, no line lost or duplicated, the writer's rename never fails", async () => {
     const r = await runScenario({ mode: "rename" });
@@ -178,6 +186,15 @@ describe("rolling with a simulated writer process", () => {
     expect(r.tailer.segments).toHaveLength(11);
     expect(r.tailer.totalRows).toBe(r.lastSeq + 1);
   }, TEST_TIMEOUT);
+
+  for (const mode of ["rename", "copytruncate", "dated"] as const) {
+    it(`${mode}: with the default handle limit, the whole history stays readable after 10 rolls`, async () => {
+      const r = await runScenario({ mode, maxRetainedSegments: 3, ...(mode === "copytruncate" ? { syncRoll: true } : {}) });
+      expectLossless(r);
+      expect(r.tailer.segments.every((s) => s.readable)).toBe(true);
+      await expectWholeHistoryReadable(r);
+    }, TEST_TIMEOUT);
+  }
 
   it("rename + create: rolled.previous points at the archive", async () => {
     const r = await runScenario({ mode: "rename", rolls: 3 });

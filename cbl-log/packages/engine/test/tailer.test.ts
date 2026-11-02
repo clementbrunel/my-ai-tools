@@ -30,6 +30,19 @@ async function manual(path: string, extra: Partial<TailerOptions> = {}) {
   return { tailer, events };
 }
 
+/** A scheduler that tells every interval a task is given. */
+function spyScheduler(): { scheduler: PollScheduler; intervals: number[] } {
+  const scheduler = new PollScheduler();
+  const intervals: number[] = [];
+  const add = scheduler.add.bind(scheduler);
+  scheduler.add = (run, ms) => {
+    const task = add(run, ms);
+    intervals.push(ms);
+    return { ...task, setInterval: (n: number) => (intervals.push(n), task.setInterval(n)) };
+  };
+  return { scheduler, intervals };
+}
+
 describe("Tailer", () => {
   it("indexes on open then follows appends (real polling + watch)", async () => {
     const path = join(await tempDir(), "app.log");
@@ -255,8 +268,11 @@ describe("Tailer", () => {
     expect(events.find((e) => e.type === "rolled")).toEqual({ type: "rolled", reason: "new-file", previous: a, at: 5 });
   });
 
-  it("releases segments beyond maxRetainedSegments (rows stay counted)", async () => {
-    const dir = await tempDir();
+  /** Rolled segments whose handle is open (white-box: the count is the point of the retention limit). */
+  const openHandles = (t: Tailer): number =>
+    (t as unknown as { segs: { source?: unknown }[]; cur?: unknown }).segs.filter((s) => s.source && s !== (t as unknown as { cur?: unknown }).cur).length;
+
+  async function renamedThrice(dir: string) {
     const path = join(dir, "a.log");
     writeFileSync(path, lines(0, 2));
     const { tailer } = await manual(path, { maxRetainedSegments: 1 });
@@ -265,9 +281,79 @@ describe("Tailer", () => {
       writeFileSync(path, lines(k * 2, k * 2 + 2));
       await tailer.check();
     }
+    return tailer;
+  }
+
+  it("beyond maxRetainedSegments, rolled segments go dormant and their archive is reopened on read", async () => {
+    const dir = await tempDir();
+    const tailer = await renamedThrice(dir);
+    expect(tailer.totalRows).toBe(8);
+    expect(openHandles(tailer)).toBe(1);
+    expect(tailer.segments.map((s) => [s.path, s.readable])).toEqual([
+      [join(dir, "a.1.log"), true],
+      [join(dir, "a.2.log"), true],
+      [join(dir, "a.3.log"), true],
+      [join(dir, "a.log"), true],
+    ]);
+    expect(await texts(tailer)).toEqual(ids(0, 8));
+    expect(openHandles(tailer)).toBe(1); // woken for the read, put back to sleep afterwards
+    expect(await texts(tailer)).toEqual(ids(0, 8));
+  });
+
+  it("dormant segment whose archive was purged by the writer: unreadable, rows stay counted", async () => {
+    const dir = await tempDir();
+    const tailer = await renamedThrice(dir);
+    rmSync(join(dir, "a.1.log"));
+    expect((await tailer.getLines(0, 8)).map((l) => l.lineNo)).toEqual([2, 3, 4, 5, 6, 7]);
+    expect(tailer.totalRows).toBe(8);
+    expect(tailer.segments.map((s) => s.readable)).toEqual([false, true, true, true]);
+  });
+
+  it("dormant segment whose archive name now holds other content: not reopened", async () => {
+    const dir = await tempDir();
+    const tailer = await renamedThrice(dir);
+    rmSync(join(dir, "a.1.log"));
+    writeFileSync(join(dir, "a.1.log"), lines(0, 2, "Z"));
+    expect((await tailer.getLines(0, 2)).map((l) => l.text)).toEqual([]);
+    expect(tailer.segments[0]!.readable).toBe(false);
+  });
+
+  it("deletion + recreation beyond maxRetainedSegments: nothing to reopen, the segment is released", async () => {
+    const dir = await tempDir();
+    const path = join(dir, "a.log");
+    writeFileSync(path, lines(0, 2));
+    const { tailer } = await manual(path, { maxRetainedSegments: 1 });
+    for (let k = 1; k <= 3; k++) {
+      rmSync(path);
+      writeFileSync(path, lines(k * 2, k * 2 + 2));
+      await tailer.check();
+    }
     expect(tailer.totalRows).toBe(8);
     expect(tailer.segments.map((s) => s.readable)).toEqual([false, false, true, true]);
     expect((await tailer.getLines(0, 8)).map((l) => l.lineNo)).toEqual([4, 5, 6, 7]);
+  });
+
+  it("history: archives loaded before the live file as one stream, no rolled event, then rolling as usual", async () => {
+    const dir = await tempDir();
+    const path = join(dir, "a.log");
+    writeFileSync(join(dir, "a.1.log"), lines(0, 3));
+    writeFileSync(join(dir, "a.2.log"), lines(3, 5));
+    writeFileSync(path, lines(5, 8));
+    const history = [join(dir, "a.1.log"), join(dir, "gone.log"), join(dir, "a.2.log")];
+    const { tailer, events } = await manual(path, { history, maxRetainedSegments: 1 });
+    expect(tailer.segments.map((s) => [s.path, s.startRow, s.rowCount, s.startedBy])).toEqual([
+      [join(dir, "a.1.log"), 0, 3, "history"],
+      [join(dir, "a.2.log"), 3, 2, "history"],
+      [path, 5, 3, "initial"],
+    ]);
+    expect(events.some((e) => e.type === "rolled")).toBe(false);
+    expect(openHandles(tailer)).toBe(1);
+    expect(await texts(tailer)).toEqual(ids(0, 8));
+    renameSync(path, join(dir, "a.3.log"));
+    writeFileSync(path, lines(8, 10));
+    await tailer.check();
+    expect(events.find((e) => e.type === "rolled")).toEqual({ type: "rolled", reason: "rename", previous: join(dir, "a.3.log"), at: 8 });
+    expect(await texts(tailer)).toEqual(ids(0, 10));
   });
 
   it("last line without terminator: counted, then completed without duplicate", async () => {
@@ -280,5 +366,33 @@ describe("Tailer", () => {
     await tailer.check();
     expect(tailer.isLastLineOpen).toBe(false);
     expect((await tailer.getLines(0, 10)).map((l) => l.text)).toEqual(["abc", "defghi", "jkl"]);
+  });
+
+  it("polls a local file faster while it grows, but not one given an explicit interval", async () => {
+    const dir = await tempDir();
+    const path = join(dir, "grow.log");
+    writeFileSync(path, lines(0, 3));
+    const hot = spyScheduler();
+    const tailer = new Tailer({ path, scheduler: hot.scheduler, watch: false, cache: new BlockCache() });
+    cleanups.push(async () => {
+      await tailer.stop();
+      hot.scheduler.close();
+    });
+    await tailer.start();
+    expect(hot.intervals).toEqual([250]);
+    appendFileSync(path, lines(3, 6));
+    tailer.poke();
+    await waitFor(() => hot.intervals.includes(100), "the fast pace");
+
+    const fixed = spyScheduler();
+    const other = new Tailer({ path, scheduler: fixed.scheduler, pollIntervalMs: 20, watch: false, cache: new BlockCache() });
+    cleanups.push(async () => {
+      await other.stop();
+      fixed.scheduler.close();
+    });
+    await other.start();
+    appendFileSync(path, lines(6, 9));
+    await waitFor(async () => other.totalRows === 9, "rows seen");
+    expect(fixed.intervals).toEqual([20]);
   });
 });

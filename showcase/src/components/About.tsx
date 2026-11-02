@@ -1,6 +1,7 @@
 import { profile, type Lang } from '../apps'
 import { useScene } from '../lib/scroll'
 import { ui } from '../lib/ui'
+import './About.css'
 
 export default function About({ lang }: { lang: Lang }) {
   const [ref, o] = useScene<HTMLElement>(0.5, false, true)

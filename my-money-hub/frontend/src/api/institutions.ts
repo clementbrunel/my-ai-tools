@@ -1,5 +1,5 @@
 import apiClient from './axios'
-import type { CreateInstitutionRequest, Institution } from '@/types'
+import type { Account, CreateInstitutionRequest, CreateManualAccountRequest, Institution } from '@/types'
 
 export async function fetchInstitutions(): Promise<Institution[]> {
   const { data } = await apiClient.get<Institution[]>('/institutions')
@@ -8,6 +8,11 @@ export async function fetchInstitutions(): Promise<Institution[]> {
 
 export async function createInstitution(request: CreateInstitutionRequest): Promise<Institution> {
   const { data } = await apiClient.post<Institution>('/institutions', request)
+  return data
+}
+
+export async function createManualAccount(institutionId: number, request: CreateManualAccountRequest): Promise<Account> {
+  const { data } = await apiClient.post<Account>(`/institutions/${institutionId}/accounts`, request)
   return data
 }
 

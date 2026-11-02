@@ -31,4 +31,10 @@ public class BalanceSnapshot {
     @Column(name = "recorded_at", nullable = false)
     @Builder.Default
     private LocalDateTime recordedAt = LocalDateTime.now();
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 10)
+    @Builder.Default
+    private DataSource source = DataSource.SYNC;
+
 }

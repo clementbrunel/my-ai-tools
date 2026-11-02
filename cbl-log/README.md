@@ -4,12 +4,25 @@ Visualiseur de logs temps réel pour Windows, portage moderne et personnalisable
 suivi instantané de fichiers de toute taille, **rolling géré sans perte de ligne**, surlignage regex,
 filtres, parseurs de format, profils, vue fusionnée multi-fichiers.
 
-> **Statut : version 2.1.0.**
+> **Statut : version 3.1.0.**
 
 - [Cahier des charges fonctionnel](./docs/cahier-des-charges-fonctionnel.md)
 - [Dossier d'architecture](./docs/architecture.md)
+- [Recette (fichier, Docker, onglet « Tout »)](./docs/recette/README.md)
 
 Pile : Electron + TypeScript + React (Windows 10/11).
+
+## Rolling : archives chargées avec le fichier
+
+À l'ouverture de `SystemOut.log`, les archives laissées à côté par le rolling (`SystemOut_26.10.21_09.30.46.log`…)
+modifiées depuis moins de **2 h** sont chargées avant lui : l'onglet se lit comme un seul fichier, avec un
+séparateur à chaque archive. Quand des archives plus anciennes existent, un avertissement le signale.
+
+- La durée se règle dans `%APPDATA%\cbl-log\settings.json` : `"historyHours": 6` (0 = le fichier seul).
+- Noms reconnus d'office : `<nom>_<date>.log` (WebSphere, Liberty), `<nom>.<date>.<n>.log` (Logback), `<nom>.log.1`.
+  Pour un autre nommage, clic droit sur le chemin du fichier › **Désigner une archive du rolling…** et choisir une
+  archive : cbl-log en déduit le motif, le retient pour ce fichier et rouvre l'onglet.
+- La recherche et le filtre portent sur tout le flux : archives chargées, fichiers roulés pendant le suivi, fichier courant.
 
 ## Partager un profil de surlignage
 
@@ -53,6 +66,22 @@ Une fois installé, cbl-log se met à jour seul à partir des releases GitHub, s
 - `"checkForUpdates": false` dans `%APPDATA%\cbl-log\settings.json` désactive la vérification au démarrage et toutes les heures (le menu
   reste disponible). C'est le seul accès réseau de l'application : une requête GET vers `api.github.com`, rien n'est
   envoyé.
+
+### Conteneurs Docker (Docker Desktop)
+
+Le bouton baleine de la barre d'onglets (ou `Ctrl+Maj+D`) ouvre le panneau **Docker** : conteneurs groupés par projet
+compose, pastille d'état (running / exited), filtre texte, double-clic pour ouvrir, `Ctrl` / `Maj` + clic puis
+*Ouvrir* pour plusieurs à la fois. L'en-tête indique la connexion (« Connecté à Docker Desktop 4.x, API 1.xx ») ou
+ce qu'il faut faire (Docker non lancé, compte hors groupe `docker-users`, version trop ancienne). Lecture seule.
+
+- Un onglet par conteneur (icône baleine + nom). Il est identifié par le **nom** : si `docker compose up` recrée le
+  conteneur, l'onglet continue et un séparateur « conteneur recréé » apparaît.
+- Barre d'état : « Docker · running depuis 10:02 », « arrêté » ou « en attente de Docker ». *Charger plus
+  d'historique* remonte ×10 plus loin (la copie locale des logs est reconstruite, la position est conservée).
+- Session et fichiers récents retiennent `docker://<contexte>/<nom>` et se raccrochent au conteneur du même nom.
+- Réglages (`settings.json`, pris en compte au prochain lancement sauf `enabled` et `initialTail`) :
+  `"docker": { "enabled": true, "host": "tcp://127.0.0.1:2375", "initialTail": 5000, "spoolMaxMb": 256, "keepSpoolOnClose": false }`
+  (`host` absent : `DOCKER_HOST`, puis le contexte Docker courant, puis le pipe de Docker Desktop).
 
 ### Signaler un bug / proposer une idée
 

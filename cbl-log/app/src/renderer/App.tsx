@@ -8,9 +8,14 @@ import {
   createWebSphereRuleSet,
   defaultFilterSettings,
   defaultSettings,
+  dockerUri,
   detectFormat,
+  formatForFilter,
+  learnArchivePattern,
+  parseDockerUri,
   toLineFilter,
   type CompiledFormat,
+  type DockerListResult,
   type Encoding,
   type FilterSettings,
   type LogFormat,
@@ -27,17 +32,24 @@ import { subscribeEngine } from "./engine/client";
 import type { RpcClient } from "./engine/rpc-client";
 import { baseName, pathKey } from "./files/path-key";
 import { useFileDrop } from "./files/useFileDrop";
+import { DockerPanel } from "./docker/DockerPanel";
+import { dockerStatusText } from "./docker/docker-panel";
 import { FeedbackPanel } from "./feedback/FeedbackPanel";
+import { UpdatePanel } from "./update/UpdatePanel";
+import { ReleaseNotesPanel } from "./update/ReleaseNotesPanel";
+import type { UpdatePanelState } from "../main/update-check";
 import { FilterBar } from "./filter/FilterBar";
 import { LevelPills } from "./filter/LevelPills";
 import { nextVisibleHit } from "./filter/filter-nav";
 import { compileRules, highlightLine } from "./highlight/highlight";
 import { RulesEditor } from "./rules/RulesEditor";
 import { autoRuleSet, importAsCopy, importKind, pickRuleSet, uniqueRuleSetId, withRuleSet } from "./rules/rule-profile";
-import { buildSession } from "./session/session-snapshot";
+import { buildSession, liveStartRow } from "./session/session-snapshot";
+import { MergedLegend, SOURCE_COLORS, type LegendSource } from "./tabs/MergedLegend";
 import { StatusBar } from "./tabs/StatusBar";
 import { TabBar } from "./tabs/TabBar";
-import { filterStatus, initialTabsState, searchStatus, tabsReducer, type TabState } from "./tabs/tabs-reducer";
+import { findRowAtTime, parseGotoInput, resolveTarget, wallClockOf, type GotoTimeResult } from "./formats/goto-time";
+import { filterStatus, initialTabsState, searchStatus, tabLabel, tabsReducer, type TabState } from "./tabs/tabs-reducer";
 import { SearchBar } from "./search/SearchBar";
 import { LogViewport } from "./viewer/LogViewport";
 import { PageCache } from "./viewer/page-cache";
@@ -55,6 +67,8 @@ interface TabRuntime {
 }
 
 const LEVELS_COUNT = 6;
+/** Past this many lines of the busiest source, "Charger plus d'historique" of the "All" tab loads the whole history. */
+const MERGE_WINDOW_MAX_LINES = 5_000_000;
 const NO_MARKS: never[] = [];
 
 /** Identifies what the viewport shows: a tab's file, or its filtered view (its remount key). */
@@ -82,7 +96,16 @@ export function App() {
   const [ruleSets, setRuleSets] = useState<RuleSet[]>(createBuiltinRuleSets);
   const [rulesOpen, setRulesOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [updateState, setUpdateState] = useState<UpdatePanelState | null>(null);
   const [settings, setSettings] = useState<Settings>(defaultSettings);
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
+  /** Docker side panel: shown or not, and the last container list of the engine. */
+  const [dockerOpen, setDockerOpen] = useState(false);
+  const [dockerList, setDockerList] = useState<DockerListResult | undefined>();
+  /** Docker tabs whose history is being extended. */
+  const [loadingMore, setLoadingMore] = useState<ReadonlySet<TabId>>(new Set());
   const [userFormats, setUserFormats] = useState<LogFormat[]>([]);
   const detecting = useRef(new Set<TabId>());
   const sessionReady = useRef(false);
@@ -150,16 +173,20 @@ export function App() {
         if (rt) {
           if (event.type === "rows") {
             // the last line may have been open: re-read from the previous end
-            rt.cache.invalidateFrom(Math.max(0, rt.total - 1));
+            rt.cache.invalidateFrom(Math.max(0, rt.total - 1), true);
             rt.total = event.total;
           } else if (event.type === "rolled") {
-            rt.cache.invalidateFrom(event.at);
-            // the filter starts over on the new file: nothing of its view can be trusted
+            // "All" tab: a source whose content is gone leaves the view, the rows after it move up
+            rt.cache.invalidateFrom(event.source !== undefined ? 0 : event.at);
+            // the filter keeps the results of the rolled file, but a vanished one (truncated without
+            // archive) takes its lines out of the view: re-read it, its size comes with the next event
             rt.filterCache?.invalidateFrom(0);
+            // the count is stale too: the next filter event must re-read the view from its start
             rt.filterTotal = 0;
           } else if (event.type === "filter" && rt.filterCache && rt.filterCacheId === event.id) {
             // the view only grows at its end, unless the filter started over
-            rt.filterCache.invalidateFrom(event.matches < rt.filterTotal ? 0 : Math.max(0, rt.filterTotal - 1));
+            if (event.matches < rt.filterTotal) rt.filterCache.invalidateFrom(0);
+            else rt.filterCache.invalidateFrom(Math.max(0, rt.filterTotal - 1), true);
             rt.filterTotal = event.matches;
           }
         }
@@ -176,6 +203,25 @@ export function App() {
     };
   }, [resetTabs]);
 
+  // Docker: the engine lists the containers and pushes every change, as long as the feature is enabled.
+  const dockerEnabled = settings.docker.enabled;
+  useEffect(() => {
+    if (!dockerEnabled) {
+      setDockerList(undefined);
+      return;
+    }
+    let offList: (() => void) | undefined;
+    const offSubscribe = subscribeEngine((engine) => {
+      offList?.();
+      offList = engine.onDockerContainers(setDockerList);
+      engine.request("dockerSubscribe", {}).then(setDockerList, (err: unknown) => setDockerList({ status: "unavailable", error: err instanceof Error ? err.message : String(err), containers: [] }));
+    });
+    return () => {
+      offList?.();
+      offSubscribe();
+    };
+  }, [dockerEnabled]);
+
   /**
    * Opens one file in a tab (or activates its tab); `restore` re-applies a saved session position.
    * The encoding is forced when `opts.encoding` (or the restored tab) says so, else detected by the engine.
@@ -184,24 +230,47 @@ export function App() {
     async (path: string, restore?: SessionTab, opts: { encoding?: Encoding; index?: number } = {}): Promise<{ ok: true } | { ok: false; message: string }> => {
       const engine = await withEngine();
       const key = pathKey(path);
+      const docker = parseDockerUri(path);
       const existing = [...runtimes.current.entries()].find(([, rt]) => rt.pathKey === key);
       if (existing) {
         dispatch({ type: "activated", tabId: existing[0] });
         return { ok: true };
       }
       const openId = crypto.randomUUID();
-      setOpening((o) => ({ ...o, [openId]: { name: baseName(path), progress: 0 } }));
+      setOpening((o) => ({ ...o, [openId]: { name: docker?.name ?? baseName(path), progress: 0 } }));
       try {
-        const encoding = opts.encoding ?? restore?.encoding;
-        const info = await engine.request("open", encoding ? { path, openId, encoding } : { path, openId });
+        const encoding = docker ? undefined : (opts.encoding ?? restore?.encoding);
+        const { historyHours, archivePatterns } = settingsRef.current;
+        const archivePattern = archivePatterns[key];
+        const info = await engine.request(
+          "open",
+          docker
+            ? { docker: { ...docker, initialTail: settingsRef.current.docker.initialTail }, openId }
+            : {
+                path,
+                openId,
+                historyHours,
+                ...(encoding ? { encoding } : {}),
+                ...(archivePattern ? { archivePattern } : {}),
+              },
+        );
         const cache = new PageCache(async (first, count) => (await engine.request("getRows", { tabId: info.tabId, first, count })).rows);
         runtimes.current.set(info.tabId, { cache, total: info.totalRows, pathKey: key, filterTotal: 0 });
-        dispatch({ type: "opened", info, ...(encoding ? { encodingChoice: encoding } : {}), ...(opts.index !== undefined ? { index: opts.index } : {}) });
+        dispatch({ type: "opened", info, ...(docker ? { docker } : {}), ...(encoding ? { encodingChoice: encoding } : {}), ...(opts.index !== undefined ? { index: opts.index } : {}) });
         void detectRef.current(info.tabId);
+        const skipped = info.history?.skipped ?? 0;
+        if (skipped > 0) {
+          setNotice({
+            text: `${baseName(path)} : ${skipped} archive${skipped > 1 ? "s" : ""} de plus de ${info.history!.hours} h non chargée${skipped > 1 ? "s" : ""} (durée réglable : « historyHours » dans settings.json)`,
+            isError: false,
+          });
+        }
         if (restore) {
           dispatch({ type: "follow", tabId: info.tabId, follow: restore.follow });
-          dispatch({ type: "scrollRow", tabId: info.tabId, row: restore.scrollRow });
-          if (restore.clearedBefore > 0) dispatch({ type: "clearedTo", tabId: info.tabId, row: restore.clearedBefore });
+          // saved rows count from the start of the live file (see buildSession)
+          const live = liveStartRow({ info });
+          if (restore.clearedBefore > 0) dispatch({ type: "clearedTo", tabId: info.tabId, row: live + restore.clearedBefore });
+          dispatch({ type: "scrollRow", tabId: info.tabId, row: restore.clearedBefore > 0 ? restore.scrollRow : live + restore.scrollRow });
           if (restore.customName) dispatch({ type: "renamed", tabId: info.tabId, name: restore.customName });
           if (restore.ruleSetId) dispatch({ type: "ruleSetChosen", tabId: info.tabId, ruleSetId: restore.ruleSetId });
           if (restore.filter) dispatch({ type: "filterChanged", tabId: info.tabId, filter: restore.filter });
@@ -219,7 +288,7 @@ export function App() {
   /** (Re)detects the log format of a tab from its first lines; stays raw (null) when none fits. */
   const detectTab = useCallback(
     async (tabId: TabId) => {
-      if (detecting.current.has(tabId)) return;
+      if (detecting.current.has(tabId) || stateRef.current.tabs.find((t) => t.info.tabId === tabId)?.merged) return;
       detecting.current.add(tabId);
       try {
         const engine = await withEngine();
@@ -276,12 +345,14 @@ export function App() {
     async (tab: TabState) => {
       const tabId = tab.info.tabId;
       // "Full file" lifts the levels and the text filters, but keeps the fold of stack traces as chosen
+      // (the "All" tab has the formats of its sources and does not fold stack traces)
       const settings = tab.filterSuspended ? { ...defaultFilterSettings(), foldTraces: tab.filter.foldTraces } : tab.filter;
-      if (tab.formatId === undefined && (settings.levels.length < LEVELS_COUNT || settings.foldTraces)) return;
+      if (!tab.merged && tab.formatId === undefined && (settings.levels.length < LEVELS_COUNT || settings.foldTraces)) return;
       const format = tab.formatId ? formatsRef.current.find((f) => f.format.id === tab.formatId)?.format : undefined;
-      const filter = toLineFilter(settings, !!format, format?.continuation === "not-line");
-      const needsFormat = !!filter && (!!filter.levels || !!filter.foldContinuation);
-      const key = JSON.stringify([filter, needsFormat ? format : null]);
+      const filter = toLineFilter(tab.merged ? { ...settings, foldTraces: false } : settings, !!format || !!tab.merged, format?.continuation === "not-line");
+      // the engine takes the level of each kept row from the format, so any active filter carries it
+      const engineFormat = formatForFilter(filter, format);
+      const key = JSON.stringify([filter, engineFormat]);
       const previous = appliedFilters.current.get(tabId);
       if (previous === key || (previous === undefined && filter === null)) {
         appliedFilters.current.set(tabId, key); // a fresh tab without filter: nothing to undo in the engine
@@ -295,7 +366,7 @@ export function App() {
       const align = target?.align ?? "top";
       try {
         const engine = await withEngine();
-        const { filterId } = await engine.request("setFilter", { tabId, filter, format: needsFormat ? (format ?? null) : null });
+        const { filterId } = await engine.request("setFilter", { tabId, filter, format: engineFormat });
         const rt = runtimes.current.get(tabId);
         if (!rt || seq !== filterSeq.current) return;
         if (filterId) {
@@ -363,6 +434,55 @@ export function App() {
       runtimes.current.delete(tabId);
       dispatch({ type: "closed", tabId });
       void withEngine().then((engine) => engine.request("close", { tabId }).catch(() => undefined));
+    },
+    [withEngine],
+  );
+
+  /** Opens containers of the panel (by name) in tabs. */
+  const openContainers = useCallback(
+    async (names: string[]) => {
+      const context = dockerList?.context ?? "default";
+      for (const name of names) {
+        const uri = dockerUri({ context, name });
+        const result = await openFile(uri);
+        if (result.ok) void window.cblLog.addRecentFile(uri).catch(() => undefined);
+        else setNotice({ text: `${name} : ${result.message}`, isError: true });
+      }
+    },
+    [dockerList?.context, openFile],
+  );
+
+  /** "Charger plus d'historique": the engine rebuilds the spool with 10x more lines; the view stays on its line. */
+  const loadMoreHistory = useCallback(
+    async (tabId: TabId) => {
+      const tab = stateRef.current.tabs.find((t) => t.info.tabId === tabId);
+      if (!tab?.docker) return;
+      setLoadingMore((s) => new Set(s).add(tabId));
+      try {
+        const engine = await withEngine();
+        const tail = Math.max(settingsRef.current.docker.initialTail, tab.total) * 10;
+        const result = await engine.request("dockerLoadMore", { tabId, tail });
+        const rt = runtimes.current.get(tabId);
+        if (rt) {
+          rt.cache.invalidateFrom(0);
+          rt.total = result.totalRows;
+          rt.filterCache?.invalidateFrom(0);
+          rt.filterTotal = 0;
+        }
+        dispatch({ type: "reloaded", tabId, total: result.totalRows, addedBefore: result.addedBefore });
+        if (stateRef.current.activeId === tabId && !tab.follow && !isFilteredNow(tab, rt)) {
+          setReveal({ row: viewRow.current + result.addedBefore, nonce: ++revealNonce.current, align: "top", forKey: viewKeyOf(tabId, null) });
+        }
+        setNotice({ text: result.addedBefore > 0 ? `${result.addedBefore.toLocaleString("fr-FR")} ligne(s) d'historique ajoutée(s).` : "Tout l'historique disponible est déjà chargé.", isError: false });
+      } catch (err) {
+        setNotice({ text: `Historique : ${err instanceof Error ? err.message : String(err)}`, isError: true });
+      } finally {
+        setLoadingMore((s) => {
+          const next = new Set(s);
+          next.delete(tabId);
+          return next;
+        });
+      }
     },
     [withEngine],
   );
@@ -482,6 +602,31 @@ export function App() {
     });
   }, [loadRulesNow, loadSettingsNow, loadFormatsNow]);
   useEffect(() => window.cblLog.onOpenFeedback(() => setFeedbackOpen(true)), []);
+  useEffect(() => window.cblLog.onUpdateState(setUpdateState), []);
+  useEffect(() => window.cblLog.onOpenReleaseNotes(() => setNotesOpen(true)), []);
+
+  // "Désigner une archive du rolling…": the archive names of this file are learned from the one picked,
+  // remembered in settings.json, and the tab is reopened with its archives.
+  useEffect(
+    () =>
+      window.cblLog.onArchiveDesignated((path, archive) => {
+        let pattern: string;
+        try {
+          pattern = learnArchivePattern(path, archive);
+        } catch (err) {
+          setNotice({ text: `${baseName(archive)} : ${err instanceof Error ? err.message : String(err)}`, isError: true });
+          return;
+        }
+        const next: Settings = { ...settingsRef.current, archivePatterns: { ...settingsRef.current.archivePatterns, [pathKey(path)]: pattern } };
+        settingsRef.current = next;
+        setSettings(next);
+        void window.cblLog.saveSettings(next).catch(() => undefined);
+        setNotice({ text: `Archives de ${baseName(path)} reconnues d'après ${baseName(archive)}`, isError: false });
+        const tab = stateRef.current.tabs.find((t) => pathKey(t.info.path) === pathKey(path));
+        if (tab) void reopenWithEncoding(tab.info.tabId, tab.encodingChoice);
+      }),
+    [reopenWithEncoding],
+  );
 
   /** Applies `edit` to one profile now and writes it to disk shortly after the last edit. */
   const editRuleSet = useCallback((setId: string, edit: (set: RuleSet) => RuleSet) => {
@@ -684,6 +829,9 @@ export function App() {
       if (e.ctrlKey && e.key.toLowerCase() === "w" && activeId) {
         e.preventDefault();
         closeTab(activeId);
+      } else if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "d" && settingsRef.current.docker.enabled) {
+        e.preventDefault();
+        setDockerOpen((o) => !o);
       } else if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "f" && activeId) {
         e.preventDefault();
         setFilterFocus((n) => n + 1);
@@ -734,6 +882,107 @@ export function App() {
 
   const onNotice = useCallback((text: string, isError = false) => setNotice({ text, isError }), []);
 
+  // "All" tab (M-01): the file tabs with a recognized timestamp interleaved. It follows the tabs: one
+  // opened or closed, a format detected or a box ticked re-merges it (it keeps its place and id).
+  const mergeCandidates = useMemo(
+    () =>
+      state.tabs
+        .filter((t) => !t.merged)
+        .map((tab, index) => {
+          const format = tab.formatId ? formats.find((f) => f.format.id === tab.formatId)?.format : undefined;
+          return { tab, color: SOURCE_COLORS[index % SOURCE_COLORS.length]!, format: format?.timestamp ? format : undefined };
+        }),
+    [state.tabs, formats],
+  );
+  const mergedTab = state.tabs.find((t) => t.merged);
+  const [mergeVersion, setMergeVersion] = useState(0);
+  const remerging = useRef(false);
+  const mergeFailedKey = useRef("");
+  const applyMerge = useCallback(
+    async (wanted: { tab: TabState; format: LogFormat }[], existingId?: TabId, window?: number) => {
+      const engine = await withEngine();
+      const info = await engine.request("openMerged", {
+        sources: wanted.map(({ tab, format }) => ({ tabId: tab.info.tabId, label: tabLabel(tab), format })),
+        ...(existingId ? { tabId: existingId } : {}),
+        ...(window !== undefined ? { window } : {}), // otherwise: the window the tab already has
+      });
+      runtimes.current.get(info.tabId)?.cache.clear();
+      const cache = new PageCache(async (first, count) => (await engine.request("getRows", { tabId: info.tabId, first, count })).rows);
+      runtimes.current.set(info.tabId, { cache, total: info.totalRows, pathKey: "merged://all", filterTotal: 0 });
+      dispatch(existingId ? { type: "mergedUpdated", info } : { type: "opened", info, index: 0 });
+    },
+    [withEngine],
+  );
+  const openAllTab = useCallback(async () => {
+    const wanted = mergeCandidates.flatMap((c) => (c.format ? [{ tab: c.tab, format: c.format }] : []));
+    if (wanted.length === 0) {
+      setNotice({ text: "Onglet Tout : aucun fichier ouvert n'a un format reconnu avec horodatage.", isError: true });
+      return;
+    }
+    try {
+      await applyMerge(wanted);
+    } catch (err) {
+      setNotice({ text: `Onglet Tout : ${err instanceof Error ? err.message : String(err)}`, isError: true });
+    }
+  }, [mergeCandidates, applyMerge]);
+  useEffect(() => {
+    if (!mergedTab?.merged || remerging.current) return;
+    if (mergeCandidates.every((c) => !c.format)) {
+      closeTab(mergedTab.info.tabId);
+      return;
+    }
+    const hidden = new Set(mergedTab.merged.hidden);
+    const wanted = mergeCandidates.flatMap((c) => (c.format && !hidden.has(c.tab.info.tabId) ? [{ tab: c.tab, format: c.format }] : []));
+    if (wanted.length === 0) return;
+    const keyOf = (list: { tabId: TabId; label: string }[]): string => list.map((s) => `${s.tabId}\u0000${s.label}`).join("\u0001");
+    const key = keyOf(wanted.map(({ tab }) => ({ tabId: tab.info.tabId, label: tabLabel(tab) })));
+    if (key === keyOf(mergedTab.merged.sources) || key === mergeFailedKey.current) return;
+    remerging.current = true;
+    applyMerge(wanted, mergedTab.info.tabId)
+      .catch((err: unknown) => {
+        mergeFailedKey.current = key;
+        setNotice({ text: `Onglet Tout : ${err instanceof Error ? err.message : String(err)}`, isError: true });
+      })
+      .finally(() => {
+        remerging.current = false;
+        setMergeVersion((v) => v + 1);
+      });
+  }, [mergedTab, mergeCandidates, mergeVersion, applyMerge, closeTab]);
+  /** "Load more history" of the "All" tab: the sources are merged again from further back (×10, then everything). */
+  const loadMoreMerged = useCallback(async () => {
+    if (!mergedTab?.merged || remerging.current) return;
+    const tabId = mergedTab.info.tabId;
+    const hidden = new Set(mergedTab.merged.hidden);
+    const wanted = mergeCandidates.flatMap((c) => (c.format && !hidden.has(c.tab.info.tabId) ? [{ tab: c.tab, format: c.format }] : []));
+    if (wanted.length === 0) return;
+    const bigger = mergedTab.merged.window.lines * 10;
+    remerging.current = true;
+    setLoadingMore((s) => new Set(s).add(tabId));
+    try {
+      await applyMerge(wanted, tabId, bigger > MERGE_WINDOW_MAX_LINES ? 0 : bigger);
+    } catch (err) {
+      setNotice({ text: `Historique : ${err instanceof Error ? err.message : String(err)}`, isError: true });
+    } finally {
+      remerging.current = false;
+      setMergeVersion((v) => v + 1);
+      setLoadingMore((s) => {
+        const next = new Set(s);
+        next.delete(tabId);
+        return next;
+      });
+    }
+  }, [mergedTab, mergeCandidates, applyMerge]);
+  const toggleMergedSource = useCallback(
+    (tabId: TabId) => {
+      if (!mergedTab?.merged) return;
+      const hidden = mergedTab.merged.hidden.includes(tabId) ? mergedTab.merged.hidden.filter((id) => id !== tabId) : [...mergedTab.merged.hidden, tabId];
+      // at least one source stays
+      if (mergeCandidates.every((c) => !c.format || hidden.includes(c.tab.info.tabId))) return;
+      dispatch({ type: "mergedHidden", tabId: mergedTab.info.tabId, hidden });
+    },
+    [mergedTab, mergeCandidates],
+  );
+
   const runtime = activeId ? runtimes.current.get(activeId) : undefined;
   // the rules editor works on the profile in force for the active tab
   const editedSet = activeRuleSet ?? createWebSphereRuleSet();
@@ -768,6 +1017,8 @@ export function App() {
     else dispatch({ type: "paused", tabId: active.info.tabId, total: active.total, ...(filtered ? { matches: filterProgress?.matches ?? 0 } : {}) });
   };
   const currentViewKey = active ? viewKeyOf(active.info.tabId, filtered ? active.filterId : null) : "";
+  // the "All" tab shows another view each time its sources change: its viewport starts over
+  const viewportKey = currentViewKey + (active?.merged ? `:${active.merged.sources.map((s) => s.tabId).join(",")}` : "");
 
   // "Clear" in the filtered view hides the retained lines before the cleared origin.
   const clearedBefore = active?.clearedBefore ?? 0;
@@ -805,6 +1056,77 @@ export function App() {
     [active],
   );
 
+
+  /** "All" tab, double-click on a line: the same line in the tab of its file (M-01c). */
+  const openInSource = useCallback((row: Row) => {
+    const { tabs } = stateRef.current;
+    const merged = tabs.find((t) => t.info.tabId === stateRef.current.activeId)?.merged;
+    const sourceTabId = row.source === undefined ? undefined : merged?.sources[row.source]?.tabId;
+    const target = tabs.find((t) => t.info.tabId === sourceTabId);
+    if (!target || row.sourceLine === undefined) return;
+    const tabId = target.info.tabId;
+    dispatch({ type: "follow", tabId, follow: false });
+    // a filter of that tab could hide the line: show the whole file, the filter stays for later
+    if (target.filterId && !target.filterSuspended) dispatch({ type: "filterSuspended", tabId, suspended: true });
+    dispatch({ type: "activated", tabId });
+    setAnchor({ tabId, line: row.sourceLine });
+    setReveal({ row: row.sourceLine, nonce: ++revealNonce.current, align: "center", forKey: viewKeyOf(tabId, null) });
+  }, []);
+
+  /** Double-click on a line of a file that the "All" tab merges: the same line in that tab. */
+  const openInAll = useCallback(
+    async (row: Row) => {
+      const { tabs, activeId: current } = stateRef.current;
+      const merged = tabs.find((t) => t.merged);
+      if (!merged || !current) return;
+      try {
+        const engine = await withEngine();
+        const { row: mergedRow } = await engine.request("mergedLocate", { tabId: merged.info.tabId, sourceTabId: current, line: row.lineNo });
+        if (mergedRow === null) {
+          setNotice({ text: "Cette ligne n'est pas (encore) dans l'onglet Tout : source masquée, ou ligne trop récente.", isError: false });
+          return;
+        }
+        const tabId = merged.info.tabId;
+        dispatch({ type: "follow", tabId, follow: false });
+        if (merged.filterId && !merged.filterSuspended) dispatch({ type: "filterSuspended", tabId, suspended: true });
+        dispatch({ type: "activated", tabId });
+        setAnchor({ tabId, line: mergedRow });
+        setReveal({ row: mergedRow, nonce: ++revealNonce.current, align: "center", forKey: viewKeyOf(tabId, null) });
+      } catch (err) {
+        setNotice({ text: `Onglet Tout : ${err instanceof Error ? err.message : String(err)}`, isError: true });
+      }
+    },
+    [withEngine],
+  );
+
+  /** Ctrl+G with a time (A-07): bisection on the file's timestamps, answers the line to go to. */
+  const gotoTime = useCallback(
+    async (text: string): Promise<GotoTimeResult> => {
+      if (!active) return { error: "Aucun fichier ouvert." };
+      const format = active.formatId ? formatsRef.current.find((f) => f.format.id === active.formatId) : undefined;
+      if (!format?.format.timestamp) return { error: "Aller à une heure : ce fichier n'a pas de format reconnu avec horodatage." };
+      const target = parseGotoInput(text);
+      if (!target) return { error: "Heure non reconnue (exemples : 10:02, 10:02:11.204, 2026-10-14 10:02, 14/10/2026 10:02)." };
+      try {
+        const engine = await withEngine();
+        const tabId = active.info.tabId;
+        const readTexts = async (first: number, count: number): Promise<string[]> =>
+          count <= 0 ? [] : (await engine.request("getRows", { tabId, first, count })).rows.map((r) => r.text);
+        const from = active.clearedBefore;
+        const to = active.total;
+        const reference = wallClockOf(format, await readTexts(Math.min(Math.max(viewRow.current, from), Math.max(from, to - 1)), 64)) ?? wallClockOf(format, await readTexts(from, 64));
+        if (reference === undefined) return { error: "Aller à une heure : aucun horodatage lisible dans ce fichier." };
+        const found = await findRowAtTime({ readTexts, compiled: format, from, to }, resolveTarget(target, reference));
+        const line = Math.min(found.row, Math.max(to - 1, from)) + 1;
+        const note = found.after ? "Heure après la dernière ligne du fichier : fin affichée." : found.before ? "Heure avant la première ligne du fichier : début affiché." : undefined;
+        return { line, ...(note ? { note } : {}) };
+      } catch (err) {
+        return { error: `Aller à une heure : ${err instanceof Error ? err.message : String(err)}` };
+      }
+    },
+    [active, withEngine],
+  );
+
   /** Ctrl+G in the filtered view: the line number is the file's, the view goes to the nearest retained line. */
   const gotoFileLine = useCallback(
     async (line: number) => {
@@ -835,9 +1157,16 @@ export function App() {
     <div className="app">
       {Object.entries(opening).map(([id, o]) => (
         <div key={id} className="toast info opening" role="status">
+          <span className="spinner" aria-hidden="true" />
           Ouverture de {o.name}… {Math.round(o.progress * 100)} %
         </div>
       ))}
+      {active?.merged?.loading && (
+        <div className="toast info opening" role="status">
+          <span className="spinner" aria-hidden="true" />
+          Fusion des fichiers de l'onglet Tout… {active.total.toLocaleString("fr-FR")} lignes
+        </div>
+      )}
       {notice && (
         <div className={notice.isError ? "toast" : "toast info"} role="alert" onClick={() => setNotice(undefined)}>
           {notice.text}
@@ -875,6 +1204,13 @@ export function App() {
       {feedbackOpen && (
         <FeedbackPanel onClose={() => setFeedbackOpen(false)} onNotice={(text, isError) => setNotice({ text, isError })} />
       )}
+      {notesOpen && <ReleaseNotesPanel current={window.cblLog.version} onClose={() => setNotesOpen(false)} />}
+      {updateState && <UpdatePanel state={updateState} onClose={() => setUpdateState(null)} />}
+      <div className="workspace">
+      {dockerEnabled && dockerOpen && (
+        <DockerPanel list={dockerList} openNames={new Set(state.tabs.flatMap((t) => (t.docker ? [t.docker.name] : [])))} onOpen={(names) => void openContainers(names)} onClose={() => setDockerOpen(false)} />
+      )}
+      <div className="main">
       {!active || !runtime ? (
         <main className="placeholder">
           <h1>cbl-log</h1>
@@ -882,6 +1218,11 @@ export function App() {
           <button type="button" onClick={() => void window.cblLog.openFileDialog().then(openPaths)}>
             Ouvrir…
           </button>
+          {dockerEnabled && !dockerOpen && (
+            <button type="button" onClick={() => setDockerOpen(true)}>
+              Conteneurs Docker…
+            </button>
+          )}
         </main>
       ) : (
         <>
@@ -892,7 +1233,21 @@ export function App() {
             onClose={closeTab}
             onRename={(tabId, name) => dispatch({ type: "renamed", tabId, name })}
             onOpen={() => void window.cblLog.openFileDialog().then(openPaths)}
+            docker={dockerEnabled ? { open: dockerOpen, onToggle: () => setDockerOpen((o) => !o) } : undefined}
+            onOpenAll={!mergedTab && mergeCandidates.filter((c) => c.format).length >= 2 ? () => void openAllTab() : undefined}
           />
+          {active.merged && (
+            <MergedLegend
+              sources={mergeCandidates.map<LegendSource>((c) => ({
+                tabId: c.tab.info.tabId,
+                label: tabLabel(c.tab),
+                color: c.color,
+                shown: !active.merged!.hidden.includes(c.tab.info.tabId),
+                unavailable: c.format ? undefined : "Format sans horodatage reconnu",
+              }))}
+              onToggle={toggleMergedSource}
+            />
+          )}
           <div className="toprow">
             <SearchBar
               tabId={active.info.tabId}
@@ -904,15 +1259,19 @@ export function App() {
               onPrev={() => void findHit("prev")}
             />
             <FilterBar settings={active.filter} onChange={onFilterChange} focusRequest={filterFocus} error={filterProgress?.error} />
-            <LevelPills filter={active.filter} enabled={!!activeFormat} onChange={onFilterChange} />
+            <LevelPills filter={active.filter} enabled={!!activeFormat || !!active.merged} onChange={onFilterChange} />
           </div>
-          {active.state !== "following" && (
+          {active.state !== "following" && !(active.docker && active.state === "stopped") && (
             <div className={`banner banner-${active.state}`} role="status">
-              {active.state === "missing" ? "Fichier absent, en attente…" : active.message ?? "Erreur de lecture du fichier."}
+              {active.docker
+                ? (active.message ?? (active.state === "waiting" ? "En attente de Docker…" : "Erreur de lecture du conteneur."))
+                : active.state === "missing"
+                  ? "Fichier absent, en attente…"
+                  : active.message ?? "Erreur de lecture du fichier."}
             </div>
           )}
           <LogViewport
-            key={currentViewKey}
+            key={viewportKey}
             cache={filtered && filterCache ? filterCache : runtime.cache}
             total={filtered ? shownMatches : shownFileRows}
             base={filtered ? filterBase : active.clearedBefore}
@@ -923,8 +1282,18 @@ export function App() {
             reveal={reveal?.forKey === currentViewKey ? reveal : undefined}
             currentMatchRow={active.search?.current?.row}
             anchorLine={anchor?.tabId === active.info.tabId && (!filtered || active.filterSuspended) ? anchor.line : undefined}
-            onRowDoubleClick={filtered && !active.filterSuspended ? showInContext : undefined}
+            onRowDoubleClick={
+              active.merged
+                ? openInSource
+                : filtered && !active.filterSuspended
+                  ? showInContext
+                  : mergedTab?.merged?.sources.some((s) => s.tabId === active.info.tabId)
+                    ? (row) => void openInAll(row)
+                    : undefined
+            }
             onGotoLine={filtered ? (line) => void gotoFileLine(line) : undefined}
+            onGotoTime={activeFormat?.format.timestamp ? gotoTime : undefined}
+            sources={active.merged?.sources.map((s) => ({ label: s.label, color: mergeCandidates.find((c) => c.tab.info.tabId === s.tabId)?.color ?? "#8e8e93" }))}
             fileRows={active.total}
             viewRowRef={filtered ? filteredViewRow : viewRow}
             fetchRows={fetchRows}
@@ -958,10 +1327,31 @@ export function App() {
             filterSuspended={!!active.filterSuspended}
             hasFilter={toLineFilter(active.filter, !!activeFormat, activeFormat?.format.continuation === "not-line") !== null}
             onToggleFilterView={toggleFilterView}
+            history={
+              active.docker
+                ? {
+                    status: dockerStatusText(active.state, dockerList?.containers.find((c) => c.name === active.docker?.name)),
+                    title: `${active.docker.context}/${active.docker.name}\nCopie locale : ${active.info.path}`,
+                    moreTitle: "Remonter plus loin dans l'historique du conteneur (×10 ; la copie locale est reconstruite)",
+                    loading: loadingMore.has(active.info.tabId),
+                    onLoadMore: () => void loadMoreHistory(active.info.tabId),
+                  }
+                : active.merged
+                  ? {
+                      status: active.merged.window.complete ? "Tout l'historique des fichiers" : `Fenêtre : ${active.merged.window.lines.toLocaleString("fr-FR")} dernières lignes du fichier le plus actif`,
+                      title: "L'onglet Tout démarre à une heure commune à tous les fichiers, pour ne pas les lire en entier",
+                      moreTitle: "Remonter plus loin dans l'historique (×10, puis tout) : les fichiers sont fusionnés à nouveau",
+                      loading: loadingMore.has(active.info.tabId),
+                      ...(active.merged.window.complete ? {} : { onLoadMore: () => void loadMoreMerged() }),
+                    }
+                  : undefined
+            }
             filterShown={filtered && filterProgress ? { matches: filterProgress.matches, done: filterProgress.done } : undefined}
           />
         </>
       )}
+      </div>
+      </div>
     </div>
   );
 }

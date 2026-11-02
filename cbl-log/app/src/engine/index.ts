@@ -1,6 +1,7 @@
 // utilityProcess entry point: hosts the EngineService and serves the renderer over a MessagePort
 // handed over by the main process.
 import { join } from "node:path";
+import { decodeDockerEnv, DOCKER_ENV } from "./docker-options";
 import { EngineService, setFilterWorkerPath, setIndexerWorkerPath, setSearchWorkerPath, type PortLike } from "@cbl-log/engine";
 
 // The indexing worker is a separate bundle entry (see electron.vite.config.ts) next to this file.
@@ -8,7 +9,7 @@ setIndexerWorkerPath(join(__dirname, "indexer-worker.js"));
 setSearchWorkerPath(join(__dirname, "search-worker.js"));
 setFilterWorkerPath(join(__dirname, "filter-worker.js"));
 
-const service = new EngineService();
+const service = new EngineService({ docker: decodeDockerEnv(process.env[DOCKER_ENV]) });
 
 /** Adapts an Electron MessagePortMain to the engine's PortLike. */
 function adaptMainPort(port: Electron.MessagePortMain): PortLike {

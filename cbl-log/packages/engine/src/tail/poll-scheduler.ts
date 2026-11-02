@@ -16,6 +16,8 @@ export function defaultPollInterval(path: string): number {
 export interface PollTask {
   /** Requests an early check (fs.watch hint); no effect if the task is no longer registered. */
   poke(): void;
+  /** Changes the interval from the next tick on; a shorter one also brings the next tick forward. */
+  setInterval(intervalMs: number): void;
   cancel(): void;
 }
 
@@ -65,6 +67,14 @@ export class PollScheduler {
         }
         entry.due = Date.now();
         this.arm();
+      },
+      setInterval: (intervalMs) => {
+        if (entry.cancelled || this.closed) return;
+        entry.interval = Math.max(1, intervalMs);
+        if (!entry.running) {
+          entry.due = Math.min(entry.due, Date.now() + entry.interval);
+          this.arm();
+        }
       },
       cancel: () => {
         entry.cancelled = true;

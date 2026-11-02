@@ -1,0 +1,10 @@
+/* level pills on the right of the command bar */
+.cbl-pills { display:inline-flex; gap:4px; margin-left:auto }
+.cbl-pill { display:inline-flex; align-items:center; gap:6px; height:28px; padding:0 8px; border:1px dashed var(--ctl-bd); border-radius:4px; background:none; color:var(--muted); font:600 11px "Segoe UI",var(--sans); letter-spacing:.02em; cursor:pointer }
+.cbl-pill.on { border-style:solid; background:var(--ctl); color:var(--fg) }
+.cbl-pill i { width:8px; height:8px; border-radius:2px; box-shadow:inset 0 0 0 1.5px var(--lvl) }
+.cbl-pill.on i { background:var(--lvl) }
+
+@media (max-width:820px) {
+  .cbl-pills { margin-left:0 } .cbl-pill { height:24px; padding:0 6px; font-size:10px }
+}

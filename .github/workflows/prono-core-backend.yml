@@ -1,0 +1,30 @@
+name: prono-core – Backend CI
+
+on:
+  push:
+    paths:
+      - "prono-core/backend/**"
+      - ".github/workflows/prono-core-backend.yml"
+  pull_request:
+    paths:
+      - "prono-core/backend/**"
+      - ".github/workflows/prono-core-backend.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: prono-core/backend
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          # Same major as prono-core/backend/Dockerfile and pom.xml (java.version).
+          distribution: temurin
+          java-version: 21
+          cache: maven
+          cache-dependency-path: prono-core/backend/pom.xml
+
+      - run: mvn -B verify

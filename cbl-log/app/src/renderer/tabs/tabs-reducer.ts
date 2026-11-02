@@ -1,5 +1,6 @@
-import { defaultFilterSettings, type Encoding, type FilterSettings, type SearchError, type SearchQuery, type TabEvent, type TabId, type TabInfo } from "@cbl-log/shared";
-import type { RollMark } from "../viewer/roll-mark";
+import { defaultFilterSettings, dockerUri, type DockerRef, type Encoding, type FilterSettings, type SearchError, type SearchQuery, type TabEvent, type TabId, type TabInfo } from "@cbl-log/shared";
+import { baseName } from "../files/path-key";
+import { historyMarks, type RollMark } from "../viewer/roll-mark";
 
 export type QueryEvent = Extract<TabEvent, { type: "query" }>;
 export type FilterEvent = Extract<TabEvent, { type: "filter" }>;
@@ -12,15 +13,29 @@ export interface SearchState {
   current?: { row: number; ordinal: number | null };
 }
 
+/** The "All" tab: the tabs it interleaves, and those the user unticked. */
+export interface MergedTabState {
+  sources: { tabId: TabId; label: string }[];
+  hidden: TabId[];
+  /** How far back the tab goes (see `MergedInfo.window`). */
+  window: { lines: number; complete: boolean };
+  /** The sources are still being merged (a loader is shown after a short while). */
+  loading: boolean;
+}
+
 export interface TabState {
   info: TabInfo;
+  /** Set for the "All" tab (`info.source === "merged"`). */
+  merged?: MergedTabState;
+  /** Docker tab: the container it follows, by name (`info.path` is then its spool file). */
+  docker?: DockerRef;
   total: number;
   follow: boolean;
   /** Rows appended while the tab was not the active one. */
   unseen: number;
   /** Indexing progress 0..1 while the file is being indexed, undefined otherwise. */
   indexing?: number;
-  state: "following" | "missing" | "error";
+  state: "following" | "missing" | "error" | "stopped" | "waiting";
   message?: string;
   /** First visible row, remembered when the tab is left. */
   scrollRow: number;
@@ -54,6 +69,18 @@ export interface TabState {
   filterEvent?: FilterEvent;
 }
 
+/** Name shown on the tab: the user's, else the container's, else the file's. */
+export function tabLabel(tab: TabState): string {
+  if (tab.merged) return "Tout";
+  return tab.customName ?? tab.docker?.name ?? baseName(tab.info.path);
+}
+
+/** What identifies the tab in the session and in the recent list: the file path, or the `docker://` URI. */
+export function tabUri(tab: TabState): string {
+  if (tab.merged) return "merged://all";
+  return tab.docker ? dockerUri(tab.docker) : tab.info.path;
+}
+
 /** Lines available in the filtered view, or undefined while there is no filter in force (or no answer yet). */
 export function filterStatus(tab: TabState): { matches: number; done: boolean; error?: SearchError } | undefined {
   if (!tab.filterId || tab.filterEvent?.id !== tab.filterId) return undefined;
@@ -75,8 +102,11 @@ export interface TabsState {
 
 export type TabsAction =
   /** `index`: position in the tab bar (default: last), used when a tab is reopened in place. */
-  | { type: "opened"; info: TabInfo; encodingChoice?: Encoding; index?: number }
+  | { type: "opened"; info: TabInfo; docker?: DockerRef; encodingChoice?: Encoding; index?: number }
   | { type: "closed"; tabId: TabId }
+  /** The "All" tab merged other sources (same tab id): its rows start over. */
+  | { type: "mergedUpdated"; info: TabInfo }
+  | { type: "mergedHidden"; tabId: TabId; hidden: TabId[] }
   | { type: "activated"; tabId: TabId }
   | { type: "event"; tabId: TabId; event: TabEvent; receivedAt: number }
   | { type: "searchStarted"; tabId: TabId; query: SearchQuery; id: string | null }
@@ -96,6 +126,7 @@ export type TabsAction =
   | { type: "unclear"; tabId: TabId }
   | { type: "follow"; tabId: TabId; follow: boolean }
   | { type: "scrollRow"; tabId: TabId; row: number }
+  | { type: "reloaded"; tabId: TabId; total: number; addedBefore: number }
   | { type: "reset" };
 
 export const initialTabsState: TabsState = { tabs: [], activeId: undefined };
@@ -119,6 +150,7 @@ function applyEvent(tab: TabState, isActive: boolean, event: TabEvent, receivedA
         total: event.total,
         unseen: isActive ? 0 : tab.unseen + event.appended,
         indexing: undefined,
+        ...(tab.merged && event.loading !== undefined ? { merged: { ...tab.merged, loading: event.loading } } : {}),
       };
     case "indexing":
       return { ...tab, indexing: event.progress < 1 ? event.progress : undefined };
@@ -129,7 +161,7 @@ function applyEvent(tab: TabState, isActive: boolean, event: TabEvent, receivedA
     case "filter":
       return { ...tab, filterEvent: event };
     case "rolled": {
-      const mark: RollMark = { row: event.at, reason: event.reason, at: receivedAt, ...(event.previous ? { previous: event.previous } : {}) };
+      const mark: RollMark = { row: event.at, reason: event.reason, at: receivedAt, ...(event.previous ? { previous: event.previous } : {}), ...(event.source ? { source: event.source } : {}) };
       return { ...tab, marks: [...tab.marks, mark] };
     }
     default:
@@ -142,12 +174,14 @@ export function tabsReducer(state: TabsState, action: TabsAction): TabsState {
     case "opened": {
       const tab: TabState = {
         info: action.info,
+        ...(action.docker ? { docker: action.docker } : {}),
         total: action.info.totalRows,
         follow: true,
         unseen: 0,
         state: "following",
         scrollRow: 0,
-        marks: [],
+        marks: historyMarks(action.info.history),
+        ...(action.info.merged ? { merged: { sources: action.info.merged.sources, hidden: [], window: action.info.merged.window, loading: action.info.merged.loading } } : {}),
         clearedBefore: 0,
         filter: defaultFilterSettings(),
         ...(action.encodingChoice ? { encodingChoice: action.encodingChoice } : {}),
@@ -155,6 +189,18 @@ export function tabsReducer(state: TabsState, action: TabsAction): TabsState {
       const at = Math.min(Math.max(0, action.index ?? state.tabs.length), state.tabs.length);
       return { tabs: [...state.tabs.slice(0, at), tab, ...state.tabs.slice(at)], activeId: action.info.tabId };
     }
+    case "mergedUpdated":
+      return updateTab(state, action.info.tabId, (tab) => ({
+        ...tab,
+        info: action.info,
+        total: action.info.totalRows,
+        marks: [],
+        unseen: 0,
+        scrollRow: 0,
+        ...(action.info.merged ? { merged: { sources: action.info.merged.sources, hidden: tab.merged?.hidden ?? [], window: action.info.merged.window, loading: action.info.merged.loading } } : {}),
+      }));
+    case "mergedHidden":
+      return updateTab(state, action.tabId, (tab) => (tab.merged ? { ...tab, merged: { ...tab.merged, hidden: action.hidden } } : tab));
     case "closed": {
       const index = state.tabs.findIndex((t) => t.info.tabId === action.tabId);
       if (index === -1) return state;
@@ -245,6 +291,15 @@ export function tabsReducer(state: TabsState, action: TabsAction): TabsState {
       return updateTab(state, action.tabId, (t) => (t.follow === action.follow ? t : { ...t, follow: action.follow }));
     case "scrollRow":
       return updateTab(state, action.tabId, (t) => (t.scrollRow === action.row ? t : { ...t, scrollRow: action.row }));
+    case "reloaded":
+      // "load more history": the spool was rebuilt, older lines now come first; marks and cleared origin shift with them
+      return updateTab(state, action.tabId, (t) => ({
+        ...t,
+        total: action.total,
+        scrollRow: t.scrollRow + action.addedBefore,
+        clearedBefore: t.clearedBefore > 0 ? t.clearedBefore + action.addedBefore : 0,
+        marks: t.marks.map((m) => ({ ...m, row: m.row + action.addedBefore })),
+      }));
     case "reset":
       return initialTabsState;
   }

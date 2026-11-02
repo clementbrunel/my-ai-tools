@@ -1,0 +1,4 @@
+/* text next to the wheel: invitation, then the forfeit drawn */
+.wheel-txt { flex:1; min-height:4.4em; display:flex; align-items:center; text-align:left; font:600 15px/1.3 var(--sans); text-transform:none; text-shadow:0 2px 12px rgba(0,0,0,.8) }
+.wheel-txt span { display:block }
+.wheel-txt b { display:block; color:#FFD700; font-size:12px; letter-spacing:.1em; text-transform:uppercase }

@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react'
 import type { AppEntry, Lang } from '../apps'
 import { useScene } from '../lib/scroll'
-import ProgressBar from './ProgressBar'
+import SceneCopy from './SceneCopy'
+import './SceneFrame.css'
 
 export interface SceneProps { app: AppEntry; lang: Lang }
 
@@ -23,7 +24,6 @@ export default function SceneFrame({ app, lang, flip = false, layout = 'side', a
   const [ref, o, p] = useScene<HTMLElement>(0.1)
   const th = app.theme
   const split = layout === 'split'
-  const [plain, punch] = app.headline[lang]
   const anchored = !!(app.scene && app.sceneRatio)
   const background = app.scene && !anchored ? `url(${app.scene}) center/cover` : split ? '#0a1628' : th.bg
 
@@ -39,24 +39,7 @@ export default function SceneFrame({ app, lang, flip = false, layout = 'side', a
           </div>
         )}
         {app.scene && <div className={`shade ${split ? 'top' : ''} ${th.dark ? '' : 'light'}`} />}
-        <div className="copy" style={{ transform: `translateY(${(1 - o) * 50}px)` }}>
-          <p className="appname">{app.name}</p>
-          <p className="kind">{app.kind[lang]}</p>
-          <h2>
-            {plain.split('\n').map((line, i) => <span key={line} className={i ? 'h2-sub' : 'h2-line'}>{line}</span>)}
-            <span className="h2-line punch-line"><span className="punch">{punch}</span></span>
-          </h2>
-          <p className="lede">{app.description[lang]}</p>
-          <ul className="tags">{app.tags.map((t) => <li key={t}>{t}</li>)}</ul>
-          {app.progress && (
-            <div className="progress" role="progressbar" aria-label={app.progress.label[lang]} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(app.progress.value * 100)}>
-              <p>{app.progress.label[lang]}</p>
-              <ProgressBar value={app.progress.value} />
-            </div>
-          )}
-          {app.links.map((l) => <a key={l.url} className="cta" href={l.url} target="_blank" rel="noopener noreferrer">{l.label[lang]} ↗</a>)}
-          {extra}
-        </div>
+        <SceneCopy app={app} lang={lang} extra={extra} style={{ transform: `translateY(${(1 - o) * 50}px)` }} />
         {art && !app.scene && (
           <div className="stagewrap" style={{ transform: `translateY(${(1 - o) * 80}px) scale(${0.94 + o * 0.06})` }}>{art(p)}</div>
         )}

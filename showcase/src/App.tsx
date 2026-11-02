@@ -7,6 +7,7 @@ import Legal from './components/Legal'
 import { useActiveScene, useHash } from './lib/nav'
 import { initialLang } from './lib/ui'
 import { scenes } from './scenes'
+import './App.css'
 
 export default function App() {
   const [lang, setLang] = useState<Lang>(initialLang)

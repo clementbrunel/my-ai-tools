@@ -9,11 +9,35 @@ const info = (name: string): TabInfo => ({
   encoding: "utf-8",
   sizeBytes: 1,
   totalRows: 100,
+  source: "file",
   lineEnding: "unknown",
 });
 const run = (...actions: TabsAction[]) => actions.reduce(tabsReducer, initialTabsState);
 
 describe("buildSession", () => {
+  it("counts rows from the start of the live file, not of the archives loaded before it", () => {
+    const history = { files: [{ path: "C:/logs/a_1.log", startRow: 0, rowCount: 1000, mtimeMs: 1 }], skipped: 0, hours: 2 };
+    const s = run(
+      { type: "opened", info: { ...info("a"), totalRows: 1100, history } },
+      { type: "opened", info: { ...info("b"), totalRows: 1100, history } },
+      { type: "follow", tabId: "a", follow: false },
+      { type: "scrollRow", tabId: "a", row: 1040 },
+      { type: "clearedTo", tabId: "b", row: 1030 },
+    );
+    const [a, b] = buildSession(s.tabs, "b", 1055).tabs;
+    expect(a).toMatchObject({ scrollRow: 40, clearedBefore: 0 });
+    expect(b).toMatchObject({ scrollRow: 25, clearedBefore: 30 });
+    // a position inside the archives is not kept: they will have changed
+    expect(buildSession(s.tabs, "a", 500).tabs[0]).toMatchObject({ scrollRow: 0, clearedBefore: 0 });
+  });
+
+  it("does not save the All tab", () => {
+    const all: TabInfo = { ...info("all"), source: "merged", path: "", merged: { sources: [{ tabId: "a", label: "a" }], window: { lines: 200_000, complete: true }, loading: false } };
+    const s = run({ type: "opened", info: info("a") }, { type: "opened", info: all, index: 0 });
+    expect(s.activeId).toBe("all");
+    expect(buildSession(s.tabs, "all", 0)).toEqual({ schemaVersion: 1, tabs: [expect.objectContaining({ path: "C:/logs/a.log" })] });
+  });
+
   it("is empty without tabs", () => {
     expect(buildSession([], undefined, 0)).toEqual({ schemaVersion: 1, tabs: [] });
   });
@@ -60,5 +84,13 @@ describe("buildSession", () => {
     const { tabs } = buildSession(s.tabs, s.activeId, 0);
     expect(tabs[0]).not.toHaveProperty("customName");
     expect(tabs[1]!.customName).toBe("prod");
+  });
+
+  it("writes a Docker tab as its docker:// URI, not as its spool file", () => {
+    const docker = { ...info("spool"), source: "docker" as const, path: "C:/Users/me/AppData/Local/cbl-log/docker/default/web-1.log" };
+    const s = run({ type: "opened", info: docker, docker: { context: "default", name: "web-1" } });
+    const session = buildSession(s.tabs, s.activeId, 0);
+    expect(session.tabs[0]?.path).toBe("docker://default/web-1");
+    expect(session.activePath).toBe("docker://default/web-1");
   });
 });

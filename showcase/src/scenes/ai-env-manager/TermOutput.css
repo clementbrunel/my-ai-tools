@@ -1,0 +1,13 @@
+/* terminal output: coloured lines and blinking cursor */
+.term pre { padding:18px; min-height:300px; font:14px/1.8 "JetBrains Mono",ui-monospace,monospace; white-space:pre-wrap }
+.term .ok, .cursor { color:var(--punch) } .term .warn { color:#ffcc66 }
+.cursor { animation:blink 1s steps(1) infinite }
+@keyframes blink { 50% { opacity:0 } }
+
+@media (max-width:820px) {
+  .term pre { min-height:0; padding:14px; font-size:12px; line-height:1.6 }
+}
+
+@media (max-width:820px) and (max-height:700px) {
+  .term pre { padding:10px 12px; font-size:11px; line-height:1.5 }
+}

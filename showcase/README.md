@@ -1,29 +1,40 @@
 # showcase
 
-Page catalogue statique (FR/EN) qui présente mes apps : **BienvenueBébé**, **prono-core**, **ai-env-manager**.
+Page catalogue statique (FR/EN) qui présente mes apps : **BienvenueBébé**, **prono-core**, **cbl-log**, **ai-env-manager**.
 Inspirée de polymorph.club. Servie par GitHub Pages sur https://clementbrunel.github.io (le build reste agnostique : `base: './'`).
 
 ## Ajouter / modifier une app
 
 Éditer le tableau `apps` dans [`src/apps.ts`](./src/apps.ts) (textes FR/EN, tags, liens, barre de progression « en cours »). Chaque app a un thème de scène et, pour BienvenueBébé et prono-core,
-une affiche générée par IA (`scene`) ; ai-env-manager garde son terminal dessiné.
+une affiche générée par IA (`scene`) ; cbl-log (fenêtre de log en direct) et ai-env-manager (terminal) gardent une illustration dessinée.
 Pour changer une affiche : déposer l'image dans `public/scenes/`, renseigner `scene` (et `sceneRatio` si du texte est posé dessus) dans `src/apps.ts`.
 
 ## Structure
+
+CSS : chaque composant importe sa feuille voisine (`Foo.tsx` → `import './Foo.css'`), avec ses propres règles mobiles (`@media (max-width:820px)`, et `and (max-height:700px)` pour les petits téléphones). Les retouches d'une app sur le bloc texte commun (`.appname`, `h2`) sont dans `scenes/<App>Scene.css`. `styles.css` est importé en premier dans `main.tsx` pour que les feuilles des composants passent après.
 
 ```
 src/
   apps.ts              catalogue (données) + liens du profil
   legal.ts             infos éditeur des mentions légales
   App.tsx              routage (#/ ou #/legal), langue, section active
-  scenes/              une scène par app : PronoCoreScene, BienvenueBebeScene, AiEnvManagerScene
+  scenes/              une scène par app : PronoCoreScene, BienvenueBebeScene, CblLogScene, AiEnvManagerScene
     index.ts           registre `stage` → composant
+    prono-core/        roue des gages : ForfeitWheel.tsx + WheelResult ; data.ts (gages, calcul du segment, textes)
+    bienvenue-bebe/    carte posée sur l'affiche : RegistryOnCard.tsx + RegistryItem ; data.ts (cadeaux, textes)
+    cbl-log/           démo cbl-log, un fichier par composant comme dans l'app :
+      LiveTail.tsx     fenêtre (état, flux, Suivre / Pause) qui assemble les suivants
+      TabBar, FilterField, LevelPills, LogLine, StatusBar
+      view.ts          logique d'affichage sans React (filtres, repli des traces)
+      data.ts          faux logs, onglets et textes (ajouter un onglet = une ligne dans `TABS`)
+    ai-env-manager/    démo terminal : Terminal.tsx (état, défilement) + TermOutput, CommandButtons ; data.ts (scan, commandes, textes)
   fonts.ts             polices auto-hébergées (@fontsource, latin, graisses utilisées) — aucun appel à Google Fonts
-  components/          SceneFrame (cadre commun), Hero, About, Dock (barre de nav), Legal, AppIcon, ProgressBar
+  components/          SceneFrame (cadre commun) + SceneCopy (bloc texte), Hero, About, Dock (barre de nav), Legal, AppIcon, ProgressBar
   lib/                 scroll.ts (progression + fondu), nav.ts (hash, scène active), ui.ts (textes, langue, scroll doux)
+  styles.css           socle commun seulement : tokens (couleurs, polices), reset, sections de scroll (.scene / .sticky), reduced-motion
 ```
 
-Nouvelle app : entrée dans `apps.ts` + un composant dans `scenes/` (basé sur `SceneFrame` ; `art` pour une illustration dessinée, `overlay` pour du texte posé sur une affiche) + une ligne dans `scenes/index.ts`.
+Nouvelle app : entrée dans `apps.ts` + un composant dans `scenes/` (basé sur `SceneFrame`, son widget dans un dossier `scenes/<app>/` : `data.ts` + un fichier par composant ; `art` pour une illustration dessinée, `overlay` pour du texte posé sur une affiche) + une ligne dans `scenes/index.ts`.
 
 ## Page d'accueil
 

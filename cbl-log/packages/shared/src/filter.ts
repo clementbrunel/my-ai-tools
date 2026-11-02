@@ -150,6 +150,14 @@ export function toLineFilter(settings: FilterSettings | undefined, hasFormat: bo
   return isFilterActive(filter) ? filter : null;
 }
 
+/**
+ * The format to hand to the engine along with a filter. The engine also takes the level of every kept
+ * row from it: without the format, a filtered view (text filter only) would show no level colors.
+ */
+export function formatForFilter<F>(filter: LineFilter | null, format: F | undefined): F | null {
+  return filter ? (format ?? null) : null;
+}
+
 /** Same matcher (the pattern with its options)? */
 export function sameMatcher(a: TextMatcher, b: TextMatcher): boolean {
   return a.pattern === b.pattern && a.isRegex === b.isRegex && a.caseSensitive === b.caseSensitive && !!a.wholeWord === !!b.wholeWord;

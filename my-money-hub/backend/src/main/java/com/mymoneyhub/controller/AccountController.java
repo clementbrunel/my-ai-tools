@@ -2,11 +2,11 @@ package com.mymoneyhub.controller;
 
 import com.mymoneyhub.dto.AccountDto;
 import com.mymoneyhub.dto.NetWorthDto;
+import com.mymoneyhub.dto.UpdateBalanceRequest;
 import com.mymoneyhub.service.AccountService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -25,5 +25,10 @@ public class AccountController {
     @GetMapping("/net-worth")
     public NetWorthDto netWorth() {
         return accountService.netWorth();
+    }
+
+    @PutMapping("/{id}/balance")
+    public AccountDto updateBalance(@PathVariable Long id, @Valid @RequestBody UpdateBalanceRequest request) {
+        return accountService.updateManualBalance(id, request);
     }
 }

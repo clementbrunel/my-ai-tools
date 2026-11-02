@@ -1,0 +1,7 @@
+/* one gift: handwritten label, tick box, struck through once reserved */
+.reg li { font:600 12cqw/1 var(--hand) }
+.reg li button { display:flex; align-items:center; gap:5cqw; width:100%; padding:0; border:0; background:none; color:inherit; font:inherit; text-align:left; cursor:pointer }
+.reg li button:hover i { background:color-mix(in srgb,var(--punch) 30%,transparent) } .reg li button:focus-visible { outline:.9cqw dashed var(--punch); outline-offset:1cqw }
+.reg li button:active i { transform:scale(.85) }
+.reg li i { flex:none; width:9cqw; height:9cqw; border-radius:2cqw; border:.9cqw solid var(--punch); display:grid; place-items:center; font-style:normal; font-size:6.5cqw; color:#fff; transition:background .2s,transform .2s cubic-bezier(.3,1.8,.5,1) }
+.reg li.done span { opacity:.55; text-decoration:line-through } .reg li.done i { background:var(--punch) }

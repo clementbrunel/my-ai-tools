@@ -1,0 +1,22 @@
+/* dock: bottom navigation bar */
+.dock { width:max-content; position:fixed; left:50%; bottom:18px; z-index:50; display:flex; align-items:center; gap:6px; padding:6px; border-radius:99px; color:#151412; background:rgba(255,255,255,.62); backdrop-filter:blur(22px) saturate(1.6); box-shadow:0 18px 40px -14px rgba(0,0,0,.4),inset 0 0 0 1px rgba(255,255,255,.55); opacity:0; transform:translate(-50%,24px); pointer-events:none; transition:opacity .5s,transform .6s cubic-bezier(.2,.8,.2,1),background .6s,color .6s }
+.dock.show { opacity:1; transform:translate(-50%,0); pointer-events:auto }
+.dock.dark { color:#fff; background:rgba(30,30,34,.62); box-shadow:0 18px 40px -14px rgba(0,0,0,.7),inset 0 0 0 1px rgba(255,255,255,.12) }
+.mono { width:36px; height:36px; border-radius:50%; display:grid; place-items:center; text-decoration:none; font:800 13px var(--sans); letter-spacing:-.04em }
+.dock:not(.dark) .mono { background:#151412; color:#f4f1ec } .dock.dark .mono { background:#fff; color:#151412 }
+.dock > * { flex:none }
+.dock .ico { max-width:none }
+.dock .sep { width:1px; height:22px; background:currentColor; opacity:.18; margin:0 2px }
+.dk { display:flex; align-items:center; gap:0; padding:0; border-radius:99px; text-decoration:none; transition:background .35s,padding .35s }
+.dk .ico { box-shadow:0 4px 10px -4px rgba(0,0,0,.4); transition:transform .35s cubic-bezier(.3,1.8,.5,1) }
+.dk:hover .ico { transform:scale(1.12) }
+.lbl { display:grid; grid-template-columns:0fr; transition:grid-template-columns .4s cubic-bezier(.2,.8,.2,1) }
+.lbl > span { overflow:hidden; white-space:nowrap; font:600 13px var(--sans); opacity:0; transition:opacity .3s }
+.dk.on { padding-right:4px; background:color-mix(in srgb,currentColor 12%,transparent) }
+.dk.on .lbl { grid-template-columns:1fr } .dk.on .lbl > span { opacity:1; padding:0 12px 0 10px }
+.soc { width:36px; height:36px; border-radius:50%; display:grid; place-items:center; text-decoration:none; font:700 15px var(--sans); opacity:.7; transition:opacity .2s,background .2s }
+.soc:hover { opacity:1; background:color-mix(in srgb,currentColor 12%,transparent) }
+
+@media (max-width:820px) {
+  .dk.on .lbl { display:none } .dk.on { background:none }
+}

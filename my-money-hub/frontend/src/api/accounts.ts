@@ -14,3 +14,9 @@ export async function fetchNetWorth(): Promise<NetWorth> {
 export async function syncAll(): Promise<void> {
   await apiClient.post('/sync')
 }
+
+/** Manual balance entry (MANUAL accounts only). `date` is an ISO yyyy-MM-dd, omitted = now. */
+export async function updateBalance(id: number, balance: number, date?: string): Promise<Account> {
+  const { data } = await apiClient.put<Account>(`/accounts/${id}/balance`, { balance, date })
+  return data
+}

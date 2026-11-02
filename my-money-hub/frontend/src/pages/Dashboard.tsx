@@ -3,12 +3,16 @@ import { fetchNetWorth, syncAll } from '@/api/accounts'
 import { connectInstitution, fetchInstitutions } from '@/api/institutions'
 import type { Institution, NetWorth } from '@/types'
 import AccountCard from '@/components/AccountCard'
+import LinxoImportModal from '@/components/LinxoImportModal'
+import ManualAccountForm from '@/components/ManualAccountForm'
 
 export default function Dashboard() {
   const [netWorth, setNetWorth] = useState<NetWorth | null>(null)
   const [syncing, setSyncing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [importing, setImporting] = useState(false)
   const [institutions, setInstitutions] = useState<Institution[]>([])
+  const [manualInstitutions, setManualInstitutions] = useState<Institution[]>([])
   // Set by the Enable Banking callback redirect (?connected=… / ?connectError=…)
   const [notice] = useState(() => {
     const params = new URLSearchParams(window.location.search)
@@ -23,7 +27,9 @@ export default function Dashboard() {
   const load = useCallback(async () => {
     try {
       setNetWorth(await fetchNetWorth())
-      setInstitutions((await fetchInstitutions()).filter((i) => i.connectorType === 'ENABLE_BANKING'))
+      const all = await fetchInstitutions()
+      setInstitutions(all.filter((i) => i.connectorType === 'ENABLE_BANKING'))
+      setManualInstitutions(all.filter((i) => i.connectorType === 'MANUAL'))
       setError(null)
     } catch {
       setError('Impossible de charger les comptes — le backend est-il démarré ?')
@@ -59,13 +65,20 @@ export default function Dashboard() {
     return `Connecté jusqu'au ${until.toLocaleDateString('fr-FR')}`
   }
 
+  const archivedAccounts = netWorth?.accounts.filter((account) => account.archived) ?? []
+
   return (
     <div className="max-w-5xl mx-auto p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="page-title mb-0">My Money Hub</h1>
-        <button className="btn-primary" onClick={handleSync} disabled={syncing}>
-          {syncing ? 'Synchronisation…' : 'Synchroniser tout'}
-        </button>
+        <div className="flex gap-2">
+          <button className="btn-primary" onClick={() => setImporting(true)}>
+            Importer Linxo
+          </button>
+          <button className="btn-primary" onClick={handleSync} disabled={syncing}>
+            {syncing ? 'Synchronisation…' : 'Synchroniser tout'}
+          </button>
+        </div>
       </div>
 
       {error && <p className="text-mh-danger mb-4">{error}</p>}
@@ -99,11 +112,37 @@ export default function Dashboard() {
         </div>
       )}
 
+      {manualInstitutions.length > 0 && <ManualAccountForm institutions={manualInstitutions} onCreated={load} />}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {netWorth?.accounts.map((account) => (
-          <AccountCard key={account.id} account={account} />
-        ))}
+        {netWorth?.accounts
+          .filter((account) => !account.archived)
+          .map((account) => (
+            <AccountCard key={account.id} account={account} onBalanceUpdated={load} />
+          ))}
       </div>
+
+      {archivedAccounts.length > 0 && (
+        <details className="mt-8">
+          <summary className="cursor-pointer text-sm text-gray-500 dark:text-gray-400">
+            Comptes archivés ({archivedAccounts.length})
+          </summary>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+            {archivedAccounts.map((account) => (
+              <AccountCard key={account.id} account={account} onBalanceUpdated={load} />
+            ))}
+          </div>
+        </details>
+      )}
+
+      {importing && (
+        <LinxoImportModal
+          onClose={() => setImporting(false)}
+          onImported={() => {
+            load()
+          }}
+        />
+      )}
 
       {netWorth && netWorth.accounts.length === 0 && (
         <p className="text-gray-500 dark:text-gray-400 text-center mt-12">

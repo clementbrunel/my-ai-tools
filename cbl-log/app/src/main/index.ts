@@ -1,8 +1,8 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { release } from "node:os";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeTheme, shell } from "electron";
-import type { ParseRuleSetResult, RuleSet, Session, Settings } from "@cbl-log/shared";
+import { parseDockerUri, type ParseRuleSetResult, type RuleSet, type Session, type Settings } from "@cbl-log/shared";
 import { parseFileArgs } from "./cli-args";
 import { ConfigWatcher, type ConfigKind } from "./config-watcher";
 import { loadSession, loadSettings, saveSession, saveSettings } from "./config-store";
@@ -13,7 +13,8 @@ import { loadFeedbackHistory, saveFeedbackHistory } from "./feedback-store";
 import { loadRecent, saveRecent, withoutRecentFile, withRecentFile } from "./recent-store";
 import { exportRuleSet, loadRuleSets, readRuleSetFile, saveRuleSet } from "./rules-store";
 import { showAbout, showSplash } from "./brand-windows";
-import { checkForUpdates } from "./updater";
+import type { UpdateAction } from "./update-check";
+import { checkForUpdates, handleUpdateAction } from "./updater";
 
 // Settings live in %APPDATA%/cbl-log (architecture, section 8), not under the package name.
 // CBL_LOG_USER_DATA relocates it (portable use, isolated acceptance runs).
@@ -51,6 +52,22 @@ async function pickFiles(): Promise<string[]> {
   return result.canceled ? [] : result.filePaths;
 }
 
+/** Lets the user point at one archive of `path`: the renderer learns the archive name pattern from it. */
+async function designateArchive(path: string): Promise<void> {
+  const options: Electron.OpenDialogOptions = {
+    title: `Une archive de ${basename(path)}`,
+    defaultPath: dirname(path),
+    properties: ["openFile"],
+    filters: [
+      { name: "Logs", extensions: ["log", "txt", "out"] },
+      { name: "All files", extensions: ["*"] },
+    ],
+  };
+  const result = mainWindow ? await dialog.showOpenDialog(mainWindow, options) : await dialog.showOpenDialog(options);
+  const archive = result.filePaths[0];
+  if (!result.canceled && archive) mainWindow?.webContents.send("archive:designated", path, archive);
+}
+
 const profileFilters: Electron.FileFilter[] = [
   { name: "Profil de surlignage cbl-log", extensions: ["json"] },
   { name: "All files", extensions: ["*"] },
@@ -86,7 +103,7 @@ function persistRecent(): void {
 }
 
 function openRecent(path: string): void {
-  if (!existsSync(path)) {
+  if (!parseDockerUri(path) && !existsSync(path)) {
     recentFiles = withoutRecentFile(recentFiles, path);
     persistRecent();
   }
@@ -126,6 +143,8 @@ function buildMenu(): void {
         submenu: [
           { label: "Rechercher une &mise à jour…", click: () => void checkForUpdates(mainWindow, true) },
           { label: "&Signaler un bug / proposer une idée…", click: () => mainWindow?.webContents.send("feedback:open") },
+          { type: "separator" },
+          { label: "&Notes de version…", click: () => mainWindow?.webContents.send("notes:open") },
           { type: "separator" },
           { label: "À &propos de cbl-log", click: () => showAbout(mainWindow, app.getVersion(), iconPath(), avatarPath()) },
         ],
@@ -226,6 +245,8 @@ if (!app.requestSingleInstanceLock()) {
       { label: "Afficher dans l'explorateur", click: () => shell.showItemInFolder(path) },
       { type: "separator" },
       { label: "Copier le chemin", click: () => clipboard.writeText(path) },
+      { type: "separator" },
+      { label: "Désigner une archive du rolling…", click: () => void designateArchive(path) },
     ]).popup(mainWindow ? { window: mainWindow } : {});
   });
   ipcMain.handle("rules:load",() => loadRuleSets(rulesDir()));
@@ -251,6 +272,7 @@ if (!app.requestSingleInstanceLock()) {
     return { env: envLines(feedbackEnv()), blocked: flood.ok ? undefined : flood.reason };
   });
   ipcMain.handle("feedback:submit", (_event, draft: FeedbackDraft) => submitFeedback(draft));
+  ipcMain.on("update:action", (_event, action: UpdateAction) => handleUpdateAction(action));
   ipcMain.on("renderer:ready", () => {
     rendererReady = true;
     sendFiles(pendingPaths.splice(0));
@@ -268,6 +290,7 @@ if (!app.requestSingleInstanceLock()) {
       mainWindow?.webContents.send("config:changed", kind);
     });
     configWatcher.start();
+    engine.setDockerSettings((await loadSettings(app.getPath("userData"))).value.docker);
     engine.start();
     createWindow();
     // Startup check, then hourly for sessions that are never closed; packaged builds only (a dev build has

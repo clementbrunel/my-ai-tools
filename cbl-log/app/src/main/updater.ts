@@ -6,14 +6,38 @@ import { spawn } from "node:child_process";
 import { createWriteStream, mkdirSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { app, BrowserWindow, dialog, net, shell } from "electron";
-import { expectedSha256, findUpdate, RELEASES_URL, type AvailableUpdate, type GitHubRelease, type InstallKind } from "./update-check";
+import { app, BrowserWindow, net, shell } from "electron";
+import { expectedSha256, findUpdate, RELEASES_URL, type AvailableUpdate, type GitHubRelease, type InstallKind, type UpdateAction, type UpdatePanelState } from "./update-check";
 
 /** Set by electron-builder's portable launcher to the path of the running `.exe`. */
 const portableExe = (): string | undefined => process.env["PORTABLE_EXECUTABLE_FILE"];
 const installKind = (): InstallKind => (portableExe() ? "portable" : "setup");
 
 let busy = false;
+/** Resolver of the "update available" question currently shown in the renderer panel. */
+let pendingAction: ((action: UpdateAction) => void) | undefined;
+
+/** The renderer panel answered (IPC "update:action"). */
+export function handleUpdateAction(action: UpdateAction): void {
+  pendingAction?.(action);
+}
+
+const show = (win: BrowserWindow | undefined, state: UpdatePanelState | null): void => {
+  if (win && !win.isDestroyed()) win.webContents.send("update:state", state);
+};
+
+/** Resolves with the user's answer, or "dismiss" if the window goes away first. "notes" never resolves: it opens the page and waits again. */
+async function ask(win: BrowserWindow, update: AvailableUpdate): Promise<Exclude<UpdateAction, "notes">> {
+  for (;;) {
+    const action = await new Promise<UpdateAction>((resolve) => {
+      pendingAction = resolve;
+      win.once("closed", () => resolve("dismiss"));
+    });
+    pendingAction = undefined;
+    if (action !== "notes") return action;
+    void shell.openExternal(update.pageUrl);
+  }
+}
 /** Version the user postponed in this session: automatic checks stay silent about it, the menu still offers it. */
 let declinedVersion: string | undefined;
 
@@ -25,6 +49,7 @@ async function fetchUpdate(): Promise<AvailableUpdate | undefined> {
 
 /** Streams the asset to `target`, showing progress on the taskbar; checks size and SHA-256. */
 async function download(update: AvailableUpdate, target: string, win: BrowserWindow | undefined): Promise<void> {
+  let lastSent = 0;
   const res = await net.fetch(update.asset.browser_download_url);
   if (!res.ok || !res.body) throw new Error(`Téléchargement impossible : ${res.status} ${res.statusText}`);
   mkdirSync(dirname(target), { recursive: true });
@@ -40,6 +65,11 @@ async function download(update: AvailableUpdate, target: string, win: BrowserWin
       received += value.length;
       if (!out.write(value)) await new Promise<void>((resolve) => out.once("drain", () => resolve()));
       win?.setProgressBar(update.asset.size > 0 ? received / update.asset.size : 2);
+      const now = Date.now();
+      if (now - lastSent > 100) {
+        lastSent = now;
+        show(win, { kind: "downloading", version: update.version, received, total: update.asset.size });
+      }
     }
     await new Promise<void>((resolve, reject) => out.end((err?: Error | null) => (err ? reject(err) : resolve())));
   } catch (err) {
@@ -76,35 +106,25 @@ async function install(update: AvailableUpdate, win: BrowserWindow | undefined):
 const truncate = (text: string, max: number): string => (text.length > max ? `${text.slice(0, max)}…` : text);
 
 async function offer(update: AvailableUpdate, win: BrowserWindow | undefined): Promise<void> {
-  const canInstall = app.isPackaged;
-  const buttons = canInstall ? ["Installer maintenant", "Voir les notes", "Plus tard"] : ["Voir les notes", "Fermer"];
-  const options: Electron.MessageBoxOptions = {
-    type: "info",
-    title: "Mise à jour disponible",
-    message: `cbl-log ${update.version} est disponible (version actuelle : ${app.getVersion()}).`,
-    detail:
-      (update.notes ? `Nouveautés :\n${truncate(update.notes, 1200)}\n\n` : "") +
-      (canInstall
-        ? portableExe()
-          ? "La nouvelle version portable sera téléchargée à côté de l'actuelle puis lancée."
-          : "La mise à jour est téléchargée puis installée ; cbl-log redémarre et rouvre vos onglets."
-        : "Installation automatique indisponible en mode développement."),
-    buttons,
-    defaultId: 0,
-    cancelId: buttons.length - 1,
-    noLink: true,
-  };
-  const { response } = win ? await dialog.showMessageBox(win, options) : await dialog.showMessageBox(options);
-  const choice = buttons[response];
-  if (choice === "Voir les notes") void shell.openExternal(update.pageUrl);
-  if (choice !== "Installer maintenant") {
+  if (!win || win.isDestroyed()) return;
+  show(win, {
+    kind: "available",
+    version: update.version,
+    current: app.getVersion(),
+    notes: truncate(update.notes, 4000),
+    canInstall: app.isPackaged,
+    portable: !!portableExe(),
+  });
+  if ((await ask(win, update)) !== "install") {
     declinedVersion = update.version; // the hourly check will not nag again about this version
+    show(win, null);
     return;
   }
   try {
+    show(win, { kind: "downloading", version: update.version, received: 0, total: update.asset.size });
     await install(update, win);
   } catch (err) {
-    dialog.showErrorBox("Mise à jour", `La mise à jour a échoué : ${err instanceof Error ? err.message : String(err)}`);
+    show(win, { kind: "error", title: "Mise à jour impossible", message: err instanceof Error ? err.message : String(err) });
   }
 }
 
@@ -121,11 +141,10 @@ export async function checkForUpdates(win: BrowserWindow | undefined, manual: bo
       if (manual || update.version !== declinedVersion) await offer(update, win);
     }
     else if (manual) {
-      const options: Electron.MessageBoxOptions = { type: "info", title: "Mise à jour", message: `cbl-log ${app.getVersion()} est à jour.` };
-      await (win ? dialog.showMessageBox(win, options) : dialog.showMessageBox(options));
+      show(win, { kind: "uptodate", current: app.getVersion() });
     }
   } catch (err) {
-    if (manual) dialog.showErrorBox("Mise à jour", `Impossible de vérifier les mises à jour : ${err instanceof Error ? err.message : String(err)}`);
+    if (manual) show(win, { kind: "error", title: "Vérification impossible", message: err instanceof Error ? err.message : String(err) });
   } finally {
     busy = false;
   }

@@ -7,7 +7,7 @@ configuration friction. Notes below to inform the choice.
 
 ---
 
-## 1. Headroom — `chopratejas/headroom`
+## 1. Headroom — `headroomlabs-ai/headroom`
 
 **What it does**: Compresses content *before* it reaches the LLM — tool outputs,
 RAG chunks, logs, conversation history, code files. Claims 60-95 % token reduction

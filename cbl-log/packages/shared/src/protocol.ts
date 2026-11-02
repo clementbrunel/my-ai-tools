@@ -16,10 +16,26 @@ export interface Row {
   level?: Level | undefined;
   /** Filtered view with folding: lines hidden under this one (the continuation of its record). */
   folded?: number | undefined;
+  /** "All" tab: index of the source the line comes from (`MergedInfo.sources`); its `lineNo` is the merged row. */
+  source?: number | undefined;
+  /** "All" tab: line of that source (its own tab's row) this line is. */
+  sourceLine?: number | undefined;
+}
+
+/** A Docker container opened as a tab: identified by its name, not by its id (architecture § 4.8). */
+export interface DockerOpenParams {
+  /** Docker context the container lives in (folder name of its spool, label of its tab). */
+  context: string;
+  /** Container name: stays the same when `compose up` recreates the container. */
+  name: string;
+  /** Lines loaded at opening (default 5 000). */
+  initialTail?: number;
 }
 
 export interface OpenParams {
-  path: string;
+  /** File to follow. Absent for a Docker container (`docker` is given instead). */
+  path?: string;
+  docker?: DockerOpenParams;
   /** Default: detected from the file content. */
   encoding?: Encoding;
   /**
@@ -27,16 +43,82 @@ export interface OpenParams {
    * tab id is only known once `open` has answered), so a loader can show the progress.
    */
   openId?: string;
+  /**
+   * Archives of the file (same directory, rolled names) modified within this many hours are loaded
+   * before it as one stream (T-09). 0 or absent: the file alone.
+   */
+  historyHours?: number;
+  /** Regex (source) the archive names must match; absent: the default rule (`<stem>_<date>.log`, `app.log.1`…). */
+  archivePattern?: string;
+}
+
+/** An archive loaded before the live file: its lines are rows [startRow, startRow + rowCount). */
+export interface HistoryFile {
+  path: string;
+  startRow: number;
+  rowCount: number;
+  /** Last modification (ms since epoch): when the writer rolled it. */
+  mtimeMs: number;
+}
+
+export interface TabHistory {
+  /** Oldest first; the live file starts right after the last one. */
+  files: HistoryFile[];
+  /** Older archives left out by `historyHours`. */
+  skipped: number;
+  hours: number;
 }
 
 export interface TabInfo {
   tabId: TabId;
+  /** Where the lines come from: a file, or a Docker container copied to a spool file. */
+  source: "file" | "docker" | "merged";
+  /** The followed file; for a Docker tab, its spool. */
   path: string;
   encoding: Encoding;
   sizeBytes: number;
   totalRows: number;
   /** "unknown" is accepted until line-ending detection is implemented. */
   lineEnding: "crlf" | "lf" | "unknown";
+  /** Archives loaded before the file (`historyHours` > 0). */
+  history?: TabHistory;
+  /** "All" tab (`source: "merged"`): the tabs it interleaves. */
+  merged?: MergedInfo;
+}
+
+/** The tabs merged by an "All" tab, in the order of `Row.source`. */
+export interface MergedInfo {
+  sources: { tabId: TabId; label: string }[];
+  /** How far back the tab goes: the last `lines` lines of the busiest source (0 = whole history). */
+  window: { lines: number; complete: boolean };
+  /** The sources are still being merged in the background: `rows` events with `loading` follow. */
+  loading: boolean;
+}
+
+export interface MergedSourceParams {
+  tabId: TabId;
+  label: string;
+  /** Format of the source: it must have a `timestamp`. */
+  format: LogFormat;
+}
+
+export interface MergedLocateParams {
+  /** The "All" tab. */
+  tabId: TabId;
+  /** A source of it, and a line (row) of that source's own tab. */
+  sourceTabId: TabId;
+  line: number;
+}
+
+export interface OpenMergedParams {
+  sources: MergedSourceParams[];
+  /** Re-merge an existing "All" tab (other sources): it keeps its id. */
+  tabId?: TabId;
+  /**
+   * Lines of the busiest source the tab goes back to (the others start at the same time): 0 = the whole history.
+   * Default: the window of the tab being re-merged, else 200 000.
+   */
+  window?: number;
 }
 
 export interface GetRowsParams {
@@ -131,6 +213,51 @@ export interface FilterLocation {
   covered: boolean;
 }
 
+/** A container as listed in the Docker panel. */
+export interface DockerContainerInfo {
+  id: string;
+  name: string;
+  image: string;
+  /** Docker state: running, exited, paused, restarting… */
+  state: string;
+  /** Human status ("Up 2 hours"). */
+  status: string;
+  composeProject?: string;
+  composeService?: string;
+  logDriver?: string;
+  /** ISO time the container last started (absent when never started). */
+  startedAt?: string;
+  /** false: the daemon cannot serve its logs (log driver `none`). */
+  readable: boolean;
+}
+
+export interface DockerListResult {
+  /** "unavailable": Docker Desktop is not running, or access is denied (see `error`). */
+  status: "connected" | "unavailable";
+  error?: string;
+  /** Kind of failure when unavailable: lets the UI explain what to do. */
+  errorCode?: "NOT_RUNNING" | "ACCESS_DENIED" | "API_TOO_OLD" | "OTHER";
+  /** Docker context the containers live in (folder of the spools, part of the `docker://` URI). */
+  context?: string;
+  /** Docker Engine version and negotiated API version, when connected. */
+  version?: string;
+  apiVersion?: string;
+  containers: DockerContainerInfo[];
+}
+
+export interface DockerLoadMoreParams {
+  tabId: TabId;
+  /** Lines to load; "all" for the whole history. */
+  tail: number | "all";
+}
+
+export interface DockerLoadMoreResult {
+  tabId: TabId;
+  totalRows: number;
+  /** Rows added BEFORE the previous content: shift the position by this much to stay on the same line. */
+  addedBefore: number;
+}
+
 // Follow, goto and pause (T-06) are renderer-only state (pull model): the engine keeps reading and
 // the renderer simply stops asking for the rows that arrived after the pause.
 
@@ -142,6 +269,15 @@ export interface EngineRequestMap {
   searchNext: { params: SearchNextParams; result: SearchHit };
   setFilter: { params: SetFilterParams; result: FilterStarted };
   filterLocate: { params: FilterLocateParams; result: FilterLocation };
+  /** Opens (or re-merges) the "All" tab: the given tabs interleaved by timestamp (M-01). */
+  openMerged: { params: OpenMergedParams; result: TabInfo };
+  /** Row of the "All" tab showing a line of one of its sources; null when that line is not merged (yet). */
+  mergedLocate: { params: MergedLocateParams; result: { row: number | null } };
+  dockerList: { params: Record<string, never>; result: DockerListResult };
+  /** Same answer as `dockerList`, then `dockerContainers` events are pushed to the requesting port. */
+  dockerSubscribe: { params: Record<string, never>; result: DockerListResult };
+  /** Rebuilds the spool of a Docker tab with a bigger `tail`; the tab keeps its id. */
+  dockerLoadMore: { params: DockerLoadMoreParams; result: DockerLoadMoreResult };
 }
 
 export type EngineOp = keyof EngineRequestMap;
@@ -165,7 +301,12 @@ export interface EngineEvent {
   event: TabEvent;
 }
 
-export type EngineMessage = EngineResponse | EngineEvent;
+/** Global event (not tied to a tab): the container list changed, or Docker became (un)available. */
+export interface DockerContainersEvent extends DockerListResult {
+  kind: "dockerContainers";
+}
+
+export type EngineMessage = EngineResponse | EngineEvent | DockerContainersEvent;
 
 /** Hard cap on the rows returned by one `getRows` request (the service clamps). */
 export const MAX_ROWS_PER_REQUEST = 2000;

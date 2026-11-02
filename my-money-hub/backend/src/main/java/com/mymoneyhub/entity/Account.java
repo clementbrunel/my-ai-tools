@@ -46,6 +46,11 @@ public class Account {
     @Column(name = "external_account_id", length = 150)
     private String externalAccountId;
 
+    /** Closed account kept for its history only (e.g. imported from Linxo): excluded from net worth. */
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean archived = false;
+
     @Column(name = "last_synced_at")
     private LocalDateTime lastSyncedAt;
 
