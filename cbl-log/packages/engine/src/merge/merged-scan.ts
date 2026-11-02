@@ -114,6 +114,20 @@ export class MergedScan {
     return low;
   }
 
+  /** The result before or after merged row `from`; once the scan is complete, going past the last one goes around. */
+  hit(dir: "next" | "prev", from: number): { row: number | null; ordinal: number | null; matches: number; done: boolean; wrapped: boolean } {
+    const matches = this.count;
+    const done = this.done;
+    let index = dir === "next" ? this.lowerBound(from + 1) : this.lowerBound(from) - 1;
+    let wrapped = false;
+    if (index < 0 || index >= matches) {
+      if (!done || matches === 0) return { row: null, ordinal: null, matches, done, wrapped };
+      wrapped = true;
+      index = dir === "next" ? 0 : matches - 1;
+    }
+    return { row: this.rowAt(index), ordinal: index + 1, matches, done, wrapped };
+  }
+
   // ---------------------------------------------------------------------------------------------
 
   private async run(): Promise<void> {

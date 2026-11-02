@@ -89,6 +89,10 @@ export interface TabInfo {
 /** The tabs merged by an "All" tab, in the order of `Row.source`. */
 export interface MergedInfo {
   sources: { tabId: TabId; label: string }[];
+  /** How far back the tab goes: the last `lines` lines of the busiest source (0 = whole history). */
+  window: { lines: number; complete: boolean };
+  /** The sources are still being merged in the background: `rows` events with `loading` follow. */
+  loading: boolean;
 }
 
 export interface MergedSourceParams {
@@ -110,6 +114,11 @@ export interface OpenMergedParams {
   sources: MergedSourceParams[];
   /** Re-merge an existing "All" tab (other sources): it keeps its id. */
   tabId?: TabId;
+  /**
+   * Lines of the busiest source the tab goes back to (the others start at the same time): 0 = the whole history.
+   * Default: the window of the tab being re-merged, else 200 000.
+   */
+  window?: number;
 }
 
 export interface GetRowsParams {

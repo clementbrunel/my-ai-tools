@@ -97,6 +97,69 @@ describe("the All tab", { timeout: 30_000 }, () => {
     expect((await c.ok("getRows", { tabId: tabA.tabId, first: 0, count: 10 })).rows).toHaveLength(3);
   });
 
+  it("answers with a first page and goes on merging in the background, telling the renderer as it grows", async () => {
+    const dir = await tempDir();
+    const a = join(dir, "a.log");
+    const b = join(dir, "b.log");
+    const lines = 15_000;
+    for (const [path, name] of [[a, "a"], [b, "b"]] as const) writeFileSync(path, Array.from({ length: lines }, (_, i) => line(Math.floor(i / 300), `${name}${i}`)).join(""));
+    const c = connect({ merge: { windowMs: 100 } });
+    const tabA = await c.ok("open", { path: a });
+    const tabB = await c.ok("open", { path: b });
+
+    const info = await c.ok("openMerged", {
+      sources: [
+        { tabId: tabA.tabId, label: "srv1", format: SPRING_BOOT },
+        { tabId: tabB.tabId, label: "srv2", format: SPRING_BOOT },
+      ],
+    });
+    expect(info.totalRows).toBeGreaterThan(0);
+    expect(info.totalRows).toBeLessThan(2 * lines); // the answer did not wait for the whole merge
+    expect(info.merged?.loading).toBe(true); // the renderer shows a loader meanwhile
+
+    await waitFor(() => c.eventsOf(info.tabId).some((e) => e.type === "rows" && e.total === 2 * lines), "the merge to complete");
+    await waitFor(() => c.eventsOf(info.tabId).some((e) => e.type === "rows" && e.loading === false), "the end of the loading");
+    expect(c.eventsOf(info.tabId).some((e) => e.type === "rows" && e.loading === true)).toBe(true);
+    const last = await c.ok("getRows", { tabId: info.tabId, first: 2 * lines - 1, count: 1 });
+    expect(last.total).toBe(2 * lines);
+    expect(last.rows).toHaveLength(1);
+  });
+
+  it("opens on a window of the last lines, keeps it when re-merged, and loads the whole history on demand", async () => {
+    const dir = await tempDir();
+    const a = join(dir, "a.log");
+    const b = join(dir, "b.log");
+    const at = (sec: number, msg: string): string => `2026-10-14 10:${String(Math.floor(sec / 60)).padStart(2, "0")}:${String(sec % 60).padStart(2, "0")}.000  INFO 1 --- [main] c.e.App : ${msg}\n`;
+    // a writes a line per second, b one every ten seconds: 600 s of logs
+    writeFileSync(a, Array.from({ length: 600 }, (_, s) => at(s, `a${s}`)).join(""));
+    writeFileSync(b, Array.from({ length: 60 }, (_, i) => at(i * 10, `b${i * 10}`)).join(""));
+    const c = connect({ merge: { windowMs: 100 } });
+    const tabA = await c.ok("open", { path: a });
+    const tabB = await c.ok("open", { path: b });
+    const sources = [
+      { tabId: tabA.tabId, label: "srv1", format: SPRING_BOOT },
+      { tabId: tabB.tabId, label: "srv2", format: SPRING_BOOT },
+    ];
+
+    const info = await c.ok("openMerged", { sources, window: 100 });
+    expect(info.merged?.window).toEqual({ lines: 100, complete: false });
+    const rows = await c.ok("getRows", { tabId: info.tabId, first: 0, count: 1000 });
+    // a keeps its last 100 lines (s = 500..599); b only what happened from then on (s = 500..590)
+    expect(message(rows.rows[0]!.text)).toBe("a500");
+    expect(rows.total).toBe(100 + 10);
+
+    // re-merging with one source less keeps the window
+    const again = await c.ok("openMerged", { tabId: info.tabId, sources: sources.slice(0, 1) });
+    expect(again.merged?.window).toEqual({ lines: 100, complete: false });
+    expect(again.totalRows).toBe(100);
+
+    // the whole history
+    const all = await c.ok("openMerged", { tabId: info.tabId, sources, window: 0 });
+    expect(all.merged?.window).toEqual({ lines: 0, complete: true });
+    await waitFor(() => c.eventsOf(info.tabId).some((e) => e.type === "rows" && e.total === 660) || all.totalRows === 660, "the whole history");
+    expect((await c.ok("getRows", { tabId: info.tabId, first: 0, count: 1 })).rows[0]!.text).toContain("a0");
+  });
+
   it("can be re-merged with other sources while keeping its id", async () => {
     const dir = await tempDir();
     const a = join(dir, "a.log");

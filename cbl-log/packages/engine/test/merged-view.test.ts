@@ -49,6 +49,29 @@ describe("MergedView", () => {
     expect(await texts(view)).toEqual(["a1", "\tat x.Y", "\tat x.Z", "b2", "\tat q.R", "b3", "a4"]);
   });
 
+  it("merges the same order whatever the chunk size, reading the sources a chunk at a time", async () => {
+    const a = new MemorySource("a");
+    const b = new MemorySource("b");
+    for (let i = 0; i < 300; i++) {
+      a.lines.push(head(i * 3, `a${i}`));
+      if (i % 4 === 0) a.lines.push("\tat cont");
+      b.lines.push(head(i * 2, `b${i}`));
+    }
+    const whole = new MergedView([a, b], { chunkLines: 100_000 });
+    await whole.update(true);
+    const reads: number[] = [];
+    const counting = (s: MemorySource): MergeSource => ({
+      label: s.label,
+      format: s.format,
+      lineCount: () => s.lineCount(),
+      read: (first, count) => (reads.push(count), s.read(first, count)),
+    });
+    const chunked = new MergedView([counting(a), counting(b)], { chunkLines: 7 });
+    await chunked.update(true);
+    expect(Math.max(...reads)).toBeLessThanOrEqual(7); // before texts(): displaying the rows reads them again
+    expect(await texts(chunked)).toEqual(await texts(whole));
+  });
+
   it("maps a row to its (source, line) and back, across checkpoints", async () => {
     const a = new MemorySource("a");
     const b = new MemorySource("b");

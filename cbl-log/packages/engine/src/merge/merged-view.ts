@@ -46,7 +46,9 @@ interface SourceState {
   source: MergeSource;
   /** Next line to read. */
   next: number;
+  /** Records read, oldest first; `head` is the first one not merged yet (a cursor: `shift()` is quadratic on a long queue). */
   queue: Pending[];
+  head: number;
   /** Record being read: closed by the next head line, or once the window has passed. */
   open: Pending | undefined;
   lastTs: number;
@@ -70,7 +72,7 @@ export class MergedView {
   constructor(sources: readonly MergeSource[], options: MergedViewOptions = {}) {
     if (sources.length === 0 || sources.length > MAX_SOURCES) throw new RangeError(`a merge takes 1 to ${MAX_SOURCES} sources`);
     for (const source of sources) if (!source.format.format.timestamp) throw new Error(`${source.label}: its format has no timestamp`);
-    this.states = sources.map((source) => ({ source, next: source.startLine ?? 0, queue: [], open: undefined, lastTs: Number.NEGATIVE_INFINITY, merged: 0, holes: [] }));
+    this.states = sources.map((source) => ({ source, next: source.startLine ?? 0, queue: [], head: 0, open: undefined, lastTs: Number.NEGATIVE_INFINITY, merged: 0, holes: [] }));
     this.windowMs = options.windowMs ?? DEFAULT_WINDOW_MS;
     this.chunk = options.chunkLines ?? DEFAULT_CHUNK_LINES;
     this.now = options.now ?? Date.now;
@@ -92,16 +94,67 @@ export class MergedView {
    * re-ordering window (`settle`: all of them, for the first build of a view over files at rest).
    * Returns the number of rows added.
    */
-  async update(settle = false): Promise<number> {
+  async update(settle = false, maxRows = Number.POSITIVE_INFINITY): Promise<number> {
     const before = this.length;
-    for (let s = 0; s < this.states.length; s++) await this.ingest(s);
-    this.merge(settle);
+    if (settle) {
+      await this.mergeAtRest(maxRows);
+    } else {
+      for (let s = 0; s < this.states.length; s++) await this.ingest(s);
+      this.merge(false);
+    }
     return this.length - before;
+  }
+
+  /**
+   * Merges everything the sources hold now (files at rest): a source is read a chunk at a time, only when its
+   * queue ran dry, so the memory stays at one chunk of records per source instead of one record per line.
+   * It stops after about `maxRows` rows (see `drained`): the next call goes on from there.
+   */
+  private async mergeAtRest(maxRows: number): Promise<void> {
+    const upTo = this.states.map((st) => st.source.lineCount());
+    const stopAt = this.length + maxRows;
+    while (this.length < stopAt) {
+      let best = -1;
+      for (let s = 0; s < this.states.length; s++) {
+        const st = this.states[s]!;
+        while (st.queue.length === st.head && st.next < upTo[s]!) {
+          const read = st.next;
+          await this.ingest(s, this.chunk, upTo[s]!);
+          if (st.next === read) break; // nothing more to read
+        }
+        // an exhausted source closes the record it was reading
+        if (st.queue.length === st.head && st.open) {
+          st.queue.push(st.open);
+          st.open = undefined;
+        }
+        const head = st.queue[st.head];
+        if (head && (best < 0 || head.ts < this.states[best]!.queue[this.states[best]!.head]!.ts)) best = s;
+      }
+      if (best < 0) return;
+      this.take(best);
+    }
+  }
+
+  /** Merges the oldest queued record of a source. The queue is read through a cursor: `shift()` is quadratic on a long one. */
+  private take(s: number): void {
+    const st = this.states[s]!;
+    const record = st.queue[st.head++]!;
+    if (st.head >= 4096 && st.head * 2 >= st.queue.length) {
+      st.queue = st.queue.slice(st.head);
+      st.head = 0;
+    }
+    this.append(s, record.lines);
+    st.merged += record.lines;
+  }
+
+  /** Nothing left to read or merge: every line the sources hold is in the view (or waits for the window). */
+  get drained(): boolean {
+    return this.states.every((st) => st.queue.length === st.head && st.open === undefined && st.next >= st.source.lineCount());
   }
 
   /** Records read but not merged yet: `update()` has more to do once the window has passed. */
   get hasPending(): boolean {
-    return this.states.some((st) => st.queue.length > 0 || st.open !== undefined);
+    return this.states.some((st) => st.queue.length > st.head || st.open !== undefined);
   }
 
   /** (source, line of the source) shown at merged row `row`; undefined past the end. */
@@ -141,19 +194,47 @@ export class MergedView {
 
   /** Rows [first, first+count) with their texts; consecutive lines of one source are read together. */
   async rows(first: number, count: number): Promise<{ row: number; source: number; line: number; text: string }[]> {
+    const start = Math.max(0, first);
+    const end = Math.min(this.length, first + count);
+    if (end <= start) return [];
+    // within a span of rows the lines of each source are consecutive (but for holes): one read per source and
+    // range instead of one per run of rows, which is thousands of reads on interleaved logs
+    const k = this.states.length;
+    const c = Math.floor(start / CHECKPOINT_ROWS);
+    const rel: number[] = Array.from({ length: k }, (_, s) => this.counts[c * k + s]!);
+    for (let r = c * CHECKPOINT_ROWS; r < start; r++) rel[this.srcOf[r]!]!++;
+    const wanted = new Array<number>(k).fill(0);
+    for (let r = start; r < end; r++) wanted[this.srcOf[r]!]!++;
+    const lines: { line: number; text: string }[][] = Array.from({ length: k }, () => []);
+    for (let s = 0; s < k; s++) {
+      const state = this.states[s]!;
+      let runStart = -1;
+      let runLength = 0;
+      const flush = async (): Promise<void> => {
+        if (runLength === 0) return;
+        const texts = await state.source.read(runStart, runLength);
+        for (let i = 0; i < runLength; i++) lines[s]!.push({ line: runStart + i, text: texts[i] ?? "" });
+        runLength = 0;
+      };
+      for (let i = 0; i < wanted[s]!; i++) {
+        const line = lineOf(state, rel[s]! + i);
+        if (runLength > 0 && line === runStart + runLength) runLength++;
+        else {
+          await flush();
+          runStart = line;
+          runLength = 1;
+        }
+      }
+      await flush();
+    }
+    // the view can change while a read is awaited (rows taken out): keep what is still there
     const out: { row: number; source: number; line: number; text: string }[] = [];
-    // the view can change while a read is awaited (rows taken out): stop at what is still there
-    for (let row = Math.max(0, first); row < Math.min(this.length, first + count); ) {
-      const at = this.locate(row);
-      if (!at) break;
-      const end = Math.min(this.length, first + count);
-      let n = 1;
-      // a run of one source stops at a hole: the lines on both sides are not consecutive
-      const hole = this.states[at.source]!.holes.find((h) => h.from > at.line);
-      while (row + n < end && this.srcOf[row + n] === at.source && (!hole || at.line + n < hole.from)) n++;
-      const texts = await this.states[at.source]!.source.read(at.line, n);
-      for (let i = 0; i < n; i++) out.push({ row: row + i, source: at.source, line: at.line + i, text: texts[i] ?? "" });
-      row += n;
+    const taken = new Array<number>(k).fill(0);
+    for (let row = start; row < Math.min(end, this.length); row++) {
+      const s = this.srcOf[row]!;
+      const got = lines[s]![taken[s]!++];
+      if (!got) break;
+      out.push({ row, source: s, line: got.line, text: got.text });
     }
     return out;
   }
@@ -167,7 +248,8 @@ export class MergedView {
     if (!state || to <= from) return 0;
     // records still waiting to be merged that touch the range
     const outside = (r: Pending): boolean => r.first + r.lines <= from || r.first >= to;
-    state.queue = state.queue.filter(outside);
+    state.queue = state.queue.slice(state.head).filter(outside);
+    state.head = 0;
     if (state.open && !outside(state.open)) state.open = undefined;
     const kept = new Uint8Array(this.length);
     let count = 0;
@@ -200,6 +282,7 @@ export class MergedView {
     this.rebuild(kept);
     state.holes = [];
     state.queue = [];
+    state.head = 0;
     state.open = undefined;
     state.merged = 0;
     state.lastTs = Number.NEGATIVE_INFINITY;
@@ -223,13 +306,15 @@ export class MergedView {
 
   // ---------------------------------------------------------------------------------------------
 
-  private async ingest(s: number): Promise<void> {
+  /** Reads the lines of source `s` that are not read yet, at most `maxLines` of them and up to line `upTo`. */
+  private async ingest(s: number, maxLines = Number.POSITIVE_INFINITY, upTo = this.states[s]!.source.lineCount()): Promise<void> {
     const state = this.states[s]!;
     const { source } = state;
     const pattern = source.format.format.timestamp!;
     const inherits = source.format.format.continuation === "not-line";
-    const total = source.lineCount();
-    while (state.next < total) {
+    const total = upTo;
+    const stop = state.next + maxLines;
+    while (state.next < total && state.next < stop) {
       // lines that are gone are not read: jump over the hole, and stop a read at the next one
       const inHole = state.holes.find((h) => state.next >= h.from && state.next < h.to);
       if (inHole) {
@@ -268,16 +353,17 @@ export class MergedView {
     for (;;) {
       let best = -1;
       for (let s = 0; s < this.states.length; s++) {
-        const head = this.states[s]!.queue[0];
-        if (head && (best < 0 || head.ts < this.states[best]!.queue[0]!.ts)) best = s;
+        const st = this.states[s]!;
+        const head = st.queue[st.head];
+        if (head && (best < 0 || head.ts < this.states[best]!.queue[this.states[best]!.head]!.ts)) best = s;
       }
+      const winner = best < 0 ? undefined : this.states[best]!;
+      const first = winner?.queue[winner.head];
       // the oldest known record leaves once it has waited for the window: a slightly older one may still come
-      if (best < 0 || (!settle && this.states[best]!.queue[0]!.arrival > limit)) return;
+      if (!winner || !first || (!settle && first.arrival > limit)) return;
       // same for a record still open elsewhere that is older than the one about to leave
-      if (!settle && this.states.some((st) => st.open && st.open.ts < this.states[best]!.queue[0]!.ts)) return;
-      const record = this.states[best]!.queue.shift()!;
-      this.append(best, record.lines);
-      this.states[best]!.merged += record.lines;
+      if (!settle && this.states.some((st) => st.open && st.open.ts < first.ts)) return;
+      this.take(best);
     }
   }
 

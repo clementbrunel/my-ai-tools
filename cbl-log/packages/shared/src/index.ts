@@ -6,7 +6,8 @@ export type TabId = string;
 
 /** Events pushed by the engine to the renderer (architecture, section 6). */
 export type TabEvent =
-  | { type: "rows"; total: number; appended: number }
+  /** `loading`: the "All" tab is still merging its sources (set on every event of the loading, false on the last). */
+  | { type: "rows"; total: number; appended: number; loading?: boolean }
   | { type: "indexing"; progress: number; provisional: boolean }
   | { type: "rolled"; reason: "rename" | "truncate" | "new-file" | "recreated"; previous?: string; at: number; source?: string }
   | { type: "state"; state: "following" | "missing" | "error" | "stopped" | "waiting"; message?: string }

@@ -48,7 +48,8 @@ import { detectEncoding, isUtf16, looksBinary } from "../source/encoding.js";
 import { SourceError, toSourceError } from "../source/source.js";
 import { FilterSession, type FilterSessionOptions } from "../filter/session.js";
 import { MergedScan, type RowTest } from "../merge/merged-scan.js";
-import { MergedView, type MergedViewOptions } from "../merge/merged-view.js";
+import { windowStarts } from "../merge/merge-window.js";
+import { MergedView, type MergedViewOptions, type MergeSource } from "../merge/merged-view.js";
 import { SearchSession, type SearchSessionOptions } from "../search/session.js";
 import { findArchives, type ArchiveFile, type ArchiveScan } from "../tail/archives.js";
 import { Tailer } from "../tail/tailer.js";
@@ -131,11 +132,20 @@ interface MergedTab {
   timer: NodeJS.Timeout | undefined;
   /** Serializes the updates of the view (one at a time). */
   busy: Promise<void>;
+  /** How far back it goes (lines of the busiest source; 0 = everything), kept for the re-merges. */
+  window: number;
+  /** The sources are still being read for the first time: source events wait, the loading picks the new rows up. */
+  loading: boolean;
   closed: boolean;
 }
 
 /** Delay between a source event and the update of the merged view. */
 const MERGE_TICK_MS = 250;
+/** Rows merged before `openMerged` answers (the first page), then per step of the loading that goes on in the background. */
+const MERGE_FIRST_ROWS = 10_000;
+const MERGE_LOAD_STEP_ROWS = 100_000;
+/** How far back the "All" tab goes by default: the last lines of the busiest source (the others start at the same time). */
+const MERGE_DEFAULT_WINDOW_LINES = 200_000;
 
 type Handler<K extends EngineOp> = (
   params: EngineRequestMap[K]["params"],
@@ -549,7 +559,7 @@ export class EngineService {
     const previous = this.merged.get(tabId);
     if (previous) this.disposeMerged(previous);
     const formats = params.sources.map((s) => compileFormat(s.format));
-    const readers = params.sources.map((source) => {
+    const readers = params.sources.map((source): MergeSource => {
       const tab = this.requireTab(source.tabId);
       return {
         label: source.label,
@@ -561,9 +571,16 @@ export class EngineService {
         },
       };
     });
+    // the tab goes back to a common time, not to the start of the files: opening it must not read them whole
+    const windowLines = params.window ?? previous?.window ?? MERGE_DEFAULT_WINDOW_LINES;
+    const { starts, complete } = await windowStarts(readers, windowLines);
+    readers.forEach((reader, index) => {
+      reader.startLine = starts[index]!;
+    });
     const view = new MergedView(readers, this.mergeOptions);
     const merged: MergedTab = {
       view,
+      window: windowLines,
       sources: params.sources.map((s) => ({ tabId: s.tabId, label: s.label })),
       formats,
       ...(previous?.searchQuery ? { searchQuery: previous.searchQuery } : {}),
@@ -572,11 +589,13 @@ export class EngineService {
       unsubscribe: () => {},
       timer: undefined,
       busy: Promise.resolve(),
+      loading: false,
       closed: false,
     };
     // content that is already gone (a truncation without archive, a purged archive) is never read
     params.sources.forEach((source, index) => this.dropGoneLines(merged, index, source.tabId));
-    await view.update(true);
+    // the answer carries the first page; the rest of the sources is merged in the background (`rows` events)
+    await view.update(true, MERGE_FIRST_ROWS);
     const offs = params.sources.map((source, index) =>
       this.tabs.get(source.tabId)!.tailer.on((event) => {
         if (event.type === "rows") this.scheduleMerge(tabId, merged);
@@ -604,7 +623,7 @@ export class EngineService {
       merged.filter.rebind(view);
     }
     this.merged.set(tabId, merged);
-    return {
+    const info: TabInfo = {
       tabId,
       source: "merged",
       path: "",
@@ -612,8 +631,37 @@ export class EngineService {
       sizeBytes: 0,
       totalRows: view.rowCount,
       lineEnding: "unknown",
-      merged: { sources: merged.sources },
+      merged: { sources: merged.sources, window: { lines: windowLines, complete }, loading: !view.drained },
     };
+    if (!view.drained) this.loadMerged(tabId, merged);
+    return info;
+  }
+
+  /** Merges the rest of the sources a step at a time, telling the renderer as the view grows (the tab is usable meanwhile). */
+  private loadMerged(tabId: TabId, merged: MergedTab): void {
+    merged.loading = true;
+    merged.busy = merged.busy.then(async () => {
+      try {
+        while (!merged.closed && !merged.view.drained) {
+          const appended = await merged.view.update(true, MERGE_LOAD_STEP_ROWS);
+          if (merged.closed) return;
+          if (appended > 0) {
+            this.emitEvent(merged.port, tabId, { type: "rows", total: merged.view.rowCount, appended, loading: true });
+            merged.search?.extend();
+            merged.filter?.extend();
+          }
+          await new Promise<void>((resolve) => setImmediate(resolve)); // lets requests and source events through
+        }
+      } catch {
+        // a source went away meanwhile: the next source event merges what is left
+      } finally {
+        merged.loading = false;
+      }
+      if (merged.closed) return;
+      // the end of the loading, then what the sources gained meanwhile
+      this.emitEvent(merged.port, tabId, { type: "rows", total: merged.view.rowCount, appended: 0, loading: false });
+      this.scheduleMerge(tabId, merged);
+    });
   }
 
   /** Takes out of the view the lines of a source whose content is gone (segments no longer readable). */
@@ -628,7 +676,7 @@ export class EngineService {
   }
 
   private scheduleMerge(tabId: TabId, merged: MergedTab): void {
-    if (merged.timer || merged.closed) return;
+    if (merged.timer || merged.closed || merged.loading) return; // while loading, the loop reads the new rows itself
     merged.timer = setTimeout(() => {
       merged.timer = undefined;
       merged.busy = merged.busy.then(async () => {
@@ -736,20 +784,7 @@ export class EngineService {
   private async mergedSearchNext(merged: MergedTab, params: SearchNextParams): Promise<SearchHit> {
     const scan = merged.search;
     if (!scan || scan.id !== params.searchId) return { row: null, ordinal: null, matches: 0, done: true, wrapped: false };
-    const matches = scan.matches;
-    const done = scan.done;
-    const from = Math.floor(Number(params.fromRow) || 0);
-    let index: number;
-    if (params.dir === "next") index = scan.lowerBound(from + 1);
-    else index = scan.lowerBound(from) - 1;
-    let wrapped = false;
-    if (index < 0 || index >= matches) {
-      // nothing further: go around once the scan is complete
-      if (!done || matches === 0) return { row: null, ordinal: null, matches, done, wrapped: false };
-      wrapped = true;
-      index = params.dir === "next" ? 0 : matches - 1;
-    }
-    return { row: scan.rowAt(index), ordinal: index + 1, matches, done, wrapped };
+    return scan.hit(params.dir, Math.floor(Number(params.fromRow) || 0));
   }
 
   private async mergedLocate(params: MergedLocateParams): Promise<{ row: number | null }> {
