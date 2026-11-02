@@ -10,7 +10,7 @@ utilisateur (pas de noms de branches, de PR ni de tâches internes).
 - **Notes de version dans l'application** : le menu Aide propose « Notes de version… », qui s'ouvre sur la version installée ; les boutons Plus ancienne / Plus récente (ou les flèches ←/→) font défiler l'historique. Les notes sont embarquées : elles restent consultables hors-ligne et après chaque mise à jour.
 - **Mise à jour dans l'application** : l'offre de mise à jour, la progression du téléchargement, les erreurs et le message « à jour » s'affichent dans une fenêtre aux couleurs de l'application, au lieu des boîtes de dialogue Windows.
 - Fenêtres (mise à jour, notes de version, signalement d'un bug, éditeur de règles) et boutons harmonisés : même apparence en thème clair et sombre, fermeture par Échap ou clic à l'extérieur.
-- **Suivi en direct** : fin du scintillement en bas de l'écran quand un log défile vite en mode tail (les nouvelles lignes n'apparaissent plus vides avant d'être remplies). : fin du scintillement en bas de l'écran quand un log défile vite en mode tail (les nouvelles lignes n'apparaissent plus vides avant d'être remplies).
+- **Suivi en direct** : fin du scintillement en bas de l'écran quand un log défile vite en mode tail (les nouvelles lignes n'apparaissent plus vides avant d'être remplies).
 
 ## [3.0.0] — 2026-11-02
 
