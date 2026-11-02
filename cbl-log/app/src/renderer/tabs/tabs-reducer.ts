@@ -17,6 +17,10 @@ export interface SearchState {
 export interface MergedTabState {
   sources: { tabId: TabId; label: string }[];
   hidden: TabId[];
+  /** How far back the tab goes (see `MergedInfo.window`). */
+  window: { lines: number; complete: boolean };
+  /** The sources are still being merged (a loader is shown after a short while). */
+  loading: boolean;
 }
 
 export interface TabState {
@@ -146,6 +150,7 @@ function applyEvent(tab: TabState, isActive: boolean, event: TabEvent, receivedA
         total: event.total,
         unseen: isActive ? 0 : tab.unseen + event.appended,
         indexing: undefined,
+        ...(tab.merged && event.loading !== undefined ? { merged: { ...tab.merged, loading: event.loading } } : {}),
       };
     case "indexing":
       return { ...tab, indexing: event.progress < 1 ? event.progress : undefined };
@@ -176,7 +181,7 @@ export function tabsReducer(state: TabsState, action: TabsAction): TabsState {
         state: "following",
         scrollRow: 0,
         marks: historyMarks(action.info.history),
-        ...(action.info.merged ? { merged: { sources: action.info.merged.sources, hidden: [] } } : {}),
+        ...(action.info.merged ? { merged: { sources: action.info.merged.sources, hidden: [], window: action.info.merged.window, loading: action.info.merged.loading } } : {}),
         clearedBefore: 0,
         filter: defaultFilterSettings(),
         ...(action.encodingChoice ? { encodingChoice: action.encodingChoice } : {}),
@@ -192,7 +197,7 @@ export function tabsReducer(state: TabsState, action: TabsAction): TabsState {
         marks: [],
         unseen: 0,
         scrollRow: 0,
-        ...(action.info.merged ? { merged: { sources: action.info.merged.sources, hidden: tab.merged?.hidden ?? [] } } : {}),
+        ...(action.info.merged ? { merged: { sources: action.info.merged.sources, hidden: tab.merged?.hidden ?? [], window: action.info.merged.window, loading: action.info.merged.loading } } : {}),
       }));
     case "mergedHidden":
       return updateTab(state, action.tabId, (tab) => (tab.merged ? { ...tab, merged: { ...tab.merged, hidden: action.hidden } } : tab));

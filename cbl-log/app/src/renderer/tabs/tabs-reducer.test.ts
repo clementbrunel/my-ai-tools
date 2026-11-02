@@ -219,7 +219,7 @@ describe("tabsReducer", () => {
       sizeBytes: 0,
       totalRows,
       lineEnding: "unknown",
-      merged: { sources: sources.map((s) => ({ tabId: s, label: s })) },
+      merged: { sources: sources.map((s) => ({ tabId: s, label: s })), window: { lines: 200_000, complete: true }, loading: false },
     });
 
     it("opens first with its sources, a fixed name and no file to save", () => {

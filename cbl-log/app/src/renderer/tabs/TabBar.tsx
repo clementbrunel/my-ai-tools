@@ -22,6 +22,74 @@ export function TabBar({ tabs, activeId, onActivate, onClose, onRename, onOpen, 
   const [editing, setEditing] = useState<TabId | undefined>(undefined);
   const cancelled = useRef(false);
 
+  const renderTab = (tab: TabState) => {
+      const { tabId } = tab.info;
+      const path = tabUri(tab);
+      const label = tabLabel(tab);
+      const defaultName = tab.docker?.name ?? path.split(/[\/]/).pop() ?? path;
+      const active = tabId === activeId;
+      return (
+        <div
+          key={tabId}
+          role="tab"
+          aria-selected={active}
+          className={["tab", active && "active", tab.merged && "tab-merged"].filter(Boolean).join(" ")}
+          title={tab.message ? `${path}\n${tab.message}` : path}
+          onDoubleClick={() => setEditing(tabId)}
+          onClick={() => onActivate(tabId)}
+          onAuxClick={(e) => {
+            if (e.button === 1) onClose(tabId);
+          }}
+          onMouseDown={(e) => {
+            if (e.button === 1) e.preventDefault(); // no autoscroll cursor on middle click
+          }}
+        >
+          {tab.state !== "following" && <span className={`dot dot-${tab.state}`} aria-label={tab.state} />}
+          {editing === tabId ? (
+            <input
+              className="tab-rename"
+              autoFocus
+              defaultValue={label}
+              aria-label="Nom de l'onglet"
+              onFocus={(e) => e.currentTarget.select()}
+              onClick={(e) => e.stopPropagation()}
+              onDoubleClick={(e) => e.stopPropagation()}
+              onBlur={(e) => {
+                const name = e.currentTarget.value.trim();
+                if (!cancelled.current) onRename(tabId, name === defaultName ? "" : name);
+                cancelled.current = false;
+                setEditing(undefined);
+              }}
+              onKeyDown={(e) => {
+                e.stopPropagation();
+                if (e.key === "Enter") e.currentTarget.blur();
+                else if (e.key === "Escape") {
+                  cancelled.current = true;
+                  setEditing(undefined);
+                }
+              }}
+            />
+          ) : (
+            <span className="tab-name">
+              {tab.docker && <WhaleIcon />} {label}
+            </span>
+          )}
+          {!active && tab.unseen > 0 && <span className="badge">{tab.unseen > 999 ? "999+" : tab.unseen}</span>}
+          <button
+            type="button"
+            className="tab-close"
+            aria-label="Fermer l'onglet"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClose(tabId);
+            }}
+          >
+            ×
+          </button>
+        </div>
+      );
+  };
+
   return (
     <nav className="tabs" role="tablist">
       {docker && (
@@ -29,81 +97,16 @@ export function TabBar({ tabs, activeId, onActivate, onClose, onRename, onOpen, 
           <WhaleIcon />
         </button>
       )}
-      {tabs.map((tab) => {
-        const { tabId } = tab.info;
-        const path = tabUri(tab);
-        const label = tabLabel(tab);
-        const defaultName = tab.docker?.name ?? path.split(/[\/]/).pop() ?? path;
-        const active = tabId === activeId;
-        return (
-          <div
-            key={tabId}
-            role="tab"
-            aria-selected={active}
-            className={active ? "tab active" : "tab"}
-            title={tab.message ? `${path}\n${tab.message}` : path}
-            onDoubleClick={() => setEditing(tabId)}
-            onClick={() => onActivate(tabId)}
-            onAuxClick={(e) => {
-              if (e.button === 1) onClose(tabId);
-            }}
-            onMouseDown={(e) => {
-              if (e.button === 1) e.preventDefault(); // no autoscroll cursor on middle click
-            }}
-          >
-            {tab.state !== "following" && <span className={`dot dot-${tab.state}`} aria-label={tab.state} />}
-            {editing === tabId ? (
-              <input
-                className="tab-rename"
-                autoFocus
-                defaultValue={label}
-                aria-label="Nom de l'onglet"
-                onFocus={(e) => e.currentTarget.select()}
-                onClick={(e) => e.stopPropagation()}
-                onDoubleClick={(e) => e.stopPropagation()}
-                onBlur={(e) => {
-                  const name = e.currentTarget.value.trim();
-                  if (!cancelled.current) onRename(tabId, name === defaultName ? "" : name);
-                  cancelled.current = false;
-                  setEditing(undefined);
-                }}
-                onKeyDown={(e) => {
-                  e.stopPropagation();
-                  if (e.key === "Enter") e.currentTarget.blur();
-                  else if (e.key === "Escape") {
-                    cancelled.current = true;
-                    setEditing(undefined);
-                  }
-                }}
-              />
-            ) : (
-              <span className="tab-name">
-                {tab.docker && <WhaleIcon />} {label}
-              </span>
-            )}
-            {!active && tab.unseen > 0 && <span className="badge">{tab.unseen > 999 ? "999+" : tab.unseen}</span>}
-            <button
-              type="button"
-              className="tab-close"
-              aria-label="Fermer l'onglet"
-              onClick={(e) => {
-                e.stopPropagation();
-                onClose(tabId);
-              }}
-            >
-              ×
-            </button>
-          </div>
-        );
-      })}
+      {tabs.filter((tab) => !tab.merged).map(renderTab)}
+      <button type="button" className="tab-add" onClick={onOpen} title="Ouvrir un fichier (Ctrl+O)" aria-label="Ouvrir un fichier">
+        +
+      </button>
+      {tabs.filter((tab) => tab.merged).map(renderTab)}
       {onOpenAll && (
         <button type="button" className="tab-all" onClick={onOpenAll} title="Onglet « Tout » : les fichiers ouverts entrelacés par horodatage" aria-label="Ouvrir l'onglet Tout">
           Tout
         </button>
       )}
-      <button type="button" className="tab-add" onClick={onOpen} title="Ouvrir un fichier (Ctrl+O)" aria-label="Ouvrir un fichier">
-        +
-      </button>
     </nav>
   );
 }

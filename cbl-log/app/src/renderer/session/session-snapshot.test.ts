@@ -32,7 +32,7 @@ describe("buildSession", () => {
   });
 
   it("does not save the All tab", () => {
-    const all: TabInfo = { ...info("all"), source: "merged", path: "", merged: { sources: [{ tabId: "a", label: "a" }] } };
+    const all: TabInfo = { ...info("all"), source: "merged", path: "", merged: { sources: [{ tabId: "a", label: "a" }], window: { lines: 200_000, complete: true }, loading: false } };
     const s = run({ type: "opened", info: info("a") }, { type: "opened", info: all, index: 0 });
     expect(s.activeId).toBe("all");
     expect(buildSession(s.tabs, "all", 0)).toEqual({ schemaVersion: 1, tabs: [expect.objectContaining({ path: "C:/logs/a.log" })] });

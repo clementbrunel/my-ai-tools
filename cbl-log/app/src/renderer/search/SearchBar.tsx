@@ -134,6 +134,7 @@ export function SearchBar({ tabId, initial, status, focusRequest, onQuery, onNex
             }}
           />
           <span className={invalid || (!typing && status?.error) ? "search-count error" : "search-count"} role="status">
+            {!invalid && fields.pattern !== "" && !status?.error && (typing || !status?.done) && <span className="spinner" aria-hidden="true" />}
             {typing && !invalid ? "…" : describeSearch({ pattern: fields.pattern, invalid, status, ordinal: current?.ordinal ?? null })}
           </span>
           <button type="button" className={fields.isRegex ? "opt on" : "opt"} aria-pressed={fields.isRegex} onClick={() => update({ isRegex: !fields.isRegex })} title="Expression régulière">

@@ -55,30 +55,33 @@ interface Props {
   onToggleFilterView(): void;
   /** Lines shown by the filter in force (undefined = no filter). */
   filterShown?: { matches: number; done: boolean } | undefined;
-  /** Docker tab: status text ("Docker · running depuis 10:02") and the "load more history" action. */
-  docker?: { status: string; loading: boolean; onLoadMore(): void } | undefined;
+  /** Docker and "All" tabs, which have no file of their own: status text, and the "load more history" action (when there is more). */
+  history?: { status: string; title: string; moreTitle: string; loading: boolean; onLoadMore?: (() => void) | undefined } | undefined;
 }
 
 
-export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules, dark, onToggleTheme, formatName, profiles, profileChoice, autoProfileName, onProfileChange, onEncodingChange, canFoldTraces, onFilterChange, filterSuspended, hasFilter, onToggleFilterView, pendingLines, onTogglePause, filterShown, docker }: Props) {
+export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules, dark, onToggleTheme, formatName, profiles, profileChoice, autoProfileName, onProfileChange, onEncodingChange, canFoldTraces, onFilterChange, filterSuspended, hasFilter, onToggleFilterView, pendingLines, onTogglePause, filterShown, history }: Props) {
   const full = filterSuspended || !hasFilter;
   return (
     <footer className="statusbar">
       <span className="line-count" title="Lignes affichées sur le total">
+        {filterShown && !filterShown.done && <span className="spinner" aria-hidden="true" />}
         {filterShown ? `${describeFilterCount(filterShown.matches, tab.total)}${filterShown.done ? "" : "…"}` : `${tab.total.toLocaleString("fr-FR")} lignes`}
       </span>
       <span className="status-sep" aria-hidden="true" />
       <span className="status-meta">
         {formatBytes(tab.info.sizeBytes)} · <span title="Format de log détecté">{formatName ?? "brut"}</span>
       </span>
-      {docker ? (
+      {history ? (
         <span className="status-file docker-file">
-          <span className="status-path docker-status" title={`${tab.docker?.context}/${tab.docker?.name}\nCopie locale : ${tab.info.path}`}>
-            {docker.status}
+          <span className="status-path docker-status" title={history.title}>
+            {history.status}
           </span>
-          <button type="button" disabled={docker.loading} onClick={docker.onLoadMore} title="Remonter plus loin dans l'historique du conteneur (×10 ; la copie locale est reconstruite)">
-            {docker.loading ? "Chargement…" : "Charger plus d'historique"}
-          </button>
+          {history.onLoadMore && (
+            <button type="button" disabled={history.loading} onClick={history.onLoadMore} title={history.moreTitle}>
+              {history.loading ? "Chargement…" : "Charger plus d'historique"}
+            </button>
+          )}
         </span>
       ) : (
       <span className="status-file">
@@ -105,7 +108,7 @@ export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules
       </span>
       )}
       {tab.indexing !== undefined && <span>Indexation {Math.round(tab.indexing * 100)} %</span>}
-      {!docker && tab.state !== "following" && <span className={`state-${tab.state}`}>{tab.state === "missing" ? "Fichier introuvable" : tab.message ?? "Erreur"}</span>}
+      {!tab.docker && !tab.merged && tab.state !== "following" && <span className={`state-${tab.state}`}>{tab.state === "missing" ? "Fichier introuvable" : tab.message ?? "Erreur"}</span>}
       {tab.clearedBefore > 0 && (
         <button type="button" className="icon-btn cleared" onClick={onUnclear} title={`${tab.clearedBefore.toLocaleString("fr-FR")} ligne(s) masquée(s) — cliquer pour tout réafficher`} aria-label="Réafficher les lignes masquées">
           <TrashIcon /> {tab.clearedBefore.toLocaleString("fr-FR")} ✕

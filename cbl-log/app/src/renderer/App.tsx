@@ -64,6 +64,8 @@ interface TabRuntime {
 }
 
 const LEVELS_COUNT = 6;
+/** Past this many lines of the busiest source, "Charger plus d'historique" of the "All" tab loads the whole history. */
+const MERGE_WINDOW_MAX_LINES = 5_000_000;
 const NO_MARKS: never[] = [];
 
 /** Identifies what the viewport shows: a tab's file, or its filtered view (its remount key). */
@@ -889,11 +891,12 @@ export function App() {
   const remerging = useRef(false);
   const mergeFailedKey = useRef("");
   const applyMerge = useCallback(
-    async (wanted: { tab: TabState; format: LogFormat }[], existingId?: TabId) => {
+    async (wanted: { tab: TabState; format: LogFormat }[], existingId?: TabId, window?: number) => {
       const engine = await withEngine();
       const info = await engine.request("openMerged", {
         sources: wanted.map(({ tab, format }) => ({ tabId: tab.info.tabId, label: tabLabel(tab), format })),
         ...(existingId ? { tabId: existingId } : {}),
+        ...(window !== undefined ? { window } : {}), // otherwise: the window the tab already has
       });
       runtimes.current.get(info.tabId)?.cache.clear();
       const cache = new PageCache(async (first, count) => (await engine.request("getRows", { tabId: info.tabId, first, count })).rows);
@@ -937,6 +940,30 @@ export function App() {
         setMergeVersion((v) => v + 1);
       });
   }, [mergedTab, mergeCandidates, mergeVersion, applyMerge, closeTab]);
+  /** "Load more history" of the "All" tab: the sources are merged again from further back (×10, then everything). */
+  const loadMoreMerged = useCallback(async () => {
+    if (!mergedTab?.merged || remerging.current) return;
+    const tabId = mergedTab.info.tabId;
+    const hidden = new Set(mergedTab.merged.hidden);
+    const wanted = mergeCandidates.flatMap((c) => (c.format && !hidden.has(c.tab.info.tabId) ? [{ tab: c.tab, format: c.format }] : []));
+    if (wanted.length === 0) return;
+    const bigger = mergedTab.merged.window.lines * 10;
+    remerging.current = true;
+    setLoadingMore((s) => new Set(s).add(tabId));
+    try {
+      await applyMerge(wanted, tabId, bigger > MERGE_WINDOW_MAX_LINES ? 0 : bigger);
+    } catch (err) {
+      setNotice({ text: `Historique : ${err instanceof Error ? err.message : String(err)}`, isError: true });
+    } finally {
+      remerging.current = false;
+      setMergeVersion((v) => v + 1);
+      setLoadingMore((s) => {
+        const next = new Set(s);
+        next.delete(tabId);
+        return next;
+      });
+    }
+  }, [mergedTab, mergeCandidates, applyMerge]);
   const toggleMergedSource = useCallback(
     (tabId: TabId) => {
       if (!mergedTab?.merged) return;
@@ -1122,9 +1149,16 @@ export function App() {
     <div className="app">
       {Object.entries(opening).map(([id, o]) => (
         <div key={id} className="toast info opening" role="status">
+          <span className="spinner" aria-hidden="true" />
           Ouverture de {o.name}… {Math.round(o.progress * 100)} %
         </div>
       ))}
+      {active?.merged?.loading && (
+        <div className="toast info opening" role="status">
+          <span className="spinner" aria-hidden="true" />
+          Fusion des fichiers de l'onglet Tout… {active.total.toLocaleString("fr-FR")} lignes
+        </div>
+      )}
       {notice && (
         <div className={notice.isError ? "toast" : "toast info"} role="alert" onClick={() => setNotice(undefined)}>
           {notice.text}
@@ -1283,14 +1317,24 @@ export function App() {
             filterSuspended={!!active.filterSuspended}
             hasFilter={toLineFilter(active.filter, !!activeFormat, activeFormat?.format.continuation === "not-line") !== null}
             onToggleFilterView={toggleFilterView}
-            docker={
+            history={
               active.docker
                 ? {
                     status: dockerStatusText(active.state, dockerList?.containers.find((c) => c.name === active.docker?.name)),
+                    title: `${active.docker.context}/${active.docker.name}\nCopie locale : ${active.info.path}`,
+                    moreTitle: "Remonter plus loin dans l'historique du conteneur (×10 ; la copie locale est reconstruite)",
                     loading: loadingMore.has(active.info.tabId),
                     onLoadMore: () => void loadMoreHistory(active.info.tabId),
                   }
-                : undefined
+                : active.merged
+                  ? {
+                      status: active.merged.window.complete ? "Tout l'historique des fichiers" : `Fenêtre : ${active.merged.window.lines.toLocaleString("fr-FR")} dernières lignes du fichier le plus actif`,
+                      title: "L'onglet Tout démarre à une heure commune à tous les fichiers, pour ne pas les lire en entier",
+                      moreTitle: "Remonter plus loin dans l'historique (×10, puis tout) : les fichiers sont fusionnés à nouveau",
+                      loading: loadingMore.has(active.info.tabId),
+                      ...(active.merged.window.complete ? {} : { onLoadMore: () => void loadMoreMerged() }),
+                    }
+                  : undefined
             }
             filterShown={filtered && filterProgress ? { matches: filterProgress.matches, done: filterProgress.done } : undefined}
           />
