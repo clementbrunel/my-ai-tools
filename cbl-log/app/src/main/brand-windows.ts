@@ -4,6 +4,8 @@
 // Self-contained HTML (data URLs), the avatar being inlined from resources/avatar.png.
 import { readFileSync } from "node:fs";
 import { BrowserWindow, nativeTheme, shell } from "electron";
+import changelog from "../../../CHANGELOG.md?raw";
+import { parseChangelog, releaseNotesHtml } from "./release-notes";
 import { aboutHtml, AUTHOR_URL, REPO_URL, splashHtml, themeColors } from "./brand-pages";
 
 let avatarCache: string | undefined;
@@ -84,4 +86,33 @@ export function showAbout(parent: BrowserWindow | undefined, version: string, ic
     if (aboutWindow === win) aboutWindow = undefined;
   });
   void win.loadURL(pageUrl(aboutHtml(version, dark, avatarDataUrl(avatar))));
+}
+
+let notesWindow: BrowserWindow | undefined;
+
+/** "Notes de version": CHANGELOG.md is bundled in the app, so the notes remain available after every update. */
+export function showReleaseNotes(parent: BrowserWindow | undefined, version: string, icon: string): void {
+  notesWindow?.destroy();
+  const dark = nativeTheme.shouldUseDarkColors;
+  const win = new BrowserWindow({
+    parent,
+    width: 640,
+    height: 560,
+    minimizable: false,
+    fullscreenable: false,
+    title: "Notes de version",
+    show: false,
+    icon,
+    backgroundColor: themeColors(dark).bg,
+    webPreferences: secure,
+  });
+  notesWindow = win;
+  win.removeMenu();
+  win.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  win.webContents.on("will-navigate", (event) => event.preventDefault());
+  win.once("ready-to-show", () => win.show());
+  win.on("closed", () => {
+    if (notesWindow === win) notesWindow = undefined;
+  });
+  void win.loadURL(pageUrl(releaseNotesHtml(parseChangelog(changelog), version, dark)));
 }

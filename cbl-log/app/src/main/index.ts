@@ -12,7 +12,7 @@ import { buildIssueUrl, checkFlood, envLines, feedbackKey, validateDraft, withSe
 import { loadFeedbackHistory, saveFeedbackHistory } from "./feedback-store";
 import { loadRecent, saveRecent, withoutRecentFile, withRecentFile } from "./recent-store";
 import { exportRuleSet, loadRuleSets, readRuleSetFile, saveRuleSet } from "./rules-store";
-import { showAbout, showSplash } from "./brand-windows";
+import { showAbout, showReleaseNotes, showSplash } from "./brand-windows";
 import { checkForUpdates } from "./updater";
 
 // Settings live in %APPDATA%/cbl-log (architecture, section 8), not under the package name.
@@ -142,6 +142,8 @@ function buildMenu(): void {
         submenu: [
           { label: "Rechercher une &mise à jour…", click: () => void checkForUpdates(mainWindow, true) },
           { label: "&Signaler un bug / proposer une idée…", click: () => mainWindow?.webContents.send("feedback:open") },
+          { type: "separator" },
+          { label: "&Notes de version…", click: () => showReleaseNotes(mainWindow, app.getVersion(), iconPath()) },
           { type: "separator" },
           { label: "À &propos de cbl-log", click: () => showAbout(mainWindow, app.getVersion(), iconPath(), avatarPath()) },
         ],
