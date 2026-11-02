@@ -113,6 +113,10 @@ export function useGenerationSession() {
         }
       } catch (e) {
         console.error('Échec de la restauration de la session', storedSessionId, e)
+        // The server does not know this session (database reset, id from another environment): forget it, or the
+        // stale id stays in localStorage and the header, with nothing to clear it ("Nouvelle session" only shows
+        // once a document is loaded).
+        if ((e as { status?: number }).status === 404 && !cancelled) setSessionId(null)
       } finally {
         if (!cancelled) setRestoring(false)
       }

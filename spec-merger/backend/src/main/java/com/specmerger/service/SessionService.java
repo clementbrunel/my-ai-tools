@@ -90,10 +90,10 @@ public class SessionService {
     /** A null or unknown id is always a caller mistake here — an existing session is required. */
     private Session requireExisting(UUID sessionId) {
         if (sessionId == null) {
-            throw new IllegalArgumentException("Session introuvable: null");
+            throw new SessionNotFoundException("Session introuvable: null");
         }
         return sessionRepository.findById(sessionId)
-                .orElseThrow(() -> new IllegalArgumentException("Session introuvable: " + sessionId));
+                .orElseThrow(() -> new SessionNotFoundException("Session introuvable: " + sessionId));
     }
 
     /**

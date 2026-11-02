@@ -12,6 +12,8 @@ client.interceptors.response.use(
       axios.isAxiosError(error) && typeof error.response?.data?.message === 'string'
         ? error.response.data.message
         : undefined
-    return Promise.reject(message ? new Error(message) : error)
+    if (!message) return Promise.reject(error)
+    // Keeps the HTTP status next to the message, for callers that react to a specific one (e.g. 404)
+    return Promise.reject(Object.assign(new Error(message), { status: error.response?.status as number | undefined }))
   },
 )

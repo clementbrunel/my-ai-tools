@@ -92,6 +92,31 @@ describe('useGenerationSession', () => {
     consoleErrorSpy.mockRestore()
   })
 
+  it('forgets a stored session id that the server does not know (404)', async () => {
+    localStorage.setItem(STORAGE_KEY, 'gone')
+    getSessionMock.mockRejectedValue(Object.assign(new Error('Session introuvable: gone'), { status: 404 }))
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const { result } = renderHook(() => useGenerationSession())
+    await waitFor(() => expect(result.current.restoring).toBe(false))
+
+    expect(result.current.sessionId).toBeNull()
+    expect(localStorage.getItem(STORAGE_KEY)).toBeNull()
+    consoleErrorSpy.mockRestore()
+  })
+
+  it('keeps the stored session id when the failure is not a 404 (server down, not logged in)', async () => {
+    localStorage.setItem(STORAGE_KEY, 'kept')
+    getSessionMock.mockRejectedValue(Object.assign(new Error('Service Unavailable'), { status: 503 }))
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const { result } = renderHook(() => useGenerationSession())
+    await waitFor(() => expect(result.current.restoring).toBe(false))
+
+    expect(result.current.sessionId).toBe('kept')
+    consoleErrorSpy.mockRestore()
+  })
+
   it('tracks the session id returned by a generation, and persists it to localStorage', () => {
     const { result } = renderHook(() => useGenerationSession())
 
