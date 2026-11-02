@@ -91,16 +91,16 @@ export function showAbout(parent: BrowserWindow | undefined, version: string, ic
 let notesWindow: BrowserWindow | undefined;
 
 /** "Notes de version": CHANGELOG.md is bundled in the app, so the notes remain available after every update. */
-export function showReleaseNotes(parent: BrowserWindow | undefined, version: string, icon: string, onlyCurrent: boolean): void {
+export function showReleaseNotes(parent: BrowserWindow | undefined, version: string, icon: string): void {
   notesWindow?.destroy();
   const dark = nativeTheme.shouldUseDarkColors;
   const win = new BrowserWindow({
     parent,
     width: 640,
-    height: onlyCurrent ? 460 : 640,
+    height: 560,
     minimizable: false,
     fullscreenable: false,
-    title: onlyCurrent ? `Nouveautés de la version ${version}` : "Historique des versions",
+    title: "Notes de version",
     show: false,
     icon,
     backgroundColor: themeColors(dark).bg,
@@ -114,5 +114,5 @@ export function showReleaseNotes(parent: BrowserWindow | undefined, version: str
   win.on("closed", () => {
     if (notesWindow === win) notesWindow = undefined;
   });
-  void win.loadURL(pageUrl(releaseNotesHtml(parseChangelog(changelog), version, dark, onlyCurrent)));
+  void win.loadURL(pageUrl(releaseNotesHtml(parseChangelog(changelog), version, dark)));
 }
