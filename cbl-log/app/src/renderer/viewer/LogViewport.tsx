@@ -5,7 +5,9 @@ import { computeRowLevels } from "../formats/row-levels";
 import type { HighlightResult } from "../highlight/highlight";
 import type { PageCache } from "./page-cache";
 import { marksByRow, rollMarkLabel, type RollMark } from "./roll-mark";
-import { formatRows, isSelected, MAX_COPY_ROWS, selectionRange, selectionSize, type Selection } from "./selection";
+import { ContextMenu, type MenuItem } from "./ContextMenu";
+import { formatRows, MAX_COPY_ROWS } from "./selection";
+import { hasTextSelection, selectionAt, selectRange, wordAt, type TextTarget } from "./text-target";
 import { isAtBottom, isScaled, contentHeight, ROW_HEIGHT, rowToScrollTop, scrollTopToRow, visibleRange } from "./viewport-math";
 
 // Rows rendered beyond the viewport on each side: the window scrolls natively with the content, so a
@@ -39,8 +41,14 @@ interface Props {
   currentMatchRow?: number | undefined;
   /** Line number the user asked to see in context (outlined). */
   anchorLine?: number | undefined;
-  /** Filtered view: double-click on a line (to show it among the others). */
+  /** Double-click on the gutter of a line / "context" entry of its menu (e.g. filtered view: show it among the others). */
   onRowDoubleClick?: ((row: Row) => void) | undefined;
+  /** Label of that action in the right-click menu. */
+  rowActionLabel?: string | undefined;
+  /** Right-click menu: search this text (the search bar takes it, literally). */
+  onSearchText?: ((text: string) => void) | undefined;
+  /** Right-click menu: add this text to the include / exclude list of the filter. */
+  onFilterText?: ((list: "include" | "exclude", text: string) => void) | undefined;
   /** Filtered view: go to a line number of the file (the view finds where it falls). */
   onGotoLine?: ((line: number) => void) | undefined;
   /** "Go to" accepts a time too when the format has timestamps: resolves to the 1-based line of the file. */
@@ -62,7 +70,7 @@ interface Props {
 }
 
 /** Virtualized, fixed-height-row view of a tab's lines. Follow mode keeps the end in view. */
-export function LogViewport({ cache, total: realTotal, base, marks, format, filtered = false, highlight, follow, reveal, currentMatchRow, anchorLine, onRowDoubleClick, onGotoLine, onGotoTime, sources, fileRows, viewRowRef, initialRow, onFollowChange, onLeave, fetchRows, onNotice }: Props) {
+export function LogViewport({ cache, total: realTotal, base, marks, format, filtered = false, highlight, follow, reveal, currentMatchRow, anchorLine, onRowDoubleClick, rowActionLabel, onSearchText, onFilterText, onGotoLine, onGotoTime, sources, fileRows, viewRowRef, initialRow, onFollowChange, onLeave, fetchRows, onNotice }: Props) {
   // Following a growing file: show only the rows the cache can already give. The new lines are being
   // fetched; rendering them now would paint blank rows at the bottom that fill in a moment later.
   const shownTotal = follow ? cache.readableEnd(realTotal) : realTotal;
@@ -71,7 +79,9 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, filt
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);
   const [gotoOpen, setGotoOpen] = useState(false);
-  const [selection, setSelection] = useState<Selection | undefined>();
+  /** Ctrl+A: every row of the view is selected (for copying; text selection itself is the browser's). */
+  const [allSelected, setAllSelected] = useState(false);
+  const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | undefined>();
   /** Bumped on every cache change, so that pages the cache dropped (invalidated in flight) are asked again. */
   const [cacheVersion, rerender] = useReducer((n: number) => n + 1, 0);
   /** Real scroll position, updated on every scroll event (the `scrollTop` state only moves when the window must). */
@@ -80,8 +90,8 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, filt
   /** The user scrolled away from the bottom; follow mode must not pull the view back before React catches up. */
   const userUnpinned = useRef(false);
   const wasFollowing = useRef(follow);
-  const latest = useRef({ viewportHeight: 0, total, follow, initialRow, selection, base, realTotal, filtered });
-  latest.current = { viewportHeight, total, follow, initialRow, selection, base, realTotal, filtered };
+  const latest = useRef({ viewportHeight: 0, total, follow, initialRow, allSelected, base, realTotal, filtered });
+  latest.current = { viewportHeight, total, follow, initialRow, allSelected, base, realTotal, filtered };
 
   /** Re-render the window around `top` (programmatic scrolls, and native scrolls that cross a row). */
   const commitScroll = useCallback((top: number) => {
@@ -91,7 +101,6 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, filt
     setScrollTop(top);
   }, []);
   const restored = useRef(false);
-  const dragging = useRef(false);
   const markAt = useMemo(() => marksByRow(marks), [marks]);
 
   useEffect(() => cache.subscribe(rerender), [cache]);
@@ -116,7 +125,7 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, filt
   );
 
   // "Clear" moves the origin: the old selection no longer means anything.
-  useEffect(() => setSelection(undefined), [base]);
+  useEffect(() => setAllSelected(false), [base]);
 
   const range = visibleRange(scrollTop, viewportHeight, total, OVERSCAN);
   const levels = filtered
@@ -151,8 +160,11 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, filt
     wasFollowing.current = follow;
     if (follow && (justEnabled || !userUnpinned.current)) {
       userUnpinned.current = false;
-      el.scrollTop = el.scrollHeight - el.clientHeight;
-      commitScroll(el.scrollTop);
+      // text being selected (or aimed by the menu) must not be scrolled away by incoming lines
+      if (!hasTextSelection(el)) {
+        el.scrollTop = el.scrollHeight - el.clientHeight;
+        commitScroll(el.scrollTop);
+      }
     } else if (!follow && !restored.current) {
       el.scrollTop = rowToScrollTop(latest.current.initialRow, viewportHeight, total);
       commitScroll(el.scrollTop);
@@ -188,19 +200,20 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, filt
     el.scrollTop = el.scrollHeight - el.clientHeight;
   }, [onFollowChange]);
 
-  const copySelection = useCallback(
+  /** Copies every row of the view (Ctrl+A then Ctrl+C); partial copies are the browser's own text selection. */
+  const copyAll = useCallback(
     async (withLineNumbers: boolean) => {
-      const current = latest.current.selection;
-      if (!current) return;
-      if (selectionSize(current) > MAX_COPY_ROWS) {
+      const { base: first, realTotal: end } = latest.current;
+      const count = end - first;
+      if (count <= 0) return;
+      if (count > MAX_COPY_ROWS) {
         onNotice(`Sélection trop grande pour la copie (max ${MAX_COPY_ROWS.toLocaleString("fr-FR")} lignes).`, true);
         return;
       }
-      const { first, last } = selectionRange(current);
       try {
         const rows: Row[] = [];
-        for (let from = first; from <= last; from += COPY_CHUNK) {
-          rows.push(...(await fetchRows(from, Math.min(COPY_CHUNK, last - from + 1))));
+        for (let from = first; from < end; from += COPY_CHUNK) {
+          rows.push(...(await fetchRows(from, Math.min(COPY_CHUNK, end - from))));
         }
         await navigator.clipboard.writeText(formatRows(rows, withLineNumbers));
         onNotice(`${rows.length.toLocaleString("fr-FR")} ligne(s) copiée(s)${withLineNumbers ? " avec numéros" : ""}.`);
@@ -226,27 +239,52 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, filt
       } else if (e.ctrlKey && e.key.toLowerCase() === "g") {
         e.preventDefault();
         setGotoOpen(true);
-      } else if (e.ctrlKey && e.key.toLowerCase() === "c" && !inInput && latest.current.selection) {
+      } else if (e.ctrlKey && e.key.toLowerCase() === "c" && !inInput && latest.current.allSelected) {
         e.preventDefault();
-        void copySelection(e.shiftKey);
+        void copyAll(e.shiftKey);
       } else if (e.ctrlKey && e.key.toLowerCase() === "a" && !inInput) {
         e.preventDefault();
         const { base: origin, realTotal: end } = latest.current;
-        if (end > origin) setSelection({ anchor: origin, head: end - 1 });
+        window.getSelection()?.removeAllRanges();
+        if (end > origin) setAllSelected(true);
       } else if (e.key === "Escape" && !inInput) {
-        setSelection(undefined);
+        setAllSelected(false);
       }
     };
-    const onMouseUp = (): void => {
-      dragging.current = false;
-    };
     window.addEventListener("keydown", onKey);
-    window.addEventListener("mouseup", onMouseUp);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      window.removeEventListener("mouseup", onMouseUp);
-    };
-  }, [scrollToEnd, scrollToRow, copySelection]);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [scrollToEnd, scrollToRow, copyAll]);
+
+  const closeMenu = useCallback(() => setMenu(undefined), []);
+  /** Right-click: aim at the text selection or the word under the pointer (highlighted), and offer what to do with it. */
+  const onContextMenu = (e: React.MouseEvent): void => {
+    const rowEl = (e.target as Element).closest<HTMLElement>(".log-row");
+    if (!rowEl) return;
+    e.preventDefault();
+    const scroller = scrollerRef.current;
+    let target: TextTarget | undefined = scroller ? selectionAt(e.clientX, e.clientY, scroller) : undefined;
+    if (!target) {
+      target = wordAt(e.clientX, e.clientY);
+      if (target) selectRange(target.range);
+    }
+    const row = cache.getRow(Number(rowEl.dataset.row));
+    const items: MenuItem[] = [];
+    if (target) {
+      const { text, multiline } = target;
+      const oneLine = multiline ? "Réservé à une sélection sur une seule ligne" : undefined;
+      items.push({ label: "Copier", onSelect: () => void navigator.clipboard.writeText(text).catch(() => onNotice("Copie impossible.", true)) });
+      if (onSearchText) items.push({ label: "Rechercher", disabled: multiline, title: oneLine, onSelect: () => onSearchText(text) });
+      if (onFilterText) {
+        items.push({ label: "Inclure dans le filtre", disabled: multiline, title: oneLine, onSelect: () => onFilterText("include", text) });
+        items.push({ label: "Exclure du filtre", disabled: multiline, title: oneLine, onSelect: () => onFilterText("exclude", text) });
+      }
+    }
+    if (row && onRowDoubleClick) {
+      if (items.length > 0) items.push("separator");
+      items.push({ label: rowActionLabel ?? "Voir la ligne dans son contexte", onSelect: () => onRowDoubleClick(row) });
+    }
+    if (items.length > 0) setMenu({ x: e.clientX, y: e.clientY, items });
+  };
 
   const rows = [];
   for (let i = range.first; i < range.first + range.count; i++) {
@@ -256,7 +294,7 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, filt
     const colored = row ? highlight(row.text) : undefined;
     const classes = ["log-row"];
     if (mark) classes.push("roll-start");
-    if (isSelected(selection, lineRow)) classes.push("selected");
+    if (allSelected) classes.push("selected");
     const lineNo = filtered ? row?.lineNo : lineRow;
     // a row not loaded yet has no line number: it must not pass for an absent match / anchor
     if (lineNo !== undefined && lineNo === currentMatchRow) classes.push("current-match");
@@ -267,24 +305,17 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, filt
       <div
         className={classes.join(" ")}
         key={lineRow}
+        data-row={lineRow}
         style={{
           height: ROW_HEIGHT,
           ...(colored?.lineBg ? { backgroundColor: colored.lineBg } : {}),
           ...(colored?.lineFg ? { color: colored.lineFg } : {}),
         }}
-        onMouseDown={(e) => {
-          if (e.button !== 0) return;
-          dragging.current = true;
-          setSelection((prev) => (e.shiftKey && prev ? { anchor: prev.anchor, head: lineRow } : { anchor: lineRow, head: lineRow }));
-        }}
-        onDoubleClick={() => {
-          if (row && onRowDoubleClick) onRowDoubleClick(row);
-        }}
-        onMouseEnter={(e) => {
-          if (dragging.current && e.buttons === 1) setSelection((prev) => (prev ? { anchor: prev.anchor, head: lineRow } : prev));
-        }}
       >
-        <span className="log-gutter">
+        <span
+          className="log-gutter"
+          {...(onRowDoubleClick ? { title: "Double-clic : voir la ligne dans son contexte", onDoubleClick: () => row && onRowDoubleClick(row) } : {})}
+        >
           {row?.source !== undefined && sources?.[row.source] && (
             <span className="log-source" style={{ color: sources[row.source]!.color, boxShadow: `inset 3px 0 0 ${sources[row.source]!.color}` }}>
               {sources[row.source]!.label}
@@ -305,7 +336,7 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, filt
                 ),
               )
             : ""}
-          {row?.truncated ? "…" : ""}
+          {row?.truncated ? <span className="log-ellipsis">…</span> : null}
           {row?.folded ? (
             <span className="fold-badge" title="Lignes repliées sous celle-ci (double-clic : voir le détail)">
               ▸ +{row.folded.toLocaleString("fr-FR")} ligne{row.folded > 1 ? "s" : ""}
@@ -319,13 +350,14 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, filt
 
   return (
     <div className="viewport-wrap">
-      <div ref={scrollerRef} className="viewport" tabIndex={0} onScroll={onScroll}>
+      <div ref={scrollerRef} className="viewport" tabIndex={0} onScroll={onScroll} onContextMenu={onContextMenu} onMouseDown={() => allSelected && setAllSelected(false)}>
         <div className="viewport-spacer" style={{ height: contentHeight(total) }}>
           <div className="viewport-window" style={{ transform: `translateY(${range.top}px)` }}>
             {rows}
           </div>
         </div>
       </div>
+      {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={closeMenu} />}
       {gotoOpen && (
         <GotoLine
           min={filtered ? 1 : base + 1}

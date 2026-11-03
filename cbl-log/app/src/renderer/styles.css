@@ -225,8 +225,62 @@ body {
   box-shadow: inset 0 0 0 100vw rgba(47, 111, 220, 0.25);
 }
 
-.log-row {
+/* The text of a line is selectable (a word, a part of a line, a few lines); the rest of the row is not. */
+.log-text {
+  user-select: text;
+  cursor: text;
+}
+
+.log-ellipsis,
+.fold-badge {
   user-select: none;
+}
+
+.viewport ::selection {
+  background: rgba(47, 111, 220, 0.55);
+  color: inherit;
+}
+
+.ctxmenu {
+  position: fixed;
+  z-index: 30;
+  min-width: 190px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  font-size: 12px;
+  user-select: none;
+}
+
+.ctxmenu button {
+  display: block;
+  width: 100%;
+  padding: 5px 10px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ctxmenu button:hover:not(:disabled) {
+  background: var(--accent);
+  color: #fff;
+}
+
+.ctxmenu button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.ctxmenu-sep {
+  height: 1px;
+  margin: 4px 2px;
+  background: var(--border);
 }
 
 .roll-label {
