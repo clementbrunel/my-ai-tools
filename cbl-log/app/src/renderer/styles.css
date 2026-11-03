@@ -103,6 +103,10 @@ body {
   margin-bottom: 8px;
 }
 
+.welcome-card svg.welcome-docker {
+  color: #2496ed;
+}
+
 .welcome-card:hover:not(:disabled),
 .welcome-card:focus-visible {
   border-color: var(--accent);
