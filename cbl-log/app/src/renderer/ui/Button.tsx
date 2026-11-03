@@ -1,3 +1,4 @@
+import "./Button.css";
 import type { ButtonHTMLAttributes } from "react";
 
 interface Props extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "type"> {

@@ -1,0 +1,66 @@
+:root {
+  --bg: #ffffff;
+  --fg: #1b1f24;
+  --muted: #5b6570;
+  --border: #d0d5da;
+  --accent: #2f6fdc;
+  --gutter-bg: #f3f5f7;
+  /* window chrome (tab strip, command bar, status bar) */
+  --chrome: #f3f3f3;
+  --chrome-strip: #e9eaeb;
+  --control: #ffffff;
+  --control-border: #c9ced4;
+  --opt-on-bg: #e1ebfb;
+  --opt-on-fg: #1f56b5;
+  --include-bg: #e6f4ea;
+  --include-fg: #0d652d;
+  --exclude-bg: #fce8e6;
+  --exclude-fg: #a50e0e;
+  --segment-bg: #e3e5e8;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14171a;
+    --fg: #e6e9ec;
+    --muted: #8b95a0;
+    --border: #2d333a;
+    --accent: #3b82f6;
+    --gutter-bg: #1b1f23;
+    --chrome: #1c1f23;
+    --chrome-strip: #16191c;
+    --control: #22262b;
+    --control-border: #3a4048;
+    --opt-on-bg: rgba(59, 130, 246, 0.22);
+    --opt-on-fg: #93bbfb;
+    --include-bg: rgba(24, 128, 56, 0.22);
+    --include-fg: #7fd99a;
+    --exclude-bg: rgba(217, 48, 37, 0.2);
+    --exclude-fg: #f4a39c;
+    --segment-bg: #2a2f35;
+  }
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+}
+
+/* level marker: colored edge of the line-number gutter */
+:root {
+  --lvl-fatal: #a50e0e;
+  --lvl-error: #d93025;
+  --lvl-warn: #f29900;
+  --lvl-info: #1a73e8;
+  --lvl-debug: #80868b;
+  --lvl-trace: #a0a4a8;
+}

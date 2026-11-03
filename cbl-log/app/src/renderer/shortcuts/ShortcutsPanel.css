@@ -1,0 +1,107 @@
+/* "Raccourcis clavier" window (shortcuts/ShortcutsPanel.tsx) */
+.shortcuts-panel {
+  width: min(880px, 94vw);
+}
+
+.shortcuts-search {
+  padding: 0 12px 8px;
+}
+
+.shortcuts-search input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.shortcuts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: 10px;
+  padding: 0 12px 12px;
+  overflow: auto;
+}
+
+.shortcut-card {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--control);
+  padding: 8px 10px 6px;
+}
+
+.shortcut-card h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 6px;
+  font-size: 13px;
+}
+
+.shortcut-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.shortcut-card ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.shortcut-card li {
+  display: grid;
+  grid-template-columns: minmax(150px, auto) 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.shortcut-card li:first-child {
+  border-top: 0;
+}
+
+.kbd-keys {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.kbd-combo {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.kbd-plus,
+.kbd-or {
+  margin: 0 3px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+kbd {
+  display: inline-block;
+  min-width: 18px;
+  padding: 1px 6px 2px;
+  box-sizing: border-box;
+  border: 1px solid var(--control-border);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--segment-bg);
+  color: var(--fg);
+  font: 600 11px/1.4 ui-monospace, "Cascadia Mono", Consolas, monospace;
+  text-align: center;
+}
+
+.kbd-label {
+  color: var(--fg);
+}

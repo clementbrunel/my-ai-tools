@@ -1,3 +1,4 @@
+import "./DockerPanel.css";
 import { useMemo, useRef, useState } from "react";
 import type { DockerListResult } from "@cbl-log/shared";
 import { connectionMessage, containerDot, groupContainers, nextSelection } from "./docker-panel";

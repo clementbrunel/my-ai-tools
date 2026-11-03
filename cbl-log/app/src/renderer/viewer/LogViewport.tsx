@@ -1,3 +1,4 @@
+import "./LogViewport.css";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { CompiledFormat, Row } from "@cbl-log/shared";
 import type { GotoTimeResult } from "../formats/goto-time";

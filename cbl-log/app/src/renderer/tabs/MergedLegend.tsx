@@ -1,3 +1,4 @@
+import "./MergedLegend.css";
 import type { TabId } from "@cbl-log/shared";
 
 /** Colour of a source in the "All" tab (by its place among the file tabs, so it never changes while they stay). */

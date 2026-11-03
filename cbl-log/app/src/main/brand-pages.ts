@@ -1,6 +1,6 @@
 // Markup of the startup splash and of the "À propos" window (brand-windows.ts), kept free of Electron so
 // that it can be unit-tested. Both show the author's avatar (resources/avatar.png, passed as a data URL)
-// independently of the app icon, and colors follow the theme tokens of the renderer (styles.css).
+// independently of the app icon, and colors follow the theme tokens of the renderer (renderer/styles/base.css).
 
 export const AUTHOR = "Clément Brunel";
 export const AUTHOR_URL = "https://github.com/clementbrunel";

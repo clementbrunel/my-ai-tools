@@ -1,3 +1,4 @@
+import "./StatusBar.css";
 import type { Encoding, FilterSettings } from "@cbl-log/shared";
 import { describeFilterCount } from "../filter/filter-state";
 import type { TabState } from "./tabs-reducer";

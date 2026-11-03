@@ -1,3 +1,4 @@
+import "./ShortcutsPanel.css";
 import { useState } from "react";
 import { Modal } from "../ui/Modal";
 import { SHORTCUT_GROUPS, filterGroups, type Shortcut } from "./shortcuts";

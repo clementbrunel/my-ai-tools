@@ -1,3 +1,4 @@
+import "./TabBar.css";
 import { useRef, useState } from "react";
 import type { TabId } from "@cbl-log/shared";
 import { WhaleIcon } from "../docker/DockerPanel";
