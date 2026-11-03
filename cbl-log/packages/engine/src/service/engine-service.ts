@@ -34,6 +34,8 @@ import {
   type OpenParams,
   type Row,
   type RowsResult,
+  type SearchDensity,
+  type SearchDensityParams,
   type SearchHit,
   type SearchNextParams,
   type SearchParams,
@@ -214,6 +216,7 @@ export class EngineService {
     close: (params) => this.closeTab(params.tabId),
     search: (params, port) => this.startSearch(params, port),
     searchNext: (params) => this.searchNext(params),
+    searchDensity: (params) => this.searchDensity(params),
     setFilter: (params, port) => this.startFilter(params, port),
     filterLocate: (params) => this.filterLocate(params),
     dockerList: () => this.dockerList(),
@@ -543,6 +546,16 @@ export class EngineService {
       return { row: null, ordinal: null, matches: 0, done: true, wrapped: false };
     }
     return session.next(params.fromRow, params.dir);
+  }
+
+  private async searchDensity(params: SearchDensityParams): Promise<SearchDensity> {
+    const first = Math.max(0, Math.floor(Number(params.first) || 0));
+    const count = Math.max(0, Math.floor(Number(params.count) || 0));
+    const buckets = Math.min(1024, Math.max(1, Math.floor(Number(params.buckets) || 1)));
+    const merged = this.merged.get(params.tabId);
+    const session = merged ? merged.search : this.requireTab(params.tabId).search;
+    if (!session || session.id !== params.searchId) return { counts: new Array<number>(buckets).fill(0) };
+    return { counts: await session.density(first, count, buckets) };
   }
 
   private async closeTab(tabId: TabId): Promise<void> {

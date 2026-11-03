@@ -4,6 +4,7 @@
   --muted: #5b6570;
   --border: #d0d5da;
   --accent: #2f6fdc;
+  --match-marker: #e8710a;
   --gutter-bg: #f3f5f7;
   /* window chrome (tab strip, command bar, status bar) */
   --chrome: #f3f3f3;
@@ -27,6 +28,7 @@
     --muted: #8b95a0;
     --border: #2d333a;
     --accent: #3b82f6;
+    --match-marker: #ffa24d;
     --gutter-bg: #1b1f23;
     --chrome: #1c1f23;
     --chrome-strip: #16191c;

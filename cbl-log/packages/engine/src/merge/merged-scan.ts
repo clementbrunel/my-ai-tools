@@ -114,6 +114,18 @@ export class MergedScan {
     return low;
   }
 
+  /** Results in each of `buckets` equal slices of the merged rows [first, first + count). */
+  density(first: number, count: number, buckets: number): number[] {
+    const counts = new Array<number>(buckets).fill(0);
+    if (count <= 0 || buckets <= 0) return counts;
+    for (let i = this.lowerBound(first); i < this.count; i++) {
+      const rel = this.rows[i]! - first;
+      if (rel >= count) break;
+      counts[Math.floor((rel * buckets) / count)]!++;
+    }
+    return counts;
+  }
+
   /** The result before or after merged row `from`; once the scan is complete, going past the last one goes around. */
   hit(dir: "next" | "prev", from: number): { row: number | null; ordinal: number | null; matches: number; done: boolean; wrapped: boolean } {
     const matches = this.count;

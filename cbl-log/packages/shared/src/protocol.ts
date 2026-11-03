@@ -183,6 +183,22 @@ export interface SearchHit {
   wrapped: boolean;
 }
 
+export interface SearchDensityParams {
+  tabId: TabId;
+  searchId: string;
+  /** First row of the range mapped onto the scrollbar (rows before it are hidden by "clear"). */
+  first: number;
+  /** Number of rows of that range. */
+  count: number;
+  /** Number of equal slices of the range to count the matches in. */
+  buckets: number;
+}
+
+export interface SearchDensity {
+  /** Matches found so far in each slice of the range: slice `b` covers the rows `ceil(b*count/buckets)` to `ceil((b+1)*count/buckets)` after `first`. */
+  counts: number[];
+}
+
 export interface SetFilterParams {
   tabId: TabId;
   /** null (or a filter that hides nothing) removes the filter of the tab. */
@@ -267,6 +283,8 @@ export interface EngineRequestMap {
   getRows: { params: GetRowsParams; result: RowsResult };
   search: { params: SearchParams; result: SearchStarted };
   searchNext: { params: SearchNextParams; result: SearchHit };
+  /** Where the matches found so far lie in the file (scrollbar markers). */
+  searchDensity: { params: SearchDensityParams; result: SearchDensity };
   setFilter: { params: SetFilterParams; result: FilterStarted };
   filterLocate: { params: FilterLocateParams; result: FilterLocation };
   /** Opens (or re-merges) the "All" tab: the given tabs interleaved by timestamp (M-01). */

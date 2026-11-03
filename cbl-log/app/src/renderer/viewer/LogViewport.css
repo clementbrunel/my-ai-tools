@@ -176,3 +176,21 @@
   font-size: 11px;
   user-select: none;
 }
+
+/* Search matches over the vertical scrollbar (clicks go through to the scrollbar below). */
+.match-markers {
+  position: absolute;
+  right: 0;
+  padding: 0 3px;
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+.match-tick {
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  min-height: 3px;
+  border-radius: 1px;
+  background: var(--match-marker);
+}

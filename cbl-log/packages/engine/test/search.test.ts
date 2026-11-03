@@ -131,6 +131,23 @@ describe("search", { timeout: 30_000 }, () => {
     expect(await nav(0, "prev")).toMatchObject({ row: 400, ordinal: 5, wrapped: true });
   });
 
+  it("gives the density of the matches over the file, for the scrollbar markers", async () => {
+    const ctx = await openLines(makeLines(500, 100)); // matches at rows 0, 100, 200, 300, 400
+    const id = await search(ctx, { pattern: "NEEDLE" });
+    const density = (first: number, count: number, buckets: number) =>
+      ctx.ok("searchDensity", { tabId: ctx.tabId, searchId: id, first, count, buckets }).then((r) => r.counts);
+
+    expect(await density(0, 500, 5)).toEqual([1, 1, 1, 1, 1]);
+    expect(await density(0, 500, 10)).toEqual([1, 0, 1, 0, 1, 0, 1, 0, 1, 0]);
+    expect(await density(0, 500, 1)).toEqual([5]);
+    // a range starting after "clear": only the matches from there on
+    expect(await density(250, 250, 5)).toEqual([0, 1, 0, 1, 0]);
+    expect(await density(0, 0, 4)).toEqual([0, 0, 0, 0]);
+    // a stale search id has no markers
+    const stale = await ctx.ok("searchDensity", { tabId: ctx.tabId, searchId: "nope", first: 0, count: 500, buckets: 3 });
+    expect(stale.counts).toEqual([0, 0, 0]);
+  });
+
   it("matches inside CRLF files and UTF-16 files", async () => {
     const crlf = await openLines(makeLines(300, 50), undefined, "\r\n");
     expect(finalEvent(crlf, await search(crlf, { pattern: "NEEDLE" })).matches).toBe(6);

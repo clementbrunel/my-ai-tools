@@ -197,6 +197,43 @@ export class SearchSession {
     return { row: target.startRow + line, ordinal, matches: this.matches, done: this.done, wrapped };
   }
 
+  /** Matches found so far in each of `buckets` equal slices of the rows [first, first + count). */
+  async density(first: number, count: number, buckets: number): Promise<number[]> {
+    const counts = new Array<number>(buckets).fill(0);
+    if (count <= 0 || buckets <= 0) return counts;
+    const targets = this.sync();
+    // row at which slice `b` starts: slice b holds the rows r with floor((r - first) * buckets / count) = b
+    const boundary = (b: number): number => first + Math.ceil((b * count) / buckets);
+    for (const target of targets) {
+      const part = this.parts.get(target.id);
+      if (!part || part.count === 0) continue;
+      const lines = target.index.lineCount;
+      const end = target.startRow + lines;
+      const lo = Math.max(first, target.startRow);
+      const hi = Math.min(first + count, end);
+      if (lo >= hi) continue;
+      const bFirst = Math.floor(((lo - first) * buckets) / count);
+      const bLast = Math.min(buckets - 1, Math.floor(((hi - 1 - first) * buckets) / count));
+      // matches before each slice boundary, from the offset of the boundary row in this file
+      const before: number[] = [];
+      for (let b = bFirst; b <= bLast + 1; b++) {
+        const row = Math.min(Math.max(boundary(b), lo), hi);
+        if (row <= target.startRow) {
+          before.push(0);
+          continue;
+        }
+        if (row >= end) {
+          before.push(part.count);
+          continue;
+        }
+        const offset = await this.useIndex(target.id, (index) => index.offsetOf(row - target.startRow));
+        before.push(offset === undefined ? (before.at(-1) ?? 0) : countBelow(part, offset));
+      }
+      for (let b = bFirst; b <= bLast; b++) counts[b]! += Math.max(0, before[b - bFirst + 1]! - before[b - bFirst]!);
+    }
+    return counts;
+  }
+
   // ---------------------------------------------------------------------------------------------
 
   /**
@@ -366,5 +403,12 @@ function findBefore(part: Part, value: number): number | undefined {
 function rank(part: Part, offset: number): number {
   let count = 0;
   for (const slice of part.slices) for (const chunk of slice.chunks) count += upperBound(chunk, offset);
+  return count;
+}
+
+/** Number of matches of the file found so far that start before `offset`. */
+function countBelow(part: Part, offset: number): number {
+  let count = 0;
+  for (const slice of part.slices) for (const chunk of slice.chunks) count += lowerBound(chunk, offset);
   return count;
 }

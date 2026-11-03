@@ -88,6 +88,8 @@ function filteredMarks(marks: TabState["marks"]): TabState["marks"] {
 }
 const ignoreLeave = (): void => {};
 
+const DENSITY_BUCKETS = 256;
+
 export function App() {
   const [state, dispatch] = useReducer(tabsReducer, initialTabsState);
   const stateRef = useRef(state);
@@ -1052,6 +1054,32 @@ export function App() {
   // the "All" tab shows another view each time its sources change: its viewport starts over
   const viewportKey = currentViewKey + (active?.merged ? `:${active.merged.sources.map((s) => s.tabId).join(",")}` : "");
 
+  // Scrollbar markers: where the matches found so far lie in the file. Asked again (at a calm pace)
+  // while the search progresses or the file grows; not shown in a filtered view, whose rows are not the file's.
+  const [density, setDensity] = useState<{ searchId: string; counts: number[] } | undefined>();
+  const densityCount = (pausedAt ? Math.min(active?.total ?? 0, pausedAt.total) : (active?.total ?? 0)) - (active?.clearedBefore ?? 0);
+  const densityFirst = active?.clearedBefore ?? 0;
+  const densityMatches = status?.matches ?? 0;
+  useEffect(() => {
+    if (!activeId || !searchIdNow || filtered || densityMatches === 0 || densityCount <= 0) {
+      setDensity(undefined);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      void withEngine()
+        .then((engine) => engine.request("searchDensity", { tabId: activeId, searchId: searchIdNow, first: densityFirst, count: densityCount, buckets: DENSITY_BUCKETS }))
+        .then(({ counts }) => {
+          if (!cancelled) setDensity({ searchId: searchIdNow, counts });
+        })
+        .catch(() => {});
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [activeId, searchIdNow, filtered, densityMatches, densityCount, densityFirst, withEngine]);
+
   // "Clear" in the filtered view hides the retained lines before the cleared origin.
   const clearedBefore = active?.clearedBefore ?? 0;
   useEffect(() => {
@@ -1339,6 +1367,7 @@ export function App() {
             filtered={filtered}
             reveal={reveal?.forKey === currentViewKey ? reveal : undefined}
             currentMatchRow={active.search?.current?.row}
+            matchDensity={density && density.searchId === searchIdNow && !filtered ? density.counts : undefined}
             anchorLine={anchor?.tabId === active.info.tabId && (!filtered || active.filterSuspended) ? anchor.line : undefined}
             onRowDoubleClick={
               active.merged
