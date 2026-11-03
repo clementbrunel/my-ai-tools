@@ -23,4 +23,7 @@ public interface BalanceSnapshotRepository extends JpaRepository<BalanceSnapshot
     void deleteByAccountIdAndSource(@Param("accountId") Long accountId, @Param("source") DataSource source);
 
     boolean existsByAccountIdAndRecordedAtAfter(Long accountId, LocalDateTime after);
+
+    @Query("select b from BalanceSnapshot b join fetch b.account a where a.archived = false order by b.recordedAt asc, b.id asc")
+    List<BalanceSnapshot> findAllActiveOrderByRecordedAtAsc();
 }

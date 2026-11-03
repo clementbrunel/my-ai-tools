@@ -3,6 +3,7 @@ package com.mymoneyhub.service;
 import com.mymoneyhub.dto.AccountDto;
 import com.mymoneyhub.dto.CreateManualAccountRequest;
 import com.mymoneyhub.dto.NetWorthDto;
+import com.mymoneyhub.dto.NetWorthPointDto;
 import com.mymoneyhub.dto.UpdateBalanceRequest;
 import com.mymoneyhub.entity.Account;
 import com.mymoneyhub.entity.BalanceSnapshot;
@@ -19,7 +20,10 @@ import org.springframework.web.server.ResponseStatusException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -42,6 +46,31 @@ public class AccountService {
                 .map(Account::getCurrentBalance)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         return new NetWorthDto(total, accounts.stream().map(this::toDto).toList());
+    }
+
+    /** Net worth over time: one point per day that has at least one snapshot, summing for each active account its
+     *  latest balance known at the end of that day (carried forward). Archived accounts are excluded, like in {@link #netWorth()}. */
+    @Transactional(readOnly = true)
+    public List<NetWorthPointDto> netWorthHistory() {
+        List<NetWorthPointDto> points = new ArrayList<>();
+        Map<Long, BigDecimal> latestByAccount = new HashMap<>();
+        LocalDate currentDay = null;
+        for (BalanceSnapshot snapshot : balanceSnapshotRepository.findAllActiveOrderByRecordedAtAsc()) {
+            LocalDate day = snapshot.getRecordedAt().toLocalDate();
+            if (currentDay != null && !day.equals(currentDay)) {
+                points.add(point(currentDay, latestByAccount));
+            }
+            currentDay = day;
+            latestByAccount.put(snapshot.getAccount().getId(), snapshot.getBalance());
+        }
+        if (currentDay != null) {
+            points.add(point(currentDay, latestByAccount));
+        }
+        return points;
+    }
+
+    private static NetWorthPointDto point(LocalDate day, Map<Long, BigDecimal> latestByAccount) {
+        return new NetWorthPointDto(day, latestByAccount.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add));
     }
 
     /** Creates an account under a MANUAL institution (the ManualConnector never discovers any) and records its first balance. */

@@ -85,3 +85,9 @@ export interface NetWorth {
   total: number
   accounts: Account[]
 }
+
+export interface NetWorthPoint {
+  /** ISO date (yyyy-MM-dd). */
+  date: string
+  total: number
+}

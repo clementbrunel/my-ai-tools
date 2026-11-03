@@ -1,5 +1,5 @@
 import apiClient from './axios'
-import type { Account, NetWorth } from '@/types'
+import type { Account, NetWorth, NetWorthPoint } from '@/types'
 
 export async function fetchAccounts(): Promise<Account[]> {
   const { data } = await apiClient.get<Account[]>('/accounts')
@@ -8,6 +8,11 @@ export async function fetchAccounts(): Promise<Account[]> {
 
 export async function fetchNetWorth(): Promise<NetWorth> {
   const { data } = await apiClient.get<NetWorth>('/accounts/net-worth')
+  return data
+}
+
+export async function fetchNetWorthHistory(): Promise<NetWorthPoint[]> {
+  const { data } = await apiClient.get<NetWorthPoint[]>('/accounts/net-worth/history')
   return data
 }
 
