@@ -47,6 +47,7 @@ interface Props {
   /** Lines that arrived since the view was frozen (undefined = not paused). */
   pendingLines: number | undefined;
   onTogglePause(): void;
+  onShowShortcuts(): void;
   /** The full file is shown although a filter is in force. */
   filterSuspended: boolean;
   /** Levels or text filters are set, so that a filtered view differs from the full file. */
@@ -60,7 +61,7 @@ interface Props {
 }
 
 
-export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules, dark, onToggleTheme, formatName, profiles, profileChoice, autoProfileName, onProfileChange, onEncodingChange, canFoldTraces, onFilterChange, filterSuspended, hasFilter, onToggleFilterView, pendingLines, onTogglePause, filterShown, history }: Props) {
+export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules, dark, onToggleTheme, formatName, profiles, profileChoice, autoProfileName, onProfileChange, onEncodingChange, canFoldTraces, onFilterChange, filterSuspended, hasFilter, onToggleFilterView, pendingLines, onTogglePause, onShowShortcuts, filterShown, history }: Props) {
   const full = filterSuspended || !hasFilter;
   return (
     <footer className="statusbar">
@@ -163,6 +164,9 @@ export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules
         <button type="button" className="icon-btn" onClick={onEditRules} title="Règles de surlignage (Ctrl+H)" aria-label="Règles de surlignage">
           <RulesIcon />
         </button>
+        <button type="button" className="icon-btn" onClick={onShowShortcuts} title="Raccourcis clavier (?)" aria-label="Raccourcis clavier">
+          <KeyboardIcon />
+        </button>
         {tab.clearedBefore === 0 && (
           <button type="button" className="icon-btn" onClick={onClear} title="Effacer : masquer tout ce qui précède (Ctrl+L)" aria-label="Effacer">
             <TrashIcon />
@@ -205,6 +209,15 @@ function RulesIcon() {
     <svg {...icon}>
       <path d="M2.5 4h11M2.5 8h7M2.5 12h9" />
       <circle cx="12.5" cy="8" r="1.5" />
+    </svg>
+  );
+}
+
+function KeyboardIcon() {
+  return (
+    <svg {...icon}>
+      <rect x="1.5" y="3.5" width="13" height="9" rx="1.5" />
+      <path d="M4 6.5h.01M6.5 6.5h.01M9 6.5h.01M11.5 6.5h.01M4.5 9.5h7" />
     </svg>
   );
 }

@@ -47,6 +47,13 @@ const api: CblLogApi = {
       ipcRenderer.off("notes:open", listener);
     };
   },
+  onOpenShortcuts: (cb) => {
+    const listener = (): void => cb();
+    ipcRenderer.on("shortcuts:open", listener);
+    return () => {
+      ipcRenderer.off("shortcuts:open", listener);
+    };
+  },
   onUpdateState: (cb) => {
     const listener = (_event: unknown, state: Parameters<typeof cb>[0]): void => cb(state);
     ipcRenderer.on("update:state", listener);
