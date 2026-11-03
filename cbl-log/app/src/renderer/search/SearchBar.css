@@ -1,0 +1,155 @@
+.search-count {
+  flex: 1;
+  color: var(--muted);
+}
+
+.search-count.error {
+  color: #b3261e;
+}
+
+.searchblock {
+  flex: 0 1 460px;
+  min-width: 0;
+}
+
+.field {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  height: 30px;
+  box-sizing: border-box;
+  padding: 0 4px 0 10px;
+  border: 1px solid var(--control-border);
+  border-radius: 4px;
+  background: var(--control);
+}
+
+.field:focus-within {
+  border-bottom: 2px solid var(--accent);
+}
+
+.field.invalid {
+  border-color: #b3261e;
+}
+
+/* Filter: the chips wrap onto more lines when the bar is narrow, the field grows in height. */
+.field.multiline {
+  flex-wrap: wrap;
+  height: auto;
+  min-height: 30px;
+  padding-top: 3px;
+  padding-bottom: 3px;
+  row-gap: 4px;
+}
+
+.field.multiline input {
+  min-width: 12ch;
+}
+
+.field-icon {
+  flex: none;
+  margin-right: 6px;
+  color: var(--muted);
+}
+
+.field input {
+  flex: 1;
+  min-width: 8ch;
+  border: 0;
+  outline: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+}
+
+.field .search-count {
+  flex: none;
+  padding: 0 6px;
+  white-space: nowrap;
+}
+
+.field-sep {
+  flex: none;
+  width: 1px;
+  height: 16px;
+  margin: 0 2px;
+  background: var(--control-border);
+}
+
+.opt {
+  flex: none;
+  min-width: 24px;
+  height: 22px;
+  padding: 0 5px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--muted);
+  font: 12px Consolas, "Courier New", monospace;
+  cursor: pointer;
+}
+
+.opt:hover:not(:disabled) {
+  background: var(--segment-bg);
+  color: var(--fg);
+}
+
+.opt.on {
+  background: var(--opt-on-bg);
+  color: var(--opt-on-fg);
+}
+
+.opt.include,
+.opt.exclude {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.opt.include:not(:disabled) {
+  color: var(--include-fg);
+}
+
+.opt.exclude:not(:disabled) {
+  color: var(--exclude-fg);
+}
+
+.opt.include:hover:not(:disabled) {
+  background: var(--include-bg);
+}
+
+.opt.exclude:hover:not(:disabled) {
+  background: var(--exclude-bg);
+}
+
+.opt:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.help-toggle {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--control-border);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.help-toggle.on {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+.searchblock .regex-help {
+  margin-top: 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}

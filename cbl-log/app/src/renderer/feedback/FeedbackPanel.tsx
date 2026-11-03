@@ -1,3 +1,4 @@
+import "./FeedbackPanel.css";
 import { useEffect, useState } from "react";
 import { Button } from "../ui/Button";
 import { Modal } from "../ui/Modal";

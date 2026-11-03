@@ -1,3 +1,4 @@
+import "./LevelPills.css";
 import type { FilterSettings } from "@cbl-log/shared";
 import { LEVEL_PILLS, pillActive, togglePill } from "./filter-state";
 

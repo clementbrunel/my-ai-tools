@@ -1,0 +1,178 @@
+.viewport-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.viewport {
+  flex: 1;
+  overflow-y: auto;
+  /* Always reserve the horizontal scrollbar: it would otherwise appear and disappear as long lines
+     scroll in and out of the window, resizing the viewport (and flickering) at every toggle. */
+  overflow-x: scroll;
+  position: relative;
+  outline: none;
+  font: 13px/18px Consolas, "Courier New", monospace;
+}
+
+.viewport-spacer {
+  position: relative;
+  min-width: 100%;
+  width: max-content;
+}
+
+.viewport-window {
+  position: absolute;
+  top: 0;
+  left: 0;
+  /* own compositor layer, opaque so that text keeps its sub-pixel antialiasing while scrolling */
+  will-change: transform;
+  background: var(--bg);
+  min-width: 100%;
+  width: max-content;
+}
+
+.log-row {
+  display: flex;
+  white-space: pre;
+  contain: layout paint;
+}
+
+.log-gutter {
+  position: sticky;
+  left: 0;
+  flex: none;
+  min-width: 8ch;
+  padding: 0 8px;
+  box-sizing: content-box;
+  background: var(--gutter-bg);
+  color: var(--muted);
+  text-align: right;
+  user-select: none;
+}
+
+/* Fixed slot (widest label: 5 chars) so the line numbers stay aligned whether or not a level is known. */
+.log-level {
+  display: inline-block;
+  width: 5ch;
+  margin-right: 1ch;
+  text-align: left;
+  font-size: 0.85em;
+}
+
+.log-row.lvl-fatal .log-level { color: var(--lvl-fatal); }
+
+.log-row.lvl-error .log-level { color: var(--lvl-error); }
+
+.log-row.lvl-warn .log-level { color: var(--lvl-warn); }
+
+.log-row.lvl-info .log-level { color: var(--lvl-info); }
+
+.log-row.lvl-debug .log-level { color: var(--lvl-debug); }
+
+.log-row.lvl-trace .log-level { color: var(--lvl-trace); }
+
+.log-text {
+  padding-left: 8px;
+}
+
+.log-row.roll-start {
+  border-top: 1px dashed var(--accent);
+  box-sizing: border-box;
+}
+
+.log-row.selected {
+  /* inset shadow, so it shows over a rule background set inline */
+  box-shadow: inset 0 0 0 100vw rgba(47, 111, 220, 0.25);
+}
+
+/* The text of a line is selectable (a word, a part of a line, a few lines); the rest of the row is not. */
+.log-text {
+  user-select: text;
+  cursor: text;
+}
+
+.log-ellipsis {
+  user-select: none;
+}
+
+.viewport ::selection {
+  background: rgba(47, 111, 220, 0.55);
+  color: inherit;
+}
+
+.roll-label {
+  position: sticky;
+  right: 8px;
+  margin-left: auto;
+  padding: 0 8px;
+  background: var(--bg);
+  color: var(--accent);
+  font-size: 11px;
+}
+
+.log-row.anchor {
+  outline: 1px dashed var(--accent);
+  outline-offset: -1px;
+}
+
+.log-row.current-match {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.log-row.lvl-fatal .log-gutter { box-shadow: inset 3px 0 0 var(--lvl-fatal); }
+
+.log-row.lvl-error .log-gutter { box-shadow: inset 3px 0 0 var(--lvl-error); }
+
+.log-row.lvl-warn .log-gutter { box-shadow: inset 3px 0 0 var(--lvl-warn); }
+
+.log-row.lvl-info .log-gutter { box-shadow: inset 3px 0 0 var(--lvl-info); }
+
+.log-row.lvl-debug .log-gutter { box-shadow: inset 3px 0 0 var(--lvl-debug); }
+
+.log-row.lvl-trace .log-gutter { box-shadow: inset 3px 0 0 var(--lvl-trace); }
+
+/* faint background by level (fatal / error / warn), so that a block of errors reads at a glance.
+   A highlighting rule that colors the line sets its background inline and takes precedence. */
+.log-row.lvl-fatal { background-color: color-mix(in srgb, var(--lvl-fatal) 18%, transparent); }
+
+.log-row.lvl-error { background-color: color-mix(in srgb, var(--lvl-error) 12%, transparent); }
+
+.log-row.lvl-warn { background-color: color-mix(in srgb, var(--lvl-warn) 12%, transparent); }
+
+.log-source {
+  display: inline-block;
+  min-width: 7ch;
+  max-width: 14ch;
+  margin-right: 8px;
+  padding-left: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+  font-weight: 600;
+}
+
+.fold-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.fold-toggle.disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.fold-badge {
+  margin-left: 10px;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 11px;
+  user-select: none;
+}

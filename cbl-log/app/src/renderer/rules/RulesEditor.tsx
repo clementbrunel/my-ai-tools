@@ -1,3 +1,4 @@
+import "./RulesEditor.css";
 import { useEffect, useRef, useState } from "react";
 import type { HighlightRule, RuleSet } from "@cbl-log/shared";
 import { compileRules, highlightLine, ruleMatches } from "../highlight/highlight";

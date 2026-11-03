@@ -1,3 +1,4 @@
+import "./FilterBar.css";
 import { useEffect, useRef, useState } from "react";
 import type { FilterSettings, TextMatcher } from "@cbl-log/shared";
 import { validateQuery } from "../search/search-text";

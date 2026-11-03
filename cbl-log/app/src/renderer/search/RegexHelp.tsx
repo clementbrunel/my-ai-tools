@@ -1,3 +1,4 @@
+import "./RegexHelp.css";
 import { PRESETS, SNIPPETS, explain } from "./regex-help";
 
 interface Props {

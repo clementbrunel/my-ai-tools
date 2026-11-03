@@ -1,3 +1,4 @@
+import "./SearchBar.css";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { SearchQuery, TabId } from "@cbl-log/shared";
 import type { SearchState } from "../tabs/tabs-reducer";

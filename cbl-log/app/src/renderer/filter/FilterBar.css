@@ -1,0 +1,48 @@
+.filterbar {
+  flex: 1 1 300px;
+  min-width: 0;
+}
+
+.chips {
+  display: contents;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-right: 4px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: min(24ch, 100%);
+  padding: 1px 2px 1px 8px;
+  overflow: hidden;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+/* Only the text is truncated: the "×" button must stay visible so a long chip can still be removed. */
+.chip-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chip.include {
+  background: var(--include-bg);
+  color: var(--include-fg);
+}
+
+.chip.exclude {
+  background: var(--exclude-bg);
+  color: var(--exclude-fg);
+}
+
+.chip button {
+  flex: none;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}

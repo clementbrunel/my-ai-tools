@@ -1,3 +1,4 @@
+import "./UpdatePanel.css";
 import { Button } from "../ui/Button";
 import { Modal } from "../ui/Modal";
 import type { UpdatePanelState } from "../../main/update-check";
