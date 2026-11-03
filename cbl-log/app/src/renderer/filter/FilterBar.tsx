@@ -60,7 +60,8 @@ export function FilterBar({ settings, onChange, focusRequest, error }: Props) {
           <span className="chips">
             {chips.map(({ list, m, index }) => (
               <span key={`${list}:${index}`} className={`chip ${list}`} title={`${list === "include" ? "Inclus" : "Exclu"} : ${describe(m)}`}>
-                <span aria-hidden="true">{list === "include" ? "+" : "−"}</span> {m.pattern}
+                <span aria-hidden="true">{list === "include" ? "+" : "−"}</span>
+                <span className="chip-text">{m.pattern}</span>
                 <button type="button" aria-label={`Retirer ${m.pattern}`} onClick={() => onChange(removeMatcher(settings, list, index))}>
                   ×
                 </button>

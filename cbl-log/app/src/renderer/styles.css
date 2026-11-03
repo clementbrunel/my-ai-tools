@@ -1016,11 +1016,17 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  max-width: 24ch;
+  max-width: min(24ch, 100%);
   padding: 1px 2px 1px 8px;
   overflow: hidden;
   border-radius: 10px;
   white-space: nowrap;
+}
+
+/* Only the text is truncated: the "×" button must stay visible so a long chip can still be removed. */
+.chip-text {
+  min-width: 0;
+  overflow: hidden;
   text-overflow: ellipsis;
 }
 
@@ -1035,6 +1041,7 @@ body {
 }
 
 .chip button {
+  flex: none;
   padding: 0 4px;
   border: 0;
   background: none;
