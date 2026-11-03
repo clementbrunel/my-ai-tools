@@ -67,6 +67,65 @@ body {
   color: var(--muted);
 }
 
+.placeholder h1 {
+  margin: 0 0 4px;
+}
+
+.welcome-sub {
+  margin: 0 0 32px;
+}
+
+.welcome-cards {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 20px;
+}
+
+.welcome-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 220px;
+  padding: 28px 20px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--gutter-bg);
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+}
+
+.welcome-card svg {
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+
+.welcome-card:hover:not(:disabled),
+.welcome-card:focus-visible {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+  outline: none;
+}
+
+.welcome-card:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.welcome-card-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.welcome-card-hint {
+  font-size: 12px;
+  color: var(--muted);
+}
+
 .app {
   height: 100%;
   display: flex;

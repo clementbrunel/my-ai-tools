@@ -1214,15 +1214,33 @@ export function App() {
       {!active || !runtime ? (
         <main className="placeholder">
           <h1>cbl-log</h1>
-          <p>Glissez un fichier ou Ctrl+O</p>
-          <button type="button" onClick={() => void window.cblLog.openFileDialog().then(openPaths)}>
-            Ouvrir…
-          </button>
-          {dockerEnabled && !dockerOpen && (
-            <button type="button" onClick={() => setDockerOpen(true)}>
-              Conteneurs Docker…
+          <p className="welcome-sub">Suivez vos logs en direct</p>
+          <div className="welcome-cards">
+            <button type="button" className="welcome-card" onClick={() => void window.cblLog.openFileDialog().then(openPaths)}>
+              <svg viewBox="0 0 64 64" width="72" height="72" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M16 6h24l12 12v38a2 2 0 0 1-2 2H16a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z" />
+                <path d="M40 6v12h12" />
+                <path d="M22 30h20M22 38h20M22 46h12" />
+              </svg>
+              <span className="welcome-card-title">Ouvrir un fichier…</span>
+              <span className="welcome-card-hint">Glissez-le ici ou Ctrl+O</span>
             </button>
-          )}
+            {dockerEnabled && (
+              <button type="button" className="welcome-card" onClick={() => setDockerOpen(true)} disabled={dockerOpen}>
+                <svg viewBox="0 0 64 64" width="72" height="72" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M4 30h50c3 0 6-1 8-4-3-1-5-3-5-6-3 1-5 0-6-2-2 3-1 6 1 7" />
+                  <path d="M6 30c1 12 10 22 26 22 14 0 22-9 24-22" />
+                  <rect x="12" y="20" width="6" height="6" />
+                  <rect x="20" y="20" width="6" height="6" />
+                  <rect x="28" y="20" width="6" height="6" />
+                  <rect x="20" y="12" width="6" height="6" />
+                  <rect x="28" y="12" width="6" height="6" />
+                </svg>
+                <span className="welcome-card-title">Conteneurs Docker…</span>
+                <span className="welcome-card-hint">Ctrl+Maj+D</span>
+              </button>
+            )}
+          </div>
         </main>
       ) : (
         <>
