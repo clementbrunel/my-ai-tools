@@ -5,6 +5,13 @@ La section `## [X.Y.Z]` est reprise telle quelle comme notes de la release GitHu
 et affichée dans la fenêtre « Mise à jour disponible » de l'application : rédigez-la pour un
 utilisateur (pas de noms de branches, de PR ni de tâches internes).
 
+## [3.2.0] — 2026-11-03
+
+- **Écran d'accueil** : au démarrage, de grandes cartes « Fichier » et « Docker » (avec la vraie icône Docker) permettent d'ouvrir un log en un clic ; les icônes fichier / Docker se retrouvent aussi dans « Fichiers récents » et dans le menu.
+- **Sélection de texte et clic droit** : on peut sélectionner du texte dans les lignes de log, puis, par clic droit, le rechercher, l'inclure au filtre ou l'exclure.
+- **Raccourcis clavier** : une nouvelle fenêtre présente tous les raccourcis sous forme de cartes visuelles, avec un champ pour filtrer.
+- **Affichage** : menu Affichage en français, indicateur de zoom, zoom avec Ctrl+molette ; les outils de développement sont accessibles depuis le menu Aide.
+
 ## [3.1.1] — 2026-11-03
 
 - **Filtre** : une pastille de filtre très longue ne masque plus son bouton « × » ; le texte est tronqué avec « … » et la pastille reste supprimable.

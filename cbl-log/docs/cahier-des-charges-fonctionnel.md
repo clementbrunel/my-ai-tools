@@ -1,6 +1,6 @@
 # cbl-log — Cahier des charges fonctionnel
 
-> Statut : **v0.5 — à jour de ce qui est développé (v3.1.1)**. L'avancement par exigence est au § 11.
+> Statut : **v0.5 — à jour de ce qui est développé (v3.2.0)**. L'avancement par exigence est au § 11.
 > v0.5 : conteneurs Docker Desktop (§ 3.9, D-01 à D-10), onglet « Tout » livré (M-01 à M-01e, A-07), historique du rolling chargé avec le fichier (T-08/T-09), recherche et filtre sur tout le flux, recette automatisée fichier + Docker (§ 7, [`recette/`](./recette/README.md)). Le périmètre est ramené à ce qui est livré ou à venir : les exigences abandonnées sont retirées (§ 5).
 > v0.4 : rolling confirmé (même nom + archives à côté), bind mount Windows, format de log fourni plus tard.
 > v0.3 : source de référence = WebSphere en conteneur Docker, perf 10 Go conservée (plusieurs logs en parallèle).
