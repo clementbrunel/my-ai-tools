@@ -30,6 +30,10 @@ extraResources:
     to: icon-light.png
   - from: app/resources/avatar.png
     to: avatar.png
+  - from: app/resources/menu/file.png
+    to: menu/file.png
+  - from: app/resources/menu/docker.png
+    to: menu/docker.png
 win:
   icon: app/resources/icon.ico
   target:

@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { release } from "node:os";
 import { basename, dirname, join } from "node:path";
-import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeTheme, shell } from "electron";
+import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeImage, nativeTheme, shell } from "electron";
 import { parseDockerUri, type ParseRuleSetResult, type RuleSet, type Session, type Settings } from "@cbl-log/shared";
 import { parseFileArgs } from "./cli-args";
 import { ConfigWatcher, type ConfigKind } from "./config-watcher";
@@ -110,10 +110,18 @@ function openRecent(path: string): void {
   sendFiles([path]); // a vanished file is reported by the renderer like any open failure
 }
 
+/** 16 px menu icons (resources/menu/*.png, 32 px source so they stay sharp on HiDPI screens). */
+const menuIcon = (name: "file" | "docker"): Electron.NativeImage =>
+  nativeImage.createFromPath(resourcePath(`menu/${name}.png`)).resize({ width: 16, height: 16 });
+
 function recentSubmenu(): Electron.MenuItemConstructorOptions[] {
   if (recentFiles.length === 0) return [{ label: "(aucun)", enabled: false }];
   return [
-    ...recentFiles.map((path) => ({ label: path.replace(/&/g, "&&"), click: () => openRecent(path) })),
+    ...recentFiles.map((path) => ({
+      label: path.replace(/&/g, "&&"),
+      icon: menuIcon(parseDockerUri(path) ? "docker" : "file"),
+      click: () => openRecent(path),
+    })),
     { type: "separator" },
     {
       label: "&Effacer la liste",
