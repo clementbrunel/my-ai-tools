@@ -3,6 +3,11 @@ dist/
 *.tsbuildinfo
 .env
 .env.local
+# Secrets en clair — seules les versions chiffrées (*.env.enc, *.age, voir
+# docs/secrets.md) sont commitées. La clé privée age ne doit jamais l'être.
+keys.txt
+*.pem
+!*.pem.age
 # Mempalace config files
 mempalace.yaml
 entities.json
