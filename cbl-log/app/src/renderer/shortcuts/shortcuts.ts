@@ -60,6 +60,7 @@ export const SHORTCUT_GROUPS: readonly ShortcutGroup[] = [
       { keys: ["Ctrl", "G"], label: "Aller à une ligne ou à une heure" },
       { keys: ["Ctrl", "Début"], label: "Début du fichier" },
       { keys: ["Ctrl", "Fin"], label: "Fin du fichier (et suivi en direct)", alt: ["Fin"] },
+      { keys: ["Double-clic"], label: "Sur le numéro de ligne : voir la ligne dans son contexte" },
     ],
   },
   {
@@ -67,10 +68,12 @@ export const SHORTCUT_GROUPS: readonly ShortcutGroup[] = [
     title: "Sélection & copie",
     icon: "▭",
     shortcuts: [
-      { keys: ["Ctrl", "A"], label: "Sélectionner toutes les lignes" },
-      { keys: ["Ctrl", "C"], label: "Copier la sélection" },
-      { keys: ["Ctrl", "Maj", "C"], label: "Copier avec les numéros de ligne" },
-      { keys: ["Échap"], label: "Annuler la sélection" },
+      { keys: ["Double-clic"], label: "Sélectionner un mot dans une ligne" },
+      { keys: ["Clic droit"], label: "Menu : copier, rechercher, inclure / exclure le texte" },
+      { keys: ["Ctrl", "C"], label: "Copier le texte sélectionné" },
+      { keys: ["Ctrl", "A"], label: "Tout sélectionner, puis Ctrl+C pour tout copier" },
+      { keys: ["Ctrl", "Maj", "C"], label: "Après Ctrl+A : tout copier avec les numéros de ligne" },
+      { keys: ["Échap"], label: "Annuler la sélection de toutes les lignes" },
     ],
   },
   {
