@@ -20,3 +20,9 @@ export async function updateBalance(id: number, balance: number, date?: string):
   const { data } = await apiClient.put<Account>(`/accounts/${id}/balance`, { balance, date })
   return data
 }
+
+/** Merges `id` with `targetId` (imported ↔ synced); returns the surviving account. */
+export async function mergeAccount(id: number, targetId: number): Promise<Account> {
+  const { data } = await apiClient.post<Account>(`/accounts/${id}/merge`, { targetId })
+  return data
+}
