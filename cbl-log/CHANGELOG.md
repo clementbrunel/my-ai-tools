@@ -5,6 +5,11 @@ La section `## [X.Y.Z]` est reprise telle quelle comme notes de la release GitHu
 et affichée dans la fenêtre « Mise à jour disponible » de l'application : rédigez-la pour un
 utilisateur (pas de noms de branches, de PR ni de tâches internes).
 
+## [3.1.1] — 2026-11-03
+
+- **Filtre** : une pastille de filtre très longue ne masque plus son bouton « × » ; le texte est tronqué avec « … » et la pastille reste supprimable.
+- **Profils de logs** : nouveaux profils Log4j2, WebSphere Liberty (`messages.log`, JSON) et lignes JSON.
+
 ## [3.1.0] — 2026-11-02
 
 - **Notes de version dans l'application** : le menu Aide propose « Notes de version… », qui s'ouvre sur la version installée ; les boutons Plus ancienne / Plus récente (ou les flèches ←/→) font défiler l'historique. Les notes sont embarquées : elles restent consultables hors-ligne et après chaque mise à jour.
