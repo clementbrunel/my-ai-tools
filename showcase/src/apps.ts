@@ -70,7 +70,7 @@ export const apps: AppEntry[] = [
       ink: '#e2e8f0', punch: '#22d3ee', punchInk: '#04222a', dark: true,
       font: 'Inter,"Segoe UI",system-ui,sans-serif',
     },
-    kind: { fr: 'App Windows · v3.1', en: 'Windows app · v3.1' },
+    kind: { fr: 'App Windows · v3.2', en: 'Windows app · v3.2' },
     headline: { fr: ['Tes logs en direct.', 'Sans perdre une ligne.'], en: ['Your logs, live.', 'Not a single line lost.'] },
     description: {
       fr: 'Le successeur moderne de BareTail : suit en temps réel des fichiers de toute taille et les logs de tes conteneurs Docker, encaisse les rolling sans trou, surligne par regex, filtre, et fusionne plusieurs fichiers dans une seule vue.',
