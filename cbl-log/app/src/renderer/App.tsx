@@ -92,6 +92,7 @@ export function App() {
   stateRef.current = state;
   /** Files being opened (initial indexing in progress), by open id; progress is 0..1. */
   const [opening, setOpening] = useState<Record<string, { name: string; progress: number }>>({});
+  const [zoom, setZoom] = useState<number | undefined>();
   const [notice, setNotice] = useState<{ text: string; isError: boolean } | undefined>();
   const [ruleSets, setRuleSets] = useState<RuleSet[]>(createBuiltinRuleSets);
   const [rulesOpen, setRulesOpen] = useState(false);
@@ -603,6 +604,19 @@ export function App() {
   }, [loadRulesNow, loadSettingsNow, loadFormatsNow]);
   useEffect(() => window.cblLog.onOpenFeedback(() => setFeedbackOpen(true)), []);
   useEffect(() => window.cblLog.onUpdateState(setUpdateState), []);
+  // Zoom level shown for a moment after each change.
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const off = window.cblLog.onZoomChanged((percent) => {
+      setZoom(percent);
+      clearTimeout(timer);
+      timer = setTimeout(() => setZoom(undefined), 1500);
+    });
+    return () => {
+      off();
+      clearTimeout(timer);
+    };
+  }, []);
   useEffect(() => window.cblLog.onOpenReleaseNotes(() => setNotesOpen(true)), []);
 
   // "Désigner une archive du rolling…": the archive names of this file are learned from the one picked,
@@ -1155,6 +1169,11 @@ export function App() {
 
   return (
     <div className="app">
+      {zoom !== undefined && (
+        <div className="toast info zoom-indicator" role="status">
+          Zoom : {zoom} %
+        </div>
+      )}
       {Object.entries(opening).map(([id, o]) => (
         <div key={id} className="toast info opening" role="status">
           <span className="spinner" aria-hidden="true" />
