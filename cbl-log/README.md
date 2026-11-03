@@ -44,6 +44,12 @@ Dans **Règles de surlignage**, `Exporter…` enregistre le profil affiché dans
 existe déjà (deux versions du même profil), cbl-log propose de le remplacer ou de garder les deux. Le fichier
 exporté a le même format que ceux de `%APPDATA%\cbl-log\rules\` : il peut aussi y être déposé directement.
 
+## Raccourcis clavier
+
+`?` ou `F1` (menu **Aide › Raccourcis clavier**, ou le bouton clavier de la barre d'état) ouvre un récapitulatif
+filtrable des raccourcis, en cartes par thème. La liste vient d'un registre unique,
+`app/src/renderer/shortcuts/shortcuts.ts` : à mettre à jour en même temps que les gestionnaires de touches.
+
 ## Développement
 
 Monorepo npm workspaces : `packages/shared` (types + schémas zod), `packages/engine` (moteur TS pur Node, testé avec vitest), `app` (Electron + electron-vite + React 18).

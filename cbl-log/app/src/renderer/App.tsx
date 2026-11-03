@@ -36,6 +36,7 @@ import { DockerPanel } from "./docker/DockerPanel";
 import { dockerStatusText } from "./docker/docker-panel";
 import { FeedbackPanel } from "./feedback/FeedbackPanel";
 import { UpdatePanel } from "./update/UpdatePanel";
+import { ShortcutsPanel } from "./shortcuts/ShortcutsPanel";
 import { ReleaseNotesPanel } from "./update/ReleaseNotesPanel";
 import type { UpdatePanelState } from "../main/update-check";
 import { FilterBar } from "./filter/FilterBar";
@@ -99,6 +100,7 @@ export function App() {
   const [rulesOpen, setRulesOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [updateState, setUpdateState] = useState<UpdatePanelState | null>(null);
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const settingsRef = useRef(settings);
@@ -620,6 +622,20 @@ export function App() {
     };
   }, []);
   useEffect(() => window.cblLog.onOpenReleaseNotes(() => setNotesOpen(true)), []);
+  useEffect(() => window.cblLog.onOpenShortcuts(() => setShortcutsOpen(true)), []);
+  // "?" opens the shortcuts window (F1 goes through the Aide menu), unless a field has the focus.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      const t = e.target;
+      const typing = t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement;
+      if (e.key === "?" && !e.ctrlKey && !e.altKey && !typing) {
+        e.preventDefault();
+        setShortcutsOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   // "Désigner une archive du rolling…": the archive names of this file are learned from the one picked,
   // remembered in settings.json, and the tab is reopened with its archives.
@@ -1233,6 +1249,7 @@ export function App() {
         <FeedbackPanel onClose={() => setFeedbackOpen(false)} onNotice={(text, isError) => setNotice({ text, isError })} />
       )}
       {notesOpen && <ReleaseNotesPanel current={window.cblLog.version} onClose={() => setNotesOpen(false)} />}
+      {shortcutsOpen && <ShortcutsPanel onClose={() => setShortcutsOpen(false)} />}
       {updateState && <UpdatePanel state={updateState} onClose={() => setUpdateState(null)} />}
       <div className="workspace">
       {dockerEnabled && dockerOpen && (
@@ -1355,6 +1372,7 @@ export function App() {
             }}
             pendingLines={pendingLines}
             onTogglePause={() => togglePauseRef.current()}
+            onShowShortcuts={() => setShortcutsOpen(true)}
             onClear={() => dispatch({ type: "clear", tabId: active.info.tabId })}
             onUnclear={() => dispatch({ type: "unclear", tabId: active.info.tabId })}
             onEditRules={() => setRulesOpen(true)}
