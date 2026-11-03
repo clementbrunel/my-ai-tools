@@ -9,8 +9,6 @@ export interface TextTarget {
   range: Range;
   /** Several lines: usable for copying, not as a one-line search / filter text. */
   multiline: boolean;
-  /** The target was already the user's own selection (nothing to highlight). */
-  fromSelection: boolean;
 }
 
 function textNodesOf(root: Element): Text[] {
@@ -47,7 +45,7 @@ export function selectionAt(x: number, y: number, within: Element): TextTarget |
   const range = sel.getRangeAt(0);
   if (!within.contains(range.commonAncestorContainer) || !rectsContain(range, x, y)) return undefined;
   const text = sel.toString();
-  return text.trim() === "" ? undefined : { text, range, multiline: /[\r\n]/.test(text), fromSelection: true };
+  return text.trim() === "" ? undefined : { text, range, multiline: /[\r\n]/.test(text) };
 }
 
 /** The word of a log line under a point; undefined on blanks, separators, the gutter or past the end of the line. */
@@ -84,7 +82,7 @@ export function wordAt(x: number, y: number): TextTarget | undefined {
   range.setEnd(to.node, to.offset);
   // `caretRangeFromPoint` answers with the nearest caret even far from the text: the point must be on the word
   if (!rectsContain(range, x, y)) return undefined;
-  return { text: full.slice(bounds[0], bounds[1]), range, multiline: false, fromSelection: false };
+  return { text: full.slice(bounds[0], bounds[1]), range, multiline: false };
 }
 
 /** Highlights the range the way a manual selection would be. */

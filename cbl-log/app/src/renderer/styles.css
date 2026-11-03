@@ -301,8 +301,7 @@ body {
   cursor: text;
 }
 
-.log-ellipsis,
-.fold-badge {
+.log-ellipsis {
   user-select: none;
 }
 
@@ -1442,6 +1441,7 @@ input.switch:checked::after {
   border-radius: 8px;
   color: var(--muted);
   font-size: 11px;
+  user-select: none;
 }
 
 .feedback-panel {
