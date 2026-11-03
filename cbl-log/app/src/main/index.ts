@@ -149,16 +149,15 @@ function viewMenu(): Electron.MenuItemConstructorOptions {
 }
 
 /**
- * Development-only entries of the "Aide" menu. Reload / Force reload only restart the interface (nothing
- * is re-read from disk), so they are not shown in the packaged app.
+ * Development-only reload entries of the "Aide" menu. Reload / Force reload only restart the interface
+ * (nothing is re-read from disk), so they are not shown in the packaged app. The developer tools stay
+ * available everywhere, to diagnose a problem on a user's machine.
  */
 function devHelpItems(): Electron.MenuItemConstructorOptions[] {
   if (app.isPackaged) return [];
   return [
-    { type: "separator" },
     { role: "reload", label: "Recharger l'interface (dev)" },
     { role: "forceReload", label: "Recharger sans cache (dev)" },
-    { role: "toggleDevTools", label: "Outils de développement (dev)" },
   ];
 }
 
@@ -184,6 +183,8 @@ function buildMenu(): void {
           { label: "&Notes de version…", click: () => mainWindow?.webContents.send("notes:open") },
           { type: "separator" },
           { label: "À &propos de cbl-log", click: () => showAbout(mainWindow, app.getVersion(), iconPath(), avatarPath()) },
+          { type: "separator" },
+          { role: "toggleDevTools", label: "Outils de développement" },
           ...devHelpItems(),
         ],
       },
