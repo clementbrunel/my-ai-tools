@@ -24,6 +24,19 @@ séparateur à chaque archive. Quand des archives plus anciennes existent, un av
   archive : cbl-log en déduit le motif, le retient pour ce fichier et rouvre l'onglet.
 - La recherche et le filtre portent sur tout le flux : archives chargées, fichiers roulés pendant le suivi, fichier courant.
 
+## Sélectionner, copier, rebondir sur un terme
+
+- Le texte des lignes se sélectionne à la souris comme dans un navigateur (un mot au double-clic, un morceau en
+  glissant) ; `Ctrl+C` copie la sélection, sans le gutter (numéro, niveau). La sélection vit dans les lignes
+  affichées : si le défilement l'éloigne de l'écran, elle s'efface.
+- `Ctrl+A` puis `Ctrl+C` copie **toutes** les lignes de la vue (`Ctrl+Maj+C` avec les numéros de ligne).
+- **Clic droit** sur un mot (il est surligné) ou sur la sélection : *Copier*, *Rechercher* (remplit la barre de
+  recherche, en texte littéral), *Inclure dans le filtre*, *Exclure du filtre* (puces + / − de la barre de filtre).
+  Un mot est une suite sans espace ni séparateur (`=`, guillemets, crochets, virgule…) : `com.acme.Service`,
+  `10.0.0.1` ou `user-123` restent d'un bloc.
+- Le suivi en direct ne fait pas défiler la vue tant qu'une sélection de texte existe.
+- Le double-clic sur le **gutter** (ou l'entrée du menu) affiche la ligne dans son contexte.
+
 ## Partager un profil de surlignage
 
 Dans **Règles de surlignage**, `Exporter…` enregistre le profil affiché dans un fichier `.json` à envoyer

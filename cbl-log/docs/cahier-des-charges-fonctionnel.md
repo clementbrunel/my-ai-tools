@@ -50,6 +50,7 @@ Cas d'usage de référence :
 - **UC5 — Retrouver sa session** : rouvrir l'appli avec ses onglets, ses règles et ses positions.
 - **UC6 — Lire un conteneur Docker** sans bind mount ni configuration.
 - **UC7 — Partager un extrait** : copier une sélection.
+- **UC8 — Rebondir sur un terme** : sélectionner ou viser un mot d'une ligne, puis le rechercher, ou l'inclure / l'exclure du filtre, sans passer par un éditeur de texte.
 
 ## 3. Périmètre
 
@@ -139,7 +140,10 @@ Priorités : **P0** = MVP (parité BareTail utile), **P1** = V1 (ce qui justifie
 
 | ID     | Exigence                                                                                              | Prio |
 |--------|-------------------------------------------------------------------------------------------------------|------|
-| B-01   | Copier la sélection (avec ou sans numéros de ligne)                                                     | P0   |
+| B-01   | **Sélectionner du texte** dans une ligne (un mot, un morceau, quelques lignes) à la souris et le copier (`Ctrl+C`) ; le gutter (numéro, niveau), le séparateur de rotation et le badge de repli ne font jamais partie du texte copié | P0   |
+| B-02   | `Ctrl+A` puis `Ctrl+C` copie **toutes** les lignes de la vue (avec numéros : `Ctrl+Maj+C`), au-delà de la fenêtre affichée (max 200 000 lignes) | P0   |
+| B-03   | **Clic droit** sur un mot (surligné pendant que le menu est ouvert) ou sur une sélection d'une ligne : *Copier*, *Rechercher* (barre de recherche remplie en littéral, insensible à la casse), *Inclure dans le filtre*, *Exclure du filtre* | P0   |
+| B-04   | Double-clic sur le gutter (ou entrée du clic droit) : voir la ligne dans son contexte / dans son fichier / dans l'onglet Tout ; le double-clic sur le texte sélectionne un mot | P0   |
 | B-05   | Effacer la vue (« clear ») : masquer tout ce qui précède, comme un `clear` de terminal                  | P0   |
 
 ### 3.9 Conteneurs Docker (Docker Desktop)
@@ -281,7 +285,7 @@ Critères ajoutés en v0.5 (recette : [`recette/README.md`](./recette/README.md)
 | Recherche / filtre (§ 3.5) | S-01 à S-05 (sur tout le flux, archives comprises) | |
 | Multi-fichiers (§ 3.6) | M-01, M-01b, M-01c, M-01d, M-01e | |
 | Sessions (§ 3.7) | C-01, C-03, C-04 (WebSphere basic, Spring Boot, Log4j2, WebSphere Liberty `messages.log` et JSON, JSON lines) | 🟡 C-04 : profils Liberty non validés sur un fichier réel |
-| Copie (§ 3.8) | B-01, B-05 | |
+| Copie (§ 3.8) | B-01 à B-05 | |
 | Docker (§ 3.9) | D-01 à D-10 | |
 | Hors cahier, livré | mise à jour intégrée (GitHub releases), signalement de bug pré-rempli, installeur NSIS + portable, icône / écran de démarrage / À propos | |
 | Non fonctionnel (§ 4) | NF-06, NF-07, NF-08 | NF-01 à NF-05, NF-11 à mesurer par la recette (#393) |

@@ -41,6 +41,7 @@ import type { UpdatePanelState } from "../main/update-check";
 import { FilterBar } from "./filter/FilterBar";
 import { LevelPills } from "./filter/LevelPills";
 import { nextVisibleHit } from "./filter/filter-nav";
+import { addMatcher } from "./filter/filter-state";
 import { compileRules, highlightLine } from "./highlight/highlight";
 import { RulesEditor } from "./rules/RulesEditor";
 import { autoRuleSet, importAsCopy, importKind, pickRuleSet, uniqueRuleSetId, withRuleSet } from "./rules/rule-profile";
@@ -117,6 +118,7 @@ export function App() {
   const [searchFocus, setSearchFocus] = useState(0);
   /** Incremented by Ctrl+Maj+F: the filter field takes the focus. */
   const [filterFocus, setFilterFocus] = useState(0);
+  const [searchText, setSearchText] = useState<{ text: string; nonce: number } | undefined>();
   /** Scroll request for the view called `forKey` (a request meant for another view is ignored). */
   const [reveal, setReveal] = useState<{ row: number; nonce: number; align?: "center" | "top"; forKey: string } | undefined>();
   const revealNonce = useRef(0);
@@ -1167,6 +1169,13 @@ export function App() {
     [activeId],
   );
 
+  /** Right-click menu of a line: the text joins the include / exclude list of the filter (literal, any case). */
+  const onFilterText = (list: "include" | "exclude", text: string): void => {
+    if (!active) return;
+    onFilterChange(addMatcher(active.filter, list, { pattern: text, isRegex: false, caseSensitive: false }));
+    setNotice({ text: `Filtre : ${list === "include" ? "+" : "−"} « ${text} »`, isError: false });
+  };
+
   return (
     <div className="app">
       {zoom !== undefined && (
@@ -1285,6 +1294,7 @@ export function App() {
               initial={active.search}
               status={status}
               focusRequest={searchFocus}
+              textRequest={searchText}
               onQuery={(q) => void runSearch(q)}
               onNext={() => void findHit("next")}
               onPrev={() => void findHit("prev")}
@@ -1322,6 +1332,9 @@ export function App() {
                     ? (row) => void openInAll(row)
                     : undefined
             }
+            rowActionLabel={active.merged ? "Ouvrir la ligne dans son fichier" : filtered && !active.filterSuspended ? "Voir la ligne dans son contexte" : "Voir la ligne dans l'onglet Tout"}
+            onSearchText={(text) => setSearchText((prev) => ({ text, nonce: (prev?.nonce ?? 0) + 1 }))}
+            onFilterText={onFilterText}
             onGotoLine={filtered ? (line) => void gotoFileLine(line) : undefined}
             onGotoTime={activeFormat?.format.timestamp ? gotoTime : undefined}
             sources={active.merged?.sources.map((s) => ({ label: s.label, color: mergeCandidates.find((c) => c.tab.info.tabId === s.tabId)?.color ?? "#8e8e93" }))}

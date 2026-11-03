@@ -31,6 +31,8 @@ interface Props {
   status: { matches: number; done: boolean; error?: "too-expensive" | "failed" } | undefined;
   /** Incremented to move the keyboard focus into the field (Ctrl+F). */
   focusRequest: number;
+  /** Search this text now, literally (right-click menu of a line); a new `nonce` is a new request. */
+  textRequest?: { text: string; nonce: number } | undefined;
   /** null = no search (field emptied). */
   onQuery(query: SearchQuery | null): void;
   onNext(): void;
@@ -41,7 +43,7 @@ interface Props {
  * Always-visible search bar. The query is sent to the engine once typing pauses (Enter sends it at
  * once); the × empties the field and ends the search, the bar itself stays.
  */
-export function SearchBar({ tabId, initial, status, focusRequest, onQuery, onNext, onPrev }: Props) {
+export function SearchBar({ tabId, initial, status, focusRequest, textRequest, onQuery, onNext, onPrev }: Props) {
   const [fields, setFields] = useState<Fields>(() => fieldsOf(initial));
   const [typing, setTyping] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -71,6 +73,18 @@ export function SearchBar({ tabId, initial, status, focusRequest, onQuery, onNex
     setTyping(false);
     setFields(fieldsOf(initial));
   }
+
+  // A request made before this bar appeared (or for another tab) is not replayed.
+  const handledText = useRef(textRequest?.nonce);
+  useEffect(() => {
+    if (!textRequest || textRequest.nonce === handledText.current) return;
+    handledText.current = textRequest.nonce;
+    debouncer.cancel();
+    const next: Fields = { pattern: textRequest.text, isRegex: false, caseSensitive: false, wholeWord: false };
+    setFields(next);
+    setTyping(false);
+    onQueryRef.current(next);
+  }, [textRequest, debouncer]);
 
   useEffect(() => {
     if (focusRequest === 0) return;
