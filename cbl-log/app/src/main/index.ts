@@ -134,20 +134,8 @@ function zoomBy(delta: number | "reset"): void {
   wc.send("zoom:changed", Math.round(Math.pow(1.2, level) * 100));
 }
 
-/**
- * "Affichage" menu. The stock Electron one has "Reload" / "Force Reload", which only restart the
- * interface (tabs reopen from the session, nothing is re-read from disk) and confuse users: they are
- * kept for development only.
- */
+/** "Affichage" menu (zoom, plein écran). */
 function viewMenu(): Electron.MenuItemConstructorOptions {
-  const dev: Electron.MenuItemConstructorOptions[] = app.isPackaged
-    ? []
-    : [
-        { type: "separator" },
-        { role: "reload", label: "Recharger l'interface (dev)" },
-        { role: "forceReload", label: "Recharger sans cache (dev)" },
-        { role: "toggleDevTools", label: "Outils de développement" },
-      ];
   return {
     label: "&Affichage",
     submenu: [
@@ -156,9 +144,22 @@ function viewMenu(): Electron.MenuItemConstructorOptions {
       { label: "&Taille réelle (100 %)", accelerator: "CmdOrCtrl+0", click: () => zoomBy("reset") },
       { type: "separator" },
       { role: "togglefullscreen", label: "&Plein écran" },
-      ...dev,
     ],
   };
+}
+
+/**
+ * Development-only entries of the "Aide" menu. Reload / Force reload only restart the interface (nothing
+ * is re-read from disk), so they are not shown in the packaged app.
+ */
+function devHelpItems(): Electron.MenuItemConstructorOptions[] {
+  if (app.isPackaged) return [];
+  return [
+    { type: "separator" },
+    { role: "reload", label: "Recharger l'interface (dev)" },
+    { role: "forceReload", label: "Recharger sans cache (dev)" },
+    { role: "toggleDevTools", label: "Outils de développement (dev)" },
+  ];
 }
 
 function buildMenu(): void {
@@ -183,6 +184,7 @@ function buildMenu(): void {
           { label: "&Notes de version…", click: () => mainWindow?.webContents.send("notes:open") },
           { type: "separator" },
           { label: "À &propos de cbl-log", click: () => showAbout(mainWindow, app.getVersion(), iconPath(), avatarPath()) },
+          ...devHelpItems(),
         ],
       },
     ]),
@@ -241,6 +243,8 @@ function createWindow(): void {
   win.webContents.on("did-start-loading", () => {
     rendererReady = false;
   });
+  // Ctrl + wheel zooms by one step (Electron only reports the request, it does not apply it).
+  win.webContents.on("zoom-changed", (_event, direction) => zoomBy(direction === "in" ? 1 : -1));
   engine.attachWindow(win);
   win.once("ready-to-show", () => {
     win.show();
