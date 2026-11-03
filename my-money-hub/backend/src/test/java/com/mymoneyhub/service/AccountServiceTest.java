@@ -130,4 +130,33 @@ class AccountServiceTest {
                 .isInstanceOf(ResponseStatusException.class);
         verify(accountRepository, never()).save(any());
     }
+
+    @Test
+    void netWorthHistory_sumsLatestBalancePerAccountCarriedForward() {
+        Account a = account(Institution.ConnectorType.MANUAL);
+        Account b = account(Institution.ConnectorType.MANUAL);
+        b.setId(11L);
+        when(balanceSnapshotRepository.findAllActiveOrderByRecordedAtAsc()).thenReturn(java.util.List.of(
+                snapshot(a, "100.00", LocalDate.of(2024, 1, 1).atTime(8, 0)),
+                snapshot(a, "120.00", LocalDate.of(2024, 1, 1).atTime(18, 0)),
+                snapshot(b, "50.00", LocalDate.of(2024, 1, 3).atStartOfDay()),
+                snapshot(a, "130.00", LocalDate.of(2024, 1, 5).atStartOfDay())));
+
+        var points = service.netWorthHistory();
+
+        assertThat(points).hasSize(3);
+        assertThat(points.get(0).date()).isEqualTo(LocalDate.of(2024, 1, 1));
+        assertThat(points.get(0).total()).isEqualByComparingTo("120.00");
+        assertThat(points.get(1).total()).isEqualByComparingTo("170.00");
+        assertThat(points.get(2).total()).isEqualByComparingTo("180.00");
+    }
+
+    @Test
+    void netWorthHistory_noSnapshots_isEmpty() {
+        assertThat(service.netWorthHistory()).isEmpty();
+    }
+
+    private BalanceSnapshot snapshot(Account account, String balance, java.time.LocalDateTime at) {
+        return BalanceSnapshot.builder().account(account).balance(new BigDecimal(balance)).recordedAt(at).build();
+    }
 }

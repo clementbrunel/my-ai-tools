@@ -2,7 +2,7 @@ import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type { CblLogApi } from "./api";
 
 const api: CblLogApi = {
-  version: "3.1.0",
+  version: "3.1.1",
   openFileDialog: () => ipcRenderer.invoke("dialog:open-files") as Promise<string[]>,
   onOpenFiles: (cb) => {
     const listener = (_event: unknown, paths: string[]): void => cb(paths);
@@ -55,6 +55,13 @@ const api: CblLogApi = {
     };
   },
   updateAction: (action) => ipcRenderer.send("update:action", action),
+  onZoomChanged: (cb) => {
+    const listener = (_event: unknown, percent: number): void => cb(percent);
+    ipcRenderer.on("zoom:changed", listener);
+    return () => {
+      ipcRenderer.off("zoom:changed", listener);
+    };
+  },
   onConfigChanged: (cb) => {
     const listener = (_event: unknown, kind: "settings" | "rules" | "formats"): void => cb(kind);
     ipcRenderer.on("config:changed", listener);

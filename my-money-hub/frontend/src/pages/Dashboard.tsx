@@ -1,13 +1,15 @@
 import { useEffect, useState, useCallback } from 'react'
-import { fetchNetWorth, syncAll } from '@/api/accounts'
+import { fetchNetWorth, fetchNetWorthHistory, syncAll } from '@/api/accounts'
 import { connectInstitution, fetchInstitutions } from '@/api/institutions'
-import type { Institution, NetWorth } from '@/types'
+import type { Institution, NetWorth, NetWorthPoint } from '@/types'
 import AccountCard from '@/components/AccountCard'
 import LinxoImportModal from '@/components/LinxoImportModal'
 import ManualAccountForm from '@/components/ManualAccountForm'
+import NetWorthChart from '@/components/NetWorthChart'
 
 export default function Dashboard() {
   const [netWorth, setNetWorth] = useState<NetWorth | null>(null)
+  const [history, setHistory] = useState<NetWorthPoint[]>([])
   const [syncing, setSyncing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [importing, setImporting] = useState(false)
@@ -27,6 +29,7 @@ export default function Dashboard() {
   const load = useCallback(async () => {
     try {
       setNetWorth(await fetchNetWorth())
+      setHistory(await fetchNetWorthHistory())
       const all = await fetchInstitutions()
       setInstitutions(all.filter((i) => i.connectorType === 'ENABLE_BANKING'))
       setManualInstitutions(all.filter((i) => i.connectorType === 'MANUAL'))
@@ -112,6 +115,8 @@ export default function Dashboard() {
         </div>
       )}
 
+      {history.length > 1 && <NetWorthChart points={history} />}
+
       {manualInstitutions.length > 0 && <ManualAccountForm institutions={manualInstitutions} onCreated={load} />}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -129,7 +134,7 @@ export default function Dashboard() {
           </summary>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
             {archivedAccounts.map((account) => (
-              <AccountCard key={account.id} account={account} onBalanceUpdated={load} />
+              <AccountCard key={account.id} account={account} onBalanceUpdated={load} allAccounts={netWorth?.accounts} />
             ))}
           </div>
         </details>

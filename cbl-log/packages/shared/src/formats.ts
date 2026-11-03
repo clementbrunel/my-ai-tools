@@ -122,7 +122,157 @@ export const SPRING_BOOT: LogFormat = {
   continuation: "not-line",
 };
 
-export const BUILTIN_FORMATS: readonly LogFormat[] = [WEBSPHERE_BASIC, SPRING_BOOT];
+/**
+ * Open Liberty / WebSphere Liberty `messages.log` (and `trace.log`) text layout, from the documented
+ * "basic" format: `[date time zone] threadId [id=hex ]className type message`. Same header as
+ * WebSphere traditional, but the source is a fully qualified class name (and trace.log adds `id=`).
+ * Listed before `websphere-basic` so it wins the tie on Liberty files (it needs a dotted class name).
+ */
+export const LIBERTY_MESSAGES: LogFormat = {
+  schemaVersion: 1,
+  id: "liberty-messages",
+  name: "WebSphere Liberty (messages.log)",
+  detect: "^\\[\\d{1,2}/\\d{1,2}/\\d{2,4} \\d{1,2}:\\d{2}:\\d{2}:\\d{3} \\S+\\] [0-9a-fA-F]{8} (?:id=[0-9a-fA-F]+ )?[A-Za-z_$][\\w$]*(?:\\.[\\w$]+)+\\s",
+  line: "^\\[(?<ts>[^\\]]+)\\] (?<thread>[0-9a-fA-F]{8}) (?:id=[0-9a-fA-F]+ )?(?<logger>\\S+)\\s+(?<level>\\S) (?<msg>.*)$",
+  timestamp: "M/d/yy H:mm:ss:SSS z",
+  dateOrder: "auto",
+  levels: {
+    F: "fatal",
+    E: "error",
+    // R = System.err redirected to the log
+    R: "error",
+    W: "warn",
+    // A = audit message
+    A: "info",
+    I: "info",
+    // O = System.out redirected to the log: says nothing about severity
+    O: "none",
+    C: "debug",
+    D: "debug",
+    ">": "trace",
+    "<": "trace",
+    "1": "trace",
+    "2": "trace",
+    "3": "trace",
+  },
+  levelFallbacks: WEBSPHERE_BASIC.levelFallbacks,
+  continuation: "not-line",
+};
+
+/** Liberty `messages.log` with `-Dcom.ibm.ws.logging.message.format=json` (one JSON object per line). */
+export const LIBERTY_JSON: LogFormat = {
+  schemaVersion: 1,
+  id: "liberty-json",
+  name: "WebSphere Liberty (JSON)",
+  detect: '^\\{"type":"liberty_',
+  line:
+    '^\\{"type":"liberty_\\w+"' +
+    '(?=.*?"ibm_datetime":"(?<ts>[^"]*)")' +
+    '(?=.*?"loglevel":"(?<level>[^"]*)")' +
+    '(?=.*?"ibm_threadId":"(?<thread>[^"]*)")' +
+    '(?=.*?"module":"(?<logger>[^"]*)")' +
+    '(?=.*?"message":"(?<msg>(?:[^"\\\\]|\\\\.)*)")',
+  timestamp: "yyyy-MM-ddTHH:mm:ss.SSSz",
+  dateOrder: "mdy",
+  levels: {
+    FATAL: "fatal",
+    SEVERE: "error",
+    ERROR: "error",
+    SYSTEMERR: "error",
+    WARNING: "warn",
+    AUDIT: "info",
+    INFO: "info",
+    SYSTEMOUT: "none",
+    CONFIG: "debug",
+    DETAIL: "debug",
+    FINE: "debug",
+    EVENT: "debug",
+    FINER: "trace",
+    FINEST: "trace",
+    ENTRY: "trace",
+    EXIT: "trace",
+  },
+  // System.out lines: the IBM message id still tells the severity
+  levelFallbacks: WEBSPHERE_BASIC.levelFallbacks.slice(1),
+  continuation: "not-line",
+};
+
+const LOG4J2_TS = "(?<ts>\\d{4}-\\d{2}-\\d{2}[ T]\\d{2}:\\d{2}:\\d{2}[.,]\\d{1,3})";
+const LOG4J2_TAIL = "(?<logger>\\S+)\\s+[-:]\\s(?<msg>.*)$";
+
+/** Log4j2 PatternLayout `%d [%t] %-5level %logger - %msg` (date with milliseconds; also `%d{ISO8601}`). */
+export const LOG4J2: LogFormat = {
+  schemaVersion: 1,
+  id: "log4j2",
+  name: "Log4j2",
+  detect: "^\\d{4}-\\d{2}-\\d{2}[ T]\\d{2}:\\d{2}:\\d{2}[.,]\\d{1,3}\\s+\\[",
+  line: `^${LOG4J2_TS}\\s+\\[(?<thread>[^\\]]*)\\]\\s+(?<level>[A-Z]+)\\s+${LOG4J2_TAIL}`,
+  timestamp: "yyyy-MM-dd HH:mm:ss.SSS",
+  dateOrder: "mdy",
+  levels: JUL_AND_COMMON_LEVELS,
+  levelFallbacks: [],
+  continuation: "not-line",
+};
+
+/** Log4j2 variant with the level before the thread: `%d %p [%t] %c - %m`. */
+export const LOG4J2_LEVEL_FIRST: LogFormat = {
+  ...LOG4J2,
+  id: "log4j2-level-first",
+  name: "Log4j2 (niveau avant le thread)",
+  detect: "^\\d{4}-\\d{2}-\\d{2}[ T]\\d{2}:\\d{2}:\\d{2}[.,]\\d{1,3}\\s+[A-Z]+\\s+\\[",
+  line: `^${LOG4J2_TS}\\s+(?<level>[A-Z]+)\\s+\\[(?<thread>[^\\]]*)\\]\\s+${LOG4J2_TAIL}`,
+};
+
+/** Alternative key names of a JSON line, in order of preference (each lookahead keeps the first hit in the line). */
+const JSON_TS = "@timestamp|timestamp|ts|time|datetime|asctime|@t";
+const JSON_LEVEL = "level|loglevel|severity|levelname|log\\.level|@l|lvl";
+const JSON_THREAD = "thread|thread_name|threadName|threadId";
+const JSON_LOGGER = "logger|logger_name|loggerName|category|log\\.logger|name";
+const JSON_MSG = "message|msg|@m|@mt|event";
+
+/**
+ * JSON lines (logstash, Serilog, pino, bunyan, zap, python-json-logger...): one object per line,
+ * keys in any order, matched by lookaheads. The timestamp must be ISO 8601 (an epoch number
+ * leaves the tab without an usable clock); numeric levels follow pino (10 trace ... 60 fatal).
+ */
+export const JSON_LINES: LogFormat = {
+  schemaVersion: 1,
+  id: "json-lines",
+  name: "JSON lines",
+  detect: `^\\{\\s*"(?:${JSON_TS}|${JSON_LEVEL}|${JSON_MSG})"\\s*:|^\\{.*?"(?:${JSON_LEVEL})"\\s*:`,
+  line:
+    "^\\{" +
+    `(?=.*?"(?:${JSON_TS})"\\s*:\\s*"(?<ts>\\d{4}-\\d{2}-\\d{2}[T ][^"]*)")` +
+    `(?=.*?"(?:${JSON_LEVEL})"\\s*:\\s*"?(?<level>[A-Za-z0-9]+))` +
+    `(?:(?=.*?"(?:${JSON_THREAD})"\\s*:\\s*"(?<thread>[^"]*)")|)` +
+    `(?:(?=.*?"(?:${JSON_LOGGER})"\\s*:\\s*"(?<logger>[^"]*)")|)` +
+    `(?:(?=.*?"(?:${JSON_MSG})"\\s*:\\s*"(?<msg>(?:[^"\\\\]|\\\\.)*)")|)`,
+  timestamp: "yyyy-MM-ddTHH:mm:ss.SSSz",
+  dateOrder: "mdy",
+  levels: {
+    ...JUL_AND_COMMON_LEVELS,
+    CRITICAL: "fatal",
+    NOTICE: "info",
+    "10": "trace",
+    "20": "debug",
+    "30": "info",
+    "40": "warn",
+    "50": "error",
+    "60": "fatal",
+  },
+  levelFallbacks: [],
+  continuation: "not-line",
+};
+
+export const BUILTIN_FORMATS: readonly LogFormat[] = [
+  LIBERTY_MESSAGES,
+  LIBERTY_JSON,
+  WEBSPHERE_BASIC,
+  SPRING_BOOT,
+  LOG4J2,
+  LOG4J2_LEVEL_FIRST,
+  JSON_LINES,
+];
 
 // -------------------------------------------------------------------------------------------------
 // Compilation and line parsing
@@ -284,7 +434,7 @@ export function parseTimestamp(ts: string, pattern: string, options: TimestampOp
   }
   const fields: string[] = [];
   const source = tokens
-    .map((token) => {
+    .map((token, i) => {
       switch (token) {
         case "yyyy":
           fields.push("year");
@@ -312,10 +462,17 @@ export function parseTimestamp(ts: string, pattern: string, options: TimestampOp
           return "(\\d{2})";
         case "SSS":
           fields.push("ms");
-          return "(\\d{1,6})";
+          // after a "." the fraction is optional (ISO 8601 allows 10:02:11Z)
+          return tokens[i - 1] === "." ? "(\\d{1,6})?" : "(\\d{1,6})";
         case "z":
           fields.push("zone");
           return "([A-Za-z]+|[+-]\\d{2}:?\\d{2})";
+        case ".":
+          // "." / "," both separate seconds from milliseconds (Log4j2 writes a comma); gone when no fraction follows
+          return tokens[i + 1] === "SSS" ? "(?:[.,](?=\\d))?" : "\\.";
+        case " ":
+          // ISO 8601 puts a "T" where the pattern has a space
+          return "[ T]";
         default:
           return token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       }

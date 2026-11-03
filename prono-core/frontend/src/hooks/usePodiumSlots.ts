@@ -104,7 +104,8 @@ export const usePodiumSlots = (drivers: Driver[], readOnly: boolean, poleLocked:
       if (isSlotLocked(fromSlot)) return;
       if (SLOT_DOMAIN[fromSlot] === SLOT_DOMAIN[targetSlot]) {
         // Same domain: swap occupants.
-        setSlots((prev) => ({ ...prev, [fromSlot]: prev[targetSlot], [targetSlot]: driver }));
+        // Read both occupants from state, not from the drag payload (which can be stale).
+        setSlots((prev) => ({ ...prev, [fromSlot]: prev[targetSlot], [targetSlot]: prev[fromSlot] }));
         setArmedSlot(null);
       } else {
         // Across domains (podium → pole…): copy, the source keeps its driver.

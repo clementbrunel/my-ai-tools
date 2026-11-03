@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { release } from "node:os";
 import { basename, dirname, join } from "node:path";
-import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeTheme, shell } from "electron";
+import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeImage, nativeTheme, shell } from "electron";
 import { parseDockerUri, type ParseRuleSetResult, type RuleSet, type Session, type Settings } from "@cbl-log/shared";
 import { parseFileArgs } from "./cli-args";
 import { ConfigWatcher, type ConfigKind } from "./config-watcher";
@@ -110,10 +110,18 @@ function openRecent(path: string): void {
   sendFiles([path]); // a vanished file is reported by the renderer like any open failure
 }
 
+/** 16 px menu icons (resources/menu/*.png, 32 px source so they stay sharp on HiDPI screens). */
+const menuIcon = (name: "file" | "docker"): Electron.NativeImage =>
+  nativeImage.createFromPath(resourcePath(`menu/${name}.png`)).resize({ width: 16, height: 16 });
+
 function recentSubmenu(): Electron.MenuItemConstructorOptions[] {
   if (recentFiles.length === 0) return [{ label: "(aucun)", enabled: false }];
   return [
-    ...recentFiles.map((path) => ({ label: path.replace(/&/g, "&&"), click: () => openRecent(path) })),
+    ...recentFiles.map((path) => ({
+      label: path.replace(/&/g, "&&"),
+      icon: menuIcon(parseDockerUri(path) ? "docker" : "file"),
+      click: () => openRecent(path),
+    })),
     { type: "separator" },
     {
       label: "&Effacer la liste",
@@ -122,6 +130,42 @@ function recentSubmenu(): Electron.MenuItemConstructorOptions[] {
         persistRecent();
       },
     },
+  ];
+}
+
+/** Zoom of the page in percent (Electron zoom level n = 1.2^n), pushed to the renderer to show it. */
+function zoomBy(delta: number | "reset"): void {
+  const wc = mainWindow?.webContents;
+  if (!wc) return;
+  const level = delta === "reset" ? 0 : Math.max(-5, Math.min(5, wc.getZoomLevel() + delta));
+  wc.setZoomLevel(level);
+  wc.send("zoom:changed", Math.round(Math.pow(1.2, level) * 100));
+}
+
+/** "Affichage" menu (zoom, plein écran). */
+function viewMenu(): Electron.MenuItemConstructorOptions {
+  return {
+    label: "&Affichage",
+    submenu: [
+      { label: "Zoom a&vant", accelerator: "CmdOrCtrl+Plus", click: () => zoomBy(1) },
+      { label: "Zoom a&rrière", accelerator: "CmdOrCtrl+-", click: () => zoomBy(-1) },
+      { label: "&Taille réelle (100 %)", accelerator: "CmdOrCtrl+0", click: () => zoomBy("reset") },
+      { type: "separator" },
+      { role: "togglefullscreen", label: "&Plein écran" },
+    ],
+  };
+}
+
+/**
+ * Development-only reload entries of the "Aide" menu. Reload / Force reload only restart the interface
+ * (nothing is re-read from disk), so they are not shown in the packaged app. The developer tools stay
+ * available everywhere, to diagnose a problem on a user's machine.
+ */
+function devHelpItems(): Electron.MenuItemConstructorOptions[] {
+  if (app.isPackaged) return [];
+  return [
+    { role: "reload", label: "Recharger l'interface (dev)" },
+    { role: "forceReload", label: "Recharger sans cache (dev)" },
   ];
 }
 
@@ -137,7 +181,7 @@ function buildMenu(): void {
           { role: "quit", label: "&Quitter" },
         ],
       },
-      { role: "viewMenu" },
+      viewMenu(),
       {
         label: "&Aide",
         submenu: [
@@ -147,6 +191,9 @@ function buildMenu(): void {
           { label: "&Notes de version…", click: () => mainWindow?.webContents.send("notes:open") },
           { type: "separator" },
           { label: "À &propos de cbl-log", click: () => showAbout(mainWindow, app.getVersion(), iconPath(), avatarPath()) },
+          { type: "separator" },
+          { role: "toggleDevTools", label: "Outils de développement" },
+          ...devHelpItems(),
         ],
       },
     ]),
@@ -205,6 +252,8 @@ function createWindow(): void {
   win.webContents.on("did-start-loading", () => {
     rendererReady = false;
   });
+  // Ctrl + wheel zooms by one step (Electron only reports the request, it does not apply it).
+  win.webContents.on("zoom-changed", (_event, direction) => zoomBy(direction === "in" ? 1 : -1));
   engine.attachWindow(win);
   win.once("ready-to-show", () => {
     win.show();

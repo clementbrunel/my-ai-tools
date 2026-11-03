@@ -1,6 +1,6 @@
 # cbl-log — Cahier des charges fonctionnel
 
-> Statut : **v0.5 — à jour de ce qui est développé (v3.1.0)**. L'avancement par exigence est au § 11.
+> Statut : **v0.5 — à jour de ce qui est développé (v3.1.1)**. L'avancement par exigence est au § 11.
 > v0.5 : conteneurs Docker Desktop (§ 3.9, D-01 à D-10), onglet « Tout » livré (M-01 à M-01e, A-07), historique du rolling chargé avec le fichier (T-08/T-09), recherche et filtre sur tout le flux, recette automatisée fichier + Docker (§ 7, [`recette/`](./recette/README.md)). Le périmètre est ramené à ce qui est livré ou à venir : les exigences abandonnées sont retirées (§ 5).
 > v0.4 : rolling confirmé (même nom + archives à côté), bind mount Windows, format de log fourni plus tard.
 > v0.3 : source de référence = WebSphere en conteneur Docker, perf 10 Go conservée (plusieurs logs en parallèle).
@@ -134,7 +134,7 @@ Priorités : **P0** = MVP (parité BareTail utile), **P1** = V1 (ce qui justifie
 |--------|-------------------------------------------------------------------------------------------------------|------|
 | C-01   | Restauration de la session à la réouverture (onglets, position, follow, filtres actifs)                | P0   |
 | C-03   | Configuration stockée en **fichiers texte lisibles** (JSON/TOML) éditables à la main et versionnables  | P0   |
-| C-04   | **Parseurs de format** déclaratifs (regex à groupes nommés : `ts`, `level`, `logger`, `msg`) ; formats fournis : **WebSphere traditional** (`SystemOut.log`) et Spring Boot ; **à ajouter** : **Log4j2**, **WebSphere Liberty** (`messages.log` et JSON logging), JSON lines | **P0** pour WebSphere, P1 pour les autres |
+| C-04   | **Parseurs de format** déclaratifs (regex à groupes nommés : `ts`, `level`, `logger`, `msg`) ; formats fournis : **WebSphere traditional** (`SystemOut.log`), **WebSphere Liberty** (`messages.log` et JSON logging), Spring Boot, **Log4j2** (niveau après ou avant le thread), JSON lines | **P0** pour WebSphere, P1 pour les autres |
 
 ### 3.8 Copie et effacement
 
@@ -243,7 +243,7 @@ Critères ajoutés en v0.5 (recette : [`recette/README.md`](./recette/README.md)
 |-------|---------------------------------------------------------------------------------|------|
 | M0    | Squelette Electron + moteur de lecture/indexation/rolling testé seul (tests + script de bench) | ✅ livré |
 | M1    | MVP P0 : onglets, follow, rotation, surlignage, recherche, session              | ✅ livré |
-| M2    | Filtres, format WebSphere + autres parseurs, regroupement multi-lignes, niveaux | ✅ livré (filtres, niveaux, repli, pause, WebSphere + Spring Boot) ; reste : formats Log4j2 et Liberty |
+| M2    | Filtres, format WebSphere + autres parseurs, regroupement multi-lignes, niveaux | ✅ livré (filtres, niveaux, repli, pause, WebSphere, Spring Boot, Log4j2, Liberty, JSON lines) |
 | M3    | **Onglet « Tout » (vue fusionnée)**, aller à l'horodatage                       | ✅ livré (#504 à #510) |
 | Docker | Conteneurs Docker Desktop (§ 3.9)                                              | ✅ livré (#483 à #485) ; recette à exécuter dans #393 |
 
@@ -268,7 +268,7 @@ Critères ajoutés en v0.5 (recette : [`recette/README.md`](./recette/README.md)
 1. **Format de config** : JSON retenu par défaut (cohérent avec le monorepo), TOML possible plus tard.
 2. **Formatage exact des logs WebSphere** : *en partie levée* — un `SystemOut.log` réel a fixé le parseur par défaut
    et la locale (`M/d/yy`, UTC) ; les archives de rolling s'appellent `SystemOut_yy.MM.dd_HH.mm.ss.log` (reconnues
-   par T-08, autres noms appris d'un exemple). Reste à fournir : un exemple Liberty (`messages.log` / JSON).
+   par T-08, autres noms appris d'un exemple). Les profils Liberty (`messages.log` / JSON) sont écrits d'après le format documenté d'Open Liberty, sans exemple réel : à valider dès qu'un fichier Liberty est disponible.
 3. **Docker Desktop** : *levée* — sur le conteneur WebSphere de référence, tout (`SystemOut` compris) part sur le stdout du
    conteneur, l'API `logs` suffit (architecture § 4.8). À valider par les scénarios manuels de la recette.
 
@@ -284,7 +284,7 @@ Critères ajoutés en v0.5 (recette : [`recette/README.md`](./recette/README.md)
 | Surlignage (§ 3.4) | H-01 à H-05, H-08 (export / import de profil) | |
 | Recherche / filtre (§ 3.5) | S-01 à S-05 (sur tout le flux, archives comprises) | |
 | Multi-fichiers (§ 3.6) | M-01, M-01b, M-01c, M-01d, M-01e | |
-| Sessions (§ 3.7) | C-01, C-03, C-04 (WebSphere basic, Spring Boot) | 🔜 C-04 (#515) : profils de log **Log4j2**, **WebSphere Liberty** (`messages.log` et JSON), JSON lines |
+| Sessions (§ 3.7) | C-01, C-03, C-04 (WebSphere basic, Spring Boot, Log4j2, WebSphere Liberty `messages.log` et JSON, JSON lines) | 🟡 C-04 : profils Liberty non validés sur un fichier réel |
 | Copie (§ 3.8) | B-01 à B-05 | |
 | Docker (§ 3.9) | D-01 à D-10 | |
 | Hors cahier, livré | mise à jour intégrée (GitHub releases), signalement de bug pré-rempli, installeur NSIS + portable, icône / écran de démarrage / À propos | |

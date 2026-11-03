@@ -1,8 +1,11 @@
 package com.mymoneyhub.controller;
 
 import com.mymoneyhub.dto.AccountDto;
+import com.mymoneyhub.dto.MergeAccountRequest;
 import com.mymoneyhub.dto.NetWorthDto;
+import com.mymoneyhub.dto.NetWorthPointDto;
 import com.mymoneyhub.dto.UpdateBalanceRequest;
+import com.mymoneyhub.service.AccountMergeService;
 import com.mymoneyhub.service.AccountService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +19,7 @@ import java.util.List;
 public class AccountController {
 
     private final AccountService accountService;
+    private final AccountMergeService accountMergeService;
 
     @GetMapping
     public List<AccountDto> listAll() {
@@ -27,8 +31,19 @@ public class AccountController {
         return accountService.netWorth();
     }
 
+    @GetMapping("/net-worth/history")
+    public List<NetWorthPointDto> netWorthHistory() {
+        return accountService.netWorthHistory();
+    }
+
     @PutMapping("/{id}/balance")
     public AccountDto updateBalance(@PathVariable Long id, @Valid @RequestBody UpdateBalanceRequest request) {
         return accountService.updateManualBalance(id, request);
+    }
+
+    /** Merges this account with {@code targetId}; returns the surviving account (the synced one when they differ). */
+    @PostMapping("/{id}/merge")
+    public AccountDto merge(@PathVariable Long id, @Valid @RequestBody MergeAccountRequest request) {
+        return accountMergeService.merge(id, request.targetId());
     }
 }

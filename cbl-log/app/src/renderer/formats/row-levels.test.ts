@@ -1,8 +1,8 @@
-import { BUILTIN_FORMATS, compileFormat } from "@cbl-log/shared";
+import { WEBSPHERE_BASIC, compileFormat } from "@cbl-log/shared";
 import { describe, expect, it } from "vitest";
 import { computeRowLevels } from "./row-levels";
 
-const websphere = compileFormat(BUILTIN_FORMATS[0]!);
+const websphere = compileFormat(WEBSPHERE_BASIC);
 const head = (level: string) => `[10/14/26 10:02:11:204 UTC] 0000004a SystemOut     O bob|ui|20261014|100211204|${level}|a.B|m|text`;
 
 const rows = [head("INFO"), head("SEVERE"), "\tat a.b.C.d(C.java:1)", "Caused by: x.Y: boom", "\t... 3 more", head("WARNING"), ""];
@@ -24,7 +24,7 @@ describe("computeRowLevels", () => {
   });
 
   it("does not inherit when the format has no continuation", () => {
-    const flat = compileFormat({ ...BUILTIN_FORMATS[0]!, continuation: "none" });
+    const flat = compileFormat({ ...WEBSPHERE_BASIC, continuation: "none" });
     expect(computeRowLevels(flat, textOf, 0, 3)).toEqual(["info", "error", undefined]);
   });
 

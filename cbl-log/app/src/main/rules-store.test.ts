@@ -22,7 +22,7 @@ describe("rules store", () => {
     expect(warnings).toEqual([]);
     expect(sets.map((s) => s.id)).toEqual(["default", "websphere"]);
     expect(JSON.parse(readFileSync(join(dir, "default.json"), "utf8")).schemaVersion).toBe(1);
-    expect(JSON.parse(readFileSync(join(dir, "websphere.json"), "utf8")).formats).toEqual(["websphere-basic"]);
+    expect(JSON.parse(readFileSync(join(dir, "websphere.json"), "utf8")).formats).toEqual(["websphere-basic", "liberty-messages"]);
   });
 
   it("adds a built-in set that is missing from an existing folder, and never overwrites a customized one", async () => {
