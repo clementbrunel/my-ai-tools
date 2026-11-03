@@ -125,6 +125,42 @@ function recentSubmenu(): Electron.MenuItemConstructorOptions[] {
   ];
 }
 
+/** Zoom of the page in percent (Electron zoom level n = 1.2^n), pushed to the renderer to show it. */
+function zoomBy(delta: number | "reset"): void {
+  const wc = mainWindow?.webContents;
+  if (!wc) return;
+  const level = delta === "reset" ? 0 : Math.max(-5, Math.min(5, wc.getZoomLevel() + delta));
+  wc.setZoomLevel(level);
+  wc.send("zoom:changed", Math.round(Math.pow(1.2, level) * 100));
+}
+
+/**
+ * "Affichage" menu. The stock Electron one has "Reload" / "Force Reload", which only restart the
+ * interface (tabs reopen from the session, nothing is re-read from disk) and confuse users: they are
+ * kept for development only.
+ */
+function viewMenu(): Electron.MenuItemConstructorOptions {
+  const dev: Electron.MenuItemConstructorOptions[] = app.isPackaged
+    ? []
+    : [
+        { type: "separator" },
+        { role: "reload", label: "Recharger l'interface (dev)" },
+        { role: "forceReload", label: "Recharger sans cache (dev)" },
+        { role: "toggleDevTools", label: "Outils de développement" },
+      ];
+  return {
+    label: "&Affichage",
+    submenu: [
+      { label: "Zoom a&vant", accelerator: "CmdOrCtrl+Plus", click: () => zoomBy(1) },
+      { label: "Zoom a&rrière", accelerator: "CmdOrCtrl+-", click: () => zoomBy(-1) },
+      { label: "&Taille réelle (100 %)", accelerator: "CmdOrCtrl+0", click: () => zoomBy("reset") },
+      { type: "separator" },
+      { role: "togglefullscreen", label: "&Plein écran" },
+      ...dev,
+    ],
+  };
+}
+
 function buildMenu(): void {
   Menu.setApplicationMenu(
     Menu.buildFromTemplate([
@@ -137,7 +173,7 @@ function buildMenu(): void {
           { role: "quit", label: "&Quitter" },
         ],
       },
-      { role: "viewMenu" },
+      viewMenu(),
       {
         label: "&Aide",
         submenu: [

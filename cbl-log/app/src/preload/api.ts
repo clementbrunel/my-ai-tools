@@ -38,6 +38,8 @@ export interface CblLogApi {
   saveSettings(settings: Settings): Promise<void>;
   loadSession(): Promise<{ value: Session; warning?: string }>;
   saveSession(session: Session): Promise<void>;
+  /** "Affichage > Zoom" changed the page zoom (percent, 100 = real size). */
+  onZoomChanged(cb: (percent: number) => void): () => void;
   /** A config file was edited outside the app (hot reload). */
   onConfigChanged(cb: (kind: "settings" | "rules" | "formats") => void): () => void;
   /** "Aide > Signaler un bug / proposer une idée" was chosen. */
