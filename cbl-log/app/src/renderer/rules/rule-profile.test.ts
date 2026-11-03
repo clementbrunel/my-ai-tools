@@ -78,7 +78,7 @@ describe("profile sharing (export / import)", () => {
     const copy = importAsCopy(sets, theirs);
     expect(copy.id).toBe("websphere-importe");
     expect(copy.name).toBe("WebSphere (importé)");
-    expect(copy.formats).toEqual(["websphere-basic"]);
+    expect(copy.formats).toEqual(["websphere-basic", "liberty-messages"]);
     expect(importKind(sets, copy)).toBe("new");
   });
 

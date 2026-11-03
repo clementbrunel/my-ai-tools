@@ -86,7 +86,7 @@ export function createWebSphereRuleSet(): RuleSet {
     schemaVersion: 1,
     id: "websphere",
     name: "WebSphere",
-    formats: ["websphere-basic"],
+    formats: ["websphere-basic", "liberty-messages"],
     rules: [
       rule("ws-severe", "SEVERE / FATAL (niveau applicatif)", "\\|(SEVERE|FATAL|ERROR)\\|", { bg: "#d93025" }),
       rule("ws-ibm-error", "Message IBM en erreur (…E)", "\\b[A-Z]{4,5}\\d{4}E\\b", { bg: "#d93025" }),

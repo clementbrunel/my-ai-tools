@@ -267,6 +267,15 @@ Format WebSphere `websphere-basic` (implémenté dans `packages/shared/src/forma
 - Les identifiants de messages IBM (`CWWKZ0001I`, `WSVR0605W`, `…E`) servent de niveau de secours et
   fournissent des règles de surlignage par défaut (suffixe `E` rouge, `W` orange).
 - Liberty JSON (`WLP_LOGGING_MESSAGE_FORMAT=json`) : mapping `ibm_datetime`, `loglevel`, `module`, `message`.
+- Formats intégrés (`BUILTIN_FORMATS`, #515) : `liberty-messages`, `liberty-json`, `websphere-basic`, `spring-boot`,
+  `log4j2` (`%d [%t] %-5level %logger - %msg`), `log4j2-level-first` (`%d %p [%t] %c - %m`), `json-lines`.
+  `liberty-messages` précède `websphere-basic` (à égalité de lignes reconnues, le premier gagne) et exige un nom de
+  classe pointé ; il comprend la colonne `id=` de `trace.log` et les types `>` / `<`. Les formats JSON n'ont pas de
+  regex par champ dans l'ordre : chaque champ est lu par un *lookahead* nommé, donc les clés peuvent venir dans
+  n'importe quel ordre (variantes de clés pour `json-lines` : `@timestamp|timestamp|time…`, `level|severity|…`,
+  niveaux numériques pino). Horodatage ISO 8601 (`T`, `,` ou `.`, fraction facultative, `Z` ou `±hh:mm`) ; une
+  date en epoch ne donne pas d'horloge (l'onglet « Tout » l'ignore). Les profils Liberty viennent de la
+  documentation Open Liberty, sans exemple réel.
 
 ### 4.5 Recherche, filtres, vues
 
