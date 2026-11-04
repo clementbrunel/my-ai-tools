@@ -33,6 +33,9 @@ export type QueryEvent = Extract<TabEvent, { type: "query" }>;
 
 export const DEFAULT_SLICE_BYTES = 16 * 1024 * 1024;
 const EVENT_THROTTLE_MS = 100;
+/** A worker that fails (file briefly unreadable, e.g. after a sleep) is retried this many times, with backoff. */
+const MAX_RETRIES = 5;
+const RETRY_BASE_MS = 1000;
 
 interface SliceState {
   chunks: Float64Array[];
@@ -96,6 +99,8 @@ export class SearchSession {
   private liveId: number | undefined;
   private lastEmit = 0;
   private emitTimer: NodeJS.Timeout | undefined;
+  private retryTimer: NodeJS.Timeout | undefined;
+  private retries = 0;
 
   constructor(
     readonly query: SearchQuery,
@@ -121,8 +126,9 @@ export class SearchSession {
 
   /** The stream grew: search the new part (queued if a scan is running). */
   extend(): void {
-    if (this.disposed || this.error) return;
-    this.scan();
+    if (this.disposed || this.error === "too-expensive") return;
+    if (this.error) this.retryNow(); // a failure is not final: new data is a good moment to try again
+    else this.scan();
   }
 
   /**
@@ -134,6 +140,7 @@ export class SearchSession {
   rolled(): void {
     if (this.disposed) return;
     this.cancelRun();
+    this.resetRetry();
     this.error = undefined;
     if (this.liveId !== undefined) this.parts.delete(this.liveId);
     this.dirty = false;
@@ -145,6 +152,7 @@ export class SearchSession {
     if (this.disposed) return;
     this.cancelRun();
     this.parts.clear();
+    this.resetRetry();
     this.error = undefined;
     this.dirty = false;
     this.scan();
@@ -154,6 +162,20 @@ export class SearchSession {
     this.disposed = true;
     this.cancelRun();
     clearTimeout(this.emitTimer);
+    clearTimeout(this.retryTimer);
+  }
+
+  private resetRetry(): void {
+    clearTimeout(this.retryTimer);
+    this.retryTimer = undefined;
+    this.retries = 0;
+  }
+
+  /** Forgets a failure and scans again (the failed file resumes where it stopped). */
+  private retryNow(): void {
+    this.resetRetry();
+    this.error = undefined;
+    this.scan();
   }
 
   async next(fromRow: number, dir: "next" | "prev"): Promise<SearchHit> {
@@ -305,12 +327,24 @@ export class SearchSession {
           if (this.run !== run) return;
           this.run = undefined;
           if (this.disposed) return;
+          if (error === "failed" && this.retries < MAX_RETRIES) {
+            part.slices.length = base; // drop the partial results of the failed file: it is searched again whole
+            part.count = part.slices.reduce((n, slice) => n + slice.chunks.reduce((m, c) => m + c.length, 0), 0);
+            this.dirty = true; // not done: shown as still searching while we wait
+            this.retryTimer = setTimeout(() => {
+              this.retryTimer = undefined;
+              this.retries++;
+              if (!this.disposed && !this.run) this.scan();
+            }, RETRY_BASE_MS * 2 ** this.retries);
+            return;
+          }
           if (error) {
             this.error = error;
             this.dirty = false;
             this.emitNow();
             return;
           }
+          this.retries = 0;
           part.scannedTo = limit;
           this.dirty = false;
           this.scan(); // the next file, or what arrived meanwhile
