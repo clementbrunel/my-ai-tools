@@ -60,7 +60,7 @@ export const CATALOGUE: CatalogueTool[] = [
   {
     id: "headroom",
     name: "Headroom",
-    tagline: "Compression de contexte — réduit de 60-95 % les tokens des outputs, RAG chunks et JSON",
+    tagline: "Compression de contexte — réduit de 21-57 % les tokens d'entrée sur des scénarios d'agents, 90 %+ sur les JSON et logs répétitifs",
     why: "Idéal pour les workflows RAG-lourds ou quand les sorties d'outils sont très verbeux. Supporte plusieurs modes de déploiement : librairie Python/TS, proxy HTTP (zéro changement de code), ou serveur MCP.",
     steps: [
       {
@@ -141,7 +141,7 @@ export const CATALOGUE: CatalogueTool[] = [
   {
     id: "ecc",
     name: "ECC (Agent Harness OS)",
-    tagline: "Framework tout-en-un : 71 agents, 311 skills, hooks et règles pour Claude Code, Cursor, Codex",
+    tagline: "Framework tout-en-un : 71 agents, 314 skills, hooks et règles pour Claude Code, Cursor, Codex",
     why: "Installe d'un coup un ensemble complet de patterns de travail éprouvés (10+ mois de production). Inclut déjà une réduction de tokens similaire à Caveman. Choisir ECC OU les outils individuels — pas les deux, risque de conflits de hooks et de skills.",
     steps: [
       {
@@ -209,7 +209,7 @@ export const CATALOGUE: CatalogueTool[] = [
     id: "ponytail",
     name: "Ponytail",
     tagline: "Skill Claude Code anti-sur-ingénierie — pousse l'agent vers l'implémentation minimale nécessaire",
-    why: "Fait évaluer à l'agent une échelle de décision avant d'écrire du code (YAGNI, déjà dans le codebase ?, stdlib ?, one-liner ?...) plutôt que d'installer des dépendances ou d'écrire du boilerplate. Mesuré à ~54 % de code en moins, ~20 % moins cher, ~27 % plus rapide sur des sessions Claude Code réelles. Chevauche Karpathy Skills sur le même problème (sur-ingénierie, discipline de modification) — éviter de cumuler les deux.",
+    why: "Fait évaluer à l'agent une échelle de décision avant d'écrire du code (YAGNI, déjà dans le codebase ?, stdlib ?, one-liner ?...) plutôt que d'installer des dépendances ou d'écrire du boilerplate. Mesuré (benchmark des auteurs, 39 tâches) à ~53 % de code en moins, ~26 % moins cher, ~41 % plus rapide sur des sessions Claude Code réelles. Chevauche Karpathy Skills sur le même problème (sur-ingénierie, discipline de modification) — éviter de cumuler les deux.",
     steps: [
       {
         label: "Ajouter le marketplace",
@@ -238,7 +238,7 @@ export const CATALOGUE: CatalogueTool[] = [
       {
         label: "Installer le package npm",
         command: "npm install -g codeburn",
-        manual: "Nécessite Node.js 22.13+. Ou via Homebrew : brew install codeburn",
+        manual: "Nécessite Node.js 22.15+. Ou via Homebrew : brew install codeburn",
       },
       {
         label: "Ajouter comme serveur MCP (optionnel)",
