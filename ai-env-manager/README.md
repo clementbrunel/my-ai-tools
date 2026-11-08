@@ -147,7 +147,7 @@ install plan that picks more than one.
 | id | Tool | What it does | Install surface |
 |---|---|---|---|
 | `rtk` | [RTK (Rust Token Killer)](https://www.rtk-ai.app/) | CLI proxy that compresses shell output before it reaches the model | `cargo install --git https://github.com/rtk-ai/rtk` + a `PostToolUse` hook |
-| `headroom` | [Headroom](https://github.com/headroomlabs-ai/headroom) | Compresses tool outputs, RAG chunks and JSON (60–95 % claimed) | `pip install headroom-ai`; library, HTTP proxy, or MCP server |
+| `headroom` | [Headroom](https://github.com/headroomlabs-ai/headroom) | Compresses tool outputs, RAG chunks and JSON (21–57 % fewer input tokens on agent scenarios, 90 %+ on repeated JSON/logs, per README) | `pip install headroom-ai`; library, HTTP proxy, or MCP server |
 | `caveman` | [Caveman](https://github.com/JuliusBrussee/caveman) | Skill that steers the model toward terse answers — zero infra | `/plugin marketplace add JuliusBrussee/caveman` + `/plugin install caveman@caveman` |
 
 #### Group `memory` — project memory & codebase knowledge *(pick 1)*
@@ -174,7 +174,7 @@ listed below.
 
 | id | Tool | What it does | Install surface |
 |---|---|---|---|
-| `ecc` | [ECC (Agent Harness OS)](https://github.com/affaan-m/ECC) | All-in-one harness: 71 agents, 311 skills, hooks and rules across Claude Code / Cursor / Codex | `/plugin install ecc@ecc` |
+| `ecc` | [ECC (Agent Harness OS)](https://github.com/affaan-m/ECC) | All-in-one harness: 71 agents, 314 skills, hooks and rules across Claude Code / Cursor / Codex | `/plugin install ecc@ecc` |
 | `karpathy-skills` | [Andrej Karpathy Skills](https://github.com/forrestchang/andrej-karpathy-skills) | Coding-discipline guidelines: no unverified assumptions, no over-engineering, no out-of-scope edits | plugin, or drop-in `CLAUDE.md` |
 | `ponytail` | [Ponytail](https://github.com/DietrichGebert/ponytail) | Anti-over-engineering skill — forces a YAGNI decision ladder before writing code | plugin, or rule files per editor |
 | `codeburn` | [CodeBurn](https://github.com/getagentseal/codeburn) | Cost & token accounting across 42 AI coding tools — measures, does not compress | `npm i -g codeburn` + optional MCP server |
