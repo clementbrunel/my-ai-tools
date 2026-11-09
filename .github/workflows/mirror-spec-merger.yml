@@ -1,0 +1,41 @@
+name: spec-merger – mirror
+
+# Keeps two read-only repositories equal to spec-merger/backend and spec-merger/frontend, with their history.
+# Nothing must be committed to those repositories: the next run would refuse to push (see .github/scripts/mirror-subdir.sh).
+# Needs the secret SPEC_MERGER_MIRROR_TOKEN: a token with write access to the contents of the two repositories.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "spec-merger/backend/**"
+      - "spec-merger/frontend/**"
+      - ".github/workflows/mirror-spec-merger.yml"
+      - ".github/scripts/mirror-subdir.sh"
+  workflow_dispatch:
+
+# One run at a time: two pushes in a row must not race on the mirrors
+concurrency:
+  group: mirror-spec-merger
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - prefix: spec-merger/backend
+            repo: spec-merger-backend
+          - prefix: spec-merger/frontend
+            repo: spec-merger-frontend
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # the whole history is needed to find where the mirror stopped
+
+      - name: Mirror ${{ matrix.prefix }}
+        env:
+          MIRROR_TOKEN: ${{ secrets.SPEC_MERGER_MIRROR_TOKEN }}
+        run: .github/scripts/mirror-subdir.sh "${{ matrix.prefix }}" "https://github.com/${{ github.repository_owner }}/${{ matrix.repo }}.git"
