@@ -72,6 +72,11 @@ export function SportProvider({ children }: { children: ReactNode }) {
     if (favicon) {
       favicon.href = `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>${emoji}</text></svg>`;
     }
+
+    // Colors the Android status bar / PWA title bar to match the sport header.
+    document
+      .querySelector("meta[name='theme-color']")
+      ?.setAttribute('content', sport === 'f1' ? '#E10600' : '#009900');
   }, [sport]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
