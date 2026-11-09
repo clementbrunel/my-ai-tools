@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useSlides } from './ui'
 
 /** Progress 0..1 of an element scrolling through the viewport (0 = top reaches top, 1 = bottom reaches bottom). */
 export function useScrollProgress<T extends HTMLElement>() {
@@ -33,5 +34,7 @@ export function fade(p: number, edge = 0.22, first = false, last = false) {
 /** Scroll progress + the scene's fade opacity in one go (see `fade` for the options). */
 export function useScene<T extends HTMLElement>(edge: number, first = false, last = false) {
   const [ref, p] = useScrollProgress<T>()
-  return [ref, fade(p, edge, first, last), p] as const
+  const slides = useSlides()
+  // swipe slides have no scroll-driven fade: every slide is fully shown
+  return slides ? ([ref, 1, 0.5] as const) : ([ref, fade(p, edge, first, last), p] as const)
 }

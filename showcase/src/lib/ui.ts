@@ -1,8 +1,9 @@
+import { useEffect, useState } from 'react'
 import type { Lang } from '../apps'
 
 export const ui = {
-  fr: { sub: 'Apps & outils', scroll: 'Défiler', aboutT: 'Quatre projets. Un développeur.', aboutP: 'Je conçois et développe des applications web et des outils pour développeurs. Écris-moi, ou regarde le code.', legal: 'Mentions légales' },
-  en: { sub: 'Apps & tools', scroll: 'Scroll', aboutT: 'Four projects. One developer.', aboutP: 'I design and build web apps and developer tools. Reach out, or read the code.', legal: 'Legal notice' },
+  fr: { sub: 'Apps & outils', scroll: 'Défiler', swipe: 'Glisser', aboutT: 'Quatre projets. Un développeur.', aboutP: 'Je conçois et développe des applications web et des outils pour développeurs. Écris-moi, ou regarde le code.', legal: 'Mentions légales' },
+  en: { sub: 'Apps & tools', scroll: 'Scroll', swipe: 'Swipe', aboutT: 'Four projects. One developer.', aboutP: 'I design and build web apps and developer tools. Reach out, or read the code.', legal: 'Legal notice' },
 } satisfies Record<Lang, Record<string, string>>
 
 export const initialLang = (): Lang => {
@@ -41,7 +42,37 @@ export function sceneY(id: string) {
   return el ? el.offsetTop + Math.max(0, el.offsetHeight - innerHeight) * 0.5 : 0
 }
 
+/** Phones show the scenes as horizontal swipe slides (`<main>` is the scroll-snap track); wider screens keep the vertical scroll. Mirrors the breakpoint in styles.css. */
+const SLIDES_MQ = '(max-width:820px)'
+export const isSlides = () => matchMedia(SLIDES_MQ).matches
+
+export const useSlides = () => {
+  const [s, setS] = useState(isSlides)
+  useEffect(() => {
+    const m = matchMedia(SLIDES_MQ)
+    const f = () => setS(m.matches)
+    f(); m.addEventListener('change', f)
+    return () => m.removeEventListener('change', f)
+  }, [])
+  return s
+}
+
+/** Index of the slide currently centred in the swipe track. */
+export const slideIndex = (track: HTMLElement) => Math.round(track.scrollLeft / Math.max(1, track.clientWidth))
+
+/** Go to a scene by id ('' = hero): swipe to its slide on phones, eased vertical scroll elsewhere. `instant` skips the animation. */
+export function goToScene(id: string, instant = false) {
+  if (isSlides()) {
+    const track = document.querySelector<HTMLElement>('main')
+    const el = id ? document.getElementById(id) : track?.querySelector<HTMLElement>('.scene')
+    if (track && el) track.scrollTo({ left: el.offsetLeft, behavior: instant || matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
+    return
+  }
+  const y = id ? sceneY(id) : 0
+  if (instant) scrollTo(0, y); else scrollToY(y)
+}
+
 export function go(e: React.MouseEvent, id: string) {
   e.preventDefault()
-  if (document.getElementById(id)) scrollToY(sceneY(id))
+  if (document.getElementById(id)) goToScene(id)
 }

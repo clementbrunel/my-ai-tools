@@ -1,6 +1,6 @@
 import { apps, profile } from '../apps'
 import { sceneHash } from '../lib/nav'
-import { go, scrollToY } from '../lib/ui'
+import { go, goToScene } from '../lib/ui'
 import AppIcon from './AppIcon'
 import './Dock.css'
 
@@ -9,7 +9,7 @@ const GH = 'M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.87
 export default function Dock({ active, dark }: { active: string; dark: boolean }) {
   return (
     <nav className={`dock ${active ? 'show' : ''} ${dark ? 'dark' : ''}`} aria-label="Navigation">
-      <a className="mono" href="#/" aria-label="Accueil" onClick={(e) => { e.preventDefault(); scrollToY(0) }}>CB</a>
+      <a className="mono" href="#/" aria-label="Accueil" onClick={(e) => { e.preventDefault(); goToScene('') }}>CB</a>
       <span className="sep" />
       {apps.map((a) => (
         <a key={a.id} href={sceneHash(a.id)} className={`dk ${active === a.id ? 'on' : ''}`} onClick={(e) => go(e, a.id)}>
