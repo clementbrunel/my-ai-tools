@@ -1,4 +1,4 @@
-import '@testing-library/jest-dom'
+import '@testing-library/jest-dom/vitest'
 
 // Node >= 25 ships an experimental global localStorage that shadows jsdom's and is
 // unusable without --localstorage-file; install a plain in-memory Storage instead.
