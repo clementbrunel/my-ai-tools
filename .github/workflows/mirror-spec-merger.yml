@@ -2,6 +2,7 @@ name: spec-merger – mirror
 
 # Keeps two read-only repositories equal to spec-merger/backend and spec-merger/frontend, with their history.
 # Nothing must be committed to those repositories: the next run would refuse to push (see .github/scripts/mirror-subdir.sh).
+# Each mirror also gets a branch "sync/github", equal to main: the one a GitLab pull mirror follows (filter: ^sync/github$).
 # Needs the secret SPEC_MERGER_MIRROR_TOKEN: a token with write access to the contents of the two repositories.
 
 on:
@@ -38,4 +39,4 @@ jobs:
       - name: Mirror ${{ matrix.prefix }}
         env:
           MIRROR_TOKEN: ${{ secrets.SPEC_MERGER_MIRROR_TOKEN }}
-        run: .github/scripts/mirror-subdir.sh "${{ matrix.prefix }}" "https://github.com/${{ github.repository_owner }}/${{ matrix.repo }}.git"
+        run: .github/scripts/mirror-subdir.sh "${{ matrix.prefix }}" "https://github.com/${{ github.repository_owner }}/${{ matrix.repo }}.git" sync/github

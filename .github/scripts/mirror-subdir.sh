@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # Keep a read-only repository equal to one sub-directory of this monorepo, with its history.
 #
-# Usage: mirror-subdir.sh <prefix> <mirror-url>
-#   prefix       directory of the monorepo that becomes the root of the mirror (e.g. spec-merger/backend)
-#   mirror-url   https URL of the mirror repository
+# Usage: mirror-subdir.sh <prefix> <mirror-url> [extra-branch]
+#   prefix        directory of the monorepo that becomes the root of the mirror (e.g. spec-merger/backend)
+#   mirror-url    https URL of the mirror repository
+#   extra-branch  optional second branch of the mirror kept equal to main (e.g. the only branch a GitLab pull mirror follows).
+#                 It is a pure copy of main, so it is force-pushed and recreated if missing or edited.
 # Environment: MIRROR_TOKEN, a token that can push to the mirror (sent as a header, never written to the URL or to .git/config).
 #
 # Instead of cutting the whole history again (git subtree split reads every commit of the monorepo, around ten
@@ -15,14 +17,21 @@
 # An empty mirror is filled with a full git subtree split (the first run only).
 set -euo pipefail
 
-PREFIX="${1:?usage: mirror-subdir.sh <prefix> <mirror-url>}"
-URL="${2:?usage: mirror-subdir.sh <prefix> <mirror-url>}"
+PREFIX="${1:?usage: mirror-subdir.sh <prefix> <mirror-url> [extra-branch]}"
+URL="${2:?usage: mirror-subdir.sh <prefix> <mirror-url> [extra-branch]}"
+EXTRA_BRANCH="${3:-}"
 : "${MIRROR_TOKEN:?MIRROR_TOKEN is not set}"
 
 PREFIX="${PREFIX%/}"
 BRANCH=main
 AUTH="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$MIRROR_TOKEN" | base64 -w0)"
 mirror() { git -c "http.extraheader=$AUTH" "$@"; }
+
+# Make the extra branch point at the given commit (no-op when it is already there or not requested)
+sync_extra() {
+  [[ -n "$EXTRA_BRANCH" ]] || return 0
+  mirror push --force "$URL" "$1:refs/heads/$EXTRA_BRANCH"
+}
 
 echo "==> $PREFIX -> $URL"
 
@@ -31,6 +40,7 @@ if ! mirror ls-remote --exit-code --heads "$URL" "$BRANCH" >/dev/null 2>&1; then
   echo "    empty mirror: full split (first run)"
   commit="$(git subtree split --prefix="$PREFIX" HEAD)"
   mirror push "$URL" "$commit:refs/heads/$BRANCH"
+  sync_extra "$commit"
   exit 0
 fi
 
@@ -59,6 +69,7 @@ fi
 
 if ((${#pending[@]} == 0)); then
   echo "    already up to date ($tip)"
+  sync_extra "$tip"
   exit 0
 fi
 
@@ -88,7 +99,9 @@ done
 
 if [[ "$parent" == "$tip" ]]; then
   echo "    nothing new for this directory"
+  sync_extra "$tip"
   exit 0
 fi
 
 mirror push "$URL" "$parent:refs/heads/$BRANCH"
+sync_extra "$parent"
