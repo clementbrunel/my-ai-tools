@@ -20,6 +20,7 @@ import type { LineIndex } from "../index/line-index.js";
 import type { NumberedLine } from "../index/lines.js";
 import { planSlices, DEFAULT_SLICE_BYTES, type SearchTarget } from "../search/session.js";
 import { FilterRun, type FilterSlice } from "./filter-host.js";
+import { MAX_RETRIES, retryDelayMs } from "../pool/retry.js";
 
 /** One readable file of the stream (a tailer segment), as for the search. */
 export type FilterTarget = SearchTarget;
@@ -35,9 +36,6 @@ export interface FilterSessionOptions {
 export type FilterEvent = Extract<TabEvent, { type: "filter" }>;
 
 const EVENT_THROTTLE_MS = 100;
-/** A worker that fails (file briefly unreadable, e.g. after a sleep) is retried this many times, with backoff. */
-const MAX_RETRIES = 5;
-const RETRY_BASE_MS = 1000;
 /** Checkpoints read before a slice to learn the level of its first record. */
 const WARMUP_CHECKPOINTS = Math.ceil(FILTER_LOOKBACK_LINES / CHECKPOINT_INTERVAL);
 
@@ -401,7 +399,7 @@ export class FilterSession {
               this.retryTimer = undefined;
               this.retries++;
               if (!this.disposed && !this.run) this.scan();
-            }, RETRY_BASE_MS * 2 ** this.retries);
+            }, retryDelayMs(this.retries));
             return;
           }
           if (error) {

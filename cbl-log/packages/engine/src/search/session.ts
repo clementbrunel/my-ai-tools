@@ -6,6 +6,7 @@ import { availableParallelism } from "node:os";
 import type { Encoding, SearchError, SearchHit, SearchQuery, TabEvent } from "@cbl-log/shared";
 import type { LineIndex } from "../index/line-index.js";
 import { SearchRun, type Slice } from "./search-host.js";
+import { MAX_RETRIES, retryDelayMs } from "../pool/retry.js";
 
 /** One readable file of the stream (a tailer segment). */
 export interface SearchTarget {
@@ -33,9 +34,6 @@ export type QueryEvent = Extract<TabEvent, { type: "query" }>;
 
 export const DEFAULT_SLICE_BYTES = 16 * 1024 * 1024;
 const EVENT_THROTTLE_MS = 100;
-/** A worker that fails (file briefly unreadable, e.g. after a sleep) is retried this many times, with backoff. */
-const MAX_RETRIES = 5;
-const RETRY_BASE_MS = 1000;
 
 interface SliceState {
   chunks: Float64Array[];
@@ -335,7 +333,7 @@ export class SearchSession {
               this.retryTimer = undefined;
               this.retries++;
               if (!this.disposed && !this.run) this.scan();
-            }, RETRY_BASE_MS * 2 ** this.retries);
+            }, retryDelayMs(this.retries));
             return;
           }
           if (error) {
