@@ -26,8 +26,9 @@
         <poi.version>5.5.1</poi.version>
         <spring-ai.version>2.0.1</spring-ai.version>
         <gitlab4j.version>6.3.0</gitlab4j.version>
-        <!-- Xray CVE-2026-110879: Boot 4.1.2 manages 2.21.7, fixed in 2.21.8 -->
+        <!-- Xray CVE-2026-110879: Boot 4.1.2 manages 2.21.7 / 3.1.7, fixed in 2.21.8 / 3.1.8 -->
         <jackson-2-bom.version>2.21.8</jackson-2-bom.version>
+        <jackson-bom.version>3.1.8</jackson-bom.version>
     </properties>
 
     <dependencyManagement>
