@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ansi.AnsiColor;
 import org.springframework.boot.ansi.AnsiOutput;
-import org.springframework.boot.web.client.RestClientCustomizer;
+import org.springframework.boot.restclient.RestClientCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpRequest;
@@ -94,7 +94,7 @@ public class MistralHttpLoggingConfig {
         private String maskAuth(HttpRequest request) {
             var headers = new org.springframework.http.HttpHeaders();
             headers.addAll(request.getHeaders());
-            if (headers.containsKey("Authorization")) {
+            if (headers.containsHeader("Authorization")) {
                 headers.set("Authorization", "*** masked ***");
             }
             return headers.toString();

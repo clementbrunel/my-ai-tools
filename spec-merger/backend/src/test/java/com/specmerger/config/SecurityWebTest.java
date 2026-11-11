@@ -9,14 +9,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.specmerger.controller.AppConfigController;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @WebMvcTest(controllers = {SecurityWebTest.Probe.class, AppConfigController.class})
 @Import({SecurityConfig.class, SecurityWebTest.Probe.class})
@@ -30,7 +30,7 @@ class SecurityWebTest {
     @Autowired
     MockMvc mvc;
 
-    @MockBean
+    @MockitoBean
     JwtDecoder jwtDecoder;
 
     @Test
