@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { apps } from '../apps'
-import { sceneY, scrollToY } from './ui'
+import { goToScene, slideIndex } from './ui'
 
 export const useHash = () => {
   const [h, setH] = useState(location.hash)
@@ -30,11 +30,8 @@ export const useSceneLinks = (legal: boolean, active: string) => {
   useLayoutEffect(() => {
     if (legal) { scrollTo(0, 0); return }
     const id = sceneFromHash(location.hash)
-    if (id) scrollTo(0, sceneY(id))
-    const onChange = () => {
-      const target = sceneFromHash(location.hash)
-      if (target) scrollToY(sceneY(target)); else scrollTo(0, 0)
-    }
+    if (id) goToScene(id, true)
+    const onChange = () => goToScene(sceneFromHash(location.hash) ?? '')
     addEventListener('hashchange', onChange)
     return () => removeEventListener('hashchange', onChange)
   }, [legal])
@@ -53,18 +50,16 @@ export const useSceneLinks = (legal: boolean, active: string) => {
   }, [legal, active])
 }
 
-/** id of the scene under the middle of the viewport ('' on the hero). Scenes overlap while crossfading: the later one wins. */
+/** id of the scene (slide) in view in the track ('' on the hero). */
 export const useActiveScene = (enabled: boolean) => {
   const [active, setActive] = useState('')
   useEffect(() => {
     if (!enabled) return
-    const f = () => {
-      const mid = innerHeight / 2
-      const hit = [...document.querySelectorAll<HTMLElement>('.scene')].reverse().find((s) => { const r = s.getBoundingClientRect(); return r.top <= mid && r.bottom >= mid })
-      setActive(hit && hit.id ? hit.id : '')
-    }
-    f(); addEventListener('scroll', f, { passive: true })
-    return () => removeEventListener('scroll', f)
+    const track = document.querySelector<HTMLElement>('main')
+    if (!track) return
+    const f = () => setActive([...track.querySelectorAll<HTMLElement>('.scene')][slideIndex(track)]?.id ?? '')
+    f(); track.addEventListener('scroll', f, { passive: true })
+    return () => track.removeEventListener('scroll', f)
   }, [enabled])
   return active
 }

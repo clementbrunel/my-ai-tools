@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { apps, type Lang } from './apps'
 import About from './components/About'
 import Dock from './components/Dock'
@@ -12,11 +12,15 @@ import './App.css'
 export default function App() {
   const [lang, setLang] = useState<Lang>(initialLang)
   const hash = useHash()
+  const track = useRef<HTMLElement>(null)
   const legal = hash === '#/legal'
   const active = useActiveScene(!legal)
   const activeApp = apps.find((a) => a.id === active)
   useSceneLinks(legal, active)
   const dark = activeApp ? activeApp.theme.dark : true
+
+  // focused track: arrows / PageUp / PageDown / Space move between slides
+  useEffect(() => { if (!legal) track.current?.focus({ preventScroll: true }) }, [legal])
 
   useEffect(() => {
     document.documentElement.lang = lang
@@ -30,7 +34,7 @@ export default function App() {
       </button>
       {legal ? <Legal lang={lang} /> : (
         <>
-          <main>
+          <main ref={track} tabIndex={-1}>
             <Hero lang={lang} />
             {apps.map((a) => {
               const Scene = scenes[a.stage]

@@ -30,4 +30,8 @@
   .hero.has-img { place-content:start center; padding:11vh 0 0 }
   .hero.has-img h1 { font-size:clamp(44px,15vw,80px) }
   .hero-bg { left:-50vh; transform:none }
+  /* swipe cue: horizontal arrow instead of the vertical line */
+  .cue { flex-direction:row }
+  .cue i { width:40px; height:1px; transform-origin:left; animation-name:cue-x }
 }
+@keyframes cue-x { 0% { transform:scaleX(0) } 50% { transform:scaleX(1) } 100% { transform:scaleX(1); opacity:0 } }
