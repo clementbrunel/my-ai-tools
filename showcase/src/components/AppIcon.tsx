@@ -3,7 +3,7 @@ import './AppIcon.css'
 /** Small app icons for the hero and the dock (ai-env-manager keeps its own drawn tile). */
 export default function AppIcon({ id, size = 46 }: { id: string; size?: number }) {
   const s = { width: size, height: size, borderRadius: size * 0.26 }
-  // prono-core: pixel-art football / F1 icon (1024 px original cropped to the tile, 256 px)
+  // prono-core: realistic football / F1 icon (same artwork as the PWA icon in prono-core/frontend/public, 512 px)
   if (id === 'prono-core') return <img className="ico" src="./icons/prono-core.webp" alt="" width={size} height={size} style={{ ...s, borderRadius: size * 0.22, objectFit: 'cover' }} />
   // the real app icon (bbb-vite/public/BBB300.jpg)
   if (id === 'bienvenuebebe') return <img className="ico" src="./icons/bienvenuebebe.jpg" alt="" width={size} height={size} style={{ ...s, objectFit: 'cover' }} />
