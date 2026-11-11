@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { getSession } from '../api/analysis'
 import type { GitlabSelection } from '../types'
 import { usePersistedDoc } from './usePersistedDoc'
+import log from 'loglevel'
 
 /** What `trackingOnGenerated` below needs from a generate/merge result — `sessionId` optional so
  * this stays assignable wherever a plain `{id, markdown}` (no session concept) is expected, e.g.
@@ -112,7 +113,7 @@ export function useGenerationSession() {
           setGitlabSelection(selection)
         }
       } catch (e) {
-        console.error('Échec de la restauration de la session', storedSessionId, e)
+        log.error('Échec de la restauration de la session', storedSessionId, e)
         // The server does not know this session (database reset, id from another environment): forget it, or the
         // stale id stays in localStorage and the header, with nothing to clear it ("Nouvelle session" only shows
         // once a document is loaded).

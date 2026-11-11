@@ -10,6 +10,7 @@ import type { GitLabEntryPoint, GitLabProjectSummary, GitlabSelection } from '..
 import FullPageLoader from './FullPageLoader'
 import MarkdownView from './MarkdownView'
 import XmlTreeView from './XmlTreeView'
+import log from 'loglevel'
 
 interface CodePanelProps {
   onCollapse?: () => void
@@ -128,7 +129,7 @@ function CodePanel({ onCollapse, doc, claimSessionId, initialGitlabSelection, on
           setError(
             e instanceof Error ? e.message : 'Échec de la restauration de la sélection GitLab — voir la console.',
           )
-          console.error(e)
+          log.error(e)
         }
       } finally {
         if (!cancelled) {
@@ -181,7 +182,7 @@ function CodePanel({ onCollapse, doc, claimSessionId, initialGitlabSelection, on
       setGitlabProjects(await listGitlabProjects())
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Échec du chargement des projets GitLab — voir la console.')
-      console.error(e)
+      log.error(e)
     } finally {
       setGitlabLoading(false)
     }
@@ -211,7 +212,7 @@ function CodePanel({ onCollapse, doc, claimSessionId, initialGitlabSelection, on
       setGitlabEntryPointPath(listing.entryPoints.length === 1 ? listing.entryPoints[0].path : '')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Échec du chargement des fichiers du projet — voir la console.')
-      console.error(e)
+      log.error(e)
     } finally {
       setGitlabSourcesLoading(false)
     }
@@ -242,7 +243,7 @@ function CodePanel({ onCollapse, doc, claimSessionId, initialGitlabSelection, on
       setGitlabPreviewWarnings(preview.warnings)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Échec de la prévisualisation — voir la console.')
-      console.error(e)
+      log.error(e)
       setGitlabPreviewOpen(false)
     } finally {
       setGitlabPreviewLoading(false)
@@ -273,10 +274,10 @@ function CodePanel({ onCollapse, doc, claimSessionId, initialGitlabSelection, on
       // follow-up. `params` already has exactly the GitlabSelection shape.
       onGenerated(await generateSpecFromGitlab(params, claimSessionId?.(), JSON.stringify(params)))
       setTab('output')
-      console.info(`Génération de la doc JXML terminée en ${((performance.now() - start) / 1000).toFixed(1)} s`)
+      log.info(`Génération de la doc JXML terminée en ${((performance.now() - start) / 1000).toFixed(1)} s`)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Échec de la génération de la doc — voir la console.')
-      console.error(e)
+      log.error(e)
     } finally {
       setGenerating(false)
     }
@@ -288,7 +289,7 @@ function CodePanel({ onCollapse, doc, claimSessionId, initialGitlabSelection, on
       await save()
     } catch (e) {
       setError(e instanceof Error ? e.message : "Échec de l'enregistrement — voir la console.")
-      console.error(e)
+      log.error(e)
     }
   }
 

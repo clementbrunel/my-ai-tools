@@ -5,6 +5,7 @@ import type { GitlabSelection } from '../types'
 import ConfirmDialog from './ConfirmDialog'
 import FullPageLoader from './FullPageLoader'
 import MarkdownView from './MarkdownView'
+import log from 'loglevel'
 
 interface MergePanelProps {
   wordDoc: PersistedDoc
@@ -69,10 +70,10 @@ function MergePanel({ wordDoc, jxmlDoc, mergedDoc, sessionId, gitlabSelection, o
         gitlabSelection ? JSON.stringify(gitlabSelection) : null,
       )
       onGenerated(result)
-      console.info(`Fusion des deux documentations terminée en ${((performance.now() - start) / 1000).toFixed(1)} s`)
+      log.info(`Fusion des deux documentations terminée en ${((performance.now() - start) / 1000).toFixed(1)} s`)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Échec de la fusion — voir la console.')
-      console.error(e)
+      log.error(e)
     } finally {
       setLoading(false)
     }
@@ -97,7 +98,7 @@ function MergePanel({ wordDoc, jxmlDoc, mergedDoc, sessionId, gitlabSelection, o
       await save()
     } catch (e) {
       setError(e instanceof Error ? e.message : "Échec de l'enregistrement — voir la console.")
-      console.error(e)
+      log.error(e)
     }
   }
 
