@@ -34,8 +34,8 @@ class SecurityConfigTest {
 
     @Test
     void enabledWithoutIssuerFailsFast() {
-        assertThatThrownBy(() -> new SecurityProperties(true, " ", ""))
+        assertThatThrownBy(() -> new SecurityProperties(true, " ", "", ""))
                 .isInstanceOf(IllegalStateException.class);
-        assertThat(new SecurityProperties(false, null, null).issuerUri()).isEmpty();
+        assertThat(new SecurityProperties(false, null, null, null).issuerUri()).isEmpty();
     }
 }

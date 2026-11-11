@@ -26,7 +26,7 @@ import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWrite
 /**
  * Stateless OIDC resource server. With {@code app.security.enabled=false} (OIDC_ENABLED) everything
  * is permitted (dev / mock mode, behaviour unchanged); with {@code true}, every request except
- * CORS preflights needs a valid bearer JWT. In the deployed stack the login itself is done by
+ * CORS preflights and {@code GET /api/config} needs a valid bearer JWT. In the deployed stack the login itself is done by
  * oauth2-proxy in front of nginx, which forwards the user's JWT here: this check keeps the API
  * protected even if nginx is bypassed (the backend port is published). The caller's identity is
  * deliberately not used yet — the data is still keyed by the client-held session id — the token
@@ -50,6 +50,9 @@ public class SecurityConfig {
         if (props.enabled()) {
             http.authorizeHttpRequests(a -> a
                             .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                            // The front reads this to know whether to offer sign-out: it must still answer when the
+                            // session has expired (a 401 would hide the very button needed). Nothing secret in it.
+                            .requestMatchers(HttpMethod.GET, "/api/config").permitAll()
                             .anyRequest().authenticated())
                     .oauth2ResourceServer(o -> o.jwt(Customizer.withDefaults()));
         } else {

@@ -8,9 +8,11 @@ function stubFetch(impl: () => Promise<unknown>) {
 }
 
 describe('loadAppConfig', () => {
-  it('reads the runtime config served by nginx', async () => {
-    stubFetch(async () => ({ ok: true, json: async () => ({ oidcEnabled: true, logoutRedirect: 'https://kc/logout' }) }))
+  it('reads the runtime config served by the API', async () => {
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ oidcEnabled: true, logoutRedirect: 'https://kc/logout' }) }))
+    vi.stubGlobal('fetch', fetchMock)
     expect(await loadAppConfig()).toEqual({ oidcEnabled: true, logoutRedirect: 'https://kc/logout' })
+    expect(fetchMock).toHaveBeenCalledWith('/api/config', { cache: 'no-store' })
   })
 
   it('treats a missing or broken config as OIDC disabled', async () => {
