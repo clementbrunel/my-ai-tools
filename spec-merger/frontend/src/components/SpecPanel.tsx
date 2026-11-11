@@ -4,6 +4,7 @@ import type { PersistedDoc } from '../hooks/usePersistedDoc'
 import { renderMarkdown } from '../markdown'
 import FullPageLoader from './FullPageLoader'
 import MarkdownView from './MarkdownView'
+import log from 'loglevel'
 
 interface SpecPanelProps {
   onCollapse?: () => void
@@ -89,10 +90,10 @@ function SpecPanel({ onCollapse, doc, claimSessionId }: SpecPanelProps) {
     try {
       onGenerated(await generateSpecFromWord(wordFile ?? undefined, claimSessionId?.()))
       setTab('output')
-      console.info(`Génération de la doc Word terminée en ${((performance.now() - start) / 1000).toFixed(1)} s`)
+      log.info(`Génération de la doc Word terminée en ${((performance.now() - start) / 1000).toFixed(1)} s`)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Échec de la génération — voir la console.')
-      console.error(e)
+      log.error(e)
     } finally {
       setLoading(false)
     }
@@ -104,7 +105,7 @@ function SpecPanel({ onCollapse, doc, claimSessionId }: SpecPanelProps) {
       await save()
     } catch (e) {
       setError(e instanceof Error ? e.message : "Échec de l'enregistrement — voir la console.")
-      console.error(e)
+      log.error(e)
     }
   }
 
@@ -118,7 +119,7 @@ function SpecPanel({ onCollapse, doc, claimSessionId }: SpecPanelProps) {
       setPreviewContent(await previewWord(wordFile))
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Échec de la prévisualisation — voir la console.')
-      console.error(e)
+      log.error(e)
       setPreviewOpen(false)
     } finally {
       setPreviewLoading(false)

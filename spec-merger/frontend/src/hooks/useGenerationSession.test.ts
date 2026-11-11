@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { importSession, resetSession, useGenerationSession } from './useGenerationSession'
 import { getSession } from '../api/analysis'
+import log from 'loglevel'
 
 vi.mock('../api/analysis', () => ({
   getSession: vi.fn(),
@@ -83,38 +84,38 @@ describe('useGenerationSession', () => {
   it('stops restoring even if fetching the stored session fails', async () => {
     localStorage.setItem(STORAGE_KEY, 'gone')
     getSessionMock.mockRejectedValue(new Error('Session introuvable'))
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const logErrorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
 
     const { result } = renderHook(() => useGenerationSession())
     await waitFor(() => expect(result.current.restoring).toBe(false))
 
     expect(result.current.word.id).toBeNull()
-    consoleErrorSpy.mockRestore()
+    logErrorSpy.mockRestore()
   })
 
   it('forgets a stored session id that the server does not know (404)', async () => {
     localStorage.setItem(STORAGE_KEY, 'gone')
     getSessionMock.mockRejectedValue(Object.assign(new Error('Session introuvable: gone'), { status: 404 }))
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const logErrorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
 
     const { result } = renderHook(() => useGenerationSession())
     await waitFor(() => expect(result.current.restoring).toBe(false))
 
     expect(result.current.sessionId).toBeNull()
     expect(localStorage.getItem(STORAGE_KEY)).toBeNull()
-    consoleErrorSpy.mockRestore()
+    logErrorSpy.mockRestore()
   })
 
   it('keeps the stored session id when the failure is not a 404 (server down, not logged in)', async () => {
     localStorage.setItem(STORAGE_KEY, 'kept')
     getSessionMock.mockRejectedValue(Object.assign(new Error('Service Unavailable'), { status: 503 }))
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const logErrorSpy = vi.spyOn(log, 'error').mockImplementation(() => {})
 
     const { result } = renderHook(() => useGenerationSession())
     await waitFor(() => expect(result.current.restoring).toBe(false))
 
     expect(result.current.sessionId).toBe('kept')
-    consoleErrorSpy.mockRestore()
+    logErrorSpy.mockRestore()
   })
 
   it('tracks the session id returned by a generation, and persists it to localStorage', () => {

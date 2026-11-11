@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import ConfirmDialog from './ConfirmDialog'
+import log from 'loglevel'
 
 interface HeaderProps {
   /** The current session's id, created server-side on the first generation of a new session —
@@ -41,7 +42,7 @@ function Header({ activeSessionId, hasSession, onImportSession, onReset, onLogou
       setTimeout(() => setCopied(false), 2000)
     } catch (e) {
       setError('Échec de la copie — voir la console.')
-      console.error(e)
+      log.error(e)
     }
   }
 
@@ -56,7 +57,7 @@ function Header({ activeSessionId, hasSession, onImportSession, onReset, onLogou
       // No need to reset loading on success — onImportSession reloads the page.
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Échec du chargement de la session — voir la console.')
-      console.error(e)
+      log.error(e)
       setLoading(false)
     }
   }
