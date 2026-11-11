@@ -20,6 +20,7 @@ import type { LineIndex } from "../index/line-index.js";
 import type { NumberedLine } from "../index/lines.js";
 import { planSlices, DEFAULT_SLICE_BYTES, type SearchTarget } from "../search/session.js";
 import { FilterRun, type FilterSlice } from "./filter-host.js";
+import { MAX_RETRIES, retryDelayMs } from "../pool/retry.js";
 
 /** One readable file of the stream (a tailer segment), as for the search. */
 export type FilterTarget = SearchTarget;
@@ -82,6 +83,8 @@ export class FilterSession {
   private liveId: number | undefined;
   private lastEmit = 0;
   private emitTimer: NodeJS.Timeout | undefined;
+  private retryTimer: NodeJS.Timeout | undefined;
+  private retries = 0;
 
   constructor(
     readonly filter: LineFilter,
@@ -118,8 +121,9 @@ export class FilterSession {
 
   /** The stream grew: filter the new part (queued if a scan is running). */
   extend(): void {
-    if (this.disposed || this.error) return;
-    this.scan();
+    if (this.disposed || this.error === "too-expensive") return;
+    if (this.error) this.retryNow(); // a failure is not final: new data is a good moment to try again
+    else this.scan();
   }
 
   /**
@@ -131,6 +135,7 @@ export class FilterSession {
   rolled(): void {
     if (this.disposed) return;
     this.cancelRun();
+    this.resetRetry();
     this.error = undefined;
     if (this.liveId !== undefined) this.parts.delete(this.liveId);
     this.dirty = false;
@@ -142,6 +147,7 @@ export class FilterSession {
     if (this.disposed) return;
     this.cancelRun();
     this.parts.clear();
+    this.resetRetry();
     this.error = undefined;
     this.dirty = false;
     this.scan();
@@ -151,6 +157,20 @@ export class FilterSession {
     this.disposed = true;
     this.cancelRun();
     clearTimeout(this.emitTimer);
+    clearTimeout(this.retryTimer);
+  }
+
+  private resetRetry(): void {
+    clearTimeout(this.retryTimer);
+    this.retryTimer = undefined;
+    this.retries = 0;
+  }
+
+  /** Forgets a failure and scans again (the failed file resumes where it stopped). */
+  private retryNow(): void {
+    this.resetRetry();
+    this.error = undefined;
+    this.scan();
   }
 
   /** Rows [first, first+count) of the filtered view, with the numbers (and levels) of the stream. */
@@ -372,12 +392,23 @@ export class FilterSession {
           if (this.run !== run) return;
           this.run = undefined;
           if (this.disposed) return;
+          if (error === "failed" && this.retries < MAX_RETRIES) {
+            part.slices.length = base; // drop the partial results of the failed file: it is filtered again whole
+            this.dirty = true; // not done: shown as still searching while we wait
+            this.retryTimer = setTimeout(() => {
+              this.retryTimer = undefined;
+              this.retries++;
+              if (!this.disposed && !this.run) this.scan();
+            }, retryDelayMs(this.retries));
+            return;
+          }
           if (error) {
             this.error = error;
             this.dirty = false;
             this.emitNow();
             return;
           }
+          this.retries = 0;
           part.scannedTo = limit;
           part.scannedLine = limitLine;
           this.dirty = false;
