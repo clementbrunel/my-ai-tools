@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import MarkdownView from './MarkdownView'
+import MarkdownView from '@/components/MarkdownView'
 
 describe('MarkdownView', () => {
   it('renders the markdown as formatted HTML by default', () => {

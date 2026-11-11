@@ -1,18 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import CodePanel from './CodePanel'
+import CodePanel from '@/components/CodePanel'
 import {
   generateSpecFromGitlab,
   listGitlabProjects,
   listGitlabSources,
   previewGitlabJxml,
   updateDocument,
-} from '../api/analysis'
-import { usePersistedDoc } from '../hooks/usePersistedDoc'
-import type { GitLabProjectSummary, GitLabSourceListing, GitlabSelection } from '../types'
+} from '@/api/analysis'
+import { usePersistedDoc } from '@/hooks/usePersistedDoc'
+import type { GitLabProjectSummary, GitLabSourceListing, GitlabSelection } from '@/types'
 
-vi.mock('../api/analysis', () => ({
+vi.mock('@/api/analysis', () => ({
   generateSpecFromGitlab: vi.fn(),
   listGitlabProjects: vi.fn(),
   listGitlabSources: vi.fn(),

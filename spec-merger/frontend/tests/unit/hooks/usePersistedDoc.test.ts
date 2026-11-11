@@ -1,9 +1,9 @@
 import { act, renderHook } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { usePersistedDoc } from './usePersistedDoc'
-import { updateDocument } from '../api/analysis'
+import { usePersistedDoc } from '@/hooks/usePersistedDoc'
+import { updateDocument } from '@/api/analysis'
 
-vi.mock('../api/analysis', () => ({
+vi.mock('@/api/analysis', () => ({
   updateDocument: vi.fn(),
 }))
 

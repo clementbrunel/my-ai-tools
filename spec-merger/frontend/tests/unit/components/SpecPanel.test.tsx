@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import SpecPanel from './SpecPanel'
-import { generateSpecFromWord, previewWord, updateDocument } from '../api/analysis'
-import { usePersistedDoc } from '../hooks/usePersistedDoc'
+import SpecPanel from '@/components/SpecPanel'
+import { generateSpecFromWord, previewWord, updateDocument } from '@/api/analysis'
+import { usePersistedDoc } from '@/hooks/usePersistedDoc'
 
-vi.mock('../api/analysis', () => ({
+vi.mock('@/api/analysis', () => ({
   generateSpecFromWord: vi.fn(),
   previewWord: vi.fn(),
   updateDocument: vi.fn(),

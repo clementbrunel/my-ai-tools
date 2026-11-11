@@ -2,12 +2,12 @@ import { useEffect } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import MergePanel from './MergePanel'
-import { mergeSpecs, updateDocument } from '../api/analysis'
-import { usePersistedDoc } from '../hooks/usePersistedDoc'
-import type { GitlabSelection } from '../types'
+import MergePanel from '@/components/MergePanel'
+import { mergeSpecs, updateDocument } from '@/api/analysis'
+import { usePersistedDoc } from '@/hooks/usePersistedDoc'
+import type { GitlabSelection } from '@/types'
 
-vi.mock('../api/analysis', () => ({
+vi.mock('@/api/analysis', () => ({
   mergeSpecs: vi.fn(),
   updateDocument: vi.fn(),
 }))

@@ -1,10 +1,10 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { importSession, resetSession, useGenerationSession } from './useGenerationSession'
-import { getSession } from '../api/analysis'
+import { importSession, resetSession, useGenerationSession } from '@/hooks/useGenerationSession'
+import { getSession } from '@/api/analysis'
 import log from 'loglevel'
 
-vi.mock('../api/analysis', () => ({
+vi.mock('@/api/analysis', () => ({
   getSession: vi.fn(),
   updateDocument: vi.fn(),
 }))

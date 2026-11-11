@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { renderMarkdown } from './markdown'
+import { renderMarkdown } from '@/markdown'
 
 describe('renderMarkdown', () => {
   it('unwraps an AI answer fenced as a single ```markdown code block', () => {

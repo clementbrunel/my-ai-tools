@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { buildLogoutUrl, loadAppConfig } from './appConfig'
+import { buildLogoutUrl, loadAppConfig } from '@/api/appConfig'
 
 afterEach(() => vi.unstubAllGlobals())
 

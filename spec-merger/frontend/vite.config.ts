@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
+import { fileURLToPath, URL } from 'node:url'
 
 // VITE_BASE: deployment sub-path, defaults to "/". Slashes are optional ("spec-merger" or
 // "/spec-merger/"): Git Bash rewrites arguments that start with "/" into Windows paths,
@@ -18,6 +19,9 @@ export default defineConfig(({ mode }) => {
   return {
     base: toBase(env.VITE_BASE),
     plugins: [react()],
+    resolve: {
+      alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
+    },
     test: {
       environment: 'jsdom',
       globals: true,
