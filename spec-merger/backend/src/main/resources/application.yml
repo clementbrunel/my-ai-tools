@@ -55,6 +55,9 @@ app:
     # Optionnel : valeur exigée dans le claim `aud`. Derrière oauth2-proxy le token transmis
     # est l'ID token, dont l'audience est le client id Keycloak.
     audience: ${OIDC_AUDIENCE:}
+    # Bouton « Se déconnecter » du front : URL où oauth2-proxy renvoie le navigateur après avoir effacé son cookie
+    # (typiquement la fin de session Keycloak). Transmise au front par GET /api/config, l'API ne s'en sert pas.
+    logout-redirect: ${OIDC_LOGOUT_REDIRECT:}
 
 gitlab:
   url: ${GITLAB_URL:}

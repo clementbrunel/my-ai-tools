@@ -75,7 +75,8 @@ navigateur ──► proxy d'authentification ──► nginx (frontend) ──�
    expiration et audience sont vérifiés par le backend, qui reste protégé même si on le joint en contournant
    le proxy (port 8091 publié). Le header affiche un bouton **Se déconnecter** (`<base>oauth2/sign_out`, que le proxy
    doit servir sous le même préfixe que l'app, puis `OIDC_LOGOUT_REDIRECT` pour clore aussi la session Keycloak).
-   `OIDC_ENABLED` est lu au démarrage du conteneur : pas de rebuild pour l'activer.
+   Le frontend l'apprend du backend (`GET /api/config`, ouvert à tous et sans secret) : `OIDC_ENABLED` et
+   `OIDC_LOGOUT_REDIRECT` se règlent sur le backend, lus à son démarrage, sans rebuild du frontend.
 
 L'identité de l'utilisateur n'est **pas encore exploitée** : les générations restent rattachées à l'id de
 session (localStorage). Prochaine étape : lire le claim `sub` (`@AuthenticationPrincipal Jwt`) dans

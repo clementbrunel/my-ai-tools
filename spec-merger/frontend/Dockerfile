@@ -11,9 +11,6 @@ RUN npm run build
 FROM nginx:alpine
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
-COPY --chmod=755 docker-entrypoint.d/40-config.sh /docker-entrypoint.d/40-config.sh
-# Defensive: a CRLF shebang (Windows checkout) makes the entrypoint fail with "not found".
-RUN sed -i 's/\r$//' /docker-entrypoint.d/40-config.sh
 RUN mkdir -p /var/cache/nginx/client_temp \
              /var/cache/nginx/proxy_temp \
              /var/cache/nginx/fastcgi_temp \
@@ -21,7 +18,6 @@ RUN mkdir -p /var/cache/nginx/client_temp \
              /var/cache/nginx/scgi_temp \
     && chown -R nginx:nginx /var/cache/nginx \
     && chown -R nginx:nginx /var/log/nginx \
-    && chown -R nginx:nginx /etc/nginx/conf.d \
     && touch /var/run/nginx.pid \
     && chown nginx:nginx /var/run/nginx.pid
 EXPOSE 80

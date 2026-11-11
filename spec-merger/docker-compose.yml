@@ -30,6 +30,7 @@ services:
       OIDC_ENABLED: ${OIDC_ENABLED:-false}
       OIDC_ISSUER_URI: ${OIDC_ISSUER_URI:-}
       OIDC_AUDIENCE: ${OIDC_AUDIENCE:-}
+      OIDC_LOGOUT_REDIRECT: ${OIDC_LOGOUT_REDIRECT:-}
       MISTRAL_BASE_URL: ${MISTRAL_BASE_URL:-}
       MISTRAL_MODEL: ${MISTRAL_MODEL:-}
       # Non-blank default: Spring AI crashes at startup on an empty Mistral API key.
@@ -54,10 +55,6 @@ services:
 
   frontend:
     build: ./frontend
-    environment:
-      # Affiche le bouton « Se déconnecter » : le login est fait par un proxy placé devant l'app (voir README)
-      OIDC_ENABLED: ${OIDC_ENABLED:-false}
-      OIDC_LOGOUT_REDIRECT: ${OIDC_LOGOUT_REDIRECT:-}
     container_name: specmerger-frontend
     ports:
       - "3001:80"

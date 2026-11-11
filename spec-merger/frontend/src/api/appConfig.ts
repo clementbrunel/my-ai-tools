@@ -1,6 +1,6 @@
-// Runtime config served by nginx (/config.json, written at container start from OIDC_ENABLED &
-// co.) — not baked into the bundle, so toggling OIDC doesn't need a rebuild. Anything unusable
-// (dev server without nginx, bad JSON) means "no OIDC": no logout button.
+// Runtime config served by the API (GET /api/config, from OIDC_ENABLED & co. of the backend) —
+// not baked into the bundle, so toggling OIDC doesn't need a rebuild, and the front stays a pure
+// static site. Anything unusable (API down, bad JSON) means "no OIDC": no logout button.
 export interface AppConfig {
   oidcEnabled: boolean
   /** Where oauth2-proxy sends the browser after clearing its cookie — typically the Keycloak
@@ -12,7 +12,7 @@ const DISABLED: AppConfig = { oidcEnabled: false, logoutRedirect: '' }
 
 export async function loadAppConfig(): Promise<AppConfig> {
   try {
-    const response = await fetch(`${import.meta.env.BASE_URL}config.json`, { cache: 'no-store' })
+    const response = await fetch(`${import.meta.env.BASE_URL}api/config`, { cache: 'no-store' })
     if (!response.ok) return DISABLED
     const data = await response.json()
     return {
