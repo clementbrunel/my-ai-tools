@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { apps } from '../apps'
-import { goToScene, slideIndex, useSlides } from './ui'
+import { goToScene, slideIndex } from './ui'
 
 export const useHash = () => {
   const [h, setH] = useState(location.hash)
@@ -50,24 +50,16 @@ export const useSceneLinks = (legal: boolean, active: string) => {
   }, [legal, active])
 }
 
-/** id of the scene on screen ('' on the hero): under the middle of the viewport (scenes overlap while crossfading: the later one wins), or the slide in view on phones. */
+/** id of the scene (slide) in view in the track ('' on the hero). */
 export const useActiveScene = (enabled: boolean) => {
   const [active, setActive] = useState('')
-  const slides = useSlides()
   useEffect(() => {
     if (!enabled) return
     const track = document.querySelector<HTMLElement>('main')
-    const scenes = () => [...document.querySelectorAll<HTMLElement>('.scene')]
-    const f = slides && track
-      ? () => setActive(scenes()[slideIndex(track)]?.id ?? '')
-      : () => {
-        const mid = innerHeight / 2
-        const hit = scenes().reverse().find((s) => { const r = s.getBoundingClientRect(); return r.top <= mid && r.bottom >= mid })
-        setActive(hit && hit.id ? hit.id : '')
-      }
-    const target: HTMLElement | Window = slides && track ? track : window
-    f(); target.addEventListener('scroll', f, { passive: true })
-    return () => target.removeEventListener('scroll', f)
-  }, [enabled, slides])
+    if (!track) return
+    const f = () => setActive([...track.querySelectorAll<HTMLElement>('.scene')][slideIndex(track)]?.id ?? '')
+    f(); track.addEventListener('scroll', f, { passive: true })
+    return () => track.removeEventListener('scroll', f)
+  }, [enabled])
   return active
 }
