@@ -116,6 +116,8 @@
 
 /* Sport header gradient — colors driven by active theme */
 .wc-header {
+  /* PWA standalone + viewport-fit=cover: keep content below the notch / status bar */
+  padding-top: env(safe-area-inset-top, 0px);
   background: linear-gradient(135deg, var(--theme-primary-dark) 0%, var(--theme-primary) 50%, var(--theme-primary-dark) 100%);
 }
 
