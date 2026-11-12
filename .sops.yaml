@@ -1,0 +1,11 @@
+# Clé age publique utilisée pour chiffrer les secrets de ce repo (.env des
+# sous-projets déployés : prono-core, my-money-hub, spec-merger, mottaret-watch).
+# Remplacer le placeholder ci-dessous par ta clé publique avant le premier
+# chiffrement — voir docs/secrets.md.
+#
+# La clé privée correspondante ne doit JAMAIS être committée : elle vit
+# uniquement dans ton gestionnaire de mots de passe + une copie offline.
+creation_rules:
+  - path_regex: \.env\.enc$
+    age: >-
+      AGE_PUBLIC_KEY_REPLACE_ME
