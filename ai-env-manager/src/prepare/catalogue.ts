@@ -108,7 +108,7 @@ export const CATALOGUE: CatalogueTool[] = [
       },
       {
         label: "Ajouter comme serveur MCP",
-        manual: "claude mcp add mempalace -- python -m mempalace  (dans le terminal Claude Code)",
+        manual: "claude mcp add mempalace -- python -m mempalace.mcp_server  (dans le terminal Claude Code ; attention : python -m mempalace lance la CLI, pas le serveur MCP)",
       },
     ],
     conflictGroup: "memory",
