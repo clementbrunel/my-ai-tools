@@ -1,0 +1,7 @@
+# Sortie : fond-interieur.png  |  Taille : 1748x2480 (ou 2:3 portrait)
+
+PROMPT :
+Very light, washed-out, low-contrast watercolor pattern for the inside of a greeting card: loosely scattered granny squares, tiny crocheted flowers and thin wavy yarn strands on cream paper, 80% empty space, the center area especially pale (a quote will be printed there). Soft watercolor illustration, warm and tender handmade feeling, light cotton paper texture, gentle shadows, palette of cream #FBF6EE, dusty pink #D8A7A0, terracotta #C27B5F, sage green #9BB09A, mustard #D9B25F, dark brown accents #4A3B36. No text, no letters, no words, no logo, no watermark, no signature, no border.
+
+NEGATIVE :
+text, letters, words, typography, writing, logo, brand name, watermark, signature, frame, border, photorealistic, 3d render, harsh saturated colors, cluttered composition, objects in the top area, cropped subject, dense pattern, dark areas

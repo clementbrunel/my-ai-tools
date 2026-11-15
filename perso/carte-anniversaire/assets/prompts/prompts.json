@@ -1,0 +1,39 @@
+{
+  "recto-B-avec-reference": {
+    "fichier_sortie": "recto.png",
+    "taille": "1748x2480 (ou 2:3 portrait, min 1600x2400)",
+    "images_de_reference": [
+      "references/<photo du site>.jpg (style / contenu, force ~0.5-0.6)",
+      "assets/gabarit-recto-composition.png (composition, optionnel, force ~0.3)",
+      "assets/palette.png (couleurs, optionnel)"
+    ],
+    "prompt": "Using the reference photo for its yarns, colors and objects, create a birthday card cover: a crochet subscription box, half open, with balls of yarn, a wooden crochet hook and a small finished crochet project peeking out, a blank kraft gift tag tied with yarn, a few eucalyptus sprigs. Portrait composition, A5 ratio. The top 22% of the image is calm, empty, light cream background (a title will be printed there). Main subject grouped in the lower two thirds, centered, nothing important closer than 5% to the edges. Soft watercolor illustration, warm and tender handmade feeling, light cotton paper texture, gentle shadows, palette of cream #FBF6EE, dusty pink #D8A7A0, terracotta #C27B5F, sage green #9BB09A, mustard #D9B25F, dark brown accents #4A3B36. No text, no letters, no words, no logo, no watermark, no signature, no border.",
+    "negative": "text, letters, words, typography, writing, logo, brand name, watermark, signature, frame, border, photorealistic, 3d render, harsh saturated colors, cluttered composition, objects in the top area, cropped subject"
+  },
+  "recto-C-sans-reference": {
+    "fichier_sortie": "recto.png",
+    "taille": "1748x2480 (ou 2:3 portrait, min 1600x2400)",
+    "images_de_reference": [
+      "assets/gabarit-recto-composition.png (composition, optionnel)",
+      "assets/palette.png (optionnel)"
+    ],
+    "prompt": "Birthday card cover: a gift box wrapped in kraft paper, tied with a chunky pastel yarn instead of a ribbon, surrounded by balls of wool, a wooden crochet hook, small crocheted flowers and granny squares, eucalyptus sprigs. Portrait composition, A5 ratio. The top 22% of the image is calm, empty, light cream background (a title will be printed there). Main subject grouped in the lower two thirds, centered, nothing important closer than 5% to the edges. Soft watercolor illustration, warm and tender handmade feeling, light cotton paper texture, gentle shadows, palette of cream #FBF6EE, dusty pink #D8A7A0, terracotta #C27B5F, sage green #9BB09A, mustard #D9B25F, dark brown accents #4A3B36. No text, no letters, no words, no logo, no watermark, no signature, no border.",
+    "negative": "text, letters, words, typography, writing, logo, brand name, watermark, signature, frame, border, photorealistic, 3d render, harsh saturated colors, cluttered composition, objects in the top area, cropped subject"
+  },
+  "vignette": {
+    "fichier_sortie": "vignette.png",
+    "taille": "1024x1024",
+    "images_de_reference": [
+      "references/<photo du site>.jpg (optionnel)"
+    ],
+    "prompt": "Small isolated vignette on a plain flat cream #FBF6EE background: two balls of yarn (dusty pink and sage green), a wooden crochet hook and a tiny crocheted heart. Centered, generous empty margin, soft edges fading into the background. Soft watercolor illustration, warm and tender handmade feeling, light cotton paper texture, gentle shadows, palette of cream #FBF6EE, dusty pink #D8A7A0, terracotta #C27B5F, sage green #9BB09A, mustard #D9B25F, dark brown accents #4A3B36. No text, no letters, no words, no logo, no watermark, no signature, no border.",
+    "negative": "text, letters, words, typography, writing, logo, brand name, watermark, signature, frame, border, photorealistic, 3d render, harsh saturated colors, cluttered composition, objects in the top area, cropped subject, background scenery, shadows on floor"
+  },
+  "fond-interieur": {
+    "fichier_sortie": "fond-interieur.png",
+    "taille": "1748x2480 (ou 2:3 portrait)",
+    "images_de_reference": [],
+    "prompt": "Very light, washed-out, low-contrast watercolor pattern for the inside of a greeting card: loosely scattered granny squares, tiny crocheted flowers and thin wavy yarn strands on cream paper, 80% empty space, the center area especially pale (a quote will be printed there). Soft watercolor illustration, warm and tender handmade feeling, light cotton paper texture, gentle shadows, palette of cream #FBF6EE, dusty pink #D8A7A0, terracotta #C27B5F, sage green #9BB09A, mustard #D9B25F, dark brown accents #4A3B36. No text, no letters, no words, no logo, no watermark, no signature, no border.",
+    "negative": "text, letters, words, typography, writing, logo, brand name, watermark, signature, frame, border, photorealistic, 3d render, harsh saturated colors, cluttered composition, objects in the top area, cropped subject, dense pattern, dark areas"
+  }
+}

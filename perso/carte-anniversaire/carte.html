@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Carte anniversaire crochet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Parisienne&display=swap" rel="stylesheet">
+<script>
+/* =====================================================================
+   CONFIG : remplis ces champs, puis recharge la page.
+   (Tu peux aussi cliquer sur n'importe quel texte de la carte pour l'éditer.)
+   ===================================================================== */
+const CONFIG = {
+  prenom:      "Ma chérie",            // affiché sous « Joyeux anniversaire » sur la couverture
+  premiereBox: "décembre",          // date de la première box
+  dateAnniversaire: "17 novembre 2026", // en bas de la page intérieure ("" pour masquer)
+  signature:   "",                  // facultatif : ton prénom sous « Je t'aime, »
+  duree:       "chaque mois",       // encart au dos : « une box crochet … », ex. "chaque mois pendant 6 mois"
+  texteCouverture: true,           // false = couverture sans texte (si ton image en contient déjà)
+  modeCouverture: "plein",         // "plein" = image bord à bord ; "cadre" = photo encadrée (idéal pour une photo du site)
+};
+/* Couverture : le fichier image est cherché dans cet ordre, à côté de ce fichier HTML. */
+const COVER_FILES = ["recto.png", "recto.jpg", "recto.jpeg", "recto.webp"];
+</script>
+<style>
+  :root {
+    --cream: #fbf6ee;
+    --paper: #fffdf8;
+    --ink: #4a3b36;
+    --ink-soft: #7d6a62;
+    --rose: #d8a7a0;
+    --terracotta: #c27b5f;
+    --sage: #9bb09a;
+    --mustard: #d9b25f;
+    --desk: #e9e4dc;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --desk: #2b2826; }
+  }
+  :root[data-theme="dark"] { --desk: #2b2826; }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--desk);
+    font-family: "Cormorant Garamond", Georgia, serif;
+    color: var(--ink);
+    padding: 24px 16px 64px;
+  }
+
+  .help {
+    max-width: 297mm; margin: 0 auto 20px; padding: 12px 16px;
+    background: var(--paper); border-radius: 8px; font-size: 16px; line-height: 1.5;
+    box-shadow: 0 1px 4px rgba(0,0,0,.08);
+  }
+  .help b { color: var(--terracotta); }
+  .label { max-width: 297mm; margin: 0 auto 6px; font: 600 13px/1.4 system-ui, sans-serif;
+           letter-spacing: .08em; text-transform: uppercase; color: var(--ink-soft); }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .label { color: #bcaea6; } }
+
+  /* --- Feuille A4 paysage = 2 panneaux A5 --- */
+  .sheet {
+    width: 297mm; height: 210mm; margin: 0 auto 32px;
+    display: grid; grid-template-columns: 1fr 1fr;
+    background: var(--paper);
+    box-shadow: 0 4px 24px rgba(0,0,0,.15);
+    position: relative; overflow: hidden;
+  }
+  .sheet::after { /* repère de pliure, écran seulement */
+    content: ""; position: absolute; top: 0; bottom: 0; left: 50%;
+    border-left: 1px dashed rgba(0,0,0,.12);
+  }
+  .panel { position: relative; overflow: hidden; width: 148.5mm; height: 210mm; }
+
+  .bg-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .fallback-front {
+    background:
+      radial-gradient(circle at 25% 80%, rgba(216,167,160,.55) 0 18%, transparent 19%),
+      radial-gradient(circle at 70% 85%, rgba(155,176,154,.55) 0 15%, transparent 16%),
+      radial-gradient(circle at 50% 70%, rgba(217,178,95,.45) 0 10%, transparent 11%),
+      linear-gradient(180deg, var(--cream), #f3e6d8);
+  }
+
+  /* --- Couverture --- */
+  .front-title {
+    position: absolute; left: 0; right: 0; top: 13mm; text-align: center; padding: 0 10mm;
+  }
+  .front-title .hb {
+    font-family: "Parisienne", cursive; font-size: 30pt; line-height: 1.1; color: var(--terracotta);
+    text-shadow: 0 0 12px rgba(255,253,248,.9), 0 0 4px rgba(255,253,248,.9);
+  }
+  .front-title .name {
+    margin-top: 1mm; font-size: 21pt; letter-spacing: .04em; font-style: italic;
+    font-weight: 600; color: var(--ink);
+    text-shadow: 0 0 10px rgba(255,253,248,.95);
+  }
+
+  /* --- Dos (bon cadeau) --- */
+  .back { display: flex; align-items: center; justify-content: center; background: var(--cream); }
+  .voucher {
+    width: 92mm; padding: 9mm 8mm; text-align: center;
+    border: 1.2pt solid var(--rose); outline: 0.6pt solid var(--rose); outline-offset: 2mm;
+    border-radius: 2mm; background: var(--paper);
+  }
+  .voucher .k { font: 600 9pt/1 system-ui, sans-serif; letter-spacing: .35em; color: var(--terracotta); }
+  .voucher .v1 { font-family: "Parisienne", cursive; font-size: 22pt; margin: 4mm 0 2mm; }
+  .voucher .v2 { font-size: 13pt; font-style: italic; color: var(--ink-soft); }
+  .voucher .stitch { margin: 5mm auto; width: 60%; border-top: 1.5pt dashed var(--sage); }
+  .voucher .v3 { font-size: 11pt; }
+
+  /* --- Intérieur gauche --- */
+  .inner-left { background: var(--cream); display: flex; flex-direction: column;
+                align-items: center; justify-content: center; text-align: center; }
+  .inner-left .vignette { width: 70mm; height: 70mm; object-fit: contain; mix-blend-mode: multiply; }
+  .inner-left .quote {
+    position: relative; margin-top: 8mm; padding: 0 16mm; font-style: italic; font-size: 15pt;
+    line-height: 1.45; color: var(--ink-soft);
+  }
+  .inner-left.has-bg .quote {
+    background: rgba(255,253,248,.82); padding: 5mm 8mm; margin: 8mm 14mm 0; border-radius: 2mm;
+  }
+
+  /* --- Intérieur droit (message) --- */
+  .message { padding: 20mm 17mm 16mm; display: flex; flex-direction: column; }
+  .message .open { font-family: "Parisienne", cursive; font-size: 24pt; color: var(--terracotta); margin-bottom: 6mm; }
+  .message p { font-size: 13.5pt; line-height: 1.5; margin-bottom: 4mm; text-align: left; }
+  .message strong { font-weight: 600; color: var(--terracotta); }
+  .message .sign { margin-top: auto; text-align: right; font-family: "Parisienne", cursive; font-size: 22pt; }
+  .message .first-box { text-align: center; font-size: 14pt; margin-top: 2mm; }
+  .front.framed { background: var(--cream); }
+  .front.framed .bg-img {
+    inset: auto; left: 16mm; top: 48mm; width: calc(100% - 32mm); height: 130mm; object-fit: cover;
+    border: 4mm solid #fff; box-shadow: 0 2mm 6mm rgba(74,59,54,.18); transform: rotate(-1.5deg);
+  }
+  .message .date { text-align: right; font-size: 10.5pt; color: var(--ink-soft); font-style: italic; }
+  .yarn-line { height: 6mm; margin: 2mm 0 6mm; }
+
+  [contenteditable]:hover { outline: 1px dashed rgba(194,123,95,.5); outline-offset: 2px; }
+  [contenteditable]:focus { outline: 1px solid var(--terracotta); outline-offset: 2px; }
+
+  /* --- Impression --- */
+  @page { size: A4 landscape; margin: 0; }
+  @media print {
+    body { background: none; padding: 0; }
+    .help, .label { display: none; }
+    .sheet { margin: 0; box-shadow: none; page-break-after: always; break-after: page; }
+    .sheet:last-of-type { page-break-after: auto; break-after: auto; }
+    .sheet::after { display: none; }
+    [contenteditable] { outline: none !important; }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+  @media (max-width: 1150px) {
+    .sheet-wrap { overflow-x: auto; }
+  }
+</style>
+</head>
+<body>
+
+<div class="help">
+  Remplis le bloc <b>CONFIG</b> en haut du fichier, ou clique sur les textes pour les modifier.
+  Place <b>recto.png</b> (et éventuellement <b>vignette.png</b>, <b>fond-interieur.png</b>) à côté de ce fichier.
+  Pour imprimer avec <b>Ctrl+P</b> : A4 paysage, marges aucune, échelle 100 %, arrière-plans activés, recto-verso <b>bord court</b>.
+</div>
+
+<!-- ============ FEUILLE 1 : EXTÉRIEUR (dos | couverture) ============ -->
+<div class="label">Feuille 1 · extérieur (dos | couverture)</div>
+<div class="sheet-wrap">
+<section class="sheet">
+  <div class="panel back">
+    <div class="voucher">
+      <div class="k">BON POUR</div>
+      <div class="v1" contenteditable>un abonnement AnnaB Crochet</div>
+      <div class="v2" contenteditable>une box crochet <span data-f="duree"></span></div>
+      <div class="stitch"></div>
+      <div class="v3" contenteditable>offert avec tout mon amour</div>
+    </div>
+  </div>
+
+  <div class="panel front fallback-front">
+    <img class="bg-img" id="cover" alt="">
+    <div class="front-title" id="coverTitle">
+      <div class="hb" contenteditable>Joyeux anniversaire</div>
+      <div class="name" contenteditable data-f="prenom"></div>
+    </div>
+  </div>
+</section>
+</div>
+
+<!-- ============ FEUILLE 2 : INTÉRIEUR (gauche | message) ============ -->
+<div class="label">Feuille 2 · intérieur (à imprimer au verso)</div>
+<div class="sheet-wrap">
+<section class="sheet">
+  <div class="panel inner-left" id="innerLeft">
+    <img class="bg-img" src="fond-interieur.png" alt=""
+         onload="document.getElementById('innerLeft').classList.add('has-bg')" onerror="this.remove()">
+    <img class="vignette" src="vignette.png" alt="" onerror="this.remove()" style="position:relative">
+    <div class="quote" contenteditable>« Maille après maille,<br>on fabrique les plus belles choses. »</div>
+  </div>
+
+  <div class="panel message">
+    <div class="open" contenteditable>Joyeux anniversaire mon amour,</div>
+    <p contenteditable>Ton cadeau a pris un peu de retard… parce qu'il arrivera <strong>plusieurs fois</strong> !</p>
+    <p contenteditable>Chaque mois, une <strong>box AnnaB Crochet</strong> viendra se glisser dans la boîte aux lettres : un nouveau projet, tout le matériel, et rien d'autre à faire que crocheter.</p>
+    <svg class="yarn-line" viewBox="0 0 200 20" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M0 10 C 20 0, 30 20, 50 10 S 80 0, 100 10 S 130 20, 150 10 S 180 0, 200 10"
+            fill="none" stroke="#d8a7a0" stroke-width="1.6" stroke-dasharray="4 3"/>
+      <circle cx="100" cy="10" r="4" fill="#9bb09a"/>
+    </svg>
+    <p class="first-box" contenteditable>Première box prévue : <strong data-f="premiereBox"></strong></p>
+    <div class="sign" contenteditable>Je t'aime,<br><span data-f="signature"></span></div>
+    <div class="date" contenteditable data-f="dateAnniversaire"></div>
+  </div>
+</section>
+</div>
+
+<script>
+  (function loadCover(i) {
+    const img = document.getElementById("cover");
+    if (i >= COVER_FILES.length) { img.remove(); return; }
+    img.onerror = () => loadCover(i + 1);
+    img.src = COVER_FILES[i];
+  })(0);
+  if (CONFIG.texteCouverture === false) document.getElementById("coverTitle").remove();
+  if (CONFIG.modeCouverture === "cadre") document.querySelector(".front").classList.add("framed");
+  document.querySelectorAll("[data-f]").forEach(el => {
+    el.textContent = CONFIG[el.dataset.f] ?? "";
+  });
+</script>
+</body>
+</html>
