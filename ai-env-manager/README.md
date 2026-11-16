@@ -255,7 +255,7 @@ any `warning`. The only section the scan has no equivalent for is what is left t
 
   MemPalace
     $ pip install mempalace  (Installer le package Python)
-    ℹ claude mcp add mempalace -- python -m mempalace  (Ajouter comme serveur MCP)
+    ℹ claude mcp add mempalace -- python -m mempalace.mcp_server  (Ajouter comme serveur MCP)
 
   1/3 outil(s) opérationnel(s) — 1 incomplet(s), 1 absent(s).
   Revoir les étapes : ai-env-manager prepare --with graphify,mempalace
