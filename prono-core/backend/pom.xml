@@ -23,9 +23,9 @@
         <mapstruct.version>1.6.3</mapstruct.version>
         <lombok.version>1.18.48</lombok.version>
         <springdoc.version>2.10.0</springdoc.version>
-        <postgresql.version>42.7.13</postgresql.version>
-        <h2.version>2.5.250</h2.version>
-        <flyway.version>13.7.0</flyway.version>
+        <postgresql.version>42.7.14</postgresql.version>
+        <h2.version>2.5.252</h2.version>
+        <flyway.version>13.12.2</flyway.version>
     </properties>
 
     <dependencies>
@@ -132,7 +132,7 @@
         <dependency>
             <groupId>org.commonmark</groupId>
             <artifactId>commonmark</artifactId>
-            <version>0.30.1</version>
+            <version>0.32.0</version>
         </dependency>
 
         <!-- Test -->
