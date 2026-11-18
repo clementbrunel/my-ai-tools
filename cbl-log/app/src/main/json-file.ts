@@ -6,8 +6,10 @@ import { dirname } from "node:path";
 export const toJsonText = (value: unknown): string => `${JSON.stringify(value, null, 2)}\n`;
 
 /** Writes a file atomically (temp file + rename), creating its directory; returns the text written. */
-export async function writeJsonAtomic(path: string, value: unknown): Promise<string> {
-  const text = toJsonText(value);
+export const writeJsonAtomic = (path: string, value: unknown): Promise<string> => writeTextAtomic(path, toJsonText(value));
+
+/** Writes a text file atomically (temp file + rename), creating its directory; returns the text written. */
+export async function writeTextAtomic(path: string, text: string): Promise<string> {
   await mkdir(dirname(path), { recursive: true });
   const temp = `${path}.tmp`;
   await writeFile(temp, text, "utf8");

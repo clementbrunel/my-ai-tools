@@ -36,6 +36,7 @@ import { DockerPanel } from "./docker/DockerPanel";
 import { dockerStatusText } from "./docker/docker-panel";
 import { FeedbackPanel } from "./feedback/FeedbackPanel";
 import { UpdatePanel } from "./update/UpdatePanel";
+import { SettingsPanel } from "./settings/SettingsPanel";
 import { ShortcutsPanel } from "./shortcuts/ShortcutsPanel";
 import { ReleaseNotesPanel } from "./update/ReleaseNotesPanel";
 import type { UpdatePanelState } from "../main/update-check";
@@ -101,6 +102,7 @@ export function App() {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [updateState, setUpdateState] = useState<UpdatePanelState | null>(null);
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const settingsRef = useRef(settings);
@@ -266,7 +268,7 @@ export function App() {
         const skipped = info.history?.skipped ?? 0;
         if (skipped > 0) {
           setNotice({
-            text: `${baseName(path)} : ${skipped} archive${skipped > 1 ? "s" : ""} de plus de ${info.history!.hours} h non chargée${skipped > 1 ? "s" : ""} (durée réglable : « historyHours » dans settings.json)`,
+            text: `${baseName(path)} : ${skipped} archive${skipped > 1 ? "s" : ""} de plus de ${info.history!.hours} h non chargée${skipped > 1 ? "s" : ""} (durée réglable : Fichier › Configuration › Durée d'historique)`,
             isError: false,
           });
         }
@@ -623,6 +625,7 @@ export function App() {
   }, []);
   useEffect(() => window.cblLog.onOpenReleaseNotes(() => setNotesOpen(true)), []);
   useEffect(() => window.cblLog.onOpenShortcuts(() => setShortcutsOpen(true)), []);
+  useEffect(() => window.cblLog.onOpenSettings(() => setSettingsOpen(true)), []);
   // "?" opens the shortcuts window (F1 goes through the Aide menu), unless a field has the focus.
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -1250,6 +1253,16 @@ export function App() {
       )}
       {notesOpen && <ReleaseNotesPanel current={window.cblLog.version} onClose={() => setNotesOpen(false)} />}
       {shortcutsOpen && <ShortcutsPanel onClose={() => setShortcutsOpen(false)} />}
+      {settingsOpen && (
+        <SettingsPanel
+          onClose={() => setSettingsOpen(false)}
+          onSaved={(next) => {
+            settingsRef.current = next;
+            setSettings(next);
+            setNotice({ text: "Configuration enregistrée", isError: false });
+          }}
+        />
+      )}
       {updateState && <UpdatePanel state={updateState} onClose={() => setUpdateState(null)} />}
       <div className="workspace">
       {dockerEnabled && dockerOpen && (

@@ -2,10 +2,11 @@ import { existsSync, mkdirSync } from "node:fs";
 import { release } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeImage, nativeTheme, shell } from "electron";
-import { parseDockerUri, type ParseRuleSetResult, type RuleSet, type Session, type Settings } from "@cbl-log/shared";
+import { defaultSettings, parseDockerUri, type ParseRuleSetResult, type RuleSet, type Session, type Settings } from "@cbl-log/shared";
 import { parseFileArgs } from "./cli-args";
 import { ConfigWatcher, type ConfigKind } from "./config-watcher";
-import { loadSession, loadSettings, saveSession, saveSettings } from "./config-store";
+import { loadSession, loadSettings, readSettingsText, saveSession, saveSettings, saveSettingsText, settingsPath } from "./config-store";
+import { writeJsonAtomic } from "./json-file";
 import { loadFormats } from "./formats-store";
 import { EngineHost } from "./engine-process";
 import { buildIssueUrl, checkFlood, envLines, feedbackKey, validateDraft, withSent, type FeedbackDraft, type FeedbackEnv } from "./feedback";
@@ -178,6 +179,8 @@ function buildMenu(): void {
           { label: "&Ouvrir…", accelerator: "CmdOrCtrl+O", click: () => void pickFiles().then(sendFiles) },
           { label: "Fichiers &récents", submenu: recentSubmenu() },
           { type: "separator" },
+          { label: "&Configuration…", accelerator: "CmdOrCtrl+,", click: () => mainWindow?.webContents.send("settings:open") },
+          { type: "separator" },
           { role: "quit", label: "&Quitter" },
         ],
       },
@@ -313,6 +316,23 @@ if (!app.requestSingleInstanceLock()) {
   ipcMain.handle("settings:save", async (_event, settings: Settings) => {
     nativeTheme.themeSource = settings.theme;
     configWatcher?.noteWrite("settings.json", await saveSettings(app.getPath("userData"), settings));
+  });
+  ipcMain.handle("settings:read-text", () => readSettingsText(app.getPath("userData")));
+  ipcMain.handle("settings:save-text", async (_event, text: string) => {
+    if (typeof text !== "string") return { ok: false, errors: ["Texte manquant"] };
+    const result = await saveSettingsText(app.getPath("userData"), text);
+    if (result.ok) {
+      nativeTheme.themeSource = result.value.theme;
+      configWatcher?.noteWrite("settings.json", result.text);
+    }
+    return result.ok ? { ok: true, value: result.value } : result;
+  });
+  ipcMain.handle("settings:reveal", async () => {
+    const dir = app.getPath("userData");
+    const path = settingsPath(dir);
+    // Created with the defaults first, so that the explorer has a file to select.
+    if (!existsSync(path)) configWatcher?.noteWrite("settings.json", await writeJsonAtomic(path, defaultSettings()));
+    shell.showItemInFolder(path);
   });
   ipcMain.handle("formats:load", () => loadFormats(join(app.getPath("userData"), "formats")));
   ipcMain.handle("session:load", () => loadSession(app.getPath("userData")));

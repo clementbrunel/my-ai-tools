@@ -3,6 +3,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
+  checkSettingsText,
   defaultSettings,
   emptySession,
   parseSession,
@@ -10,8 +11,9 @@ import {
   type ParseResult,
   type Session,
   type Settings,
+  settingsToText,
 } from "@cbl-log/shared";
-import { writeJsonAtomic } from "./json-file";
+import { writeJsonAtomic, writeTextAtomic } from "./json-file";
 
 export interface Loaded<T> {
   value: T;
@@ -41,3 +43,29 @@ export const loadSession = (dir: string): Promise<Loaded<Session>> =>
 export const saveSettings = (dir: string, settings: Settings): Promise<string> => writeJsonAtomic(join(dir, "settings.json"), settings);
 
 export const saveSession = (dir: string, session: Session): Promise<string> => writeJsonAtomic(join(dir, "session.json"), session);
+
+export const settingsPath = (dir: string): string => join(dir, "settings.json");
+
+/** Raw text of settings.json for the "Configuration" window; the defaults when the file does not exist yet. */
+export async function readSettingsText(dir: string): Promise<{ text: string; path: string; exists: boolean }> {
+  const path = settingsPath(dir);
+  try {
+    return { text: await readFile(path, "utf8"), path, exists: true };
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
+    return { text: settingsToText(defaultSettings()), path, exists: false };
+  }
+}
+
+export type SaveTextResult = { ok: true; value: Settings; text: string } | { ok: false; errors: string[] };
+
+/**
+ * Writes settings.json as typed by the user (JSON mode keeps their layout), once validated: an invalid
+ * text is refused and the file left untouched.
+ */
+export async function saveSettingsText(dir: string, text: string): Promise<SaveTextResult> {
+  const check = checkSettingsText(text);
+  if (!check.ok) return { ok: false, errors: check.errors };
+  const written = await writeTextAtomic(settingsPath(dir), text.endsWith("\n") ? text : `${text}\n`);
+  return { ok: true, value: check.value, text: written };
+}

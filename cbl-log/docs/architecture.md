@@ -622,6 +622,13 @@ formats\<id>.json      # parseurs (en plus des formats intégrés)
 Chaque fichier porte `schemaVersion` (migrations au chargement), validé par un schéma (`zod`) ; dossier
 surveillé → rechargement à chaud ; un fichier invalide est signalé et ignoré, jamais fatal.
 
+**Fenêtre Configuration** (Fichier › Configuration…, `Ctrl+,` ; `renderer/settings/`) : deux modes sur le même
+texte de `settings.json`. Le mode *Interface* est généré depuis `SETTING_SECTIONS` (`shared/settings-doc.ts` :
+libellé, explication, contrôle, moment d'application de chaque clé ; un test vérifie que toute clé du schéma y
+est documentée) et réécrit le JSON normalisé ; le mode *JSON* garde le texte de l'utilisateur.
+`checkSettingsText` valide en direct (syntaxe avec ligne, schéma en français, clés inconnues). Le main
+(`settings:save-text`) revalide avant d'écrire tel quel et note l'écriture auprès du watcher.
+
 ## 9. Arborescence cible
 
 ```
