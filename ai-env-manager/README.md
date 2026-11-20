@@ -174,7 +174,7 @@ listed below.
 
 | id | Tool | What it does | Install surface |
 |---|---|---|---|
-| `ecc` | [ECC (Agent Harness OS)](https://github.com/affaan-m/ECC) | All-in-one harness: 71 agents, 314 skills, hooks and rules across Claude Code / Cursor / Codex | `/plugin install ecc@ecc` |
+| `ecc` | [ECC (Agent Harness OS)](https://github.com/affaan-m/ECC) | All-in-one harness: 72 agents, 328 skills, hooks and rules across Claude Code / Cursor / Codex | `/plugin install ecc@ecc` |
 | `karpathy-skills` | [Andrej Karpathy Skills](https://github.com/forrestchang/andrej-karpathy-skills) | Coding-discipline guidelines: no unverified assumptions, no over-engineering, no out-of-scope edits | plugin, or drop-in `CLAUDE.md` |
 | `ponytail` | [Ponytail](https://github.com/DietrichGebert/ponytail) | Anti-over-engineering skill — forces a YAGNI decision ladder before writing code | plugin, or rule files per editor |
 | `codeburn` | [CodeBurn](https://github.com/getagentseal/codeburn) | Cost & token accounting across 42 AI coding tools — measures, does not compress | `npm i -g codeburn` + optional MCP server |
