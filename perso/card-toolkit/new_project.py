@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
-"""Crée un projet de carte dans projets/<nom>/ (dossier ignoré par git).
+"""Crée un projet de carte dans perso/projets/<nom>/ (dossier ignoré par git).
 
   python new_project.py fete-des-meres
   python new_project.py naissance-lea --palette bebe
   python new_project.py merci-voisins --palette hiver --titre "Merci !"
 
 Contenu créé :
-  projets/<nom>/carte.html        copie du gabarit (templates/carte-pliee-a5.html)
-  projets/<nom>/contenu.js        textes à remplir (copie de exemple/contenu.js)
-  projets/<nom>/prompts.md        modèle de prompt, avec composition + couleurs déjà remplies
-  projets/<nom>/assets/           gabarits de composition, gabarit annoté, palette
-  projets/<nom>/references/       photos de référence à déposer
+  perso/projets/<nom>/carte.html        copie du gabarit (templates/carte-pliee-a5.html)
+  perso/projets/<nom>/contenu.js        textes à remplir (copie de exemple/contenu.js)
+  perso/projets/<nom>/prompts.md        modèle de prompt, avec composition + couleurs déjà remplies
+  perso/projets/<nom>/assets/           gabarits de composition, gabarit annoté, palette
+  perso/projets/<nom>/references/       photos de référence à déposer
 """
 import argparse
 import json
@@ -34,7 +34,7 @@ def main():
 
     if not re.fullmatch(r"[\w.-]+", a.nom):
         sys.exit("Nom invalide : lettres, chiffres, '-', '_' ou '.' uniquement.")
-    dst = os.path.join(HERE, "projets", a.nom)
+    dst = os.path.normpath(os.path.join(HERE, "..", "projets", a.nom))
     if os.path.exists(os.path.join(dst, "contenu.js")) and not a.force:
         sys.exit(f"{dst} existe déjà (--force régénère carte.html, assets/ et prompts.md ; contenu.js et references/ sont conservés).")
 

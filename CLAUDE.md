@@ -19,7 +19,7 @@ Each tool lives in its own subdirectory with its own `package.json`, `src/`, and
 | `spec-merger/` | `spec-merger` | Merges a project's Word spec with its JWAY JXML source into a single editable, version-tracked markdown (Java/Spring Boot + React + Postgres) | active |
 
 Personal (non-tool) helpers live in `perso/`: `perso/card-toolkit/` builds printable cards from AI-generated images
-(text added via HTML, never in the image). Its `projets/` folder holds personal content and is git-ignored.
+(text added via HTML, never in the image). Generated/personal content goes in `perso/projets/`, which is git-ignored.
 
 ## Adding a new tool
 

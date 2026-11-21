@@ -7,7 +7,7 @@ en combinant un skill de génération d'images (sur le PC) et une mise en page H
 messages sont posés par le gabarit HTML. Ça évite les fautes et les lettres déformées, et
 le texte reste modifiable jusqu'à l'impression.
 
-> Les contenus personnels (textes, dates, photos, images générées) vivent dans `projets/`,
+> Les contenus personnels (textes, dates, photos, images générées) vivent dans `perso/projets/`,
 > qui est **ignoré par git**. Le dépôt ne contient que les outils.
 
 ## Démarrage rapide
@@ -18,7 +18,7 @@ pip install pillow                                  # une seule fois
 python new_project.py anniversaire-2027 --palette pastel-lin --titre "Joyeux anniversaire"
 ```
 
-Puis dans `projets/anniversaire-2027/` :
+Puis dans `perso/projets/anniversaire-2027/` :
 
 1. **`contenu.js`** : écrire les textes (couverture, dos, citation, message). Les couleurs de la palette y sont déjà reportées.
 2. **`references/`** : déposer les photos de référence (produit, lieu, objet…), si besoin.
@@ -34,7 +34,7 @@ Puis dans `projets/anniversaire-2027/` :
 
 | Chemin | Rôle |
 |---|---|
-| `new_project.py` | Crée `projets/<nom>/` (gabarit, contenu, assets, prompts). `--force` régénère les fichiers sans toucher à `contenu.js` ni `references/`. |
+| `new_project.py` | Crée `perso/projets/<nom>/` (gabarit, contenu, assets, prompts). `--force` régénère les fichiers sans toucher à `contenu.js` ni `references/`. |
 | `templates/carte-pliee-a5.html` | Carte pliée A5 (feuille A4 recto-verso) : couverture (image bord à bord ou photo encadrée), dos avec encart « bon pour », intérieur gauche (vignette + citation), message. Tout le texte vient de `contenu.js`. |
 | `exemple/contenu.js` | Modèle de contenu neutre et commenté (`**gras**`, `\n` pour un retour à la ligne, champ vide = masqué). |
 | `image-kit/make_assets.py` | Gabarit de composition (sans texte, pour le générateur), gabarit annoté (pour vérifier), nuancier, phrase de composition. Formats : `a5`, `a6`, `a4`, `carre`, `10x15` ou `LxH` en mm, avec `--paysage`, `--zone-titre`, `--marge`. Fonctionne aussi seul pour d'autres petits supports (marque-page, étiquette, affichette). |

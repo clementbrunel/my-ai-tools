@@ -9,7 +9,7 @@ Sorties (dans --out) :
   palette.json             couleurs de la palette (reprises dans contenu.js par new_project.py)
 
 Exemples :
-  python make_assets.py --out ../projets/ma-carte/assets
+  python make_assets.py --out ../../projets/ma-carte/assets
   python make_assets.py --format a6 --palette pastel-lin --titre "Merci" --out out/
   python make_assets.py --format 100x150 --palette "#112233,#AABBCC,#FFEEDD" --out out/
 

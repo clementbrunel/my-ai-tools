@@ -1,5 +1,5 @@
 /*
-  Contenu d'une carte : modèle neutre à copier dans projets/<nom>/contenu.js.
+  Contenu d'une carte : modèle neutre à copier dans perso/projets/<nom>/contenu.js.
   - **texte** = gras (couleur d'accent), \n = retour à la ligne.
   - Supprimer un champ (ou le laisser vide) le masque sur la carte.
 */
