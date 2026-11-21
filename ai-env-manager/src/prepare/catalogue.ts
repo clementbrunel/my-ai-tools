@@ -47,7 +47,7 @@ export const CATALOGUE: CatalogueTool[] = [
       {
         label: "Installer le binaire",
         command: "cargo install --git https://github.com/rtk-ai/rtk",
-        manual: "ou brew install rtk / télécharger le binaire depuis https://github.com/rtk-ai/rtk/releases (ne pas utiliser 'cargo install rtk' : le crate 'rtk' de crates.io est un autre projet, Rust Type Kit)",
+        manual: "ou (méthodes du README amont) brew install rtk · winget install rtk-ai.rtk · curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh · binaire depuis https://github.com/rtk-ai/rtk/releases (ne pas utiliser 'cargo install rtk' : le crate 'rtk' de crates.io est un autre projet, Rust Type Kit)",
       },
       {
         label: "Configurer le hook Claude Code",
@@ -141,7 +141,7 @@ export const CATALOGUE: CatalogueTool[] = [
   {
     id: "ecc",
     name: "ECC (Agent Harness OS)",
-    tagline: "Framework tout-en-un : 71 agents, 314 skills, hooks et règles pour Claude Code, Cursor, Codex",
+    tagline: "Framework tout-en-un : 72 agents, 328 skills, hooks et règles pour Claude Code, Cursor, Codex",
     why: "Installe d'un coup un ensemble complet de patterns de travail éprouvés (10+ mois de production). Inclut déjà une réduction de tokens similaire à Caveman. Choisir ECC OU les outils individuels — pas les deux, risque de conflits de hooks et de skills.",
     steps: [
       {
