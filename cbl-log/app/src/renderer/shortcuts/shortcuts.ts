@@ -28,6 +28,7 @@ export const SHORTCUT_GROUPS: readonly ShortcutGroup[] = [
       { keys: ["Ctrl", "O"], label: "Ouvrir un ou plusieurs fichiers" },
       { keys: ["Ctrl", "W"], label: "Fermer l'onglet actif" },
       { keys: ["Ctrl", "Maj", "D"], label: "Afficher / masquer le panneau Docker" },
+      { keys: ["Ctrl", ","], label: "Configuration (settings.json)" },
     ],
   },
   {

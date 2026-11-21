@@ -28,6 +28,16 @@ const api: CblLogApi = {
   importRuleSet: () => ipcRenderer.invoke("rules:import") as ReturnType<CblLogApi["importRuleSet"]>,
   loadSettings: () => ipcRenderer.invoke("settings:load") as ReturnType<CblLogApi["loadSettings"]>,
   saveSettings: (settings) => ipcRenderer.invoke("settings:save", settings) as Promise<void>,
+  readSettingsText: () => ipcRenderer.invoke("settings:read-text") as ReturnType<CblLogApi["readSettingsText"]>,
+  saveSettingsText: (text) => ipcRenderer.invoke("settings:save-text", text) as ReturnType<CblLogApi["saveSettingsText"]>,
+  revealSettingsFile: () => ipcRenderer.invoke("settings:reveal") as Promise<void>,
+  onOpenSettings: (cb) => {
+    const listener = (): void => cb();
+    ipcRenderer.on("settings:open", listener);
+    return () => {
+      ipcRenderer.off("settings:open", listener);
+    };
+  },
   loadSession: () => ipcRenderer.invoke("session:load") as ReturnType<CblLogApi["loadSession"]>,
   saveSession: (session) => ipcRenderer.invoke("session:save", session) as Promise<void>,
   loadFormats: () => ipcRenderer.invoke("formats:load") as ReturnType<CblLogApi["loadFormats"]>,

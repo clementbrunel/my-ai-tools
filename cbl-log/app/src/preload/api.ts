@@ -36,6 +36,14 @@ export interface CblLogApi {
   /** settings.json (a missing file gives the defaults; an unusable one is reported in `warning`). */
   loadSettings(): Promise<{ value: Settings; warning?: string }>;
   saveSettings(settings: Settings): Promise<void>;
+  /** Raw text of settings.json for the "Configuration" window (the defaults when the file does not exist yet). */
+  readSettingsText(): Promise<{ text: string; path: string; exists: boolean }>;
+  /** Validates then writes settings.json as typed; refused (file untouched) when invalid. */
+  saveSettingsText(text: string): Promise<{ ok: true; value: Settings } | { ok: false; errors: string[] }>;
+  /** Shows settings.json in the file manager (created with the defaults if missing). */
+  revealSettingsFile(): Promise<void>;
+  /** "Fichier › Configuration…" (Ctrl+,) was chosen. */
+  onOpenSettings(cb: () => void): () => void;
   loadSession(): Promise<{ value: Session; warning?: string }>;
   saveSession(session: Session): Promise<void>;
   /** "Affichage > Zoom" changed the page zoom (percent, 100 = real size). */

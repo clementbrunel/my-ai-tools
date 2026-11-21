@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { defaultSettings } from "@cbl-log/shared";
-import { loadSession, loadSettings, saveSession, saveSettings } from "./config-store";
+import { loadSession, loadSettings, readSettingsText, saveSession, saveSettings, saveSettingsText } from "./config-store";
 
 const dirs: string[] = [];
 afterEach(() => {
@@ -105,5 +105,31 @@ describe("session store", () => {
     expect((await loadSession(dir)).value.tabs[0]?.encoding).toBe("windows-1252");
     writeFileSync(join(dir, "session.json"), JSON.stringify({ schemaVersion: 1, tabs: [{ path: "x.log", encoding: "ebcdic" }] }));
     expect((await loadSession(dir)).warning).toMatch(/^session\.json/);
+  });
+});
+
+describe("settings text (Configuration window)", () => {
+  it("gives the default text when the file is missing", async () => {
+    const dir = tempDir();
+    const r = await readSettingsText(dir);
+    expect(r.exists).toBe(false);
+    expect(JSON.parse(r.text)).toEqual(defaultSettings());
+  });
+
+  it("writes a valid text as typed and returns the parsed value", async () => {
+    const dir = tempDir();
+    const text = '{ "schemaVersion": 1, "historyHours": 8 }';
+    const r = await saveSettingsText(dir, text);
+    expect(r.ok && r.value.historyHours).toBe(8);
+    expect(readFileSync(join(dir, "settings.json"), "utf8")).toBe(`${text}\n`);
+    expect((await readSettingsText(dir)).exists).toBe(true);
+  });
+
+  it("refuses an invalid text and leaves the file untouched", async () => {
+    const dir = tempDir();
+    writeFileSync(join(dir, "settings.json"), '{"schemaVersion":1}');
+    const r = await saveSettingsText(dir, '{ "schemaVersion": 1, "historyHours": -1 }');
+    expect(r.ok).toBe(false);
+    expect(readFileSync(join(dir, "settings.json"), "utf8")).toBe('{"schemaVersion":1}');
   });
 });

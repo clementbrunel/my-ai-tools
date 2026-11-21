@@ -18,7 +18,7 @@ Pile : Electron + TypeScript + React (Windows 10/11).
 modifiées depuis moins de **2 h** sont chargées avant lui : l'onglet se lit comme un seul fichier, avec un
 séparateur à chaque archive. Quand des archives plus anciennes existent, un avertissement le signale.
 
-- La durée se règle dans `%APPDATA%\cbl-log\settings.json` : `"historyHours": 6` (0 = le fichier seul).
+- La durée se règle dans **Fichier › Configuration… › Durée d'historique** (`"historyHours": 6` ; 0 = le fichier seul).
 - Noms reconnus d'office : `<nom>_<date>.log` (WebSphere, Liberty), `<nom>.<date>.<n>.log` (Logback), `<nom>.log.1`.
   Pour un autre nommage, clic droit sur le chemin du fichier › **Désigner une archive du rolling…** et choisir une
   archive : cbl-log en déduit le motif, le retient pour ce fichier et rouvre l'onglet.
@@ -43,6 +43,18 @@ Dans **Règles de surlignage**, `Exporter…` enregistre le profil affiché dans
 à vos collègues ; `Importer…` l'ajoute chez eux et l'applique à l'onglet affiché. Si un profil de même id
 existe déjà (deux versions du même profil), cbl-log propose de le remplacer ou de garder les deux. Le fichier
 exporté a le même format que ceux de `%APPDATA%\cbl-log\rules\` : il peut aussi y être déposé directement.
+
+## Configuration
+
+**Fichier › Configuration…** (`Ctrl+,`) édite `%APPDATA%\cbl-log\settings.json` sans quitter l'application :
+
+- **Interface** : un formulaire, chaque réglage avec son explication, sa clé JSON, sa valeur par défaut (lien
+  *Rétablir*) et quand il s'applique (immédiat, à la prochaine ouverture d'un fichier, au prochain lancement).
+  Un champ de recherche filtre les réglages ; un trait bleu marque ceux qui diffèrent du défaut.
+- **JSON** : le fichier brut, avec numéros de ligne, validation en direct (ligne en erreur surlignée, message
+  en français, clés inconnues signalées) et *Formater*. Le texte est enregistré tel quel.
+- `Ctrl+S` enregistre ; un JSON invalide n'est jamais écrit. Une modification du fichier faite ailleurs pendant
+  que la fenêtre est ouverte est rechargée (ou proposée si des modifications sont en cours).
 
 ## Raccourcis clavier
 
@@ -82,7 +94,7 @@ Une fois installé, cbl-log se met à jour seul à partir des releases GitHub, s
   - version installée : installeur NSIS en silencieux dans le même dossier, cbl-log redémarre et rouvre les onglets ;
   - version portable : le nouveau `cbl-log-<version>-portable.exe` est posé à côté de l'actuel et lancé (l'ancien
     peut être supprimé).
-- `"checkForUpdates": false` dans `%APPDATA%\cbl-log\settings.json` désactive la vérification au démarrage et toutes les heures (le menu
+- **Fichier › Configuration… › Rechercher les mises à jour** (`"checkForUpdates": false`) désactive la vérification au démarrage et toutes les heures (le menu
   reste disponible). C'est le seul accès réseau de l'application : une requête GET vers `api.github.com`, rien n'est
   envoyé.
 
@@ -98,7 +110,7 @@ ce qu'il faut faire (Docker non lancé, compte hors groupe `docker-users`, versi
 - Barre d'état : « Docker · running depuis 10:02 », « arrêté » ou « en attente de Docker ». *Charger plus
   d'historique* remonte ×10 plus loin (la copie locale des logs est reconstruite, la position est conservée).
 - Session et fichiers récents retiennent `docker://<contexte>/<nom>` et se raccrochent au conteneur du même nom.
-- Réglages (`settings.json`, pris en compte au prochain lancement sauf `enabled` et `initialTail`) :
+- Réglages (**Fichier › Configuration…**, section Docker ; pris en compte au prochain lancement sauf `enabled` et `initialTail`) :
   `"docker": { "enabled": true, "host": "tcp://127.0.0.1:2375", "initialTail": 5000, "spoolMaxMb": 256, "keepSpoolOnClose": false }`
   (`host` absent : `DOCKER_HOST`, puis le contexte Docker courant, puis le pipe de Docker Desktop).
 
