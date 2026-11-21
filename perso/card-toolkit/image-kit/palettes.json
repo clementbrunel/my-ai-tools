@@ -1,0 +1,27 @@
+{
+  "_ordre": "1 fond clair, 2-3 accents doux, 4 accent lisible sur fond clair (titres), 5 complément, 6 encre (texte)",
+  "pastel-lin": [
+    {"nom": "Crème", "hex": "#FBF6EE"},
+    {"nom": "Rose poudré", "hex": "#D8A7A0"},
+    {"nom": "Vert sauge", "hex": "#9BB09A"},
+    {"nom": "Terracotta", "hex": "#C27B5F"},
+    {"nom": "Moutarde", "hex": "#D9B25F"},
+    {"nom": "Brun encre", "hex": "#4A3B36"}
+  ],
+  "hiver": [
+    {"nom": "Blanc neige", "hex": "#F7F8FA"},
+    {"nom": "Bleu glacier", "hex": "#A9C4D8"},
+    {"nom": "Vert sapin", "hex": "#4F7A68"},
+    {"nom": "Rouge baie", "hex": "#B5443F"},
+    {"nom": "Or doux", "hex": "#CFAE6B"},
+    {"nom": "Bleu nuit", "hex": "#24324A"}
+  ],
+  "bebe": [
+    {"nom": "Lait", "hex": "#FDFBF7"},
+    {"nom": "Bleu layette", "hex": "#BFD7EA"},
+    {"nom": "Menthe", "hex": "#B8DBC9"},
+    {"nom": "Corail", "hex": "#C9705A"},
+    {"nom": "Vanille", "hex": "#F3E2A9"},
+    {"nom": "Gris doux", "hex": "#5B5F66"}
+  ]
+}

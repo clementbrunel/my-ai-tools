@@ -18,6 +18,9 @@ Each tool lives in its own subdirectory with its own `package.json`, `src/`, and
 | `cbl-log/` | `cbl-log` | Real-time Windows log viewer, modern customizable BareTail replacement with rolling-file support (Electron + TypeScript + React) — v2.0.0, see `cbl-log/docs/` | active |
 | `spec-merger/` | `spec-merger` | Merges a project's Word spec with its JWAY JXML source into a single editable, version-tracked markdown (Java/Spring Boot + React + Postgres) | active |
 
+Personal (non-tool) helpers live in `perso/`: `perso/card-toolkit/` builds printable cards from AI-generated images
+(text added via HTML, never in the image). Its `projets/` folder holds personal content and is git-ignored.
+
 ## Adding a new tool
 
 1. Create a new directory: `mkdir my-new-tool && cd my-new-tool`
