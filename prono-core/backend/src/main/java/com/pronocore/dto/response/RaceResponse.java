@@ -41,4 +41,7 @@ public class RaceResponse {
 
     /** Starting grid — populated as soon as qualifying is over, well before the race. */
     private List<QualifyingResultResponse> qualifyingResults;
+
+    /** Admin-only: {@link #qualifyingResults} is an imported grid not yet validated (hidden from players). */
+    private boolean qualifyingDraft;
 }

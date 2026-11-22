@@ -6,6 +6,7 @@ import type {
   F1PredictionRequest,
   F1Standing,
   F1StandingHistory,
+  QualifyingResultEntryRequest,
   Race,
   RaceResultEntryRequest,
 } from '@/types';
@@ -97,6 +98,16 @@ export const syncSeason = async (): Promise<string> => {
  *  (grid penalty confirmed after the fact, jolpica data corrected). */
 export const resyncQualifying = async (raceId: number): Promise<string> => {
   const response = await apiClient.post<string>(`/admin/f1/races/${raceId}/qualifying/resync`);
+  return response.data;
+};
+
+/** Enters (or corrects) a race's starting grid and validates it: visible to players from now
+ *  on, and no longer overwritten by the season sync. */
+export const enterQualifyingResults = async (
+  raceId: number,
+  results: QualifyingResultEntryRequest[],
+): Promise<Race> => {
+  const response = await apiClient.post<Race>(`/admin/f1/races/${raceId}/qualifying`, { results });
   return response.data;
 };
 

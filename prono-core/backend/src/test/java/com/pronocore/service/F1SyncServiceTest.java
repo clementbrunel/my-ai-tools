@@ -100,6 +100,8 @@ class F1SyncServiceTest {
         Competition competition = Competition.builder().id(9L).name("Formule 1 2026").sport(Sport.F1).season(2026).build();
         Race round1 = race(101L, 1, Race.Status.UPCOMING, competition);
         Race round2 = race(102L, 2, Race.Status.UPCOMING, competition);
+        // Grid already validated by the admin (typed in while jolpica lagged) → never overwritten
+        round2.setQualifyingValidated(true);
         Race round3Seeded = race(103L, 3, Race.Status.UPCOMING, competition);   // not in the real calendar
 
         when(competitionRepository.findFirstBySportOrderByIdDesc(Sport.F1)).thenReturn(Optional.of(competition));
@@ -107,7 +109,6 @@ class F1SyncServiceTest {
                 .thenReturn(List.of(round1, round2, round3Seeded));
         when(jolpicaClient.get("2026.json?limit=100")).thenReturn(CALENDAR_JSON);
         when(jolpicaClient.get("2026/1/qualifying.json?limit=40")).thenReturn(ROUND1_QUALI_JSON);
-        when(jolpicaClient.get("2026/2/qualifying.json?limit=40")).thenReturn(EMPTY_RESULTS_JSON);
         when(jolpicaClient.get("2026/3/qualifying.json?limit=40")).thenReturn(EMPTY_RESULTS_JSON);
         when(jolpicaClient.get("2026/1/results.json?limit=40")).thenReturn(ROUND1_RESULTS_JSON);
         when(jolpicaClient.get("2026/1/sprint.json?limit=40")).thenReturn(ROUND1_SPRINT_JSON);
@@ -144,7 +145,10 @@ class F1SyncServiceTest {
         assertThat(grid.get(1).getTime()).isEqualTo("1:21.450");   // RUS — reached Q3
         assertThat(grid.get(2).getTime()).isEqualTo("1:21.100");   // NOR — eliminated in Q2
         assertThat(grid.get(3).getTime()).isEqualTo("1:23.000");   // VER — eliminated in Q1
-        assertThat(summary).contains("grille de départ importée pour les manches [1]");
+        assertThat(summary).contains("grille de départ importée (à valider avant d'être visible des joueurs) pour les manches [1]");
+        assertThat(round1.isQualifyingValidated()).isFalse();   // jolpica import = draft
+        verify(jolpicaClient, never()).get("2026/2/qualifying.json?limit=40");
+        verify(qualifyingResultRepository, never()).deleteByRaceId(102L);
 
         // Results: staged as a draft only — settlement (points + emails) waits for the admin's validation
         ArgumentCaptor<EnterRaceResultsRequest> captor = ArgumentCaptor.forClass(EnterRaceResultsRequest.class);
@@ -230,6 +234,7 @@ class F1SyncServiceTest {
     void syncQualifyingForRace_forcesReimportEvenWhenFinished() {
         Competition competition = Competition.builder().id(9L).name("Formule 1 2026").sport(Sport.F1).season(2026).build();
         Race round1 = race(101L, 1, Race.Status.FINISHED, competition);
+        round1.setQualifyingValidated(true);
 
         when(raceRepository.findById(101L)).thenReturn(Optional.of(round1));
         when(jolpicaClient.get("2026/1/qualifying.json?limit=40")).thenReturn(ROUND1_QUALI_JSON);
@@ -240,6 +245,23 @@ class F1SyncServiceTest {
         verify(qualifyingResultRepository).deleteByRaceId(101L);
         verify(qualifyingResultRepository).saveAll(anyList());
         assertThat(message).contains("Grille de départ réimportée");
+        assertThat(round1.isQualifyingValidated()).isTrue();   // correction of a published grid stays published
+    }
+
+    @Test
+    void syncQualifyingForRace_onDraftGrid_staysDraftToValidate() {
+        Competition competition = Competition.builder().id(9L).name("Formule 1 2026").sport(Sport.F1).season(2026).build();
+        Race round1 = race(101L, 1, Race.Status.UPCOMING, competition);
+
+        when(raceRepository.findById(101L)).thenReturn(Optional.of(round1));
+        when(jolpicaClient.get("2026/1/qualifying.json?limit=40")).thenReturn(ROUND1_QUALI_JSON);
+        stubEntryListUpserts();
+
+        String message = f1SyncService.syncQualifyingForRace(101L);
+
+        verify(qualifyingResultRepository).saveAll(anyList());
+        assertThat(message).contains("à vérifier puis valider");
+        assertThat(round1.isQualifyingValidated()).isFalse();
     }
 
     /**

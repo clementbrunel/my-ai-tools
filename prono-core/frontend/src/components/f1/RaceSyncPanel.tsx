@@ -40,6 +40,7 @@ const RaceSyncPanel: React.FC<RaceSyncPanelProps> = ({
 
   const qualifyingPassed = selectedRace ? new Date(selectedRace.qualifyingDate) <= new Date() : false;
   const qualifsImported = (raceDetail?.qualifyingResults?.length ?? 0) > 0;
+  const qualifsDraft = qualifsImported && raceDetail?.qualifyingDraft === true;
   const racePassed = selectedRace ? new Date(selectedRace.raceDate) <= new Date() : false;
   const resultsSettled = selectedRace?.status === 'FINISHED';
   const resultsDraft = !resultsSettled && raceDetail?.resultsDraft === true;
@@ -73,14 +74,14 @@ const RaceSyncPanel: React.FC<RaceSyncPanelProps> = ({
         <div className="flex flex-wrap items-center gap-2">
           <span
             className={`text-xs font-bold px-2 py-1 rounded-full ${
-              qualifsImported
+              qualifsImported && !qualifsDraft
                 ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300'
-                : qualifyingPassed
+                : qualifsDraft || qualifyingPassed
                   ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300'
                   : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
             }`}
           >
-            ⏱ Grille qualifs {qualifsImported ? 'importée ✓' : qualifyingPassed ? 'pas encore importée' : 'à venir'}
+            ⏱ Grille qualifs {qualifsDraft ? 'importée — à valider' : qualifsImported ? 'validée ✓' : qualifyingPassed ? 'pas encore importée' : 'à venir'}
           </span>
           <span
             className={`text-xs font-bold px-2 py-1 rounded-full ${
@@ -110,7 +111,7 @@ const RaceSyncPanel: React.FC<RaceSyncPanelProps> = ({
             onClick={onResyncQualifying}
             disabled={isResyncingGrid}
             className="btn-secondary w-full sm:w-auto"
-            title="Force le re-import de la grille de qualifs de cette course depuis jolpica, même si elle est déjà terminée (utile après une pénalité sur grille confirmée après coup)"
+            title="Force le re-import de la grille de qualifs de cette course depuis jolpica, même si elle est déjà terminée ou la grille déjà validée (utile après une pénalité sur grille confirmée après coup) — écrase les corrections manuelles"
           >
             {isResyncingGrid ? 'Import…' : '⏱ Resync grille qualifs'}
           </button>

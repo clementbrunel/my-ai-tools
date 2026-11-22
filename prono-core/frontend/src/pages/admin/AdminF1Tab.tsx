@@ -20,6 +20,7 @@ import type { Driver, Race } from '@/types';
 import { useToast } from '@/components/Toast';
 import MiniF1Car from '@/components/f1/MiniF1Car';
 import RaceSyncPanel from '@/components/f1/RaceSyncPanel';
+import QualifyingGridEditor from '@/components/f1/QualifyingGridEditor';
 import ConfirmModal from '@/components/ConfirmModal';
 
 interface ConstructorOption {
@@ -123,6 +124,8 @@ const AdminF1Tab: React.FC = () => {
   const [races, setRaces] = useState<Race[]>([]);
   const [selectedRaceId, setSelectedRaceId] = useState<number | null>(null);
   const [order, setOrder] = useState<Driver[]>([]);
+  // Untouched active roster (the race form reorders `order`) — seeds a manual grid entry.
+  const [roster, setRoster] = useState<Driver[]>([]);
   const [unclassifiedIds, setUnclassifiedIds] = useState<Set<number>>(new Set());
   const [poleId, setPoleId] = useState<number | null>(null);
   const [fastestLapId, setFastestLapId] = useState<number | null>(null);
@@ -159,6 +162,7 @@ const AdminF1Tab: React.FC = () => {
       .then(([raceRows, driverRows]) => {
         setRaces(raceRows);
         setOrder(driverRows);
+        setRoster(driverRows);
         // Preselect the most recent race whose start time has passed
         const past = raceRows.filter((r) => new Date(r.raceDate) <= new Date());
         if (past.length > 0) setSelectedRaceId(past[past.length - 1].id);
@@ -211,6 +215,7 @@ const AdminF1Tab: React.FC = () => {
       const [raceRows, driverRows] = await Promise.all([getRaces(), getDrivers()]);
       setRaces(raceRows);
       setOrder(driverRows);
+      setRoster(driverRows);
       if (selectedRaceId != null) {
         await getRace(selectedRaceId)
           .then((race) => { applyRaceResultsToForm(race); setRaceDetail(race); })
@@ -360,6 +365,23 @@ const AdminF1Tab: React.FC = () => {
         notifyByEmail={notifyByEmail}
         onNotifyByEmailChange={setNotifyByEmail}
       />
+
+      {selectedRace && (
+        <QualifyingGridEditor
+          key={selectedRace.id}
+          race={selectedRace}
+          raceDetail={raceDetail}
+          drivers={roster}
+          onValidated={(updated) => {
+            setRaceDetail(updated);
+            // The backend realigned the pole of an unsettled draft on the new P1 — mirror it
+            // in the classification form so a later "Valider" doesn't send the stale pole.
+            if (updated.status !== 'FINISHED' && (updated.results?.length ?? 0) > 0) {
+              setPoleId(updated.qualifyingResults?.find((q) => q.position === 1)?.driver.id ?? null);
+            }
+          }}
+        />
+      )}
 
       <div className="card space-y-2">
         {raceDetail?.resultsDraft && selectedRace?.status !== 'FINISHED' && (

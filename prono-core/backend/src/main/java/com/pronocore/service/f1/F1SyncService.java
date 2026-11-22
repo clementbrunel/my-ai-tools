@@ -90,7 +90,8 @@ public class F1SyncService {
         String summary = "Calendrier : " + racesUpserted + " course(s) synchronisée(s)"
                 + (qualifyingRounds.isEmpty()
                     ? ""
-                    : " — grille de départ importée pour les manches " + qualifyingRounds)
+                    : " — grille de départ importée (à valider avant d'être visible des joueurs) pour les manches "
+                        + qualifyingRounds)
                 + (settledRounds.isEmpty()
                     ? " — aucun nouveau résultat"
                     : " — résultats importés (à valider avant règlement des paris) pour les manches " + settledRounds);
@@ -207,9 +208,11 @@ public class F1SyncService {
 
     /**
      * Imports the starting grid as soon as qualifying is over, independently of the race
-     * itself (jolpica exposes {@code /qualifying.json} the same evening). Display only —
-     * settlement still runs off {@link #syncResults}. Re-fetches (delete + recreate) on every
-     * call while the race hasn't been run yet, so a correction on jolpica's side is picked up.
+     * itself (jolpica exposes {@code /qualifying.json} the same evening). The import is only a
+     * DRAFT (admin-only) until validated via {@link F1RaceService#enterQualifyingResults}, same
+     * flow as race results. Re-fetches (delete + recreate) on every call while the grid is still
+     * a draft, so a correction on jolpica's side is picked up — but never overwrites a validated
+     * grid (the admin may have fixed it or typed it in while jolpica lagged behind).
      * Skips FINISHED races here as a cost-saving default for the full-season sync — grid
      * penalties confirmed after the fact still need {@link #syncQualifyingForRace}.
      */
@@ -219,6 +222,7 @@ public class F1SyncService {
 
         for (Race race : raceRepository.findByCompetition_IdOrderByRaceDateAsc(competition.getId())) {
             if (race.getStatus() == Race.Status.FINISHED) continue;
+            if (race.isQualifyingValidated()) continue;
             if (race.getQualifyingDate() == null || race.getQualifyingDate().isAfter(now)) continue;
             throttle();
             if (fetchAndStoreQualifyingGrid(season, race)) imported.add(race.getRound());
@@ -228,17 +232,22 @@ public class F1SyncService {
 
     /**
      * Forces a re-import of one race's qualifying grid from jolpica, regardless of its
-     * FINISHED status — for admin corrections when a grid penalty is confirmed (or jolpica's
-     * own data is amended) after {@link #syncQualifying} already skipped it.
+     * FINISHED status or validation — for admin corrections when a grid penalty is confirmed (or
+     * jolpica's own data is amended) after {@link #syncQualifying} already skipped it. The
+     * validation flag is left as is: a draft stays a draft, a validated grid is replaced in place
+     * (explicit admin action, same as a forced results resync re-settling a finished race).
      */
     @Transactional
     public String syncQualifyingForRace(Long raceId) {
         Race race = raceRepository.findById(raceId)
                 .orElseThrow(() -> new EntityNotFoundException("Race not found: " + raceId));
         int season = requireSeason(race.getCompetition());
-        return fetchAndStoreQualifyingGrid(season, race)
+        if (!fetchAndStoreQualifyingGrid(season, race)) {
+            return "Aucune grille de départ disponible sur jolpica pour " + race.getName();
+        }
+        return race.isQualifyingValidated()
                 ? "Grille de départ réimportée pour " + race.getName()
-                : "Aucune grille de départ disponible sur jolpica pour " + race.getName();
+                : "Grille de départ importée pour " + race.getName() + " — à vérifier puis valider pour la publier";
     }
 
     /** Fetches the grid from jolpica and replaces it (delete + recreate) — false if jolpica has nothing yet. */

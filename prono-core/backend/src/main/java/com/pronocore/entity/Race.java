@@ -68,6 +68,15 @@ public class Race {
     @Builder.Default
     private boolean qualifyingReminderSent = false;
 
+    /**
+     * Whether the stored starting grid ({@link QualifyingResult}) has been validated by the
+     * platform admin. A jolpica import lands as a draft (admin-only, hidden from players) and the
+     * full-season sync never overwrites a validated grid — same flow as race results.
+     */
+    @Column(name = "qualifying_validated", nullable = false)
+    @Builder.Default
+    private boolean qualifyingValidated = false;
+
     public enum Status {
         UPCOMING, FINISHED
     }

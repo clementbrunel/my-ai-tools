@@ -468,8 +468,16 @@ export interface Race {
   results?: RaceResultEntry[];
   /** Admin-only: `results` is an imported classification not yet validated (no points awarded, no email sent). */
   resultsDraft?: boolean;
-  /** Starting grid — populated as soon as qualifying is over, well before the race. */
+  /** Starting grid — shown to players once the admin validated it; admins also see the imported draft. */
   qualifyingResults?: QualifyingResultEntry[];
+  /** Admin-only: `qualifyingResults` is an imported grid not yet validated (hidden from players). */
+  qualifyingDraft?: boolean;
+}
+
+export interface QualifyingResultEntryRequest {
+  driverId: number;
+  position: number;
+  time: string | null;
 }
 
 export interface F1Prediction {
