@@ -112,31 +112,26 @@ public class F1RaceService {
                 !predictionRepository.findByRaceIdAndUserId(raceId, user.getId()).isEmpty());
         response.setPredictionsCount(
                 predictionCountsByRace(user.getId()).getOrDefault(raceId, 0L));
+        // Player view, platform admins included: drafts (imported classification or grid not yet
+        // validated) only ever show up in the admin tab, via getRaceForAdmin.
         if (race.getStatus() == Race.Status.FINISHED) {
             response.setResults(raceResultRepository.findByRaceIdWithDrivers(raceId).stream()
                     .map(this::toResultResponse)
                     .toList());
-        } else if (user.getRole() == User.Role.PLATFORM_ADMIN) {
-            // Imported-but-unvalidated classification: admin-only, players must not see it.
-            List<RaceResultResponse> draft = raceResultRepository.findByRaceIdWithDrivers(raceId).stream()
-                    .map(this::toResultResponse)
-                    .toList();
-            if (!draft.isEmpty()) {
-                response.setResults(draft);
-                response.setResultsDraft(true);
-            }
         }
-        boolean isAdmin = user.getRole() == User.Role.PLATFORM_ADMIN;
-        if (isAdmin) {
-            // Admin sees the grid as soon as one is stored (imported draft or manual entry).
-            applyQualifyingGrid(response, race);
-        } else if (race.isQualifyingValidated() && !LocalDateTime.now().isBefore(race.getQualifyingDate())) {
-            // Players only see a grid the admin validated — a raw jolpica import may be wrong.
+        if (race.isQualifyingValidated() && !LocalDateTime.now().isBefore(race.getQualifyingDate())) {
+            // Only a grid the admin validated — a raw jolpica import may be wrong.
             response.setQualifyingResults(qualifyingResultRepository.findByRaceIdWithDrivers(raceId).stream()
                     .map(this::toQualifyingResultResponse)
                     .toList());
         }
         return response;
+    }
+
+    /** Admin tab view: stored classification and grid, drafts included and flagged as such. */
+    @Transactional(readOnly = true)
+    public RaceResponse getRaceForAdmin(Long raceId) {
+        return getRaceForAdmin(requireRace(raceId));
     }
 
     /** Stored grid + draft flag, for the platform-admin views. */

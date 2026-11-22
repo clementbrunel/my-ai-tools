@@ -511,7 +511,7 @@ class F1RaceServiceTest {
     }
 
     @Test
-    void getRace_draftGrid_hiddenFromPlayersButShownToAdmin() {
+    void getRace_drafts_onlyInAdminView_evenForAdmins() {
         Race race = raceAt(LocalDateTime.now().minusHours(3), LocalDateTime.now().plusDays(1));   // grid imported, not validated
         User player = user(1L, "alice");
         User admin = User.builder().id(2L).username("admin").role(User.Role.PLATFORM_ADMIN).build();
@@ -521,12 +521,21 @@ class F1RaceServiceTest {
         when(qualifyingResultRepository.findByRaceIdWithDrivers(100L)).thenReturn(List.of(
                 QualifyingResult.builder().race(race).driver(nor).position(1).build()));
 
+        when(raceResultRepository.findByRaceIdWithDrivers(100L)).thenReturn(List.of(
+                RaceResult.builder().race(race).driver(nor).constructor(mclaren).position(1).build()));
+
         RaceResponse forPlayer = f1RaceService.getRace(100L, "alice");
-        RaceResponse forAdmin = f1RaceService.getRace(100L, "admin");
+        RaceResponse adminOnPlayerPage = f1RaceService.getRace(100L, "admin");
+        RaceResponse adminTab = f1RaceService.getRaceForAdmin(100L);
 
         assertThat(forPlayer.getQualifyingResults()).isNull();
-        assertThat(forAdmin.getQualifyingResults()).hasSize(1);
-        assertThat(forAdmin.isQualifyingDraft()).isTrue();
+        assertThat(forPlayer.getResults()).isNull();
+        assertThat(adminOnPlayerPage.getQualifyingResults()).isNull();
+        assertThat(adminOnPlayerPage.getResults()).isNull();
+        assertThat(adminTab.getQualifyingResults()).hasSize(1);
+        assertThat(adminTab.isQualifyingDraft()).isTrue();
+        assertThat(adminTab.getResults()).hasSize(1);
+        assertThat(adminTab.isResultsDraft()).isTrue();
 
         race.setQualifyingValidated(true);
         assertThat(f1RaceService.getRace(100L, "alice").getQualifyingResults()).hasSize(1);

@@ -102,7 +102,6 @@ const QualifyingGridEditor: React.FC<Props> = ({ race, raceDetail, drivers, onVa
   const isDraft = raceDetail?.qualifyingDraft === true;
   const isValidated = grid.length > 0 && !isDraft;
   const qualifyingPassed = new Date(race.qualifyingDate) <= new Date();
-  const [isOpen, setIsOpen] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -125,9 +124,6 @@ const QualifyingGridEditor: React.FC<Props> = ({ race, raceDetail, drivers, onVa
       setExcludedIds(new Set());
       setTimeById({});
     }
-    // Open straight away when there's something to do: a draft to review, or quali over with no grid.
-    setIsOpen(raceDetail.qualifyingDraft === true || (stored.length === 0 && qualifyingPassed));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [raceDetail, drivers]);
 
   const displayOrder = useMemo(() => {
@@ -171,69 +167,57 @@ const QualifyingGridEditor: React.FC<Props> = ({ race, raceDetail, drivers, onVa
 
   return (
     <div className="card space-y-2">
-      <button
-        type="button"
-        onClick={() => setIsOpen((v) => !v)}
-        className="w-full flex items-center justify-between gap-2 text-left"
-      >
-        <h2 className="font-bold text-gray-900 dark:text-white">Grille de départ (qualifs)</h2>
-        <span className="text-xs text-gray-400 whitespace-nowrap">
-          {isValidated ? 'validée ✓' : isDraft ? 'à valider' : 'non saisie'} {isOpen ? '▴' : '▾'}
-        </span>
-      </button>
-
-      {isOpen && (
-        <>
-          {isDraft && (
-            <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 text-sm px-3 py-2">
-              ⚠️ Grille importée de jolpica, <strong>pas encore validée</strong> : les joueurs ne la voient pas.
-              Vérifie-la (pénalités de grille…), corrige si besoin, puis valide.
-            </div>
-          )}
-          {grid.length === 0 && (
-            <div className="rounded-lg bg-gray-50 dark:bg-gray-800/60 text-gray-600 dark:text-gray-300 text-sm px-3 py-2">
-              Aucune grille importée{qualifyingPassed ? ' — jolpica en retard ?' : '.'} Tu peux la saisir à la main :
-              glisse les pilotes dans l'ordre de la grille, coche « Absent » pour ceux qui ne prennent pas le départ.
-            </div>
-          )}
-          {isValidated && (
-            <p className="text-xs text-gray-400">
-              Grille publiée : le sync jolpica ne l'écrase plus (seul « Resync grille qualifs » la remplace).
-              {race.status === 'FINISHED' && ' Course déjà réglée : si la pole change, revalide aussi le classement ci-dessous.'}
-            </p>
-          )}
-
-          <span className="text-xs text-gray-400 block">Glisse les lignes pour ordonner · P1 = pole ⏱</span>
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={displayOrder.map((d) => d.id)} strategy={verticalListSortingStrategy}>
-              <div className="space-y-1">
-                {displayOrder.map((driver, index) => (
-                  <SortableGridRow
-                    key={driver.id}
-                    driver={driver}
-                    index={index}
-                    excluded={excludedIds.has(driver.id)}
-                    time={timeById[driver.id] ?? ''}
-                    onToggleExcluded={() =>
-                      setExcludedIds((prev) => {
-                        const next = new Set(prev);
-                        if (next.has(driver.id)) next.delete(driver.id);
-                        else next.add(driver.id);
-                        return next;
-                      })
-                    }
-                    onTimeChange={(value) => setTimeById((prev) => ({ ...prev, [driver.id]: value }))}
-                  />
-                ))}
-              </div>
-            </SortableContext>
-          </DndContext>
-
-          <button onClick={handleValidate} disabled={isSaving || !raceDetail} className="btn-primary w-full">
-            {isSaving ? 'Enregistrement…' : 'Valider la grille de départ ⏱'}
-          </button>
-        </>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <h2 className="font-bold text-gray-900 dark:text-white">Grille de départ</h2>
+        <span className="text-xs text-gray-400">Glisse les lignes pour ordonner · P1 = pole ⏱ · Absent = hors grille</span>
+      </div>
+      {isDraft && (
+        <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 text-sm px-3 py-2">
+          ⚠️ Grille importée de jolpica, <strong>pas encore validée</strong> : les joueurs ne la voient pas.
+          Vérifie-la (pénalités de grille…), corrige si besoin, puis valide.
+        </div>
       )}
+      {grid.length === 0 && (
+        <div className="rounded-lg bg-gray-50 dark:bg-gray-800/60 text-gray-600 dark:text-gray-300 text-sm px-3 py-2">
+          Aucune grille importée{qualifyingPassed ? ' — jolpica en retard ?' : '.'} Tu peux la saisir à la main :
+          glisse les pilotes dans l'ordre de la grille, coche « Absent » pour ceux qui ne prennent pas le départ.
+        </div>
+      )}
+      {isValidated && (
+        <p className="text-xs text-gray-400">
+          Grille publiée : le sync jolpica ne l'écrase plus (seul « Resync grille qualifs » la remplace).
+          {race.status === 'FINISHED' && ' Course déjà réglée : si la pole change, revalide aussi le classement (onglet Course).'}
+        </p>
+      )}
+
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={displayOrder.map((d) => d.id)} strategy={verticalListSortingStrategy}>
+          <div className="space-y-1">
+            {displayOrder.map((driver, index) => (
+              <SortableGridRow
+                key={driver.id}
+                driver={driver}
+                index={index}
+                excluded={excludedIds.has(driver.id)}
+                time={timeById[driver.id] ?? ''}
+                onToggleExcluded={() =>
+                  setExcludedIds((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(driver.id)) next.delete(driver.id);
+                    else next.add(driver.id);
+                    return next;
+                  })
+                }
+                onTimeChange={(value) => setTimeById((prev) => ({ ...prev, [driver.id]: value }))}
+              />
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
+
+      <button onClick={handleValidate} disabled={isSaving || !raceDetail} className="btn-primary w-full">
+        {isSaving ? 'Enregistrement…' : 'Valider la grille de départ ⏱'}
+      </button>
     </div>
   );
 };

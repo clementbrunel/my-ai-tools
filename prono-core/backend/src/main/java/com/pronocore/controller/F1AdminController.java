@@ -25,6 +25,14 @@ public class F1AdminController {
     private final F1RaceService f1RaceService;
     private final F1SyncService f1SyncService;
 
+    @GetMapping("/races/{raceId}")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+    @Operation(summary = "Race detail for the admin tab — includes the imported classification and starting grid "
+            + "still awaiting validation (never exposed on the player endpoint)")
+    public ResponseEntity<RaceResponse> getRace(@PathVariable Long raceId) {
+        return ResponseEntity.ok(f1RaceService.getRaceForAdmin(raceId));
+    }
+
     @PostMapping("/sync")
     @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     @Operation(summary = "Import calendar, entry list and results from jolpica-f1 for the configured season, "

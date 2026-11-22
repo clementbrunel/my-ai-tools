@@ -88,6 +88,13 @@ export const openCompetitionRaces = async (groupId: number, competitionId: numbe
 
 // ── Platform admin ─────────────────────────────────────────────────────────
 
+/** Admin tab detail of a race — includes the imported classification / grid still awaiting
+ *  validation, which the player endpoint (`getRace`) never exposes. */
+export const getAdminRace = async (raceId: number): Promise<Race> => {
+  const response = await apiClient.get<Race>(`/admin/f1/races/${raceId}`);
+  return response.data;
+};
+
 /** Imports calendar + results from jolpica-f1 for the configured season and settles finished races. */
 export const syncSeason = async (): Promise<string> => {
   const response = await apiClient.post<string>('/admin/f1/sync');
