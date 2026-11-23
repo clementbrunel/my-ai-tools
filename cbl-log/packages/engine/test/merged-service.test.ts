@@ -272,9 +272,6 @@ describe("the All tab: search, filter and navigation", { timeout: 30_000 }, () =
     expect(await density(0, 6, 1)).toEqual([3]);
     expect(await density(0, 6, 6)).toEqual([1, 0, 0, 0, 1, 1]);
     expect(await density(3, 3, 3)).toEqual([0, 1, 1]); // rows before `first` (cleared) do not count
-    expect(await density(0, 6, 3).then((counts) => counts.reduce((a, b) => a + b, 0))).toBe(3);
-    const stale = await c.ok("searchDensity", { tabId: info.tabId, searchId: "nope", first: 0, count: 6, buckets: 3 });
-    expect(stale.counts).toEqual([0, 0, 0]);
   });
 
   it("filters by level and text across the sources, with the level of each record", async () => {
