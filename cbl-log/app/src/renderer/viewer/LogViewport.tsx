@@ -7,6 +7,7 @@ import type { HighlightResult } from "../highlight/highlight";
 import type { PageCache } from "./page-cache";
 import { marksByRow, rollMarkLabel, type RollMark } from "./roll-mark";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
+import { MatchMarkers } from "./MatchMarkers";
 import { formatRows, MAX_COPY_ROWS } from "./selection";
 import { hasTextSelection, selectionAt, selectRange, wordAt, type TextTarget } from "./text-target";
 import { isAtBottom, isScaled, contentHeight, ROW_HEIGHT, rowToScrollTop, scrollTopToRow, visibleRange } from "./viewport-math";
@@ -15,8 +16,6 @@ import { isAtBottom, isScaled, contentHeight, ROW_HEIGHT, rowToScrollTop, scroll
 // generous margin keeps the edges covered between two React renders.
 const OVERSCAN = 40;
 const COPY_CHUNK = 2000;
-/** Width of the match markers when the scrollbars are overlays (they take no room of their own). */
-const OVERLAY_BAR_PX = 12;
 
 interface Props {
   cache: PageCache;
@@ -389,25 +388,6 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, filt
           {...(onGotoTime ? { onGotoTime } : {})}
           onNotice={onNotice}
         />
-      )}
-    </div>
-  );
-}
-
-/**
- * Thin strip over the vertical scrollbar: a tick where matches lie, more opaque where there are more.
- * Its height is that of the scrollbar track (the arrow buttons at both ends are left out), which the
- * thumb moves on linearly with the rows, so a tick sits at the place the thumb has to go to.
- */
-function MatchMarkers({ density, bars }: { density: readonly number[]; bars: { w: number; h: number } }) {
-  const peak = Math.max(1, ...density);
-  const n = density.length;
-  return (
-    <div className="match-markers" aria-hidden="true" style={{ width: bars.w || OVERLAY_BAR_PX, top: bars.w, bottom: bars.w + bars.h }}>
-      {density.map((count, i) =>
-        count > 0 ? (
-          <span key={i} className="match-tick" style={{ top: `${(i / n) * 100}%`, height: `${100 / n}%`, opacity: 0.55 + 0.45 * (count / peak) }} />
-        ) : null,
       )}
     </div>
   );
