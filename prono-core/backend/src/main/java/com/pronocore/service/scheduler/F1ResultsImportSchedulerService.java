@@ -16,6 +16,14 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
+ * Post-session jolpica imports, both staged as drafts the admins validate:
+ * <ul>
+ *   <li><b>Starting grid</b> — every 30 min between the end of qualifying and the race start.
+ *       A staged grid emails the admins "grille à valider"; still nothing on jolpica
+ *       {@code qualifying-late-alert-hours} after qualifying → a one-off "saisis-la à la main"
+ *       reminder (retries go on until the race start).</li>
+ *   <li><b>Race classification</b> — described below.</li>
+ * </ul>
  * Every 30 minutes, once a Grand Prix should be over, tries to import its classification from
  * jolpica. A successful import only stages a draft (nothing is settled, no player email) and
  * notifies every PLATFORM_ADMIN that it is ready to be reviewed and validated. Retries stop on
@@ -41,6 +49,51 @@ public class F1ResultsImportSchedulerService {
     /** Hours after the start beyond which we stop retrying (the admin can still use the manual import). */
     @Value("${app.f1-auto-import.give-up-hours:48}")
     private long giveUpHours;
+
+    /** Minutes after the qualifying start before the first grid attempt — roughly the session's duration. */
+    @Value("${app.f1-auto-import.qualifying-duration-minutes:60}")
+    private long qualifyingDurationMinutes;
+
+    /** Hours after the qualifying start with still no grid on jolpica before the admins are told to type it in. */
+    @Value("${app.f1-auto-import.qualifying-late-alert-hours:6}")
+    private long qualifyingLateAlertHours;
+
+    @Scheduled(cron = "0 15,45 * * * *")
+    public void importQualifyingGrids() {
+        if (!enabled) return;
+        LocalDateTime now = LocalDateTime.now();
+        for (Race race : raceRepository.findAwaitingQualifyingImport(now.minusMinutes(qualifyingDurationMinutes), now)) {
+            try {
+                if (f1SyncService.importQualifyingDraftIfAvailable(race.getId())) {
+                    List<User> admins = admins();
+                    admins.forEach(admin -> emailService.sendAdminQualifyingReadyEmail(admin, race));
+                    log.info("F1 auto-import: grid draft staged for {} — {} admin(s) notified", race.getName(), admins.size());
+                    continue;
+                }
+                log.debug("F1 auto-import: no jolpica grid yet for {}", race.getName());
+            } catch (Exception e) {
+                // jolpica down — the next tick retries; the late alert below still applies.
+                log.warn("F1 grid auto-import failed for {}: {}", race.getName(), e.getMessage());
+            }
+            alertIfGridLate(race, now);
+        }
+    }
+
+    private void alertIfGridLate(Race race, LocalDateTime now) {
+        if (race.isQualifyingLateAlertSent()
+                || now.isBefore(race.getQualifyingDate().plusHours(qualifyingLateAlertHours))) {
+            return;
+        }
+        List<User> admins = admins();
+        admins.forEach(admin -> emailService.sendAdminQualifyingLateEmail(admin, race));
+        race.setQualifyingLateAlertSent(true);
+        raceRepository.save(race);
+        log.info("F1 auto-import: grid still missing on jolpica for {} — {} admin(s) alerted", race.getName(), admins.size());
+    }
+
+    private List<User> admins() {
+        return userRepository.findByRole(User.Role.PLATFORM_ADMIN);
+    }
 
     @Scheduled(cron = "0 */30 * * * *")
     public void importFinishedRaces() {

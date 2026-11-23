@@ -418,4 +418,32 @@ class F1SyncServiceTest {
             return d;
         });
     }
+
+    // ── Post-qualifying automatic import ─────────────────────────────────────
+
+    @Test
+    void importQualifyingDraftIfAvailable_stagesDraft() {
+        Competition competition = Competition.builder().id(9L).name("Formule 1 2026").sport(Sport.F1).season(2026).build();
+        Race round1 = race(101L, 1, Race.Status.UPCOMING, competition);
+        when(raceRepository.findById(101L)).thenReturn(Optional.of(round1));
+        when(qualifyingResultRepository.findByRaceIdWithDrivers(101L)).thenReturn(List.of());
+        when(jolpicaClient.get("2026/1/qualifying.json?limit=40")).thenReturn(ROUND1_QUALI_JSON);
+        stubEntryListUpserts();
+
+        assertThat(f1SyncService.importQualifyingDraftIfAvailable(101L)).isTrue();
+        verify(qualifyingResultRepository).saveAll(anyList());
+        assertThat(round1.isQualifyingValidated()).isFalse();
+    }
+
+    @Test
+    void importQualifyingDraftIfAvailable_neverTouchesValidatedGrid() {
+        Competition competition = Competition.builder().id(9L).name("Formule 1 2026").sport(Sport.F1).season(2026).build();
+        Race round1 = race(101L, 1, Race.Status.UPCOMING, competition);
+        round1.setQualifyingValidated(true);
+        when(raceRepository.findById(101L)).thenReturn(Optional.of(round1));
+
+        assertThat(f1SyncService.importQualifyingDraftIfAvailable(101L)).isFalse();
+        verifyNoInteractions(jolpicaClient);
+        verify(qualifyingResultRepository, never()).saveAll(anyList());
+    }
 }

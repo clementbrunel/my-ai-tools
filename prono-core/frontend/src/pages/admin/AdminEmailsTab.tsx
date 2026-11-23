@@ -159,6 +159,32 @@ const EMAIL_TEMPLATES: EmailTemplateInfo[] = [
     ),
   },
   {
+    type: 'ADMIN_QUALIFYING_READY',
+    label: 'Admin : grille de départ F1 à valider',
+    theme: 'F1',
+    description: (
+      <>
+        Envoyé automatiquement à tous les PLATFORM_ADMIN quand l'import jolpica post-qualifs (tenté toutes les 30 min
+        entre la fin des qualifs et le départ) a enregistré une grille en brouillon, invisible des joueurs tant qu'elle
+        n'est pas validée (onglet ⏱ Qualifs). Réglages dans application.yml : app.f1-auto-import.*.
+        Le test utilise des données fictives (Grand Prix de Monaco).
+      </>
+    ),
+  },
+  {
+    type: 'ADMIN_QUALIFYING_LATE',
+    label: 'Admin : grille F1 absente de jolpica',
+    theme: 'F1',
+    description: (
+      <>
+        Envoyé une seule fois par course à tous les PLATFORM_ADMIN quand jolpica n'a toujours pas publié la grille
+        X heures après le début des qualifs (app.f1-auto-import.qualifying-late-alert-hours, 6 par défaut) : la grille
+        est alors à saisir à la main. L'import automatique continue jusqu'au départ.
+        Le test utilise des données fictives (Grand Prix de Monaco).
+      </>
+    ),
+  },
+  {
     type: 'TEST_CEDRIC',
     label: 'test cédric 🏦',
     theme: 'NEUTRAL',

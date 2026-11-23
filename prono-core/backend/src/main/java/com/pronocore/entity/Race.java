@@ -77,6 +77,11 @@ public class Race {
     @Builder.Default
     private boolean qualifyingValidated = false;
 
+    /** "No grid on jolpica yet" reminder already sent to the admins — once per race. */
+    @Column(name = "qualifying_late_alert_sent", nullable = false)
+    @Builder.Default
+    private boolean qualifyingLateAlertSent = false;
+
     public enum Status {
         UPCOMING, FINISHED
     }

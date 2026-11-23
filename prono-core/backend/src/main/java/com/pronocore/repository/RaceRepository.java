@@ -53,6 +53,20 @@ public interface RaceRepository extends JpaRepository<Race, Long> {
             """)
     List<Race> findAwaitingResultsImport(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
 
+    /** Races whose qualifying ended (started before {@code qualifyingOver}) but not the race itself
+     *  ({@code raceDate > now}), with no grid stored nor validated — the candidates for the
+     *  post-qualifying jolpica import retry (a staged grid draft ends the retries). */
+    @Query("""
+            SELECT r FROM Race r JOIN FETCH r.competition
+            WHERE r.status <> com.pronocore.entity.Race.Status.FINISHED
+              AND r.qualifyingValidated = false
+              AND r.qualifyingDate <= :qualifyingOver AND r.raceDate > :now
+              AND NOT EXISTS (SELECT 1 FROM QualifyingResult qr WHERE qr.race = r)
+            ORDER BY r.qualifyingDate ASC
+            """)
+    List<Race> findAwaitingQualifyingImport(@Param("qualifyingOver") LocalDateTime qualifyingOver,
+                                            @Param("now") LocalDateTime now);
+
     /** Upcoming races whose start falls in [from, to] and for which no reminder has been sent yet. */
     @Query("""
             SELECT r FROM Race r

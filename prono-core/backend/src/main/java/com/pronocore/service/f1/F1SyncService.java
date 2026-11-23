@@ -368,6 +368,22 @@ public class F1SyncService {
         return fetchAndSettleResults(season, race, false);
     }
 
+    /**
+     * Post-qualifying automatic attempt (scheduler): stages the starting grid as a draft if
+     * jolpica already has it. Never touches a validated grid nor an already-stored one (the admin
+     * may be reviewing it). Returns true when a new draft was staged (admin to validate).
+     */
+    @Transactional
+    public boolean importQualifyingDraftIfAvailable(Long raceId) {
+        Race race = raceRepository.findById(raceId)
+                .orElseThrow(() -> new EntityNotFoundException("Race not found: " + raceId));
+        if (race.isQualifyingValidated()
+                || !qualifyingResultRepository.findByRaceIdWithDrivers(raceId).isEmpty()) {
+            return false;
+        }
+        return fetchAndStoreQualifyingGrid(requireSeason(race.getCompetition()), race);
+    }
+
     /** Fetches the full classification from jolpica — staged as a draft for an unsettled race, re-settled for a finished one. False if jolpica has nothing yet. */
     private boolean fetchAndSettleResults(int season, Race race, boolean notifyByEmail) {
         JsonNode raceNode = read(season + "/" + race.getRound() + "/results.json?limit=40")
