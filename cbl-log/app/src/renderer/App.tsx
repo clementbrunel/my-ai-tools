@@ -54,6 +54,7 @@ import { TabBar } from "./tabs/TabBar";
 import { findRowAtTime, parseGotoInput, resolveTarget, wallClockOf, type GotoTimeResult } from "./formats/goto-time";
 import { filterStatus, initialTabsState, searchStatus, tabLabel, tabsReducer, type TabState } from "./tabs/tabs-reducer";
 import { SearchBar } from "./search/SearchBar";
+import { useMatchDensity } from "./search/useMatchDensity";
 import { LogViewport } from "./viewer/LogViewport";
 import { PageCache } from "./viewer/page-cache";
 
@@ -1055,6 +1056,20 @@ export function App() {
   // the "All" tab shows another view each time its sources change: its viewport starts over
   const viewportKey = currentViewKey + (active?.merged ? `:${active.merged.sources.map((s) => s.tabId).join(",")}` : "");
 
+  // Scrollbar markers: where the matches lie in the file (not in a filtered view, whose rows are not the file's).
+  const clearedFirst = active?.clearedBefore ?? 0;
+  const matchDensity = useMatchDensity(
+    {
+      tabId: activeId,
+      searchId: searchIdNow,
+      disabled: filtered,
+      matches: status?.matches ?? 0,
+      first: clearedFirst,
+      count: (pausedAt ? Math.min(active?.total ?? 0, pausedAt.total) : (active?.total ?? 0)) - clearedFirst,
+    },
+    withEngine,
+  );
+
   // "Clear" in the filtered view hides the retained lines before the cleared origin.
   const clearedBefore = active?.clearedBefore ?? 0;
   useEffect(() => {
@@ -1352,6 +1367,7 @@ export function App() {
             filtered={filtered}
             reveal={reveal?.forKey === currentViewKey ? reveal : undefined}
             currentMatchRow={active.search?.current?.row}
+            matchDensity={matchDensity}
             anchorLine={anchor?.tabId === active.info.tabId && (!filtered || active.filterSuspended) ? anchor.line : undefined}
             onRowDoubleClick={
               active.merged

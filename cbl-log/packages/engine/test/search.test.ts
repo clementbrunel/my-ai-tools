@@ -75,6 +75,27 @@ async function search(ctx: Awaited<ReturnType<typeof openLines>>, query: Partial
 
 const finalEvent = (ctx: Awaited<ReturnType<typeof openLines>>, id: string) => ctx.queryEvents(ctx.tabId).filter((e) => e.id === id).at(-1)!;
 
+/** 5 archives of 100 lines (oldest first) then the live file: 600 rows, 1 match every 50 lines (`NEEDLE<k>` in file k). */
+async function openWithArchives() {
+  const dir = await tempDir();
+  const now = Date.now() / 1000;
+  for (let k = 0; k < 5; k++) {
+    const p = join(dir, `a_26.10.21_0${k}.00.00.log`);
+    writeFileSync(p, makeLines(100, 50, `NEEDLE${k}`).join("\n") + "\n");
+    utimesSync(p, now - 600 + k * 60, now - 600 + k * 60);
+  }
+  const path = join(dir, "a.log");
+  writeFileSync(path, makeLines(100, 50, "NEEDLE5").join("\n") + "\n");
+  const c = connect({ search: { sliceBytes: 2048, maxWorkers: 2, stallMs: 2000 } });
+  const info = await c.ok("open", { path, historyHours: 1 });
+  expect(info.history?.files).toHaveLength(5);
+  return { ...c, tabId: info.tabId, path };
+}
+
+/** Matches found so far in `buckets` equal slices of the rows [first, first + count). */
+const densityOf = (ctx: Awaited<ReturnType<typeof openLines>>, searchId: string, first: number, count: number, buckets: number) =>
+  ctx.ok("searchDensity", { tabId: ctx.tabId, searchId, first, count, buckets }).then((r) => r.counts);
+
 describe("planSlices", () => {
   it("cuts at checkpoints at least sliceBytes apart and covers the whole range", () => {
     const cps = [10, 100, 200, 300, 400];
@@ -131,6 +152,22 @@ describe("search", { timeout: 30_000 }, () => {
     expect(await nav(0, "prev")).toMatchObject({ row: 400, ordinal: 5, wrapped: true });
   });
 
+  it("gives the density of the matches over the file, for the scrollbar markers", async () => {
+    const ctx = await openLines(makeLines(500, 100)); // matches at rows 0, 100, 200, 300, 400
+    const id = await search(ctx, { pattern: "NEEDLE" });
+    const density = (first: number, count: number, buckets: number) => densityOf(ctx, id, first, count, buckets);
+
+    expect(await density(0, 500, 5)).toEqual([1, 1, 1, 1, 1]);
+    expect(await density(0, 500, 10)).toEqual([1, 0, 1, 0, 1, 0, 1, 0, 1, 0]);
+    expect(await density(0, 500, 1)).toEqual([5]);
+    // a range starting after "clear": only the matches from there on
+    expect(await density(250, 250, 5)).toEqual([0, 1, 0, 1, 0]);
+    expect(await density(0, 0, 4)).toEqual([0, 0, 0, 0]);
+    // a stale search id has no markers
+    const stale = await ctx.ok("searchDensity", { tabId: ctx.tabId, searchId: "nope", first: 0, count: 500, buckets: 3 });
+    expect(stale.counts).toEqual([0, 0, 0]);
+  });
+
   it("matches inside CRLF files and UTF-16 files", async () => {
     const crlf = await openLines(makeLines(300, 50), undefined, "\r\n");
     expect(finalEvent(crlf, await search(crlf, { pattern: "NEEDLE" })).matches).toBe(6);
@@ -156,20 +193,7 @@ describe("search", { timeout: 30_000 }, () => {
   });
 
   it("searches the archives loaded with the file too, and navigates across files (some of them dormant)", async () => {
-    const dir = await tempDir();
-    const now = Date.now() / 1000;
-    // 5 archives of 100 lines, oldest first, then the live file: 1 match every 50 lines
-    for (let k = 0; k < 5; k++) {
-      const p = join(dir, `a_26.10.21_0${k}.00.00.log`);
-      writeFileSync(p, makeLines(100, 50, `NEEDLE${k}`).join("\n") + "\n");
-      utimesSync(p, now - 600 + k * 60, now - 600 + k * 60);
-    }
-    const path = join(dir, "a.log");
-    writeFileSync(path, makeLines(100, 50, "NEEDLE5").join("\n") + "\n");
-    const c = connect({ search: { sliceBytes: 2048, maxWorkers: 2, stallMs: 2000 } });
-    const info = await c.ok("open", { path, historyHours: 1 });
-    expect(info.history?.files).toHaveLength(5);
-    const ctx = { ...c, tabId: info.tabId, path };
+    const ctx = await openWithArchives();
     const id = await search(ctx, { pattern: "NEEDLE" });
     expect(finalEvent(ctx, id).matches).toBe(12);
     const nav = (fromRow: number, dir: "next" | "prev") => ctx.ok("searchNext", { tabId: ctx.tabId, searchId: id, fromRow, dir });
@@ -180,6 +204,21 @@ describe("search", { timeout: 30_000 }, () => {
     expect(await nav(0, "prev")).toMatchObject({ row: 550, ordinal: 12, wrapped: true });
     const { rows } = await ctx.ok("getRows", { tabId: ctx.tabId, first: 150, count: 1 });
     expect(rows[0]!.text).toContain("NEEDLE1");
+  });
+
+  it("density spans the archives and the live file, and follows the growth of the file", async () => {
+    const ctx = await openWithArchives();
+    const id = await search(ctx, { pattern: "NEEDLE" }); // 600 rows, matches at rows 0, 50, 100, 150, ... 550
+    const density = (first: number, count: number, buckets: number) => densityOf(ctx, id, first, count, buckets);
+
+    expect(await density(0, 600, 6)).toEqual([2, 2, 2, 2, 2, 2]); // one slice per file
+    expect(await density(0, 600, 3)).toEqual([4, 4, 4]); // a slice spans two files
+    expect(await density(0, 600, 12)).toEqual(Array(12).fill(1));
+    expect(await density(300, 300, 3)).toEqual([2, 2, 2]); // after a "clear" in the middle of the stream
+
+    appendFileSync(ctx.path, "tail NEEDLE one\ntail filler\ntail NEEDLE two\n"); // rows 600 and 602
+    await waitFor(() => finalEvent(ctx, id).matches === 14 && finalEvent(ctx, id).done, "results extended");
+    expect(await density(0, 603, 3)).toEqual([5, 4, 5]); // 201 rows per slice: 0..200, 201..401, 402..602
   });
 
   it("keeps the results of the rolled file and searches the new one after a rolling", async () => {

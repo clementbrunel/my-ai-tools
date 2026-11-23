@@ -7,6 +7,7 @@ import type { HighlightResult } from "../highlight/highlight";
 import type { PageCache } from "./page-cache";
 import { marksByRow, rollMarkLabel, type RollMark } from "./roll-mark";
 import { ContextMenu, type MenuItem } from "./ContextMenu";
+import { MatchMarkers } from "./MatchMarkers";
 import { formatRows, MAX_COPY_ROWS } from "./selection";
 import { hasTextSelection, selectionAt, selectRange, wordAt, type TextTarget } from "./text-target";
 import { isAtBottom, isScaled, contentHeight, ROW_HEIGHT, rowToScrollTop, scrollTopToRow, visibleRange } from "./viewport-math";
@@ -40,6 +41,11 @@ interface Props {
   reveal?: { row: number; nonce: number; align?: "center" | "top" } | undefined;
   /** Line number of the current search match (outlined). */
   currentMatchRow?: number | undefined;
+  /**
+   * Matches found so far in equal slices of the whole view, top to bottom: drawn as markers over the
+   * scrollbar, so that one sees where the occurrences lie in the file.
+   */
+  matchDensity?: readonly number[] | undefined;
   /** Line number the user asked to see in context (outlined). */
   anchorLine?: number | undefined;
   /** Double-click on the gutter of a line / "context" entry of its menu (e.g. filtered view: show it among the others). */
@@ -71,7 +77,7 @@ interface Props {
 }
 
 /** Virtualized, fixed-height-row view of a tab's lines. Follow mode keeps the end in view. */
-export function LogViewport({ cache, total: realTotal, base, marks, format, filtered = false, highlight, follow, reveal, currentMatchRow, anchorLine, onRowDoubleClick, rowActionLabel, onSearchText, onFilterText, onGotoLine, onGotoTime, sources, fileRows, viewRowRef, initialRow, onFollowChange, onLeave, fetchRows, onNotice }: Props) {
+export function LogViewport({ cache, total: realTotal, base, marks, format, filtered = false, highlight, follow, reveal, currentMatchRow, matchDensity, anchorLine, onRowDoubleClick, rowActionLabel, onSearchText, onFilterText, onGotoLine, onGotoTime, sources, fileRows, viewRowRef, initialRow, onFollowChange, onLeave, fetchRows, onNotice }: Props) {
   // Following a growing file: show only the rows the cache can already give. The new lines are being
   // fetched; rendering them now would paint blank rows at the bottom that fill in a moment later.
   const shownTotal = follow ? cache.readableEnd(realTotal) : realTotal;
@@ -79,6 +85,8 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, filt
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);
+  /** Size of the native scrollbars, to lay the match markers over the vertical one. */
+  const [bars, setBars] = useState({ w: 0, h: 0 });
   const [gotoOpen, setGotoOpen] = useState(false);
   /** Ctrl+A: every row of the view is selected (for copying; text selection itself is the browser's). */
   const [allSelected, setAllSelected] = useState(false);
@@ -109,8 +117,12 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, filt
   useLayoutEffect(() => {
     const el = scrollerRef.current;
     if (!el) return;
-    setViewportHeight(el.clientHeight);
-    const observer = new ResizeObserver(() => setViewportHeight(el.clientHeight));
+    const measure = (): void => {
+      setViewportHeight(el.clientHeight);
+      setBars({ w: el.offsetWidth - el.clientWidth, h: el.offsetHeight - el.clientHeight });
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
@@ -358,6 +370,7 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, filt
           </div>
         </div>
       </div>
+      {matchDensity && <MatchMarkers density={matchDensity} bars={bars} />}
       {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={closeMenu} />}
       {gotoOpen && (
         <GotoLine
