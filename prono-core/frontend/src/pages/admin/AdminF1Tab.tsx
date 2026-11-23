@@ -15,12 +15,23 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { deleteRace, enterRaceResults, getDrivers, getRace, getRaces, resyncQualifying, resyncResults, syncSeason } from '@/api/f1';
+import { deleteRace, enterRaceResults, getAdminRace, getDrivers, getRaces, resyncQualifying, resyncResults, syncSeason } from '@/api/f1';
 import type { Driver, Race } from '@/types';
 import { useToast } from '@/components/Toast';
 import MiniF1Car from '@/components/f1/MiniF1Car';
 import RaceSyncPanel from '@/components/f1/RaceSyncPanel';
+import QualifyingGridEditor from '@/components/f1/QualifyingGridEditor';
 import ConfirmModal from '@/components/ConfirmModal';
+import type { AdminResultsTab } from '@/components/f1/RaceSyncPanel';
+
+/** Opens on what needs doing: the grid between qualifying and the race (or while its import
+ *  awaits validation and the race hasn't been imported yet), the race classification otherwise. */
+const defaultResultsTab = (race: Race): AdminResultsTab => {
+  if (race.status === 'FINISHED' || race.resultsDraft) return 'course';
+  if (race.qualifyingDraft) return 'qualifs';
+  const now = new Date();
+  return new Date(race.qualifyingDate) <= now && new Date(race.raceDate) > now ? 'qualifs' : 'course';
+};
 
 interface ConstructorOption {
   id: number;
@@ -123,6 +134,8 @@ const AdminF1Tab: React.FC = () => {
   const [races, setRaces] = useState<Race[]>([]);
   const [selectedRaceId, setSelectedRaceId] = useState<number | null>(null);
   const [order, setOrder] = useState<Driver[]>([]);
+  // Untouched active roster (the race form reorders `order`) — seeds a manual grid entry.
+  const [roster, setRoster] = useState<Driver[]>([]);
   const [unclassifiedIds, setUnclassifiedIds] = useState<Set<number>>(new Set());
   const [poleId, setPoleId] = useState<number | null>(null);
   const [fastestLapId, setFastestLapId] = useState<number | null>(null);
@@ -140,9 +153,12 @@ const AdminF1Tab: React.FC = () => {
   // re-spam every subscriber with the day's gage/scores email.
   const [notifyByEmail, setNotifyByEmail] = useState(false);
   // Full detail of the selected race (qualifying grid, results) — the list endpoint that
-  // fills `races` doesn't carry them, only `getRace(id)` does; RaceSyncPanel's status chips
-  // read it.
+  // fills `races` doesn't carry them, only `getAdminRace(id)` does (drafts included);
+  // RaceSyncPanel's status chips read it.
   const [raceDetail, setRaceDetail] = useState<Race | null>(null);
+  // Which result is being entered — the race classification or the starting grid. Also scopes
+  // RaceSyncPanel's forced-resync actions to that tab.
+  const [resultsTab, setResultsTab] = useState<AdminResultsTab>('course');
   const [error, setError] = useState<string | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{
     title: string; message: string; confirmLabel?: string;
@@ -159,6 +175,7 @@ const AdminF1Tab: React.FC = () => {
       .then(([raceRows, driverRows]) => {
         setRaces(raceRows);
         setOrder(driverRows);
+        setRoster(driverRows);
         // Preselect the most recent race whose start time has passed
         const past = raceRows.filter((r) => new Date(r.raceDate) <= new Date());
         if (past.length > 0) setSelectedRaceId(past[past.length - 1].id);
@@ -196,8 +213,12 @@ const AdminF1Tab: React.FC = () => {
     setNotifyByEmail(false);
     setRaceDetail(null);
     if (selectedRaceId == null) return;
-    getRace(selectedRaceId)
-      .then((race) => { applyRaceResultsToForm(race); setRaceDetail(race); })
+    getAdminRace(selectedRaceId)
+      .then((race) => {
+        applyRaceResultsToForm(race);
+        setRaceDetail(race);
+        setResultsTab(defaultResultsTab(race));
+      })
       .catch(() => { /* keep current grid order */ });
   }, [selectedRaceId, applyRaceResultsToForm]);
 
@@ -211,8 +232,9 @@ const AdminF1Tab: React.FC = () => {
       const [raceRows, driverRows] = await Promise.all([getRaces(), getDrivers()]);
       setRaces(raceRows);
       setOrder(driverRows);
+      setRoster(driverRows);
       if (selectedRaceId != null) {
-        await getRace(selectedRaceId)
+        await getAdminRace(selectedRaceId)
           .then((race) => { applyRaceResultsToForm(race); setRaceDetail(race); })
           .catch(() => { /* keep current grid order */ });
       }
@@ -232,7 +254,7 @@ const AdminF1Tab: React.FC = () => {
     try {
       const message = await resyncQualifying(selectedRaceId);
       showToast(message, 'success');
-      await getRace(selectedRaceId).then(setRaceDetail).catch(() => { /* keep current chip state */ });
+      await getAdminRace(selectedRaceId).then(setRaceDetail).catch(() => { /* keep current chip state */ });
     } catch (e: unknown) {
       const message = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
       showToast(message ?? 'Échec du re-import de la grille de qualifs', 'error');
@@ -252,7 +274,7 @@ const AdminF1Tab: React.FC = () => {
       // The server's status is authoritative — a "nothing to import yet" resync (e.g. forced
       // on a race jolpica hasn't raced yet) settles nothing, so it must not flip the local
       // "✓ Déjà réglée" badge.
-      const race = await getRace(selectedRaceId);
+      const race = await getAdminRace(selectedRaceId);
       applyRaceResultsToForm(race);
       setRaceDetail(race);
       setRaces((prev) => prev.map((r) => (r.id === selectedRaceId ? { ...r, status: race.status } : r)));
@@ -359,62 +381,86 @@ const AdminF1Tab: React.FC = () => {
         onDeleteRace={handleDeleteRace}
         notifyByEmail={notifyByEmail}
         onNotifyByEmailChange={setNotifyByEmail}
+        activeTab={resultsTab}
+        onTabChange={setResultsTab}
       />
 
-      <div className="card space-y-2">
-        {raceDetail?.resultsDraft && selectedRace?.status !== 'FINISHED' && (
-          <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 text-sm px-3 py-2">
-            ⚠️ Classement importé de jolpica, <strong>pas encore validé</strong> : aucun point attribué, aucun email envoyé.
-            Vérifie-le (pole, meilleur tour, lanterne rouge…), corrige si besoin, puis valide.
-          </div>
-        )}
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <h2 className="font-bold text-gray-900 dark:text-white">Classement de la course</h2>
-          <span className="text-xs text-gray-400">
-            Glisse les lignes pour ordonner · ⏱ pole · 🟣 meilleur tour · DNF = non classé
-          </span>
+      {/* Kept mounted while on the other tab: switching tabs must not drop an unsaved grid edit. */}
+      {selectedRace && (
+        <div className={resultsTab === 'qualifs' ? '' : 'hidden'}>
+          <QualifyingGridEditor
+            key={selectedRace.id}
+            race={selectedRace}
+            raceDetail={raceDetail}
+            drivers={roster}
+            onValidated={(updated) => {
+              setRaceDetail(updated);
+              // The backend realigned the pole of an unsettled draft on the new P1 — mirror it
+              // in the classification form so a later "Valider" doesn't send the stale pole.
+              if (updated.status !== 'FINISHED' && (updated.results?.length ?? 0) > 0) {
+                setPoleId(updated.qualifyingResults?.find((q) => q.position === 1)?.driver.id ?? null);
+              }
+            }}
+          />
         </div>
+      )}
 
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext items={displayOrder.map((d) => d.id)} strategy={verticalListSortingStrategy}>
-            <div className="space-y-1">
-              {displayOrder.map((driver, index) => (
-                <SortableDriverRow
-                  key={driver.id}
-                  driver={driver}
-                  index={index}
-                  unclassified={unclassifiedIds.has(driver.id)}
-                  pole={poleId === driver.id}
-                  fastestLap={fastestLapId === driver.id}
-                  time={timeById[driver.id] ?? ''}
-                  constructorId={constructorIdById[driver.id] ?? driver.constructorId}
-                  constructors={constructors}
-                  onToggleUnclassified={() =>
-                    setUnclassifiedIds((prev) => {
-                      const next = new Set(prev);
-                      if (next.has(driver.id)) next.delete(driver.id);
-                      else next.add(driver.id);
-                      return next;
-                    })
-                  }
-                  onSetPole={() => setPoleId(driver.id)}
-                  onSetFastestLap={() => setFastestLapId(driver.id)}
-                  onTimeChange={(value) => setTimeById((prev) => ({ ...prev, [driver.id]: value }))}
-                  onConstructorChange={(value) => setConstructorIdById((prev) => ({ ...prev, [driver.id]: value }))}
-                />
-              ))}
+      {resultsTab === 'course' && (
+        <div className="card space-y-2">
+          {raceDetail?.resultsDraft && selectedRace?.status !== 'FINISHED' && (
+            <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200 text-sm px-3 py-2">
+              ⚠️ Classement importé de jolpica, <strong>pas encore validé</strong> : aucun point attribué, aucun email envoyé.
+              Vérifie-le (pole, meilleur tour, lanterne rouge…), corrige si besoin, puis valide.
             </div>
-          </SortableContext>
-        </DndContext>
+          )}
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <h2 className="font-bold text-gray-900 dark:text-white">Classement de la course</h2>
+            <span className="text-xs text-gray-400">
+              Glisse les lignes pour ordonner · ⏱ pole · 🟣 meilleur tour · DNF = non classé
+            </span>
+          </div>
 
-        <button
-          onClick={handleSave}
-          disabled={isSaving || selectedRaceId == null}
-          className="btn-primary w-full"
-        >
-          {isSaving ? 'Enregistrement…' : 'Valider les résultats et régler les paris 🏁'}
-        </button>
-      </div>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={displayOrder.map((d) => d.id)} strategy={verticalListSortingStrategy}>
+              <div className="space-y-1">
+                {displayOrder.map((driver, index) => (
+                  <SortableDriverRow
+                    key={driver.id}
+                    driver={driver}
+                    index={index}
+                    unclassified={unclassifiedIds.has(driver.id)}
+                    pole={poleId === driver.id}
+                    fastestLap={fastestLapId === driver.id}
+                    time={timeById[driver.id] ?? ''}
+                    constructorId={constructorIdById[driver.id] ?? driver.constructorId}
+                    constructors={constructors}
+                    onToggleUnclassified={() =>
+                      setUnclassifiedIds((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(driver.id)) next.delete(driver.id);
+                        else next.add(driver.id);
+                        return next;
+                      })
+                    }
+                    onSetPole={() => setPoleId(driver.id)}
+                    onSetFastestLap={() => setFastestLapId(driver.id)}
+                    onTimeChange={(value) => setTimeById((prev) => ({ ...prev, [driver.id]: value }))}
+                    onConstructorChange={(value) => setConstructorIdById((prev) => ({ ...prev, [driver.id]: value }))}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
+
+          <button
+            onClick={handleSave}
+            disabled={isSaving || selectedRaceId == null}
+            className="btn-primary w-full"
+          >
+            {isSaving ? 'Enregistrement…' : 'Valider les résultats et régler les paris 🏁'}
+          </button>
+        </div>
+      )}
 
       <ConfirmModal
         isOpen={confirmDialog !== null}

@@ -37,6 +37,8 @@ app:
     enabled: ${F1_AUTO_IMPORT_ENABLED:true}
     race-duration-minutes: ${F1_AUTO_IMPORT_RACE_DURATION_MINUTES:120}
     give-up-hours: ${F1_AUTO_IMPORT_GIVE_UP_HOURS:48}
+    qualifying-duration-minutes: ${F1_AUTO_IMPORT_QUALIFYING_DURATION_MINUTES:60}
+    qualifying-late-alert-hours: ${F1_AUTO_IMPORT_QUALIFYING_LATE_ALERT_HOURS:6}
 
 jwt:
   secret: ${JWT_SECRET}

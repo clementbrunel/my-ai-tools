@@ -6,6 +6,7 @@ import type {
   F1PredictionRequest,
   F1Standing,
   F1StandingHistory,
+  QualifyingResultEntryRequest,
   Race,
   RaceResultEntryRequest,
 } from '@/types';
@@ -87,6 +88,13 @@ export const openCompetitionRaces = async (groupId: number, competitionId: numbe
 
 // ── Platform admin ─────────────────────────────────────────────────────────
 
+/** Admin tab detail of a race — includes the imported classification / grid still awaiting
+ *  validation, which the player endpoint (`getRace`) never exposes. */
+export const getAdminRace = async (raceId: number): Promise<Race> => {
+  const response = await apiClient.get<Race>(`/admin/f1/races/${raceId}`);
+  return response.data;
+};
+
 /** Imports calendar + results from jolpica-f1 for the configured season and settles finished races. */
 export const syncSeason = async (): Promise<string> => {
   const response = await apiClient.post<string>('/admin/f1/sync');
@@ -97,6 +105,16 @@ export const syncSeason = async (): Promise<string> => {
  *  (grid penalty confirmed after the fact, jolpica data corrected). */
 export const resyncQualifying = async (raceId: number): Promise<string> => {
   const response = await apiClient.post<string>(`/admin/f1/races/${raceId}/qualifying/resync`);
+  return response.data;
+};
+
+/** Enters (or corrects) a race's starting grid and validates it: visible to players from now
+ *  on, and no longer overwritten by the season sync. */
+export const enterQualifyingResults = async (
+  raceId: number,
+  results: QualifyingResultEntryRequest[],
+): Promise<Race> => {
+  const response = await apiClient.post<Race>(`/admin/f1/races/${raceId}/qualifying`, { results });
   return response.data;
 };
 

@@ -14,6 +14,8 @@ import com.pronocore.repository.GroupMemberRepository;
 import com.pronocore.service.email.EmailSender;
 import com.pronocore.service.email.EmailTheme;
 import com.pronocore.service.email.template.AdminResultsReadyEmailTemplate;
+import com.pronocore.service.email.template.AdminQualifyingLateEmailTemplate;
+import com.pronocore.service.email.template.AdminQualifyingReadyEmailTemplate;
 import com.pronocore.service.email.template.AdminUnresolvedAlertEmailTemplate;
 import com.pronocore.service.email.template.DailyScoresEmailTemplate;
 import com.pronocore.service.email.template.GageResolutionEmailTemplate;
@@ -61,7 +63,8 @@ public class EmailService {
         return switch (emailType) {
             case VERIFICATION, PASSWORD_RESET, TEST_CEDRIC, GAGE_RESOLUTION, DAILY_SCORES_RECAP, GROUP_MEMBERSHIP_REQUEST, ADMIN_UNRESOLVED_ALERT -> EmailTheme.NEUTRAL;
             case MATCH_REMINDER, GROUP_NEW_MATCHES -> EmailTheme.FOOTBALL;
-            case RACE_REMINDER, QUALIFYING_REMINDER, GROUP_NEW_RACES, ADMIN_RESULTS_READY -> EmailTheme.F1;
+            case RACE_REMINDER, QUALIFYING_REMINDER, GROUP_NEW_RACES, ADMIN_RESULTS_READY,
+                 ADMIN_QUALIFYING_READY, ADMIN_QUALIFYING_LATE -> EmailTheme.F1;
         };
     }
 
@@ -187,6 +190,18 @@ public class EmailService {
                 User fakeAdmin = User.builder().username("admin_test").displayName("Admin Test").email(to).build();
                 sendAdminResultsReadyEmail(fakeAdmin, Race.builder().id(0L).name("Grand Prix de Monaco").round(7)
                     .raceDate(LocalDateTime.now().minusHours(3)).competition(F1_CHAMPIONSHIP_2026).build());
+            }
+            case ADMIN_QUALIFYING_READY -> {
+                User fakeAdmin = User.builder().username("admin_test").displayName("Admin Test").email(to).build();
+                sendAdminQualifyingReadyEmail(fakeAdmin, Race.builder().id(0L).name("Grand Prix de Monaco").round(7)
+                    .qualifyingDate(LocalDateTime.now().minusHours(2)).raceDate(LocalDateTime.now().plusHours(22))
+                    .competition(F1_CHAMPIONSHIP_2026).build());
+            }
+            case ADMIN_QUALIFYING_LATE -> {
+                User fakeAdmin = User.builder().username("admin_test").displayName("Admin Test").email(to).build();
+                sendAdminQualifyingLateEmail(fakeAdmin, Race.builder().id(0L).name("Grand Prix de Monaco").round(7)
+                    .qualifyingDate(LocalDateTime.now().minusHours(6)).raceDate(LocalDateTime.now().plusHours(18))
+                    .competition(F1_CHAMPIONSHIP_2026).build());
             }
             case TEST_CEDRIC -> sendTestCedricEmail(to);
         }
@@ -376,6 +391,28 @@ public class EmailService {
             log.info("Results-ready notification sent to {} ({})", admin.getEmail(), race.getName());
         } catch (Exception e) {
             log.error("Failed to send results-ready notification to {}: {}", admin.getEmail(), e.getMessage());
+        }
+    }
+
+    /** Tells a platform admin that a jolpica-imported starting grid is staged and waits for validation. */
+    public void sendAdminQualifyingReadyEmail(User admin, Race race) {
+        try {
+            emailSender.send(admin.getEmail(), AdminQualifyingReadyEmailTemplate.subject(race),
+                AdminQualifyingReadyEmailTemplate.build(themeFor(EmailType.ADMIN_QUALIFYING_READY), admin, race, frontendUrl));
+            log.info("Qualifying-ready notification sent to {} ({})", admin.getEmail(), race.getName());
+        } catch (Exception e) {
+            log.error("Failed to send qualifying-ready notification to {}: {}", admin.getEmail(), e.getMessage());
+        }
+    }
+
+    /** Tells a platform admin that jolpica still has no starting grid hours after qualifying — manual entry needed. */
+    public void sendAdminQualifyingLateEmail(User admin, Race race) {
+        try {
+            emailSender.send(admin.getEmail(), AdminQualifyingLateEmailTemplate.subject(race),
+                AdminQualifyingLateEmailTemplate.build(themeFor(EmailType.ADMIN_QUALIFYING_LATE), admin, race, frontendUrl));
+            log.info("Qualifying-late alert sent to {} ({})", admin.getEmail(), race.getName());
+        } catch (Exception e) {
+            log.error("Failed to send qualifying-late alert to {}: {}", admin.getEmail(), e.getMessage());
         }
     }
 

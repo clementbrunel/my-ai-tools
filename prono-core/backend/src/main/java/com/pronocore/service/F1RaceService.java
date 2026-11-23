@@ -1,5 +1,6 @@
 package com.pronocore.service;
 
+import com.pronocore.dto.request.EnterQualifyingResultsRequest;
 import com.pronocore.dto.request.EnterRaceResultsRequest;
 import com.pronocore.dto.request.F1PredictionRequest;
 import com.pronocore.dto.response.*;
@@ -111,26 +112,35 @@ public class F1RaceService {
                 !predictionRepository.findByRaceIdAndUserId(raceId, user.getId()).isEmpty());
         response.setPredictionsCount(
                 predictionCountsByRace(user.getId()).getOrDefault(raceId, 0L));
+        // Player view, platform admins included: drafts (imported classification or grid not yet
+        // validated) only ever show up in the admin tab, via getRaceForAdmin.
         if (race.getStatus() == Race.Status.FINISHED) {
             response.setResults(raceResultRepository.findByRaceIdWithDrivers(raceId).stream()
                     .map(this::toResultResponse)
                     .toList());
-        } else if (user.getRole() == User.Role.PLATFORM_ADMIN) {
-            // Imported-but-unvalidated classification: admin-only, players must not see it.
-            List<RaceResultResponse> draft = raceResultRepository.findByRaceIdWithDrivers(raceId).stream()
-                    .map(this::toResultResponse)
-                    .toList();
-            if (!draft.isEmpty()) {
-                response.setResults(draft);
-                response.setResultsDraft(true);
-            }
         }
-        if (!LocalDateTime.now().isBefore(race.getQualifyingDate())) {
+        if (race.isQualifyingValidated() && !LocalDateTime.now().isBefore(race.getQualifyingDate())) {
+            // Only a grid the admin validated — a raw jolpica import may be wrong.
             response.setQualifyingResults(qualifyingResultRepository.findByRaceIdWithDrivers(raceId).stream()
                     .map(this::toQualifyingResultResponse)
                     .toList());
         }
         return response;
+    }
+
+    /** Admin tab view: stored classification and grid, drafts included and flagged as such. */
+    @Transactional(readOnly = true)
+    public RaceResponse getRaceForAdmin(Long raceId) {
+        return getRaceForAdmin(requireRace(raceId));
+    }
+
+    /** Stored grid + draft flag, for the platform-admin views. */
+    private void applyQualifyingGrid(RaceResponse response, Race race) {
+        List<QualifyingResultResponse> grid = qualifyingResultRepository.findByRaceIdWithDrivers(race.getId()).stream()
+                .map(this::toQualifyingResultResponse)
+                .toList();
+        response.setQualifyingResults(grid);
+        response.setQualifyingDraft(!grid.isEmpty() && !race.isQualifyingValidated());
     }
 
     /** The caller's prediction for a race (identical across their groups). */
@@ -407,6 +417,59 @@ public class F1RaceService {
         return getRaceForAdmin(race);
     }
 
+    /**
+     * Enters (or corrects) the starting grid by hand and validates it: from now on players see
+     * it and the full-season jolpica sync no longer overwrites it. Used to validate an imported
+     * draft as-is, to fix it, or to type the grid in when jolpica is late. Display only — but the
+     * pole flag of a not-yet-settled race classification (imported draft) is realigned on the
+     * new P1, since that's where settlement reads the pole from.
+     */
+    @Transactional
+    public RaceResponse enterQualifyingResults(Long raceId, EnterQualifyingResultsRequest request) {
+        Race race = requireRace(raceId);
+        Set<Long> seenDrivers = new HashSet<>();
+        Set<Integer> seenPositions = new HashSet<>();
+        Long poleDriverId = null;
+        for (EnterQualifyingResultsRequest.Entry entry : request.getResults()) {
+            if (!seenDrivers.add(entry.getDriverId())) {
+                throw new IllegalArgumentException("Pilote en double dans la grille : " + entry.getDriverId());
+            }
+            if (!seenPositions.add(entry.getPosition())) {
+                throw new IllegalArgumentException("Position en double dans la grille : " + entry.getPosition());
+            }
+            if (entry.getPosition() == 1) poleDriverId = entry.getDriverId();
+        }
+        if (poleDriverId == null) {
+            throw new IllegalArgumentException("La grille doit au moins contenir la pole (position 1)");
+        }
+
+        List<QualifyingResult> grid = request.getResults().stream()
+                .map(entry -> QualifyingResult.builder()
+                        .race(race)
+                        .driver(requireDriver(entry.getDriverId()))
+                        .position(entry.getPosition())
+                        .time(entry.getTime() != null && !entry.getTime().isBlank() ? entry.getTime().trim() : null)
+                        .build())
+                .toList();
+        // Same delete → flush → insert ordering as storeResults (IDENTITY ids insert eagerly).
+        qualifyingResultRepository.deleteByRaceId(raceId);
+        qualifyingResultRepository.flush();
+        qualifyingResultRepository.saveAll(grid);
+
+        race.setQualifyingValidated(true);
+        raceRepository.save(race);
+
+        if (race.getStatus() != Race.Status.FINISHED) {
+            List<RaceResult> draft = raceResultRepository.findByRaceIdWithDrivers(raceId);
+            if (!draft.isEmpty()) {
+                Long pole = poleDriverId;
+                draft.forEach(rr -> rr.setPole(rr.getDriver().getId().equals(pole)));
+                raceResultRepository.saveAll(draft);
+            }
+        }
+        return getRaceForAdmin(race);
+    }
+
     /** Validates a classification and replaces the race's stored results with it. */
     private List<RaceResult> storeResults(Race race, EnterRaceResultsRequest request) {
         Long raceId = race.getId();
@@ -468,6 +531,8 @@ public class F1RaceService {
         response.setResults(raceResultRepository.findByRaceIdWithDrivers(race.getId()).stream()
                 .map(this::toResultResponse)
                 .toList());
+        response.setResultsDraft(race.getStatus() != Race.Status.FINISHED && !response.getResults().isEmpty());
+        applyQualifyingGrid(response, race);
         return response;
     }
 

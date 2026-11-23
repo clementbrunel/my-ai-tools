@@ -1,6 +1,8 @@
 package com.pronocore.service;
 
+import com.pronocore.dto.request.EnterQualifyingResultsRequest;
 import com.pronocore.dto.request.EnterRaceResultsRequest;
+import com.pronocore.dto.response.RaceResponse;
 import com.pronocore.dto.request.F1PredictionRequest;
 import com.pronocore.entity.*;
 import com.pronocore.repository.*;
@@ -425,5 +427,117 @@ class F1RaceServiceTest {
         assertThatThrownBy(() -> f1RaceService.openRaceForBetting(7L, 100L, "admin"))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("already open");
+    }
+
+    // ── Starting grid — manual entry / validation ─────────────────────────────
+
+    private EnterQualifyingResultsRequest.Entry gridEntry(Long driverId, int position, String time) {
+        EnterQualifyingResultsRequest.Entry e = new EnterQualifyingResultsRequest.Entry();
+        e.setDriverId(driverId);
+        e.setPosition(position);
+        e.setTime(time);
+        return e;
+    }
+
+    private EnterQualifyingResultsRequest gridRequest(EnterQualifyingResultsRequest.Entry... entries) {
+        EnterQualifyingResultsRequest r = new EnterQualifyingResultsRequest();
+        r.setResults(List.of(entries));
+        return r;
+    }
+
+    @Test
+    void enterQualifyingResults_replacesGridValidatesItAndRealignsDraftPole() {
+        Race race = raceAt(LocalDateTime.now().minusDays(1), LocalDateTime.now().minusHours(1));
+        when(raceRepository.findById(100L)).thenReturn(Optional.of(race));
+        when(driverRepository.findById(1L)).thenReturn(Optional.of(nor));
+        when(driverRepository.findById(3L)).thenReturn(Optional.of(lec));
+        // Imported race draft flagged the wrong pole (stale jolpica grid)
+        RaceResult norDraft = RaceResult.builder().race(race).driver(nor).constructor(mclaren).position(1).pole(false).build();
+        RaceResult lecDraft = RaceResult.builder().race(race).driver(lec).constructor(ferrari).position(2).pole(true).build();
+        when(raceResultRepository.findByRaceIdWithDrivers(100L)).thenReturn(List.of(norDraft, lecDraft));
+
+        RaceResponse response = f1RaceService.enterQualifyingResults(100L,
+                gridRequest(gridEntry(1L, 1, " 1:24.083 "), gridEntry(3L, 2, "")));
+
+        var inOrder = inOrder(qualifyingResultRepository);
+        inOrder.verify(qualifyingResultRepository).deleteByRaceId(100L);
+        inOrder.verify(qualifyingResultRepository).flush();
+        ArgumentCaptor<List<QualifyingResult>> captor = ArgumentCaptor.forClass(List.class);
+        inOrder.verify(qualifyingResultRepository).saveAll(captor.capture());
+        assertThat(captor.getValue()).extracting(QualifyingResult::getPosition).containsExactly(1, 2);
+        assertThat(captor.getValue().get(0).getTime()).isEqualTo("1:24.083");
+        assertThat(captor.getValue().get(1).getTime()).isNull();
+
+        assertThat(race.isQualifyingValidated()).isTrue();
+        assertThat(norDraft.isPole()).isTrue();
+        assertThat(lecDraft.isPole()).isFalse();
+        assertThat(response.isResultsDraft()).isTrue();
+    }
+
+    @Test
+    void enterQualifyingResults_onSettledRace_leavesSettledPoleUntouched() {
+        Race race = raceAt(LocalDateTime.now().minusDays(1), LocalDateTime.now().minusHours(1));
+        race.setStatus(Race.Status.FINISHED);
+        when(raceRepository.findById(100L)).thenReturn(Optional.of(race));
+        when(driverRepository.findById(1L)).thenReturn(Optional.of(nor));
+
+        f1RaceService.enterQualifyingResults(100L, gridRequest(gridEntry(1L, 1, null)));
+
+        verify(raceResultRepository, never()).saveAll(any());
+        assertThat(race.isQualifyingValidated()).isTrue();
+    }
+
+    @Test
+    void enterQualifyingResults_duplicatePosition_isRejected() {
+        when(raceRepository.findById(100L)).thenReturn(Optional.of(
+                raceAt(LocalDateTime.now().minusDays(1), LocalDateTime.now().plusDays(1))));
+
+        assertThatThrownBy(() -> f1RaceService.enterQualifyingResults(100L,
+                gridRequest(gridEntry(1L, 1, null), gridEntry(3L, 1, null))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Position en double");
+        verify(qualifyingResultRepository, never()).saveAll(any());
+    }
+
+    @Test
+    void enterQualifyingResults_withoutPole_isRejected() {
+        when(raceRepository.findById(100L)).thenReturn(Optional.of(
+                raceAt(LocalDateTime.now().minusDays(1), LocalDateTime.now().plusDays(1))));
+
+        assertThatThrownBy(() -> f1RaceService.enterQualifyingResults(100L,
+                gridRequest(gridEntry(1L, 2, null))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("pole");
+    }
+
+    @Test
+    void getRace_drafts_onlyInAdminView_evenForAdmins() {
+        Race race = raceAt(LocalDateTime.now().minusHours(3), LocalDateTime.now().plusDays(1));   // grid imported, not validated
+        User player = user(1L, "alice");
+        User admin = User.builder().id(2L).username("admin").role(User.Role.PLATFORM_ADMIN).build();
+        when(raceRepository.findById(100L)).thenReturn(Optional.of(race));
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(player));
+        when(userRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
+        when(qualifyingResultRepository.findByRaceIdWithDrivers(100L)).thenReturn(List.of(
+                QualifyingResult.builder().race(race).driver(nor).position(1).build()));
+
+        when(raceResultRepository.findByRaceIdWithDrivers(100L)).thenReturn(List.of(
+                RaceResult.builder().race(race).driver(nor).constructor(mclaren).position(1).build()));
+
+        RaceResponse forPlayer = f1RaceService.getRace(100L, "alice");
+        RaceResponse adminOnPlayerPage = f1RaceService.getRace(100L, "admin");
+        RaceResponse adminTab = f1RaceService.getRaceForAdmin(100L);
+
+        assertThat(forPlayer.getQualifyingResults()).isNull();
+        assertThat(forPlayer.getResults()).isNull();
+        assertThat(adminOnPlayerPage.getQualifyingResults()).isNull();
+        assertThat(adminOnPlayerPage.getResults()).isNull();
+        assertThat(adminTab.getQualifyingResults()).hasSize(1);
+        assertThat(adminTab.isQualifyingDraft()).isTrue();
+        assertThat(adminTab.getResults()).hasSize(1);
+        assertThat(adminTab.isResultsDraft()).isTrue();
+
+        race.setQualifyingValidated(true);
+        assertThat(f1RaceService.getRace(100L, "alice").getQualifyingResults()).hasSize(1);
     }
 }

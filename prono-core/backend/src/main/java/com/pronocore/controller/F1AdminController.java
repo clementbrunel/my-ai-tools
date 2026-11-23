@@ -1,6 +1,7 @@
 package com.pronocore.controller;
 
 import com.pronocore.aspect.LoggedAt;
+import com.pronocore.dto.request.EnterQualifyingResultsRequest;
 import com.pronocore.dto.request.EnterRaceResultsRequest;
 import com.pronocore.dto.response.RaceResponse;
 import com.pronocore.service.F1RaceService;
@@ -24,6 +25,14 @@ public class F1AdminController {
     private final F1RaceService f1RaceService;
     private final F1SyncService f1SyncService;
 
+    @GetMapping("/races/{raceId}")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+    @Operation(summary = "Race detail for the admin tab — includes the imported classification and starting grid "
+            + "still awaiting validation (never exposed on the player endpoint)")
+    public ResponseEntity<RaceResponse> getRace(@PathVariable Long raceId) {
+        return ResponseEntity.ok(f1RaceService.getRaceForAdmin(raceId));
+    }
+
     @PostMapping("/sync")
     @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     @Operation(summary = "Import calendar, entry list and results from jolpica-f1 for the configured season, "
@@ -36,10 +45,21 @@ public class F1AdminController {
     @PostMapping("/races/{raceId}/qualifying/resync")
     @PreAuthorize("hasRole('PLATFORM_ADMIN')")
     @Operation(summary = "Force re-import of a race's qualifying grid from jolpica — works even once the race "
-            + "is finished, for corrections (grid penalty confirmed after the fact)")
+            + "is finished or the grid validated, for corrections (grid penalty confirmed after the fact). "
+            + "A not-yet-validated grid stays a draft; a validated one is replaced and stays validated")
     @LoggedAt(Level.INFO)
     public ResponseEntity<String> resyncQualifying(@PathVariable Long raceId) {
         return ResponseEntity.ok(f1SyncService.syncQualifyingForRace(raceId));
+    }
+
+    @PostMapping("/races/{raceId}/qualifying")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+    @Operation(summary = "Enter (or correct) a race's starting grid and validate it — makes it visible to players "
+            + "and protects it from being overwritten by the season sync")
+    @LoggedAt(Level.INFO)
+    public ResponseEntity<RaceResponse> enterQualifying(@PathVariable Long raceId,
+                                                        @Valid @RequestBody EnterQualifyingResultsRequest request) {
+        return ResponseEntity.ok(f1RaceService.enterQualifyingResults(raceId, request));
     }
 
     @PostMapping("/races/{raceId}/results/resync")
