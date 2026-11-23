@@ -5,6 +5,12 @@ La section `## [X.Y.Z]` est reprise telle quelle comme notes de la release GitHu
 et affichée dans la fenêtre « Mise à jour disponible » de l'application : rédigez-la pour un
 utilisateur (pas de noms de branches, de PR ni de tâches internes).
 
+## [3.3.0] — 2026-11-23
+
+- **Repères de recherche** : les occurrences de la recherche apparaissent sous forme de repères sur la barre de défilement (onglet fichier et onglet « Tout »), pour repérer d'un coup d'œil où elles se trouvent dans le log.
+- **Fenêtre Configuration** (Fichier › Configuration…) : tous les réglages s'éditent dans l'application, soit via un formulaire documenté (explication, valeur par défaut, recherche, « Rétablir »), soit en JSON brut avec validation en direct. Ctrl+S enregistre ; un texte invalide n'est jamais écrit.
+- **Recherche et filtre plus robustes** : si le fichier est momentanément illisible (par exemple au réveil du PC), la recherche et le filtre réessaient automatiquement au lieu de rester bloqués sur « Recherche impossible ».
+
 ## [3.2.0] — 2026-11-03
 
 - **Écran d'accueil** : au démarrage, de grandes cartes « Fichier » et « Docker » (avec la vraie icône Docker) permettent d'ouvrir un log en un clic ; les icônes fichier / Docker se retrouvent aussi dans « Fichiers récents » et dans le menu.
