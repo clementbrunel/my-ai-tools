@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { RpcClient } from "../engine/rpc-client";
+import { createThrottle } from "./throttle";
 
 /** Number of slices of the file the matches are counted in (one marker each, at most). */
 export const DENSITY_BUCKETS = 256;
@@ -28,37 +29,35 @@ export function useMatchDensity(input: DensityInput, withEngine: () => Promise<R
   const [result, setResult] = useState<{ tabId: string; searchId: string; counts: number[] } | undefined>();
   const latest = useRef(input);
   latest.current = input;
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const { tabId, searchId, disabled, matches, first, count } = input;
   const active = !!tabId && !!searchId && !disabled && matches > 0 && count > 0;
+  const withEngineRef = useRef(withEngine);
+  withEngineRef.current = withEngine;
 
-  // another tab / search / view: forget the markers and the pending request
-  useEffect(() => {
-    return () => {
-      clearTimeout(timer.current);
-      timer.current = undefined;
-    };
-  }, [tabId, searchId, active]);
-
-  useEffect(() => {
-    if (!active) {
-      setResult(undefined);
-      return;
-    }
-    if (timer.current) return; // a request is already planned: it will read the latest input
-    timer.current = setTimeout(() => {
-      timer.current = undefined;
+  // one throttle for the life of the component; what it asks is read from `latest` when it runs
+  const [throttle] = useState(() =>
+    createThrottle(() => {
       const { tabId: t, searchId: s, first: f, count: c } = latest.current;
       if (!t || !s) return;
-      void withEngine()
+      void withEngineRef
+        .current()
         .then((engine) => engine.request("searchDensity", { tabId: t, searchId: s, first: f, count: c, buckets: DENSITY_BUCKETS }))
         .then(({ counts }) => {
           // drop an answer that arrives after the search or the tab changed
           if (latest.current.tabId === t && latest.current.searchId === s) setResult({ tabId: t, searchId: s, counts });
         })
         .catch(() => {});
-    }, DENSITY_INTERVAL_MS);
-  }, [active, matches, first, count, withEngine]);
+    }, DENSITY_INTERVAL_MS),
+  );
+  useEffect(() => () => throttle.cancel(), [throttle]);
+
+  // another tab / search / view: the pending request is for the old one
+  useEffect(() => throttle.cancel, [throttle, tabId, searchId, active]);
+
+  useEffect(() => {
+    if (!active) setResult(undefined);
+    else throttle.request();
+  }, [throttle, active, matches, first, count]);
 
   return active && result && result.tabId === tabId && result.searchId === searchId ? result.counts : undefined;
 }

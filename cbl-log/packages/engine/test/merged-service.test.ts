@@ -261,6 +261,22 @@ describe("the All tab: search, filter and navigation", { timeout: 30_000 }, () =
     expect(await hit(0, "prev")).toMatchObject({ row: 5, ordinal: 3, wrapped: true });
   });
 
+  it("gives the density of the matches over the merged rows", async () => {
+    const { c, info } = await setup();
+    const { searchId } = await c.ok("search", { tabId: info.tabId, query: { pattern: "needle", isRegex: false, caseSensitive: true } });
+    await waitFor(() => c.eventsOf(info.tabId).some((e) => e.type === "query" && e.id === searchId && e.done), "search done");
+    const density = (first: number, count: number, buckets: number) =>
+      c.ok("searchDensity", { tabId: info.tabId, searchId: searchId!, first, count, buckets }).then((r) => r.counts);
+    // merged rows: 0 a1 needle, 1 b2, 2 a3, 3 at x.Y, 4 b4 needle, 5 a5 needle
+    expect(await density(0, 6, 3)).toEqual([1, 0, 2]);
+    expect(await density(0, 6, 1)).toEqual([3]);
+    expect(await density(0, 6, 6)).toEqual([1, 0, 0, 0, 1, 1]);
+    expect(await density(3, 3, 3)).toEqual([0, 1, 1]); // rows before `first` (cleared) do not count
+    expect(await density(0, 6, 3).then((counts) => counts.reduce((a, b) => a + b, 0))).toBe(3);
+    const stale = await c.ok("searchDensity", { tabId: info.tabId, searchId: "nope", first: 0, count: 6, buckets: 3 });
+    expect(stale.counts).toEqual([0, 0, 0]);
+  });
+
   it("filters by level and text across the sources, with the level of each record", async () => {
     const { c, info } = await setup();
     const started = await c.ok("setFilter", { tabId: info.tabId, filter: { levels: ["error", "warn"] }, format: SPRING_BOOT });

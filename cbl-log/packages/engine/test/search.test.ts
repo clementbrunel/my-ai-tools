@@ -199,6 +199,33 @@ describe("search", { timeout: 30_000 }, () => {
     expect(rows[0]!.text).toContain("NEEDLE1");
   });
 
+  it("density spans the archives and the live file, and follows the growth of the file", async () => {
+    const dir = await tempDir();
+    const now = Date.now() / 1000;
+    for (let k = 0; k < 5; k++) {
+      const p = join(dir, `a_26.10.21_0${k}.00.00.log`);
+      writeFileSync(p, makeLines(100, 50, `NEEDLE${k}`).join("\n") + "\n");
+      utimesSync(p, now - 600 + k * 60, now - 600 + k * 60);
+    }
+    const path = join(dir, "a.log");
+    writeFileSync(path, makeLines(100, 50, "NEEDLE5").join("\n") + "\n");
+    const c = connect({ search: { sliceBytes: 2048, maxWorkers: 2, stallMs: 2000 } });
+    const info = await c.ok("open", { path, historyHours: 1 });
+    const ctx = { ...c, tabId: info.tabId, path };
+    const id = await search(ctx, { pattern: "NEEDLE" }); // 600 rows, matches at rows 0, 50, 100, 150, ... 550
+    const density = (first: number, count: number, buckets: number) =>
+      ctx.ok("searchDensity", { tabId: ctx.tabId, searchId: id, first, count, buckets }).then((r) => r.counts);
+
+    expect(await density(0, 600, 6)).toEqual([2, 2, 2, 2, 2, 2]); // one slice per file
+    expect(await density(0, 600, 3)).toEqual([4, 4, 4]); // a slice spans two files
+    expect(await density(0, 600, 12)).toEqual(Array(12).fill(1));
+    expect(await density(300, 300, 3)).toEqual([2, 2, 2]); // after a "clear" in the middle of the stream
+
+    appendFileSync(ctx.path, "tail NEEDLE one\ntail filler\ntail NEEDLE two\n"); // rows 600 and 602
+    await waitFor(() => finalEvent(ctx, id).matches === 14 && finalEvent(ctx, id).done, "results extended");
+    expect(await density(0, 603, 3)).toEqual([5, 4, 5]); // 201 rows per slice: 0..200, 201..401, 402..602;
+  });
+
   it("keeps the results of the rolled file and searches the new one after a rolling", async () => {
     const ctx = await openLines(makeLines(200, 50)); // matches at rows 0, 50, 100, 150
     const id = await search(ctx, { pattern: "NEEDLE" });
