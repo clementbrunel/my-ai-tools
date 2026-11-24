@@ -22,7 +22,7 @@ export function filterSections(sections: readonly SettingSection[], query: strin
 /** How a value is shown next to "Par défaut :". */
 export function formatValue(doc: SettingDoc, value: unknown): string {
   const control = doc.control;
-  if (value === undefined) return control.kind === "text" ? "(automatique)" : "—";
+  if (value === undefined) return control.kind === "text" ? (control.emptyLabel ?? "(automatique)") : "—";
   switch (control.kind) {
     case "boolean":
       return value ? "activé" : "désactivé";

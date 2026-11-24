@@ -26,7 +26,9 @@ export function SettingControl({ id, doc, value, onChange }: { id: string; doc: 
     case "number":
       return <NumberField id={id} value={typeof value === "number" ? value : undefined} min={control.min} max={control.max} step={control.step} unit={control.unit} onChange={onChange} />;
     case "text":
-      return <TextField id={id} value={typeof value === "string" ? value : ""} placeholder={control.placeholder} onChange={(v) => onChange(v === "" ? undefined : v)} />;
+      return (
+        <TextField id={id} value={typeof value === "string" ? value : ""} placeholder={control.placeholder} suggestions={control.suggestions} onChange={(v) => onChange(v === "" ? undefined : v)} />
+      );
     case "map": {
       const entries = Object.entries((value ?? {}) as Record<string, string>);
       if (entries.length === 0) return <p className="hint map-empty">Aucun motif appris.</p>;
@@ -95,25 +97,41 @@ function NumberField(props: { id: string; value: number | undefined; min: number
 }
 
 /** Text input committed on blur / Entrée, so that the JSON is not rewritten at each keystroke. */
-function TextField({ id, value, placeholder, onChange }: { id: string; value: string; placeholder?: string | undefined; onChange(value: string): void }) {
+function TextField(props: { id: string; value: string; placeholder?: string | undefined; suggestions?: readonly string[] | undefined; onChange(value: string): void }) {
+  const { id, value, placeholder, suggestions, onChange } = props;
   const [draft, setDraft] = useState(value);
   useEffect(() => setDraft(value), [value]);
   const commit = (): void => {
     if (draft.trim() !== value) onChange(draft.trim());
   };
+  const listId = suggestions ? `${id}-suggestions` : undefined;
   return (
-    <input
-      id={id}
-      type="text"
-      className="text-field"
-      value={draft}
-      placeholder={placeholder}
-      spellCheck={false}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={commit}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") commit();
-      }}
-    />
+    <>
+      <input
+        id={id}
+        type="text"
+        className="text-field"
+        value={draft}
+        placeholder={placeholder}
+        spellCheck={false}
+        list={listId}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          // picking a suggestion in the list commits it at once (no blur needed)
+          if (suggestions?.includes(e.target.value) && e.target.value !== value) onChange(e.target.value);
+        }}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") commit();
+        }}
+      />
+      {suggestions && (
+        <datalist id={listId}>
+          {suggestions.map((s) => (
+            <option key={s} value={s} />
+          ))}
+        </datalist>
+      )}
+    </>
   );
 }

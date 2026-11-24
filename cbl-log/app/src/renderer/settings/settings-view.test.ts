@@ -9,6 +9,8 @@ import {
   settingKey,
   settingsSchema,
   settingsToText,
+  fontStack,
+  rowHeightFor,
 } from "@cbl-log/shared";
 import { filterSections, formatValue, isDefault } from "./settings-view";
 
@@ -16,11 +18,12 @@ const docs = SETTING_SECTIONS.flatMap((s) => s.settings);
 const doc = (key: string) => docs.find((d) => settingKey(d.path) === key)!;
 
 describe("settings documentation", () => {
-  it("documents every key of the schema (top level and docker)", () => {
+  it("documents every key of the schema (top level, docker and viewer)", () => {
     const documented = new Set(docs.map((d) => settingKey(d.path)));
-    const top = Object.keys(settingsSchema.shape).filter((k) => k !== "schemaVersion" && k !== "docker");
+    const top = Object.keys(settingsSchema.shape).filter((k) => k !== "schemaVersion" && k !== "docker" && k !== "viewer");
     const docker = Object.keys(defaultSettings().docker).concat("host").map((k) => `docker.${k}`);
-    for (const key of [...top, ...docker]) expect(documented, key).toContain(key);
+    const viewer = Object.keys(defaultSettings().viewer).concat("fontFamily").map((k) => `viewer.${k}`);
+    for (const key of [...top, ...docker, ...viewer]) expect(documented, key).toContain(key);
   });
 
   it("each documented path exists in the defaults or is optional text", () => {
@@ -113,5 +116,39 @@ describe("settings view helpers", () => {
     expect(isDefault(doc("archivePatterns"), {})).toBe(true);
     expect(isDefault(doc("archivePatterns"), { a: "b" })).toBe(false);
     expect(isDefault(doc("docker.host"), undefined)).toBe(true);
+  });
+});
+
+describe("log font (settings.viewer)", () => {
+  it("defaults to Consolas 13 px on 18 px rows, as before the setting existed", () => {
+    expect(defaultSettings().viewer).toEqual({ fontSize: 13 });
+    expect(rowHeightFor(13)).toBe(18);
+    expect(fontStack(undefined)).toBe('"Consolas", "Courier New", monospace');
+  });
+
+  it("puts the chosen font first, keeps the fallbacks once and strips quotes", () => {
+    expect(fontStack("Cascadia Mono")).toBe('"Cascadia Mono", "Consolas", "Courier New", monospace');
+    expect(fontStack(" consolas ")).toBe('"consolas", "Courier New", monospace');
+    expect(fontStack('Evil", serif')).toBe('"Evil, serif", "Consolas", "Courier New", monospace');
+  });
+
+  it("grows the row height with the font size", () => {
+    expect(rowHeightFor(8)).toBe(11);
+    expect(rowHeightFor(16)).toBe(22);
+    expect(rowHeightFor(32)).toBe(45);
+  });
+
+  it("rejects a size out of bounds and warns on an unknown viewer key", () => {
+    const base = JSON.parse(settingsToText(defaultSettings()));
+    const tooBig = checkSettingsText(JSON.stringify({ ...base, viewer: { fontSize: 40 } }, null, 2));
+    expect(tooBig.ok).toBe(false);
+    if (!tooBig.ok) expect(tooBig.errors[0]).toContain("viewer.fontSize");
+    const unknown = checkSettingsText(JSON.stringify({ ...base, viewer: { fontSize: 14, wrap: true } }, null, 2));
+    expect(unknown.ok && unknown.warnings).toEqual(["Clé inconnue « viewer.wrap » : elle sera ignorée."]);
+  });
+
+  it("shows an empty font as Consolas", () => {
+    expect(formatValue(doc("viewer.fontFamily"), undefined)).toBe("Consolas");
+    expect(formatValue(doc("viewer.fontSize"), 13)).toBe("13 px");
   });
 });

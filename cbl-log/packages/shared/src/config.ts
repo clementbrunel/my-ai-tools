@@ -23,6 +23,33 @@ export type DockerSettings = z.infer<typeof dockerSettingsSchema>;
 
 export const defaultDockerSettings = (): DockerSettings => dockerSettingsSchema.parse({});
 
+/** Font of the log rows (applied live). */
+export const MIN_FONT_SIZE = 8;
+export const MAX_FONT_SIZE = 32;
+export const DEFAULT_FONT_SIZE = 13;
+export const DEFAULT_FONT_FAMILY = "Consolas";
+
+export const viewerSettingsSchema = z.object({
+  /** Font of the log rows; absent = Consolas. Fallbacks (Consolas, Courier New, monospace) are always appended. */
+  fontFamily: z.string().trim().min(1).max(100).optional(),
+  /** Font size of the log rows, in px; the row height follows (rowHeightFor). */
+  fontSize: z.number().int().min(MIN_FONT_SIZE).max(MAX_FONT_SIZE).default(DEFAULT_FONT_SIZE),
+});
+export type ViewerSettings = z.infer<typeof viewerSettingsSchema>;
+
+export const defaultViewerSettings = (): ViewerSettings => viewerSettingsSchema.parse({});
+
+/** Height of a log row for a font size: 13 px → 18 px, the historical geometry. */
+export const rowHeightFor = (fontSize: number): number => Math.round(fontSize * 1.4);
+
+/** CSS font-family of the log rows: the chosen font, then the historical fallbacks. */
+export function fontStack(family: string | undefined): string {
+  const fallbacks = [DEFAULT_FONT_FAMILY, "Courier New"];
+  const chosen = family?.trim();
+  const names = chosen ? [chosen, ...fallbacks.filter((f) => f.toLowerCase() !== chosen.toLowerCase())] : fallbacks;
+  return [...names.map((n) => `"${n.replace(/["\\]/g, "")}"`), "monospace"].join(", ");
+}
+
 export const settingsSchema = z.object({
   schemaVersion: z.literal(1),
   theme: themeSchema.default("system"),
@@ -33,6 +60,7 @@ export const settingsSchema = z.object({
   /** Archive name pattern learned for a followed file (path key → regex source), see learnArchivePattern. */
   archivePatterns: z.record(z.string(), z.string()).default({}),
   docker: dockerSettingsSchema.default(() => defaultDockerSettings()),
+  viewer: viewerSettingsSchema.default(() => defaultViewerSettings()),
 });
 export type Settings = z.infer<typeof settingsSchema>;
 
@@ -86,7 +114,7 @@ export const recentSchema = z.object({
 });
 export type Recent = z.infer<typeof recentSchema>;
 
-export const defaultSettings = (): Settings => ({ schemaVersion: 1, theme: "system", checkForUpdates: true, historyHours: 2, archivePatterns: {}, docker: defaultDockerSettings() });
+export const defaultSettings = (): Settings => ({ schemaVersion: 1, theme: "system", checkForUpdates: true, historyHours: 2, archivePatterns: {}, docker: defaultDockerSettings(), viewer: defaultViewerSettings() });
 export const emptyRecent = (): Recent => ({ schemaVersion: 1, files: [] });
 export const emptySession = (): Session => ({ schemaVersion: 1, tabs: [] });
 

@@ -10,7 +10,8 @@ import { ContextMenu, type MenuItem } from "./ContextMenu";
 import { MatchMarkers } from "./MatchMarkers";
 import { formatRows, MAX_COPY_ROWS } from "./selection";
 import { hasTextSelection, selectionAt, selectRange, wordAt, type TextTarget } from "./text-target";
-import { isAtBottom, isScaled, contentHeight, ROW_HEIGHT, rowToScrollTop, scrollTopToRow, visibleRange } from "./viewport-math";
+import { isAtBottom, isScaled, contentHeight, rowToScrollTop, scrollTopToRow, visibleRange } from "./viewport-math";
+import { DEFAULT_FONT_SIZE, fontStack, rowHeightFor } from "@cbl-log/shared";
 
 // Rows rendered beyond the viewport on each side: the window scrolls natively with the content, so a
 // generous margin keeps the edges covered between two React renders.
@@ -74,10 +75,15 @@ interface Props {
   /** Reads rows straight from the engine, for copying selections that are not in the page cache. */
   fetchRows(first: number, count: number): Promise<Row[]>;
   onNotice(text: string, isError?: boolean): void;
+  /** Font of the rows (settings.viewer); absent = Consolas. */
+  fontFamily?: string | undefined;
+  /** Font size of the rows in px (settings.viewer); the row height follows. */
+  fontSize?: number | undefined;
 }
 
 /** Virtualized, fixed-height-row view of a tab's lines. Follow mode keeps the end in view. */
-export function LogViewport({ cache, total: realTotal, base, marks, format, filtered = false, highlight, follow, reveal, currentMatchRow, matchDensity, anchorLine, onRowDoubleClick, rowActionLabel, onSearchText, onFilterText, onGotoLine, onGotoTime, sources, fileRows, viewRowRef, initialRow, onFollowChange, onLeave, fetchRows, onNotice }: Props) {
+export function LogViewport({ cache, total: realTotal, base, marks, format, filtered = false, highlight, follow, reveal, currentMatchRow, matchDensity, anchorLine, onRowDoubleClick, rowActionLabel, onSearchText, onFilterText, onGotoLine, onGotoTime, sources, fileRows, viewRowRef, initialRow, onFollowChange, onLeave, fetchRows, onNotice, fontFamily, fontSize = DEFAULT_FONT_SIZE }: Props) {
+  const rowHeight = rowHeightFor(fontSize);
   // Following a growing file: show only the rows the cache can already give. The new lines are being
   // fetched; rendering them now would paint blank rows at the bottom that fill in a moment later.
   const shownTotal = follow ? cache.readableEnd(realTotal) : realTotal;
@@ -99,14 +105,14 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, filt
   /** The user scrolled away from the bottom; follow mode must not pull the view back before React catches up. */
   const userUnpinned = useRef(false);
   const wasFollowing = useRef(follow);
-  const latest = useRef({ viewportHeight: 0, total, follow, initialRow, allSelected, base, realTotal, filtered });
-  latest.current = { viewportHeight, total, follow, initialRow, allSelected, base, realTotal, filtered };
+  const latest = useRef({ viewportHeight: 0, total, follow, initialRow, allSelected, base, realTotal, filtered, rowHeight });
+  latest.current = { viewportHeight, total, follow, initialRow, allSelected, base, realTotal, filtered, rowHeight };
 
   /** Re-render the window around `top` (programmatic scrolls, and native scrolls that cross a row). */
   const commitScroll = useCallback((top: number) => {
     scrollTopRef.current = top;
-    const { viewportHeight: vh, total: count } = latest.current;
-    renderedRow.current = scrollTopToRow(top, vh, count);
+    const { viewportHeight: vh, total: count, rowHeight: rh } = latest.current;
+    renderedRow.current = scrollTopToRow(top, vh, count, rh);
     setScrollTop(top);
   }, []);
   const restored = useRef(false);
@@ -129,9 +135,9 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, filt
 
   useEffect(
     () => () => {
-      const { viewportHeight: vh, total: count } = latest.current;
+      const { viewportHeight: vh, total: count, rowHeight: rh } = latest.current;
       if (vh === 0) return; // never measured (StrictMode probe): keep the remembered row
-      onLeave(scrollTopToRow(scrollTopRef.current, vh, count));
+      onLeave(scrollTopToRow(scrollTopRef.current, vh, count, rh));
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
@@ -140,24 +146,38 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, filt
   // "Clear" moves the origin: the old selection no longer means anything.
   useEffect(() => setAllSelected(false), [base]);
 
-  const range = visibleRange(scrollTop, viewportHeight, total, OVERSCAN);
+  const range = visibleRange(scrollTop, viewportHeight, total, OVERSCAN, rowHeight);
   const levels = filtered
     ? Array.from({ length: range.count }, (_, i) => cache.getRow(base + range.first + i)?.level)
     : computeRowLevels(format, (row) => cache.getRow(row)?.text, base + range.first, range.count);
-  if (viewRowRef) viewRowRef.current = base + scrollTopToRow(scrollTop, viewportHeight, total);
+  if (viewRowRef) viewRowRef.current = base + scrollTopToRow(scrollTop, viewportHeight, total, rowHeight);
 
   // Reveal request: center the row (search hit).
   const revealNonce = reveal?.nonce;
   useLayoutEffect(() => {
     const el = scrollerRef.current;
     if (!el || reveal === undefined) return;
-    const { viewportHeight: vh, total: count, base: origin } = latest.current;
+    const { viewportHeight: vh, total: count, base: origin, rowHeight: rh } = latest.current;
     const relative = Math.min(Math.max(reveal.row - origin, 0), Math.max(0, count - 1));
-    const target = reveal.align === "top" ? relative : Math.max(0, relative - Math.floor(vh / ROW_HEIGHT / 2));
-    el.scrollTop = rowToScrollTop(target, vh, count);
+    const target = reveal.align === "top" ? relative : Math.max(0, relative - Math.floor(vh / rh / 2));
+    el.scrollTop = rowToScrollTop(target, vh, count, rh);
     commitScroll(el.scrollTop);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [revealNonce]);
+
+  // New font size: keep the same first visible row (follow mode re-pins the end by itself).
+  const previousRowHeight = useRef(rowHeight);
+  useLayoutEffect(() => {
+    const before = previousRowHeight.current;
+    previousRowHeight.current = rowHeight;
+    const el = scrollerRef.current;
+    if (!el || before === rowHeight || viewportHeight === 0) return;
+    const row = scrollTopToRow(scrollTopRef.current, viewportHeight, total, before);
+    if (follow && !userUnpinned.current) el.scrollTop = el.scrollHeight - el.clientHeight;
+    else el.scrollTop = rowToScrollTop(row, viewportHeight, total, rowHeight);
+    commitScroll(el.scrollTop);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rowHeight]);
 
   // Keep the pages under the viewport loaded (the cache de-duplicates and prefetches neighbours).
   useEffect(() => {
@@ -179,7 +199,7 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, filt
         commitScroll(el.scrollTop);
       }
     } else if (!follow && !restored.current) {
-      el.scrollTop = rowToScrollTop(latest.current.initialRow, viewportHeight, total);
+      el.scrollTop = rowToScrollTop(latest.current.initialRow, viewportHeight, total, rowHeight);
       commitScroll(el.scrollTop);
     }
     restored.current = true;
@@ -188,13 +208,13 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, filt
   const onScroll = useCallback(() => {
     const el = scrollerRef.current;
     if (!el) return;
-    const { viewportHeight: vh, total: count, follow: isFollowing } = latest.current;
+    const { viewportHeight: vh, total: count, follow: isFollowing, rowHeight: rh } = latest.current;
     const top = el.scrollTop;
     scrollTopRef.current = top;
     // The window scrolls natively with the content: only re-render when another row comes into view
     // (or in scaled mode, where the window follows the scroll position continuously).
-    if (isScaled(count) || scrollTopToRow(top, vh, count) !== renderedRow.current) commitScroll(top);
-    const bottom = isAtBottom(top, vh, count);
+    if (isScaled(count, rh) || scrollTopToRow(top, vh, count, rh) !== renderedRow.current) commitScroll(top);
+    const bottom = isAtBottom(top, vh, count, rh);
     userUnpinned.current = !bottom;
     if (bottom !== isFollowing) onFollowChange(bottom);
   }, [onFollowChange, commitScroll]);
@@ -202,8 +222,8 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, filt
   const scrollToRow = useCallback((row: number) => {
     const el = scrollerRef.current;
     if (!el) return;
-    const { viewportHeight: vh, total: count } = latest.current;
-    el.scrollTop = rowToScrollTop(Math.min(Math.max(row, 0), Math.max(0, count - 1)), vh, count);
+    const { viewportHeight: vh, total: count, rowHeight: rh } = latest.current;
+    el.scrollTop = rowToScrollTop(Math.min(Math.max(row, 0), Math.max(0, count - 1)), vh, count, rh);
   }, []);
 
   const scrollToEnd = useCallback(() => {
@@ -320,7 +340,7 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, filt
         key={lineRow}
         data-row={lineRow}
         style={{
-          height: ROW_HEIGHT,
+          height: rowHeight,
           ...(colored?.lineBg ? { backgroundColor: colored.lineBg } : {}),
           ...(colored?.lineFg ? { color: colored.lineFg } : {}),
         }}
@@ -363,8 +383,12 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, filt
 
   return (
     <div className="viewport-wrap">
-      <div ref={scrollerRef} className="viewport" tabIndex={0} onScroll={onScroll} onContextMenu={onContextMenu} onMouseDown={() => allSelected && setAllSelected(false)}>
-        <div className="viewport-spacer" style={{ height: contentHeight(total) }}>
+      <div
+        ref={scrollerRef}
+        className="viewport"
+        style={{ fontFamily: fontStack(fontFamily), fontSize, lineHeight: `${rowHeight}px` }}
+        tabIndex={0} onScroll={onScroll} onContextMenu={onContextMenu} onMouseDown={() => allSelected && setAllSelected(false)}>
+        <div className="viewport-spacer" style={{ height: contentHeight(total, rowHeight) }}>
           <div className="viewport-window" style={{ transform: `translateY(${range.top}px)` }}>
             {rows}
           </div>
