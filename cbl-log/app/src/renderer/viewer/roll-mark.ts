@@ -1,5 +1,6 @@
 import type { RolledReason, TabHistory } from "@cbl-log/shared";
 import { baseName } from "../files/path-key";
+import { t } from "@cbl-log/shared";
 
 /** A rolling / truncation seen while following: drawn as a separator before row `row`. */
 export interface RollMark {
@@ -28,9 +29,9 @@ export function rollMarkLabel(mark: RollMark): string {
 
 function plainLabel(mark: RollMark): string {
   const time = formatClock(mark.at);
-  if (mark.reason === "recreated") return `conteneur recréé ${time}`;
+  if (mark.reason === "recreated") return t("conteneur recréé {time}", { time });
   if (mark.reason === "truncate") {
-    return mark.previous ? `tronqué ${time} → ${baseName(mark.previous)}` : `tronqué ${time}`;
+    return mark.previous ? t("tronqué {time} → {file}", { time, file: baseName(mark.previous) }) : t("tronqué {time}", { time });
   }
   return mark.previous ? `rolling ${time} → ${baseName(mark.previous)}` : `rolling ${time}`;
 }

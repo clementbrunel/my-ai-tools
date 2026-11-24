@@ -61,6 +61,8 @@ exporté a le même format que ceux de `%APPDATA%\cbl-log\rules\` : il peut auss
   ligne peuvent être masqués (`showLineNumbers`).
 - **Nouveaux onglets** (`"tabs"`) : suivre ou non la fin du fichier à l'ouverture, replier les stack traces,
   niveaux affichés par défaut (par exemple sans DEBUG ni TRACE). Les onglets restaurés gardent leur état.
+- **Langue** (`language`) : **Système** (français pour un Windows en français, anglais sinon), **Français** ou
+  **English** ; appliquée au prochain lancement. Les notes de version restent en français.
 - **Général** : rouvrir ou non les onglets au démarrage (`restoreSession`), canal de mise à jour **Stable** ou
   **Bêta** (`updateChannel` : les versions de test `X.Y.Z-beta.N`, publiées en pré-release GitHub), confirmer la
   fermeture de plusieurs onglets (clic droit sur un onglet › Fermer les autres / à droite / tous).

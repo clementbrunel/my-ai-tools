@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import type { FilterSettings, TextMatcher } from "@cbl-log/shared";
 import { validateQuery } from "../search/search-text";
 import { addMatcher, removeMatcher } from "./filter-state";
+import { t } from "@cbl-log/shared";
 
 interface Props {
   settings: FilterSettings;
@@ -13,9 +14,9 @@ interface Props {
   error?: "too-expensive" | "failed" | undefined;
 }
 
-const ERRORS = { "too-expensive": "Regex trop coûteuse : filtre interrompu", failed: "Filtre impossible" } as const;
+const ERRORS = { "too-expensive": t("Regex trop coûteuse : filtre interrompu"), failed: t("Filtre impossible") } as const;
 
-const describe = (m: TextMatcher): string => `${m.pattern}${m.isRegex ? "  (regex)" : ""}${m.caseSensitive ? "  (casse)" : ""}${m.wholeWord ? "  (mot entier)" : ""}`;
+const describe = (m: TextMatcher): string => `${m.pattern}${m.isRegex ? t("  (regex)") : ""}${m.caseSensitive ? t("  (casse)") : ""}${m.wholeWord ? t("  (mot entier)") : ""}`;
 
 /**
  * Include / exclude texts of the filter: a field to type one (Enter includes it, Ctrl+Enter excludes it)
@@ -52,7 +53,7 @@ export function FilterBar({ settings, onChange, focusRequest, error }: Props) {
   ];
 
   return (
-    <div className="filterbar" role="search" aria-label="Filtre">
+    <div className="filterbar" role="search" aria-label={t("Filtre")}>
       <div className={invalid ? "field multiline invalid" : "field multiline"}>
         <svg className="field-icon" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" aria-hidden="true">
           <path d="M2 3h12L9.5 8.5V13l-3 1.5v-6z" />
@@ -73,9 +74,9 @@ export function FilterBar({ settings, onChange, focusRequest, error }: Props) {
         <input
           ref={inputRef}
           value={text}
-          placeholder="Filtrer (Ctrl+Maj+F)"
-          aria-label="Texte du filtre"
-          title={invalid ? `Regex invalide : ${invalid}` : "Entrée : inclure — Ctrl+Entrée : exclure (Ctrl+Maj+F)"}
+          placeholder={t("Filtrer (Ctrl+Maj+F)")}
+          aria-label={t("Texte du filtre")}
+          title={invalid ? t("Regex invalide : {error}", { error: invalid }) : t("Entrée : inclure — Ctrl+Entrée : exclure (Ctrl+Maj+F)")}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
@@ -88,20 +89,20 @@ export function FilterBar({ settings, onChange, focusRequest, error }: Props) {
             }
           }}
         />
-        <button type="button" className={isRegex ? "opt on" : "opt"} aria-pressed={isRegex} onClick={() => setRegex(!isRegex)} title="Expression régulière">
+        <button type="button" className={isRegex ? "opt on" : "opt"} aria-pressed={isRegex} onClick={() => setRegex(!isRegex)} title={t("Expression régulière")}>
           .*
         </button>
-        <button type="button" className={caseSensitive ? "opt on" : "opt"} aria-pressed={caseSensitive} onClick={() => setCase(!caseSensitive)} title="Respecter la casse">
+        <button type="button" className={caseSensitive ? "opt on" : "opt"} aria-pressed={caseSensitive} onClick={() => setCase(!caseSensitive)} title={t("Respecter la casse")}>
           Aa
         </button>
-        <button type="button" className={wholeWord ? "opt on" : "opt"} aria-pressed={wholeWord} onClick={() => setWhole(!wholeWord)} title="Mot entier : ERROR ne trouve pas ERRORS ni MYERROR">
+        <button type="button" className={wholeWord ? "opt on" : "opt"} aria-pressed={wholeWord} onClick={() => setWhole(!wholeWord)} title={t("Mot entier : ERROR ne trouve pas ERRORS ni MYERROR")}>
           <u>ab</u>
         </button>
         <span className="field-sep" aria-hidden="true" />
-        <button type="button" className="opt include" onClick={() => add("include")} disabled={text === "" || !!invalid} title="Inclure : ne montrer que les lignes qui contiennent ce texte (Entrée)" aria-label="Inclure">
+        <button type="button" className="opt include" onClick={() => add("include")} disabled={text === "" || !!invalid} title={t("Inclure : ne montrer que les lignes qui contiennent ce texte (Entrée)")} aria-label={t("Inclure")}>
           +
         </button>
-        <button type="button" className="opt exclude" onClick={() => add("exclude")} disabled={text === "" || !!invalid} title="Exclure : masquer les lignes qui contiennent ce texte (Ctrl+Entrée)" aria-label="Exclure">
+        <button type="button" className="opt exclude" onClick={() => add("exclude")} disabled={text === "" || !!invalid} title={t("Exclure : masquer les lignes qui contiennent ce texte (Ctrl+Entrée)")} aria-label={t("Exclure")}>
           −
         </button>
       </div>

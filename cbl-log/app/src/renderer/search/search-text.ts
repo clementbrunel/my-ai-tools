@@ -1,4 +1,5 @@
 import type { SearchError, SearchQuery } from "@cbl-log/shared";
+import { fmtNumber, t } from "@cbl-log/shared";
 
 /** Error message for an invalid regex, undefined when the query can be sent. */
 export function validateQuery(query: SearchQuery): string | undefined {
@@ -19,16 +20,16 @@ export interface SearchSummaryInput {
   ordinal: number | null;
 }
 
-const plural = (n: number): string => `${n.toLocaleString("fr-FR")} résultat${n > 1 ? "s" : ""}`;
+const plural = (n: number): string => (n > 1 ? t("{n} résultats", { n: fmtNumber(n) }) : t("{n} résultat", { n: fmtNumber(n) }));
 
 /** Text shown next to the search field. */
 export function describeSearch({ pattern, invalid, status, ordinal }: SearchSummaryInput): string {
-  if (invalid) return `Regex invalide : ${invalid}`;
+  if (invalid) return t("Regex invalide : {error}", { error: invalid });
   if (pattern === "") return "";
-  if (status?.error === "too-expensive") return "Regex trop coûteuse : recherche interrompue";
-  if (status?.error === "failed") return "Recherche impossible";
-  if (!status) return "Recherche…";
-  if (status.matches === 0) return status.done ? "Aucun résultat" : "Recherche…";
+  if (status?.error === "too-expensive") return t("Regex trop coûteuse : recherche interrompue");
+  if (status?.error === "failed") return t("Recherche impossible");
+  if (!status) return t("Recherche…");
+  if (status.matches === 0) return status.done ? t("Aucun résultat") : t("Recherche…");
   const total = status.done ? plural(status.matches) : `${plural(status.matches)}+`;
-  return ordinal !== null ? `${ordinal.toLocaleString("fr-FR")} / ${total}` : total;
+  return ordinal !== null ? `${fmtNumber(ordinal)} / ${total}` : total;
 }

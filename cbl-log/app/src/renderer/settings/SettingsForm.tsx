@@ -1,5 +1,5 @@
 import "./SettingsForm.css";
-import { APPLY_LABELS, SETTING_SECTIONS, defaultSetting, getSetting, settingKey, type SettingDoc, type Settings } from "@cbl-log/shared";
+import { t, APPLY_LABELS, defaultSetting, getSetting, SETTING_SECTIONS, settingKey, type SettingDoc, type Settings } from "@cbl-log/shared";
 import { SettingControl } from "./SettingControl";
 import { filterSections, formatValue, isDefault } from "./settings-view";
 
@@ -23,7 +23,7 @@ export function SettingsForm({ settings, query, onChange }: Props) {
           ))}
         </section>
       ))}
-      {sections.length === 0 && <p className="hint">Aucun réglage ne correspond à « {query} ».</p>}
+      {sections.length === 0 && <p className="hint">{t("Aucun réglage ne correspond à « {query} ».", { query })}</p>}
     </div>
   );
 }
@@ -44,10 +44,10 @@ function SettingRow({ doc, settings, onChange }: { doc: SettingDoc; settings: Se
         </div>
         <p className="setting-desc">{doc.description}</p>
         <p className="setting-default">
-          Par défaut : <code>{formatValue(doc, fallback)}</code>
+          {t("Par défaut :")} <code>{formatValue(doc, fallback)}</code>
           {modified && (
             <button type="button" className="link-btn" onClick={() => onChange(doc.control.kind === "text" ? undefined : fallback)}>
-              Rétablir
+              {t("Rétablir")}
             </button>
           )}
         </p>

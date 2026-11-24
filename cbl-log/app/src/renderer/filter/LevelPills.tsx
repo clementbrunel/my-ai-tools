@@ -1,6 +1,7 @@
 import "./LevelPills.css";
 import type { FilterSettings } from "@cbl-log/shared";
 import { LEVEL_PILLS, pillActive, togglePill } from "./filter-state";
+import { t } from "@cbl-log/shared";
 
 interface Props {
   filter: FilterSettings;
@@ -15,8 +16,8 @@ export function LevelPills({ filter, enabled, onChange }: Props) {
     <span
       className="level-pills"
       role="group"
-      aria-label="Niveaux affichés"
-      title={enabled ? "Niveaux affichés (les lignes de suite suivent leur enregistrement)" : "Filtre par niveau : format de log non reconnu"}
+      aria-label={t("Niveaux affichés")}
+      title={enabled ? t("Niveaux affichés (les lignes de suite suivent leur enregistrement)") : t("Filtre par niveau : format de log non reconnu")}
     >
       {LEVEL_PILLS.map((pill) => {
         const on = pillActive(filter.levels, pill);

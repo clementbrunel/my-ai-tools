@@ -1,8 +1,9 @@
 // Pure logic of the Docker side panel: grouping, filtering, selection and the texts of its states.
 import type { DockerContainerInfo, DockerListResult } from "@cbl-log/shared";
 import { formatClock } from "../viewer/roll-mark";
+import { t } from "@cbl-log/shared";
 
-export const NO_PROJECT = "(hors compose)";
+export const NO_PROJECT = t("(hors compose)");
 
 export interface ContainerGroup {
   project: string;
@@ -58,20 +59,20 @@ export function connectionMessage(res: Pick<DockerListResult, "status" | "error"
   ok: boolean;
   text: string;
 } {
-  if (!res) return { ok: false, text: "Connexion à Docker…" };
+  if (!res) return { ok: false, text: t("Connexion à Docker…") };
   if (res.status === "connected") {
     const engine = res.version ? `Docker Desktop ${res.version}` : "Docker";
-    return { ok: true, text: `Connecté à ${engine}${res.apiVersion ? `, API ${res.apiVersion}` : ""}${res.context ? ` · contexte ${res.context}` : ""}` };
+    return { ok: true, text: `${t("Connecté à {engine}", { engine })}${res.apiVersion ? `, API ${res.apiVersion}` : ""}${res.context ? ` · ${t("contexte {name}", { name: res.context })}` : ""}` };
   }
   switch (res.errorCode) {
     case "NOT_RUNNING":
-      return { ok: false, text: "Docker n'est pas lancé : démarrez Docker Desktop, la liste se met à jour toute seule." };
+      return { ok: false, text: t("Docker n'est pas lancé : démarrez Docker Desktop, la liste se met à jour toute seule.") };
     case "ACCESS_DENIED":
-      return { ok: false, text: "Accès à Docker refusé : ajoutez votre compte au groupe « docker-users », puis fermez et rouvrez votre session Windows." };
+      return { ok: false, text: t("Accès à Docker refusé : ajoutez votre compte au groupe « docker-users », puis fermez et rouvrez votre session Windows.") };
     case "API_TOO_OLD":
-      return { ok: false, text: "Version de Docker trop ancienne : mettez Docker Desktop à jour (API 1.41 minimum, Docker 20.10)." };
+      return { ok: false, text: t("Version de Docker trop ancienne : mettez Docker Desktop à jour (API 1.41 minimum, Docker 20.10).") };
     default:
-      return { ok: false, text: res.error ?? "Docker est indisponible." };
+      return { ok: false, text: res.error ?? t("Docker est indisponible.") };
   }
 }
 
@@ -80,8 +81,8 @@ export function dockerStatusText(
   tabState: "following" | "missing" | "error" | "stopped" | "waiting",
   container: Pick<DockerContainerInfo, "state" | "startedAt"> | undefined,
 ): string {
-  if (tabState === "waiting") return "Docker · en attente de Docker";
-  if (tabState === "stopped" || (container && container.state !== "running")) return "Docker · arrêté";
+  if (tabState === "waiting") return t("Docker · en attente de Docker");
+  if (tabState === "stopped" || (container && container.state !== "running")) return t("Docker · arrêté");
   const since = container?.startedAt ? new Date(container.startedAt) : undefined;
-  return since && !Number.isNaN(since.getTime()) ? `Docker · running depuis ${formatClock(since.getTime()).slice(0, 5)}` : "Docker · running";
+  return since && !Number.isNaN(since.getTime()) ? t("Docker · running depuis {time}", { time: formatClock(since.getTime()).slice(0, 5) }) : t("Docker · running");
 }

@@ -92,6 +92,8 @@ const api: CblLogApi = {
 };
 
 contextBridge.exposeInMainWorld("cblLog", api);
+// Interface language, read by @cbl-log/shared/i18n before any module of the page runs.
+contextBridge.exposeInMainWorld("cblLogLang", ipcRenderer.sendSync("language:get") as string);
 
 // contextBridge cannot transfer a MessagePort: relay it to the page with window.postMessage.
 ipcRenderer.on("engine-port", (event) => {

@@ -7,6 +7,7 @@ import { Modal } from "../ui/Modal";
 import { RegexHelp } from "../search/RegexHelp";
 import { insertAt } from "../search/regex-help";
 import { createRule, moveRuleTo, removeRule, updateRule } from "./rules-edit";
+import { t } from "@cbl-log/shared";
 
 interface Props {
   /** Profiles, the tab's choice ("auto" or an id) and what "auto" means for this tab: the editor edits the tab's profile. */
@@ -73,12 +74,12 @@ export function RulesEditor({ sets, selectedId, choice, autoName, onChoose, form
   const preview = sample === "" ? undefined : highlightLine(sample, compileRules(rules).compiled);
 
   return (
-    <Modal title="Règles de surlignage" className="rules-editor" onClose={onClose}>
+    <Modal title={t("Règles de surlignage")} className="rules-editor" onClose={onClose}>
       <div className="profile-bar">
-        <label title="Même réglage que « Profil » dans la barre d'état : c'est le profil de l'onglet affiché">
-          Profil de cet onglet
+        <label title={t("Même réglage que « Profil » dans la barre d'état : c'est le profil de l'onglet affiché")}>
+          {t("Profil de cet onglet")}
           <select value={choice} onChange={(ev) => onChoose(ev.target.value)}>
-            <option value="auto">Auto ({autoName})</option>
+            <option value="auto">{t("Auto ({name})", { name: autoName })}</option>
             {sets.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name || s.id}
@@ -96,24 +97,24 @@ export function RulesEditor({ sets, selectedId, choice, autoName, onChoose, form
               setNewName("");
             }}
           >
-            <input autoFocus value={newName} onChange={(ev) => setNewName(ev.target.value)} placeholder="Nom du nouveau profil" onKeyDown={(ev) => ev.key === "Escape" && setNaming(false)} />
-            <Button type="submit">Créer</Button>
+            <input autoFocus value={newName} onChange={(ev) => setNewName(ev.target.value)} placeholder={t("Nom du nouveau profil")} onKeyDown={(ev) => ev.key === "Escape" && setNaming(false)} />
+            <Button type="submit">{t("Créer")}</Button>
           </form>
         ) : (
-          <Button onClick={() => setNaming(true)} title="Crée un profil à partir des règles affichées">
-            Nouveau profil…
+          <Button onClick={() => setNaming(true)} title={t("Crée un profil à partir des règles affichées")}>
+            {t("Nouveau profil…")}
           </Button>
         )}
         <span className="profile-share">
-          <Button onClick={onExport} title="Enregistre ce profil dans un fichier .json à envoyer à vos collègues">
-            Exporter…
+          <Button onClick={onExport} title={t("Enregistre ce profil dans un fichier .json à envoyer à vos collègues")}>
+            {t("Exporter…")}
           </Button>
-          <Button onClick={onImport} title="Ajoute un profil reçu d'un collègue (fichier .json exporté depuis cbl-log)">
-            Importer…
+          <Button onClick={onImport} title={t("Ajoute un profil reçu d'un collègue (fichier .json exporté depuis cbl-log)")}>
+            {t("Importer…")}
           </Button>
         </span>
         <span className="profile-formats">
-          Proposé automatiquement pour les logs :{" "}
+          {t("Proposé automatiquement pour les logs :")}{" "}
           {formatOptions.map((f) => (
             <label key={f.id}>
               <input type="checkbox" checked={selected?.formats.includes(f.id) ?? false} onChange={() => onToggleFormat(f.id)} /> {f.name}
@@ -121,10 +122,13 @@ export function RulesEditor({ sets, selectedId, choice, autoName, onChoose, form
           ))}
         </span>
       </div>
-      <p className="hint">Les règles ci-dessous sont celles du profil <strong>{selected?.name || selectedId}</strong>, appliqué à l'onglet affiché. La première règle « ligne » qui correspond colore la ligne ; pour les fragments, la règle placée plus haut l'emporte.</p>
+      <p className="hint">
+        {t("Les règles ci-dessous sont celles du profil")} <strong>{selected?.name || selectedId}</strong>
+        {t(", appliqué à l'onglet affiché. La première règle « ligne » qui correspond colore la ligne ; pour les fragments, la règle placée plus haut l'emporte.")}
+      </p>
       <div className="rules-sample">
         <label>
-          Ligne d'exemple (collez une vraie ligne de log pour voir ce que vos règles en font)
+          {t("Ligne d'exemple (collez une vraie ligne de log pour voir ce que vos règles en font)")}
           <input value={sample} onChange={(e) => setSample(e.target.value)} placeholder="2026-10-18 10:02:11 ERROR something failed" />
         </label>
         {preview && (
@@ -158,8 +162,8 @@ export function RulesEditor({ sets, selectedId, choice, autoName, onChoose, form
               className="rule-grip"
               draggable
               role="img"
-              aria-label="Glisser pour réordonner"
-              title="Glisser-déposer pour changer la priorité"
+              aria-label={t("Glisser pour réordonner")}
+              title={t("Glisser-déposer pour changer la priorité")}
               onDragStart={(e) => {
                 e.dataTransfer.effectAllowed = "move";
                 e.dataTransfer.setData("text/plain", rule.id);
@@ -175,8 +179,8 @@ export function RulesEditor({ sets, selectedId, choice, autoName, onChoose, form
               type="checkbox"
               checked={rule.enabled}
               onChange={(e) => patch(rule.id, { enabled: e.target.checked })}
-              title="Activer / désactiver"
-              aria-label="Activée"
+              title={t("Activer / désactiver")}
+              aria-label={t("Activée")}
             />
             <input
               className="rule-pattern"
@@ -185,38 +189,38 @@ export function RulesEditor({ sets, selectedId, choice, autoName, onChoose, form
                 else patternInputs.current.delete(rule.id);
               }}
               value={rule.pattern}
-              placeholder="motif"
+              placeholder={t("motif")}
               onChange={(e) => patch(rule.id, { pattern: e.target.value })}
               title={errors[rule.id] ?? ""}
-              aria-label="Motif"
+              aria-label={t("Motif")}
             />
             {sample !== "" && rule.pattern !== "" && !errors[rule.id] && (
-              <span className={ruleMatches(rule, sample) ? "sample-hit" : "sample-miss"} title={ruleMatches(rule, sample) ? "Cette règle correspond à la ligne d'exemple" : "Cette règle ne correspond pas à la ligne d'exemple"}>
+              <span className={ruleMatches(rule, sample) ? "sample-hit" : "sample-miss"} title={ruleMatches(rule, sample) ? t("Cette règle correspond à la ligne d'exemple") : t("Cette règle ne correspond pas à la ligne d'exemple")}>
                 {ruleMatches(rule, sample) ? "✓" : "✗"}
               </span>
             )}
-            <button type="button" className={helpFor === rule.id ? "help-toggle on" : "help-toggle"} onClick={() => setHelpFor(helpFor === rule.id ? undefined : rule.id)} title="Aide à la saisie des expressions régulières" aria-label="Aide à la saisie" aria-expanded={helpFor === rule.id}>
+            <button type="button" className={helpFor === rule.id ? "help-toggle on" : "help-toggle"} onClick={() => setHelpFor(helpFor === rule.id ? undefined : rule.id)} title={t("Aide à la saisie des expressions régulières")} aria-label={t("Aide à la saisie")} aria-expanded={helpFor === rule.id}>
               ?
             </button>
-            <label title="Expression régulière">
-              <input type="checkbox" checked={rule.isRegex} onChange={(e) => patch(rule.id, { isRegex: e.target.checked })} /> regex
+            <label title={t("Expression régulière")}>
+              <input type="checkbox" checked={rule.isRegex} onChange={(e) => patch(rule.id, { isRegex: e.target.checked })} /> {t("regex")}
             </label>
-            <label title="Mot entier : ERROR ne trouve pas ERRORS ni MYERROR">
-              <input type="checkbox" checked={rule.wholeWord} onChange={(ev) => patch(rule.id, { wholeWord: ev.target.checked })} /> Mot
+            <label title={t("Mot entier : ERROR ne trouve pas ERRORS ni MYERROR")}>
+              <input type="checkbox" checked={rule.wholeWord} onChange={(ev) => patch(rule.id, { wholeWord: ev.target.checked })} /> {t("Mot")}
             </label>
-            <label title="Respecter la casse">
+            <label title={t("Respecter la casse")}>
               <input type="checkbox" checked={rule.caseSensitive} onChange={(e) => patch(rule.id, { caseSensitive: e.target.checked })} /> Aa
             </label>
-            <label className="rule-notify" title="Notification Windows quand une nouvelle ligne d'un fichier suivi correspond (réglage Alertes de la Configuration)">
+            <label className="rule-notify" title={t("Notification Windows quand une nouvelle ligne d'un fichier suivi correspond (réglage Alertes de la Configuration)")}>
               <input type="checkbox" checked={rule.notify === true} onChange={(e) => patch(rule.id, { notify: e.target.checked || undefined })} /> 🔔
             </label>
-            <select value={rule.scope} onChange={(e) => patch(rule.id, { scope: e.target.value as HighlightRule["scope"] })} aria-label="Portée">
-              <option value="line">ligne</option>
-              <option value="fragment">fragment</option>
+            <select value={rule.scope} onChange={(e) => patch(rule.id, { scope: e.target.value as HighlightRule["scope"] })} aria-label={t("Portée")}>
+              <option value="line">{t("ligne")}</option>
+              <option value="fragment">{t("fragment")}</option>
             </select>
-            <ColorField label="texte" value={rule.fg} onChange={(fg) => patch(rule.id, { fg })} />
-            <ColorField label="fond" value={rule.bg} onChange={(bg) => patch(rule.id, { bg })} />
-            <Button variant="ghost" onClick={() => onChange(removeRule(rules, rule.id))} aria-label="Supprimer">
+            <ColorField label={t("texte")} value={rule.fg} onChange={(fg) => patch(rule.id, { fg })} />
+            <ColorField label={t("fond")} value={rule.bg} onChange={(bg) => patch(rule.id, { bg })} />
+            <Button variant="ghost" onClick={() => onChange(removeRule(rules, rule.id))} aria-label={t("Supprimer")}>
               🗑
             </Button>
             {errors[rule.id] && <span className="rule-error">{errors[rule.id]}</span>}
@@ -239,10 +243,10 @@ export function RulesEditor({ sets, selectedId, choice, autoName, onChoose, form
       </div>
       <footer>
         <Button onClick={() => onChange([...rules, createRule(rules)])}>
-          Ajouter une règle
+          {t("Ajouter une règle")}
         </Button>
         <Button onClick={onReset}>
-          Rétablir les règles par défaut
+          {t("Rétablir les règles par défaut")}
         </Button>
       </footer>
     </Modal>
@@ -251,9 +255,9 @@ export function RulesEditor({ sets, selectedId, choice, autoName, onChoose, form
 
 function ColorField({ label, value, onChange }: { label: string; value: string | undefined; onChange(value: string | undefined): void }) {
   return (
-    <span className="color-field" title={`Couleur du ${label}`}>
-      <input type="color" value={value ?? "#808080"} onChange={(e) => onChange(e.target.value)} aria-label={`Couleur du ${label}`} className={value ? "" : "unset"} />
-      <Button variant="ghost" onClick={() => onChange(undefined)} disabled={!value} aria-label={`Aucune couleur de ${label}`}>
+    <span className="color-field" title={t("Couleur : {what}", { what: label })}>
+      <input type="color" value={value ?? "#808080"} onChange={(e) => onChange(e.target.value)} aria-label={t("Couleur : {what}", { what: label })} className={value ? "" : "unset"} />
+      <Button variant="ghost" onClick={() => onChange(undefined)} disabled={!value} aria-label={t("Aucune couleur : {what}", { what: label })}>
         ∅
       </Button>
     </span>

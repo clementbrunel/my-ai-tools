@@ -11,7 +11,8 @@ import { MatchMarkers } from "./MatchMarkers";
 import { formatRows, MAX_COPY_ROWS } from "./selection";
 import { hasTextSelection, selectionAt, selectRange, wordAt, type TextTarget } from "./text-target";
 import { isAtBottom, isScaled, contentHeight, rowToScrollTop, scrollTopToRow, visibleRange } from "./viewport-math";
-import { DEFAULT_FONT_SIZE, fontStack, rowHeightFor } from "@cbl-log/shared";
+import { DEFAULT_FONT_SIZE, fmtNumber, fontStack, rowHeightFor } from "@cbl-log/shared";
+import { t } from "@cbl-log/shared";
 
 // Rows rendered beyond the viewport on each side: the window scrolls natively with the content, so a
 // generous margin keeps the edges covered between two React renders.
@@ -242,7 +243,7 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, filt
       const count = end - first;
       if (count <= 0) return;
       if (count > MAX_COPY_ROWS) {
-        onNotice(`Sélection trop grande pour la copie (max ${MAX_COPY_ROWS.toLocaleString("fr-FR")} lignes).`, true);
+        onNotice(t("Sélection trop grande pour la copie (max {n} lignes).", { n: fmtNumber(MAX_COPY_ROWS) }), true);
         return;
       }
       try {
@@ -251,9 +252,9 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, filt
           rows.push(...(await fetchRows(from, Math.min(COPY_CHUNK, end - from))));
         }
         await navigator.clipboard.writeText(formatRows(rows, withLineNumbers));
-        onNotice(`${rows.length.toLocaleString("fr-FR")} ligne(s) copiée(s)${withLineNumbers ? " avec numéros" : ""}.`);
+        onNotice(withLineNumbers ? t("{n} ligne(s) copiée(s) avec numéros.", { n: fmtNumber(rows.length) }) : t("{n} ligne(s) copiée(s).", { n: fmtNumber(rows.length) }));
       } catch (err) {
-        onNotice(`Copie impossible : ${err instanceof Error ? err.message : String(err)}`, true);
+        onNotice(t("Copie impossible : {error}", { error: err instanceof Error ? err.message : String(err) }), true);
       }
     },
     [fetchRows, onNotice],
@@ -306,17 +307,17 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, filt
     const items: MenuItem[] = [];
     if (target) {
       const { text, multiline } = target;
-      const oneLine = multiline ? "Réservé à une sélection sur une seule ligne" : undefined;
-      items.push({ label: "Copier", onSelect: () => void navigator.clipboard.writeText(text).catch(() => onNotice("Copie impossible.", true)) });
-      if (onSearchText) items.push({ label: "Rechercher", disabled: multiline, title: oneLine, onSelect: () => onSearchText(text) });
+      const oneLine = multiline ? t("Réservé à une sélection sur une seule ligne") : undefined;
+      items.push({ label: t("Copier"), onSelect: () => void navigator.clipboard.writeText(text).catch(() => onNotice(t("Copie impossible."), true)) });
+      if (onSearchText) items.push({ label: t("Rechercher"), disabled: multiline, title: oneLine, onSelect: () => onSearchText(text) });
       if (onFilterText) {
-        items.push({ label: "Inclure dans le filtre", disabled: multiline, title: oneLine, onSelect: () => onFilterText("include", text) });
-        items.push({ label: "Exclure du filtre", disabled: multiline, title: oneLine, onSelect: () => onFilterText("exclude", text) });
+        items.push({ label: t("Inclure dans le filtre"), disabled: multiline, title: oneLine, onSelect: () => onFilterText("include", text) });
+        items.push({ label: t("Exclure du filtre"), disabled: multiline, title: oneLine, onSelect: () => onFilterText("exclude", text) });
       }
     }
     if (row && onRowDoubleClick) {
       if (items.length > 0) items.push("separator");
-      items.push({ label: rowActionLabel ?? "Voir la ligne dans son contexte", onSelect: () => onRowDoubleClick(row) });
+      items.push({ label: rowActionLabel ?? t("Voir la ligne dans son contexte"), onSelect: () => onRowDoubleClick(row) });
     }
     if (items.length > 0) setMenu({ x: e.clientX, y: e.clientY, items });
   };
@@ -349,7 +350,7 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, filt
       >
         <span
           className="log-gutter"
-          {...(onRowDoubleClick ? { title: "Double-clic : voir la ligne dans son contexte", onDoubleClick: () => row && onRowDoubleClick(row) } : {})}
+          {...(onRowDoubleClick ? { title: t("Double-clic : voir la ligne dans son contexte"), onDoubleClick: () => row && onRowDoubleClick(row) } : {})}
         >
           {row?.source !== undefined && sources?.[row.source] && (
             <span className="log-source" style={{ color: sources[row.source]!.color, boxShadow: `inset 3px 0 0 ${sources[row.source]!.color}` }}>
@@ -373,8 +374,8 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, filt
             : ""}
           {row?.truncated ? <span className="log-ellipsis">…</span> : null}
           {row?.folded ? (
-            <span className="fold-badge" title="Lignes repliées sous celle-ci (double-clic : voir le détail)">
-              ▸ +{row.folded.toLocaleString("fr-FR")} ligne{row.folded > 1 ? "s" : ""}
+            <span className="fold-badge" title={t("Lignes repliées sous celle-ci (double-clic : voir le détail)")}>
+              {row.folded > 1 ? t("▸ +{n} lignes", { n: fmtNumber(row.folded) }) : t("▸ +{n} ligne", { n: fmtNumber(row.folded) })}
             </span>
           ) : null}
         </span>
@@ -455,7 +456,8 @@ function GotoLine({
       }}
     >
       <label>
-        Aller à la ligne ({min}–{max}){onGotoTime ? " ou à l'heure (10:02, 2026-10-14 10:02:11)" : ""}
+        {t("Aller à la ligne ({min}–{max})", { min, max })}
+        {onGotoTime ? t(" ou à l'heure (10:02, 2026-10-14 10:02:11)") : ""}
         <input
           autoFocus
           inputMode={onGotoTime ? "text" : "numeric"}

@@ -5,6 +5,7 @@
 // Pure: no network, no Electron.
 import type { ParseResult } from "@cbl-log/shared";
 import { REPO_URL } from "./brand-pages";
+import { t } from "@cbl-log/shared";
 
 export type FeedbackKind = "bug" | "request";
 
@@ -62,11 +63,11 @@ export function feedbackKey(kind: FeedbackKind, title: string): string {
 export function validateDraft(draft: FeedbackDraft): string | undefined {
   const title = draft.title.trim();
   const description = draft.description.trim();
-  if (draft.kind !== "bug" && draft.kind !== "request") return "Type de demande inconnu.";
-  if (title.length < TITLE_MIN) return `Le titre doit faire au moins ${TITLE_MIN} caractères.`;
-  if (title.length > TITLE_MAX) return `Le titre ne doit pas dépasser ${TITLE_MAX} caractères.`;
-  if (description.length < DESCRIPTION_MIN) return `La description doit faire au moins ${DESCRIPTION_MIN} caractères.`;
-  if (description.length > DESCRIPTION_MAX) return `La description ne doit pas dépasser ${DESCRIPTION_MAX} caractères.`;
+  if (draft.kind !== "bug" && draft.kind !== "request") return t("Type de demande inconnu.");
+  if (title.length < TITLE_MIN) return t("Le titre doit faire au moins {n} caractères.", { n: TITLE_MIN });
+  if (title.length > TITLE_MAX) return t("Le titre ne doit pas dépasser {n} caractères.", { n: TITLE_MAX });
+  if (description.length < DESCRIPTION_MIN) return t("La description doit faire au moins {n} caractères.", { n: DESCRIPTION_MIN });
+  if (description.length > DESCRIPTION_MAX) return t("La description ne doit pas dépasser {n} caractères.", { n: DESCRIPTION_MAX });
   return undefined;
 }
 
@@ -83,15 +84,15 @@ export function checkFlood(history: FeedbackHistory, now: number, key?: string):
   const last = sent.at(-1);
   if (last && now - last.at < MIN_INTERVAL_MS) {
     const retryAt = last.at + MIN_INTERVAL_MS;
-    return { ok: false, reason: `Un signalement vient d'être ouvert : réessayez après ${clock(retryAt)}.`, retryAt };
+    return { ok: false, reason: t("Un signalement vient d'être ouvert : réessayez après {time}.", { time: clock(retryAt) }), retryAt };
   }
   const today = sent.filter((s) => now - s.at < DAY_MS);
   if (today.length >= MAX_PER_DAY) {
     const retryAt = today[0]!.at + DAY_MS;
-    return { ok: false, reason: `${MAX_PER_DAY} signalements maximum par 24 h : réessayez après ${clock(retryAt)}.`, retryAt };
+    return { ok: false, reason: t("{n} signalements maximum par 24 h : réessayez après {time}.", { n: MAX_PER_DAY, time: clock(retryAt) }), retryAt };
   }
   if (key && sent.some((s) => s.key === key && now - s.at < DUPLICATE_WINDOW_MS)) {
-    return { ok: false, reason: "Un signalement portant ce titre a déjà été ouvert récemment." };
+    return { ok: false, reason: t("Un signalement portant ce titre a déjà été ouvert récemment.") };
   }
   return { ok: true };
 }
@@ -141,7 +142,7 @@ export function parseFeedbackHistory(text: string): ParseResult<FeedbackHistory>
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
   const r = raw as Partial<FeedbackHistory> | null;
-  if (!r || r.schemaVersion !== 1 || !Array.isArray(r.sent)) return { ok: false, error: "format inattendu" };
+  if (!r || r.schemaVersion !== 1 || !Array.isArray(r.sent)) return { ok: false, error: t("format inattendu") };
   const sent = r.sent.filter(
     (s): s is FeedbackHistory["sent"][number] =>
       !!s && typeof s.at === "number" && (s.kind === "bug" || s.kind === "request") && typeof s.key === "string",

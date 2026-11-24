@@ -2,10 +2,10 @@ import { existsSync, mkdirSync } from "node:fs";
 import { release } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeImage, nativeTheme, shell } from "electron";
-import { defaultSettings, parseDockerUri, searchHistorySchema, type ParseRuleSetResult, type RuleSet, type SearchHistoryEntry, type Session, type Settings } from "@cbl-log/shared";
+import { defaultSettings, language, parseDockerUri, resolveLanguage, setLanguage, searchHistorySchema, type ParseRuleSetResult, type RuleSet, type SearchHistoryEntry, type Session, type Settings } from "@cbl-log/shared";
 import { parseFileArgs } from "./cli-args";
 import { ConfigWatcher, type ConfigKind } from "./config-watcher";
-import { loadSession, loadSettings, readSettingsText, saveSession, saveSettings, saveSettingsText, settingsPath } from "./config-store";
+import { loadSession, loadSettings, readLanguageSetting, readSettingsText, saveSession, saveSettings, saveSettingsText, settingsPath } from "./config-store";
 import { writeJsonAtomic } from "./json-file";
 import { loadFormats } from "./formats-store";
 import { EngineHost } from "./engine-process";
@@ -17,6 +17,7 @@ import { showAbout, showSplash } from "./brand-windows";
 import type { UpdateAction } from "./update-check";
 import { checkForUpdates, handleUpdateAction } from "./updater";
 import { applyShellIntegration, type ShellIntegration } from "./shell-integration";
+import { t } from "@cbl-log/shared";
 
 /** Executable registered in the Explorer: the portable .exe itself (not its temporary unpacked copy); none in development. */
 const registeredExe = (): string | undefined => (app.isPackaged ? (process.env["PORTABLE_EXECUTABLE_FILE"] ?? process.execPath) : undefined);
@@ -62,7 +63,7 @@ async function pickFiles(): Promise<string[]> {
     properties: ["openFile", "multiSelections"],
     filters: [
       { name: "Logs", extensions: ["log", "txt", "out"] },
-      { name: "All files", extensions: ["*"] },
+      { name: t("Tous les fichiers"), extensions: ["*"] },
     ],
   };
   const result = mainWindow ? await dialog.showOpenDialog(mainWindow, options) : await dialog.showOpenDialog(options);
@@ -72,12 +73,12 @@ async function pickFiles(): Promise<string[]> {
 /** Lets the user point at one archive of `path`: the renderer learns the archive name pattern from it. */
 async function designateArchive(path: string): Promise<void> {
   const options: Electron.OpenDialogOptions = {
-    title: `Une archive de ${basename(path)}`,
+    title: t("Une archive de {file}", { file: basename(path) }),
     defaultPath: dirname(path),
     properties: ["openFile"],
     filters: [
       { name: "Logs", extensions: ["log", "txt", "out"] },
-      { name: "All files", extensions: ["*"] },
+      { name: t("Tous les fichiers"), extensions: ["*"] },
     ],
   };
   const result = mainWindow ? await dialog.showOpenDialog(mainWindow, options) : await dialog.showOpenDialog(options);
@@ -85,17 +86,17 @@ async function designateArchive(path: string): Promise<void> {
   if (!result.canceled && archive) mainWindow?.webContents.send("archive:designated", path, archive);
 }
 
-const profileFilters: Electron.FileFilter[] = [
-  { name: "Profil de surlignage cbl-log", extensions: ["json"] },
-  { name: "All files", extensions: ["*"] },
+const profileFilters = (): Electron.FileFilter[] => [
+  { name: t("Profil de surlignage cbl-log"), extensions: ["json"] },
+  { name: t("Tous les fichiers"), extensions: ["*"] },
 ];
 
 /** Asks where to save a profile, then writes it; resolves with the path written, or undefined if cancelled. */
 async function exportProfile(set: RuleSet): Promise<string | undefined> {
   const options: Electron.SaveDialogOptions = {
-    title: "Exporter le profil de surlignage",
+    title: t("Exporter le profil de surlignage"),
     defaultPath: join(app.getPath("documents"), `${set.id}.json`),
-    filters: profileFilters,
+    filters: profileFilters(),
   };
   const result = mainWindow ? await dialog.showSaveDialog(mainWindow, options) : await dialog.showSaveDialog(options);
   if (result.canceled || !result.filePath) return undefined;
@@ -105,7 +106,7 @@ async function exportProfile(set: RuleSet): Promise<string | undefined> {
 
 /** Asks for a profile file and reads it; resolves with undefined if cancelled. */
 async function importProfile(): Promise<ParseRuleSetResult | undefined> {
-  const options: Electron.OpenDialogOptions = { title: "Importer un profil de surlignage", properties: ["openFile"], filters: profileFilters };
+  const options: Electron.OpenDialogOptions = { title: t("Importer un profil de surlignage"), properties: ["openFile"], filters: profileFilters() };
   const result = mainWindow ? await dialog.showOpenDialog(mainWindow, options) : await dialog.showOpenDialog(options);
   const path = result.canceled ? undefined : result.filePaths[0];
   return path ? readRuleSetFile(path) : undefined;
@@ -134,7 +135,7 @@ const menuIcon = (name: "file" | "docker"): Electron.NativeImage =>
   nativeImage.createFromPath(resourcePath(`menu/${name}.png`)).resize({ width: 16, height: 16 });
 
 function recentSubmenu(): Electron.MenuItemConstructorOptions[] {
-  if (recentFiles.length === 0) return [{ label: "(aucun)", enabled: false }];
+  if (recentFiles.length === 0) return [{ label: t("(aucun)"), enabled: false }];
   return [
     ...recentFiles.map((path) => ({
       label: path.replace(/&/g, "&&"),
@@ -143,7 +144,7 @@ function recentSubmenu(): Electron.MenuItemConstructorOptions[] {
     })),
     { type: "separator" },
     {
-      label: "&Effacer la liste",
+      label: t("&Effacer la liste"),
       click: () => {
         recentFiles = [];
         persistRecent();
@@ -164,13 +165,13 @@ function zoomBy(delta: number | "reset"): void {
 /** "Affichage" menu (zoom, plein écran). */
 function viewMenu(): Electron.MenuItemConstructorOptions {
   return {
-    label: "&Affichage",
+    label: t("&Affichage"),
     submenu: [
-      { label: "Zoom a&vant", accelerator: "CmdOrCtrl+Plus", click: () => zoomBy(1) },
-      { label: "Zoom a&rrière", accelerator: "CmdOrCtrl+-", click: () => zoomBy(-1) },
-      { label: "&Taille réelle (100 %)", accelerator: "CmdOrCtrl+0", click: () => zoomBy("reset") },
+      { label: t("Zoom a&vant"), accelerator: "CmdOrCtrl+Plus", click: () => zoomBy(1) },
+      { label: t("Zoom a&rrière"), accelerator: "CmdOrCtrl+-", click: () => zoomBy(-1) },
+      { label: t("&Taille réelle (100 %)"), accelerator: "CmdOrCtrl+0", click: () => zoomBy("reset") },
       { type: "separator" },
-      { role: "togglefullscreen", label: "&Plein écran" },
+      { role: "togglefullscreen", label: t("&Plein écran") },
     ],
   };
 }
@@ -183,8 +184,8 @@ function viewMenu(): Electron.MenuItemConstructorOptions {
 function devHelpItems(): Electron.MenuItemConstructorOptions[] {
   if (app.isPackaged) return [];
   return [
-    { role: "reload", label: "Recharger l'interface (dev)" },
-    { role: "forceReload", label: "Recharger sans cache (dev)" },
+    { role: "reload", label: t("Recharger l'interface (dev)") },
+    { role: "forceReload", label: t("Recharger sans cache (dev)") },
   ];
 }
 
@@ -192,29 +193,29 @@ function buildMenu(): void {
   Menu.setApplicationMenu(
     Menu.buildFromTemplate([
       {
-        label: "&Fichier",
+        label: t("&Fichier"),
         submenu: [
-          { label: "&Ouvrir…", accelerator: "CmdOrCtrl+O", click: () => void pickFiles().then(sendFiles) },
-          { label: "Fichiers &récents", submenu: recentSubmenu() },
+          { label: t("&Ouvrir…"), accelerator: "CmdOrCtrl+O", click: () => void pickFiles().then(sendFiles) },
+          { label: t("Fichiers &récents"), submenu: recentSubmenu() },
           { type: "separator" },
-          { label: "&Configuration…", accelerator: "CmdOrCtrl+,", click: () => mainWindow?.webContents.send("settings:open") },
+          { label: t("&Configuration…"), accelerator: "CmdOrCtrl+,", click: () => mainWindow?.webContents.send("settings:open") },
           { type: "separator" },
-          { role: "quit", label: "&Quitter" },
+          { role: "quit", label: t("&Quitter") },
         ],
       },
       viewMenu(),
       {
-        label: "&Aide",
+        label: t("&Aide"),
         submenu: [
-          { label: "Rechercher une &mise à jour…", click: () => void checkForUpdates(mainWindow, true) },
-          { label: "&Signaler un bug / proposer une idée…", click: () => mainWindow?.webContents.send("feedback:open") },
+          { label: t("Rechercher une &mise à jour…"), click: () => void checkForUpdates(mainWindow, true) },
+          { label: t("&Signaler un bug / proposer une idée…"), click: () => mainWindow?.webContents.send("feedback:open") },
           { type: "separator" },
-          { label: "&Raccourcis clavier", accelerator: "F1", click: () => mainWindow?.webContents.send("shortcuts:open") },
-          { label: "&Notes de version…", click: () => mainWindow?.webContents.send("notes:open") },
+          { label: t("&Raccourcis clavier"), accelerator: "F1", click: () => mainWindow?.webContents.send("shortcuts:open") },
+          { label: t("&Notes de version…"), click: () => mainWindow?.webContents.send("notes:open") },
           { type: "separator" },
-          { label: "À &propos de cbl-log", click: () => showAbout(mainWindow, app.getVersion(), iconPath(), avatarPath()) },
+          { label: t("À &propos de cbl-log"), click: () => showAbout(mainWindow, app.getVersion(), iconPath(), avatarPath()) },
           { type: "separator" },
-          { role: "toggleDevTools", label: "Outils de développement" },
+          { role: "toggleDevTools", label: t("Outils de développement") },
           ...devHelpItems(),
         ],
       },
@@ -312,6 +313,10 @@ if (!app.requestSingleInstanceLock()) {
     recentFiles = withRecentFile(recentFiles, path);
     persistRecent();
   });
+  // the preload asks for the language synchronously, before the page's scripts run
+  ipcMain.on("language:get", (event) => {
+    event.returnValue = language();
+  });
   ipcMain.on("window:focus", () => {
     if (!mainWindow) return;
     if (mainWindow.isMinimized()) mainWindow.restore();
@@ -328,12 +333,12 @@ if (!app.requestSingleInstanceLock()) {
   ipcMain.handle("file:context-menu", (_event, path: string) => {
     if (typeof path !== "string" || path === "") return;
     Menu.buildFromTemplate([
-      { label: "Ouvrir le dossier du fichier", click: () => void shell.openPath(dirname(path)) },
-      { label: "Afficher dans l'explorateur", click: () => shell.showItemInFolder(path) },
+      { label: t("Ouvrir le dossier du fichier"), click: () => void shell.openPath(dirname(path)) },
+      { label: t("Afficher dans l'explorateur"), click: () => shell.showItemInFolder(path) },
       { type: "separator" },
-      { label: "Copier le chemin", click: () => clipboard.writeText(path) },
+      { label: t("Copier le chemin"), click: () => clipboard.writeText(path) },
       { type: "separator" },
-      { label: "Désigner une archive du rolling…", click: () => void designateArchive(path) },
+      { label: t("Désigner une archive du rolling…"), click: () => void designateArchive(path) },
     ]).popup(mainWindow ? { window: mainWindow } : {});
   });
   ipcMain.handle("rules:load",() => loadRuleSets(rulesDir()));
@@ -354,7 +359,7 @@ if (!app.requestSingleInstanceLock()) {
   });
   ipcMain.handle("settings:read-text", () => readSettingsText(app.getPath("userData")));
   ipcMain.handle("settings:save-text", async (_event, text: string) => {
-    if (typeof text !== "string") return { ok: false, errors: ["Texte manquant"] };
+    if (typeof text !== "string") return { ok: false, errors: [t("Texte manquant")] };
     const result = await saveSettingsText(app.getPath("userData"), text);
     if (result.ok) {
       nativeTheme.themeSource = result.value.theme;
@@ -385,6 +390,8 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   void app.whenReady().then(async () => {
+    // The language comes first (splash, menus, engine): settings.json is read synchronously for it alone.
+    setLanguage(resolveLanguage(readLanguageSetting(app.getPath("userData")), app.getLocale()));
     splashWindow = showSplash(app.getVersion(), iconPath(), avatarPath()); // first thing, before loading the config
     // Theme switch in the app (themeSource) or system change: swap the window / taskbar icon.
     nativeTheme.on("updated", () => mainWindow?.setIcon(iconPath()));

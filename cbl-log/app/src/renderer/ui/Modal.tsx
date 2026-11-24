@@ -1,6 +1,7 @@
 import "./Modal.css";
 import { useEffect, type ReactNode } from "react";
 import { Button } from "./Button";
+import { t } from "@cbl-log/shared";
 
 interface Props {
   title: string;
@@ -30,7 +31,7 @@ export function Modal({ title, onClose, className, locked, children }: Props) {
         <header>
           <h2>{title}</h2>
           {!locked && (
-            <Button variant="ghost" onClick={onClose} aria-label="Fermer">
+            <Button variant="ghost" onClick={onClose} aria-label={t("Fermer")}>
               ×
             </Button>
           )}

@@ -2,6 +2,7 @@
 // overlapping fragments. Colors are `#rrggbb`; backgrounds are drawn translucent by the renderer so
 // that the same rules read well in light and dark themes.
 import { z } from "zod";
+import { t } from "./i18n/index.js";
 
 const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 
@@ -66,7 +67,7 @@ export function createDefaultRuleSet(): RuleSet {
   return {
     schemaVersion: 1,
     id: "default",
-    name: "Défaut",
+    name: t("Défaut"),
     formats: [],
     rules: [
       rule("error", "ERROR", "\\b(ERROR|SEVERE|FATAL)\\b", { bg: "#d93025" }),

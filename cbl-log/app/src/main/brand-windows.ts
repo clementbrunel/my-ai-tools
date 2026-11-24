@@ -5,6 +5,7 @@
 import { readFileSync } from "node:fs";
 import { BrowserWindow, nativeTheme, shell } from "electron";
 import { aboutHtml, AUTHOR_URL, REPO_URL, splashHtml, themeColors } from "./brand-pages";
+import { t } from "@cbl-log/shared";
 
 let avatarCache: string | undefined;
 
@@ -66,7 +67,7 @@ export function showAbout(parent: BrowserWindow | undefined, version: string, ic
     minimizable: false,
     maximizable: false,
     fullscreenable: false,
-    title: "À propos de cbl-log",
+    title: t("À propos de cbl-log"),
     show: false,
     icon,
     backgroundColor: themeColors(dark).bg,

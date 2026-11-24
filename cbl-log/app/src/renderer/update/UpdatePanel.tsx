@@ -3,6 +3,7 @@ import { Button } from "../ui/Button";
 import { Modal } from "../ui/Modal";
 import type { UpdatePanelState } from "../../main/update-check";
 import { Notes } from "./Notes";
+import { locale, t } from "@cbl-log/shared";
 
 interface Props {
   state: UpdatePanelState;
@@ -10,7 +11,7 @@ interface Props {
   onClose(): void;
 }
 
-const mb = (bytes: number): string => `${(bytes / 1024 / 1024).toFixed(1)} Mo`;
+const mb = (bytes: number): string => t("{n} Mo", { n: (bytes / 1024 / 1024).toLocaleString(locale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 }) });
 
 /** In-app modal for the update flow (replaces the native message boxes): offer, download progress, "up to date", errors. */
 export function UpdatePanel({ state, onClose }: Props) {
@@ -20,12 +21,12 @@ export function UpdatePanel({ state, onClose }: Props) {
   };
   const locked = state.kind === "downloading";
 
-  let title = "Mise à jour";
+  let title = t("Mise à jour");
   let body: JSX.Element;
   let footer: JSX.Element;
   switch (state.kind) {
     case "available":
-      title = "Mise à jour disponible";
+      title = t("Mise à jour disponible");
       body = (
         <>
           <p className="update-versions">
@@ -33,16 +34,16 @@ export function UpdatePanel({ state, onClose }: Props) {
           </p>
           {state.notes && (
             <>
-              <h3>Nouveautés de la {state.version}</h3>
+              <h3>{t("Nouveautés de la {version}", { version: state.version })}</h3>
               <Notes body={state.notes} />
             </>
           )}
           <p className="hint">
             {!state.canInstall
-              ? "Installation automatique indisponible en mode développement."
+              ? t("Installation automatique indisponible en mode développement.")
               : state.portable
-                ? "La nouvelle version portable sera téléchargée à côté de l'actuelle puis lancée."
-                : "La mise à jour est téléchargée puis installée ; cbl-log redémarre et rouvre vos onglets."}
+                ? t("La nouvelle version portable sera téléchargée à côté de l'actuelle puis lancée.")
+                : t("La mise à jour est téléchargée puis installée ; cbl-log redémarre et rouvre vos onglets.")}
           </p>
         </>
       );
@@ -50,27 +51,27 @@ export function UpdatePanel({ state, onClose }: Props) {
         <>
           {state.canInstall && (
             <Button variant="primary" autoFocus onClick={() => window.cblLog.updateAction("install")}>
-              Mettre à jour
+              {t("Mettre à jour")}
             </Button>
           )}
           <Button onClick={() => window.cblLog.updateAction("notes")}>
-            Page de la release
+            {t("Page de la release")}
           </Button>
           <Button onClick={dismiss}>
-            Plus tard
+            {t("Plus tard")}
           </Button>
         </>
       );
       break;
     case "downloading": {
-      title = `Téléchargement de cbl-log ${state.version}`;
+      title = t("Téléchargement de cbl-log {version}", { version: state.version });
       const ratio = state.total > 0 ? Math.min(1, state.received / state.total) : undefined;
       body = (
         <>
           <progress className="update-progress" max={1} value={ratio} />
           <p className="hint">
-            {ratio === undefined ? mb(state.received) : `${mb(state.received)} / ${mb(state.total)} (${Math.round(ratio * 100)} %)`} — cbl-log va
-            redémarrer et rouvrir vos onglets.
+            {ratio === undefined ? mb(state.received) : `${mb(state.received)} / ${mb(state.total)} (${Math.round(ratio * 100)} %)`}
+            {t(" — cbl-log va redémarrer et rouvrir vos onglets.")}
           </p>
         </>
       );
@@ -78,7 +79,7 @@ export function UpdatePanel({ state, onClose }: Props) {
       break;
     }
     case "uptodate":
-      body = <p className="update-message">cbl-log {state.current} est à jour.</p>;
+      body = <p className="update-message">{t("cbl-log {version} est à jour.", { version: state.current })}</p>;
       footer = (
         <Button variant="primary" autoFocus onClick={dismiss}>
           OK
@@ -94,7 +95,7 @@ export function UpdatePanel({ state, onClose }: Props) {
       );
       footer = (
         <Button autoFocus onClick={dismiss}>
-          Fermer
+          {t("Fermer")}
         </Button>
       );
       break;

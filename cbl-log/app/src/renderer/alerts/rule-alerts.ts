@@ -2,7 +2,7 @@
 // The renderer reads the lines appended to a followed file, tests them against those rules, and
 // shows one Windows notification per (tab, rule), grouped and throttled so that a burst of errors
 // does not flood the screen.
-import { MAX_ROWS_PER_REQUEST, type Row } from "@cbl-log/shared";
+import { t, fmtNumber, MAX_ROWS_PER_REQUEST, type Row } from "@cbl-log/shared";
 import { MAX_MATCHED_CHARS, type CompiledRule } from "../highlight/highlight";
 
 /** Lines read at most per check (one engine request): a file that grows by more only has its last lines tested. */
@@ -88,6 +88,6 @@ export class AlertThrottle {
 /** Text of the notification: title, then body. */
 export function alertText(tabName: string, hit: RuleHit): { title: string; body: string } {
   const line = hit.text.length > 160 ? `${hit.text.slice(0, 160)}…` : hit.text;
-  const count = hit.count > 1 ? ` (${hit.count.toLocaleString("fr-FR")} lignes)` : "";
-  return { title: `${hit.ruleName}${count} — ${tabName}`, body: `Ligne ${(hit.line + 1).toLocaleString("fr-FR")} : ${line.trim()}` };
+  const count = hit.count > 1 ? t(" ({n} lignes)", { n: fmtNumber(hit.count) }) : "";
+  return { title: `${hit.ruleName}${count} — ${tabName}`, body: t("Ligne {n} : {text}", { n: fmtNumber(hit.line + 1), text: line.trim() }) };
 }

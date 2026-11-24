@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import type { SettingDoc } from "@cbl-log/shared";
 import { Button } from "../ui/Button";
+import { t, fmtNumber } from "@cbl-log/shared";
 
 export function SettingControl({ id, doc, value, onChange }: { id: string; doc: SettingDoc; value: unknown; onChange(value: unknown): void }) {
   const control = doc.control;
@@ -10,7 +11,7 @@ export function SettingControl({ id, doc, value, onChange }: { id: string; doc: 
       return (
         <label className="toggle">
           <input id={id} type="checkbox" checked={value === true} onChange={(e) => onChange(e.target.checked)} />
-          <span>{value === true ? "Activé" : "Désactivé"}</span>
+          <span>{value === true ? t("Activé") : t("Désactivé")}</span>
         </label>
       );
     case "enum":
@@ -53,7 +54,7 @@ export function SettingControl({ id, doc, value, onChange }: { id: string; doc: 
     }
     case "map": {
       const entries = Object.entries((value ?? {}) as Record<string, string>);
-      if (entries.length === 0) return <p className="hint map-empty">Aucun motif appris.</p>;
+      if (entries.length === 0) return <p className="hint map-empty">{t("Aucun motif appris.")}</p>;
       return (
         <ul className="map-list" id={id}>
           {entries.map(([k, v]) => (
@@ -66,8 +67,8 @@ export function SettingControl({ id, doc, value, onChange }: { id: string; doc: 
               </code>
               <Button
                 variant="ghost"
-                aria-label={`Supprimer le motif de ${k}`}
-                title="Supprimer (retour à la détection automatique)"
+                aria-label={t("Supprimer le motif de {key}", { key: k })}
+                title={t("Supprimer (retour à la détection automatique)")}
                 onClick={() => {
                   const next = { ...(value as Record<string, string>) };
                   delete next[k];
@@ -111,7 +112,7 @@ function NumberField(props: { id: string; value: number | undefined; min: number
       {unit && <span className="unit">{unit}</span>}
       {!valid && (
         <span className="field-error">
-          Entier entre {min.toLocaleString("fr-FR")} et {max.toLocaleString("fr-FR")}
+          {t("Entier entre {min} et {max}", { min: fmtNumber(min), max: fmtNumber(max) })}
         </span>
       )}
     </span>

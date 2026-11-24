@@ -2,6 +2,7 @@
 // control, when it applies), plus the helpers shared by its two modes (form and raw JSON).
 // The schema (config.ts) stays the reference for validation; this file only describes it to the user.
 import { applyMigrations, defaultSettings, MAX_FONT_SIZE, MAX_SEARCH_HISTORY, MIN_FONT_SIZE, settingsSchema, type Settings } from "./config.js";
+import { t } from "./i18n/index.js";
 
 /** When a change is taken into account. */
 export type SettingApply = "live" | "next-open" | "restart";
@@ -39,56 +40,70 @@ export interface SettingSection {
 export const SETTING_SECTIONS: readonly SettingSection[] = [
   {
     id: "general",
-    title: "Général",
+    title: t("Général"),
     settings: [
       {
         path: ["theme"],
-        label: "Thème",
-        description: "Couleurs de l'interface. « Système » suit le réglage de Windows ; le bouton soleil / lune de la barre d'état choisit clair ou sombre.",
+        label: t("Thème"),
+        description: t("Couleurs de l'interface. « Système » suit le réglage de Windows ; le bouton soleil / lune de la barre d'état choisit clair ou sombre."),
         control: {
           kind: "enum",
           options: [
-            { value: "system", label: "Système" },
-            { value: "light", label: "Clair" },
-            { value: "dark", label: "Sombre" },
+            { value: "system", label: t("Système") },
+            { value: "light", label: t("Clair") },
+            { value: "dark", label: t("Sombre") },
           ],
         },
         apply: "live",
       },
       {
+        path: ["language"],
+        label: t("Langue"),
+        description: t("Langue de l'interface. « Système » suit Windows : français pour un Windows en français, anglais sinon."),
+        control: {
+          kind: "enum",
+          options: [
+            { value: "system", label: t("Système") },
+            { value: "fr", label: "Français" },
+            { value: "en", label: "English" },
+          ],
+        },
+        apply: "restart",
+      },
+      {
         path: ["checkForUpdates"],
-        label: "Rechercher les mises à jour",
+        label: t("Rechercher les mises à jour"),
         description:
-          "Vérifie au démarrage puis toutes les heures si une nouvelle version est publiée sur GitHub. C'est le seul accès réseau de l'application (une requête GET vers api.github.com, rien n'est envoyé). « Aide › Rechercher une mise à jour… » reste disponible si c'est désactivé.",
+          t("Vérifie au démarrage puis toutes les heures si une nouvelle version est publiée sur GitHub. C'est le seul accès réseau de l'application (une requête GET vers api.github.com, rien n'est envoyé). « Aide › Rechercher une mise à jour… » reste disponible si c'est désactivé."),
         control: { kind: "boolean" },
         apply: "live",
       },
       {
         path: ["updateChannel"],
-        label: "Canal de mise à jour",
+        label: t("Canal de mise à jour"),
         description:
-          "« Bêta » propose aussi les versions de test (3.3.0-beta.1…) publiées avant une version stable, pour les essayer en avance. Revenir à « Stable » propose la prochaine version stable, jamais une version plus ancienne. « Aide › Rechercher une mise à jour… » vérifie tout de suite.",
+          t("« Bêta » propose aussi les versions de test (3.3.0-beta.1…) publiées avant une version stable, pour les essayer en avance. Revenir à « Stable » propose la prochaine version stable, jamais une version plus ancienne. « Aide › Rechercher une mise à jour… » vérifie tout de suite."),
         control: {
           kind: "enum",
           options: [
-            { value: "stable", label: "Stable" },
-            { value: "beta", label: "Bêta (versions de test)" },
+            { value: "stable", label: t("Stable") },
+            { value: "beta", label: t("Bêta (versions de test)") },
           ],
         },
         apply: "live",
       },
       {
         path: ["restoreSession"],
-        label: "Rouvrir les onglets au démarrage",
+        label: t("Rouvrir les onglets au démarrage"),
         description:
-          "Au lancement, rouvre les fichiers de la dernière session avec leur position, leur filtre et leur nom. Désactivé, cbl-log démarre sur l'écran d'accueil.",
+          t("Au lancement, rouvre les fichiers de la dernière session avec leur position, leur filtre et leur nom. Désactivé, cbl-log démarre sur l'écran d'accueil."),
         control: { kind: "boolean" },
         apply: "restart",
       },
       {
         path: ["confirmCloseTabs"],
-        label: "Confirmer la fermeture de plusieurs onglets",
-        description: "Demande confirmation avant « Fermer les autres onglets », « Fermer les onglets à droite » ou « Fermer tous les onglets » (clic droit sur un onglet).",
+        label: t("Confirmer la fermeture de plusieurs onglets"),
+        description: t("Demande confirmation avant « Fermer les autres onglets », « Fermer les onglets à droite » ou « Fermer tous les onglets » (clic droit sur un onglet)."),
         control: { kind: "boolean" },
         apply: "live",
       },
@@ -96,13 +111,13 @@ export const SETTING_SECTIONS: readonly SettingSection[] = [
   },
   {
     id: "viewer",
-    title: "Affichage des logs",
+    title: t("Affichage des logs"),
     settings: [
       {
         path: ["viewer", "fontFamily"],
-        label: "Police",
+        label: t("Police"),
         description:
-          "Police des lignes de log. Choisissez-en une à espacement fixe pour garder les colonnes alignées. Une police absente de ce poste est remplacée par Consolas. Vide : Consolas.",
+          t("Police des lignes de log. Choisissez-en une à espacement fixe pour garder les colonnes alignées. Une police absente de ce poste est remplacée par Consolas. Vide : Consolas."),
         control: {
           kind: "text",
           placeholder: "Consolas",
@@ -113,17 +128,17 @@ export const SETTING_SECTIONS: readonly SettingSection[] = [
       },
       {
         path: ["viewer", "fontSize"],
-        label: "Taille du texte",
+        label: t("Taille du texte"),
         description:
-          "Taille des caractères des lignes de log ; la hauteur des lignes suit. Le zoom (Ctrl+molette) agrandit en plus toute la fenêtre.",
+          t("Taille des caractères des lignes de log ; la hauteur des lignes suit. Le zoom (Ctrl+molette) agrandit en plus toute la fenêtre."),
         control: { kind: "number", min: MIN_FONT_SIZE, max: MAX_FONT_SIZE, step: 1, unit: "px" },
         apply: "live",
       },
       {
         path: ["viewer", "showLineNumbers"],
-        label: "Numéros de ligne",
+        label: t("Numéros de ligne"),
         description:
-          "Affiche le numéro de chaque ligne dans la marge de gauche. Masqués, la marge ne garde que le niveau (et la source dans l'onglet « Tout ») ; « Copier avec numéros » et Ctrl+G restent disponibles.",
+          t("Affiche le numéro de chaque ligne dans la marge de gauche. Masqués, la marge ne garde que le niveau (et la source dans l'onglet « Tout ») ; « Copier avec numéros » et Ctrl+G restent disponibles."),
         control: { kind: "boolean" },
         apply: "live",
       },
@@ -131,28 +146,28 @@ export const SETTING_SECTIONS: readonly SettingSection[] = [
   },
   {
     id: "tabs",
-    title: "Nouveaux onglets",
+    title: t("Nouveaux onglets"),
     settings: [
       {
         path: ["tabs", "followOnOpen"],
-        label: "Suivre à l'ouverture",
+        label: t("Suivre à l'ouverture"),
         description:
-          "Un fichier ouvert affiche sa fin et suit les nouvelles lignes. Désactivé, il s'ouvre au début du fichier, sans suivi (le bouton Suivre le réactive). Les onglets restaurés au démarrage gardent leur état.",
+          t("Un fichier ouvert affiche sa fin et suit les nouvelles lignes. Désactivé, il s'ouvre au début du fichier, sans suivi (le bouton Suivre le réactive). Les onglets restaurés au démarrage gardent leur état."),
         control: { kind: "boolean" },
         apply: "next-open",
       },
       {
         path: ["tabs", "foldTraces"],
-        label: "Replier les stack traces",
-        description: "Les lignes de suite (stack traces, SQL sur plusieurs lignes…) sont repliées sous leur enregistrement dès l'ouverture, quand le format est reconnu.",
+        label: t("Replier les stack traces"),
+        description: t("Les lignes de suite (stack traces, SQL sur plusieurs lignes…) sont repliées sous leur enregistrement dès l'ouverture, quand le format est reconnu."),
         control: { kind: "boolean" },
         apply: "next-open",
       },
       {
         path: ["tabs", "levels"],
-        label: "Niveaux affichés",
+        label: t("Niveaux affichés"),
         description:
-          "Niveaux visibles à l'ouverture d'un fichier dont le format est reconnu ; les autres sont filtrés (les pastilles de niveau les réaffichent). Par exemple, décocher DEBUG et TRACE.",
+          t("Niveaux visibles à l'ouverture d'un fichier dont le format est reconnu ; les autres sont filtrés (les pastilles de niveau les réaffichent). Par exemple, décocher DEBUG et TRACE."),
         control: {
           kind: "flags",
           options: [
@@ -170,27 +185,27 @@ export const SETTING_SECTIONS: readonly SettingSection[] = [
   },
   {
     id: "search",
-    title: "Recherche",
+    title: t("Recherche"),
     settings: [
       {
         path: ["searchHistorySize"],
-        label: "Historique des recherches",
+        label: t("Historique des recherches"),
         description:
-          "Nombre de recherches mémorisées (avec leurs options .* Aa ab). Flèche bas dans le champ de recherche, ou le bouton horloge, les propose. 0 = pas d'historique (celui existant est effacé à la prochaine recherche).",
-        control: { kind: "number", min: 0, max: MAX_SEARCH_HISTORY, step: 5, unit: "recherches" },
+          t("Nombre de recherches mémorisées (avec leurs options .* Aa ab). Flèche bas dans le champ de recherche, ou le bouton horloge, les propose. 0 = pas d'historique (celui existant est effacé à la prochaine recherche)."),
+        control: { kind: "number", min: 0, max: MAX_SEARCH_HISTORY, step: 5, unit: t("recherches") },
         apply: "live",
       },
     ],
   },
   {
     id: "alerts",
-    title: "Alertes",
+    title: t("Alertes"),
     settings: [
       {
         path: ["ruleNotifications"],
-        label: "Notifications des règles",
+        label: t("Notifications des règles"),
         description:
-          "Une nouvelle ligne d'un fichier suivi qui correspond à une règle de surlignage cochée 🔔 (éditeur de règles) affiche une notification Windows, sauf si vous regardez déjà cet onglet. Un clic sur la notification montre la ligne. Les lignes suivantes de la même règle sont regroupées pendant 30 s.",
+          t("Une nouvelle ligne d'un fichier suivi qui correspond à une règle de surlignage cochée 🔔 (éditeur de règles) affiche une notification Windows, sauf si vous regardez déjà cet onglet. Un clic sur la notification montre la ligne. Les lignes suivantes de la même règle sont regroupées pendant 30 s."),
         control: { kind: "boolean" },
         apply: "live",
       },
@@ -198,21 +213,21 @@ export const SETTING_SECTIONS: readonly SettingSection[] = [
   },
   {
     id: "windows",
-    title: "Intégration à Windows",
+    title: t("Intégration à Windows"),
     settings: [
       {
         path: ["explorerContextMenu"],
-        label: "« Ouvrir avec cbl-log » dans l'Explorateur",
+        label: t("« Ouvrir avec cbl-log » dans l'Explorateur"),
         description:
-          "Ajoute « Ouvrir avec cbl-log » au clic droit sur n'importe quel fichier de l'Explorateur (sous Windows 11 : « Afficher d'autres options »). Le fichier s'ouvre dans un nouvel onglet de la fenêtre déjà ouverte. Écrit dans le registre de l'utilisateur, retiré à la désinstallation. Sans effet en développement.",
+          t("Ajoute « Ouvrir avec cbl-log » au clic droit sur n'importe quel fichier de l'Explorateur (sous Windows 11 : « Afficher d'autres options »). Le fichier s'ouvre dans un nouvel onglet de la fenêtre déjà ouverte. Écrit dans le registre de l'utilisateur, retiré à la désinstallation. Sans effet en développement."),
         control: { kind: "boolean" },
         apply: "live",
       },
       {
         path: ["fileAssociations"],
-        label: "Associer les fichiers .log et .out",
+        label: t("Associer les fichiers .log et .out"),
         description:
-          "Propose cbl-log dans « Ouvrir avec » pour les fichiers .log et .out. Windows ne laisse pas une application se déclarer par défaut : pour un double-clic direct, clic droit sur un .log › Ouvrir avec › Choisir une autre application › cbl-log, « Toujours ». Retiré à la désinstallation.",
+          t("Propose cbl-log dans « Ouvrir avec » pour les fichiers .log et .out. Windows ne laisse pas une application se déclarer par défaut : pour un double-clic direct, clic droit sur un .log › Ouvrir avec › Choisir une autre application › cbl-log, « Toujours ». Retiré à la désinstallation."),
         control: { kind: "boolean" },
         apply: "live",
       },
@@ -220,21 +235,21 @@ export const SETTING_SECTIONS: readonly SettingSection[] = [
   },
   {
     id: "history",
-    title: "Historique des fichiers (rolling)",
+    title: t("Historique des fichiers (rolling)"),
     settings: [
       {
         path: ["historyHours"],
-        label: "Durée d'historique",
+        label: t("Durée d'historique"),
         description:
-          "À l'ouverture d'un fichier, ses archives de rotation (app.log.1, app-2026-11-03.log…) modifiées depuis moins de ce nombre d'heures sont chargées avant lui. 0 = le fichier seul.",
+          t("À l'ouverture d'un fichier, ses archives de rotation (app.log.1, app-2026-11-03.log…) modifiées depuis moins de ce nombre d'heures sont chargées avant lui. 0 = le fichier seul."),
         control: { kind: "number", min: 0, max: 720, step: 1, unit: "h" },
         apply: "next-open",
       },
       {
         path: ["archivePatterns"],
-        label: "Motifs d'archives appris",
+        label: t("Motifs d'archives appris"),
         description:
-          "Noms d'archives appris par fichier avec le clic droit sur le chemin › « Désigner une archive du rolling… ». Supprimer une entrée revient à la détection automatique.",
+          t("Noms d'archives appris par fichier avec le clic droit sur le chemin › « Désigner une archive du rolling… ». Supprimer une entrée revient à la détection automatique."),
         control: { kind: "map" },
         apply: "next-open",
       },
@@ -246,37 +261,37 @@ export const SETTING_SECTIONS: readonly SettingSection[] = [
     settings: [
       {
         path: ["docker", "enabled"],
-        label: "Conteneurs Docker",
-        description: "Affiche le bouton et le panneau Docker (Ctrl+Maj+D) et dialogue avec le démon Docker Desktop.",
+        label: t("Conteneurs Docker"),
+        description: t("Affiche le bouton et le panneau Docker (Ctrl+Maj+D) et dialogue avec le démon Docker Desktop."),
         control: { kind: "boolean" },
         apply: "live",
       },
       {
         path: ["docker", "host"],
-        label: "Adresse du démon",
+        label: t("Adresse du démon"),
         description:
-          "Adresse du démon Docker (npipe://…, tcp://…). Vide : variable DOCKER_HOST, puis le contexte Docker courant, puis le pipe de Docker Desktop.",
+          t("Adresse du démon Docker (npipe://…, tcp://…). Vide : variable DOCKER_HOST, puis le contexte Docker courant, puis le pipe de Docker Desktop."),
         control: { kind: "text", placeholder: "tcp://127.0.0.1:2375" },
         apply: "restart",
       },
       {
         path: ["docker", "initialTail"],
-        label: "Lignes chargées à l'ouverture",
-        description: "Nombre de dernières lignes lues quand un conteneur est ouvert. « Charger plus d'historique » remonte ensuite ×10.",
-        control: { kind: "number", min: 1, max: 1_000_000, step: 1000, unit: "lignes" },
+        label: t("Lignes chargées à l'ouverture"),
+        description: t("Nombre de dernières lignes lues quand un conteneur est ouvert. « Charger plus d'historique » remonte ensuite ×10."),
+        control: { kind: "number", min: 1, max: 1_000_000, step: 1000, unit: t("lignes") },
         apply: "next-open",
       },
       {
         path: ["docker", "spoolMaxMb"],
-        label: "Taille max de la copie locale",
-        description: "Les logs d'un conteneur sont copiés dans un fichier local ; au-delà de cette taille il est renouvelé.",
-        control: { kind: "number", min: 1, max: 100_000, step: 64, unit: "Mo" },
+        label: t("Taille max de la copie locale"),
+        description: t("Les logs d'un conteneur sont copiés dans un fichier local ; au-delà de cette taille il est renouvelé."),
+        control: { kind: "number", min: 1, max: 100_000, step: 64, unit: t("Mo") },
         apply: "restart",
       },
       {
         path: ["docker", "keepSpoolOnClose"],
-        label: "Conserver la copie locale à la fermeture",
-        description: "Garde la copie locale des logs quand l'onglet est fermé (historique d'un conteneur supprimé). Sinon elle est effacée.",
+        label: t("Conserver la copie locale à la fermeture"),
+        description: t("Garde la copie locale des logs quand l'onglet est fermé (historique d'un conteneur supprimé). Sinon elle est effacée."),
         control: { kind: "boolean" },
         apply: "restart",
       },
@@ -285,9 +300,9 @@ export const SETTING_SECTIONS: readonly SettingSection[] = [
 ];
 
 export const APPLY_LABELS: Readonly<Record<SettingApply, string>> = {
-  live: "Immédiat",
-  "next-open": "À la prochaine ouverture",
-  restart: "Au prochain lancement",
+  live: t("Immédiat"),
+  "next-open": t("À la prochaine ouverture"),
+  restart: t("Au prochain lancement"),
 };
 
 export const settingKey = (path: readonly string[]): string => path.join(".");
@@ -371,20 +386,20 @@ interface IssueLike {
 
 /** French wording of a schema issue (the zod message is kept as a fallback). */
 function describeIssue(issue: IssueLike): string {
-  const where = issue.path.length > 0 ? issue.path.map(String).join(".") : "(racine)";
+  const where = issue.path.length > 0 ? issue.path.map(String).join(".") : t("(racine)");
   let what: string;
   switch (issue.code) {
     case "invalid_type":
-      what = `type attendu : ${String(issue.expected)}`;
+      what = t("type attendu : {value}", { value: String(issue.expected) });
       break;
     case "too_big":
-      what = `valeur maximale : ${String(issue.maximum)}`;
+      what = t("valeur maximale : {value}", { value: String(issue.maximum) });
       break;
     case "too_small":
-      what = `valeur minimale : ${String(issue.minimum)}`;
+      what = t("valeur minimale : {value}", { value: String(issue.minimum) });
       break;
     case "invalid_value":
-      what = issue.values ? `valeurs possibles : ${issue.values.map((v) => JSON.stringify(v)).join(", ")}` : issue.message;
+      what = issue.values ? t("valeurs possibles : {values}", { values: issue.values.map((v) => JSON.stringify(v)).join(", ") }) : issue.message;
       break;
     default:
       what = issue.message;
@@ -417,7 +432,7 @@ export function checkSettingsText(text: string): SettingsTextCheck {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     const line = jsonErrorLine(text, message);
-    return { ok: false, errors: [`JSON invalide : ${message}`], ...(line !== undefined ? { line } : {}) };
+    return { ok: false, errors: [t("JSON invalide : {message}", { message })], ...(line !== undefined ? { line } : {}) };
   }
   let migrated: unknown;
   try {
@@ -431,6 +446,6 @@ export function checkSettingsText(text: string): SettingsTextCheck {
     const line = issues.length > 0 ? lineOfPath(text, issues[0]!.path) : undefined;
     return { ok: false, errors: issues.map(describeIssue), ...(line !== undefined ? { line } : {}) };
   }
-  const warnings = unknownKeys(migrated).map((k) => `Clé inconnue « ${k} » : elle sera ignorée.`);
+  const warnings = unknownKeys(migrated).map((k) => t("Clé inconnue « {key} » : elle sera ignorée.", { key: k }));
   return { ok: true, value: result.data, warnings };
 }

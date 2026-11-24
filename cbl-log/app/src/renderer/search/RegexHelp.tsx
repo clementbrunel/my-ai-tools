@@ -1,5 +1,6 @@
 import "./RegexHelp.css";
 import { PRESETS, SNIPPETS, explain } from "./regex-help";
+import { t } from "@cbl-log/shared";
 
 interface Props {
   pattern: string;
@@ -20,9 +21,10 @@ export function RegexHelp({ pattern, isRegex, onInsert, onPreset, onEnableRegex 
     <div className="regex-help" onMouseDown={keepFocus}>
       {!isRegex && (
         <p className="regex-help-note">
-          Le texte saisi est cherché <strong>tel quel</strong>. Pour des motifs plus souples (chiffres, alternatives, début de ligne…),{" "}
+          {t("Le texte saisi est cherché")} <strong>{t("tel quel")}</strong>
+          {t(". Pour des motifs plus souples (chiffres, alternatives, début de ligne…),")}{" "}
           <button type="button" className="link" onClick={onEnableRegex}>
-            activer les expressions régulières
+            {t("activer les expressions régulières")}
           </button>
           .
         </p>
@@ -30,7 +32,7 @@ export function RegexHelp({ pattern, isRegex, onInsert, onPreset, onEnableRegex 
 
       {reading.length > 0 && (
         <section>
-          <h3>Votre motif, en clair</h3>
+          <h3>{t("Votre motif, en clair")}</h3>
           <ul className="regex-reading">
             {reading.map((item, i) => (
               <li key={i}>
@@ -42,7 +44,7 @@ export function RegexHelp({ pattern, isRegex, onInsert, onPreset, onEnableRegex 
       )}
 
       <section>
-        <h3>Insérer</h3>
+        <h3>{t("Insérer")}</h3>
         <div className="regex-chips">
           {SNIPPETS.map((s) => (
             <button key={s.label} type="button" title={s.description} onClick={() => onInsert(s.insert)}>
@@ -53,7 +55,7 @@ export function RegexHelp({ pattern, isRegex, onInsert, onPreset, onEnableRegex 
       </section>
 
       <section>
-        <h3>Modèles courants</h3>
+        <h3>{t("Modèles courants")}</h3>
         <div className="regex-chips">
           {PRESETS.map((p) => (
             <button key={p.label} type="button" title={`${p.pattern}\nex. : ${p.example}`} onClick={() => onPreset(p.pattern)}>

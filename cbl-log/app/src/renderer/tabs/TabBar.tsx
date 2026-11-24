@@ -5,6 +5,7 @@ import { WhaleIcon } from "../docker/DockerPanel";
 import { ContextMenu, type MenuItem } from "../viewer/ContextMenu";
 import { tabsToClose, type CloseKind } from "./tab-close";
 import { tabLabel, tabUri, type TabState } from "./tabs-reducer";
+import { t } from "@cbl-log/shared";
 
 interface Props {
   tabs: TabState[];
@@ -39,12 +40,12 @@ export function TabBar({ tabs, activeId, onActivate, onClose, onCloseMany, onRen
       x: e.clientX,
       y: e.clientY,
       items: [
-        { label: "Renommer", onSelect: () => setEditing(tabId) },
+        { label: t("Renommer"), onSelect: () => setEditing(tabId) },
         "separator",
-        { label: "Fermer", onSelect: () => onClose(tabId) },
-        { label: "Fermer les autres onglets", ...many("others") },
-        { label: "Fermer les onglets à droite", ...many("right") },
-        { label: "Fermer tous les onglets", ...many("all") },
+        { label: t("Fermer"), onSelect: () => onClose(tabId) },
+        { label: t("Fermer les autres onglets"), ...many("others") },
+        { label: t("Fermer les onglets à droite"), ...many("right") },
+        { label: t("Fermer tous les onglets"), ...many("all") },
       ],
     });
   };
@@ -79,7 +80,7 @@ export function TabBar({ tabs, activeId, onActivate, onClose, onCloseMany, onRen
               className="tab-rename"
               autoFocus
               defaultValue={label}
-              aria-label="Nom de l'onglet"
+              aria-label={t("Nom de l'onglet")}
               onFocus={(e) => e.currentTarget.select()}
               onClick={(e) => e.stopPropagation()}
               onDoubleClick={(e) => e.stopPropagation()}
@@ -107,7 +108,7 @@ export function TabBar({ tabs, activeId, onActivate, onClose, onCloseMany, onRen
           <button
             type="button"
             className="tab-close"
-            aria-label="Fermer l'onglet"
+            aria-label={t("Fermer l'onglet")}
             onClick={(e) => {
               e.stopPropagation();
               onClose(tabId);
@@ -122,18 +123,18 @@ export function TabBar({ tabs, activeId, onActivate, onClose, onCloseMany, onRen
   return (
     <nav className="tabs" role="tablist">
       {docker && (
-        <button type="button" className={docker.open ? "tab-docker on" : "tab-docker"} aria-pressed={docker.open} onClick={docker.onToggle} title="Conteneurs Docker (Ctrl+Maj+D)" aria-label="Panneau Docker">
+        <button type="button" className={docker.open ? "tab-docker on" : "tab-docker"} aria-pressed={docker.open} onClick={docker.onToggle} title={t("Conteneurs Docker (Ctrl+Maj+D)")} aria-label={t("Panneau Docker")}>
           <WhaleIcon />
         </button>
       )}
       {tabs.filter((tab) => !tab.merged).map(renderTab)}
-      <button type="button" className="tab-add" onClick={onOpen} title="Ouvrir un fichier (Ctrl+O)" aria-label="Ouvrir un fichier">
+      <button type="button" className="tab-add" onClick={onOpen} title={t("Ouvrir un fichier (Ctrl+O)")} aria-label={t("Ouvrir un fichier")}>
         +
       </button>
       {tabs.filter((tab) => tab.merged).map(renderTab)}
       {onOpenAll && (
-        <button type="button" className="tab-all" onClick={onOpenAll} title="Onglet « Tout » : les fichiers ouverts entrelacés par horodatage" aria-label="Ouvrir l'onglet Tout">
-          Tout
+        <button type="button" className="tab-all" onClick={onOpenAll} title={t("Onglet « Tout » : les fichiers ouverts entrelacés par horodatage")} aria-label={t("Ouvrir l'onglet Tout")}>
+          {t("Tout")}
         </button>
       )}
       {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(undefined)} />}
