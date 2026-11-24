@@ -74,6 +74,8 @@ export const settingsSchema = z.object({
   theme: themeSchema.default("system"),
   /** Looks for a newer GitHub release at startup (the only network access of the app, NF-07). */
   checkForUpdates: z.boolean().default(true),
+  /** Release channel: "beta" also offers the GitHub pre-releases (versions such as 3.3.0-beta.1). */
+  updateChannel: z.enum(["stable", "beta"]).default("stable"),
   /** Reopens the tabs of the last session at startup. */
   restoreSession: z.boolean().default(true),
   /** Entries kept in the search bar history; 0 = no history. */
@@ -166,7 +168,7 @@ export const recentSchema = z.object({
 });
 export type Recent = z.infer<typeof recentSchema>;
 
-export const defaultSettings = (): Settings => ({ schemaVersion: 1, theme: "system", checkForUpdates: true, restoreSession: true, searchHistorySize: DEFAULT_SEARCH_HISTORY, ruleNotifications: true, explorerContextMenu: false, fileAssociations: false, confirmCloseTabs: true, historyHours: 2, archivePatterns: {}, docker: defaultDockerSettings(), viewer: defaultViewerSettings(), tabs: defaultTabDefaults() });
+export const defaultSettings = (): Settings => ({ schemaVersion: 1, theme: "system", checkForUpdates: true, updateChannel: "stable", restoreSession: true, searchHistorySize: DEFAULT_SEARCH_HISTORY, ruleNotifications: true, explorerContextMenu: false, fileAssociations: false, confirmCloseTabs: true, historyHours: 2, archivePatterns: {}, docker: defaultDockerSettings(), viewer: defaultViewerSettings(), tabs: defaultTabDefaults() });
 export const emptyRecent = (): Recent => ({ schemaVersion: 1, files: [], searches: [] });
 export const emptySession = (): Session => ({ schemaVersion: 1, tabs: [] });
 

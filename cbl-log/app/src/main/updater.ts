@@ -7,6 +7,7 @@ import { createWriteStream, mkdirSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { app, BrowserWindow, net, shell } from "electron";
+import { loadSettings } from "./config-store";
 import { expectedSha256, findUpdate, RELEASES_URL, type AvailableUpdate, type GitHubRelease, type InstallKind, type UpdateAction, type UpdatePanelState } from "./update-check";
 
 /** Set by electron-builder's portable launcher to the path of the running `.exe`. */
@@ -44,7 +45,8 @@ let declinedVersion: string | undefined;
 async function fetchUpdate(): Promise<AvailableUpdate | undefined> {
   const res = await net.fetch(RELEASES_URL, { headers: { Accept: "application/vnd.github+json" } });
   if (!res.ok) throw new Error(`GitHub a répondu ${res.status} ${res.statusText}`);
-  return findUpdate((await res.json()) as GitHubRelease[], app.getVersion(), installKind());
+  const { updateChannel } = (await loadSettings(app.getPath("userData"))).value;
+  return findUpdate((await res.json()) as GitHubRelease[], app.getVersion(), installKind(), updateChannel);
 }
 
 /** Streams the asset to `target`, showing progress on the taskbar; checks size and SHA-256. */

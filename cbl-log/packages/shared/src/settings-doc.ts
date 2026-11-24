@@ -64,6 +64,20 @@ export const SETTING_SECTIONS: readonly SettingSection[] = [
         apply: "live",
       },
       {
+        path: ["updateChannel"],
+        label: "Canal de mise à jour",
+        description:
+          "« Bêta » propose aussi les versions de test (3.3.0-beta.1…) publiées avant une version stable, pour les essayer en avance. Revenir à « Stable » propose la prochaine version stable, jamais une version plus ancienne. « Aide › Rechercher une mise à jour… » vérifie tout de suite.",
+        control: {
+          kind: "enum",
+          options: [
+            { value: "stable", label: "Stable" },
+            { value: "beta", label: "Bêta (versions de test)" },
+          ],
+        },
+        apply: "live",
+      },
+      {
         path: ["restoreSession"],
         label: "Rouvrir les onglets au démarrage",
         description:

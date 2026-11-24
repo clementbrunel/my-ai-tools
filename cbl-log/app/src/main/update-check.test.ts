@@ -25,7 +25,17 @@ describe("compareVersions", () => {
   });
 
   it("sorts unparsable versions lowest", () => {
-    expect(compareVersions("1.0.0-beta", "0.0.1")).toBeLessThan(0);
+    expect(compareVersions("1.0", "0.0.1")).toBeLessThan(0);
+    expect(compareVersions("v1.0.0", "0.0.1")).toBeLessThan(0);
+  });
+
+  it("puts a pre-release before its release, in semver order", () => {
+    expect(compareVersions("3.3.0-beta.1", "3.2.0")).toBeGreaterThan(0);
+    expect(compareVersions("3.3.0-beta.1", "3.3.0")).toBeLessThan(0);
+    expect(compareVersions("3.3.0-beta.2", "3.3.0-beta.10")).toBeLessThan(0);
+    expect(compareVersions("3.3.0-alpha.9", "3.3.0-beta.1")).toBeLessThan(0);
+    expect(compareVersions("3.3.0-beta", "3.3.0-beta.1")).toBeLessThan(0);
+    expect(compareVersions("3.3.0-beta.1", "3.3.0-beta.1")).toBe(0);
   });
 });
 
@@ -50,6 +60,21 @@ describe("findUpdate", () => {
       release("cbl-log-v1.5.0-rc1"),
     ];
     expect(findUpdate(releases, "1.0.0", "setup")).toBeUndefined();
+  });
+
+  it("offers the pre-releases on the beta channel only", () => {
+    const releases = [release("cbl-log-v3.2.0"), release("cbl-log-v3.3.0-beta.2", { prerelease: true }), release("cbl-log-v3.3.0-beta.1", { prerelease: true })];
+    expect(findUpdate(releases, "3.2.0", "setup")).toBeUndefined();
+    expect(findUpdate(releases, "3.2.0", "setup", "beta")?.version).toBe("3.3.0-beta.2");
+    expect(findUpdate(releases, "3.2.0", "setup", "beta")?.asset.name).toBe("cbl-log-Setup-3.3.0-beta.2.exe");
+    expect(findUpdate(releases, "3.3.0-beta.2", "setup", "beta")).toBeUndefined();
+  });
+
+  it("moves a beta tester to the release, never back to an older version", () => {
+    const releases = [release("cbl-log-v3.3.0"), release("cbl-log-v3.3.0-beta.2", { prerelease: true }), release("cbl-log-v3.2.0")];
+    expect(findUpdate(releases, "3.3.0-beta.1", "setup")?.version).toBe("3.3.0");
+    expect(findUpdate(releases, "3.3.0-beta.1", "setup", "beta")?.version).toBe("3.3.0");
+    expect(findUpdate([release("cbl-log-v3.2.0")], "3.3.0-beta.1", "setup")).toBeUndefined();
   });
 
   it("picks the asset of the running flavour and skips a release missing it", () => {
