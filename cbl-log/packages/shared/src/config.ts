@@ -80,6 +80,10 @@ export const settingsSchema = z.object({
   searchHistorySize: z.number().int().min(0).max(MAX_SEARCH_HISTORY).default(DEFAULT_SEARCH_HISTORY),
   /** Windows notification for new lines matching a highlighting rule marked "notify". */
   ruleNotifications: z.boolean().default(true),
+  /** « Ouvrir avec cbl-log » on the right-click menu of every file in the Explorer (HKCU registry). */
+  explorerContextMenu: z.boolean().default(false),
+  /** cbl-log registered for .log / .out (offered in « Ouvrir avec », can be made the default app). */
+  fileAssociations: z.boolean().default(false),
   /** Asks before the tab menu closes several tabs at once. */
   confirmCloseTabs: z.boolean().default(true),
   /** Rolled archives of a file modified within this many hours are loaded before it (T-09); 0 = the file alone. */
@@ -162,7 +166,7 @@ export const recentSchema = z.object({
 });
 export type Recent = z.infer<typeof recentSchema>;
 
-export const defaultSettings = (): Settings => ({ schemaVersion: 1, theme: "system", checkForUpdates: true, restoreSession: true, searchHistorySize: DEFAULT_SEARCH_HISTORY, ruleNotifications: true, confirmCloseTabs: true, historyHours: 2, archivePatterns: {}, docker: defaultDockerSettings(), viewer: defaultViewerSettings(), tabs: defaultTabDefaults() });
+export const defaultSettings = (): Settings => ({ schemaVersion: 1, theme: "system", checkForUpdates: true, restoreSession: true, searchHistorySize: DEFAULT_SEARCH_HISTORY, ruleNotifications: true, explorerContextMenu: false, fileAssociations: false, confirmCloseTabs: true, historyHours: 2, archivePatterns: {}, docker: defaultDockerSettings(), viewer: defaultViewerSettings(), tabs: defaultTabDefaults() });
 export const emptyRecent = (): Recent => ({ schemaVersion: 1, files: [], searches: [] });
 export const emptySession = (): Session => ({ schemaVersion: 1, tabs: [] });
 

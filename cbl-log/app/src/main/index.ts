@@ -16,6 +16,22 @@ import { exportRuleSet, loadRuleSets, readRuleSetFile, saveRuleSet } from "./rul
 import { showAbout, showSplash } from "./brand-windows";
 import type { UpdateAction } from "./update-check";
 import { checkForUpdates, handleUpdateAction } from "./updater";
+import { applyShellIntegration, type ShellIntegration } from "./shell-integration";
+
+/** Executable registered in the Explorer: the portable .exe itself (not its temporary unpacked copy); none in development. */
+const registeredExe = (): string | undefined => (app.isPackaged ? (process.env["PORTABLE_EXECUTABLE_FILE"] ?? process.execPath) : undefined);
+
+let appliedShell: string | undefined;
+/** Brings the Explorer integration in line with the settings (skipped when nothing changed since the last run). */
+function syncShellIntegration(settings: Settings, force = false): void {
+  const wanted: ShellIntegration = { explorerContextMenu: settings.explorerContextMenu, fileAssociations: settings.fileAssociations };
+  const key = JSON.stringify(wanted);
+  if (!force && key === appliedShell) return;
+  appliedShell = key;
+  void applyShellIntegration(registeredExe(), wanted).then((error) => {
+    if (error) console.warn(`[cbl-log] ${error}`);
+  });
+}
 
 // Settings live in %APPDATA%/cbl-log (architecture, section 8), not under the package name.
 // CBL_LOG_USER_DATA relocates it (portable use, isolated acceptance runs).
@@ -334,6 +350,7 @@ if (!app.requestSingleInstanceLock()) {
   ipcMain.handle("settings:save", async (_event, settings: Settings) => {
     nativeTheme.themeSource = settings.theme;
     configWatcher?.noteWrite("settings.json", await saveSettings(app.getPath("userData"), settings));
+    syncShellIntegration(settings);
   });
   ipcMain.handle("settings:read-text", () => readSettingsText(app.getPath("userData")));
   ipcMain.handle("settings:save-text", async (_event, text: string) => {
@@ -342,6 +359,7 @@ if (!app.requestSingleInstanceLock()) {
     if (result.ok) {
       nativeTheme.themeSource = result.value.theme;
       configWatcher?.noteWrite("settings.json", result.text);
+      syncShellIntegration(result.value);
     }
     return result.ok ? { ok: true, value: result.value } : result;
   });
@@ -378,9 +396,13 @@ if (!app.requestSingleInstanceLock()) {
     mkdirSync(join(app.getPath("userData"), "formats"), { recursive: true });
     configWatcher = new ConfigWatcher(app.getPath("userData"), (kind: ConfigKind) => {
       mainWindow?.webContents.send("config:changed", kind);
+      if (kind === "settings") void loadSettings(app.getPath("userData")).then(({ value }) => syncShellIntegration(value));
     });
     configWatcher.start();
-    engine.setDockerSettings((await loadSettings(app.getPath("userData"))).value.docker);
+    const startupSettings = (await loadSettings(app.getPath("userData"))).value;
+    engine.setDockerSettings(startupSettings.docker);
+    // re-written at every start: the exe path changes when the app is installed elsewhere
+    syncShellIntegration(startupSettings, true);
     engine.start();
     createWindow();
     // Startup check, then hourly for sessions that are never closed; packaged builds only (a dev build has

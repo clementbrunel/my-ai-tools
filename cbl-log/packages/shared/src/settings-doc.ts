@@ -183,6 +183,28 @@ export const SETTING_SECTIONS: readonly SettingSection[] = [
     ],
   },
   {
+    id: "windows",
+    title: "Intégration à Windows",
+    settings: [
+      {
+        path: ["explorerContextMenu"],
+        label: "« Ouvrir avec cbl-log » dans l'Explorateur",
+        description:
+          "Ajoute « Ouvrir avec cbl-log » au clic droit sur n'importe quel fichier de l'Explorateur (sous Windows 11 : « Afficher d'autres options »). Le fichier s'ouvre dans un nouvel onglet de la fenêtre déjà ouverte. Écrit dans le registre de l'utilisateur, retiré à la désinstallation. Sans effet en développement.",
+        control: { kind: "boolean" },
+        apply: "live",
+      },
+      {
+        path: ["fileAssociations"],
+        label: "Associer les fichiers .log et .out",
+        description:
+          "Propose cbl-log dans « Ouvrir avec » pour les fichiers .log et .out. Windows ne laisse pas une application se déclarer par défaut : pour un double-clic direct, clic droit sur un .log › Ouvrir avec › Choisir une autre application › cbl-log, « Toujours ». Retiré à la désinstallation.",
+        control: { kind: "boolean" },
+        apply: "live",
+      },
+    ],
+  },
+  {
     id: "history",
     title: "Historique des fichiers (rolling)",
     settings: [
