@@ -153,3 +153,60 @@
   border: 1px solid var(--border);
   border-radius: 4px;
 }
+
+/* History drop-down, under the search field. */
+.searchbar {
+  position: relative;
+}
+
+.search-history {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  max-height: 50vh;
+  overflow-y: auto;
+  margin: 2px 0 0;
+  padding: 4px;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  font-size: 12px;
+}
+
+.search-history li {
+  display: flex;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.search-history li.on {
+  background: var(--accent);
+  color: #fff;
+}
+
+.search-history-pattern {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: Consolas, "Courier New", monospace;
+}
+
+.search-history-opts {
+  display: inline-flex;
+  gap: 6px;
+  opacity: 0.75;
+}
+
+.search-history-clear {
+  margin-top: 4px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+}

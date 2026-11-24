@@ -1,7 +1,7 @@
 // Documentation of settings.json for the "Configuration" window: one entry per setting (label, explanation,
 // control, when it applies), plus the helpers shared by its two modes (form and raw JSON).
 // The schema (config.ts) stays the reference for validation; this file only describes it to the user.
-import { applyMigrations, defaultSettings, MAX_FONT_SIZE, MIN_FONT_SIZE, settingsSchema, type Settings } from "./config.js";
+import { applyMigrations, defaultSettings, MAX_FONT_SIZE, MAX_SEARCH_HISTORY, MIN_FONT_SIZE, settingsSchema, type Settings } from "./config.js";
 
 /** When a change is taken into account. */
 export type SettingApply = "live" | "next-open" | "restart";
@@ -151,6 +151,20 @@ export const SETTING_SECTIONS: readonly SettingSection[] = [
           ],
         },
         apply: "next-open",
+      },
+    ],
+  },
+  {
+    id: "search",
+    title: "Recherche",
+    settings: [
+      {
+        path: ["searchHistorySize"],
+        label: "Historique des recherches",
+        description:
+          "Nombre de recherches mémorisées (avec leurs options .* Aa ab). Flèche bas dans le champ de recherche, ou le bouton horloge, les propose. 0 = pas d'historique (celui existant est effacé à la prochaine recherche).",
+        control: { kind: "number", min: 0, max: MAX_SEARCH_HISTORY, step: 5, unit: "recherches" },
+        apply: "live",
       },
     ],
   },

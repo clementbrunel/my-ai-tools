@@ -14,6 +14,8 @@ const api: CblLogApi = {
   getPathForFile: (file) => webUtils.getPathForFile(file),
   notifyReady: () => ipcRenderer.send("renderer:ready"),
   addRecentFile: (path) => ipcRenderer.invoke("recent:add", path) as Promise<void>,
+  loadSearchHistory: () => ipcRenderer.invoke("search-history:get") as ReturnType<CblLogApi["loadSearchHistory"]>,
+  saveSearchHistory: (list) => ipcRenderer.invoke("search-history:set", list) as Promise<void>,
   showFileContextMenu: (path) => ipcRenderer.invoke("file:context-menu", path) as Promise<void>,
   onArchiveDesignated: (cb) => {
     const listener = (_event: unknown, path: string, archive: string): void => cb(path, archive);

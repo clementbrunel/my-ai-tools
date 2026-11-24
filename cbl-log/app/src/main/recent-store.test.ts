@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { loadRecent, saveRecent, withoutRecentFile, withRecentFile } from "./recent-store";
+import { withRecentSearch } from "@cbl-log/shared";
 
 const dirs: string[] = [];
 afterEach(() => {
@@ -32,15 +33,36 @@ describe("recent files list", () => {
   });
 });
 
+describe("withRecentSearch", () => {
+  const e = (pattern: string, isRegex = false) => ({ pattern, isRegex, caseSensitive: false, wholeWord: false });
+  it("puts the search first without duplicates, capped", () => {
+    expect(withRecentSearch([e("a"), e("b"), e("c")], e("b"), 3)).toEqual([e("b"), e("a"), e("c")]);
+    expect(withRecentSearch([e("a"), e("b")], e("c"), 2)).toEqual([e("c"), e("a")]);
+  });
+  it("keeps the same text with other options apart", () => {
+    expect(withRecentSearch([e("a")], e("a", true), 5)).toEqual([e("a", true), e("a")]);
+  });
+  it("keeps nothing when the history is disabled", () => {
+    expect(withRecentSearch([e("a")], e("b"), 0)).toEqual([]);
+  });
+});
+
 describe("recent store", () => {
   it("is empty when there is no file", async () => {
-    expect(await loadRecent(tempDir())).toEqual({ value: { schemaVersion: 1, files: [] } });
+    expect(await loadRecent(tempDir())).toEqual({ value: { schemaVersion: 1, files: [], searches: [] } });
   });
 
-  it("round-trips the list", async () => {
+  it("round-trips the list and the search history", async () => {
     const dir = tempDir();
-    await saveRecent(dir, { schemaVersion: 1, files: ["C:\\a.log"] });
-    expect((await loadRecent(dir)).value.files).toEqual(["C:\\a.log"]);
+    const searches = [{ pattern: "ERROR", isRegex: false, caseSensitive: true, wholeWord: false }];
+    await saveRecent(dir, { schemaVersion: 1, files: ["C:\\a.log"], searches });
+    expect((await loadRecent(dir)).value).toEqual({ schemaVersion: 1, files: ["C:\\a.log"], searches });
+  });
+
+  it("reads a recent.json written before the search history", async () => {
+    const dir = tempDir();
+    writeFileSync(join(dir, "recent.json"), JSON.stringify({ schemaVersion: 1, files: ["C:\\a.log"] }));
+    expect((await loadRecent(dir)).value.searches).toEqual([]);
   });
 
   it("ignores an invalid file with a warning", async () => {

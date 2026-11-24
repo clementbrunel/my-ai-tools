@@ -8,6 +8,7 @@ import {
   createWebSphereRuleSet,
   defaultFilterSettings,
   defaultSettings,
+  withRecentSearch,
   dockerUri,
   detectFormat,
   formatForFilter,
@@ -23,6 +24,7 @@ import {
   type RuleSet,
   type Row,
   type SearchQuery,
+  type SearchHistoryEntry,
   type Session,
   type SessionTab,
   type Settings,
@@ -107,6 +109,22 @@ export function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   /** Tabs waiting for the "close several tabs" confirmation. */
   const [pendingClose, setPendingClose] = useState<TabId[] | undefined>();
+  /** Search bar history (recent.json), most recent first. */
+  const [searchHistory, setSearchHistory] = useState<SearchHistoryEntry[]>([]);
+  useEffect(() => {
+    void window.cblLog.loadSearchHistory().then(setSearchHistory, () => undefined);
+  }, []);
+  const rememberSearch = useCallback((entry: SearchHistoryEntry) => {
+    setSearchHistory((list) => {
+      const next = withRecentSearch(list, entry, settingsRef.current.searchHistorySize);
+      if (JSON.stringify(next) !== JSON.stringify(list)) void window.cblLog.saveSearchHistory(next).catch(() => undefined);
+      return next;
+    });
+  }, []);
+  const clearSearchHistory = useCallback(() => {
+    setSearchHistory([]);
+    void window.cblLog.saveSearchHistory([]).catch(() => undefined);
+  }, []);
   const [updateState, setUpdateState] = useState<UpdatePanelState | null>(null);
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const settingsRef = useRef(settings);
@@ -1386,6 +1404,9 @@ export function App() {
               focusRequest={searchFocus}
               textRequest={searchText}
               onQuery={(q) => void runSearch(q)}
+              history={settings.searchHistorySize > 0 ? searchHistory.slice(0, settings.searchHistorySize) : undefined}
+              onRemember={rememberSearch}
+              onClearHistory={clearSearchHistory}
               onNext={() => void findHit("next")}
               onPrev={() => void findHit("prev")}
             />

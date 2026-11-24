@@ -65,6 +65,10 @@ export type TabDefaults = z.infer<typeof tabDefaultsSchema>;
 
 export const defaultTabDefaults = (): TabDefaults => tabDefaultsSchema.parse({});
 
+/** Search bar history (recent.json). */
+export const MAX_SEARCH_HISTORY = 100;
+export const DEFAULT_SEARCH_HISTORY = 20;
+
 export const settingsSchema = z.object({
   schemaVersion: z.literal(1),
   theme: themeSchema.default("system"),
@@ -72,6 +76,8 @@ export const settingsSchema = z.object({
   checkForUpdates: z.boolean().default(true),
   /** Reopens the tabs of the last session at startup. */
   restoreSession: z.boolean().default(true),
+  /** Entries kept in the search bar history; 0 = no history. */
+  searchHistorySize: z.number().int().min(0).max(MAX_SEARCH_HISTORY).default(DEFAULT_SEARCH_HISTORY),
   /** Asks before the tab menu closes several tabs at once. */
   confirmCloseTabs: z.boolean().default(true),
   /** Rolled archives of a file modified within this many hours are loaded before it (T-09); 0 = the file alone. */
@@ -128,14 +134,34 @@ export type Session = z.infer<typeof sessionSchema>;
 
 /** recent.json: files opened lately, most recent first. */
 export const MAX_RECENT_FILES = 10;
+/** A search of the search bar, as remembered in its history. */
+export const searchHistoryEntrySchema = z.object({
+  pattern: z.string().min(1),
+  isRegex: z.boolean().default(false),
+  caseSensitive: z.boolean().default(false),
+  wholeWord: z.boolean().default(false),
+});
+export type SearchHistoryEntry = z.infer<typeof searchHistoryEntrySchema>;
+export const searchHistorySchema = z.array(searchHistoryEntrySchema).max(MAX_SEARCH_HISTORY);
+
+/** `entry` moved (or added) at the head of `list`, without duplicates, at most `max` entries (0 = none kept). */
+export function withRecentSearch(list: readonly SearchHistoryEntry[], entry: SearchHistoryEntry, max: number): SearchHistoryEntry[] {
+  if (max <= 0) return [];
+  const same = (e: SearchHistoryEntry): boolean =>
+    e.pattern === entry.pattern && e.isRegex === entry.isRegex && e.caseSensitive === entry.caseSensitive && e.wholeWord === entry.wholeWord;
+  return [entry, ...list.filter((e) => !same(e))].slice(0, max);
+}
+
 export const recentSchema = z.object({
   schemaVersion: z.literal(1),
   files: z.array(z.string().min(1)).default([]),
+  /** Search bar history, most recent first (settings.searchHistorySize entries at most). */
+  searches: z.array(searchHistoryEntrySchema).default([]),
 });
 export type Recent = z.infer<typeof recentSchema>;
 
-export const defaultSettings = (): Settings => ({ schemaVersion: 1, theme: "system", checkForUpdates: true, restoreSession: true, confirmCloseTabs: true, historyHours: 2, archivePatterns: {}, docker: defaultDockerSettings(), viewer: defaultViewerSettings(), tabs: defaultTabDefaults() });
-export const emptyRecent = (): Recent => ({ schemaVersion: 1, files: [] });
+export const defaultSettings = (): Settings => ({ schemaVersion: 1, theme: "system", checkForUpdates: true, restoreSession: true, searchHistorySize: DEFAULT_SEARCH_HISTORY, confirmCloseTabs: true, historyHours: 2, archivePatterns: {}, docker: defaultDockerSettings(), viewer: defaultViewerSettings(), tabs: defaultTabDefaults() });
+export const emptyRecent = (): Recent => ({ schemaVersion: 1, files: [], searches: [] });
 export const emptySession = (): Session => ({ schemaVersion: 1, tabs: [] });
 
 /** Upgrades `from` -> `from + 1`. */

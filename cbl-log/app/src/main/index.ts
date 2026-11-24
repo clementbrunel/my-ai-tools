@@ -2,7 +2,7 @@ import { existsSync, mkdirSync } from "node:fs";
 import { release } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeImage, nativeTheme, shell } from "electron";
-import { defaultSettings, parseDockerUri, type ParseRuleSetResult, type RuleSet, type Session, type Settings } from "@cbl-log/shared";
+import { defaultSettings, parseDockerUri, searchHistorySchema, type ParseRuleSetResult, type RuleSet, type SearchHistoryEntry, type Session, type Settings } from "@cbl-log/shared";
 import { parseFileArgs } from "./cli-args";
 import { ConfigWatcher, type ConfigKind } from "./config-watcher";
 import { loadSession, loadSettings, readSettingsText, saveSession, saveSettings, saveSettingsText, settingsPath } from "./config-store";
@@ -97,10 +97,12 @@ async function importProfile(): Promise<ParseRuleSetResult | undefined> {
 
 /** Files opened lately (recent.json), most recent first; filled at startup. */
 let recentFiles: string[] = [];
+/** Search bar history (recent.json), most recent first; the renderer decides its content. */
+let recentSearches: SearchHistoryEntry[] = [];
 
 function persistRecent(): void {
   buildMenu();
-  void saveRecent(app.getPath("userData"), { schemaVersion: 1, files: recentFiles }).catch(() => undefined);
+  void saveRecent(app.getPath("userData"), { schemaVersion: 1, files: recentFiles, searches: recentSearches }).catch(() => undefined);
 }
 
 function openRecent(path: string): void {
@@ -291,6 +293,13 @@ if (!app.requestSingleInstanceLock()) {
     recentFiles = withRecentFile(recentFiles, path);
     persistRecent();
   });
+  ipcMain.handle("search-history:get", () => recentSearches);
+  ipcMain.handle("search-history:set", (_event, list: unknown) => {
+    const parsed = searchHistorySchema.safeParse(list);
+    if (!parsed.success) return;
+    recentSearches = parsed.data;
+    persistRecent();
+  });
   ipcMain.handle("file:context-menu", (_event, path: string) => {
     if (typeof path !== "string" || path === "") return;
     Menu.buildFromTemplate([
@@ -352,7 +361,9 @@ if (!app.requestSingleInstanceLock()) {
     splashWindow = showSplash(app.getVersion(), iconPath(), avatarPath()); // first thing, before loading the config
     // Theme switch in the app (themeSource) or system change: swap the window / taskbar icon.
     nativeTheme.on("updated", () => mainWindow?.setIcon(iconPath()));
-    recentFiles = (await loadRecent(app.getPath("userData"))).value.files;
+    const recent = (await loadRecent(app.getPath("userData"))).value;
+    recentFiles = recent.files;
+    recentSearches = recent.searches;
     buildMenu();
     mkdirSync(rulesDir(), { recursive: true }); // so that the folders can be watched from the first run
     mkdirSync(join(app.getPath("userData"), "formats"), { recursive: true });
