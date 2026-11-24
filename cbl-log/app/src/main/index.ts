@@ -275,6 +275,9 @@ function createWindow(): void {
   }
 }
 
+// Windows toasts (rule notifications) are attributed to the installer's shortcut through this id (electron-builder appId).
+if (process.platform === "win32") app.setAppUserModelId("dev.clementbrunel.cbl-log");
+
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
@@ -292,6 +295,12 @@ if (!app.requestSingleInstanceLock()) {
   ipcMain.handle("recent:add", (_event, path: string) => {
     recentFiles = withRecentFile(recentFiles, path);
     persistRecent();
+  });
+  ipcMain.on("window:focus", () => {
+    if (!mainWindow) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
   });
   ipcMain.handle("search-history:get", () => recentSearches);
   ipcMain.handle("search-history:set", (_event, list: unknown) => {

@@ -47,6 +47,7 @@ import { LevelPills } from "./filter/LevelPills";
 import { nextVisibleHit } from "./filter/filter-nav";
 import { addMatcher } from "./filter/filter-state";
 import { compileRules, highlightLine } from "./highlight/highlight";
+import { AlertThrottle, alertText, matchAlerts, notifyingRules, rowsToCheck, type RuleHit } from "./alerts/rule-alerts";
 import { RulesEditor } from "./rules/RulesEditor";
 import { autoRuleSet, importAsCopy, importKind, pickRuleSet, uniqueRuleSetId, withRuleSet } from "./rules/rule-profile";
 import { buildSession, liveStartRow } from "./session/session-snapshot";
@@ -71,6 +72,8 @@ interface TabRuntime {
   filterCacheId?: string;
   /** Lines available in the filtered view when the cache was last told about them. */
   filterTotal: number;
+  /** Rows already tested against the rules that notify (lines present at opening never notify). */
+  alertChecked: number;
 }
 
 const LEVELS_COUNT = 6;
@@ -79,6 +82,8 @@ const MERGE_WINDOW_MAX_LINES = 5_000_000;
 const NO_MARKS: never[] = [];
 
 /** Identifies what the viewport shows: a tab's file, or its filtered view (its remount key). */
+/** Lines appended to a file are tested against the notifying rules at most this often (per tab). */
+const ALERT_CHECK_MS = 1000;
 const viewKeyOf = (tabId: TabId, filterId: string | null | undefined): string => `${tabId}:${filterId ?? ""}`;
 
 /** A filtered view is the one on screen: a filter (maybe only the fold of stack traces) is in force and answered. */
@@ -102,6 +107,8 @@ export function App() {
   const [zoom, setZoom] = useState<number | undefined>();
   const [notice, setNotice] = useState<{ text: string; isError: boolean } | undefined>();
   const [ruleSets, setRuleSets] = useState<RuleSet[]>(createBuiltinRuleSets);
+  const ruleSetsRef = useRef(ruleSets);
+  ruleSetsRef.current = ruleSets;
   const [rulesOpen, setRulesOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
@@ -160,6 +167,9 @@ export function App() {
   const engineRef = useRef<RpcClient | undefined>(undefined);
   const engineWaiters = useRef<((engine: RpcClient) => void)[]>([]);
   const runtimes = useRef(new Map<TabId, TabRuntime>());
+  /** Rule notifications: grouping per (tab, rule) and the pending check of each tab (set further down). */
+  const alertThrottle = useRef(new AlertThrottle());
+  const scheduleAlertsRef = useRef<(tabId: TabId) => void>(() => undefined);
 
   const withEngine = useCallback((): Promise<RpcClient> => {
     const engine = engineRef.current;
@@ -212,6 +222,7 @@ export function App() {
             rt.filterCache?.invalidateFrom(0);
             // the count is stale too: the next filter event must re-read the view from its start
             rt.filterTotal = 0;
+            if (event.source === undefined) rt.alertChecked = Math.min(rt.alertChecked, event.at);
           } else if (event.type === "filter" && rt.filterCache && rt.filterCacheId === event.id) {
             // the view only grows at its end, unless the filter started over
             if (event.matches < rt.filterTotal) rt.filterCache.invalidateFrom(0);
@@ -219,6 +230,7 @@ export function App() {
             rt.filterTotal = event.matches;
           }
         }
+        if (event.type === "rows" && event.appended > 0) scheduleAlertsRef.current(tabId);
         if (event.type === "rows" && event.total <= DETECT_SAMPLE_LINES * 3) {
           const tab = stateRef.current.tabs.find((t) => t.info.tabId === tabId);
           if (tab && !tab.formatId) void detectRef.current(tabId);
@@ -284,7 +296,7 @@ export function App() {
               },
         );
         const cache = new PageCache(async (first, count) => (await engine.request("getRows", { tabId: info.tabId, first, count })).rows);
-        runtimes.current.set(info.tabId, { cache, total: info.totalRows, pathKey: key, filterTotal: 0 });
+        runtimes.current.set(info.tabId, { cache, total: info.totalRows, pathKey: key, filterTotal: 0, alertChecked: info.totalRows });
         // a tab opened by the user gets the defaults of the Configuration; a restored one its saved state (below)
         const defaults = restore ? undefined : settingsRef.current.tabs;
         dispatch({
@@ -470,6 +482,7 @@ export function App() {
       rt?.filterCache?.clear();
       appliedFilters.current.delete(tabId);
       runtimes.current.delete(tabId);
+      alertThrottle.current.forget(`${tabId}\u0000`);
       dispatch({ type: "closed", tabId });
       void withEngine().then((engine) => engine.request("close", { tabId }).catch(() => undefined));
     },
@@ -987,7 +1000,7 @@ export function App() {
       });
       runtimes.current.get(info.tabId)?.cache.clear();
       const cache = new PageCache(async (first, count) => (await engine.request("getRows", { tabId: info.tabId, first, count })).rows);
-      runtimes.current.set(info.tabId, { cache, total: info.totalRows, pathKey: "merged://all", filterTotal: 0 });
+      runtimes.current.set(info.tabId, { cache, total: info.totalRows, pathKey: "merged://all", filterTotal: 0, alertChecked: info.totalRows });
       dispatch(existingId ? { type: "mergedUpdated", info } : { type: "opened", info, index: 0 });
     },
     [withEngine],
@@ -1165,6 +1178,62 @@ export function App() {
     setAnchor({ tabId, line: row.sourceLine });
     setReveal({ row: row.sourceLine, nonce: ++revealNonce.current, align: "center", forKey: viewKeyOf(tabId, null) });
   }, []);
+
+  // Rule notifications (bell of the rules editor): the lines appended to a followed file are tested
+  // against the rules of its profile that notify, at most every ALERT_CHECK_MS per tab.
+  const alertTimers = useRef(new Map<TabId, ReturnType<typeof setTimeout>>());
+  const showAlert = useCallback((tabId: TabId, hit: RuleHit) => {
+    const tab = stateRef.current.tabs.find((t) => t.info.tabId === tabId);
+    if (!tab || typeof Notification === "undefined") return;
+    const { title, body } = alertText(tabLabel(tab), hit);
+    const notification = new Notification(title, { body });
+    notification.onclick = () => {
+      window.cblLog.focusWindow();
+      const target = stateRef.current.tabs.find((t) => t.info.tabId === tabId);
+      if (!target) return;
+      dispatch({ type: "follow", tabId, follow: false });
+      if (target.filterId && !target.filterSuspended) dispatch({ type: "filterSuspended", tabId, suspended: true });
+      dispatch({ type: "activated", tabId });
+      setAnchor({ tabId, line: hit.line });
+      setReveal({ row: hit.line, nonce: ++revealNonce.current, align: "center", forKey: viewKeyOf(tabId, null) });
+    };
+  }, []);
+  const checkAlerts = useCallback(
+    async (tabId: TabId) => {
+      alertTimers.current.delete(tabId);
+      const rt = runtimes.current.get(tabId);
+      const tab = stateRef.current.tabs.find((t) => t.info.tabId === tabId);
+      if (!rt || !tab) return;
+      const { first, count } = rowsToCheck(rt.alertChecked, rt.total);
+      rt.alertChecked = rt.total;
+      if (count === 0 || tab.merged || !settingsRef.current.ruleNotifications) return;
+      const rules = notifyingRules(compileRules(pickRuleSet(ruleSetsRef.current, tab.formatId, tab.ruleSetId)?.rules ?? []).compiled);
+      if (rules.length === 0) return;
+      // the user is looking at this tab: the lines are on screen, no need to pop up
+      if (document.hasFocus() && stateRef.current.activeId === tabId) return;
+      try {
+        const engine = await withEngine();
+        const { rows } = await engine.request("getRows", { tabId, first, count });
+        for (const hit of matchAlerts(rows, rules)) {
+          const now = alertThrottle.current.take(`${tabId}\u0000${hit.ruleId}`, hit, Date.now());
+          if (now) showAlert(tabId, now);
+        }
+      } catch {
+        // tab closed meanwhile, engine restarting: nothing to notify
+      }
+    },
+    [withEngine, showAlert],
+  );
+  scheduleAlertsRef.current = (tabId: TabId) => {
+    if (!alertTimers.current.has(tabId)) alertTimers.current.set(tabId, setTimeout(() => void checkAlerts(tabId), ALERT_CHECK_MS));
+  };
+  // hits held during a cooldown are notified once it is over, even if the file went quiet
+  useEffect(() => {
+    const timer = setInterval(() => {
+      for (const [key, hit] of alertThrottle.current.due(Date.now())) showAlert(key.slice(0, key.indexOf("\u0000")) as TabId, hit);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [showAlert]);
 
   /** Double-click on a line of a file that the "All" tab merges: the same line in that tab. */
   const openInAll = useCallback(

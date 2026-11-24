@@ -22,6 +22,8 @@ export interface CblLogApi {
   notifyReady(): void;
   /** Records a successfully opened file in the "Fichiers récents" menu (recent.json). */
   addRecentFile(path: string): Promise<void>;
+  /** Brings the window to the front (restored if minimized), e.g. on a click on a notification. */
+  focusWindow(): void;
   /** Search bar history (recent.json), most recent first. */
   loadSearchHistory(): Promise<SearchHistoryEntry[]>;
   /** Replaces the search bar history (the renderer applies settings.searchHistorySize). */

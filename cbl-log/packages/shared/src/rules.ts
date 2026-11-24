@@ -19,6 +19,8 @@ export const highlightRuleSchema = z.object({
   /** "line": the whole line is colored; "fragment": only the matching text. */
   scope: z.enum(["line", "fragment"]).default("line"),
   enabled: z.boolean().default(true),
+  /** A new line of a followed file that matches shows a Windows notification (settings.ruleNotifications). */
+  notify: z.boolean().optional(),
 });
 
 export const ruleSetSchema = z.object({

@@ -207,6 +207,9 @@ export function RulesEditor({ sets, selectedId, choice, autoName, onChoose, form
             <label title="Respecter la casse">
               <input type="checkbox" checked={rule.caseSensitive} onChange={(e) => patch(rule.id, { caseSensitive: e.target.checked })} /> Aa
             </label>
+            <label className="rule-notify" title="Notification Windows quand une nouvelle ligne d'un fichier suivi correspond (réglage Alertes de la Configuration)">
+              <input type="checkbox" checked={rule.notify === true} onChange={(e) => patch(rule.id, { notify: e.target.checked || undefined })} /> 🔔
+            </label>
             <select value={rule.scope} onChange={(e) => patch(rule.id, { scope: e.target.value as HighlightRule["scope"] })} aria-label="Portée">
               <option value="line">ligne</option>
               <option value="fragment">fragment</option>

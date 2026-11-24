@@ -169,6 +169,20 @@ export const SETTING_SECTIONS: readonly SettingSection[] = [
     ],
   },
   {
+    id: "alerts",
+    title: "Alertes",
+    settings: [
+      {
+        path: ["ruleNotifications"],
+        label: "Notifications des règles",
+        description:
+          "Une nouvelle ligne d'un fichier suivi qui correspond à une règle de surlignage cochée 🔔 (éditeur de règles) affiche une notification Windows, sauf si vous regardez déjà cet onglet. Un clic sur la notification montre la ligne. Les lignes suivantes de la même règle sont regroupées pendant 30 s.",
+        control: { kind: "boolean" },
+        apply: "live",
+      },
+    ],
+  },
+  {
     id: "history",
     title: "Historique des fichiers (rolling)",
     settings: [

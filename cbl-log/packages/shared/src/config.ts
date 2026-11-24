@@ -78,6 +78,8 @@ export const settingsSchema = z.object({
   restoreSession: z.boolean().default(true),
   /** Entries kept in the search bar history; 0 = no history. */
   searchHistorySize: z.number().int().min(0).max(MAX_SEARCH_HISTORY).default(DEFAULT_SEARCH_HISTORY),
+  /** Windows notification for new lines matching a highlighting rule marked "notify". */
+  ruleNotifications: z.boolean().default(true),
   /** Asks before the tab menu closes several tabs at once. */
   confirmCloseTabs: z.boolean().default(true),
   /** Rolled archives of a file modified within this many hours are loaded before it (T-09); 0 = the file alone. */
@@ -160,7 +162,7 @@ export const recentSchema = z.object({
 });
 export type Recent = z.infer<typeof recentSchema>;
 
-export const defaultSettings = (): Settings => ({ schemaVersion: 1, theme: "system", checkForUpdates: true, restoreSession: true, searchHistorySize: DEFAULT_SEARCH_HISTORY, confirmCloseTabs: true, historyHours: 2, archivePatterns: {}, docker: defaultDockerSettings(), viewer: defaultViewerSettings(), tabs: defaultTabDefaults() });
+export const defaultSettings = (): Settings => ({ schemaVersion: 1, theme: "system", checkForUpdates: true, restoreSession: true, searchHistorySize: DEFAULT_SEARCH_HISTORY, ruleNotifications: true, confirmCloseTabs: true, historyHours: 2, archivePatterns: {}, docker: defaultDockerSettings(), viewer: defaultViewerSettings(), tabs: defaultTabDefaults() });
 export const emptyRecent = (): Recent => ({ schemaVersion: 1, files: [], searches: [] });
 export const emptySession = (): Session => ({ schemaVersion: 1, tabs: [] });
 
