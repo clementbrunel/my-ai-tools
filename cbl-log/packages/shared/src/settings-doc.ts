@@ -16,6 +16,8 @@ export type SettingControl =
    * `emptyLabel` is how the absent value is shown ("(automatique)" by default).
    */
   | { kind: "text"; placeholder?: string; suggestions?: readonly string[]; emptyLabel?: string }
+  /** Several values among `options` (at least one), shown as check boxes. */
+  | { kind: "flags"; options: readonly { value: string; label: string }[] }
   /** Map edited as a list (entries can only be removed). */
   | { kind: "map" };
 
@@ -61,6 +63,21 @@ export const SETTING_SECTIONS: readonly SettingSection[] = [
         control: { kind: "boolean" },
         apply: "live",
       },
+      {
+        path: ["restoreSession"],
+        label: "Rouvrir les onglets au démarrage",
+        description:
+          "Au lancement, rouvre les fichiers de la dernière session avec leur position, leur filtre et leur nom. Désactivé, cbl-log démarre sur l'écran d'accueil.",
+        control: { kind: "boolean" },
+        apply: "restart",
+      },
+      {
+        path: ["confirmCloseTabs"],
+        label: "Confirmer la fermeture de plusieurs onglets",
+        description: "Demande confirmation avant « Fermer les autres onglets », « Fermer les onglets à droite » ou « Fermer tous les onglets » (clic droit sur un onglet).",
+        control: { kind: "boolean" },
+        apply: "live",
+      },
     ],
   },
   {
@@ -87,6 +104,53 @@ export const SETTING_SECTIONS: readonly SettingSection[] = [
           "Taille des caractères des lignes de log ; la hauteur des lignes suit. Le zoom (Ctrl+molette) agrandit en plus toute la fenêtre.",
         control: { kind: "number", min: MIN_FONT_SIZE, max: MAX_FONT_SIZE, step: 1, unit: "px" },
         apply: "live",
+      },
+      {
+        path: ["viewer", "showLineNumbers"],
+        label: "Numéros de ligne",
+        description:
+          "Affiche le numéro de chaque ligne dans la marge de gauche. Masqués, la marge ne garde que le niveau (et la source dans l'onglet « Tout ») ; « Copier avec numéros » et Ctrl+G restent disponibles.",
+        control: { kind: "boolean" },
+        apply: "live",
+      },
+    ],
+  },
+  {
+    id: "tabs",
+    title: "Nouveaux onglets",
+    settings: [
+      {
+        path: ["tabs", "followOnOpen"],
+        label: "Suivre à l'ouverture",
+        description:
+          "Un fichier ouvert affiche sa fin et suit les nouvelles lignes. Désactivé, il s'ouvre au début du fichier, sans suivi (le bouton Suivre le réactive). Les onglets restaurés au démarrage gardent leur état.",
+        control: { kind: "boolean" },
+        apply: "next-open",
+      },
+      {
+        path: ["tabs", "foldTraces"],
+        label: "Replier les stack traces",
+        description: "Les lignes de suite (stack traces, SQL sur plusieurs lignes…) sont repliées sous leur enregistrement dès l'ouverture, quand le format est reconnu.",
+        control: { kind: "boolean" },
+        apply: "next-open",
+      },
+      {
+        path: ["tabs", "levels"],
+        label: "Niveaux affichés",
+        description:
+          "Niveaux visibles à l'ouverture d'un fichier dont le format est reconnu ; les autres sont filtrés (les pastilles de niveau les réaffichent). Par exemple, décocher DEBUG et TRACE.",
+        control: {
+          kind: "flags",
+          options: [
+            { value: "fatal", label: "FATAL" },
+            { value: "error", label: "ERROR" },
+            { value: "warn", label: "WARN" },
+            { value: "info", label: "INFO" },
+            { value: "debug", label: "DEBUG" },
+            { value: "trace", label: "TRACE" },
+          ],
+        },
+        apply: "next-open",
       },
     ],
   },

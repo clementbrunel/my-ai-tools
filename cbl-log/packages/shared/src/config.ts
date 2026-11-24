@@ -34,6 +34,8 @@ export const viewerSettingsSchema = z.object({
   fontFamily: z.string().trim().min(1).max(100).optional(),
   /** Font size of the log rows, in px; the row height follows (rowHeightFor). */
   fontSize: z.number().int().min(MIN_FONT_SIZE).max(MAX_FONT_SIZE).default(DEFAULT_FONT_SIZE),
+  /** Shows the line numbers in the gutter (the level marker stays). */
+  showLineNumbers: z.boolean().default(true),
 });
 export type ViewerSettings = z.infer<typeof viewerSettingsSchema>;
 
@@ -50,17 +52,35 @@ export function fontStack(family: string | undefined): string {
   return [...names.map((n) => `"${n.replace(/["\\]/g, "")}"`), "monospace"].join(", ");
 }
 
+/** State given to a tab opened by the user (a restored tab keeps its saved state). */
+export const tabDefaultsSchema = z.object({
+  /** Follows the end of the file; off = the tab opens at the top of the file. */
+  followOnOpen: z.boolean().default(true),
+  /** Stack traces folded under their record. */
+  foldTraces: z.boolean().default(false),
+  /** Levels shown (the others are filtered out when the format is known). */
+  levels: z.array(z.enum(LEVELS)).min(1).default([...LEVELS]),
+});
+export type TabDefaults = z.infer<typeof tabDefaultsSchema>;
+
+export const defaultTabDefaults = (): TabDefaults => tabDefaultsSchema.parse({});
+
 export const settingsSchema = z.object({
   schemaVersion: z.literal(1),
   theme: themeSchema.default("system"),
   /** Looks for a newer GitHub release at startup (the only network access of the app, NF-07). */
   checkForUpdates: z.boolean().default(true),
+  /** Reopens the tabs of the last session at startup. */
+  restoreSession: z.boolean().default(true),
+  /** Asks before the tab menu closes several tabs at once. */
+  confirmCloseTabs: z.boolean().default(true),
   /** Rolled archives of a file modified within this many hours are loaded before it (T-09); 0 = the file alone. */
   historyHours: z.number().min(0).max(720).default(2),
   /** Archive name pattern learned for a followed file (path key → regex source), see learnArchivePattern. */
   archivePatterns: z.record(z.string(), z.string()).default({}),
   docker: dockerSettingsSchema.default(() => defaultDockerSettings()),
   viewer: viewerSettingsSchema.default(() => defaultViewerSettings()),
+  tabs: tabDefaultsSchema.default(() => defaultTabDefaults()),
 });
 export type Settings = z.infer<typeof settingsSchema>;
 
@@ -114,7 +134,7 @@ export const recentSchema = z.object({
 });
 export type Recent = z.infer<typeof recentSchema>;
 
-export const defaultSettings = (): Settings => ({ schemaVersion: 1, theme: "system", checkForUpdates: true, historyHours: 2, archivePatterns: {}, docker: defaultDockerSettings(), viewer: defaultViewerSettings() });
+export const defaultSettings = (): Settings => ({ schemaVersion: 1, theme: "system", checkForUpdates: true, restoreSession: true, confirmCloseTabs: true, historyHours: 2, archivePatterns: {}, docker: defaultDockerSettings(), viewer: defaultViewerSettings(), tabs: defaultTabDefaults() });
 export const emptyRecent = (): Recent => ({ schemaVersion: 1, files: [] });
 export const emptySession = (): Session => ({ schemaVersion: 1, tabs: [] });
 

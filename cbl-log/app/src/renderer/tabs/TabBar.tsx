@@ -2,6 +2,8 @@ import "./TabBar.css";
 import { useRef, useState } from "react";
 import type { TabId } from "@cbl-log/shared";
 import { WhaleIcon } from "../docker/DockerPanel";
+import { ContextMenu, type MenuItem } from "../viewer/ContextMenu";
+import { tabsToClose, type CloseKind } from "./tab-close";
 import { tabLabel, tabUri, type TabState } from "./tabs-reducer";
 
 interface Props {
@@ -9,6 +11,8 @@ interface Props {
   activeId: TabId | undefined;
   onActivate(tabId: TabId): void;
   onClose(tabId: TabId): void;
+  /** Right-click menu: closes several tabs at once (the app may ask for a confirmation). */
+  onCloseMany(tabIds: TabId[]): void;
   /** Gives the tab a custom name (empty = back to the file name). */
   onRename(tabId: TabId, name: string): void;
   /** Opens files from the file dialog. */
@@ -19,8 +23,31 @@ interface Props {
   onOpenAll?: (() => void) | undefined;
 }
 
-export function TabBar({ tabs, activeId, onActivate, onClose, onRename, onOpen, docker, onOpenAll }: Props) {
+export function TabBar({ tabs, activeId, onActivate, onClose, onCloseMany, onRename, onOpen, docker, onOpenAll }: Props) {
   const [editing, setEditing] = useState<TabId | undefined>(undefined);
+  const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | undefined>();
+  // bar order: the files, then the pinned "All" tab
+  const order = [...tabs.filter((t) => !t.merged), ...tabs.filter((t) => t.merged)].map((t) => t.info.tabId);
+
+  const openMenu = (e: React.MouseEvent, tabId: TabId): void => {
+    e.preventDefault();
+    const many = (kind: CloseKind) => {
+      const ids = tabsToClose(order, tabId, kind);
+      return { disabled: ids.length === 0, onSelect: () => onCloseMany(ids) };
+    };
+    setMenu({
+      x: e.clientX,
+      y: e.clientY,
+      items: [
+        { label: "Renommer", onSelect: () => setEditing(tabId) },
+        "separator",
+        { label: "Fermer", onSelect: () => onClose(tabId) },
+        { label: "Fermer les autres onglets", ...many("others") },
+        { label: "Fermer les onglets à droite", ...many("right") },
+        { label: "Fermer tous les onglets", ...many("all") },
+      ],
+    });
+  };
   const cancelled = useRef(false);
 
   const renderTab = (tab: TabState) => {
@@ -38,6 +65,7 @@ export function TabBar({ tabs, activeId, onActivate, onClose, onRename, onOpen, 
           title={tab.message ? `${path}\n${tab.message}` : path}
           onDoubleClick={() => setEditing(tabId)}
           onClick={() => onActivate(tabId)}
+          onContextMenu={(e) => openMenu(e, tabId)}
           onAuxClick={(e) => {
             if (e.button === 1) onClose(tabId);
           }}
@@ -108,6 +136,7 @@ export function TabBar({ tabs, activeId, onActivate, onClose, onRename, onOpen, 
           Tout
         </button>
       )}
+      {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(undefined)} />}
     </nav>
   );
 }

@@ -30,6 +30,11 @@ export function formatValue(doc: SettingDoc, value: unknown): string {
       return control.options.find((o) => o.value === value)?.label ?? String(value);
     case "number":
       return `${(value as number).toLocaleString("fr-FR")}${control.unit ? ` ${control.unit}` : ""}`;
+    case "flags": {
+      const on = (value ?? []) as readonly string[];
+      if (on.length === control.options.length) return "tous";
+      return control.options.filter((o) => on.includes(o.value)).map((o) => o.label).join(", ");
+    }
     case "map":
       return Object.keys(value as object).length === 0 ? "aucun" : `${Object.keys(value as object).length} entrée(s)`;
     default:
@@ -41,5 +46,10 @@ export function formatValue(doc: SettingDoc, value: unknown): string {
 export function isDefault(doc: SettingDoc, value: unknown): boolean {
   const fallback = defaultSetting(doc.path);
   if (doc.control.kind === "map") return Object.keys((value ?? {}) as object).length === 0;
+  if (doc.control.kind === "flags") {
+    const a = (value ?? []) as readonly string[];
+    const b = (fallback ?? []) as readonly string[];
+    return a.length === b.length && a.every((v) => b.includes(v));
+  }
   return value === fallback;
 }

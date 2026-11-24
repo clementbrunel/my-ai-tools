@@ -51,6 +51,7 @@ import { buildSession, liveStartRow } from "./session/session-snapshot";
 import { MergedLegend, SOURCE_COLORS, type LegendSource } from "./tabs/MergedLegend";
 import { StatusBar } from "./tabs/StatusBar";
 import { TabBar } from "./tabs/TabBar";
+import { ConfirmClosePanel } from "./tabs/ConfirmClosePanel";
 import { findRowAtTime, parseGotoInput, resolveTarget, wallClockOf, type GotoTimeResult } from "./formats/goto-time";
 import { filterStatus, initialTabsState, searchStatus, tabLabel, tabsReducer, type TabState } from "./tabs/tabs-reducer";
 import { SearchBar } from "./search/SearchBar";
@@ -104,6 +105,8 @@ export function App() {
   const [notesOpen, setNotesOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  /** Tabs waiting for the "close several tabs" confirmation. */
+  const [pendingClose, setPendingClose] = useState<TabId[] | undefined>();
   const [updateState, setUpdateState] = useState<UpdatePanelState | null>(null);
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const settingsRef = useRef(settings);
@@ -264,7 +267,16 @@ export function App() {
         );
         const cache = new PageCache(async (first, count) => (await engine.request("getRows", { tabId: info.tabId, first, count })).rows);
         runtimes.current.set(info.tabId, { cache, total: info.totalRows, pathKey: key, filterTotal: 0 });
-        dispatch({ type: "opened", info, ...(docker ? { docker } : {}), ...(encoding ? { encodingChoice: encoding } : {}), ...(opts.index !== undefined ? { index: opts.index } : {}) });
+        // a tab opened by the user gets the defaults of the Configuration; a restored one its saved state (below)
+        const defaults = restore ? undefined : settingsRef.current.tabs;
+        dispatch({
+          type: "opened",
+          info,
+          ...(docker ? { docker } : {}),
+          ...(encoding ? { encodingChoice: encoding } : {}),
+          ...(opts.index !== undefined ? { index: opts.index } : {}),
+          ...(defaults ? { follow: defaults.followOnOpen, filter: { ...defaultFilterSettings(), levels: [...defaults.levels], foldTraces: defaults.foldTraces } } : {}),
+        });
         void detectRef.current(info.tabId);
         const skipped = info.history?.skipped ?? 0;
         if (skipped > 0) {
@@ -446,6 +458,15 @@ export function App() {
     [withEngine],
   );
 
+  /** Tab menu: closes several tabs, after a confirmation unless settings.confirmCloseTabs is off. */
+  const closeMany = useCallback(
+    (tabIds: TabId[]) => {
+      if (tabIds.length > 1 && settingsRef.current.confirmCloseTabs) setPendingClose(tabIds);
+      else for (const id of tabIds) closeTab(id);
+    },
+    [closeTab],
+  );
+
   /** Opens containers of the panel (by name) in tabs. */
   const openContainers = useCallback(
     async (names: string[]) => {
@@ -521,10 +542,14 @@ export function App() {
       restoreStarted.current = true;
       void (async () => {
         try {
-          const { value, warning } = await window.cblLog.loadSession();
-          if (warning) setNotice({ text: `Session ignorée : ${warning}`, isError: true });
-          lastSessionObj.current = value;
-          await restoreSession(value);
+          // settings.restoreSession off: start on the welcome screen (the session is rewritten by the next change)
+          const { value: startup } = await window.cblLog.loadSettings();
+          if (startup.restoreSession) {
+            const { value, warning } = await window.cblLog.loadSession();
+            if (warning) setNotice({ text: `Session ignorée : ${warning}`, isError: true });
+            lastSessionObj.current = value;
+            await restoreSession(value);
+          }
         } finally {
           sessionReady.current = true;
           window.cblLog.notifyReady();
@@ -1278,6 +1303,25 @@ export function App() {
           }}
         />
       )}
+      {pendingClose && (
+        <ConfirmClosePanel
+          names={pendingClose.flatMap((id) => {
+            const tab = state.tabs.find((t) => t.info.tabId === id);
+            return tab ? [tabLabel(tab)] : [];
+          })}
+          onCancel={() => setPendingClose(undefined)}
+          onConfirm={(dontAskAgain) => {
+            for (const id of pendingClose) closeTab(id);
+            setPendingClose(undefined);
+            if (dontAskAgain) {
+              const next: Settings = { ...settingsRef.current, confirmCloseTabs: false };
+              settingsRef.current = next;
+              setSettings(next);
+              void window.cblLog.saveSettings(next).catch(() => undefined);
+            }
+          }}
+        />
+      )}
       {updateState && <UpdatePanel state={updateState} onClose={() => setUpdateState(null)} />}
       <div className="workspace">
       {dockerEnabled && dockerOpen && (
@@ -1316,6 +1360,7 @@ export function App() {
             activeId={activeId}
             onActivate={(tabId) => dispatch({ type: "activated", tabId })}
             onClose={closeTab}
+            onCloseMany={closeMany}
             onRename={(tabId, name) => dispatch({ type: "renamed", tabId, name })}
             onOpen={() => void window.cblLog.openFileDialog().then(openPaths)}
             docker={dockerEnabled ? { open: dockerOpen, onToggle: () => setDockerOpen((o) => !o) } : undefined}
@@ -1390,6 +1435,7 @@ export function App() {
             onNotice={onNotice}
             fontFamily={settings.viewer.fontFamily}
             fontSize={settings.viewer.fontSize}
+            showLineNumbers={settings.viewer.showLineNumbers}
             follow={active.follow && !pausedAt}
             initialRow={filtered ? 0 : active.scrollRow}
             onFollowChange={onViewFollowChange}

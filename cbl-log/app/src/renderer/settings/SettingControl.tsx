@@ -29,6 +29,28 @@ export function SettingControl({ id, doc, value, onChange }: { id: string; doc: 
       return (
         <TextField id={id} value={typeof value === "string" ? value : ""} placeholder={control.placeholder} suggestions={control.suggestions} onChange={(v) => onChange(v === "" ? undefined : v)} />
       );
+    case "flags": {
+      const on = (Array.isArray(value) ? value : []) as string[];
+      return (
+        <span className="flags" id={id} role="group">
+          {control.options.map((o) => {
+            const checked = on.includes(o.value);
+            return (
+              <label key={o.value} className="flag">
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  // at least one value stays checked
+                  disabled={checked && on.length === 1}
+                  onChange={(e) => onChange(control.options.map((x) => x.value).filter((v) => (v === o.value ? e.target.checked : on.includes(v))))}
+                />
+                <span>{o.label}</span>
+              </label>
+            );
+          })}
+        </span>
+      );
+    }
     case "map": {
       const entries = Object.entries((value ?? {}) as Record<string, string>);
       if (entries.length === 0) return <p className="hint map-empty">Aucun motif appris.</p>;
