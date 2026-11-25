@@ -45,7 +45,7 @@ nsis:
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true
-  # removes the Explorer integration (context menu, .log/.out) on uninstall
+  # removes the « Ouvrir avec cbl-log » Explorer entry on uninstall
   include: build/installer.nsh
   artifactName: ${productName}-Setup-${version}.exe
 portable:

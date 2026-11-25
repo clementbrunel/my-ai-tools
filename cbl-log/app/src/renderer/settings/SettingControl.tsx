@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import type { SettingDoc } from "@cbl-log/shared";
 import { Button } from "../ui/Button";
+import { flagChecked, toggleFlag } from "./settings-view";
 import { t, fmtNumber } from "@cbl-log/shared";
 
 export function SettingControl({ id, doc, value, onChange }: { id: string; doc: SettingDoc; value: unknown; onChange(value: unknown): void }) {
@@ -32,18 +33,19 @@ export function SettingControl({ id, doc, value, onChange }: { id: string; doc: 
       );
     case "flags": {
       const on = (Array.isArray(value) ? value : []) as string[];
+      const checkedCount = control.options.filter((o) => flagChecked(on, o)).length;
       return (
         <span className="flags" id={id} role="group">
           {control.options.map((o) => {
-            const checked = on.includes(o.value);
+            const checked = flagChecked(on, o);
             return (
               <label key={o.value} className="flag">
                 <input
                   type="checkbox"
                   checked={checked}
-                  // at least one value stays checked
-                  disabled={checked && on.length === 1}
-                  onChange={(e) => onChange(control.options.map((x) => x.value).filter((v) => (v === o.value ? e.target.checked : on.includes(v))))}
+                  // at least one option stays checked
+                  disabled={checked && checkedCount === 1}
+                  onChange={(e) => onChange(toggleFlag(control.options, on, o, e.target.checked))}
                 />
                 <span>{o.label}</span>
               </label>

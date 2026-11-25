@@ -12,7 +12,7 @@ import {
   fontStack,
   rowHeightFor,
 } from "@cbl-log/shared";
-import { filterSections, formatValue, isDefault } from "./settings-view";
+import { filterSections, flagChecked, formatValue, isDefault, toggleFlag } from "./settings-view";
 
 const docs = SETTING_SECTIONS.flatMap((s) => s.settings);
 const doc = (key: string) => docs.find((d) => settingKey(d.path) === key)!;
@@ -109,7 +109,7 @@ describe("settings view helpers", () => {
     expect(formatValue(doc("theme"), "dark")).toBe("Sombre");
     expect(formatValue(doc("checkForUpdates"), false)).toBe("désactivé");
     expect(formatValue(doc("docker.host"), undefined)).toBe("(automatique)");
-    expect(formatValue(doc("historyHours"), 2)).toBe("2 h");
+    expect(formatValue(doc("historyHours"), 2)).toBe("2 heures");
   });
 
   it("tells a modified setting from a default one", () => {
@@ -159,7 +159,7 @@ describe("flags control (tabs.levels)", () => {
   it("shows all / the checked levels and compares as a set", () => {
     const levels = doc("tabs.levels");
     expect(formatValue(levels, ["fatal", "error", "warn", "info", "debug", "trace"])).toBe("tous");
-    expect(formatValue(levels, ["warn", "error"])).toBe("ERROR, WARN");
+    expect(formatValue(levels, ["warn", "fatal", "error"])).toBe("ERROR, WARN");
     expect(isDefault(levels, ["trace", "debug", "info", "warn", "error", "fatal"])).toBe(true);
     expect(isDefault(levels, ["error"])).toBe(false);
   });
@@ -167,5 +167,24 @@ describe("flags control (tabs.levels)", () => {
   it("rejects an empty level list", () => {
     const base = JSON.parse(settingsToText(defaultSettings()));
     expect(checkSettingsText(JSON.stringify({ ...base, tabs: { levels: [] } })).ok).toBe(false);
+  });
+});
+
+describe("ERROR option of tabs.levels (fatal + error, like the level pills)", () => {
+  const control = doc("tabs.levels").control as Extract<ReturnType<typeof doc>["control"], { kind: "flags" }>;
+  const error = control.options[0]!;
+
+  it("is checked only when both levels are", () => {
+    expect(flagChecked(["fatal", "error"], error)).toBe(true);
+    expect(flagChecked(["error"], error)).toBe(false);
+  });
+
+  it("checks and unchecks both levels, in level order", () => {
+    expect(toggleFlag(control.options, ["warn", "info"], error, true)).toEqual(["fatal", "error", "warn", "info"]);
+    expect(toggleFlag(control.options, ["fatal", "error", "warn"], error, false)).toEqual(["warn"]);
+  });
+
+  it("has no FATAL option of its own", () => {
+    expect(control.options.map((o) => o.label)).toEqual(["ERROR", "WARN", "INFO", "DEBUG", "TRACE"]);
   });
 });

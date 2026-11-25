@@ -12,14 +12,28 @@ export function filterSections(sections: readonly SettingSection[], query: strin
     .map((section) => ({
       ...section,
       settings: section.settings.filter((doc) => {
-        const hay = fold(`${section.title} ${doc.label} ${doc.description} ${settingKey(doc.path)}`);
+        const hay = fold(`${section.title} ${doc.label} ${doc.description} ${doc.details ?? ""} ${settingKey(doc.path)}`);
         return words.every((w) => hay.includes(w));
       }),
     }))
     .filter((section) => section.settings.length > 0);
 }
 
-/** How a value is shown next to "Par défaut :". */
+type FlagOption = Extract<SettingDoc["control"], { kind: "flags" }>["options"][number];
+
+/** Stored values a flag option stands for (ERROR = fatal + error). */
+export const flagValues = (option: FlagOption): readonly string[] => option.values ?? [option.value];
+
+/** The option is checked when all its values are. */
+export const flagChecked = (on: readonly string[], option: FlagOption): boolean => flagValues(option).every((v) => on.includes(v));
+
+/** Checks or unchecks `option`, in the options' order (the values of the other options are kept as they are). */
+export function toggleFlag(options: readonly FlagOption[], on: readonly string[], option: FlagOption, checked: boolean): string[] {
+  const own = flagValues(option);
+  return options.flatMap(flagValues).filter((v) => (own.includes(v) ? checked : on.includes(v)));
+}
+
+/** How a value is shown in the "Rétablir" tooltip (the default value). */
 export function formatValue(doc: SettingDoc, value: unknown): string {
   const control = doc.control;
   if (value === undefined) return control.kind === "text" ? (control.emptyLabel ?? t("(automatique)")) : "—";
@@ -32,8 +46,8 @@ export function formatValue(doc: SettingDoc, value: unknown): string {
       return `${fmtNumber(value as number)}${control.unit ? ` ${control.unit}` : ""}`;
     case "flags": {
       const on = (value ?? []) as readonly string[];
-      if (on.length === control.options.length) return "tous";
-      return control.options.filter((o) => on.includes(o.value)).map((o) => o.label).join(", ");
+      const checked = control.options.filter((o) => flagChecked(on, o));
+      return checked.length === control.options.length ? t("tous") : checked.map((o) => o.label).join(", ");
     }
     case "map":
       return Object.keys(value as object).length === 0 ? t("aucun") : t("{n} entrée(s)", { n: Object.keys(value as object).length });

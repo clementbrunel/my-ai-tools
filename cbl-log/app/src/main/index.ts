@@ -25,7 +25,7 @@ const registeredExe = (): string | undefined => (app.isPackaged ? (process.env["
 let appliedShell: string | undefined;
 /** Brings the Explorer integration in line with the settings (skipped when nothing changed since the last run). */
 function syncShellIntegration(settings: Settings, force = false): void {
-  const wanted: ShellIntegration = { explorerContextMenu: settings.explorerContextMenu, fileAssociations: settings.fileAssociations };
+  const wanted: ShellIntegration = { explorerContextMenu: settings.explorerContextMenu };
   const key = JSON.stringify(wanted);
   if (!force && key === appliedShell) return;
   appliedShell = key;

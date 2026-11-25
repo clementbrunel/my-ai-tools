@@ -1,9 +1,60 @@
 /* "Interface" mode of the Configuration window (settings/SettingsForm.tsx, SettingControl.tsx) */
+.settings-layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Side list of the sections: a click scrolls to it, the one on screen is highlighted. */
+.settings-nav {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 2px;
+  width: 170px;
+  padding: 10px 8px;
+  border-right: 1px solid var(--border);
+}
+
+.settings-nav button {
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--fg);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.settings-nav button:hover {
+  background: var(--chrome);
+}
+
+.settings-nav button.on {
+  background: var(--segment-bg);
+  font-weight: 600;
+}
+
 .settings-form {
   flex: 1;
   min-height: 0;
   overflow: auto;
   padding: 0 12px 12px;
+}
+
+.settings-advanced > summary {
+  padding: 6px 10px;
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.setting-details {
+  margin-left: 6px;
+  color: var(--accent);
+  cursor: help;
 }
 
 .settings-section h3 {
@@ -39,13 +90,6 @@
   font-weight: 600;
 }
 
-.setting-key {
-  padding: 0 5px;
-  border-radius: 3px;
-  background: var(--segment-bg);
-  color: var(--muted);
-  font: 11px/1.6 ui-monospace, "Cascadia Mono", Consolas, monospace;
-}
 
 .setting-apply {
   padding: 0 6px;
@@ -66,20 +110,12 @@
 }
 
 .setting-desc {
-  margin: 3px 0 2px;
+  margin: 2px 0 0;
   color: var(--fg);
   font-size: 12px;
   line-height: 1.45;
 }
 
-.setting-default {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 0;
-  color: var(--muted);
-  font-size: 11px;
-}
 
 .setting-control {
   display: flex;
@@ -169,4 +205,9 @@
   gap: 4px;
   font-size: 12px;
   cursor: pointer;
+}
+
+.setting-title .link-btn {
+  font-size: 11px;
+  font-weight: normal;
 }
