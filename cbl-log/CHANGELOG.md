@@ -5,6 +5,19 @@ La section `## [X.Y.Z]` est reprise telle quelle comme notes de la release GitHu
 et affichée dans la fenêtre « Mise à jour disponible » de l'application : rédigez-la pour un
 utilisateur (pas de noms de branches, de PR ni de tâches internes).
 
+## [3.4.0] — 2026-11-25
+
+- **Fichier sur un partage réseau** : suivi renforcé pour un log situé sur `\\serveur\...` : reprise après une mise en veille du PC et meilleure tenue quand le fichier tourne très souvent.
+- **Interface en anglais** : nouveau réglage « Langue » (Système / Français / English) ; menus, fenêtres, notifications et messages suivent la langue choisie.
+- **Configuration plus claire** : 6 sections avec une liste à gauche, une ligne d'explication par réglage, et des listes déroulantes pour la police et la taille du texte des logs.
+- **Affichage des logs** : choix de la police et de la taille du texte, numéros de ligne affichables ou masqués.
+- **Nouveaux onglets** : réglages par défaut (suivre la fin du fichier, replier les stack traces, niveaux affichés) et choix de rouvrir ou non les onglets au démarrage.
+- **Onglets** : clic droit pour renommer, fermer les autres, fermer à droite ou tout fermer, avec une confirmation (« Ne plus demander »).
+- **Historique des recherches** : flèche bas ou bouton horloge dans la barre de recherche pour retrouver les recherches précédentes, avec leurs options ; la taille de l'historique est réglable.
+- **Notifications Windows** : une règle de surlignage « notifier » déclenche une notification quand une ligne correspondante arrive dans un fichier suivi (regroupées, et seulement si l'onglet n'est pas déjà sous les yeux) ; un clic montre la ligne.
+- **Explorateur Windows** : « Ouvrir avec cbl-log » dans le menu contextuel des fichiers, réglable dans la Configuration.
+- **Canal de mise à jour Bêta** : réglable dans la Configuration, pour essayer les versions de test avant tout le monde.
+
 ## [3.3.0] — 2026-11-23
 
 - **Repères de recherche** : les occurrences de la recherche apparaissent sous forme de repères sur la barre de défilement (onglet fichier et onglet « Tout »), pour repérer d'un coup d'œil où elles se trouvent dans le log.
