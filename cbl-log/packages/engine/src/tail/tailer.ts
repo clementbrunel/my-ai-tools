@@ -36,6 +36,9 @@ export const DEFAULT_MAX_RETAINED_SEGMENTS = 3;
 const MAX_DRAIN_PASSES = 16;
 const MAX_ARCHIVE_CANDIDATES = 25;
 const MAX_DIR_ENTRIES = 2000;
+/** Looking for a renamed file or an archive must never hold up a tick: on a share each stat is a round trip. */
+const DIR_SCAN_BUDGET_MS = 2_000;
+const DIR_SCAN_CONCURRENCY = 32;
 const WATCH_MIN_SPACING_MS = 50;
 /** A local file that is growing is polled this often, for this long after its last growth (the slow pace is 250 ms). */
 const HOT_POLL_MS = 100;
@@ -118,6 +121,42 @@ function errCode(err: unknown): string | undefined {
   const direct = (err as NodeJS.ErrnoException | null)?.code;
   if (direct) return direct;
   return err instanceof SourceError ? err.code : undefined;
+}
+
+/** Resolves with `undefined` after `ms` instead of waiting for `promise`; a late rejection is swallowed. */
+function within<T>(promise: Promise<T>, ms: number): Promise<T | undefined> {
+  let timer: NodeJS.Timeout | undefined;
+  const late = promise.catch(() => undefined);
+  const timeout = new Promise<undefined>((resolve) => {
+    timer = setTimeout(() => resolve(undefined), ms);
+  });
+  return Promise.race([late, timeout]).finally(() => clearTimeout(timer));
+}
+
+/**
+ * Runs `probe` on the entries of `dir` (except `skip`), `DIR_SCAN_CONCURRENCY` at a time, and gives up when
+ * `DIR_SCAN_BUDGET_MS` is spent. Stops early once `done` accepts a result. A huge or slow directory
+ * (rolling every second, a network share) therefore yields a partial answer instead of a stuck tick.
+ */
+async function scanDirectory<T>(
+  dir: string,
+  skip: string,
+  probe: (full: string) => Promise<T | undefined>,
+  done?: (found: T) => boolean,
+): Promise<T[]> {
+  const deadline = Date.now() + DIR_SCAN_BUDGET_MS;
+  const listed = await within(readdir(dir), DIR_SCAN_BUDGET_MS);
+  const found: T[] = [];
+  if (!listed) return found;
+  const names = listed.slice(0, MAX_DIR_ENTRIES);
+  for (let i = 0; i < names.length && Date.now() < deadline; i += DIR_SCAN_CONCURRENCY) {
+    const batch = names.slice(i, i + DIR_SCAN_CONCURRENCY).map((name) => join(dir, name)).filter((full) => full !== skip);
+    const results = await within(Promise.all(batch.map((full) => probe(full).catch(() => undefined))), Math.max(1, deadline - Date.now()));
+    if (!results) break;
+    for (const r of results) if (r !== undefined) found.push(r);
+    if (done && found.some(done)) break;
+  }
+  return found;
 }
 
 const isMissingCode = (code: string | undefined): boolean => code === "ENOENT" || code === "ENOTDIR";
@@ -473,10 +512,11 @@ export class Tailer {
     this.phaseValue = "following";
     this.setState("following");
     try {
-      await this.follow(cur);
+      await this.follow(cur, st.size);
     } catch (err) {
       // The path still stats fine but the open handle fails: typically a network share whose handle
-      // went stale after a suspend/resume (Windows "UNKNOWN: unknown error, fstat"). Reopen and retry.
+      // went stale after a suspend/resume (Windows "UNKNOWN: unknown error, fstat"), or still answers
+      // but with an old size and no error (see `pathSize` in follow). Reopen and retry.
       if (!(await this.reopen(cur))) throw err;
       await this.follow(cur);
     }
@@ -507,11 +547,19 @@ export class Tailer {
     return true;
   }
 
-  private async follow(seg: Segment): Promise<void> {
+  /**
+   * `pathSize`: size just read by path. A handle that reports less than that is behind the file
+   * (an SMB handle that survived a suspend/resume keeps answering with its old size): it is
+   * a stale handle, not a quiet file. The caller reopens it.
+   */
+  private async follow(seg: Segment, pathSize?: bigint): Promise<void> {
     const source = seg.source;
     let index = seg.index;
     if (!source || !index) return;
     const size = await source.size();
+    if (pathSize !== undefined && BigInt(size) < pathSize) {
+      throw new SourceError("UNKNOWN", seg.path, `Handle behind the file (${size} < ${pathSize} bytes): ${seg.path}`);
+    }
     if (size < index.scannedBytes || !(await this.anchorMatches(seg))) {
       await this.truncate(seg);
       return;
@@ -595,22 +643,13 @@ export class Tailer {
 
   private async findByIdentity(old: Segment): Promise<string | undefined> {
     if (old.identity.ino === "0") return undefined;
-    try {
-      const dir = dirname(old.path);
-      const names = (await readdir(dir)).slice(0, MAX_DIR_ENTRIES);
-      for (const name of names) {
-        const full = join(dir, name);
-        if (full === old.path) continue;
-        try {
-          if ((await stat(full, { bigint: true })).ino.toString() === old.identity.ino) return full;
-        } catch {
-          // vanished meanwhile
-        }
-      }
-    } catch {
-      // unreadable directory
-    }
-    return undefined;
+    const found = await scanDirectory(
+      dirname(old.path),
+      old.path,
+      async (full) => ((await stat(full, { bigint: true })).ino.toString() === old.identity.ino ? full : undefined),
+      () => true,
+    );
+    return found[0];
   }
 
   /**
@@ -673,22 +712,10 @@ export class Tailer {
     const anchor = seg.anchor;
     if (anchor.length === 0 || oldScanned < anchor.length) return undefined;
     const anchorStart = seg.anchorEnd - anchor.length;
-    const dir = dirname(seg.path);
-    let candidates: { path: string; mtime: number }[] = [];
-    try {
-      for (const name of (await readdir(dir)).slice(0, MAX_DIR_ENTRIES)) {
-        const full = join(dir, name);
-        if (full === seg.path) continue;
-        try {
-          const st = await stat(full);
-          if (st.isFile() && st.size >= oldScanned) candidates.push({ path: full, mtime: st.mtimeMs });
-        } catch {
-          // vanished meanwhile
-        }
-      }
-    } catch {
-      return undefined;
-    }
+    let candidates = await scanDirectory<{ path: string; mtime: number }>(dirname(seg.path), seg.path, async (full) => {
+      const st = await stat(full);
+      return st.isFile() && st.size >= oldScanned ? { path: full, mtime: st.mtimeMs } : undefined;
+    });
     candidates = candidates.sort((a, b) => b.mtime - a.mtime).slice(0, MAX_ARCHIVE_CANDIDATES);
     for (const candidate of candidates) {
       let source: FileSource | undefined;

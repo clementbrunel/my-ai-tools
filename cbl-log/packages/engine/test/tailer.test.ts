@@ -1,8 +1,9 @@
 import { appendFileSync, copyFileSync, existsSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { stat } from "node:fs/promises";
 import { join } from "node:path";
 import type { TailEvent } from "@cbl-log/shared";
-import { afterEach, describe, expect, it } from "vitest";
-import { BlockCache, PollScheduler, Tailer, type TailerOptions } from "../src/index";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { BlockCache, FileSource, PollScheduler, Tailer, type TailerOptions } from "../src/index";
 import { useTempDir, waitFor } from "./helpers";
 
 const tempDir = useTempDir();
@@ -109,6 +110,20 @@ describe("Tailer", () => {
     // first file = initial segment, not a rolling
     expect(events.some((e) => e.type === "rolled")).toBe(false);
     expect(tailer.segments[0]).toMatchObject({ startedBy: "initial", startRow: 0, rowCount: 3 });
+  });
+
+  it("rename + create in a directory full of archives: the renamed file is still found (batched scan)", async () => {
+    const dir = await tempDir();
+    const path = join(dir, "SystemOut.log");
+    for (let i = 0; i < 150; i++) writeFileSync(join(dir, `SystemOut_old_${String(i).padStart(3, "0")}.log`), lines(900, 902, "O"));
+    writeFileSync(path, lines(0, 5));
+    const { tailer, events } = await manual(path);
+    appendFileSync(path, lines(5, 8));
+    renameSync(path, join(dir, "SystemOut_new.log"));
+    writeFileSync(path, lines(8, 12));
+    await tailer.check();
+    expect(await texts(tailer)).toEqual(ids(0, 12));
+    expect(events.find((e) => e.type === "rolled")).toEqual({ type: "rolled", reason: "rename", previous: join(dir, "SystemOut_new.log"), at: 8 });
   });
 
   it("rename + create: the old file is drained up to EOF before the switch (T-04b)", async () => {
@@ -394,5 +409,27 @@ describe("Tailer", () => {
     appendFileSync(path, lines(6, 9));
     await waitFor(async () => other.totalRows === 9, "rows seen");
     expect(fixed.intervals).toEqual([20]);
+  });
+
+  it("a handle that keeps answering with an old size (SMB after suspend/resume) is reopened, not mistaken for a quiet file", async () => {
+    const path = join(await tempDir(), "app.log");
+    writeFileSync(path, lines(0, 5));
+    const { tailer } = await manual(path);
+    expect(tailer.totalRows).toBe(5);
+
+    // freeze the size reported by the handle opened so far; a reopened source answers truthfully
+    const stale = vi.spyOn(FileSource.prototype, "size");
+    const first = await stat(path);
+    let frozen: FileSource | undefined;
+    stale.mockImplementation(async function (this: FileSource) {
+      frozen ??= this;
+      return this === frozen ? first.size : (await stat(path)).size;
+    });
+    cleanups.push(() => stale.mockRestore());
+
+    appendFileSync(path, lines(5, 8));
+    await tailer.check();
+    expect(tailer.totalRows).toBe(8);
+    expect(await texts(tailer)).toEqual(ids(0, 8));
   });
 });
