@@ -33,10 +33,21 @@ export function toggleFlag(options: readonly FlagOption[], on: readonly string[]
   return options.flatMap(flagValues).filter((v) => (own.includes(v) ? checked : on.includes(v)));
 }
 
+/**
+ * Number typed in a field: digits, with a decimal part (`,` or `.`) only when `decimal`, within [min, max].
+ * Anything else (empty, letters, 1e3, out of bounds) gives undefined: the field shows an error and saves nothing.
+ */
+export function parseNumberInput(text: string, opts: { min: number; max: number; decimal?: boolean | undefined }): number | undefined {
+  const s = text.trim();
+  if (!(opts.decimal ? /^-?\d+(?:[.,]\d+)?$/ : /^-?\d+$/).test(s)) return undefined;
+  const n = Number(s.replace(",", "."));
+  return n >= opts.min && n <= opts.max ? n : undefined;
+}
+
 /** How a value is shown in the "Rétablir" tooltip (the default value). */
 export function formatValue(doc: SettingDoc, value: unknown): string {
   const control = doc.control;
-  if (value === undefined) return control.kind === "text" ? (control.emptyLabel ?? t("(automatique)")) : "—";
+  if (value === undefined) return control.kind === "font" ? control.emptyLabel : control.kind === "text" ? (control.emptyLabel ?? t("(automatique)")) : "—";
   switch (control.kind) {
     case "boolean":
       return value ? t("activé") : t("désactivé");

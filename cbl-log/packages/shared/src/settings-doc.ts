@@ -10,19 +10,24 @@ export type SettingApply = "live" | "next-open" | "restart";
 export type SettingControl =
   | { kind: "boolean" }
   | { kind: "enum"; options: readonly { value: string; label: string }[] }
-  | { kind: "number"; min: number; max: number; step?: number; unit?: string }
+  /** `choices`: offered as a drop-down list instead of a free field (a value set in the JSON is kept in the list). */
+  /** `decimal`: decimals allowed (default: whole numbers only). */
+  | { kind: "number"; min: number; max: number; step?: number; unit?: string; choices?: readonly number[]; decimal?: boolean }
   /**
    * Optional text: an empty field removes the key (the default behaviour then applies).
-   * `suggestions` are offered in a drop-down list (any other value can still be typed);
    * `emptyLabel` is how the absent value is shown ("(automatique)" by default).
    */
-  | { kind: "text"; placeholder?: string; suggestions?: readonly string[]; emptyLabel?: string }
+  | { kind: "text"; placeholder?: string; emptyLabel?: string }
   /** Several values among `options` (at least one), shown as check boxes. */
   | {
       kind: "flags";
       /** `values`: the stored values the option stands for (default: [value]), e.g. ERROR = fatal + error. */
       options: readonly { value: string; label: string; values?: readonly string[] }[];
+      /** "level-pills": drawn like the level pills of the status bar (`value` = level whose colour is used). */
+      appearance?: "level-pills";
     }
+  /** Monospaced font installed on this computer, picked in a list; absent = the default (`emptyLabel`). */
+  | { kind: "font"; emptyLabel: string }
   /** Map edited as a list (entries can only be removed). */
   | { kind: "map" };
 
@@ -102,21 +107,15 @@ export const SETTING_SECTIONS: readonly SettingSection[] = [
       {
         path: ["viewer", "fontFamily"],
         label: t("Police"),
-        description: t("Une police à chasse fixe garde les colonnes alignées."),
-        details: t("Une police absente de ce poste est remplacée par Consolas."),
-        control: {
-          kind: "text",
-          placeholder: "Consolas",
-          emptyLabel: "Consolas",
-          suggestions: ["Consolas", "Cascadia Mono", "Cascadia Code", "Lucida Console", "Courier New", "JetBrains Mono", "Fira Code", "Source Code Pro"],
-        },
+        description: t("Polices à chasse fixe installées sur ce poste."),
+        control: { kind: "font", emptyLabel: "Consolas" },
         apply: "live",
       },
       {
         path: ["viewer", "fontSize"],
         label: t("Taille du texte"),
         description: t("Taille des lignes de log ; Ctrl+molette zoome toute la fenêtre."),
-        control: { kind: "number", min: MIN_FONT_SIZE, max: MAX_FONT_SIZE, step: 1, unit: "px" },
+        control: { kind: "number", min: MIN_FONT_SIZE, max: MAX_FONT_SIZE, unit: "px", choices: [10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24] },
         apply: "live",
       },
       {
@@ -154,6 +153,7 @@ export const SETTING_SECTIONS: readonly SettingSection[] = [
         details: t("ERROR comprend FATAL, comme la pastille de la barre d'état."),
         control: {
           kind: "flags",
+          appearance: "level-pills",
           options: [
             { value: "error", label: "ERROR", values: ["fatal", "error"] },
             { value: "warn", label: "WARN" },
@@ -169,7 +169,7 @@ export const SETTING_SECTIONS: readonly SettingSection[] = [
         label: t("Archives récentes chargées"),
         description: t("Archives de rotation modifiées depuis moins de N heures ; 0 = le fichier seul."),
         details: t("app.log.1, app-2026-11-03.log… sont chargées avant le fichier suivi."),
-        control: { kind: "number", min: 0, max: 720, step: 1, unit: t("heures") },
+        control: { kind: "number", min: 0, max: 720, step: 1, unit: t("heures"), decimal: true },
         apply: "next-open",
       },
       {

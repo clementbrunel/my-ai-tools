@@ -325,9 +325,11 @@ export const EN: Readonly<Record<string, string>> = {
   // renderer/settings/SettingControl.tsx
   "Activé": "On",
   "Désactivé": "Off",
+  "{font} (par défaut)": "{font} (default)",
   "Aucun motif appris.": "No learned pattern.",
   "Supprimer le motif de {key}": "Delete the pattern of {key}",
   "Supprimer (retour à la détection automatique)": "Delete (back to automatic detection)",
+  "Nombre entre {min} et {max}": "Number from {min} to {max}",
   "Entier entre {min} et {max}": "Whole number from {min} to {max}",
   // renderer/settings/SettingsForm.tsx
   "Sections": "Sections",
@@ -541,8 +543,7 @@ export const EN: Readonly<Record<string, string>> = {
   "Confirmer avant de fermer plusieurs onglets": "Confirm before closing several tabs",
   "Clic droit sur un onglet › Fermer les autres / à droite / tous.": "Right-click a tab › Close the others / to the right / all.",
   "Police": "Font",
-  "Une police à chasse fixe garde les colonnes alignées.": "A monospaced font keeps the columns aligned.",
-  "Une police absente de ce poste est remplacée par Consolas.": "A font missing on this computer is replaced by Consolas.",
+  "Polices à chasse fixe installées sur ce poste.": "Monospaced fonts installed on this computer.",
   "Taille du texte": "Text size",
   "Taille des lignes de log ; Ctrl+molette zoome toute la fenêtre.": "Size of the log lines; Ctrl+wheel zooms the whole window.",
   "Numéros de ligne": "Line numbers",

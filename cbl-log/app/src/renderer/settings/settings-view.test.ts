@@ -12,7 +12,7 @@ import {
   fontStack,
   rowHeightFor,
 } from "@cbl-log/shared";
-import { filterSections, flagChecked, formatValue, isDefault, toggleFlag } from "./settings-view";
+import { filterSections, flagChecked, formatValue, isDefault, parseNumberInput, toggleFlag } from "./settings-view";
 
 const docs = SETTING_SECTIONS.flatMap((s) => s.settings);
 const doc = (key: string) => docs.find((d) => settingKey(d.path) === key)!;
@@ -29,7 +29,7 @@ describe("settings documentation", () => {
   });
 
   it("each documented path exists in the defaults or is optional text", () => {
-    for (const d of docs) if (d.control.kind !== "text") expect(getSetting(defaultSettings(), d.path), settingKey(d.path)).not.toBeUndefined();
+    for (const d of docs) if (d.control.kind !== "text" && d.control.kind !== "font") expect(getSetting(defaultSettings(), d.path), settingKey(d.path)).not.toBeUndefined();
   });
 });
 
@@ -186,5 +186,33 @@ describe("ERROR option of tabs.levels (fatal + error, like the level pills)", ()
 
   it("has no FATAL option of its own", () => {
     expect(control.options.map((o) => o.label)).toEqual(["ERROR", "WARN", "INFO", "DEBUG", "TRACE"]);
+  });
+});
+
+describe("parseNumberInput (number fields of the form)", () => {
+  const int = { min: 0, max: 100 };
+  const dec = { min: 0, max: 720, decimal: true };
+
+  it("takes whole numbers within the bounds", () => {
+    expect(parseNumberInput("20", int)).toBe(20);
+    expect(parseNumberInput(" 0 ", int)).toBe(0);
+    expect(parseNumberInput("101", int)).toBeUndefined();
+    expect(parseNumberInput("-1", int)).toBeUndefined();
+  });
+
+  it("refuses decimals, letters, exponents and an empty field for a whole number", () => {
+    for (const bad of ["1.5", "1,5", "abc", "12a", "1e3", "", " "]) expect(parseNumberInput(bad, int), bad).toBeUndefined();
+  });
+
+  it("takes decimals with a comma or a dot when allowed", () => {
+    expect(parseNumberInput("1,5", dec)).toBe(1.5);
+    expect(parseNumberInput("0.25", dec)).toBe(0.25);
+    expect(parseNumberInput("1,", dec)).toBeUndefined();
+    expect(parseNumberInput("720,5", dec)).toBeUndefined();
+  });
+
+  it("matches the schema: hours may be decimal, the other numbers are whole", () => {
+    const numbers = docs.filter((d) => d.control.kind === "number").map((d) => [settingKey(d.path), (d.control as { decimal?: boolean }).decimal === true]);
+    expect(numbers.filter(([, decimal]) => decimal).map(([key]) => key)).toEqual(["historyHours"]);
   });
 });

@@ -74,7 +74,7 @@ function SettingRow({ doc, settings, onChange }: { doc: SettingDoc; settings: Se
   const modified = !isDefault(doc, current);
   const id = `setting-${settingKey(doc.path)}`;
   return (
-    <div className={modified ? "setting-row modified" : "setting-row"}>
+    <div className={["setting-row", modified && "modified", doc.control.kind === "flags" && doc.control.appearance && "wide-control"].filter(Boolean).join(" ")}>
       <div className="setting-text">
         <div className="setting-title">
           <label htmlFor={id} title={t("Clé dans settings.json : {key}", { key: settingKey(doc.path) })}>
@@ -86,7 +86,7 @@ function SettingRow({ doc, settings, onChange }: { doc: SettingDoc; settings: Se
               type="button"
               className="link-btn"
               title={t("Valeur par défaut : {value}", { value: formatValue(doc, fallback) })}
-              onClick={() => onChange(doc.control.kind === "text" ? undefined : fallback)}
+              onClick={() => onChange(doc.control.kind === "text" || doc.control.kind === "font" ? undefined : fallback)}
             >
               {t("Rétablir")}
             </button>
