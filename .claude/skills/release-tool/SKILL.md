@@ -46,6 +46,10 @@ If the user gave no answer or an unclear one, treat it as **Manuel**.
    `main`, CI green (in Auto mode, Claude merges it once green). Check this before anything else
 (after the merge-mode question); stop and say so if not. Check the notes with
    `node .claude/skills/release-tool/release-notes.mjs <tool> X.Y.Z`.
+   **cbl-log (stable release only, not a beta):** the same PR also refreshes the download table of
+   `cbl-log/README.md` (5 last stable versions, GitHub's `download_count` per asset) with
+   `cd cbl-log && node scripts/download-stats.mjs --write`, and commits the README change. If the
+   GitHub API fails (rate limit, network), say so and leave the table as is: never block a release on it.
 2. `git fetch origin main`, then create `release/<tool>-vX.Y.Z` from `origin/main`.
 3. `node .claude/skills/release-tool/gen-gitattributes.mjs <tool>` then commit **A**:
    `<tool>: archive restricted to <tool>/ for vX.Y.Z`.

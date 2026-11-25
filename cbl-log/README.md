@@ -112,6 +112,25 @@ Une fois installé, cbl-log se met à jour seul à partir des releases GitHub, s
   reste disponible). C'est le seul accès réseau de l'application : une requête GET vers `api.github.com`, rien n'est
   envoyé.
 
+### Téléchargements
+
+Nombre de téléchargements des 5 dernières versions stables, tel que compté par GitHub pour chaque exécutable de
+la release. Ça inclut les téléchargements manuels et les mises à jour faites depuis l'application (aucune
+télémétrie : c'est le compteur public de GitHub). Tableau rafraîchi à chaque release par
+`node scripts/download-stats.mjs --write`. La version en cours de publication n'apparaît qu'à la release suivante.
+
+<!-- download-stats:start -->
+_Relevé du 2026-11-25._
+
+| Version | Publiée le | Installeur | Portable | Total |
+|---|---|---:|---:|---:|
+| 3.3.0 | 2026-11-23 | 5 | 1 | 6 |
+| 3.2.0 | 2026-11-03 | 7 | 1 | 8 |
+| 3.1.1 | 2026-11-03 | 2 | 1 | 3 |
+| 3.1.0 | 2026-11-02 | 4 | 2 | 6 |
+| 3.0.0 | 2026-11-02 | 3 | 2 | 5 |
+<!-- download-stats:end -->
+
 ### Conteneurs Docker (Docker Desktop)
 
 Le bouton baleine de la barre d'onglets (ou `Ctrl+Maj+D`) ouvre le panneau **Docker** : conteneurs groupés par projet
