@@ -1,6 +1,7 @@
 import "./JsonEditor.css";
 import { useEffect, useRef } from "react";
 import type { SettingsTextCheck } from "@cbl-log/shared";
+import { t } from "@cbl-log/shared";
 
 /** Plain textarea with a line-number gutter, Tab indentation and the faulty line marked. */
 export function JsonEditor({ text, onChange, errorLine }: { text: string; onChange(text: string): void; errorLine: number | undefined }) {
@@ -61,7 +62,7 @@ export function JsonStatus({ check }: { check: SettingsTextCheck }) {
     );
   return (
     <div className={check.warnings.length > 0 ? "settings-status warn" : "settings-status ok"} role="status">
-      {check.warnings.length > 0 ? check.warnings.map((w) => <div key={w}>⚠ {w}</div>) : <div>✓ JSON valide</div>}
+      {check.warnings.length > 0 ? check.warnings.map((w) => <div key={w}>⚠ {w}</div>) : <div>{t("✓ JSON valide")}</div>}
     </div>
   );
 }

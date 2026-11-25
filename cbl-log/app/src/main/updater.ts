@@ -9,6 +9,7 @@ import { dirname, join } from "node:path";
 import { app, BrowserWindow, net, shell } from "electron";
 import { loadSettings } from "./config-store";
 import { expectedSha256, findUpdate, RELEASES_URL, type AvailableUpdate, type GitHubRelease, type InstallKind, type UpdateAction, type UpdatePanelState } from "./update-check";
+import { t } from "@cbl-log/shared";
 
 /** Set by electron-builder's portable launcher to the path of the running `.exe`. */
 const portableExe = (): string | undefined => process.env["PORTABLE_EXECUTABLE_FILE"];
@@ -44,7 +45,7 @@ let declinedVersion: string | undefined;
 
 async function fetchUpdate(): Promise<AvailableUpdate | undefined> {
   const res = await net.fetch(RELEASES_URL, { headers: { Accept: "application/vnd.github+json" } });
-  if (!res.ok) throw new Error(`GitHub a répondu ${res.status} ${res.statusText}`);
+  if (!res.ok) throw new Error(t("GitHub a répondu {status}", { status: `${res.status} ${res.statusText}` }));
   const { updateChannel } = (await loadSettings(app.getPath("userData"))).value;
   return findUpdate((await res.json()) as GitHubRelease[], app.getVersion(), installKind(), updateChannel);
 }
@@ -53,7 +54,7 @@ async function fetchUpdate(): Promise<AvailableUpdate | undefined> {
 async function download(update: AvailableUpdate, target: string, win: BrowserWindow | undefined): Promise<void> {
   let lastSent = 0;
   const res = await net.fetch(update.asset.browser_download_url);
-  if (!res.ok || !res.body) throw new Error(`Téléchargement impossible : ${res.status} ${res.statusText}`);
+  if (!res.ok || !res.body) throw new Error(t("Téléchargement impossible : {status}", { status: `${res.status} ${res.statusText}` }));
   mkdirSync(dirname(target), { recursive: true });
   const out = createWriteStream(target);
   const hash = createHash("sha256");
@@ -84,7 +85,7 @@ async function download(update: AvailableUpdate, target: string, win: BrowserWin
   const sha = expectedSha256(update.asset);
   if (received !== update.asset.size || (sha && hash.digest("hex") !== sha)) {
     await rm(target, { force: true });
-    throw new Error("Le fichier téléchargé est incomplet ou corrompu.");
+    throw new Error(t("Le fichier téléchargé est incomplet ou corrompu."));
   }
 }
 
@@ -126,7 +127,7 @@ async function offer(update: AvailableUpdate, win: BrowserWindow | undefined): P
     show(win, { kind: "downloading", version: update.version, received: 0, total: update.asset.size });
     await install(update, win);
   } catch (err) {
-    show(win, { kind: "error", title: "Mise à jour impossible", message: err instanceof Error ? err.message : String(err) });
+    show(win, { kind: "error", title: t("Mise à jour impossible"), message: err instanceof Error ? err.message : String(err) });
   }
 }
 
@@ -146,7 +147,7 @@ export async function checkForUpdates(win: BrowserWindow | undefined, manual: bo
       show(win, { kind: "uptodate", current: app.getVersion() });
     }
   } catch (err) {
-    if (manual) show(win, { kind: "error", title: "Vérification impossible", message: err instanceof Error ? err.message : String(err) });
+    if (manual) show(win, { kind: "error", title: t("Vérification impossible"), message: err instanceof Error ? err.message : String(err) });
   } finally {
     busy = false;
   }

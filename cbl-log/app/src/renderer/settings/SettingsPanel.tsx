@@ -6,6 +6,7 @@ import { Modal } from "../ui/Modal";
 import { JsonEditor, JsonStatus } from "./JsonEditor";
 import { SettingsForm } from "./SettingsForm";
 import { useSettingsDocument } from "./useSettingsDocument";
+import { t } from "@cbl-log/shared";
 
 type Mode = "ui" | "json";
 
@@ -29,7 +30,7 @@ export function SettingsPanel({ onClose, onSaved }: Props) {
   const { check, value } = doc;
 
   const close = useCallback(() => {
-    if (doc.isDirty() && !window.confirm("Abandonner les modifications non enregistrées ?")) return;
+    if (doc.isDirty() && !window.confirm(t("Abandonner les modifications non enregistrées ?"))) return;
     onClose();
   }, [doc.isDirty, onClose]);
 
@@ -47,17 +48,17 @@ export function SettingsPanel({ onClose, onSaved }: Props) {
   };
 
   return (
-    <Modal title="Configuration" className="settings-panel" onClose={close}>
+    <Modal title={t("Configuration")} className="settings-panel" onClose={close}>
       <div className="settings-body" onKeyDown={onKeyDown}>
         <div className="settings-toolbar">
           <ModeSwitch mode={mode} canUseForm={check.ok} onChange={setMode} />
           {mode === "ui" ? (
-            <input type="search" className="settings-search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Rechercher un réglage : « docker », « historique », « theme »…" aria-label="Rechercher un réglage" autoFocus />
+            <input type="search" className="settings-search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("Rechercher un réglage : « docker », « historique », « theme »…")} aria-label={t("Rechercher un réglage")} autoFocus />
           ) : (
             <>
               <span className="settings-toolbar-fill" />
-              <Button disabled={!check.ok} onClick={() => check.ok && doc.setText(settingsToText(check.value))} title="Réécrit le JSON avec l'indentation standard et toutes les clés (valeurs par défaut comprises)">
-                Formater
+              <Button disabled={!check.ok} onClick={() => check.ok && doc.setText(settingsToText(check.value))} title={t("Réécrit le JSON avec l'indentation standard et toutes les clés (valeurs par défaut comprises)")}>
+                {t("Formater")}
               </Button>
             </>
           )}
@@ -65,19 +66,19 @@ export function SettingsPanel({ onClose, onSaved }: Props) {
         <p className="settings-path">
           <code title={doc.path}>{doc.path || "settings.json"}</code>
           <button type="button" className="link-btn" onClick={() => void window.cblLog.revealSettingsFile()}>
-            Afficher dans l'explorateur
+            {t("Afficher dans l'explorateur")}
           </button>
         </p>
 
         {doc.changedOnDisk && (
           <div className="settings-banner">
-            Le fichier a été modifié en dehors de l'application.
-            <Button onClick={doc.reload}>Recharger (abandonner mes modifications)</Button>
+            {t("Le fichier a été modifié en dehors de l'application.")}
+            <Button onClick={doc.reload}>{t("Recharger (abandonner mes modifications)")}</Button>
           </div>
         )}
 
         {!doc.loaded ? (
-          <p className="hint">Chargement…</p>
+          <p className="hint">{t("Chargement…")}</p>
         ) : mode === "ui" && value ? (
           <SettingsForm settings={value} query={query} onChange={edit} />
         ) : (
@@ -90,16 +91,16 @@ export function SettingsPanel({ onClose, onSaved }: Props) {
         {doc.saveErrors.length > 0 && (
           <div className="settings-status error" role="alert">
             {doc.saveErrors.map((e) => (
-              <div key={e}>✕ Non enregistré : {e}</div>
+              <div key={e}>{t("✕ Non enregistré : {error}", { error: e })}</div>
             ))}
           </div>
         )}
       </div>
       <footer>
-        <span className="settings-dirty">{doc.dirty ? "● Modifications non enregistrées" : ""}</span>
-        <Button onClick={close}>{doc.dirty ? "Annuler" : "Fermer"}</Button>
-        <Button variant="primary" disabled={!doc.dirty || !check.ok || doc.saving} onClick={() => void doc.save()} title="Enregistrer (Ctrl+S)">
-          Enregistrer
+        <span className="settings-dirty">{doc.dirty ? t("● Modifications non enregistrées") : ""}</span>
+        <Button onClick={close}>{doc.dirty ? t("Annuler") : t("Fermer")}</Button>
+        <Button variant="primary" disabled={!doc.dirty || !check.ok || doc.saving} onClick={() => void doc.save()} title={t("Enregistrer (Ctrl+S)")}>
+          {t("Enregistrer")}
         </Button>
       </footer>
     </Modal>
@@ -109,9 +110,9 @@ export function SettingsPanel({ onClose, onSaved }: Props) {
 /** "Interface | JSON" switch; the form is unavailable while the JSON is invalid. */
 function ModeSwitch({ mode, canUseForm, onChange }: { mode: Mode; canUseForm: boolean; onChange(mode: Mode): void }) {
   return (
-    <div className="segmented" role="tablist" aria-label="Mode d'édition">
-      <button type="button" role="tab" aria-selected={mode === "ui"} className={mode === "ui" ? "on" : ""} disabled={!canUseForm} title={canUseForm ? undefined : "Corrigez d'abord le JSON"} onClick={() => onChange("ui")}>
-        Interface
+    <div className="segmented" role="tablist" aria-label={t("Mode d'édition")}>
+      <button type="button" role="tab" aria-selected={mode === "ui"} className={mode === "ui" ? "on" : ""} disabled={!canUseForm} title={canUseForm ? undefined : t("Corrigez d'abord le JSON")} onClick={() => onChange("ui")}>
+        {t("Interface")}
       </button>
       <button type="button" role="tab" aria-selected={mode === "json"} className={mode === "json" ? "on" : ""} onClick={() => onChange("json")}>
         JSON

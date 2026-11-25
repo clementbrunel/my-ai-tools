@@ -1,4 +1,5 @@
-import { LEVELS, sameMatcher, type FilterSettings, type Level, type TextMatcher } from "@cbl-log/shared";
+import { fmtNumber, LEVELS, sameMatcher, type FilterSettings, type Level, type TextMatcher } from "@cbl-log/shared";
+import { t } from "@cbl-log/shared";
 
 /** The level pills of the status bar: fatal and error share one (they are the same kind of problem). */
 export const LEVEL_PILLS: readonly { id: string; label: string; levels: readonly Level[] }[] = [
@@ -30,7 +31,7 @@ export function removeMatcher(settings: FilterSettings, list: "include" | "exclu
 
 /** "N lignes affichées sur M" — undefined when no filter is in force. */
 export function describeFilterCount(shown: number, total: number): string {
-  return `${shown.toLocaleString("fr-FR")} ligne(s) affichée(s) sur ${total.toLocaleString("fr-FR")}`;
+  return t("{shown} ligne(s) affichée(s) sur {total}", { shown: fmtNumber(shown), total: fmtNumber(total) });
 }
 
 /** Nothing checked off, nothing typed: the same as no filter (not worth saving in the session). */

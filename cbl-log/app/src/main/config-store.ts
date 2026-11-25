@@ -1,5 +1,6 @@
 // settings.json and session.json in the user data folder. A missing file gives the defaults; an
 // invalid one is reported and ignored (left untouched on disk), never fatal.
+import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
@@ -8,6 +9,7 @@ import {
   emptySession,
   parseSession,
   parseSettings,
+  type LanguageSetting,
   type ParseResult,
   type Session,
   type Settings,
@@ -45,6 +47,16 @@ export const saveSettings = (dir: string, settings: Settings): Promise<string> =
 export const saveSession = (dir: string, session: Session): Promise<string> => writeJsonAtomic(join(dir, "session.json"), session);
 
 export const settingsPath = (dir: string): string => join(dir, "settings.json");
+
+/** Language setting read synchronously at startup (before anything is shown); "system" when unreadable. */
+export function readLanguageSetting(dir: string): LanguageSetting {
+  try {
+    const parsed = parseSettings(readFileSync(settingsPath(dir), "utf8"));
+    return parsed.ok ? parsed.value.language : "system";
+  } catch {
+    return "system";
+  }
+}
 
 /** Raw text of settings.json for the "Configuration" window; the defaults when the file does not exist yet. */
 export async function readSettingsText(dir: string): Promise<{ text: string; path: string; exists: boolean }> {

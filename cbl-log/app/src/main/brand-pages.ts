@@ -1,3 +1,4 @@
+import { language, t } from "@cbl-log/shared";
 // Markup of the startup splash and of the "À propos" window (brand-windows.ts), kept free of Electron so
 // that it can be unit-tested. Both show the author's avatar (resources/avatar.png, passed as a data URL)
 // independently of the app icon, and colors follow the theme tokens of the renderer (renderer/styles/base.css).
@@ -17,7 +18,7 @@ export const themeColors = (dark: boolean) =>
 function page(dark: boolean, css: string, body: string): string {
   const c = themeColors(dark);
   return `<!doctype html>
-<html lang="fr"><head><meta charset="UTF-8" />
+<html lang="${language()}"><head><meta charset="UTF-8" />
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:" />
 <title>cbl-log</title>
 <style>
@@ -57,8 +58,8 @@ export function splashHtml(version: string, dark: boolean, avatar?: string): str
     css,
     `  ${avatarImg(avatar, 64)}
   <h1>cbl-log</h1>
-  <div class="row"><div class="spinner" role="progressbar" aria-label="Chargement"></div><p>Démarrage… v${escapeHtml(version)}</p></div>
-  <p>par ${AUTHOR}</p>`,
+  <div class="row"><div class="spinner" role="progressbar" aria-label="${escapeHtml(t("Chargement"))}"></div><p>${escapeHtml(t("Démarrage…"))} v${escapeHtml(version)}</p></div>
+  <p>${escapeHtml(t("par {author}", { author: AUTHOR }))}</p>`,
   );
 }
 
@@ -72,9 +73,9 @@ export function aboutHtml(version: string, dark: boolean, avatar?: string): stri
     css,
     `  ${avatarImg(avatar, 96)}
   <h1>cbl-log</h1>
-  <p>Version ${escapeHtml(version)}</p>
-  <p class="desc">Visualiseur de logs temps réel</p>
-  <p>par <a href="${AUTHOR_URL}" target="_blank">${AUTHOR}</a> · <a href="${AUTHOR_URL}" target="_blank">github.com/clementbrunel</a></p>
-  <p><a href="${REPO_URL}" target="_blank">Code source</a></p>`,
+  <p>${escapeHtml(t("Version {version}", { version }))}</p>
+  <p class="desc">${escapeHtml(t("Visualiseur de logs temps réel"))}</p>
+  <p>${escapeHtml(t("par"))} <a href="${AUTHOR_URL}" target="_blank">${AUTHOR}</a> · <a href="${AUTHOR_URL}" target="_blank">github.com/clementbrunel</a></p>
+  <p><a href="${REPO_URL}" target="_blank">${escapeHtml(t("Code source"))}</a></p>`,
   );
 }

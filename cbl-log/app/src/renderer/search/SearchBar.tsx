@@ -6,6 +6,7 @@ import { createDebouncer } from "./debounce";
 import { RegexHelp } from "./RegexHelp";
 import { insertAt } from "./regex-help";
 import { describeSearch, validateQuery } from "./search-text";
+import { t } from "@cbl-log/shared";
 
 /** Quiet time after the last keystroke before the search starts (a search over a big file is not free). */
 export const SEARCH_DEBOUNCE_MS = 400;
@@ -157,8 +158,8 @@ export function SearchBar({ tabId, initial, status, focusRequest, textRequest, o
           <input
             ref={inputRef}
             value={fields.pattern}
-            placeholder="Rechercher (Ctrl+F)"
-            aria-label="Rechercher"
+            placeholder={t("Rechercher (Ctrl+F)")}
+            aria-label={t("Rechercher")}
             onChange={(e) => update({ pattern: e.target.value })}
             onBlur={() => {
               setHistoryAt(undefined);
@@ -203,13 +204,13 @@ export function SearchBar({ tabId, initial, status, focusRequest, textRequest, o
             {!invalid && fields.pattern !== "" && !status?.error && (typing || !status?.done) && <span className="spinner" aria-hidden="true" />}
             {typing && !invalid ? "…" : describeSearch({ pattern: fields.pattern, invalid, status, ordinal: current?.ordinal ?? null })}
           </span>
-          <button type="button" className={fields.isRegex ? "opt on" : "opt"} aria-pressed={fields.isRegex} onClick={() => update({ isRegex: !fields.isRegex })} title="Expression régulière">
+          <button type="button" className={fields.isRegex ? "opt on" : "opt"} aria-pressed={fields.isRegex} onClick={() => update({ isRegex: !fields.isRegex })} title={t("Expression régulière")}>
             .*
           </button>
-          <button type="button" className={fields.caseSensitive ? "opt on" : "opt"} aria-pressed={fields.caseSensitive} onClick={() => update({ caseSensitive: !fields.caseSensitive })} title="Respecter la casse">
+          <button type="button" className={fields.caseSensitive ? "opt on" : "opt"} aria-pressed={fields.caseSensitive} onClick={() => update({ caseSensitive: !fields.caseSensitive })} title={t("Respecter la casse")}>
             Aa
           </button>
-          <button type="button" className={fields.wholeWord ? "opt on" : "opt"} aria-pressed={fields.wholeWord} onClick={() => update({ wholeWord: !fields.wholeWord })} title="Mot entier : ERROR ne trouve pas ERRORS ni MYERROR">
+          <button type="button" className={fields.wholeWord ? "opt on" : "opt"} aria-pressed={fields.wholeWord} onClick={() => update({ wholeWord: !fields.wholeWord })} title={t("Mot entier : ERROR ne trouve pas ERRORS ni MYERROR")}>
             <u>ab</u>
           </button>
           <span className="field-sep" aria-hidden="true" />
@@ -223,8 +224,8 @@ export function SearchBar({ tabId, initial, status, focusRequest, textRequest, o
                 setHistoryAt(historyAt === undefined ? 0 : undefined);
                 inputRef.current?.focus();
               }}
-              title={historyList.length === 0 ? "Historique des recherches (vide)" : "Historique des recherches (flèche bas)"}
-              aria-label="Historique des recherches"
+              title={historyList.length === 0 ? t("Historique des recherches (vide)") : t("Historique des recherches (flèche bas)")}
+              aria-label={t("Historique des recherches")}
               aria-expanded={historyAt !== undefined}
             >
               <ClockIcon />
@@ -237,8 +238,8 @@ export function SearchBar({ tabId, initial, status, focusRequest, textRequest, o
               remember();
               onPrev();
             }}
-            title="Précédent (Maj+F3)"
-            aria-label="Précédent"
+            title={t("Précédent (Maj+F3)")}
+            aria-label={t("Précédent")}
           >
             ↑
           </button>
@@ -249,20 +250,20 @@ export function SearchBar({ tabId, initial, status, focusRequest, textRequest, o
               remember();
               onNext();
             }}
-            title="Suivant (F3)"
-            aria-label="Suivant"
+            title={t("Suivant (F3)")}
+            aria-label={t("Suivant")}
           >
             ↓
           </button>
-          <button type="button" className="opt" onClick={clear} disabled={fields.pattern === ""} title="Vider la recherche (Échap)" aria-label="Vider la recherche">
+          <button type="button" className="opt" onClick={clear} disabled={fields.pattern === ""} title={t("Vider la recherche (Échap)")} aria-label={t("Vider la recherche")}>
             ×
           </button>
         </div>
-        <button type="button" className={helpOpen ? "help-toggle on" : "help-toggle"} onClick={() => setHelpOpen((v) => !v)} title="Aide à la saisie des expressions régulières" aria-label="Aide à la saisie" aria-expanded={helpOpen}>
+        <button type="button" className={helpOpen ? "help-toggle on" : "help-toggle"} onClick={() => setHelpOpen((v) => !v)} title={t("Aide à la saisie des expressions régulières")} aria-label={t("Aide à la saisie")} aria-expanded={helpOpen}>
           ?
         </button>
         {historyAt !== undefined && historyList.length > 0 && (
-          <ul className="search-history" role="listbox" aria-label="Historique des recherches" onMouseDown={(e) => e.preventDefault()}>
+          <ul className="search-history" role="listbox" aria-label={t("Historique des recherches")} onMouseDown={(e) => e.preventDefault()}>
             {historyList.map((entry, i) => (
               <li
                 key={i}
@@ -274,10 +275,10 @@ export function SearchBar({ tabId, initial, status, focusRequest, textRequest, o
               >
                 <span className="search-history-pattern">{entry.pattern}</span>
                 <span className="search-history-opts">
-                  {entry.isRegex && <span title="Expression régulière">.*</span>}
-                  {entry.caseSensitive && <span title="Respecter la casse">Aa</span>}
+                  {entry.isRegex && <span title={t("Expression régulière")}>.*</span>}
+                  {entry.caseSensitive && <span title={t("Respecter la casse")}>Aa</span>}
                   {entry.wholeWord && (
-                    <span title="Mot entier">
+                    <span title={t("Mot entier")}>
                       <u>ab</u>
                     </span>
                   )}
@@ -292,7 +293,7 @@ export function SearchBar({ tabId, initial, status, focusRequest, textRequest, o
                   onClearHistory();
                 }}
               >
-                Effacer l'historique
+                {t("Effacer l'historique")}
               </li>
             )}
           </ul>

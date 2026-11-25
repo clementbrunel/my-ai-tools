@@ -4,6 +4,7 @@ import { mkdir, readdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { createBuiltinRuleSets, createDefaultRuleSet, parseRuleSet, type ParseRuleSetResult, type RuleSet } from "@cbl-log/shared";
 import { writeJsonAtomic } from "./json-file";
+import { t } from "@cbl-log/shared";
 
 export interface LoadedRuleSets {
   sets: RuleSet[];
@@ -53,7 +54,7 @@ const MAX_PROFILE_BYTES = 1024 * 1024;
 /** Reads a profile file chosen by the user (shared by a colleague); never throws. */
 export async function readRuleSetFile(path: string): Promise<ParseRuleSetResult> {
   try {
-    if ((await stat(path)).size > MAX_PROFILE_BYTES) return { ok: false, error: "Fichier trop volumineux pour être un profil de surlignage" };
+    if ((await stat(path)).size > MAX_PROFILE_BYTES) return { ok: false, error: t("Fichier trop volumineux pour être un profil de surlignage") };
     return parseRuleSet(await readFile(path, "utf8"));
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };

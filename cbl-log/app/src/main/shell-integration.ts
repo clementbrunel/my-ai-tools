@@ -6,6 +6,7 @@
 // The keys are re-written at every start (the exe path changes with a new install folder) and removed
 // when the setting is turned off, and by the uninstaller (build/installer.nsh).
 import { execFile } from "node:child_process";
+import { t } from "@cbl-log/shared";
 
 const CLASSES = "HKCU\\Software\\Classes";
 export const CONTEXT_MENU_KEY = `${CLASSES}\\*\\shell\\cbl-log`;
@@ -24,7 +25,7 @@ export function registryCommands(exe: string, wanted: ShellIntegration): string[
   const cmds: string[][] = [];
   if (wanted.explorerContextMenu) {
     cmds.push(
-      ["add", CONTEXT_MENU_KEY, "/ve", "/d", "Ouvrir avec cbl-log", "/f"],
+      ["add", CONTEXT_MENU_KEY, "/ve", "/d", t("Ouvrir avec cbl-log"), "/f"],
       ["add", CONTEXT_MENU_KEY, "/v", "Icon", "/d", icon, "/f"],
       ["add", `${CONTEXT_MENU_KEY}\\command`, "/ve", "/d", open, "/f"],
     );
@@ -34,7 +35,7 @@ export function registryCommands(exe: string, wanted: ShellIntegration): string[
   const progId = `${CLASSES}\\${PROG_ID}`;
   if (wanted.fileAssociations) {
     cmds.push(
-      ["add", progId, "/ve", "/d", "Fichier journal (cbl-log)", "/f"],
+      ["add", progId, "/ve", "/d", t("Fichier journal (cbl-log)"), "/f"],
       ["add", `${progId}\\DefaultIcon`, "/ve", "/d", icon, "/f"],
       ["add", `${progId}\\shell\\open\\command`, "/ve", "/d", open, "/f"],
       ...ASSOCIATED_EXTENSIONS.map((ext) => ["add", `${CLASSES}\\${ext}\\OpenWithProgids`, "/v", PROG_ID, "/d", "", "/f"]),
@@ -56,7 +57,7 @@ export async function applyShellIntegration(exe: string | undefined, wanted: She
   if (process.platform !== "win32" || !exe) return undefined;
   for (const args of registryCommands(exe, wanted)) {
     const ok = await run(args);
-    if (!ok && args[0] === "add") return `Écriture du registre impossible (${args[1]})`;
+    if (!ok && args[0] === "add") return t("Écriture du registre impossible ({key})", { key: args[1]! });
   }
   return undefined;
 }

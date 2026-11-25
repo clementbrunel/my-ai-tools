@@ -4,6 +4,7 @@ import { Button } from "../ui/Button";
 import { Modal } from "../ui/Modal";
 import type { FeedbackDraft } from "../../preload/api";
 import { DESCRIPTION_MAX, TITLE_MAX, validateDraft } from "../../main/feedback";
+import { t } from "@cbl-log/shared";
 
 interface Props {
   onClose(): void;
@@ -12,8 +13,8 @@ interface Props {
 }
 
 const PLACEHOLDER: Record<FeedbackDraft["kind"], string> = {
-  bug: "Ce que vous faisiez, ce qui s'est passé, ce que vous attendiez (fichier, format de log, étapes pour reproduire…)",
-  request: "Ce que vous aimeriez pouvoir faire, et dans quel cas cela vous servirait",
+  bug: t("Ce que vous faisiez, ce qui s'est passé, ce que vous attendiez (fichier, format de log, étapes pour reproduire…)"),
+  request: t("Ce que vous aimeriez pouvoir faire, et dans quel cas cela vous servirait"),
 };
 
 /** Modal report form: the main process opens it as a pre-filled GitHub issue, after its anti-flood check. */
@@ -44,7 +45,7 @@ export function FeedbackPanel({ onClose, onNotice }: Props) {
     try {
       const result = await window.cblLog.submitFeedback(draft);
       if (result.ok) {
-        onNotice("Le signalement s'est ouvert dans votre navigateur : vérifiez-le puis cliquez sur « Create » sur GitHub.", false);
+        onNotice(t("Le signalement s'est ouvert dans votre navigateur : vérifiez-le puis cliquez sur « Create » sur GitHub."), false);
         onClose();
       } else {
         setError(result.reason);
@@ -57,11 +58,11 @@ export function FeedbackPanel({ onClose, onNotice }: Props) {
   };
 
   return (
-    <Modal title="Signaler un bug / proposer une idée" className="feedback-panel" onClose={onClose}>
+    <Modal title={t("Signaler un bug / proposer une idée")} className="feedback-panel" onClose={onClose}>
       <p className="hint">
-        Le signalement s'ouvre dans votre navigateur, pré-rempli sur la page « New issue » du dépôt GitHub : vous le relisez et
-        l'envoyez avec votre compte GitHub. cbl-log n'envoie rien lui-même. Aucun chemin de fichier ni contenu de log n'est ajouté :
-        collez vous-même les lignes utiles si besoin (en retirant les données sensibles).
+        {t(
+          "Le signalement s'ouvre dans votre navigateur, pré-rempli sur la page « New issue » du dépôt GitHub : vous le relisez et l'envoyez avec votre compte GitHub. cbl-log n'envoie rien lui-même. Aucun chemin de fichier ni contenu de log n'est ajouté : collez vous-même les lignes utiles si besoin (en retirant les données sensibles).",
+        )}
       </p>
       <form
         className="feedback-form"
@@ -70,25 +71,25 @@ export function FeedbackPanel({ onClose, onNotice }: Props) {
           void submit();
         }}
       >
-        <div className="view-switch" role="radiogroup" aria-label="Type">
+        <div className="view-switch" role="radiogroup" aria-label={t("Type")}>
           {(["bug", "request"] as const).map((kind) => (
             <button key={kind} type="button" role="radio" aria-checked={draft.kind === kind} className={draft.kind === kind ? "on" : ""} onClick={() => patch({ kind })}>
-              {kind === "bug" ? "Bug" : "Idée / demande"}
+              {kind === "bug" ? t("Bug") : t("Idée / demande")}
             </button>
           ))}
         </div>
         <label>
-          Titre
+          {t("Titre")}
           <input
             autoFocus
             value={draft.title}
             maxLength={TITLE_MAX}
             onChange={(ev) => patch({ title: ev.target.value })}
-            placeholder={draft.kind === "bug" ? "Ex. : le suivi s'arrête après la rotation du fichier" : "Ex. : exporter la vue filtrée"}
+            placeholder={draft.kind === "bug" ? t("Ex. : le suivi s'arrête après la rotation du fichier") : t("Ex. : exporter la vue filtrée")}
           />
         </label>
         <label>
-          Description
+          {t("Description")}
           <textarea
             rows={8}
             value={draft.description}
@@ -98,8 +99,8 @@ export function FeedbackPanel({ onClose, onNotice }: Props) {
           />
         </label>
         <label className="feedback-env" title={env.join("\n")}>
-          <input type="checkbox" checked={draft.includeEnv} onChange={(ev) => patch({ includeEnv: ev.target.checked })} /> Joindre la version et le
-          système ({env.length ? env.join(" · ") : "…"})
+          <input type="checkbox" checked={draft.includeEnv} onChange={(ev) => patch({ includeEnv: ev.target.checked })} />{" "}
+          {t("Joindre la version et le système ({env})", { env: env.length ? env.join(" · ") : "…" })}
         </label>
         {(error ?? blocked ?? (tried ? invalid : undefined)) && (
           <p className="feedback-error" role="alert">
@@ -108,10 +109,10 @@ export function FeedbackPanel({ onClose, onNotice }: Props) {
         )}
         <footer>
           <Button variant="primary" type="submit" disabled={busy || !!blocked || (tried && !!invalid)}>
-            Ouvrir sur GitHub…
+            {t("Ouvrir sur GitHub…")}
           </Button>
           <Button onClick={onClose}>
-            Annuler
+            {t("Annuler")}
           </Button>
         </footer>
       </form>

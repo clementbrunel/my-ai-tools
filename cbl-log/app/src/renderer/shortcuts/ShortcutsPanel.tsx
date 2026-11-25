@@ -2,6 +2,20 @@ import "./ShortcutsPanel.css";
 import { useState } from "react";
 import { Modal } from "../ui/Modal";
 import { SHORTCUT_GROUPS, filterGroups, type Shortcut } from "./shortcuts";
+import { t } from "@cbl-log/shared";
+
+/** Key caps written in French in the registry, as the interface language names them. */
+const KEY_NAMES: Readonly<Record<string, string>> = {
+  Maj: t("Maj"),
+  Entrée: t("Entrée"),
+  Échap: t("Échap"),
+  Début: t("Début"),
+  Fin: t("Fin"),
+  "Clic droit": t("Clic droit"),
+  "Double-clic": t("Double-clic"),
+  "Molette ↑": t("Molette ↑"),
+  "Molette ↓": t("Molette ↓"),
+};
 
 function Combo({ keys }: { keys: readonly string[] }) {
   return (
@@ -9,7 +23,7 @@ function Combo({ keys }: { keys: readonly string[] }) {
       {keys.map((k, i) => (
         <span key={i}>
           {i > 0 && <span className="kbd-plus">+</span>}
-          <kbd>{k}</kbd>
+          <kbd>{KEY_NAMES[k] ?? k}</kbd>
         </span>
       ))}
     </span>
@@ -23,7 +37,7 @@ function Row({ shortcut }: { shortcut: Shortcut }) {
         <Combo keys={shortcut.keys} />
         {shortcut.alt && (
           <>
-            <span className="kbd-or">ou</span>
+            <span className="kbd-or">{t("ou")}</span>
             <Combo keys={shortcut.alt} />
           </>
         )}
@@ -38,9 +52,9 @@ export function ShortcutsPanel({ onClose }: { onClose(): void }) {
   const [query, setQuery] = useState("");
   const groups = filterGroups(SHORTCUT_GROUPS, query);
   return (
-    <Modal title="Raccourcis clavier" className="shortcuts-panel" onClose={onClose}>
+    <Modal title={t("Raccourcis clavier")} className="shortcuts-panel" onClose={onClose}>
       <div className="shortcuts-search">
-        <input autoFocus type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Filtrer : « recherche », « Ctrl », « copier »…" aria-label="Filtrer les raccourcis" />
+        <input autoFocus type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("Filtrer : « recherche », « Ctrl », « copier »…")} aria-label={t("Filtrer les raccourcis")} />
       </div>
       <div className="shortcuts-grid">
         {groups.map((g) => (
@@ -58,7 +72,7 @@ export function ShortcutsPanel({ onClose }: { onClose(): void }) {
             </ul>
           </section>
         ))}
-        {groups.length === 0 && <p className="hint">Aucun raccourci ne correspond à « {query} ».</p>}
+        {groups.length === 0 && <p className="hint">{t("Aucun raccourci ne correspond à « {query} ».", { query })}</p>}
       </div>
     </Modal>
   );

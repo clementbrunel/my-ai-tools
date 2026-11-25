@@ -1,4 +1,5 @@
 import type { RuleSet } from "@cbl-log/shared";
+import { t } from "@cbl-log/shared";
 
 /** The set proposed for a detected format: the first one that lists it, else the default one. */
 export function autoRuleSet(sets: readonly RuleSet[], formatId: string | null | undefined): RuleSet | undefined {
@@ -33,7 +34,7 @@ export function importKind(sets: readonly RuleSet[], imported: RuleSet): "new" |
 
 /** The imported profile kept beside an existing one with the same id: a fresh id and a name that tells them apart. */
 export function importAsCopy(sets: readonly RuleSet[], imported: RuleSet): RuleSet {
-  const name = `${imported.name || imported.id} (importé)`;
+  const name = t("{name} (importé)", { name: imported.name || imported.id });
   return { ...imported, id: uniqueRuleSetId(sets, name), name };
 }
 

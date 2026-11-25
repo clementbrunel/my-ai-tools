@@ -2,10 +2,11 @@ import "./StatusBar.css";
 import type { Encoding, FilterSettings } from "@cbl-log/shared";
 import { describeFilterCount } from "../filter/filter-state";
 import type { TabState } from "./tabs-reducer";
+import { fmtNumber, t } from "@cbl-log/shared";
 
 export function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} o`;
-  const units = ["Ko", "Mo", "Go", "To"];
+  if (bytes < 1024) return `${bytes} ${t("o")}`;
+  const units = [t("Ko"), t("Mo"), t("Go"), t("To")];
   let value = bytes / 1024;
   let unit = 0;
   while (value >= 1024 && unit < units.length - 1) {
@@ -66,13 +67,13 @@ export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules
   const full = filterSuspended || !hasFilter;
   return (
     <footer className="statusbar">
-      <span className="line-count" title="Lignes affichées sur le total">
+      <span className="line-count" title={t("Lignes affichées sur le total")}>
         {filterShown && !filterShown.done && <span className="spinner" aria-hidden="true" />}
-        {filterShown ? `${describeFilterCount(filterShown.matches, tab.total)}${filterShown.done ? "" : "…"}` : `${tab.total.toLocaleString("fr-FR")} lignes`}
+        {filterShown ? `${describeFilterCount(filterShown.matches, tab.total)}${filterShown.done ? "" : "…"}` : t("{n} lignes", { n: fmtNumber(tab.total) })}
       </span>
       <span className="status-sep" aria-hidden="true" />
       <span className="status-meta">
-        {formatBytes(tab.info.sizeBytes)} · <span title="Format de log détecté">{formatName ?? "brut"}</span>
+        {formatBytes(tab.info.sizeBytes)} · <span title={t("Format de log détecté")}>{formatName ?? "brut"}</span>
       </span>
       {history ? (
         <span className="status-file docker-file">
@@ -81,7 +82,7 @@ export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules
           </span>
           {history.onLoadMore && (
             <button type="button" disabled={history.loading} onClick={history.onLoadMore} title={history.moreTitle}>
-              {history.loading ? "Chargement…" : "Charger plus d'historique"}
+              {history.loading ? t("Chargement…") : t("Charger plus d'historique")}
             </button>
           )}
         </span>
@@ -89,7 +90,7 @@ export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules
       <span className="status-file">
         <span
           className="status-path"
-          title={`${tab.info.path}\nClic droit : ouvrir le dossier`}
+          title={`${tab.info.path}\n${t("Clic droit : ouvrir le dossier")}`}
           onContextMenu={(e) => {
             e.preventDefault();
             void window.cblLog.showFileContextMenu(tab.info.path);
@@ -97,9 +98,9 @@ export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules
         >
           {tab.info.path}
         </span>
-        <label className="profile-select" title="Encodage du fichier (le choix rouvre l'onglet et interrompt la recherche en cours)">
-          <select value={tab.encodingChoice ?? "auto"} onChange={(e) => onEncodingChange(e.target.value === "auto" ? undefined : (e.target.value as Encoding))} aria-label="Encodage">
-            <option value="auto">Auto ({encodingLabel(tab.info.encoding)})</option>
+        <label className="profile-select" title={t("Encodage du fichier (le choix rouvre l'onglet et interrompt la recherche en cours)")}>
+          <select value={tab.encodingChoice ?? "auto"} onChange={(e) => onEncodingChange(e.target.value === "auto" ? undefined : (e.target.value as Encoding))} aria-label={t("Encodage")}>
+            <option value="auto">{t("Auto ({encoding})", { encoding: encodingLabel(tab.info.encoding) })}</option>
             {ENCODING_LABELS.map((e) => (
               <option key={e.value} value={e.value}>
                 {e.label}
@@ -109,37 +110,37 @@ export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules
         </label>
       </span>
       )}
-      {tab.indexing !== undefined && <span>Indexation {Math.round(tab.indexing * 100)} %</span>}
-      {!tab.docker && !tab.merged && tab.state !== "following" && <span className={`state-${tab.state}`}>{tab.state === "missing" ? "Fichier introuvable" : tab.message ?? "Erreur"}</span>}
+      {tab.indexing !== undefined && <span>{t("Indexation {n} %", { n: Math.round(tab.indexing * 100) })}</span>}
+      {!tab.docker && !tab.merged && tab.state !== "following" && <span className={`state-${tab.state}`}>{tab.state === "missing" ? t("Fichier introuvable") : tab.message ?? t("Erreur")}</span>}
       {tab.clearedBefore > 0 && (
-        <button type="button" className="icon-btn cleared" onClick={onUnclear} title={`${tab.clearedBefore.toLocaleString("fr-FR")} ligne(s) masquée(s) — cliquer pour tout réafficher`} aria-label="Réafficher les lignes masquées">
-          <TrashIcon /> {tab.clearedBefore.toLocaleString("fr-FR")} ✕
+        <button type="button" className="icon-btn cleared" onClick={onUnclear} title={t("{n} ligne(s) masquée(s) — cliquer pour tout réafficher", { n: fmtNumber(tab.clearedBefore) })} aria-label={t("Réafficher les lignes masquées")}>
+          <TrashIcon /> {fmtNumber(tab.clearedBefore)} ✕
         </button>
       )}
-      <span className="view-switch" role="group" aria-label="Vue affichée">
+      <span className="view-switch" role="group" aria-label={t("Vue affichée")}>
         <button
           type="button"
           className={full ? "" : "on"}
           aria-pressed={!full}
           disabled={!hasFilter}
           onClick={full ? onToggleFilterView : undefined}
-          title={hasFilter ? "Lignes filtrées uniquement" : "Aucun filtre de niveau ou de texte défini"}
+          title={hasFilter ? t("Lignes filtrées uniquement") : t("Aucun filtre de niveau ou de texte défini")}
         >
-          Filtré
+          {t("Filtré")}
         </button>
         <button
           type="button"
           className={full ? "on" : ""}
           aria-pressed={full}
           onClick={full ? undefined : onToggleFilterView}
-          title="Tout le fichier, à la même position (double-clic sur une ligne filtrée : la voir dans son contexte). Les stack traces suivent l'interrupteur « Replier »."
+          title={t("Tout le fichier, à la même position (double-clic sur une ligne filtrée : la voir dans son contexte). Les stack traces suivent l'interrupteur « Replier ».")}
         >
-          Fichier complet
+          {t("Fichier complet")}
         </button>
       </span>
       <label
         className={canFoldTraces ? "fold-toggle" : "fold-toggle disabled"}
-        title={canFoldTraces ? "Replier les stack traces : une seule ligne par enregistrement (double-clic pour voir le détail)" : "Repli des stack traces : format de log non reconnu"}
+        title={canFoldTraces ? t("Replier les stack traces : une seule ligne par enregistrement (double-clic pour voir le détail)") : t("Repli des stack traces : format de log non reconnu")}
       >
         <input
           type="checkbox"
@@ -149,31 +150,31 @@ export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules
           disabled={!canFoldTraces}
           onChange={() => onFilterChange({ ...tab.filter, foldTraces: !tab.filter.foldTraces })}
         />
-        Replier les traces
+        {t("Replier les traces")}
       </label>
-      <label className="profile-select" title="Profil de surlignage de cet onglet">
-        <select value={profileChoice} onChange={(e) => onProfileChange(e.target.value)} aria-label="Profil de surlignage">
-          <option value="auto">Profil : auto ({autoProfileName})</option>
+      <label className="profile-select" title={t("Profil de surlignage de cet onglet")}>
+        <select value={profileChoice} onChange={(e) => onProfileChange(e.target.value)} aria-label={t("Profil de surlignage")}>
+          <option value="auto">{t("Profil : auto ({name})", { name: autoProfileName })}</option>
           {profiles.map((p) => (
             <option key={p.id} value={p.id}>
-              Profil : {p.name || p.id}
+              {t("Profil : {name}", { name: p.name || p.id })}
             </option>
           ))}
         </select>
       </label>
       <span className="status-tools">
-        <button type="button" className="icon-btn" onClick={onEditRules} title="Règles de surlignage (Ctrl+H)" aria-label="Règles de surlignage">
+        <button type="button" className="icon-btn" onClick={onEditRules} title={t("Règles de surlignage (Ctrl+H)")} aria-label={t("Règles de surlignage")}>
           <RulesIcon />
         </button>
-        <button type="button" className="icon-btn" onClick={onShowShortcuts} title="Raccourcis clavier (?)" aria-label="Raccourcis clavier">
+        <button type="button" className="icon-btn" onClick={onShowShortcuts} title={t("Raccourcis clavier (?)")} aria-label={t("Raccourcis clavier")}>
           <KeyboardIcon />
         </button>
         {tab.clearedBefore === 0 && (
-          <button type="button" className="icon-btn" onClick={onClear} title="Effacer : masquer tout ce qui précède (Ctrl+L)" aria-label="Effacer">
+          <button type="button" className="icon-btn" onClick={onClear} title={t("Effacer : masquer tout ce qui précède (Ctrl+L)")} aria-label={t("Effacer")}>
             <TrashIcon />
           </button>
         )}
-        <button type="button" role="switch" aria-checked={dark} className="icon-btn theme-switch" onClick={onToggleTheme} title={dark ? "Thème sombre — passer au thème clair" : "Thème clair — passer au thème sombre"} aria-label="Thème sombre">
+        <button type="button" role="switch" aria-checked={dark} className="icon-btn theme-switch" onClick={onToggleTheme} title={dark ? "Thème sombre — passer au thème clair" : "Thème clair — passer au thème sombre"} aria-label={t("Thème sombre")}>
           {dark ? <MoonIcon /> : <SunIcon />}
         </button>
       </span>
@@ -183,12 +184,12 @@ export function StatusBar({ tab, onToggleFollow, onClear, onUnclear, onEditRules
           className={pendingLines !== undefined ? "pause on" : "pause"}
           aria-pressed={pendingLines !== undefined}
           onClick={onTogglePause}
-          title={pendingLines !== undefined ? "Reprendre le rafraîchissement (Pause)" : "Figer la vue : les lignes qui arrivent sont gardées, affichées à la reprise (Pause)"}
+          title={pendingLines !== undefined ? t("Reprendre le rafraîchissement (Pause)") : t("Figer la vue : les lignes qui arrivent sont gardées, affichées à la reprise (Pause)")}
         >
-          <PauseIcon /> {pendingLines !== undefined ? `Pause (+${pendingLines.toLocaleString("fr-FR")})` : "Pause"}
+          <PauseIcon /> {pendingLines !== undefined ? t("Pause (+{n})", { n: fmtNumber(pendingLines) }) : t("Pause")}
         </button>
-        <button type="button" className={tab.follow ? "follow on" : "follow"} aria-pressed={tab.follow} onClick={onToggleFollow} title="Suivre la fin du fichier (Ctrl+End)">
-          <FollowIcon /> Suivre
+        <button type="button" className={tab.follow ? "follow on" : "follow"} aria-pressed={tab.follow} onClick={onToggleFollow} title={t("Suivre la fin du fichier (Ctrl+End)")}>
+          <FollowIcon /> {t("Suivre")}
         </button>
       </span>
     </footer>

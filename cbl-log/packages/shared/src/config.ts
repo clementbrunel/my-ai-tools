@@ -72,6 +72,8 @@ export const DEFAULT_SEARCH_HISTORY = 20;
 export const settingsSchema = z.object({
   schemaVersion: z.literal(1),
   theme: themeSchema.default("system"),
+  /** Interface language; "system" follows Windows (French for any fr-* locale, English otherwise). Applied at the next launch. */
+  language: z.enum(["system", "fr", "en"]).default("system"),
   /** Looks for a newer GitHub release at startup (the only network access of the app, NF-07). */
   checkForUpdates: z.boolean().default(true),
   /** Release channel: "beta" also offers the GitHub pre-releases (versions such as 3.3.0-beta.1). */
@@ -168,7 +170,7 @@ export const recentSchema = z.object({
 });
 export type Recent = z.infer<typeof recentSchema>;
 
-export const defaultSettings = (): Settings => ({ schemaVersion: 1, theme: "system", checkForUpdates: true, updateChannel: "stable", restoreSession: true, searchHistorySize: DEFAULT_SEARCH_HISTORY, ruleNotifications: true, explorerContextMenu: false, fileAssociations: false, confirmCloseTabs: true, historyHours: 2, archivePatterns: {}, docker: defaultDockerSettings(), viewer: defaultViewerSettings(), tabs: defaultTabDefaults() });
+export const defaultSettings = (): Settings => ({ schemaVersion: 1, theme: "system", language: "system", checkForUpdates: true, updateChannel: "stable", restoreSession: true, searchHistorySize: DEFAULT_SEARCH_HISTORY, ruleNotifications: true, explorerContextMenu: false, fileAssociations: false, confirmCloseTabs: true, historyHours: 2, archivePatterns: {}, docker: defaultDockerSettings(), viewer: defaultViewerSettings(), tabs: defaultTabDefaults() });
 export const emptyRecent = (): Recent => ({ schemaVersion: 1, files: [], searches: [] });
 export const emptySession = (): Session => ({ schemaVersion: 1, tabs: [] });
 

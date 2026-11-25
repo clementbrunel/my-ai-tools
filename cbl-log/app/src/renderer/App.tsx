@@ -61,6 +61,7 @@ import { SearchBar } from "./search/SearchBar";
 import { useMatchDensity } from "./search/useMatchDensity";
 import { LogViewport } from "./viewer/LogViewport";
 import { PageCache } from "./viewer/page-cache";
+import { fmtNumber, t } from "@cbl-log/shared";
 
 interface TabRuntime {
   cache: PageCache;
@@ -84,6 +85,7 @@ const NO_MARKS: never[] = [];
 /** Identifies what the viewport shows: a tab's file, or its filtered view (its remount key). */
 /** Lines appended to a file are tested against the notifying rules at most this often (per tab). */
 const ALERT_CHECK_MS = 1000;
+const errorText = (err: unknown): string => (err instanceof Error ? err.message : String(err));
 const viewKeyOf = (tabId: TabId, filterId: string | null | undefined): string => `${tabId}:${filterId ?? ""}`;
 
 /** A filtered view is the one on screen: a filter (maybe only the fold of stack traces) is in force and answered. */
@@ -194,7 +196,7 @@ export function App() {
       engineRef.current = engine;
       if (isReconnection) {
         resetTabs();
-        setNotice({ text: "Le moteur a redémarré : les onglets sont rouverts depuis la dernière session.", isError: true });
+        setNotice({ text: t("Le moteur a redémarré : les onglets sont rouverts depuis la dernière session."), isError: true });
         if (lastSessionObj.current) void restoreRef.current(lastSessionObj.current);
       } else {
         console.log("engine connected");
@@ -311,7 +313,7 @@ export function App() {
         const skipped = info.history?.skipped ?? 0;
         if (skipped > 0) {
           setNotice({
-            text: `${baseName(path)} : ${skipped} archive${skipped > 1 ? "s" : ""} de plus de ${info.history!.hours} h non chargée${skipped > 1 ? "s" : ""} (durée réglable : Fichier › Configuration › Durée d'historique)`,
+            text: t("{file} : {n} archive(s) de plus de {hours} h non chargée(s) (durée réglable : Fichier › Configuration › Durée d'historique)", { file: baseName(path), n: skipped, hours: info.history!.hours }),
             isError: false,
           });
         }
@@ -441,7 +443,7 @@ export function App() {
         }
       } catch (err) {
         appliedFilters.current.delete(tabId);
-        setNotice({ text: `Filtre : ${err instanceof Error ? err.message : String(err)}`, isError: true });
+        setNotice({ text: t("Filtre : {error}", { error: errorText(err) }), isError: true });
       }
     },
     [withEngine, topLine, locate, showAt],
@@ -470,7 +472,7 @@ export function App() {
         const active = [...runtimes.current.entries()].find(([, rt]) => rt.pathKey === key);
         if (active) dispatch({ type: "activated", tabId: active[0] });
       }
-      if (missing.length > 0) setNotice({ text: `Session : fichier(s) introuvable(s) : ${missing.join(", ")}`, isError: true });
+      if (missing.length > 0) setNotice({ text: t("Session : fichier(s) introuvable(s) : {files}", { files: missing.join(", ") }), isError: true });
     },
     [openFile],
   );
@@ -533,9 +535,9 @@ export function App() {
         if (stateRef.current.activeId === tabId && !tab.follow && !isFilteredNow(tab, rt)) {
           setReveal({ row: viewRow.current + result.addedBefore, nonce: ++revealNonce.current, align: "top", forKey: viewKeyOf(tabId, null) });
         }
-        setNotice({ text: result.addedBefore > 0 ? `${result.addedBefore.toLocaleString("fr-FR")} ligne(s) d'historique ajoutée(s).` : "Tout l'historique disponible est déjà chargé.", isError: false });
+        setNotice({ text: result.addedBefore > 0 ? t("{n} ligne(s) d'historique ajoutée(s).", { n: fmtNumber(result.addedBefore) }) : t("Tout l'historique disponible est déjà chargé."), isError: false });
       } catch (err) {
-        setNotice({ text: `Historique : ${err instanceof Error ? err.message : String(err)}`, isError: true });
+        setNotice({ text: t("Historique : {error}", { error: errorText(err) }), isError: true });
       } finally {
         setLoadingMore((s) => {
           const next = new Set(s);
@@ -577,7 +579,7 @@ export function App() {
           const { value: startup } = await window.cblLog.loadSettings();
           if (startup.restoreSession) {
             const { value, warning } = await window.cblLog.loadSession();
-            if (warning) setNotice({ text: `Session ignorée : ${warning}`, isError: true });
+            if (warning) setNotice({ text: t("Session ignorée : {error}", { error: warning }), isError: true });
             lastSessionObj.current = value;
             await restoreSession(value);
           }
@@ -619,7 +621,7 @@ export function App() {
   const loadSettingsNow = useCallback(() => {
     void window.cblLog.loadSettings().then(({ value, warning }) => {
       setSettings(value);
-      if (warning) setNotice({ text: `Réglages ignorés : ${warning}`, isError: true });
+      if (warning) setNotice({ text: t("Réglages ignorés : {error}", { error: warning }), isError: true });
     });
   }, []);
   // The theme starts as the system's (settings.theme === "system"); the switch then pins light or dark.
@@ -646,13 +648,13 @@ export function App() {
   const loadRulesNow = useCallback(() => {
     void window.cblLog.loadRuleSets().then(({ sets, warnings }) => {
       if (sets.length > 0) setRuleSets(sets);
-      if (warnings.length > 0) setNotice({ text: `Règles ignorées : ${warnings.join(" ; ")}`, isError: true });
+      if (warnings.length > 0) setNotice({ text: t("Règles ignorées : {error}", { error: warnings.join(" ; ") }), isError: true });
     });
   }, []);
   const loadFormatsNow = useCallback(() => {
     void window.cblLog.loadFormats().then(({ formats: loaded, warnings }) => {
       setUserFormats(loaded);
-      if (warnings.length > 0) setNotice({ text: `Formats ignorés : ${warnings.join(" ; ")}`, isError: true });
+      if (warnings.length > 0) setNotice({ text: t("Formats ignorés : {error}", { error: warnings.join(" ; ") }), isError: true });
     });
   }, []);
   useEffect(() => {
@@ -713,7 +715,7 @@ export function App() {
         settingsRef.current = next;
         setSettings(next);
         void window.cblLog.saveSettings(next).catch(() => undefined);
-        setNotice({ text: `Archives de ${baseName(path)} reconnues d'après ${baseName(archive)}`, isError: false });
+        setNotice({ text: t("Archives de {file} reconnues d'après {archive}", { file: baseName(path), archive: baseName(archive) }), isError: false });
         const tab = stateRef.current.tabs.find((t) => pathKey(t.info.path) === pathKey(path));
         if (tab) void reopenWithEncoding(tab.info.tabId, tab.encodingChoice);
       }),
@@ -732,7 +734,7 @@ export function App() {
           setTimeout(() => {
             void window.cblLog
               .saveRuleSet(next)
-              .catch((err: unknown) => setNotice({ text: `Règles non enregistrées : ${err instanceof Error ? err.message : String(err)}`, isError: true }));
+              .catch((err: unknown) => setNotice({ text: t("Règles non enregistrées : {error}", { error: errorText(err) }), isError: true }));
           }, 400),
         );
         return next;
@@ -755,8 +757,8 @@ export function App() {
   const exportRuleSet = useCallback((set: RuleSet) => {
     window.cblLog
       .exportRuleSet(set)
-      .then((path) => path && setNotice({ text: `Profil « ${set.name || set.id} » exporté : ${path}`, isError: false }))
-      .catch((err: unknown) => setNotice({ text: `Export impossible : ${err instanceof Error ? err.message : String(err)}`, isError: true }));
+      .then((path) => path && setNotice({ text: t("Profil « {name} » exporté : {path}", { name: set.name || set.id, path }), isError: false }))
+      .catch((err: unknown) => setNotice({ text: t("Export impossible : {error}", { error: errorText(err) }), isError: true }));
   }, []);
 
   /** Reads a profile shared by a colleague, stores it and applies it to the displayed tab. */
@@ -765,20 +767,20 @@ export function App() {
       void window.cblLog.importRuleSet().then((result) => {
         if (!result) return;
         if (!result.ok) {
-          setNotice({ text: `Profil non importé : ${result.error}`, isError: true });
+          setNotice({ text: t("Profil non importé : {error}", { error: result.error }), isError: true });
           return;
         }
         let set = result.value;
         const kind = importKind(ruleSets, set);
         if (kind === "same") {
-          setNotice({ text: `Le profil « ${set.name || set.id} » est déjà à jour.`, isError: false });
+          setNotice({ text: t("Le profil « {name} » est déjà à jour.", { name: set.name || set.id }), isError: false });
           onImported(set.id);
           return;
         }
         if (kind === "conflict") {
           const existing = ruleSets.find((s) => s.id === set.id);
           const replace = window.confirm(
-            `Un profil « ${existing?.name || set.id} » existe déjà.\n\nOK : le remplacer par celui du fichier.\nAnnuler : garder les deux (le profil importé est ajouté sous un autre nom).`,
+            t("Un profil « {name} » existe déjà.\n\nOK : le remplacer par celui du fichier.\nAnnuler : garder les deux (le profil importé est ajouté sous un autre nom).", { name: existing?.name || set.id }),
           );
           if (replace) clearTimeout(saveTimers.current.get(set.id)); // a pending save of the old rules must not undo the import
           else set = importAsCopy(ruleSets, set);
@@ -786,8 +788,8 @@ export function App() {
         setRuleSets((prev) => withRuleSet(prev, set));
         window.cblLog
           .saveRuleSet(set)
-          .then(() => setNotice({ text: `Profil « ${set.name || set.id} » importé.`, isError: false }))
-          .catch((err: unknown) => setNotice({ text: `Profil importé mais non enregistré : ${err instanceof Error ? err.message : String(err)}`, isError: true }));
+          .then(() => setNotice({ text: t("Profil « {name} » importé.", { name: set.name || set.id }), isError: false }))
+          .catch((err: unknown) => setNotice({ text: t("Profil importé mais non enregistré : {error}", { error: errorText(err) }), isError: true }));
         onImported(set.id);
       });
     },
@@ -857,7 +859,7 @@ export function App() {
         if (query && searchId) dispatch({ type: "searchStarted", tabId: activeId, query, id: searchId });
         else dispatch({ type: "searchStopped", tabId: activeId });
       } catch (err) {
-        setNotice({ text: `Recherche : ${err instanceof Error ? err.message : String(err)}`, isError: true });
+        setNotice({ text: t("Recherche : {error}", { error: errorText(err) }), isError: true });
       }
     },
     [activeId, withEngine],
@@ -883,7 +885,7 @@ export function App() {
             dir,
           );
           if (!found) {
-            setNotice({ text: "Aucune occurrence dans les lignes affichées par le filtre.", isError: false });
+            setNotice({ text: t("Aucune occurrence dans les lignes affichées par le filtre."), isError: false });
             return;
           }
           if (tab.pausedAt?.matches !== undefined && found.position >= tab.pausedAt.matches) dispatch({ type: "resumed", tabId });
@@ -898,7 +900,7 @@ export function App() {
         dispatch({ type: "searchHit", tabId, row: hit.row, ordinal: hit.ordinal });
         setReveal({ row: hit.row, nonce: ++revealNonce.current, forKey: viewKeyOf(tabId, null) });
       } catch (err) {
-        setNotice({ text: `Recherche : ${err instanceof Error ? err.message : String(err)}`, isError: true });
+        setNotice({ text: t("Recherche : {error}", { error: errorText(err) }), isError: true });
       }
     },
     [active, withEngine, topLine],
@@ -1008,13 +1010,13 @@ export function App() {
   const openAllTab = useCallback(async () => {
     const wanted = mergeCandidates.flatMap((c) => (c.format ? [{ tab: c.tab, format: c.format }] : []));
     if (wanted.length === 0) {
-      setNotice({ text: "Onglet Tout : aucun fichier ouvert n'a un format reconnu avec horodatage.", isError: true });
+      setNotice({ text: t("Onglet Tout : aucun fichier ouvert n'a un format reconnu avec horodatage."), isError: true });
       return;
     }
     try {
       await applyMerge(wanted);
     } catch (err) {
-      setNotice({ text: `Onglet Tout : ${err instanceof Error ? err.message : String(err)}`, isError: true });
+      setNotice({ text: t("Onglet Tout : {error}", { error: errorText(err) }), isError: true });
     }
   }, [mergeCandidates, applyMerge]);
   useEffect(() => {
@@ -1033,7 +1035,7 @@ export function App() {
     applyMerge(wanted, mergedTab.info.tabId)
       .catch((err: unknown) => {
         mergeFailedKey.current = key;
-        setNotice({ text: `Onglet Tout : ${err instanceof Error ? err.message : String(err)}`, isError: true });
+        setNotice({ text: t("Onglet Tout : {error}", { error: errorText(err) }), isError: true });
       })
       .finally(() => {
         remerging.current = false;
@@ -1053,7 +1055,7 @@ export function App() {
     try {
       await applyMerge(wanted, tabId, bigger > MERGE_WINDOW_MAX_LINES ? 0 : bigger);
     } catch (err) {
-      setNotice({ text: `Historique : ${err instanceof Error ? err.message : String(err)}`, isError: true });
+      setNotice({ text: t("Historique : {error}", { error: errorText(err) }), isError: true });
     } finally {
       remerging.current = false;
       setMergeVersion((v) => v + 1);
@@ -1245,7 +1247,7 @@ export function App() {
         const engine = await withEngine();
         const { row: mergedRow } = await engine.request("mergedLocate", { tabId: merged.info.tabId, sourceTabId: current, line: row.lineNo });
         if (mergedRow === null) {
-          setNotice({ text: "Cette ligne n'est pas (encore) dans l'onglet Tout : source masquée, ou ligne trop récente.", isError: false });
+          setNotice({ text: t("Cette ligne n'est pas (encore) dans l'onglet Tout : source masquée, ou ligne trop récente."), isError: false });
           return;
         }
         const tabId = merged.info.tabId;
@@ -1255,7 +1257,7 @@ export function App() {
         setAnchor({ tabId, line: mergedRow });
         setReveal({ row: mergedRow, nonce: ++revealNonce.current, align: "center", forKey: viewKeyOf(tabId, null) });
       } catch (err) {
-        setNotice({ text: `Onglet Tout : ${err instanceof Error ? err.message : String(err)}`, isError: true });
+        setNotice({ text: t("Onglet Tout : {error}", { error: errorText(err) }), isError: true });
       }
     },
     [withEngine],
@@ -1264,11 +1266,11 @@ export function App() {
   /** Ctrl+G with a time (A-07): bisection on the file's timestamps, answers the line to go to. */
   const gotoTime = useCallback(
     async (text: string): Promise<GotoTimeResult> => {
-      if (!active) return { error: "Aucun fichier ouvert." };
+      if (!active) return { error: t("Aucun fichier ouvert.") };
       const format = active.formatId ? formatsRef.current.find((f) => f.format.id === active.formatId) : undefined;
-      if (!format?.format.timestamp) return { error: "Aller à une heure : ce fichier n'a pas de format reconnu avec horodatage." };
+      if (!format?.format.timestamp) return { error: t("Aller à une heure : ce fichier n'a pas de format reconnu avec horodatage.") };
       const target = parseGotoInput(text);
-      if (!target) return { error: "Heure non reconnue (exemples : 10:02, 10:02:11.204, 2026-10-14 10:02, 14/10/2026 10:02)." };
+      if (!target) return { error: t("Heure non reconnue (exemples : 10:02, 10:02:11.204, 2026-10-14 10:02, 14/10/2026 10:02).") };
       try {
         const engine = await withEngine();
         const tabId = active.info.tabId;
@@ -1277,13 +1279,13 @@ export function App() {
         const from = active.clearedBefore;
         const to = active.total;
         const reference = wallClockOf(format, await readTexts(Math.min(Math.max(viewRow.current, from), Math.max(from, to - 1)), 64)) ?? wallClockOf(format, await readTexts(from, 64));
-        if (reference === undefined) return { error: "Aller à une heure : aucun horodatage lisible dans ce fichier." };
+        if (reference === undefined) return { error: t("Aller à une heure : aucun horodatage lisible dans ce fichier.") };
         const found = await findRowAtTime({ readTexts, compiled: format, from, to }, resolveTarget(target, reference));
         const line = Math.min(found.row, Math.max(to - 1, from)) + 1;
-        const note = found.after ? "Heure après la dernière ligne du fichier : fin affichée." : found.before ? "Heure avant la première ligne du fichier : début affiché." : undefined;
+        const note = found.after ? t("Heure après la dernière ligne du fichier : fin affichée.") : found.before ? t("Heure avant la première ligne du fichier : début affiché.") : undefined;
         return { line, ...(note ? { note } : {}) };
       } catch (err) {
-        return { error: `Aller à une heure : ${err instanceof Error ? err.message : String(err)}` };
+        return { error: t("Aller à une heure : {error}", { error: errorText(err) }) };
       }
     },
     [active, withEngine],
@@ -1297,7 +1299,7 @@ export function App() {
         const where = await locate(active.info.tabId, active.filterId, line - 1, true);
         setReveal({ row: where.position, nonce: ++revealNonce.current, align: "top", forKey: viewKeyOf(active.info.tabId, active.filterId) });
       } catch (err) {
-        setNotice({ text: `Aller à la ligne : ${err instanceof Error ? err.message : String(err)}`, isError: true });
+        setNotice({ text: t("Aller à la ligne : {error}", { error: errorText(err) }), isError: true });
       }
     },
     [active, locate],
@@ -1319,26 +1321,26 @@ export function App() {
   const onFilterText = (list: "include" | "exclude", text: string): void => {
     if (!active) return;
     onFilterChange(addMatcher(active.filter, list, { pattern: text, isRegex: false, caseSensitive: false }));
-    setNotice({ text: `Filtre : ${list === "include" ? "+" : "−"} « ${text} »`, isError: false });
+    setNotice({ text: t("Filtre : {sign} « {text} »", { sign: list === "include" ? "+" : "−", text }), isError: false });
   };
 
   return (
     <div className="app">
       {zoom !== undefined && (
         <div className="toast info zoom-indicator" role="status">
-          Zoom : {zoom} %
+          {t("Zoom : {n} %", { n: zoom })}
         </div>
       )}
       {Object.entries(opening).map(([id, o]) => (
         <div key={id} className="toast info opening" role="status">
           <span className="spinner" aria-hidden="true" />
-          Ouverture de {o.name}… {Math.round(o.progress * 100)} %
+          {t("Ouverture de {name}… {n} %", { name: o.name, n: Math.round(o.progress * 100) })}
         </div>
       ))}
       {active?.merged?.loading && (
         <div className="toast info opening" role="status">
           <span className="spinner" aria-hidden="true" />
-          Fusion des fichiers de l'onglet Tout… {active.total.toLocaleString("fr-FR")} lignes
+          {t("Fusion des fichiers de l'onglet Tout… {n} lignes", { n: fmtNumber(active.total) })}
         </div>
       )}
       {notice && (
@@ -1386,7 +1388,7 @@ export function App() {
           onSaved={(next) => {
             settingsRef.current = next;
             setSettings(next);
-            setNotice({ text: "Configuration enregistrée", isError: false });
+            setNotice({ text: t("Configuration enregistrée"), isError: false });
           }}
         />
       )}
@@ -1418,7 +1420,7 @@ export function App() {
       {!active || !runtime ? (
         <main className="placeholder">
           <h1>cbl-log</h1>
-          <p className="welcome-sub">Suivez vos logs en direct</p>
+          <p className="welcome-sub">{t("Suivez vos logs en direct")}</p>
           <div className="welcome-cards">
             <button type="button" className="welcome-card" onClick={() => void window.cblLog.openFileDialog().then(openPaths)}>
               <svg viewBox="0 0 64 64" width="72" height="72" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -1426,16 +1428,16 @@ export function App() {
                 <path d="M40 6v12h12" />
                 <path d="M22 30h20M22 38h20M22 46h12" />
               </svg>
-              <span className="welcome-card-title">Ouvrir un fichier…</span>
-              <span className="welcome-card-hint">Glissez-le ici ou Ctrl+O</span>
+              <span className="welcome-card-title">{t("Ouvrir un fichier…")}</span>
+              <span className="welcome-card-hint">{t("Glissez-le ici ou Ctrl+O")}</span>
             </button>
             {dockerEnabled && (
               <button type="button" className="welcome-card" onClick={() => setDockerOpen(true)} disabled={dockerOpen}>
                 <svg viewBox="0 0 24 24" width="72" height="72" fill="currentColor" className="welcome-docker" aria-hidden="true">
                   <path d="M13.983 11.078h2.119a.186.186 0 00.186-.185V9.006a.186.186 0 00-.186-.186h-2.119a.185.185 0 00-.185.185v1.888c0 .102.083.185.185.185m-2.954-5.43h2.118a.186.186 0 00.186-.186V3.574a.186.186 0 00-.186-.185h-2.118a.185.185 0 00-.185.185v1.888c0 .102.082.185.185.185m0 2.716h2.118a.187.187 0 00.186-.186V6.29a.186.186 0 00-.186-.185h-2.118a.185.185 0 00-.185.185v1.887c0 .102.082.185.185.186m-2.93 0h2.12a.186.186 0 00.184-.186V6.29a.185.185 0 00-.185-.185H8.1a.185.185 0 00-.185.185v1.887c0 .102.083.185.185.186m-2.964 0h2.119a.186.186 0 00.185-.186V6.29a.185.185 0 00-.185-.185H5.136a.186.186 0 00-.186.185v1.887c0 .102.084.185.186.186m5.893 2.715h2.118a.186.186 0 00.186-.185V9.006a.186.186 0 00-.186-.186h-2.118a.185.185 0 00-.185.185v1.888c0 .102.082.185.185.185m-2.93 0h2.12a.185.185 0 00.184-.185V9.006a.185.185 0 00-.184-.186h-2.12a.185.185 0 00-.184.185v1.888c0 .102.083.185.185.185m-2.964 0h2.119a.185.185 0 00.185-.185V9.006a.185.185 0 00-.184-.186h-2.12a.186.186 0 00-.186.186v1.887c0 .102.084.185.186.185m-2.92 0h2.12a.185.185 0 00.184-.185V9.006a.185.185 0 00-.184-.186h-2.12a.185.185 0 00-.184.185v1.888c0 .102.082.185.185.185M23.763 9.89c-.065-.051-.672-.51-1.954-.51-.338.001-.676.03-1.01.087-.248-1.7-1.653-2.53-1.716-2.566l-.344-.199-.226.327c-.284.438-.49.922-.612 1.43-.23.97-.09 1.882.403 2.661-.595.332-1.55.413-1.744.42H.751a.751.751 0 00-.75.748 11.376 11.376 0 00.692 4.062c.545 1.428 1.355 2.48 2.41 3.124 1.18.723 3.1 1.137 5.275 1.137.983.003 1.963-.086 2.93-.266a12.248 12.248 0 003.823-1.389c.98-.567 1.86-1.288 2.61-2.136 1.252-1.418 1.998-2.997 2.553-4.4h.221c1.372 0 2.215-.549 2.68-1.009.309-.293.55-.65.707-1.046l.098-.288Z" />
                 </svg>
-                <span className="welcome-card-title">Conteneurs Docker…</span>
-                <span className="welcome-card-hint">Ctrl+Maj+D</span>
+                <span className="welcome-card-title">{t("Conteneurs Docker…")}</span>
+                <span className="welcome-card-hint">{t("Ctrl+Maj+D")}</span>
               </button>
             )}
           </div>
@@ -1460,7 +1462,7 @@ export function App() {
                 label: tabLabel(c.tab),
                 color: c.color,
                 shown: !active.merged!.hidden.includes(c.tab.info.tabId),
-                unavailable: c.format ? undefined : "Format sans horodatage reconnu",
+                unavailable: c.format ? undefined : t("Format sans horodatage reconnu"),
               }))}
               onToggle={toggleMergedSource}
             />
@@ -1485,10 +1487,10 @@ export function App() {
           {active.state !== "following" && !(active.docker && active.state === "stopped") && (
             <div className={`banner banner-${active.state}`} role="status">
               {active.docker
-                ? (active.message ?? (active.state === "waiting" ? "En attente de Docker…" : "Erreur de lecture du conteneur."))
+                ? (active.message ?? (active.state === "waiting" ? t("En attente de Docker…") : t("Erreur de lecture du conteneur.")))
                 : active.state === "missing"
-                  ? "Fichier absent, en attente…"
-                  : active.message ?? "Erreur de lecture du fichier."}
+                  ? t("Fichier absent, en attente…")
+                  : active.message ?? t("Erreur de lecture du fichier.")}
             </div>
           )}
           <LogViewport
@@ -1513,7 +1515,7 @@ export function App() {
                     ? (row) => void openInAll(row)
                     : undefined
             }
-            rowActionLabel={active.merged ? "Ouvrir la ligne dans son fichier" : filtered && !active.filterSuspended ? "Voir la ligne dans son contexte" : "Voir la ligne dans l'onglet Tout"}
+            rowActionLabel={active.merged ? t("Ouvrir la ligne dans son fichier") : filtered && !active.filterSuspended ? t("Voir la ligne dans son contexte") : t("Voir la ligne dans l'onglet Tout")}
             onSearchText={(text) => setSearchText((prev) => ({ text, nonce: (prev?.nonce ?? 0) + 1 }))}
             onFilterText={onFilterText}
             onGotoLine={filtered ? (line) => void gotoFileLine(line) : undefined}
@@ -1560,16 +1562,16 @@ export function App() {
               active.docker
                 ? {
                     status: dockerStatusText(active.state, dockerList?.containers.find((c) => c.name === active.docker?.name)),
-                    title: `${active.docker.context}/${active.docker.name}\nCopie locale : ${active.info.path}`,
-                    moreTitle: "Remonter plus loin dans l'historique du conteneur (×10 ; la copie locale est reconstruite)",
+                    title: `${active.docker.context}/${active.docker.name}\n${t("Copie locale : {path}", { path: active.info.path })}`,
+                    moreTitle: t("Remonter plus loin dans l'historique du conteneur (×10 ; la copie locale est reconstruite)"),
                     loading: loadingMore.has(active.info.tabId),
                     onLoadMore: () => void loadMoreHistory(active.info.tabId),
                   }
                 : active.merged
                   ? {
-                      status: active.merged.window.complete ? "Tout l'historique des fichiers" : `Fenêtre : ${active.merged.window.lines.toLocaleString("fr-FR")} dernières lignes du fichier le plus actif`,
-                      title: "L'onglet Tout démarre à une heure commune à tous les fichiers, pour ne pas les lire en entier",
-                      moreTitle: "Remonter plus loin dans l'historique (×10, puis tout) : les fichiers sont fusionnés à nouveau",
+                      status: active.merged.window.complete ? t("Tout l'historique des fichiers") : t("Fenêtre : {n} dernières lignes du fichier le plus actif", { n: fmtNumber(active.merged.window.lines) }),
+                      title: t("L'onglet Tout démarre à une heure commune à tous les fichiers, pour ne pas les lire en entier"),
+                      moreTitle: t("Remonter plus loin dans l'historique (×10, puis tout) : les fichiers sont fusionnés à nouveau"),
                       loading: loadingMore.has(active.info.tabId),
                       ...(active.merged.window.complete ? {} : { onLoadMore: () => void loadMoreMerged() }),
                     }

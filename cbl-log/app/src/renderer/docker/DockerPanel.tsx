@@ -2,6 +2,7 @@ import "./DockerPanel.css";
 import { useMemo, useRef, useState } from "react";
 import type { DockerListResult } from "@cbl-log/shared";
 import { connectionMessage, containerDot, groupContainers, nextSelection } from "./docker-panel";
+import { t } from "@cbl-log/shared";
 
 interface Props {
   /** Last answer / push of the engine; undefined until the first one. */
@@ -37,7 +38,7 @@ export function DockerPanel({ list, openNames, onOpen, onClose }: Props) {
         <span className="docker-title">
           <WhaleIcon /> Docker
         </span>
-        <button type="button" className="icon-btn" onClick={onClose} title="Fermer le panneau" aria-label="Fermer le panneau Docker">
+        <button type="button" className="icon-btn" onClick={onClose} title={t("Fermer le panneau")} aria-label={t("Fermer le panneau Docker")}>
           ×
         </button>
       </div>
@@ -46,7 +47,7 @@ export function DockerPanel({ list, openNames, onOpen, onClose }: Props) {
       </div>
       {list?.status === "connected" && (
         <>
-          <input className="docker-filter" type="search" placeholder="Filtrer les conteneurs…" value={text} onChange={(e) => setText(e.target.value)} aria-label="Filtrer les conteneurs" />
+          <input className="docker-filter" type="search" placeholder={t("Filtrer les conteneurs…")} value={text} onChange={(e) => setText(e.target.value)} aria-label={t("Filtrer les conteneurs")} />
           <div className="docker-list" role="listbox" aria-multiselectable="true">
             {groups.length === 0 && <div className="docker-empty">{list.containers.length === 0 ? "Aucun conteneur." : "Aucun conteneur ne correspond."}</div>}
             {groups.map((g) => (
@@ -63,7 +64,7 @@ export function DockerPanel({ list, openNames, onOpen, onClose }: Props) {
                       aria-selected={selected.has(c.name)}
                       aria-disabled={!c.readable}
                       className={`docker-row${selected.has(c.name) ? " selected" : ""}${c.readable ? "" : " disabled"}`}
-                      title={c.readable ? `${c.name}\n${c.image}\n${c.status}` : `${c.name}\nLogs indisponibles : pilote de log « ${c.logDriver ?? "none"} » (rien à lire côté Docker).`}
+                      title={c.readable ? `${c.name}\n${c.image}\n${c.status}` : `${c.name}\n${t("Logs indisponibles : pilote de log « {driver} » (rien à lire côté Docker).", { driver: c.logDriver ?? "none" })}`}
                       onClick={(e) => {
                         setSelected(nextSelection(order, selected, anchor.current, c.name, { ctrl: e.ctrlKey || e.metaKey, shift: e.shiftKey }));
                         if (!e.shiftKey) anchor.current = c.name;
@@ -81,9 +82,10 @@ export function DockerPanel({ list, openNames, onOpen, onClose }: Props) {
             ))}
           </div>
           <div className="docker-foot">
-            <span className="docker-hint">Double-clic pour ouvrir · Ctrl / Maj pour plusieurs</span>
+            <span className="docker-hint">{t("Double-clic pour ouvrir · Ctrl / Maj pour plusieurs")}</span>
             <button type="button" disabled={openable.length === 0} onClick={() => onOpen(openable)}>
-              Ouvrir{openable.length > 0 ? ` (${openable.length})` : ""}
+              {t("Ouvrir")}
+              {openable.length > 0 ? ` (${openable.length})` : ""}
             </button>
           </div>
         </>

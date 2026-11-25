@@ -1,6 +1,7 @@
 // Declarative log formats (C-04, architecture 4.4): a regex with named groups splits a line into
 // `ts`, `level`, `thread`, `logger`, `msg`; the level can be recovered from the message when the
 // format's own level field says nothing (WebSphere SystemOut lines are all type "O").
+import { t } from "./i18n/index.js";
 import { z } from "zod";
 
 export const LEVELS = ["fatal", "error", "warn", "info", "debug", "trace"] as const;
@@ -218,7 +219,7 @@ export const LOG4J2: LogFormat = {
 export const LOG4J2_LEVEL_FIRST: LogFormat = {
   ...LOG4J2,
   id: "log4j2-level-first",
-  name: "Log4j2 (niveau avant le thread)",
+  name: t("Log4j2 (niveau avant le thread)"),
   detect: "^\\d{4}-\\d{2}-\\d{2}[ T]\\d{2}:\\d{2}:\\d{2}[.,]\\d{1,3}\\s+[A-Z]+\\s+\\[",
   line: `^${LOG4J2_TS}\\s+(?<level>[A-Z]+)\\s+\\[(?<thread>[^\\]]*)\\]\\s+${LOG4J2_TAIL}`,
 };

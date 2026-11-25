@@ -1,5 +1,5 @@
 // Pure helpers of the "Configuration" window (SettingsPanel.tsx), kept apart to be tested without a DOM.
-import { defaultSetting, settingKey, type SettingDoc, type SettingSection } from "@cbl-log/shared";
+import { t, defaultSetting, fmtNumber, settingKey, type SettingDoc, type SettingSection } from "@cbl-log/shared";
 
 /** Lower case without accents, for the search field. */
 const fold = (s: string): string => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
@@ -22,21 +22,21 @@ export function filterSections(sections: readonly SettingSection[], query: strin
 /** How a value is shown next to "Par défaut :". */
 export function formatValue(doc: SettingDoc, value: unknown): string {
   const control = doc.control;
-  if (value === undefined) return control.kind === "text" ? (control.emptyLabel ?? "(automatique)") : "—";
+  if (value === undefined) return control.kind === "text" ? (control.emptyLabel ?? t("(automatique)")) : "—";
   switch (control.kind) {
     case "boolean":
-      return value ? "activé" : "désactivé";
+      return value ? t("activé") : t("désactivé");
     case "enum":
       return control.options.find((o) => o.value === value)?.label ?? String(value);
     case "number":
-      return `${(value as number).toLocaleString("fr-FR")}${control.unit ? ` ${control.unit}` : ""}`;
+      return `${fmtNumber(value as number)}${control.unit ? ` ${control.unit}` : ""}`;
     case "flags": {
       const on = (value ?? []) as readonly string[];
       if (on.length === control.options.length) return "tous";
       return control.options.filter((o) => on.includes(o.value)).map((o) => o.label).join(", ");
     }
     case "map":
-      return Object.keys(value as object).length === 0 ? "aucun" : `${Object.keys(value as object).length} entrée(s)`;
+      return Object.keys(value as object).length === 0 ? t("aucun") : t("{n} entrée(s)", { n: Object.keys(value as object).length });
     default:
       return String(value);
   }
