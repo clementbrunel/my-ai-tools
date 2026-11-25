@@ -12,17 +12,42 @@ export function filterSections(sections: readonly SettingSection[], query: strin
     .map((section) => ({
       ...section,
       settings: section.settings.filter((doc) => {
-        const hay = fold(`${section.title} ${doc.label} ${doc.description} ${settingKey(doc.path)}`);
+        const hay = fold(`${section.title} ${doc.label} ${doc.description} ${doc.details ?? ""} ${settingKey(doc.path)}`);
         return words.every((w) => hay.includes(w));
       }),
     }))
     .filter((section) => section.settings.length > 0);
 }
 
-/** How a value is shown next to "Par défaut :". */
+type FlagOption = Extract<SettingDoc["control"], { kind: "flags" }>["options"][number];
+
+/** Stored values a flag option stands for (ERROR = fatal + error). */
+export const flagValues = (option: FlagOption): readonly string[] => option.values ?? [option.value];
+
+/** The option is checked when all its values are. */
+export const flagChecked = (on: readonly string[], option: FlagOption): boolean => flagValues(option).every((v) => on.includes(v));
+
+/** Checks or unchecks `option`, in the options' order (the values of the other options are kept as they are). */
+export function toggleFlag(options: readonly FlagOption[], on: readonly string[], option: FlagOption, checked: boolean): string[] {
+  const own = flagValues(option);
+  return options.flatMap(flagValues).filter((v) => (own.includes(v) ? checked : on.includes(v)));
+}
+
+/**
+ * Number typed in a field: digits, with a decimal part (`,` or `.`) only when `decimal`, within [min, max].
+ * Anything else (empty, letters, 1e3, out of bounds) gives undefined: the field shows an error and saves nothing.
+ */
+export function parseNumberInput(text: string, opts: { min: number; max: number; decimal?: boolean | undefined }): number | undefined {
+  const s = text.trim();
+  if (!(opts.decimal ? /^-?\d+(?:[.,]\d+)?$/ : /^-?\d+$/).test(s)) return undefined;
+  const n = Number(s.replace(",", "."));
+  return n >= opts.min && n <= opts.max ? n : undefined;
+}
+
+/** How a value is shown in the "Rétablir" tooltip (the default value). */
 export function formatValue(doc: SettingDoc, value: unknown): string {
   const control = doc.control;
-  if (value === undefined) return control.kind === "text" ? (control.emptyLabel ?? t("(automatique)")) : "—";
+  if (value === undefined) return control.kind === "font" ? control.emptyLabel : control.kind === "text" ? (control.emptyLabel ?? t("(automatique)")) : "—";
   switch (control.kind) {
     case "boolean":
       return value ? t("activé") : t("désactivé");
@@ -32,8 +57,8 @@ export function formatValue(doc: SettingDoc, value: unknown): string {
       return `${fmtNumber(value as number)}${control.unit ? ` ${control.unit}` : ""}`;
     case "flags": {
       const on = (value ?? []) as readonly string[];
-      if (on.length === control.options.length) return "tous";
-      return control.options.filter((o) => on.includes(o.value)).map((o) => o.label).join(", ");
+      const checked = control.options.filter((o) => flagChecked(on, o));
+      return checked.length === control.options.length ? t("tous") : checked.map((o) => o.label).join(", ");
     }
     case "map":
       return Object.keys(value as object).length === 0 ? t("aucun") : t("{n} entrée(s)", { n: Object.keys(value as object).length });

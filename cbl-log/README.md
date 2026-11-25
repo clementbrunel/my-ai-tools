@@ -48,33 +48,27 @@ exporté a le même format que ceux de `%APPDATA%\cbl-log\rules\` : il peut auss
 
 **Fichier › Configuration…** (`Ctrl+,`) édite `%APPDATA%\cbl-log\settings.json` sans quitter l'application :
 
-- **Interface** : un formulaire, chaque réglage avec son explication, sa clé JSON, sa valeur par défaut (lien
-  *Rétablir*) et quand il s'applique (immédiat, à la prochaine ouverture d'un fichier, au prochain lancement).
-  Un champ de recherche filtre les réglages ; un trait bleu marque ceux qui diffèrent du défaut.
+- **Interface** : les réglages par section (liste à gauche), une ligne d'explication chacun (ⓘ pour le détail),
+  la clé JSON au survol du libellé, quand ils s'appliquent, et *Rétablir* sur ceux qui diffèrent du défaut (trait
+  bleu). Un champ de recherche filtre les réglages.
 - **JSON** : le fichier brut, avec numéros de ligne, validation en direct (ligne en erreur surlignée, message
   en français, clés inconnues signalées) et *Formater*. Le texte est enregistré tel quel.
 - `Ctrl+S` enregistre ; un JSON invalide n'est jamais écrit. Une modification du fichier faite ailleurs pendant
   que la fenêtre est ouverte est rechargée (ou proposée si des modifications sont en cours).
-- **Affichage des logs** : police (`"viewer": { "fontFamily": "Cascadia Mono" }`, liste de suggestions ; Consolas
-  par défaut et en secours si la police manque) et taille du texte (`"fontSize"`, 8 à 32 px, 13 par défaut) ; la
-  hauteur des lignes suit, la ligne en haut de l'écran reste la même. Appliqué immédiatement. Les numéros de
-  ligne peuvent être masqués (`showLineNumbers`).
-- **Nouveaux onglets** (`"tabs"`) : suivre ou non la fin du fichier à l'ouverture, replier les stack traces,
-  niveaux affichés par défaut (par exemple sans DEBUG ni TRACE). Les onglets restaurés gardent leur état.
-- **Langue** (`language`) : **Système** (français pour un Windows en français, anglais sinon), **Français** ou
-  **English** ; appliquée au prochain lancement. Les notes de version restent en français.
-- **Général** : rouvrir ou non les onglets au démarrage (`restoreSession`), canal de mise à jour **Stable** ou
-  **Bêta** (`updateChannel` : les versions de test `X.Y.Z-beta.N`, publiées en pré-release GitHub), confirmer la
-  fermeture de plusieurs onglets (clic droit sur un onglet › Fermer les autres / à droite / tous).
-- **Recherche** : historique des recherches (flèche bas dans le champ ou bouton horloge ; `searchHistorySize`,
-  0 = désactivé), mémorisé dans `recent.json`.
-- **Alertes** : une règle de surlignage cochée 🔔 dans l'éditeur de règles déclenche une notification Windows
-  quand une nouvelle ligne d'un fichier suivi lui correspond (regroupées 30 s, rien si l'onglet est déjà sous les
-  yeux ; un clic montre la ligne). Interrupteur général : `ruleNotifications`.
-- **Intégration à Windows** : « Ouvrir avec cbl-log » dans le clic droit de l'Explorateur
-  (`explorerContextMenu`) et association des `.log` / `.out` (`fileAssociations`), écrits dans le registre de
-  l'utilisateur et retirés à la désinstallation. Un fichier ouvert ainsi arrive dans un onglet de la fenêtre
-  déjà ouverte.
+
+| Section | Réglages |
+|---|---|
+| Général | Langue (`language` : Système / Français / English), Thème, Rouvrir les onglets au démarrage (`restoreSession`), Confirmer avant de fermer plusieurs onglets (`confirmCloseTabs`) |
+| Affichage | Police et taille du texte, numéros de ligne (`viewer`) |
+| Ouverture des fichiers | Suivre la fin du fichier, replier les stack traces, niveaux affichés par défaut (`tabs`), archives récentes chargées (`historyHours`), motifs d'archives appris |
+| Recherche et alertes | Historique des recherches (`searchHistorySize`, 0 = désactivé), notifications des règles 🔔 (`ruleNotifications`) |
+| Docker | Activer Docker, lignes chargées à l'ouverture ; *Avancé* : adresse, copie locale |
+| Windows et mises à jour | Mises à jour automatiques, canal **Stable** / **Bêta** (`updateChannel`, versions de test `X.Y.Z-beta.N`), menu « Ouvrir avec cbl-log » de l'Explorateur (`explorerContextMenu`) |
+
+Une règle de surlignage cochée 🔔 dans l'éditeur de règles affiche une notification Windows quand une nouvelle
+ligne d'un fichier suivi lui correspond (regroupées 30 s, rien si l'onglet est déjà affiché ; un clic montre la
+ligne). « Ouvrir avec cbl-log » est écrit dans le registre de l'utilisateur et retiré à la désinstallation ; le
+fichier arrive dans un onglet de la fenêtre déjà ouverte.
 
 ## Raccourcis clavier
 
