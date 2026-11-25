@@ -55,6 +55,9 @@ exporté a le même format que ceux de `%APPDATA%\cbl-log\rules\` : il peut auss
   en français, clés inconnues signalées) et *Formater*. Le texte est enregistré tel quel.
 - `Ctrl+S` enregistre ; un JSON invalide n'est jamais écrit. Une modification du fichier faite ailleurs pendant
   que la fenêtre est ouverte est rechargée (ou proposée si des modifications sont en cours).
+- **Affichage des logs** : police (`"viewer": { "fontFamily": "Cascadia Mono" }`, liste de suggestions ; Consolas
+  par défaut et en secours si la police manque) et taille du texte (`"fontSize"`, 8 à 32 px, 13 par défaut) ; la
+  hauteur des lignes suit, la ligne en haut de l'écran reste la même. Appliqué immédiatement.
 
 ## Raccourcis clavier
 

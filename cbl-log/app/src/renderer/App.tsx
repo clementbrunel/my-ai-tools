@@ -1388,6 +1388,8 @@ export function App() {
             viewRowRef={filtered ? filteredViewRow : viewRow}
             fetchRows={fetchRows}
             onNotice={onNotice}
+            fontFamily={settings.viewer.fontFamily}
+            fontSize={settings.viewer.fontSize}
             follow={active.follow && !pausedAt}
             initialRow={filtered ? 0 : active.scrollRow}
             onFollowChange={onViewFollowChange}

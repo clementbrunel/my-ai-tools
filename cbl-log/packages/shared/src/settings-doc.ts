@@ -1,7 +1,7 @@
 // Documentation of settings.json for the "Configuration" window: one entry per setting (label, explanation,
 // control, when it applies), plus the helpers shared by its two modes (form and raw JSON).
 // The schema (config.ts) stays the reference for validation; this file only describes it to the user.
-import { applyMigrations, defaultSettings, settingsSchema, type Settings } from "./config.js";
+import { applyMigrations, defaultSettings, MAX_FONT_SIZE, MIN_FONT_SIZE, settingsSchema, type Settings } from "./config.js";
 
 /** When a change is taken into account. */
 export type SettingApply = "live" | "next-open" | "restart";
@@ -10,8 +10,12 @@ export type SettingControl =
   | { kind: "boolean" }
   | { kind: "enum"; options: readonly { value: string; label: string }[] }
   | { kind: "number"; min: number; max: number; step?: number; unit?: string }
-  /** Optional text: an empty field removes the key (the default behaviour then applies). */
-  | { kind: "text"; placeholder?: string }
+  /**
+   * Optional text: an empty field removes the key (the default behaviour then applies).
+   * `suggestions` are offered in a drop-down list (any other value can still be typed);
+   * `emptyLabel` is how the absent value is shown ("(automatique)" by default).
+   */
+  | { kind: "text"; placeholder?: string; suggestions?: readonly string[]; emptyLabel?: string }
   /** Map edited as a list (entries can only be removed). */
   | { kind: "map" };
 
@@ -55,6 +59,33 @@ export const SETTING_SECTIONS: readonly SettingSection[] = [
         description:
           "Vérifie au démarrage puis toutes les heures si une nouvelle version est publiée sur GitHub. C'est le seul accès réseau de l'application (une requête GET vers api.github.com, rien n'est envoyé). « Aide › Rechercher une mise à jour… » reste disponible si c'est désactivé.",
         control: { kind: "boolean" },
+        apply: "live",
+      },
+    ],
+  },
+  {
+    id: "viewer",
+    title: "Affichage des logs",
+    settings: [
+      {
+        path: ["viewer", "fontFamily"],
+        label: "Police",
+        description:
+          "Police des lignes de log. Choisissez-en une à espacement fixe pour garder les colonnes alignées. Une police absente de ce poste est remplacée par Consolas. Vide : Consolas.",
+        control: {
+          kind: "text",
+          placeholder: "Consolas",
+          emptyLabel: "Consolas",
+          suggestions: ["Consolas", "Cascadia Mono", "Cascadia Code", "Lucida Console", "Courier New", "JetBrains Mono", "Fira Code", "Source Code Pro"],
+        },
+        apply: "live",
+      },
+      {
+        path: ["viewer", "fontSize"],
+        label: "Taille du texte",
+        description:
+          "Taille des caractères des lignes de log ; la hauteur des lignes suit. Le zoom (Ctrl+molette) agrandit en plus toute la fenêtre.",
+        control: { kind: "number", min: MIN_FONT_SIZE, max: MAX_FONT_SIZE, step: 1, unit: "px" },
         apply: "live",
       },
     ],
@@ -239,10 +270,13 @@ function unknownKeys(raw: unknown): string[] {
   const out: string[] = [];
   const top = settingsSchema.shape as Record<string, unknown>;
   for (const key of Object.keys(raw)) if (!(key in top)) out.push(key);
-  const docker = (raw as Record<string, unknown>)["docker"];
-  if (typeof docker === "object" && docker !== null && !Array.isArray(docker)) {
-    const known = SETTING_SECTIONS.flatMap((s) => s.settings).filter((s) => s.path[0] === "docker").map((s) => s.path[1]);
-    for (const key of Object.keys(docker)) if (!known.includes(key)) out.push(`docker.${key}`);
+  // Nested groups (docker, viewer): their keys are the documented settings below them.
+  const nested = SETTING_SECTIONS.flatMap((s) => s.settings).filter((s) => s.path.length === 2);
+  for (const group of new Set(nested.map((s) => s.path[0]!))) {
+    const value = (raw as Record<string, unknown>)[group];
+    if (typeof value !== "object" || value === null || Array.isArray(value)) continue;
+    const known = nested.filter((s) => s.path[0] === group).map((s) => s.path[1]);
+    for (const key of Object.keys(value)) if (!known.includes(key)) out.push(`${group}.${key}`);
   }
   return out;
 }

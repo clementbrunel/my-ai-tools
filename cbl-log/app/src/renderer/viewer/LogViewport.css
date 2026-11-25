@@ -109,7 +109,7 @@
   padding: 0 8px;
   background: var(--bg);
   color: var(--accent);
-  font-size: 11px;
+  font-size: 0.85em;
 }
 
 .log-row.anchor {
@@ -173,6 +173,6 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 0.85em;
   user-select: none;
 }
