@@ -1,8 +1,9 @@
 import { appendFileSync, copyFileSync, existsSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { stat } from "node:fs/promises";
 import { join } from "node:path";
 import type { TailEvent } from "@cbl-log/shared";
-import { afterEach, describe, expect, it } from "vitest";
-import { BlockCache, PollScheduler, Tailer, type TailerOptions } from "../src/index";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { BlockCache, FileSource, PollScheduler, Tailer, type TailerOptions } from "../src/index";
 import { useTempDir, waitFor } from "./helpers";
 
 const tempDir = useTempDir();
@@ -394,5 +395,27 @@ describe("Tailer", () => {
     appendFileSync(path, lines(6, 9));
     await waitFor(async () => other.totalRows === 9, "rows seen");
     expect(fixed.intervals).toEqual([20]);
+  });
+
+  it("a handle that keeps answering with an old size (SMB after suspend/resume) is reopened, not mistaken for a quiet file", async () => {
+    const path = join(await tempDir(), "app.log");
+    writeFileSync(path, lines(0, 5));
+    const { tailer } = await manual(path);
+    expect(tailer.totalRows).toBe(5);
+
+    // freeze the size reported by the handle opened so far; a reopened source answers truthfully
+    const stale = vi.spyOn(FileSource.prototype, "size");
+    const first = await stat(path);
+    let frozen: FileSource | undefined;
+    stale.mockImplementation(async function (this: FileSource) {
+      frozen ??= this;
+      return this === frozen ? first.size : (await stat(path)).size;
+    });
+    cleanups.push(() => stale.mockRestore());
+
+    appendFileSync(path, lines(5, 8));
+    await tailer.check();
+    expect(tailer.totalRows).toBe(8);
+    expect(await texts(tailer)).toEqual(ids(0, 8));
   });
 });

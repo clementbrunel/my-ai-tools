@@ -473,10 +473,11 @@ export class Tailer {
     this.phaseValue = "following";
     this.setState("following");
     try {
-      await this.follow(cur);
+      await this.follow(cur, st.size);
     } catch (err) {
       // The path still stats fine but the open handle fails: typically a network share whose handle
-      // went stale after a suspend/resume (Windows "UNKNOWN: unknown error, fstat"). Reopen and retry.
+      // went stale after a suspend/resume (Windows "UNKNOWN: unknown error, fstat"), or still answers
+      // but with an old size and no error (see `pathSize` in follow). Reopen and retry.
       if (!(await this.reopen(cur))) throw err;
       await this.follow(cur);
     }
@@ -507,11 +508,19 @@ export class Tailer {
     return true;
   }
 
-  private async follow(seg: Segment): Promise<void> {
+  /**
+   * `pathSize`: size just read by path. A handle that reports less than that is behind the file
+   * (an SMB handle that survived a suspend/resume keeps answering with its old size): it is
+   * a stale handle, not a quiet file. The caller reopens it.
+   */
+  private async follow(seg: Segment, pathSize?: bigint): Promise<void> {
     const source = seg.source;
     let index = seg.index;
     if (!source || !index) return;
     const size = await source.size();
+    if (pathSize !== undefined && BigInt(size) < pathSize) {
+      throw new SourceError("UNKNOWN", seg.path, `Handle behind the file (${size} < ${pathSize} bytes): ${seg.path}`);
+    }
     if (size < index.scannedBytes || !(await this.anchorMatches(seg))) {
       await this.truncate(seg);
       return;
