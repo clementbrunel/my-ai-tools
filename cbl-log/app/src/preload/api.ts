@@ -1,5 +1,5 @@
 import type { UpdateAction, UpdatePanelState } from "../main/update-check";
-import type { LogFormat, ParseRuleSetResult, RuleSet, Session, Settings } from "@cbl-log/shared";
+import type { LogFormat, ParseRuleSetResult, RuleSet, SearchHistoryEntry, Session, Settings } from "@cbl-log/shared";
 
 /** Report of "Aide > Signaler un bug / proposer une idée" (same shape as main/feedback.ts). */
 export interface FeedbackDraft {
@@ -22,6 +22,12 @@ export interface CblLogApi {
   notifyReady(): void;
   /** Records a successfully opened file in the "Fichiers récents" menu (recent.json). */
   addRecentFile(path: string): Promise<void>;
+  /** Brings the window to the front (restored if minimized), e.g. on a click on a notification. */
+  focusWindow(): void;
+  /** Search bar history (recent.json), most recent first. */
+  loadSearchHistory(): Promise<SearchHistoryEntry[]>;
+  /** Replaces the search bar history (the renderer applies settings.searchHistorySize). */
+  saveSearchHistory(list: SearchHistoryEntry[]): Promise<void>;
   /** Native context menu for a file (open its folder, show it in the file manager, copy its path, designate an archive). */
   showFileContextMenu(path: string): Promise<void>;
   /** "Désigner une archive du rolling…" was chosen for `path` and `archive` picked in its folder. */

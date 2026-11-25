@@ -1,7 +1,7 @@
 // Documentation of settings.json for the "Configuration" window: one entry per setting (label, explanation,
 // control, when it applies), plus the helpers shared by its two modes (form and raw JSON).
 // The schema (config.ts) stays the reference for validation; this file only describes it to the user.
-import { applyMigrations, defaultSettings, MAX_FONT_SIZE, MIN_FONT_SIZE, settingsSchema, type Settings } from "./config.js";
+import { applyMigrations, defaultSettings, MAX_FONT_SIZE, MAX_SEARCH_HISTORY, MIN_FONT_SIZE, settingsSchema, type Settings } from "./config.js";
 
 /** When a change is taken into account. */
 export type SettingApply = "live" | "next-open" | "restart";
@@ -16,6 +16,8 @@ export type SettingControl =
    * `emptyLabel` is how the absent value is shown ("(automatique)" by default).
    */
   | { kind: "text"; placeholder?: string; suggestions?: readonly string[]; emptyLabel?: string }
+  /** Several values among `options` (at least one), shown as check boxes. */
+  | { kind: "flags"; options: readonly { value: string; label: string }[] }
   /** Map edited as a list (entries can only be removed). */
   | { kind: "map" };
 
@@ -61,6 +63,35 @@ export const SETTING_SECTIONS: readonly SettingSection[] = [
         control: { kind: "boolean" },
         apply: "live",
       },
+      {
+        path: ["updateChannel"],
+        label: "Canal de mise à jour",
+        description:
+          "« Bêta » propose aussi les versions de test (3.3.0-beta.1…) publiées avant une version stable, pour les essayer en avance. Revenir à « Stable » propose la prochaine version stable, jamais une version plus ancienne. « Aide › Rechercher une mise à jour… » vérifie tout de suite.",
+        control: {
+          kind: "enum",
+          options: [
+            { value: "stable", label: "Stable" },
+            { value: "beta", label: "Bêta (versions de test)" },
+          ],
+        },
+        apply: "live",
+      },
+      {
+        path: ["restoreSession"],
+        label: "Rouvrir les onglets au démarrage",
+        description:
+          "Au lancement, rouvre les fichiers de la dernière session avec leur position, leur filtre et leur nom. Désactivé, cbl-log démarre sur l'écran d'accueil.",
+        control: { kind: "boolean" },
+        apply: "restart",
+      },
+      {
+        path: ["confirmCloseTabs"],
+        label: "Confirmer la fermeture de plusieurs onglets",
+        description: "Demande confirmation avant « Fermer les autres onglets », « Fermer les onglets à droite » ou « Fermer tous les onglets » (clic droit sur un onglet).",
+        control: { kind: "boolean" },
+        apply: "live",
+      },
     ],
   },
   {
@@ -86,6 +117,103 @@ export const SETTING_SECTIONS: readonly SettingSection[] = [
         description:
           "Taille des caractères des lignes de log ; la hauteur des lignes suit. Le zoom (Ctrl+molette) agrandit en plus toute la fenêtre.",
         control: { kind: "number", min: MIN_FONT_SIZE, max: MAX_FONT_SIZE, step: 1, unit: "px" },
+        apply: "live",
+      },
+      {
+        path: ["viewer", "showLineNumbers"],
+        label: "Numéros de ligne",
+        description:
+          "Affiche le numéro de chaque ligne dans la marge de gauche. Masqués, la marge ne garde que le niveau (et la source dans l'onglet « Tout ») ; « Copier avec numéros » et Ctrl+G restent disponibles.",
+        control: { kind: "boolean" },
+        apply: "live",
+      },
+    ],
+  },
+  {
+    id: "tabs",
+    title: "Nouveaux onglets",
+    settings: [
+      {
+        path: ["tabs", "followOnOpen"],
+        label: "Suivre à l'ouverture",
+        description:
+          "Un fichier ouvert affiche sa fin et suit les nouvelles lignes. Désactivé, il s'ouvre au début du fichier, sans suivi (le bouton Suivre le réactive). Les onglets restaurés au démarrage gardent leur état.",
+        control: { kind: "boolean" },
+        apply: "next-open",
+      },
+      {
+        path: ["tabs", "foldTraces"],
+        label: "Replier les stack traces",
+        description: "Les lignes de suite (stack traces, SQL sur plusieurs lignes…) sont repliées sous leur enregistrement dès l'ouverture, quand le format est reconnu.",
+        control: { kind: "boolean" },
+        apply: "next-open",
+      },
+      {
+        path: ["tabs", "levels"],
+        label: "Niveaux affichés",
+        description:
+          "Niveaux visibles à l'ouverture d'un fichier dont le format est reconnu ; les autres sont filtrés (les pastilles de niveau les réaffichent). Par exemple, décocher DEBUG et TRACE.",
+        control: {
+          kind: "flags",
+          options: [
+            { value: "fatal", label: "FATAL" },
+            { value: "error", label: "ERROR" },
+            { value: "warn", label: "WARN" },
+            { value: "info", label: "INFO" },
+            { value: "debug", label: "DEBUG" },
+            { value: "trace", label: "TRACE" },
+          ],
+        },
+        apply: "next-open",
+      },
+    ],
+  },
+  {
+    id: "search",
+    title: "Recherche",
+    settings: [
+      {
+        path: ["searchHistorySize"],
+        label: "Historique des recherches",
+        description:
+          "Nombre de recherches mémorisées (avec leurs options .* Aa ab). Flèche bas dans le champ de recherche, ou le bouton horloge, les propose. 0 = pas d'historique (celui existant est effacé à la prochaine recherche).",
+        control: { kind: "number", min: 0, max: MAX_SEARCH_HISTORY, step: 5, unit: "recherches" },
+        apply: "live",
+      },
+    ],
+  },
+  {
+    id: "alerts",
+    title: "Alertes",
+    settings: [
+      {
+        path: ["ruleNotifications"],
+        label: "Notifications des règles",
+        description:
+          "Une nouvelle ligne d'un fichier suivi qui correspond à une règle de surlignage cochée 🔔 (éditeur de règles) affiche une notification Windows, sauf si vous regardez déjà cet onglet. Un clic sur la notification montre la ligne. Les lignes suivantes de la même règle sont regroupées pendant 30 s.",
+        control: { kind: "boolean" },
+        apply: "live",
+      },
+    ],
+  },
+  {
+    id: "windows",
+    title: "Intégration à Windows",
+    settings: [
+      {
+        path: ["explorerContextMenu"],
+        label: "« Ouvrir avec cbl-log » dans l'Explorateur",
+        description:
+          "Ajoute « Ouvrir avec cbl-log » au clic droit sur n'importe quel fichier de l'Explorateur (sous Windows 11 : « Afficher d'autres options »). Le fichier s'ouvre dans un nouvel onglet de la fenêtre déjà ouverte. Écrit dans le registre de l'utilisateur, retiré à la désinstallation. Sans effet en développement.",
+        control: { kind: "boolean" },
+        apply: "live",
+      },
+      {
+        path: ["fileAssociations"],
+        label: "Associer les fichiers .log et .out",
+        description:
+          "Propose cbl-log dans « Ouvrir avec » pour les fichiers .log et .out. Windows ne laisse pas une application se déclarer par défaut : pour un double-clic direct, clic droit sur un .log › Ouvrir avec › Choisir une autre application › cbl-log, « Toujours ». Retiré à la désinstallation.",
+        control: { kind: "boolean" },
         apply: "live",
       },
     ],

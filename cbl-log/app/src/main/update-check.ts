@@ -41,18 +41,44 @@ export interface AvailableUpdate {
   asset: GitHubAsset;
 }
 
-/** "1.2.3" -> [1, 2, 3]; undefined for anything else (pre-release suffixes included). */
-export function parseVersion(text: string): [number, number, number] | undefined {
-  const m = /^(\d+)\.(\d+)\.(\d+)$/.exec(text.trim());
-  return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : undefined;
+/** Release channel (settings.updateChannel): "beta" also offers the pre-releases (`3.3.0-beta.1`). */
+export type UpdateChannel = "stable" | "beta";
+
+export interface Version {
+  core: [number, number, number];
+  /** Pre-release identifiers (`beta.1` -> ["beta", 1]); empty for a release. */
+  pre: (string | number)[];
 }
 
-/** Negative if a < b, 0 if equal, positive if a > b. Unparsable versions sort lowest. */
+/** "1.2.3" or "1.2.3-beta.1" (semver, no build metadata); undefined for anything else. */
+export function parseVersion(text: string): Version | undefined {
+  const m = /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/.exec(text.trim());
+  if (!m) return undefined;
+  const pre = m[4] ? m[4].split(".").map((id) => (/^\d+$/.test(id) ? Number(id) : id)) : [];
+  return { core: [Number(m[1]), Number(m[2]), Number(m[3])], pre };
+}
+
+/** Semver precedence of pre-release identifiers: numbers < words, then by value; a shorter list first. */
+function comparePre(a: readonly (string | number)[], b: readonly (string | number)[]): number {
+  if (a.length === 0 || b.length === 0) return (a.length === 0 ? 1 : 0) - (b.length === 0 ? 1 : 0); // release > pre-release
+  for (let i = 0; i < Math.min(a.length, b.length); i++) {
+    const x = a[i]!;
+    const y = b[i]!;
+    if (x === y) continue;
+    if (typeof x === "number" && typeof y === "number") return x - y;
+    if (typeof x === "number") return -1;
+    if (typeof y === "number") return 1;
+    return x < y ? -1 : 1;
+  }
+  return a.length - b.length;
+}
+
+/** Negative if a < b, 0 if equal, positive if a > b (semver: 3.3.0-beta.1 < 3.3.0-beta.2 < 3.3.0). Unparsable versions sort lowest. */
 export function compareVersions(a: string, b: string): number {
   const va = parseVersion(a);
   const vb = parseVersion(b);
   if (!va || !vb) return (va ? 1 : 0) - (vb ? 1 : 0);
-  return va[0] - vb[0] || va[1] - vb[1] || va[2] - vb[2];
+  return va.core[0] - vb.core[0] || va.core[1] - vb.core[1] || va.core[2] - vb.core[2] || comparePre(va.pre, vb.pre);
 }
 
 /** Asset names produced by electron-builder.yml (`artifactName`). */
@@ -75,13 +101,21 @@ export function cleanReleaseBody(body: string | null | undefined): string {
     .trim();
 }
 
-/** Newest published cbl-log release strictly newer than `current` that carries the asset for `kind`; undefined when up to date. Its notes are those of that version only. */
-export function findUpdate(releases: readonly GitHubRelease[], current: string, kind: InstallKind): AvailableUpdate | undefined {
+/**
+ * Newest published cbl-log release strictly newer than `current` that carries the asset for `kind`; undefined when up to date.
+ * Its notes are those of that version only. The "stable" channel ignores the pre-releases; a beta tester going back
+ * to it is offered the next release (3.3.0 > 3.3.0-beta.2), never an older one.
+ */
+export function findUpdate(releases: readonly GitHubRelease[], current: string, kind: InstallKind, channel: UpdateChannel = "stable"): AvailableUpdate | undefined {
   let best: AvailableUpdate | undefined;
   for (const r of releases) {
-    if (r.draft || r.prerelease || !r.tag_name.startsWith(TAG_PREFIX)) continue;
+    if (r.draft || !r.tag_name.startsWith(TAG_PREFIX)) continue;
     const version = r.tag_name.slice(TAG_PREFIX.length);
-    if (!parseVersion(version) || compareVersions(version, current) <= 0) continue;
+    const parsed = parseVersion(version);
+    // a pre-release is recognised by the GitHub flag or by its version suffix
+    const pre = r.prerelease || (parsed?.pre.length ?? 0) > 0;
+    if (pre && channel !== "beta") continue;
+    if (!parsed || compareVersions(version, current) <= 0) continue;
     if (best && compareVersions(version, best.version) <= 0) continue;
     const asset = r.assets.find((a) => a.name === assetName(kind, version));
     if (asset) best = { version, notes: cleanReleaseBody(r.body), pageUrl: r.html_url, asset };

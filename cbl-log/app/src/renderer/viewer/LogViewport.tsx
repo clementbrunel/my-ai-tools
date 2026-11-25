@@ -79,10 +79,12 @@ interface Props {
   fontFamily?: string | undefined;
   /** Font size of the rows in px (settings.viewer); the row height follows. */
   fontSize?: number | undefined;
+  /** Line numbers in the gutter (settings.viewer); default shown. */
+  showLineNumbers?: boolean | undefined;
 }
 
 /** Virtualized, fixed-height-row view of a tab's lines. Follow mode keeps the end in view. */
-export function LogViewport({ cache, total: realTotal, base, marks, format, filtered = false, highlight, follow, reveal, currentMatchRow, matchDensity, anchorLine, onRowDoubleClick, rowActionLabel, onSearchText, onFilterText, onGotoLine, onGotoTime, sources, fileRows, viewRowRef, initialRow, onFollowChange, onLeave, fetchRows, onNotice, fontFamily, fontSize = DEFAULT_FONT_SIZE }: Props) {
+export function LogViewport({ cache, total: realTotal, base, marks, format, filtered = false, highlight, follow, reveal, currentMatchRow, matchDensity, anchorLine, onRowDoubleClick, rowActionLabel, onSearchText, onFilterText, onGotoLine, onGotoTime, sources, fileRows, viewRowRef, initialRow, onFollowChange, onLeave, fetchRows, onNotice, fontFamily, fontSize = DEFAULT_FONT_SIZE, showLineNumbers = true }: Props) {
   const rowHeight = rowHeightFor(fontSize);
   // Following a growing file: show only the rows the cache can already give. The new lines are being
   // fetched; rendering them now would paint blank rows at the bottom that fill in a moment later.
@@ -355,7 +357,7 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, filt
             </span>
           )}
           <span className="log-level">{level?.toUpperCase()}</span>
-          {filtered ? (row ? row.lineNo + 1 : "") : lineRow + 1}
+          {showLineNumbers && (filtered ? (row ? row.lineNo + 1 : "") : lineRow + 1)}
         </span>
         <span className="log-text">
           {colored
@@ -385,7 +387,7 @@ export function LogViewport({ cache, total: realTotal, base, marks, format, filt
     <div className="viewport-wrap">
       <div
         ref={scrollerRef}
-        className="viewport"
+        className={showLineNumbers ? "viewport" : "viewport no-line-numbers"}
         style={{ fontFamily: fontStack(fontFamily), fontSize, lineHeight: `${rowHeight}px` }}
         tabIndex={0} onScroll={onScroll} onContextMenu={onContextMenu} onMouseDown={() => allSelected && setAllSelected(false)}>
         <div className="viewport-spacer" style={{ height: contentHeight(total, rowHeight) }}>

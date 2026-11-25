@@ -57,7 +57,22 @@ exporté a le même format que ceux de `%APPDATA%\cbl-log\rules\` : il peut auss
   que la fenêtre est ouverte est rechargée (ou proposée si des modifications sont en cours).
 - **Affichage des logs** : police (`"viewer": { "fontFamily": "Cascadia Mono" }`, liste de suggestions ; Consolas
   par défaut et en secours si la police manque) et taille du texte (`"fontSize"`, 8 à 32 px, 13 par défaut) ; la
-  hauteur des lignes suit, la ligne en haut de l'écran reste la même. Appliqué immédiatement.
+  hauteur des lignes suit, la ligne en haut de l'écran reste la même. Appliqué immédiatement. Les numéros de
+  ligne peuvent être masqués (`showLineNumbers`).
+- **Nouveaux onglets** (`"tabs"`) : suivre ou non la fin du fichier à l'ouverture, replier les stack traces,
+  niveaux affichés par défaut (par exemple sans DEBUG ni TRACE). Les onglets restaurés gardent leur état.
+- **Général** : rouvrir ou non les onglets au démarrage (`restoreSession`), canal de mise à jour **Stable** ou
+  **Bêta** (`updateChannel` : les versions de test `X.Y.Z-beta.N`, publiées en pré-release GitHub), confirmer la
+  fermeture de plusieurs onglets (clic droit sur un onglet › Fermer les autres / à droite / tous).
+- **Recherche** : historique des recherches (flèche bas dans le champ ou bouton horloge ; `searchHistorySize`,
+  0 = désactivé), mémorisé dans `recent.json`.
+- **Alertes** : une règle de surlignage cochée 🔔 dans l'éditeur de règles déclenche une notification Windows
+  quand une nouvelle ligne d'un fichier suivi lui correspond (regroupées 30 s, rien si l'onglet est déjà sous les
+  yeux ; un clic montre la ligne). Interrupteur général : `ruleNotifications`.
+- **Intégration à Windows** : « Ouvrir avec cbl-log » dans le clic droit de l'Explorateur
+  (`explorerContextMenu`) et association des `.log` / `.out` (`fileAssociations`), écrits dans le registre de
+  l'utilisateur et retirés à la désinstallation. Un fichier ouvert ainsi arrive dans un onglet de la fenêtre
+  déjà ouverte.
 
 ## Raccourcis clavier
 

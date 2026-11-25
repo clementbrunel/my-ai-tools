@@ -18,12 +18,14 @@ const docs = SETTING_SECTIONS.flatMap((s) => s.settings);
 const doc = (key: string) => docs.find((d) => settingKey(d.path) === key)!;
 
 describe("settings documentation", () => {
-  it("documents every key of the schema (top level, docker and viewer)", () => {
+  it("documents every key of the schema (top level and nested groups)", () => {
     const documented = new Set(docs.map((d) => settingKey(d.path)));
-    const top = Object.keys(settingsSchema.shape).filter((k) => k !== "schemaVersion" && k !== "docker" && k !== "viewer");
-    const docker = Object.keys(defaultSettings().docker).concat("host").map((k) => `docker.${k}`);
-    const viewer = Object.keys(defaultSettings().viewer).concat("fontFamily").map((k) => `viewer.${k}`);
-    for (const key of [...top, ...docker, ...viewer]) expect(documented, key).toContain(key);
+    const nested = { docker: ["host"], viewer: ["fontFamily"], tabs: [] as string[] } as const;
+    const top = Object.keys(settingsSchema.shape).filter((k) => k !== "schemaVersion" && !(k in nested));
+    const inner = Object.entries(nested).flatMap(([group, optional]) =>
+      Object.keys(defaultSettings()[group as keyof typeof nested]).concat(optional).map((k) => `${group}.${k}`),
+    );
+    for (const key of [...top, ...inner]) expect(documented, key).toContain(key);
   });
 
   it("each documented path exists in the defaults or is optional text", () => {
@@ -121,7 +123,7 @@ describe("settings view helpers", () => {
 
 describe("log font (settings.viewer)", () => {
   it("defaults to Consolas 13 px on 18 px rows, as before the setting existed", () => {
-    expect(defaultSettings().viewer).toEqual({ fontSize: 13 });
+    expect(defaultSettings().viewer).toEqual({ fontSize: 13, showLineNumbers: true });
     expect(rowHeightFor(13)).toBe(18);
     expect(fontStack(undefined)).toBe('"Consolas", "Courier New", monospace');
   });
@@ -150,5 +152,20 @@ describe("log font (settings.viewer)", () => {
   it("shows an empty font as Consolas", () => {
     expect(formatValue(doc("viewer.fontFamily"), undefined)).toBe("Consolas");
     expect(formatValue(doc("viewer.fontSize"), 13)).toBe("13 px");
+  });
+});
+
+describe("flags control (tabs.levels)", () => {
+  it("shows all / the checked levels and compares as a set", () => {
+    const levels = doc("tabs.levels");
+    expect(formatValue(levels, ["fatal", "error", "warn", "info", "debug", "trace"])).toBe("tous");
+    expect(formatValue(levels, ["warn", "error"])).toBe("ERROR, WARN");
+    expect(isDefault(levels, ["trace", "debug", "info", "warn", "error", "fatal"])).toBe(true);
+    expect(isDefault(levels, ["error"])).toBe(false);
+  });
+
+  it("rejects an empty level list", () => {
+    const base = JSON.parse(settingsToText(defaultSettings()));
+    expect(checkSettingsText(JSON.stringify({ ...base, tabs: { levels: [] } })).ok).toBe(false);
   });
 });

@@ -1,0 +1,19 @@
+.modal.confirm-close {
+  width: min(440px, 94vw);
+}
+
+.confirm-close-list {
+  margin: 0;
+  padding: 0 12px 8px 32px;
+  max-height: 40vh;
+  overflow-y: auto;
+  font-size: 12px;
+}
+
+.confirm-close-again {
+  padding: 4px 12px;
+}
+
+.modal.confirm-close footer {
+  justify-content: flex-end;
+}

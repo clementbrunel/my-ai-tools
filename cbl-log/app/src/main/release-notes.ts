@@ -11,7 +11,7 @@ export interface ReleaseEntry {
 export function parseChangelog(markdown: string): ReleaseEntry[] {
   const entries: ReleaseEntry[] = [];
   for (const line of markdown.split(/\r?\n/)) {
-    const head = /^##\s+\[(\d+\.\d+\.\d+)\](?:\s+[—-]\s+(\S+))?/.exec(line);
+    const head = /^##\s+\[(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)\](?:\s+[—-]\s+(\S+))?/.exec(line);
     if (head) entries.push({ version: head[1]!, date: head[2] ?? "", lines: [] });
     else if (entries.length > 0 && line.trim()) entries[entries.length - 1]!.lines.push(line.trim());
   }

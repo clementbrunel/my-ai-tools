@@ -52,6 +52,15 @@
   user-select: none;
 }
 
+/* Line numbers hidden: the gutter shrinks to the level (and source) markers. */
+.no-line-numbers .log-gutter {
+  min-width: 0;
+}
+
+.no-line-numbers .log-level {
+  margin-right: 0;
+}
+
 /* Fixed slot (widest label: 5 chars) so the line numbers stay aligned whether or not a level is known. */
 .log-level {
   display: inline-block;

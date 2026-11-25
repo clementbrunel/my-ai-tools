@@ -102,7 +102,7 @@ export interface TabsState {
 
 export type TabsAction =
   /** `index`: position in the tab bar (default: last), used when a tab is reopened in place. */
-  | { type: "opened"; info: TabInfo; docker?: DockerRef; encodingChoice?: Encoding; index?: number }
+  | { type: "opened"; info: TabInfo; docker?: DockerRef; encodingChoice?: Encoding; index?: number; follow?: boolean; filter?: FilterSettings }
   | { type: "closed"; tabId: TabId }
   /** The "All" tab merged other sources (same tab id): its rows start over. */
   | { type: "mergedUpdated"; info: TabInfo }
@@ -176,14 +176,14 @@ export function tabsReducer(state: TabsState, action: TabsAction): TabsState {
         info: action.info,
         ...(action.docker ? { docker: action.docker } : {}),
         total: action.info.totalRows,
-        follow: true,
+        follow: action.follow ?? true,
         unseen: 0,
         state: "following",
         scrollRow: 0,
         marks: historyMarks(action.info.history),
         ...(action.info.merged ? { merged: { sources: action.info.merged.sources, hidden: [], window: action.info.merged.window, loading: action.info.merged.loading } } : {}),
         clearedBefore: 0,
-        filter: defaultFilterSettings(),
+        filter: action.filter ?? defaultFilterSettings(),
         ...(action.encodingChoice ? { encodingChoice: action.encodingChoice } : {}),
       };
       const at = Math.min(Math.max(0, action.index ?? state.tabs.length), state.tabs.length);

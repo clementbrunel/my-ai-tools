@@ -34,6 +34,8 @@ export const viewerSettingsSchema = z.object({
   fontFamily: z.string().trim().min(1).max(100).optional(),
   /** Font size of the log rows, in px; the row height follows (rowHeightFor). */
   fontSize: z.number().int().min(MIN_FONT_SIZE).max(MAX_FONT_SIZE).default(DEFAULT_FONT_SIZE),
+  /** Shows the line numbers in the gutter (the level marker stays). */
+  showLineNumbers: z.boolean().default(true),
 });
 export type ViewerSettings = z.infer<typeof viewerSettingsSchema>;
 
@@ -50,17 +52,49 @@ export function fontStack(family: string | undefined): string {
   return [...names.map((n) => `"${n.replace(/["\\]/g, "")}"`), "monospace"].join(", ");
 }
 
+/** State given to a tab opened by the user (a restored tab keeps its saved state). */
+export const tabDefaultsSchema = z.object({
+  /** Follows the end of the file; off = the tab opens at the top of the file. */
+  followOnOpen: z.boolean().default(true),
+  /** Stack traces folded under their record. */
+  foldTraces: z.boolean().default(false),
+  /** Levels shown (the others are filtered out when the format is known). */
+  levels: z.array(z.enum(LEVELS)).min(1).default([...LEVELS]),
+});
+export type TabDefaults = z.infer<typeof tabDefaultsSchema>;
+
+export const defaultTabDefaults = (): TabDefaults => tabDefaultsSchema.parse({});
+
+/** Search bar history (recent.json). */
+export const MAX_SEARCH_HISTORY = 100;
+export const DEFAULT_SEARCH_HISTORY = 20;
+
 export const settingsSchema = z.object({
   schemaVersion: z.literal(1),
   theme: themeSchema.default("system"),
   /** Looks for a newer GitHub release at startup (the only network access of the app, NF-07). */
   checkForUpdates: z.boolean().default(true),
+  /** Release channel: "beta" also offers the GitHub pre-releases (versions such as 3.3.0-beta.1). */
+  updateChannel: z.enum(["stable", "beta"]).default("stable"),
+  /** Reopens the tabs of the last session at startup. */
+  restoreSession: z.boolean().default(true),
+  /** Entries kept in the search bar history; 0 = no history. */
+  searchHistorySize: z.number().int().min(0).max(MAX_SEARCH_HISTORY).default(DEFAULT_SEARCH_HISTORY),
+  /** Windows notification for new lines matching a highlighting rule marked "notify". */
+  ruleNotifications: z.boolean().default(true),
+  /** « Ouvrir avec cbl-log » on the right-click menu of every file in the Explorer (HKCU registry). */
+  explorerContextMenu: z.boolean().default(false),
+  /** cbl-log registered for .log / .out (offered in « Ouvrir avec », can be made the default app). */
+  fileAssociations: z.boolean().default(false),
+  /** Asks before the tab menu closes several tabs at once. */
+  confirmCloseTabs: z.boolean().default(true),
   /** Rolled archives of a file modified within this many hours are loaded before it (T-09); 0 = the file alone. */
   historyHours: z.number().min(0).max(720).default(2),
   /** Archive name pattern learned for a followed file (path key → regex source), see learnArchivePattern. */
   archivePatterns: z.record(z.string(), z.string()).default({}),
   docker: dockerSettingsSchema.default(() => defaultDockerSettings()),
   viewer: viewerSettingsSchema.default(() => defaultViewerSettings()),
+  tabs: tabDefaultsSchema.default(() => defaultTabDefaults()),
 });
 export type Settings = z.infer<typeof settingsSchema>;
 
@@ -108,14 +142,34 @@ export type Session = z.infer<typeof sessionSchema>;
 
 /** recent.json: files opened lately, most recent first. */
 export const MAX_RECENT_FILES = 10;
+/** A search of the search bar, as remembered in its history. */
+export const searchHistoryEntrySchema = z.object({
+  pattern: z.string().min(1),
+  isRegex: z.boolean().default(false),
+  caseSensitive: z.boolean().default(false),
+  wholeWord: z.boolean().default(false),
+});
+export type SearchHistoryEntry = z.infer<typeof searchHistoryEntrySchema>;
+export const searchHistorySchema = z.array(searchHistoryEntrySchema).max(MAX_SEARCH_HISTORY);
+
+/** `entry` moved (or added) at the head of `list`, without duplicates, at most `max` entries (0 = none kept). */
+export function withRecentSearch(list: readonly SearchHistoryEntry[], entry: SearchHistoryEntry, max: number): SearchHistoryEntry[] {
+  if (max <= 0) return [];
+  const same = (e: SearchHistoryEntry): boolean =>
+    e.pattern === entry.pattern && e.isRegex === entry.isRegex && e.caseSensitive === entry.caseSensitive && e.wholeWord === entry.wholeWord;
+  return [entry, ...list.filter((e) => !same(e))].slice(0, max);
+}
+
 export const recentSchema = z.object({
   schemaVersion: z.literal(1),
   files: z.array(z.string().min(1)).default([]),
+  /** Search bar history, most recent first (settings.searchHistorySize entries at most). */
+  searches: z.array(searchHistoryEntrySchema).default([]),
 });
 export type Recent = z.infer<typeof recentSchema>;
 
-export const defaultSettings = (): Settings => ({ schemaVersion: 1, theme: "system", checkForUpdates: true, historyHours: 2, archivePatterns: {}, docker: defaultDockerSettings(), viewer: defaultViewerSettings() });
-export const emptyRecent = (): Recent => ({ schemaVersion: 1, files: [] });
+export const defaultSettings = (): Settings => ({ schemaVersion: 1, theme: "system", checkForUpdates: true, updateChannel: "stable", restoreSession: true, searchHistorySize: DEFAULT_SEARCH_HISTORY, ruleNotifications: true, explorerContextMenu: false, fileAssociations: false, confirmCloseTabs: true, historyHours: 2, archivePatterns: {}, docker: defaultDockerSettings(), viewer: defaultViewerSettings(), tabs: defaultTabDefaults() });
+export const emptyRecent = (): Recent => ({ schemaVersion: 1, files: [], searches: [] });
 export const emptySession = (): Session => ({ schemaVersion: 1, tabs: [] });
 
 /** Upgrades `from` -> `from + 1`. */

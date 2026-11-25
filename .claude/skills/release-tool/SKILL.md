@@ -106,6 +106,23 @@ release is the moment its card goes stale, so check it every time:
   `showcase/README.md`).
 - **Nothing to change** (e.g. a bug-fix release): no PR, but say so in the hand-over.
 
+## Beta (pre-release) of cbl-log
+
+cbl-log offers pre-releases to users who chose the **Bêta** update channel (Configuration ›
+Canal de mise à jour); the **Stable** channel never sees them. To publish one, e.g. to test a release
+on a real machine before everyone gets it:
+
+- Version `X.Y.Z-beta.N` (semver; `-rc.N` works too), `X.Y.Z` being the next stable version. Same
+  steps as above, with tag `cbl-log-vX.Y.Z-beta.N` and branch `release/cbl-log-vX.Y.Z-beta.N`; the
+  workflow publishes a GitHub **pre-release** whenever the version has a `-` suffix.
+- Changelog: a `## [X.Y.Z-beta.N] — YYYY-MM-DD` section (required by `release-notes.mjs`). When the
+  stable `X.Y.Z` ships, its section sums up all the betas; the beta sections may then be removed.
+- The version bump PR may be skipped for a beta (the workflow takes the version from the tag), but
+  then the app's "Notes de version" window will not know the beta: prefer bumping.
+- Showcase: never updated for a beta.
+- A beta tester is moved to `X.Y.Z` as soon as it is published (it sorts after every `X.Y.Z-beta.N`),
+  on either channel.
+
 ## Redoing a release
 
 If the tag already exists (e.g. first made without this filter): delete the GitHub release

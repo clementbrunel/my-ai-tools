@@ -1,6 +1,6 @@
 import "./SearchBar.css";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { SearchQuery, TabId } from "@cbl-log/shared";
+import type { SearchHistoryEntry, SearchQuery, TabId } from "@cbl-log/shared";
 import type { SearchState } from "../tabs/tabs-reducer";
 import { createDebouncer } from "./debounce";
 import { RegexHelp } from "./RegexHelp";
@@ -38,16 +38,24 @@ interface Props {
   onQuery(query: SearchQuery | null): void;
   onNext(): void;
   onPrev(): void;
+  /** Search history, most recent first; undefined = history disabled (settings.searchHistorySize = 0). */
+  history?: readonly SearchHistoryEntry[] | undefined;
+  /** A search the user went through with (Enter, ↑/↓, history pick, right-click, leaving the field). */
+  onRemember?: ((entry: SearchHistoryEntry) => void) | undefined;
+  onClearHistory?: (() => void) | undefined;
 }
 
 /**
  * Always-visible search bar. The query is sent to the engine once typing pauses (Enter sends it at
  * once); the × empties the field and ends the search, the bar itself stays.
  */
-export function SearchBar({ tabId, initial, status, focusRequest, textRequest, onQuery, onNext, onPrev }: Props) {
+export function SearchBar({ tabId, initial, status, focusRequest, textRequest, onQuery, onNext, onPrev, history, onRemember, onClearHistory }: Props) {
   const [fields, setFields] = useState<Fields>(() => fieldsOf(initial));
   const [typing, setTyping] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  /** History drop-down: index of the highlighted entry, undefined = closed. */
+  const [historyAt, setHistoryAt] = useState<number | undefined>(undefined);
+  const historyList = history ?? [];
   const inputRef = useRef<HTMLInputElement>(null);
   /** Cursor to restore once React has rendered the inserted text. */
   const pendingCursor = useRef<number | undefined>(undefined);
@@ -85,6 +93,7 @@ export function SearchBar({ tabId, initial, status, focusRequest, textRequest, o
     setFields(next);
     setTyping(false);
     onQueryRef.current(next);
+    rememberRef.current(next);
   }, [textRequest, debouncer]);
 
   useEffect(() => {
@@ -99,6 +108,22 @@ export function SearchBar({ tabId, initial, status, focusRequest, textRequest, o
     inputRef.current?.setSelectionRange(pendingCursor.current, pendingCursor.current);
     pendingCursor.current = undefined;
   }, [fields.pattern]);
+
+  const remember = (f: Fields = fields): void => {
+    if (f.pattern !== "" && !validateQuery(f)) onRemember?.({ ...f });
+  };
+  const rememberRef = useRef(remember);
+  rememberRef.current = remember;
+
+  const pickHistory = (entry: SearchHistoryEntry): void => {
+    setHistoryAt(undefined);
+    debouncer.cancel();
+    setTyping(false);
+    setFields({ ...entry });
+    onQuery({ ...entry });
+    remember({ ...entry });
+    inputRef.current?.focus();
+  };
 
   const update = (change: Partial<Fields>): void => {
     const next = { ...fields, ...change };
@@ -135,9 +160,35 @@ export function SearchBar({ tabId, initial, status, focusRequest, textRequest, o
             placeholder="Rechercher (Ctrl+F)"
             aria-label="Rechercher"
             onChange={(e) => update({ pattern: e.target.value })}
+            onBlur={() => {
+              setHistoryAt(undefined);
+              remember();
+            }}
             onKeyDown={(e) => {
-              if (e.key === "Enter") {
+              if (historyAt !== undefined) {
+                if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                  e.preventDefault();
+                  const n = historyList.length;
+                  setHistoryAt((historyAt + (e.key === "ArrowDown" ? 1 : n - 1)) % n);
+                  return;
+                }
+                if (e.key === "Enter" && historyList[historyAt]) {
+                  e.preventDefault();
+                  pickHistory(historyList[historyAt]);
+                  return;
+                }
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  setHistoryAt(undefined);
+                  return;
+                }
+              }
+              if (e.key === "ArrowDown" && historyList.length > 0) {
                 e.preventDefault();
+                setHistoryAt(0);
+              } else if (e.key === "Enter") {
+                e.preventDefault();
+                remember();
                 if (debouncer.pending) debouncer.flush(); // the query was still being typed: search it first
                 else if (e.shiftKey) onPrev();
                 else onNext();
@@ -162,10 +213,45 @@ export function SearchBar({ tabId, initial, status, focusRequest, textRequest, o
             <u>ab</u>
           </button>
           <span className="field-sep" aria-hidden="true" />
-          <button type="button" className="opt" onClick={onPrev} title="Précédent (Maj+F3)" aria-label="Précédent">
+          {history && (
+            <button
+              type="button"
+              className={historyAt !== undefined ? "opt on" : "opt"}
+              disabled={historyList.length === 0}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                setHistoryAt(historyAt === undefined ? 0 : undefined);
+                inputRef.current?.focus();
+              }}
+              title={historyList.length === 0 ? "Historique des recherches (vide)" : "Historique des recherches (flèche bas)"}
+              aria-label="Historique des recherches"
+              aria-expanded={historyAt !== undefined}
+            >
+              <ClockIcon />
+            </button>
+          )}
+          <button
+            type="button"
+            className="opt"
+            onClick={() => {
+              remember();
+              onPrev();
+            }}
+            title="Précédent (Maj+F3)"
+            aria-label="Précédent"
+          >
             ↑
           </button>
-          <button type="button" className="opt" onClick={onNext} title="Suivant (F3)" aria-label="Suivant">
+          <button
+            type="button"
+            className="opt"
+            onClick={() => {
+              remember();
+              onNext();
+            }}
+            title="Suivant (F3)"
+            aria-label="Suivant"
+          >
             ↓
           </button>
           <button type="button" className="opt" onClick={clear} disabled={fields.pattern === ""} title="Vider la recherche (Échap)" aria-label="Vider la recherche">
@@ -175,6 +261,42 @@ export function SearchBar({ tabId, initial, status, focusRequest, textRequest, o
         <button type="button" className={helpOpen ? "help-toggle on" : "help-toggle"} onClick={() => setHelpOpen((v) => !v)} title="Aide à la saisie des expressions régulières" aria-label="Aide à la saisie" aria-expanded={helpOpen}>
           ?
         </button>
+        {historyAt !== undefined && historyList.length > 0 && (
+          <ul className="search-history" role="listbox" aria-label="Historique des recherches" onMouseDown={(e) => e.preventDefault()}>
+            {historyList.map((entry, i) => (
+              <li
+                key={i}
+                role="option"
+                aria-selected={i === historyAt}
+                className={i === historyAt ? "on" : undefined}
+                onMouseEnter={() => setHistoryAt(i)}
+                onClick={() => pickHistory(entry)}
+              >
+                <span className="search-history-pattern">{entry.pattern}</span>
+                <span className="search-history-opts">
+                  {entry.isRegex && <span title="Expression régulière">.*</span>}
+                  {entry.caseSensitive && <span title="Respecter la casse">Aa</span>}
+                  {entry.wholeWord && (
+                    <span title="Mot entier">
+                      <u>ab</u>
+                    </span>
+                  )}
+                </span>
+              </li>
+            ))}
+            {onClearHistory && (
+              <li
+                className="search-history-clear"
+                onClick={() => {
+                  setHistoryAt(undefined);
+                  onClearHistory();
+                }}
+              >
+                Effacer l'historique
+              </li>
+            )}
+          </ul>
+        )}
       </div>
       {helpOpen && (
         <RegexHelp
@@ -189,6 +311,15 @@ export function SearchBar({ tabId, initial, status, focusRequest, textRequest, o
         />
       )}
     </div>
+  );
+}
+
+function ClockIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" aria-hidden="true">
+      <circle cx="8" cy="8" r="6" />
+      <path d="M8 4.5V8l2.5 1.5" />
+    </svg>
   );
 }
 

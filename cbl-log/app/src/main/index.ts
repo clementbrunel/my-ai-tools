@@ -2,7 +2,7 @@ import { existsSync, mkdirSync } from "node:fs";
 import { release } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeImage, nativeTheme, shell } from "electron";
-import { defaultSettings, parseDockerUri, type ParseRuleSetResult, type RuleSet, type Session, type Settings } from "@cbl-log/shared";
+import { defaultSettings, parseDockerUri, searchHistorySchema, type ParseRuleSetResult, type RuleSet, type SearchHistoryEntry, type Session, type Settings } from "@cbl-log/shared";
 import { parseFileArgs } from "./cli-args";
 import { ConfigWatcher, type ConfigKind } from "./config-watcher";
 import { loadSession, loadSettings, readSettingsText, saveSession, saveSettings, saveSettingsText, settingsPath } from "./config-store";
@@ -16,6 +16,22 @@ import { exportRuleSet, loadRuleSets, readRuleSetFile, saveRuleSet } from "./rul
 import { showAbout, showSplash } from "./brand-windows";
 import type { UpdateAction } from "./update-check";
 import { checkForUpdates, handleUpdateAction } from "./updater";
+import { applyShellIntegration, type ShellIntegration } from "./shell-integration";
+
+/** Executable registered in the Explorer: the portable .exe itself (not its temporary unpacked copy); none in development. */
+const registeredExe = (): string | undefined => (app.isPackaged ? (process.env["PORTABLE_EXECUTABLE_FILE"] ?? process.execPath) : undefined);
+
+let appliedShell: string | undefined;
+/** Brings the Explorer integration in line with the settings (skipped when nothing changed since the last run). */
+function syncShellIntegration(settings: Settings, force = false): void {
+  const wanted: ShellIntegration = { explorerContextMenu: settings.explorerContextMenu, fileAssociations: settings.fileAssociations };
+  const key = JSON.stringify(wanted);
+  if (!force && key === appliedShell) return;
+  appliedShell = key;
+  void applyShellIntegration(registeredExe(), wanted).then((error) => {
+    if (error) console.warn(`[cbl-log] ${error}`);
+  });
+}
 
 // Settings live in %APPDATA%/cbl-log (architecture, section 8), not under the package name.
 // CBL_LOG_USER_DATA relocates it (portable use, isolated acceptance runs).
@@ -97,10 +113,12 @@ async function importProfile(): Promise<ParseRuleSetResult | undefined> {
 
 /** Files opened lately (recent.json), most recent first; filled at startup. */
 let recentFiles: string[] = [];
+/** Search bar history (recent.json), most recent first; the renderer decides its content. */
+let recentSearches: SearchHistoryEntry[] = [];
 
 function persistRecent(): void {
   buildMenu();
-  void saveRecent(app.getPath("userData"), { schemaVersion: 1, files: recentFiles }).catch(() => undefined);
+  void saveRecent(app.getPath("userData"), { schemaVersion: 1, files: recentFiles, searches: recentSearches }).catch(() => undefined);
 }
 
 function openRecent(path: string): void {
@@ -273,6 +291,9 @@ function createWindow(): void {
   }
 }
 
+// Windows toasts (rule notifications) are attributed to the installer's shortcut through this id (electron-builder appId).
+if (process.platform === "win32") app.setAppUserModelId("dev.clementbrunel.cbl-log");
+
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
@@ -289,6 +310,19 @@ if (!app.requestSingleInstanceLock()) {
   ipcMain.handle("dialog:open-files", () => pickFiles());
   ipcMain.handle("recent:add", (_event, path: string) => {
     recentFiles = withRecentFile(recentFiles, path);
+    persistRecent();
+  });
+  ipcMain.on("window:focus", () => {
+    if (!mainWindow) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+  });
+  ipcMain.handle("search-history:get", () => recentSearches);
+  ipcMain.handle("search-history:set", (_event, list: unknown) => {
+    const parsed = searchHistorySchema.safeParse(list);
+    if (!parsed.success) return;
+    recentSearches = parsed.data;
     persistRecent();
   });
   ipcMain.handle("file:context-menu", (_event, path: string) => {
@@ -316,6 +350,7 @@ if (!app.requestSingleInstanceLock()) {
   ipcMain.handle("settings:save", async (_event, settings: Settings) => {
     nativeTheme.themeSource = settings.theme;
     configWatcher?.noteWrite("settings.json", await saveSettings(app.getPath("userData"), settings));
+    syncShellIntegration(settings);
   });
   ipcMain.handle("settings:read-text", () => readSettingsText(app.getPath("userData")));
   ipcMain.handle("settings:save-text", async (_event, text: string) => {
@@ -324,6 +359,7 @@ if (!app.requestSingleInstanceLock()) {
     if (result.ok) {
       nativeTheme.themeSource = result.value.theme;
       configWatcher?.noteWrite("settings.json", result.text);
+      syncShellIntegration(result.value);
     }
     return result.ok ? { ok: true, value: result.value } : result;
   });
@@ -352,15 +388,21 @@ if (!app.requestSingleInstanceLock()) {
     splashWindow = showSplash(app.getVersion(), iconPath(), avatarPath()); // first thing, before loading the config
     // Theme switch in the app (themeSource) or system change: swap the window / taskbar icon.
     nativeTheme.on("updated", () => mainWindow?.setIcon(iconPath()));
-    recentFiles = (await loadRecent(app.getPath("userData"))).value.files;
+    const recent = (await loadRecent(app.getPath("userData"))).value;
+    recentFiles = recent.files;
+    recentSearches = recent.searches;
     buildMenu();
     mkdirSync(rulesDir(), { recursive: true }); // so that the folders can be watched from the first run
     mkdirSync(join(app.getPath("userData"), "formats"), { recursive: true });
     configWatcher = new ConfigWatcher(app.getPath("userData"), (kind: ConfigKind) => {
       mainWindow?.webContents.send("config:changed", kind);
+      if (kind === "settings") void loadSettings(app.getPath("userData")).then(({ value }) => syncShellIntegration(value));
     });
     configWatcher.start();
-    engine.setDockerSettings((await loadSettings(app.getPath("userData"))).value.docker);
+    const startupSettings = (await loadSettings(app.getPath("userData"))).value;
+    engine.setDockerSettings(startupSettings.docker);
+    // re-written at every start: the exe path changes when the app is installed elsewhere
+    syncShellIntegration(startupSettings, true);
     engine.start();
     createWindow();
     // Startup check, then hourly for sessions that are never closed; packaged builds only (a dev build has
