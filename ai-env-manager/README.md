@@ -164,7 +164,7 @@ install plan that picks more than one.
 | `socraticode` | [SocratiCode](https://github.com/giancarloerra/SocratiCode) | Codebase index: hybrid vector + BM25 search, call tracing, blast-radius | Docker + `/plugin marketplace add giancarloerra/socraticode` + `/plugin install socraticode@socraticode` |
 | `graphify` | [Graphify](https://github.com/Graphify-Labs/graphify) | Codebase → queryable knowledge graph (tree-sitter AST, no embeddings) | `uv tool install graphifyy` + `graphify install` |
 | `openwiki` | [OpenWiki](https://github.com/langchain-ai/openwiki) | Generates and maintains a Markdown wiki of the codebase, committed to the repo | `npm i -g openwiki` + provider key + optional CI workflow |
-| `claude-mem` | [Claude-Mem](https://github.com/thedotmack/claude-mem) | Automatic cross-session memory — captures, compresses and re-injects what the agent did | `/plugin marketplace add thedotmack/claude-mem` + `/plugin install claude-mem` (Node 20+) |
+| `claude-mem` | [Claude-Mem](https://github.com/thedotmack/claude-mem) | Automatic cross-session memory — captures, compresses and re-injects what the agent did | `/plugin marketplace add thedotmack/claude-mem` + `/plugin install claude-mem` (Node 20.19+ or 22.12+) |
 | `codealmanac` | [CodeAlmanac](https://github.com/AlmanacCode/codealmanac) | Wiki fed by your agent sessions — decisions, invariants, gotchas | `uv tool install codealmanac` + `codealmanac setup` (macOS, Python 3.12+) |
 
 #### Ungrouped tools — `AUTRES OUTILS` *(cumulables)*

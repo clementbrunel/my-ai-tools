@@ -158,7 +158,7 @@ export const CATALOGUE: CatalogueTool[] = [
       },
       {
         label: "Configurer le profil de hooks (optionnel)",
-        manual: "export ECC_HOOK_PROFILE=standard  (valeur par défaut ; dans ton shell profile — les autres profils ne sont pas détaillés dans le README)",
+        manual: "export ECC_HOOK_PROFILE=standard  (valeur par défaut ; dans ton shell profile — le README évoque quatre profils de hooks ECC)",
       },
     ],
   },
@@ -307,7 +307,7 @@ export const CATALOGUE: CatalogueTool[] = [
     id: "claude-mem",
     name: "Claude-Mem",
     tagline: "Mémoire automatique entre sessions — capture ce que fait l'agent, le compresse, le ré-injecte au démarrage suivant",
-    why: "Contrairement à MemPalace (notes que tu rédiges), rien à écrire à la main : un plugin à hooks observe chaque session, résume les observations et les stocke localement (SQLite + base vectorielle Chroma, réglages dans ~/.claude-mem/). Le contexte des sessions précédentes réapparaît tout seul. Prérequis : Node 20+ (Bun et uv sont installés automatiquement). Chevauche MemPalace, CodeAlmanac et les outils d'indexation — en choisir un seul.",
+    why: "Contrairement à MemPalace (notes que tu rédiges), rien à écrire à la main : un plugin à hooks observe chaque session, résume les observations et les stocke localement (SQLite + base vectorielle Chroma, réglages dans ~/.claude-mem/). Le contexte des sessions précédentes réapparaît tout seul. Prérequis : Node 20.19+ ou 22.12+ (Bun et uv sont installés automatiquement). Chevauche MemPalace, CodeAlmanac et les outils d'indexation — en choisir un seul.",
     steps: [
       {
         label: "Ajouter le marketplace",
