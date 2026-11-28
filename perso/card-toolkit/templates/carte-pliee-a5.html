@@ -65,7 +65,9 @@
 
   /* Intérieur gauche */
   .inner-left { background: var(--cream); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
-  .inner-left .vignette { position: relative; width: 70mm; height: 70mm; object-fit: contain; mix-blend-mode: multiply; }
+  .inner-left .vignette { position: relative; width: 80mm; height: 80mm; object-fit: contain; mix-blend-mode: multiply;
+      -webkit-mask-image: radial-gradient(closest-side, #000 60%, transparent 100%); mask-image: radial-gradient(closest-side, #000 60%, transparent 100%); }
+  .inner-left .vignette.sans-fondu { -webkit-mask-image: none; mask-image: none; }
   .inner-left .quote { position: relative; margin-top: 8mm; padding: 0 16mm; font-style: italic; font-size: 15pt; line-height: 1.45; color: var(--ink-soft); }
   .inner-left.has-bg .quote { background: rgba(255,253,248,.82); padding: 5mm 8mm; margin: 8mm 14mm 0; border-radius: 2mm; }
 
@@ -86,8 +88,13 @@
   @media print {
     body { background: none; padding: 0; }
     .help, .label { display: none; }
-    .sheet { margin: 0; box-shadow: none; break-after: page; }
-    .sheet:last-of-type { break-after: auto; }
+    html, body { margin: 0; height: auto; }
+    /* 209.5mm et non 210mm : évite qu'un arrondi ne pousse une page blanche entre les feuilles */
+    .sheet { margin: 0; box-shadow: none; height: 209.5mm; }
+    .sheet .panel { height: 209.5mm; }
+    /* Le saut se fait sur .sheet-wrap : chaque .sheet est seule dans son wrap, donc .sheet:last-of-type les visait toutes */
+    .sheet-wrap { overflow: visible; break-after: page; page-break-after: always; }
+    .sheet-wrap:last-of-type { break-after: auto; page-break-after: auto; }
     .sheet::after { display: none; }
     [contenteditable] { outline: none !important; }
     * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -175,6 +182,7 @@
   const g = C.interieurGauche || {};
   tryImages($("innerBg"), [g.fond || "fond-interieur.png"], () => $("innerLeft").classList.add("has-bg"));
   tryImages($("vignette"), [g.vignette || "vignette.png"]);
+  if (g.fondu === false) $("vignette").classList.add("sans-fondu");
   if (g.citation) $("quote").innerHTML = rich(g.citation); else $("quote").remove();
 
   // Message

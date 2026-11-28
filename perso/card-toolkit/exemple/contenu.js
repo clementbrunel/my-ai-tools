@@ -29,6 +29,7 @@ window.CARTE = {
   interieurGauche: {
     citation: "« Les plus belles choses\nprennent un peu de temps. »",
     // vignette: "vignette.png", fond: "fond-interieur.png",
+    // fondu: false,        // bords de la vignette nets (par défaut : fondu radial sur les bords)
   },
 
   message: {

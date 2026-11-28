@@ -23,6 +23,21 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 
+def paper_from(cream, part=0.4):
+    """Fond « papier » des panneaux clairs : blanc teinté par la couleur de fond.
+    Un blanc pur (#FFFFFF) tranche trop à côté des panneaux crème."""
+    c = cream.strip().lstrip("#")
+    if len(c) == 3:  # #abc → #aabbcc (accepté par --palette '#hex,...')
+        c = "".join(ch * 2 for ch in c)
+    try:
+        rgb = [int(c[i:i + 2], 16) for i in (0, 2, 4)] if len(c) == 6 else None
+    except ValueError:
+        rgb = None
+    if rgb is None:  # couleur illisible : blanc, comme avant
+        return "#FFFFFF"
+    return "#" + "".join(f"{round(255 - (255 - v) * part):02X}" for v in rgb)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("nom", help="nom du dossier projet (ex. anniversaire-2027)")
@@ -55,7 +70,7 @@ def main():
         cj = os.path.join(dst, "contenu.js")
         with open(cj, encoding="utf-8") as f:
             js = f.read()
-        couleurs = (f'couleurs: {{\n    cream: "{hx[0]}", paper: "#FFFFFF", ink: "{hx[-1]}", inkSoft: "{hx[-1]}CC",\n'
+        couleurs = (f'couleurs: {{\n    cream: "{hx[0]}", paper: "{paper_from(hx[0])}", ink: "{hx[-1]}", inkSoft: "{hx[-1]}CC",\n'
                     f'    accent: "{hx[3]}", accent2: "{hx[1]}", accent3: "{hx[2]}",\n  }}')
         js = re.sub(r"couleurs: \{.*?\n  \}", lambda _: couleurs, js, count=1, flags=re.S)
         with open(cj, "w", encoding="utf-8") as f:
