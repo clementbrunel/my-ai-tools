@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Carte pliée A5</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Parisienne&display=swap" rel="stylesheet">
+<!--
+  Carte pliée A5 : une feuille A4 paysage imprimée recto-verso, pliée en deux.
+  Ce fichier est générique : tout le contenu vient de contenu.js (même dossier).
+  Les images (recto.*, vignette.png, fond-interieur.png) sont cherchées à côté de ce fichier.
+-->
+<script src="contenu.js"></script>
+<style>
+  :root {
+    --cream: #fbf6ee; --paper: #fffdf8; --ink: #4a3b36; --ink-soft: #7d6a62;
+    --accent: #c27b5f; --accent-2: #d8a7a0; --accent-3: #9bb09a;
+    --desk: #e9e4dc;
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --desk: #2b2826; } }
+  :root[data-theme="dark"] { --desk: #2b2826; }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--desk); font-family: "Cormorant Garamond", Georgia, serif; color: var(--ink); padding: 24px 16px 64px; }
+
+  .help { max-width: 297mm; margin: 0 auto 20px; padding: 12px 16px; background: var(--paper);
+          border-radius: 8px; font-size: 16px; line-height: 1.5; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  .help b { color: var(--accent); }
+  .help.error { border-left: 4px solid #b3261e; }
+  .label { max-width: 297mm; margin: 0 auto 6px; font: 600 13px/1.4 system-ui, sans-serif;
+           letter-spacing: .08em; text-transform: uppercase; color: #8a7a72; }
+  .sheet-wrap { overflow-x: auto; }
+
+  .sheet { width: 297mm; height: 210mm; margin: 0 auto 32px; display: grid; grid-template-columns: 1fr 1fr;
+           background: var(--paper); box-shadow: 0 4px 24px rgba(0,0,0,.15); position: relative; overflow: hidden; }
+  .sheet::after { content: ""; position: absolute; top: 0; bottom: 0; left: 50%; border-left: 1px dashed rgba(0,0,0,.12); }
+  .panel { position: relative; overflow: hidden; width: 148.5mm; height: 210mm; }
+  .bg-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+
+  /* Couverture */
+  .front { background:
+      radial-gradient(circle at 25% 80%, color-mix(in srgb, var(--accent-2) 55%, transparent) 0 18%, transparent 19%),
+      radial-gradient(circle at 70% 85%, color-mix(in srgb, var(--accent-3) 55%, transparent) 0 15%, transparent 16%),
+      linear-gradient(180deg, var(--cream), #f3e6d8); }
+  .front.framed { background: var(--cream); }
+  .front.framed .bg-img { inset: auto; left: 16mm; top: 48mm; width: calc(100% - 32mm); height: 130mm;
+      border: 4mm solid #fff; box-shadow: 0 2mm 6mm rgba(74,59,54,.18); transform: rotate(-1.5deg); }
+  .front-title { position: absolute; left: 0; right: 0; top: 13mm; text-align: center; padding: 0 10mm; }
+  .front-title .t1 { font-family: "Parisienne", cursive; font-size: 30pt; line-height: 1.1; color: var(--accent);
+      text-shadow: 0 0 12px rgba(255,253,248,.9), 0 0 4px rgba(255,253,248,.9); }
+  .front-title .t2 { margin-top: 1mm; font-size: 21pt; letter-spacing: .04em; font-style: italic; font-weight: 600;
+      text-shadow: 0 0 10px rgba(255,253,248,.95); }
+
+  /* Dos */
+  .back { display: flex; align-items: center; justify-content: center; background: var(--cream); }
+  .voucher { width: 92mm; padding: 9mm 8mm; text-align: center; border: 1.2pt solid var(--accent-2);
+      outline: 0.6pt solid var(--accent-2); outline-offset: 2mm; border-radius: 2mm; background: var(--paper); }
+  .voucher .k { font: 600 9pt/1 system-ui, sans-serif; letter-spacing: .35em; color: var(--accent); text-transform: uppercase; }
+  .voucher .v1 { font-family: "Parisienne", cursive; font-size: 22pt; margin: 4mm 0 2mm; }
+  .voucher .v2 { font-size: 13pt; font-style: italic; color: var(--ink-soft); }
+  .voucher .stitch { margin: 5mm auto; width: 60%; border-top: 1.5pt dashed var(--accent-3); }
+  .voucher .v3 { font-size: 11pt; }
+
+  /* Intérieur gauche */
+  .inner-left { background: var(--cream); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+  .inner-left .vignette { position: relative; width: 70mm; height: 70mm; object-fit: contain; mix-blend-mode: multiply; }
+  .inner-left .quote { position: relative; margin-top: 8mm; padding: 0 16mm; font-style: italic; font-size: 15pt; line-height: 1.45; color: var(--ink-soft); }
+  .inner-left.has-bg .quote { background: rgba(255,253,248,.82); padding: 5mm 8mm; margin: 8mm 14mm 0; border-radius: 2mm; }
+
+  /* Intérieur droit */
+  .message { padding: 20mm 17mm 16mm; display: flex; flex-direction: column; }
+  .message .open { font-family: "Parisienne", cursive; font-size: 24pt; color: var(--accent); margin-bottom: 6mm; }
+  .message p { font-size: 13.5pt; line-height: 1.5; margin-bottom: 4mm; }
+  .message strong { font-weight: 600; color: var(--accent); }
+  .message .highlight { text-align: center; font-size: 14pt; margin-top: 2mm; }
+  .message .sign { margin-top: auto; text-align: right; font-family: "Parisienne", cursive; font-size: 22pt; }
+  .message .date { text-align: right; font-size: 10.5pt; color: var(--ink-soft); font-style: italic; }
+  .yarn-line { height: 6mm; margin: 2mm 0 6mm; width: 100%; }
+
+  [contenteditable]:hover { outline: 1px dashed color-mix(in srgb, var(--accent) 50%, transparent); outline-offset: 2px; }
+  [contenteditable]:focus { outline: 1px solid var(--accent); outline-offset: 2px; }
+
+  @page { size: A4 landscape; margin: 0; }
+  @media print {
+    body { background: none; padding: 0; }
+    .help, .label { display: none; }
+    .sheet { margin: 0; box-shadow: none; break-after: page; }
+    .sheet:last-of-type { break-after: auto; }
+    .sheet::after { display: none; }
+    [contenteditable] { outline: none !important; }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+
+<div class="help" id="help">
+  Contenu lu dans <b>contenu.js</b> (clique sur un texte pour une retouche de dernière minute).
+  Impression avec <b>Ctrl+P</b> : A4 paysage, marges aucune, échelle 100 %, arrière-plans activés, recto-verso <b>bord court</b>.
+</div>
+
+<div class="label">Feuille 1 · extérieur (dos | couverture)</div>
+<div class="sheet-wrap"><section class="sheet">
+  <div class="panel back" id="back"></div>
+  <div class="panel front" id="front">
+    <img class="bg-img" id="cover" alt="">
+    <div class="front-title" id="coverTitle">
+      <div class="t1" contenteditable id="coverT1"></div>
+      <div class="t2" contenteditable id="coverT2"></div>
+    </div>
+  </div>
+</section></div>
+
+<div class="label">Feuille 2 · intérieur (verso)</div>
+<div class="sheet-wrap"><section class="sheet">
+  <div class="panel inner-left" id="innerLeft">
+    <img class="bg-img" id="innerBg" alt="">
+    <img class="vignette" id="vignette" alt="">
+    <div class="quote" contenteditable id="quote"></div>
+  </div>
+  <div class="panel message" id="message"></div>
+</section></div>
+
+<script>
+(function () {
+  const C = window.CARTE;
+  if (!C) {
+    const h = document.getElementById("help");
+    h.classList.add("error");
+    h.innerHTML = "<b>contenu.js introuvable.</b> Place un fichier contenu.js à côté de cette page (modèle : exemple/contenu.js).";
+    return;
+  }
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  // Mise en forme minimale : **gras** et retour à la ligne
+  const rich = s => esc(s).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/\n/g, "<br>");
+  const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; e.innerHTML = html; e.contentEditable = true; return e; };
+
+  // Couleurs
+  const vars = { cream: "--cream", paper: "--paper", ink: "--ink", inkSoft: "--ink-soft", accent: "--accent", accent2: "--accent-2", accent3: "--accent-3" };
+  for (const [k, v] of Object.entries(C.couleurs || {})) if (vars[k]) document.documentElement.style.setProperty(vars[k], v);
+
+  // Image : essaie une liste de fichiers dans l'ordre
+  function tryImages(img, files, onOk) {
+    (function next(i) {
+      if (i >= files.length) { img.remove(); return; }
+      img.onerror = () => next(i + 1);
+      img.onload = () => onOk && onOk();
+      img.src = files[i];
+    })(0);
+  }
+
+  // Couverture
+  const cv = C.couverture || {};
+  tryImages($("cover"), cv.images || ["recto.png", "recto.jpg", "recto.jpeg", "recto.webp"]);
+  if (cv.mode === "cadre") $("front").classList.add("framed");
+  if (cv.afficherTexte === false) $("coverTitle").remove();
+  else { $("coverT1").innerHTML = rich(cv.titre); $("coverT2").innerHTML = rich(cv.sousTitre); }
+
+  // Dos (encart), ou dos vierge si C.dos est null
+  const d = C.dos;
+  if (d) {
+    const v = document.createElement("div"); v.className = "voucher";
+    if (d.surtitre) v.append(el("div", "k", rich(d.surtitre)));
+    if (d.titre) v.append(el("div", "v1", rich(d.titre)));
+    if (d.ligne) v.append(el("div", "v2", rich(d.ligne)));
+    const st = document.createElement("div"); st.className = "stitch"; v.append(st);
+    if (d.bas) v.append(el("div", "v3", rich(d.bas)));
+    $("back").append(v);
+  }
+
+  // Intérieur gauche
+  const g = C.interieurGauche || {};
+  tryImages($("innerBg"), [g.fond || "fond-interieur.png"], () => $("innerLeft").classList.add("has-bg"));
+  tryImages($("vignette"), [g.vignette || "vignette.png"]);
+  if (g.citation) $("quote").innerHTML = rich(g.citation); else $("quote").remove();
+
+  // Message
+  const m = C.message || {}, box = $("message");
+  if (m.ouverture) box.append(el("div", "open", rich(m.ouverture)));
+  (m.paragraphes || []).forEach((p, i) => {
+    box.append(el("p", "", rich(p)));
+    if (m.separateurApres === i + 1) box.insertAdjacentHTML("beforeend",
+      '<svg class="yarn-line" viewBox="0 0 200 20" preserveAspectRatio="none" aria-hidden="true">' +
+      '<path d="M0 10 C 20 0, 30 20, 50 10 S 80 0, 100 10 S 130 20, 150 10 S 180 0, 200 10" style="fill:none;stroke:var(--accent-2);stroke-width:1.6;stroke-dasharray:4 3"/>' +
+      '<circle cx="100" cy="10" r="4" style="fill:var(--accent-3)"/></svg>');
+  });
+  if (m.encadre) box.append(el("p", "highlight", rich(m.encadre)));
+  if (m.signature) box.append(el("div", "sign", rich(m.signature)));
+  if (m.date) box.append(el("div", "date", rich(m.date)));
+})();
+</script>
+</body>
+</html>
