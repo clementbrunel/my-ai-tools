@@ -4,6 +4,18 @@ Historique des fonctionnalités et correctifs notables, ordonné par date décro
 
 ---
 
+## [1.1.0] — 2026-11-28
+
+### Fonctionnalités
+- **Grille de départ F1 à valider** : comme le classement de course, la grille importée de jolpica n'est plus qu'un brouillon que l'admin relit, corrige ou saisit entièrement à la main, puis valide ; seulement alors elle est visible des joueurs. Une grille validée n'est plus écrasée par la synchronisation de la saison.
+- **Import automatique de la grille après les qualifs** : toutes les 30 min entre la fin des qualifs et le départ, la grille est récupérée et les admins reçoivent l'email « grille à valider ». Si elle n'est toujours pas disponible 6 h après les qualifs, un email unique leur demande de la saisir à la main.
+- **Saisie admin F1 en onglets Course / Qualifs** : résultats de course et grille de départ se saisissent et se valident chacun dans leur onglet ; les brouillons restent invisibles des joueurs, admins compris.
+- **Application installable (PWA)** : ajoutée à l'écran d'accueil, prono-core s'ouvre en plein écran sans barre de navigateur, avec sa propre icône.
+
+### Correctifs
+- **Prono F1 sur mobile** : les pilotes déjà placés peuvent être déplacés au doigt sur écran tactile.
+- **Prono F1** : les couleurs d'écurie restent justes après avoir échangé deux pilotes entre les places du podium.
+
 ## [1.0.0] — 2026-10-26
 
 Première version étiquetée, déployée en production le 26/10/2026.

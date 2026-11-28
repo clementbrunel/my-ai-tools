@@ -17,7 +17,7 @@ public class OpenApiConfig {
             .info(new Info()
                 .title("Prono Core API")
                 .description("World Cup betting app for friends - No real money, only fun!")
-                .version("1.0.0"))
+                .version("1.1.0"))
             .addSecurityItem(new SecurityRequirement().addList("Bearer Authentication"))
             .components(new Components()
                 .addSecuritySchemes("Bearer Authentication", new SecurityScheme()
